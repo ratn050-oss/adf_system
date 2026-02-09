@@ -1,0 +1,40 @@
+name: Deploy to Hosting
+
+on:
+  push:
+    branches:
+      - main
+      - master
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v3
+        
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.SSH_PRIVATE_KEY }}" > ~/.ssh/id_rsa
+          chmod 600 ~/.ssh/id_rsa
+          ssh-keyscan -H ${{ secrets.HOSTING_HOST }} >> ~/.ssh/known_hosts
+          
+      - name: Deploy via SSH
+        run: |
+          ssh -i ~/.ssh/id_rsa ${{ secrets.HOSTING_USER }}@${{ secrets.HOSTING_HOST }} << 'EOF'
+          cd ${{ secrets.DEPLOY_PATH }}
+          git pull origin main
+          composer install --no-dev
+          php config/database.php
+          > echo "✅ Deployment Successful"
+          EOF
+          
+      - name: Notify on Success
+        if: success()
+        run: echo "✅ Deployment completed successfully to ${{ secrets.HOSTING_HOST }}"
+        
+      - name: Notify on Failure
+        if: failure()
+        run: echo "❌ Deployment failed"
