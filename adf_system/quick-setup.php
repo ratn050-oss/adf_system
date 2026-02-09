@@ -46,6 +46,16 @@ try {
     // 3. Select database
     $pdo->exec("USE `$DB_NAME`");
     
+    // 3a. Disable FK checks first (needed for drops)
+    $pdo->exec("SET FOREIGN_KEY_CHECKS=0");
+    
+    // 3b. Drop existing tables (for fresh setup)
+    $pdo->exec("DROP TABLE IF EXISTS `user_menu_permissions`");
+    $pdo->exec("DROP TABLE IF EXISTS `user_preferences`");
+    $pdo->exec("DROP TABLE IF EXISTS `businesses`");
+    $pdo->exec("DROP TABLE IF EXISTS `users`");
+    $pdo->exec("DROP TABLE IF EXISTS `roles`");
+    
     // 4. Create roles table
     $pdo->exec("CREATE TABLE IF NOT EXISTS `roles` (
         id INT AUTO_INCREMENT PRIMARY KEY,
@@ -85,10 +95,11 @@ try {
     // 7. Create businesses table
     $pdo->exec("CREATE TABLE IF NOT EXISTS `businesses` (
         id INT AUTO_INCREMENT PRIMARY KEY,
-        business_code VARCHAR(50) UNIQUE NOT NULL,
+        business_code VARCHAR(30) UNIQUE NOT NULL,
         business_name VARCHAR(100) NOT NULL,
-        business_type VARCHAR(50) DEFAULT NULL,
-        owner_id INT DEFAULT NULL,
+        business_type ENUM('hotel', 'restaurant', 'retail', 'manufacture', 'tourism', 'other') DEFAULT 'other',
+        database_name VARCHAR(100) NOT NULL UNIQUE,
+        owner_id INT NOT NULL,
         address TEXT DEFAULT NULL,
         phone VARCHAR(20) DEFAULT NULL,
         email VARCHAR(100) DEFAULT NULL,
@@ -113,7 +124,7 @@ try {
     // 9. Add foreign keys
     try { $pdo->exec("ALTER TABLE `users` ADD CONSTRAINT fk_users_role_id FOREIGN KEY (role_id) REFERENCES `roles`(id) ON DELETE RESTRICT"); } catch (Exception $e) {}
     try { $pdo->exec("ALTER TABLE `users` ADD CONSTRAINT fk_users_created_by FOREIGN KEY (created_by) REFERENCES `users`(id) ON DELETE SET NULL"); } catch (Exception $e) {}
-    try { $pdo->exec("ALTER TABLE `businesses` ADD CONSTRAINT businesses_ibfk_1 FOREIGN KEY (owner_id) REFERENCES `users`(id) ON DELETE SET NULL"); } catch (Exception $e) {}
+    try { $pdo->exec("ALTER TABLE `businesses` ADD CONSTRAINT businesses_ibfk_1 FOREIGN KEY (owner_id) REFERENCES `users`(id) ON DELETE RESTRICT"); } catch (Exception $e) {}
     try { $pdo->exec("ALTER TABLE `user_preferences` ADD CONSTRAINT fk_user_pref_user_id FOREIGN KEY (user_id) REFERENCES `users`(id) ON DELETE CASCADE"); } catch (Exception $e) {}
     try { $pdo->exec("ALTER TABLE `user_menu_permissions` ADD CONSTRAINT fk_perm_user_id FOREIGN KEY (user_id) REFERENCES `users`(id) ON DELETE CASCADE"); } catch (Exception $e) {}
     try { $pdo->exec("ALTER TABLE `user_menu_permissions` ADD CONSTRAINT fk_perm_business_id FOREIGN KEY (business_id) REFERENCES `businesses`(id) ON DELETE CASCADE"); } catch (Exception $e) {}
@@ -132,41 +143,41 @@ try {
         $stmt->execute($role);
     }
     
-    // 11. Get admin role ID
+    // 12. Get admin role ID
     $role_result = $pdo->query("SELECT id FROM `roles` WHERE role_code = 'admin'");
     $admin_role = $role_result->fetch(PDO::FETCH_ASSOC);
     $admin_role_id = $admin_role['id'] ?? 1;
     
-    // 12. Insert admin user
+    // 13. Insert admin user
     $pdo->exec("DELETE FROM `users`");
     $admin_password = password_hash('admin123', PASSWORD_BCRYPT);
     $stmt = $pdo->prepare("INSERT INTO `users` (username, email, password, full_name, phone, role_id, is_active) VALUES (?, ?, ?, ?, ?, ?, ?)");
     $stmt->execute(['admin', 'admin@adfsystem.local', $admin_password, 'Administrator', '0000000000', $admin_role_id, 1]);
     
-    // 13. Get admin user ID
+    // 14. Get admin user ID
     $user_result = $pdo->query("SELECT id FROM `users` WHERE username = 'admin'");
     $admin_user = $user_result->fetch(PDO::FETCH_ASSOC);
     $admin_user_id = $admin_user['id'] ?? 1;
     
-    // 14. Insert user preferences
+    // 15. Insert user preferences
     $stmt = $pdo->prepare("INSERT INTO `user_preferences` (user_id, theme, language) VALUES (?, ?, ?)");
     $stmt->execute([$admin_user_id, 'dark', 'id']);
     
-    // 15. Insert default businesses
+    // 16. Insert default businesses
     $pdo->exec("DELETE FROM `businesses`");
     $businesses = [
-        ['NARAYANAHOTEL', 'Narayana Hotel', 'hotel', null],
-        ['BENSCAFE', 'Bens Cafe', 'cafe', null]
+        ['NARAYANAHOTEL', 'Narayana Hotel', 'hotel', 'adf_narayana_hotel', $admin_user_id],
+        ['BENSCAFE', 'Bens Cafe', 'restaurant', 'adf_benscafe', $admin_user_id]
     ];
     
-    $stmt = $pdo->prepare("INSERT INTO `businesses` (business_code, business_name, business_type, owner_id) VALUES (?, ?, ?, ?)");
+    $stmt = $pdo->prepare("INSERT INTO `businesses` (business_code, business_name, business_type, database_name, owner_id) VALUES (?, ?, ?, ?, ?)");
     $business_ids = [];
     foreach ($businesses as $biz) {
         $stmt->execute($biz);
         $business_ids[] = $pdo->lastInsertId();
     }
     
-    // 16. Grant all menu permissions to admin for all businesses
+    // 17. Grant all menu permissions to admin for all businesses
     $pdo->exec("DELETE FROM `user_menu_permissions`");
     $menus = ['dashboard', 'cashbook', 'divisions', 'frontdesk', 'procurement', 'sales', 'reports', 'settings', 'users'];
     
@@ -176,6 +187,9 @@ try {
             $stmt->execute([$admin_user_id, $biz_id, $menu]);
         }
     }
+    
+    // Re-enable FK checks
+    $pdo->exec("SET FOREIGN_KEY_CHECKS=1");
     
     $result['status'] = 'success';
     $result['message'] = '✅ Database setup berhasil!';
