@@ -54,15 +54,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $pdo->exec("USE {$db_name}");
         
         // Create tables
+        $pdo->exec("SET FOREIGN_KEY_CHECKS=0");
+        
         $tables = [
             'roles' => "CREATE TABLE IF NOT EXISTS roles (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 role_name VARCHAR(50) UNIQUE NOT NULL,
                 role_code VARCHAR(20) UNIQUE NOT NULL,
-                description TEXT,
+                description TEXT DEFAULT NULL,
                 is_system_role TINYINT(1) DEFAULT 1,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                INDEX idx_role_code (role_code)
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
             
             'users' => "CREATE TABLE IF NOT EXISTS users (
@@ -71,18 +72,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 email VARCHAR(100) UNIQUE NOT NULL,
                 password VARCHAR(255) NOT NULL,
                 full_name VARCHAR(100) NOT NULL,
-                phone VARCHAR(20),
+                phone VARCHAR(20) DEFAULT NULL,
                 role_id INT NOT NULL,
                 is_active TINYINT(1) DEFAULT 1,
-                last_login DATETIME,
+                last_login DATETIME DEFAULT NULL,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                created_by INT,
-                FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE RESTRICT,
-                FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL,
-                INDEX idx_username (username),
-                INDEX idx_email (email),
-                INDEX idx_role (role_id)
+                created_by INT DEFAULT NULL
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
             
             'user_preferences' => "CREATE TABLE IF NOT EXISTS user_preferences (
@@ -91,23 +87,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 theme VARCHAR(50) DEFAULT 'dark',
                 language VARCHAR(10) DEFAULT 'id',
                 notifications_enabled TINYINT(1) DEFAULT 1,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-                UNIQUE KEY unique_user_pref (user_id)
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
             
             'businesses' => "CREATE TABLE IF NOT EXISTS businesses (
                 id VARCHAR(50) PRIMARY KEY,
                 business_code VARCHAR(50) UNIQUE NOT NULL,
                 business_name VARCHAR(100) NOT NULL,
-                business_type VARCHAR(50),
-                address TEXT,
-                phone VARCHAR(20),
-                email VARCHAR(100),
-                website VARCHAR(255),
+                business_type VARCHAR(50) DEFAULT NULL,
+                address TEXT DEFAULT NULL,
+                phone VARCHAR(20) DEFAULT NULL,
+                email VARCHAR(100) DEFAULT NULL,
+                website VARCHAR(255) DEFAULT NULL,
                 is_active TINYINT(1) DEFAULT 1,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                INDEX idx_code (business_code)
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci",
             
             'user_menu_permissions' => "CREATE TABLE IF NOT EXISTS user_menu_permissions (
@@ -119,10 +112,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 can_create TINYINT(1) DEFAULT 0,
                 can_edit TINYINT(1) DEFAULT 0,
                 can_delete TINYINT(1) DEFAULT 0,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
-                FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE,
-                UNIQUE KEY unique_permission (user_id, business_id, menu_code)
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci"
         ];
         
@@ -130,6 +120,37 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         foreach ($tables as $name => $sql) {
             $pdo->exec($sql);
+        }
+        
+        // Add foreign keys after all tables created
+        try {
+            $pdo->exec("ALTER TABLE users ADD CONSTRAINT fk_users_role_id FOREIGN KEY (role_id) REFERENCES roles(id) ON DELETE RESTRICT");
+        } catch (Exception $e) {
+            // FK might already exist, ignore
+        }
+        
+        try {
+            $pdo->exec("ALTER TABLE users ADD CONSTRAINT fk_users_created_by FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL");
+        } catch (Exception $e) {
+            // FK might already exist, ignore
+        }
+        
+        try {
+            $pdo->exec("ALTER TABLE user_preferences ADD CONSTRAINT fk_user_pref_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE");
+        } catch (Exception $e) {
+            // FK might already exist, ignore
+        }
+        
+        try {
+            $pdo->exec("ALTER TABLE user_menu_permissions ADD CONSTRAINT fk_perm_user_id FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE");
+        } catch (Exception $e) {
+            // FK might already exist, ignore
+        }
+        
+        try {
+            $pdo->exec("ALTER TABLE user_menu_permissions ADD CONSTRAINT fk_perm_business_id FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE");
+        } catch (Exception $e) {
+            // FK might already exist, ignore
         }
         
         // Insert roles
