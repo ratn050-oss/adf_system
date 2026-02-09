@@ -502,5 +502,21 @@ elseif ($activeStep === 'permissions') {
             }
         }
     </script>
+    
+    <!-- Developer Menu Navigation Footer -->
+    <div style="margin-top: 40px; padding-top: 20px; border-top: 2px solid #e0e0e0; text-align: center;">
+        <p style="color: #666; margin-bottom: 15px;">
+            <strong style="color: #333;">Atau akses menu developer lainnya:</strong>
+        </p>
+        <div style="display: flex; gap: 10px; justify-content: center; flex-wrap: wrap;">
+            <a href="index.php" style="padding: 10px 15px; background: #2196F3; color: white; text-decoration: none; border-radius: 4px; font-weight: 600;">📊 Dashboard</a>
+            <a href="businesses.php" style="padding: 10px 15px; background: #FF9800; color: white; text-decoration: none; border-radius: 4px; font-weight: 600;">🏢 Manage Business</a>
+            <a href="users.php" style="padding: 10px 15px; background: #9C27B0; color: white; text-decoration: none; border-radius: 4px; font-weight: 600;">👥 User Management (Old)</a>
+            <a href="permissions.php" style="padding: 10px 15px; background: #4CAF50; color: white; text-decoration: none; border-radius: 4px; font-weight: 600;">🔐 Permissions</a>
+        </div>
+        <p style="color: #999; font-size: 12px; margin-top: 15px;">Step-by-step user setup (simple) ✓ | Sidebar menu untuk fitur lain</p>
+    </div>
+        </div>
+    </div>
 </body>
 </html>
