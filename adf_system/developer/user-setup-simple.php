@@ -286,6 +286,13 @@ elseif ($activeStep === 'permissions') {
         <div class="header">
             <h1>👤 User Management - Simplified Setup</h1>
             <p style="color: #666; margin-top: 5px;">3-step user configuration: Create User → Assign Business → Set Permissions</p>
+            
+            <!-- Banner untuk akses developer dashboard lengkap -->
+            <div style="margin-top: 15px; padding: 12px 15px; background: #fff3cd; border-left: 4px solid #ffc107; border-radius: 4px;">
+                <strong style="color: #856404;">💡 Tip:</strong> 
+                <span style="color: #856404;">Ini hanya untuk setup user. Untuk akses <strong>Developer Dashboard lengkap</strong> dengan sidebar menu (Businesses, Permissions, Settings, dll), 
+                <a href="index.php" style="color: #ff6b00; font-weight: 600; text-decoration: none;">klik ke Developer Dashboard →</a></span>
+            </div>
         </div>
         
         <?php
