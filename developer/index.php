@@ -652,110 +652,122 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
                 
                 <?php if ($activeStep === 'users'): ?>
-                <!-- ============== STEP 1: USERS ============== -->
-                <div class="row">
-                    <!-- User List -->
-                    <div class="col-md-7">
-                        <h5 class="mb-3">Existing Users</h5>
-                        <div class="table-responsive">
-                            <table class="table table-hover">
-                                <thead>
-                                    <tr>
-                                        <th>Username</th>
-                                        <th>Full Name</th>
-                                        <th>Email</th>
-                                        <th>Role</th>
-                                        <th>Action</th>
-                                    </tr>
-                                </thead>
-                                <tbody>
-                                    <?php if (empty($users)): ?>
-                                    <tr>
-                                        <td colspan="5" class="text-center py-3 text-muted">No users yet</td>
-                                    </tr>
-                                    <?php else: ?>
-                                    <?php foreach ($users as $usr): ?>
-                                    <tr>
-                                        <td><code><?php echo htmlspecialchars($usr['username']); ?></code></td>
-                                        <td><?php echo htmlspecialchars($usr['full_name']); ?></td>
-                                        <td><?php echo htmlspecialchars($usr['email']); ?></td>
-                                        <td><span class="badge bg-info"><?php echo htmlspecialchars($usr['role_name']); ?></span></td>
-                                        <td>
-                                            <a href="?section=user-setup&step=users&user_id=<?php echo $usr['id']; ?>" class="btn btn-sm btn-outline-primary">Edit</a>
-                                            <a href="?section=user-setup&step=business&user_id=<?php echo $usr['id']; ?>" class="btn btn-sm btn-outline-success">Assign</a>
-                                        </td>
-                                    </tr>
-                                    <?php endforeach; ?>
-                                    <?php endif; ?>
-                                </tbody>
-                            </table>
+                <!-- ============== STEP 1: USERS (COMPACT) ============== -->
+                <div class="d-flex justify-content-between align-items-center mb-3">
+                    <h5 class="mb-0">Users Management</h5>
+                    <?php if (!$editUser): ?>
+                    <button type="button" class="btn btn-sm btn-primary" data-bs-toggle="modal" data-bs-target="#userModal">
+                        <i class="bi bi-person-plus me-1"></i>Add User
+                    </button>
+                    <?php endif; ?>
+                </div>
+                
+                <?php if ($editUser): ?>
+                <!-- Edit Form -->
+                <div class="card border-light mb-3">
+                    <div class="card-body p-3">
+                        <div class="d-flex justify-content-between align-items-center mb-3">
+                            <h6 class="card-title mb-0">Edit User: <strong><?php echo htmlspecialchars($editUser['full_name']); ?></strong></h6>
+                            <a href="?section=user-setup&step=users" class="btn btn-sm btn-outline-secondary">Close</a>
                         </div>
-                    </div>
-                    
-                    <!-- Add/Edit User Form -->
-                    <div class="col-md-5">
-                        <h5 class="mb-3"><?php echo $editUser ? 'Edit User' : 'Add New User'; ?></h5>
                         <form method="POST">
-                            <?php if ($editUser): ?>
                             <input type="hidden" name="user_id" value="<?php echo $editUser['id']; ?>">
-                            <?php endif; ?>
                             
-                            <div class="mb-3">
-                                <label class="form-label">Username *</label>
-                                <input type="text" name="username" class="form-control" value="<?php echo $editUser['username'] ?? ''; ?>" required>
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label class="form-label">Email *</label>
-                                <input type="email" name="email" class="form-control" value="<?php echo $editUser['email'] ?? ''; ?>" required>
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label class="form-label">Full Name *</label>
-                                <input type="text" name="full_name" class="form-control" value="<?php echo $editUser['full_name'] ?? ''; ?>" required>
-                            </div>
-                            
-                            <div class="mb-3">
-                                <label class="form-label">Password <?php echo !$editUser ? '*' : ''; ?></label>
-                                <div class="input-group">
-                                    <input type="password" name="password" class="form-control" id="password" <?php echo !$editUser ? 'required' : ''; ?>>
-                                    <button type="button" class="btn btn-outline-secondary" onclick="togglePassword('password')">
-                                        <i class="bi bi-eye"></i>
-                                    </button>
+                            <div class="row g-2">
+                                <div class="col-md-3">
+                                    <label class="form-label form-label-sm">Username *</label>
+                                    <input type="text" name="username" class="form-control form-control-sm" value="<?php echo htmlspecialchars($editUser['username']); ?>" required>
                                 </div>
-                                <?php if ($editUser): ?><small class="text-muted">Leave blank to keep current password</small><?php endif; ?>
+                                <div class="col-md-3">
+                                    <label class="form-label form-label-sm">Email *</label>
+                                    <input type="email" name="email" class="form-control form-control-sm" value="<?php echo htmlspecialchars($editUser['email']); ?>" required>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label form-label-sm">Full Name *</label>
+                                    <input type="text" name="full_name" class="form-control form-control-sm" value="<?php echo htmlspecialchars($editUser['full_name']); ?>" required>
+                                </div>
+                                <div class="col-md-3">
+                                    <label class="form-label form-label-sm">Role *</label>
+                                    <select name="role_id" class="form-select form-select-sm" required>
+                                        <option value="">Select Role</option>
+                                        <?php foreach ($roles as $role): ?>
+                                        <option value="<?php echo $role['id']; ?>" <?php echo $editUser['role_id'] == $role['id'] ? 'selected' : ''; ?>>
+                                            <?php echo htmlspecialchars($role['role_name']); ?>
+                                        </option>
+                                        <?php endforeach; ?>
+                                    </select>
+                                </div>
                             </div>
                             
-                            <div class="mb-3">
-                                <label class="form-label">Role *</label>
-                                <select name="role_id" class="form-select" required>
-                                    <option value="">Select Role</option>
-                                    <?php foreach ($roles as $role): ?>
-                                    <option value="<?php echo $role['id']; ?>" <?php echo $editUser && $editUser['role_id'] == $role['id'] ? 'selected' : ''; ?>>
-                                        <?php echo htmlspecialchars($role['role_name']); ?>
-                                    </option>
-                                    <?php endforeach; ?>
-                                </select>
+                            <div class="row g-2 mt-1">
+                                <div class="col-md-6">
+                                    <label class="form-label form-label-sm">Password <small class="text-muted">(leave blank to keep)</small></label>
+                                    <input type="password" name="password" class="form-control form-control-sm">
+                                </div>
                             </div>
                             
-                            <div class="d-grid gap-2">
-                                <button type="submit" name="action" value="save_user" class="btn btn-primary">
-                                    <i class="bi bi-check-circle me-1"></i><?php echo $editUser ? 'Update' : 'Create'; ?> User
+                            <div class="d-flex gap-2 mt-3">
+                                <button type="submit" name="action" value="save_user" class="btn btn-sm btn-primary">
+                                    <i class="bi bi-check me-1"></i>Update User
                                 </button>
-                                <?php if ($editUser): ?>
-                                <button type="submit" name="action" value="delete_user" class="btn btn-danger" onclick="return confirm('Are you sure?')">
-                                    <i class="bi bi-trash me-1"></i>Delete User
+                                <button type="submit" name="action" value="delete_user" class="btn btn-sm btn-danger" onclick="return confirm('Hapus user ini?')">
+                                    <i class="bi bi-trash me-1"></i>Delete
                                 </button>
-                                <a href="?section=user-setup&step=users" class="btn btn-secondary">Cancel</a>
-                                <?php else: ?>
-                                <a href="?section=user-setup&step=business" class="btn btn-success" <?php echo empty($users) ? 'disabled' : ''; ?>>
-                                    <i class="bi bi-arrow-right me-1"></i>Next: Assign Business
-                                </a>
-                                <?php endif; ?>
+                                <a href="?section=user-setup&step=users" class="btn btn-sm btn-outline-secondary">Cancel</a>
                             </div>
                         </form>
                     </div>
                 </div>
+                <?php endif; ?>
+                
+                <!-- Users Table (Compact) -->
+                <div class="table-responsive">
+                    <table class="table table-sm table-hover mb-0">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width:20%;">Username</th>
+                                <th style="width:25%;">Full Name</th>
+                                <th style="width:25%;">Email</th>
+                                <th style="width:15%;">Role</th>
+                                <th style="width:15%;" class="text-center">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php if (empty($users)): ?>
+                            <tr>
+                                <td colspan="5" class="text-center py-3 text-muted"><small>No users yet</small></td>
+                            </tr>
+                            <?php else: ?>
+                            <?php foreach ($users as $usr): ?>
+                            <tr>
+                                <td><code style="font-size:0.8rem;"><?php echo htmlspecialchars($usr['username']); ?></code></td>
+                                <td style="font-size:0.85rem;"><?php echo htmlspecialchars($usr['full_name']); ?></td>
+                                <td style="font-size:0.85rem;"><?php echo htmlspecialchars($usr['email']); ?></td>
+                                <td><span class="badge bg-info" style="font-size:0.75rem;"><?php echo htmlspecialchars($usr['role_name']); ?></span></td>
+                                <td class="text-center">
+                                    <div class="btn-group btn-group-sm" role="group">
+                                        <a href="?section=user-setup&step=users&user_id=<?php echo $usr['id']; ?>" class="btn btn-outline-primary" title="Edit">
+                                            <i class="bi bi-pencil"></i>
+                                        </a>
+                                        <a href="?section=user-setup&step=business&user_id=<?php echo $usr['id']; ?>" class="btn btn-outline-success" title="Assign">
+                                            <i class="bi bi-building"></i>
+                                        </a>
+                                    </div>
+                                </td>
+                            </tr>
+                            <?php endforeach; ?>
+                            <?php endif; ?>
+                        </tbody>
+                    </table>
+                </div>
+                
+                <?php if (!$editUser && !empty($users)): ?>
+                <div class="mt-3">
+                    <a href="?section=user-setup&step=business" class="btn btn-sm btn-success">
+                        <i class="bi bi-arrow-right me-1"></i>Next: Assign Business
+                    </a>
+                </div>
+                <?php endif; ?>
                 
                 <?php elseif ($activeStep === 'business'): ?>
                 <!-- ============== STEP 2: BUSINESS ASSIGNMENT ============== -->

@@ -442,6 +442,40 @@
                 margin-left: 0;
             }
         }
+        
+        /* Compact Form Styling */
+        .form-label-sm {
+            font-size: 0.8rem;
+            margin-bottom: 0.25rem;
+            font-weight: 500;
+            display: block;
+        }
+        
+        .form-control-sm, .form-select-sm {
+            font-size: 0.8rem;
+            padding: 0.35rem 0.5rem;
+            height: 2rem;
+        }
+        
+        .table-sm {
+            font-size: 0.8rem;
+            margin-bottom: 0;
+        }
+        
+        .table-sm th, .table-sm td {
+            padding: 0.6rem 0.75rem;
+            vertical-align: middle;
+        }
+        
+        .btn-group-sm .btn {
+            padding: 0.25rem 0.5rem;
+            font-size: 0.8rem;
+        }
+        
+        .card {
+            border: 1px solid #e9ecef;
+            border-radius: 0.5rem;
+        }
     </style>
 </head>
 <body>
