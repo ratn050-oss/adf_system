@@ -208,7 +208,8 @@ class Auth {
             
             // If no active business set, fallback (shouldn't happen after login)
             if (!$activeBusinessId) {
-                error_log("Warning: No active business ID set for user {$username}");
+                error_log("⚠️ FALLBACK: No active_business_id in session for user {$username} (ID {$masterId})");
+                error_log("Session active_business_id = " . var_export($_SESSION['active_business_id'] ?? 'MISSING', true));
                 return $this->hasPermissionFallback($module);
             }
             
@@ -255,8 +256,9 @@ class Auth {
             return false;
             
         } catch (Exception $e) {
-            // Log error for debugging
-            error_log("Permission check error: " . $e->getMessage());
+            // Log error for debugging - IMPORTANT FOR TROUBLESHOOTING
+            error_log("⚠️ Permission check FAILED for user_id=" . ($_SESSION['user_id'] ?? 'none') . ", module=" . $module . ": " . $e->getMessage());
+            error_log("Stack trace: " . $e->getTraceAsString());
             // Fallback to role-based on error
             return $this->hasPermissionFallback($module);
         }
@@ -266,6 +268,8 @@ class Auth {
      * Fallback permission check based on role (for backward compatibility)
      */
     private function hasPermissionFallback($module) {
+        $userRole = $_SESSION['role'] ?? 'staff';
+        
         // Try old user_permissions table in business database
         try {
             $user_id = $_SESSION['user_id'] ?? null;
@@ -292,8 +296,10 @@ class Auth {
             'staff' => ['dashboard', 'cashbook', 'investor', 'project']
         ];
         
-        $userRole = $_SESSION['role'] ?? 'staff';
         $permissions = $rolePermissions[$userRole] ?? ['dashboard'];
+        
+        // Log when using fallback
+        error_log("🔴 USING FALLBACK: user_id=" . ($_SESSION['user_id'] ?? 'none') . ", role=" . $userRole . ", module=" . $module . ", has_perm=" . (in_array($module, $permissions) ? "YES" : "NO"));
         
         return in_array($module, $permissions);
     }
