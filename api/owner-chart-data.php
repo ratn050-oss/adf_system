@@ -35,7 +35,7 @@ if (!in_array($period, $validPeriods)) {
 
 try {
     // Switch to hotel database
-    $db = Database::switchDatabase('adf_narayana_hotel');
+    $db = Database::switchDatabase(getDbName('adf_narayana_hotel'));
     
     $labels = [];
     $incomeData = [];

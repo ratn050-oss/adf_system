@@ -27,7 +27,7 @@ if (!in_array($currentUser['role'], ['owner', 'admin', 'manager', 'developer']))
 }
 
 // Switch to hotel database
-$db = Database::switchDatabase('adf_narayana_hotel');
+$db = Database::switchDatabase(getDbName('adf_narayana_hotel'));
 $branchId = isset($_GET['branch_id']) ? (int)$_GET['branch_id'] : null;
 
 try {

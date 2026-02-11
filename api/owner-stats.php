@@ -35,7 +35,7 @@ try {
     $lastMonth = date('Y-m', strtotime('-1 month'));
     
     // Get businesses list with their database names
-    $mainPdo = new PDO("mysql:host=" . DB_HOST . ";dbname=adf_system;charset=utf8mb4", DB_USER, DB_PASS);
+    $mainPdo = new PDO("mysql:host=" . DB_HOST . ";dbname=" . getDbName('adf_system') . ";charset=utf8mb4", DB_USER, DB_PASS);
     $mainPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     
     if ($branchId === 'all' || $branchId === '') {
@@ -60,7 +60,7 @@ try {
     // Loop through each business database and aggregate
     foreach ($businesses as $business) {
         try {
-            $bizPdo = new PDO("mysql:host=" . DB_HOST . ";dbname=" . $business['database_name'] . ";charset=utf8mb4", DB_USER, DB_PASS);
+            $bizPdo = new PDO("mysql:host=" . DB_HOST . ";dbname=" . getDbName($business['database_name']) . ";charset=utf8mb4", DB_USER, DB_PASS);
             $bizPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
             
             // TODAY STATS

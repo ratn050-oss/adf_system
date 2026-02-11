@@ -29,8 +29,8 @@ if (!in_array($currentUser['role'], ['owner', 'admin', 'manager', 'developer']))
 $period = isset($_GET['period']) ? $_GET['period'] : 'today'; // today, this_month, this_year
 
 try {
-    // Get businesses from main adf_system DB using direct PDO
-    $mainPdo = new PDO("mysql:host=" . DB_HOST . ";dbname=adf_system;charset=utf8mb4", DB_USER, DB_PASS);
+    // Get businesses from main master DB using direct PDO
+    $mainPdo = new PDO("mysql:host=" . DB_HOST . ";dbname=" . getDbName('adf_system') . ";charset=utf8mb4", DB_USER, DB_PASS);
     $mainPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     $stmt = $mainPdo->query("SELECT id, business_name, database_name FROM businesses WHERE is_active = 1 ORDER BY id");
     $businesses = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -56,7 +56,7 @@ try {
     
     foreach ($businesses as $business) {
         try {
-            $bizPdo = new PDO("mysql:host=" . DB_HOST . ";dbname=" . $business['database_name'] . ";charset=utf8mb4", DB_USER, DB_PASS);
+            $bizPdo = new PDO("mysql:host=" . DB_HOST . ";dbname=" . getDbName($business['database_name']) . ";charset=utf8mb4", DB_USER, DB_PASS);
             $bizPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
             
             $stmt = $bizPdo->query(

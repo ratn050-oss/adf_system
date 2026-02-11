@@ -28,8 +28,8 @@ if (!in_array($currentUser['role'], ['owner', 'admin', 'manager', 'developer']))
 }
 
 try {
-    // Force connection to adf_system database where businesses table is located
-    $pdo = new PDO("mysql:host=" . DB_HOST . ";dbname=adf_system;charset=utf8mb4", DB_USER, DB_PASS);
+    // Force connection to master database where businesses table is located
+    $pdo = new PDO("mysql:host=" . DB_HOST . ";dbname=" . getDbName('adf_system') . ";charset=utf8mb4", DB_USER, DB_PASS);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     
     // Get all businesses from database

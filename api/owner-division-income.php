@@ -25,7 +25,7 @@ try {
     $thisMonth = date('Y-m');
     
     // Get businesses list with their database names
-    $mainPdo = new PDO("mysql:host=" . DB_HOST . ";dbname=adf_system;charset=utf8mb4", DB_USER, DB_PASS);
+    $mainPdo = new PDO("mysql:host=" . DB_HOST . ";dbname=" . getDbName('adf_system') . ";charset=utf8mb4", DB_USER, DB_PASS);
     $mainPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     
     if ($branchId === 'all' || $branchId === '' || $branchId === 0) {
@@ -44,7 +44,7 @@ try {
     
     foreach ($businesses as $business) {
         try {
-            $bizPdo = new PDO("mysql:host=" . DB_HOST . ";dbname=" . $business['database_name'] . ";charset=utf8mb4", DB_USER, DB_PASS);
+            $bizPdo = new PDO("mysql:host=" . DB_HOST . ";dbname=" . getDbName($business['database_name']) . ";charset=utf8mb4", DB_USER, DB_PASS);
             $bizPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
             
             // Get Frontdesk Income (from bookings table)

@@ -92,6 +92,35 @@ if (!defined('CURRENCY_SYMBOL')) define('CURRENCY_SYMBOL', 'Rp');
 if (!defined('CURRENCY_DECIMAL')) define('CURRENCY_DECIMAL', 0);
 
 // ============================================
+// DATABASE NAME HELPER (Production vs Local)
+// ============================================
+/**
+ * Get correct database name for production or local
+ * @param string $localDbName - Local database name (e.g., 'adf_system', 'adf_narayana_hotel')
+ * @return string - Correct database name for current environment
+ */
+function getDbName($localDbName) {
+    $isProduction = (strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost') === false && 
+                    strpos($_SERVER['HTTP_HOST'] ?? '', '127.0.0.1') === false);
+    
+    if (!$isProduction) {
+        return $localDbName;
+    }
+    
+    // Production database mapping
+    $dbMapping = [
+        'adf_system' => 'adfb2574_adf',
+        'adf_narayana_hotel' => 'adfb2574_narayana_hotel',
+        'adf_benscafe' => 'adfb2574_Adf_Bens'
+    ];
+    
+    return $dbMapping[$localDbName] ?? $localDbName;
+}
+
+// Also make it available as constant for master DB
+if (!defined('MASTER_DB_NAME')) define('MASTER_DB_NAME', getDbName('adf_system'));
+
+// ============================================
 // PAGINATION
 // ============================================
 if (!defined('RECORDS_PER_PAGE')) define('RECORDS_PER_PAGE', 25);

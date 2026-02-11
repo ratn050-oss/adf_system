@@ -22,7 +22,7 @@ if (!in_array($currentUser['role'], ['owner', 'admin', 'developer'])) {
 
 // Connect to Narayana database where investor data is stored
 try {
-    $pdo = new PDO("mysql:host=" . DB_HOST . ";dbname=adf_narayana_hotel;charset=utf8mb4", DB_USER, DB_PASS);
+    $pdo = new PDO("mysql:host=" . DB_HOST . ";dbname=" . getDbName('adf_narayana_hotel') . ";charset=utf8mb4", DB_USER, DB_PASS);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     
     // Get all investors

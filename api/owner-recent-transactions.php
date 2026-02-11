@@ -30,7 +30,7 @@ $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 10;
 
 try {
     // Switch to hotel database
-    $db = Database::switchDatabase('adf_narayana_hotel');
+    $db = Database::switchDatabase(getDbName('adf_narayana_hotel'));
     
     // Get recent transactions
     $transactions = $db->fetchAll(
