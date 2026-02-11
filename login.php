@@ -45,6 +45,7 @@ if ($auth->isLoggedIn()) {
 if (isPost()) {
     $username = sanitize(getPost('username'));
     $password = getPost('password');
+    $loginType = getPost('login_type') ?? 'normal'; // owner or normal
     
     // Check if business specified via URL parameter
     $forcedBusiness = isset($_GET['biz']) ? sanitize($_GET['biz']) : null;
@@ -83,6 +84,18 @@ if (isPost()) {
             } else {
                 $masterId = $masterUser['id'];
                 $roleCode = $masterUser['role_code'];
+                
+                // Check if owner login requested
+                if ($loginType === 'owner') {
+                    // Only owner, admin, developer can access owner dashboard
+                    if (in_array($roleCode, ['owner', 'admin', 'developer'])) {
+                        setFlash('success', 'Login Owner berhasil!');
+                        redirect(BASE_URL . '/modules/owner/dashboard.php');
+                    } else {
+                        $error = 'Akses ditolak! Hanya Owner yang dapat mengakses Owner Dashboard.';
+                        $auth->logout();
+                    }
+                }
                 
                 // Developer role has full access to all businesses
                 if ($roleCode === 'developer') {
@@ -422,6 +435,45 @@ if (isset($_GET['biz'])) {
             color: #64748b;
             font-size: 0.875rem;
         }
+        
+        .login-buttons {
+            display: flex;
+            gap: 0.75rem;
+            margin-top: 1.5rem;
+        }
+        
+        .login-buttons button {
+            flex: 1;
+            padding: 0.875rem 1rem;
+            border-radius: 8px;
+            font-size: 0.9rem;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            transition: all 0.3s;
+        }
+        
+        .btn-owner {
+            background: linear-gradient(135deg, #8b5cf6, #6366f1);
+            color: white;
+        }
+        
+        .btn-owner:hover {
+            background: linear-gradient(135deg, #7c3aed, #4f46e5);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(139, 92, 246, 0.4);
+        }
+        
+        .btn-primary {
+            background: linear-gradient(135deg, #10b981, #059669);
+            color: white;
+        }
+        
+        .btn-primary:hover {
+            background: linear-gradient(135deg, #059669, #047857);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 15px rgba(16, 185, 129, 0.4);
+        }
     </style>
 </head>
 <body>
@@ -464,7 +516,10 @@ if (isset($_GET['biz'])) {
                     </div>
                 </div>
                 
-                <button type="submit" class="btn-primary">Login</button>
+                <div class="login-buttons">
+                    <button type="submit" name="login_type" value="owner" class="btn-owner">📊 Login Owner</button>
+                    <button type="submit" name="login_type" value="normal" class="btn-primary">🏢 Login System</button>
+                </div>
             </form>
             
             <div class="demo-credentials">
