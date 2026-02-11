@@ -1,46 +1,7 @@
-# Enable Rewrite Engine
-<IfModule mod_rewrite.c>
-    RewriteEngine On
-    RewriteBase /adf_system/
-    
-    # Remove www from URL (optional, uncomment if needed)
-    # RewriteCond %{HTTP_HOST} ^www\.(.*)$ [NC]
-    # RewriteRule ^(.*)$ http://%1/$1 [R=301,L]
-    
-    # Redirect HTTP to HTTPS (optional, uncomment if using SSL)
-    # RewriteCond %{HTTPS} off
-    # RewriteRule ^(.*)$ https://%{HTTP_HOST}%{REQUEST_URI} [R=301,L]
-    
-    # Allow existing files and directories
-    RewriteCond %{REQUEST_FILENAME} !-f
-    RewriteCond %{REQUEST_FILENAME} !-d
-    
-    # Rewrite all requests to index.php (if using router)
-    # RewriteRule ^(.*)$ index.php?url=$1 [QSA,L]
-</IfModule>
-
 # Disable directory listing
 Options -Indexes
 
-# Set default character encoding
-<IfModule mod_mime.c>
-    AddCharset UTF-8 .php .css .js .html
-</IfModule>
-
-# Block access to sensitive files
-<FilesMatch "\.(env|sql|json|log)$">
-    Order allow,deny
-    Deny from all
-</FilesMatch>
-
-# Block access to git directory
-<Directory .git>
-    Order allow,deny
-    Deny from all
-</Directory>
-
-# Set PHP error reporting
-<IfModule mod_php.c>
-    php_flag display_errors Off
-    php_flag log_errors On
+# Allow access to all files
+<IfModule mod_authz_core.c>
+    Require all granted
 </IfModule>
