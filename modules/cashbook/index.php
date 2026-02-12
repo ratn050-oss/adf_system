@@ -104,6 +104,128 @@ echo getPrintCSS();
 ?>
 
 <style>
+/* ===== COMPACT CASHBOOK TABLE STYLES ===== */
+.cb-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.8rem;
+}
+
+.cb-table th {
+    background: linear-gradient(135deg, var(--bg-secondary), var(--bg-tertiary));
+    padding: 0.65rem 0.5rem;
+    font-size: 0.72rem;
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    color: var(--text-muted);
+    border-bottom: 2px solid var(--bg-tertiary);
+    white-space: nowrap;
+}
+
+.cb-table td {
+    padding: 0.5rem;
+    border-bottom: 1px solid var(--bg-tertiary);
+    vertical-align: middle;
+}
+
+.cb-table tbody tr:hover {
+    background: rgba(99, 102, 241, 0.05);
+}
+
+.cb-badge {
+    display: inline-block;
+    padding: 0.2rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.65rem;
+    font-weight: 700;
+    text-transform: uppercase;
+}
+
+.cb-badge.income {
+    background: rgba(16, 185, 129, 0.15);
+    color: #059669;
+}
+
+.cb-badge.expense {
+    background: rgba(239, 68, 68, 0.15);
+    color: #dc2626;
+}
+
+.cb-method {
+    display: inline-block;
+    padding: 0.15rem 0.4rem;
+    background: var(--bg-tertiary);
+    border-radius: 4px;
+    font-size: 0.68rem;
+    font-weight: 600;
+    color: var(--text-muted);
+}
+
+.cb-ref-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    background: rgba(99, 102, 241, 0.15);
+    color: var(--primary-color);
+    padding: 0.15rem 0.35rem;
+    border-radius: 4px;
+    font-size: 0.65rem;
+    font-weight: 600;
+    margin-right: 0.35rem;
+}
+
+.cb-actions {
+    display: flex;
+    gap: 0.25rem;
+    justify-content: center;
+}
+
+.cb-action-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 28px;
+    height: 28px;
+    border-radius: 6px;
+    border: none;
+    cursor: pointer;
+    transition: all 0.2s;
+    text-decoration: none;
+}
+
+.cb-action-btn svg {
+    width: 14px;
+    height: 14px;
+}
+
+.cb-action-btn.edit {
+    background: var(--bg-tertiary);
+    color: var(--text-muted);
+}
+
+.cb-action-btn.edit:hover {
+    background: var(--primary-color);
+    color: white;
+}
+
+.cb-action-btn.delete {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+}
+
+.cb-action-btn.delete:hover {
+    background: #ef4444;
+    color: white;
+}
+
+.cb-action-btn.locked {
+    background: var(--bg-tertiary);
+    color: var(--text-muted);
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
 /* ===== ELEGANT PRINT STYLES ===== */
 @media print {
     * {
@@ -375,20 +497,19 @@ echo getPrintCSS();
     <table>
         <thead>
             <tr>
-                <th style="width: 8%;">Tanggal</th>
+                <th style="width: 10%;">Tanggal</th>
                 <th style="width: 6%;">Waktu</th>
                 <th style="width: 12%;">Divisi</th>
                 <th style="width: 12%;">Kategori</th>
                 <th style="width: 6%;">Tipe</th>
-                <th style="width: 12%; text-align: right;">Jumlah</th>
-                <th style="width: 30%;">Deskripsi</th>
-                <th style="width: 14%;">Dibuat Oleh</th>
+                <th style="width: 14%; text-align: right;">Jumlah</th>
+                <th style="width: 40%;">Deskripsi</th>
             </tr>
         </thead>
         <tbody>
             <?php foreach ($transactions as $trans): ?>
                 <tr>
-                    <td class="date-cell" data-date="<?php echo $trans['transaction_date']; ?>"></td>
+                    <td><?php echo date('d/m/Y', strtotime($trans['transaction_date'])); ?></td>
                     <td><?php echo date('H:i', strtotime($trans['transaction_time'])); ?></td>
                     <td><strong><?php echo $trans['division_name']; ?></strong><br><span style="color: #94a3b8; font-size: 0.75rem;"><?php echo $trans['division_code']; ?></span></td>
                     <td><?php echo $trans['category_name']; ?></td>
@@ -397,7 +518,6 @@ echo getPrintCSS();
                         <?php echo formatCurrency($trans['amount']); ?>
                     </td>
                     <td><?php echo $trans['description'] ?: '-'; ?></td>
-                    <td><?php echo $trans['created_by_name']; ?></td>
                 </tr>
             <?php endforeach; ?>
         </tbody>
@@ -578,25 +698,24 @@ echo getPrintCSS();
     
     <!-- Table -->
     <div style="overflow-x: auto;">
-        <table>
+        <table class="cb-table">
             <thead>
                 <tr>
-                    <th>Tanggal</th>
-                    <th>Waktu</th>
-                    <th>Divisi</th>
-                    <th>Kategori</th>
-                    <th>Tipe</th>
-                    <th>Metode</th>
-                    <th style="text-align: right;">Jumlah</th>
+                    <th style="width: 85px;">Tanggal</th>
+                    <th style="width: 50px;">Waktu</th>
+                    <th style="width: 100px;">Divisi</th>
+                    <th style="width: 110px;">Kategori</th>
+                    <th style="width: 60px;">Tipe</th>
+                    <th style="width: 70px;">Metode</th>
+                    <th style="width: 100px; text-align: right;">Jumlah</th>
                     <th>Deskripsi</th>
-                    <th>Dibuat Oleh</th>
-                    <th>Aksi</th>
+                    <th style="width: 70px;">Aksi</th>
                 </tr>
             </thead>
             <tbody>
                 <?php if (empty($transactions)): ?>
                     <tr>
-                        <td colspan="10" style="text-align: center; padding: 3rem; color: var(--text-muted);">
+                        <td colspan="9" style="text-align: center; padding: 3rem; color: var(--text-muted);">
                             <i data-feather="inbox" style="width: 48px; height: 48px; margin-bottom: 1rem;"></i>
                             <div>Belum ada transaksi</div>
                         </td>
@@ -628,8 +747,8 @@ echo getPrintCSS();
                             // Get users for this specific date
                             $shiftUsers = implode(', ', $usersByDate[$currentDate] ?? []);
                     ?>
-                        <tr style="background-color: #f1f5f9; border-top: 2px solid #cbd5e1; border-bottom: 2px solid #cbd5e1;">
-                            <td colspan="10" style="text-align: center; font-weight: 700; color: #475569; padding: 0.5rem;">
+                        <tr style="background: linear-gradient(135deg, #f1f5f9, #e2e8f0);">
+                            <td colspan="9" style="text-align: center; font-weight: 700; color: #475569; padding: 0.5rem; font-size: 0.8rem;">
                                 Transaksi tanggal: <?php echo formatDate($trans['transaction_date']); ?>
                                 <span style="margin-left: 15px; font-weight: 500; color: #64748b; font-size: 0.85em;">
                                     <i data-feather="users" style="width: 14px; height: 14px; vertical-align: middle; margin-right: 4px;"></i>
@@ -641,19 +760,17 @@ echo getPrintCSS();
                         $previousDate = $currentDate;
                     ?>
                         <tr>
-                            <td class="date-cell" data-date="<?php echo $trans['transaction_date']; ?>">
-                                <?php echo formatDate($trans['transaction_date']); ?>
+                            <td style="font-size: 0.8rem; white-space: nowrap;">
+                                <?php echo date('d/m/Y', strtotime($trans['transaction_date'])); ?>
                             </td>
-                            <td><?php echo date('H:i', strtotime($trans['transaction_time'])); ?></td>
-                            <td>
-                                <strong><?php echo $trans['division_name']; ?></strong><br>
-                                <span style="font-size: 0.813rem; color: var(--text-muted);"><?php echo $trans['division_code']; ?></span>
+                            <td style="font-size: 0.8rem;"><?php echo date('H:i', strtotime($trans['transaction_time'])); ?></td>
+                            <td style="font-size: 0.8rem;">
+                                <strong><?php echo $trans['division_name']; ?></strong>
+                                <div style="font-size: 0.7rem; color: var(--text-muted);"><?php echo $trans['division_code']; ?></div>
                             </td>
-                            <td>
+                            <td style="font-size: 0.8rem;">
                                 <?php 
-                                    // Custom Display for PO Payments
                                     if ($trans['source_type'] === 'purchase_order' && strpos($trans['category_name'], 'Supplies') !== false) {
-                                        // Try to extract supplier name from description if available
                                         if (preg_match('/Pembayaran PO .* - (.*)/', $trans['description'], $matches)) {
                                             echo 'Payment ' . htmlspecialchars($matches[1]);
                                         } else {
@@ -665,44 +782,43 @@ echo getPrintCSS();
                                 ?>
                             </td>
                             <td>
-                                <span class="badge <?php echo $trans['transaction_type']; ?>">
-                                    <?php echo $trans['transaction_type'] === 'income' ? 'Masuk' : 'Keluar'; ?>
+                                <span class="cb-badge <?php echo $trans['transaction_type']; ?>">
+                                    <?php echo $trans['transaction_type'] === 'income' ? 'MASUK' : 'KELUAR'; ?>
                                 </span>
                             </td>
                             <td>
-                                <span style="font-weight: 600; font-size: 0.85rem; color: #4b5563; padding: 2px 8px; background: #e2e8f0; border-radius: 4px;">
+                                <span class="cb-method">
                                     <?php echo htmlspecialchars(isset($trans['payment_method']) ? strtoupper($trans['payment_method']) : '-'); ?>
                                 </span>
                             </td>
-                            <td style="text-align: right; font-weight: 700; color: <?php echo $trans['transaction_type'] === 'income' ? 'var(--success)' : 'var(--danger)'; ?>;">
+                            <td style="text-align: right; font-weight: 700; font-size: 0.85rem; color: <?php echo $trans['transaction_type'] === 'income' ? '#059669' : '#dc2626'; ?>;">
                                 <?php echo formatCurrency($trans['amount']); ?>
                             </td>
-                            <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                            <td style="font-size: 0.8rem;">
                                 <?php if (isset($trans['source_type']) && $trans['source_type'] != 'manual'): ?>
-                                    <span style="display: inline-flex; align-items: center; gap: 0.375rem; background: #dbeafe; color: #1e40af; padding: 0.25rem 0.5rem; border-radius: 0.375rem; font-size: 0.75rem; font-weight: 600; margin-right: 0.5rem;">
-                                        <i data-feather="shopping-cart" style="width: 12px; height: 12px;"></i>
+                                    <span class="cb-ref-tag">
+                                        <i data-feather="shopping-cart" style="width: 10px; height: 10px;"></i>
                                         <?php echo isset($trans['reference_no']) ? $trans['reference_no'] : 'REF'; ?>
                                     </span>
                                 <?php endif; ?>
                                 <?php echo $trans['description'] ?: '-'; ?>
                             </td>
-                            <td style="font-size: 0.875rem;"><?php echo $trans['created_by_name']; ?></td>
                             <td>
-                                <div style="display: flex; gap: 0.5rem;">
+                                <div class="cb-actions">
                                     <?php if (isset($trans['is_editable']) && $trans['is_editable'] == 1): ?>
-                                        <a href="edit.php?id=<?php echo $trans['id']; ?>" class="btn btn-sm btn-secondary" title="Edit">
-                                            <i data-feather="edit-2" style="width: 16px; height: 16px;"></i>
+                                        <a href="edit.php?id=<?php echo $trans['id']; ?>" class="cb-action-btn edit" title="Edit">
+                                            <i data-feather="edit-2"></i>
                                         </a>
                                     <?php else: ?>
-                                        <button class="btn btn-sm btn-secondary" disabled title="Tidak dapat diedit - Dari PO" style="opacity: 0.5; cursor: not-allowed;">
-                                            <i data-feather="lock" style="width: 16px; height: 16px;"></i>
-                                        </button>
+                                        <span class="cb-action-btn locked" title="Dari PO">
+                                            <i data-feather="lock"></i>
+                                        </span>
                                     <?php endif; ?>
                                     <a href="delete.php?id=<?php echo $trans['id']; ?>" 
                                        onclick="return confirm('Yakin ingin menghapus transaksi ini?')" 
-                                       class="btn btn-sm btn-danger" 
+                                       class="cb-action-btn delete" 
                                        title="Hapus">
-                                        <i data-feather="trash-2" style="width: 16px; height: 16px;"></i>
+                                        <i data-feather="trash-2"></i>
                                     </a>
                                 </div>
                             </td>
