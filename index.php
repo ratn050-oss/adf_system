@@ -1444,4 +1444,4 @@ if ($trialStatus) {
     <?php endif; ?>
 </script>
 
-
+<?php include 'includes/footer.php'; ?>
