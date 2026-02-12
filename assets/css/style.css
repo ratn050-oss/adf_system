@@ -533,6 +533,7 @@ body {
     left: 0;
     top: 0;
     bottom: 0;
+    overflow-x: hidden;
     overflow-y: auto;
     transition: var(--transition);
     z-index: 1000;
@@ -606,6 +607,12 @@ body {
 .nav-link.dropdown-toggle {
     cursor: pointer;
     position: relative;
+    width: 100%;
+    user-select: none;
+}
+
+.nav-link.dropdown-toggle * {
+    pointer-events: none;
 }
 
 .nav-link.dropdown-toggle::after {

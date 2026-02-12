@@ -66,60 +66,37 @@ const toggleSidebar = () => {
 
 // Toggle Dropdown Menu
 const setupDropdownToggles = () => {
-    console.log('🔧 Setting up dropdown toggles...');
     const dropdownToggles = document.querySelectorAll('.nav-link.dropdown-toggle');
-    console.log('Found dropdown toggles:', dropdownToggles.length);
     
-    dropdownToggles.forEach((toggle, index) => {
-        console.log('Attaching click handler to dropdown #' + index);
+    dropdownToggles.forEach((toggle) => {
         toggle.addEventListener('click', function(e) {
-            // CRITICAL: Don't intercept if the actual clicked target is a submenu link
-            if (e.target.closest('.submenu-link')) {
-                console.log('🔗 Click target is submenu-link, allowing navigation');
-                return; // Let the link work naturally, don't preventDefault
-            }
+            e.preventDefault();
+            e.stopPropagation();
             
-            // Only prevent default if it's the dropdown toggle itself
-            if (this.classList.contains('dropdown-toggle')) {
-                e.preventDefault();
-                e.stopPropagation();
-                console.log('📂 Dropdown toggle clicked!');
+            const navItem = this.closest('.nav-item.has-submenu');
+            
+            if (navItem) {
+                // Close other open dropdowns at same level
+                const siblings = navItem.parentElement.querySelectorAll('.nav-item.has-submenu.open');
+                siblings.forEach(sibling => {
+                    if (sibling !== navItem) {
+                        sibling.classList.remove('open');
+                    }
+                });
                 
-                const navItem = this.closest('.nav-item.has-submenu');
-                
-                if (navItem) {
-                    console.log('Found nav-item.has-submenu');
-                    // Close other open dropdowns at same level
-                    const siblings = navItem.parentElement.querySelectorAll('.nav-item.has-submenu.open');
-                    siblings.forEach(sibling => {
-                        if (sibling !== navItem) {
-                            console.log('Closing sibling dropdown');
-                            sibling.classList.remove('open');
-                        }
-                    });
-                    
-                    // Toggle current dropdown
-                    console.log('Toggling current dropdown');
-                    navItem.classList.toggle('open');
-                } else {
-                    console.log('ERROR: nav-item.has-submenu not found');
-                }
+                // Toggle current dropdown
+                navItem.classList.toggle('open');
             }
         });
     });
     
-    // Ensure submenu links work normally - add explicit handlers
+    // Ensure submenu links work normally
     const submenuLinks = document.querySelectorAll('.submenu-link');
-    console.log('Found submenu links:', submenuLinks.length);
-    submenuLinks.forEach((link, index) => {
+    submenuLinks.forEach((link) => {
         link.addEventListener('click', function(e) {
-            console.log('✅ Submenu link #' + index + ' clicked:', this.href);
-            // CRITICAL: Explicitly stop event propagation so parent dropdown-toggle doesn't catch it
             e.stopPropagation();
-            // Let the browser handle the navigation (don't preventDefault)
         });
     });
-    console.log('✅ Dropdown toggles setup complete');
 };
 
 
