@@ -8,10 +8,10 @@ header('Content-Type: application/json');
 $auth = new Auth();
 $auth->requireLogin();
 
-// Only admin can restore data
-if (!$auth->hasRole('admin')) {
+// Only admin or developer can restore data
+if (!$auth->hasRole('admin') && !$auth->hasRole('developer')) {
     http_response_code(403);
-    echo json_encode(['success' => false, 'message' => 'Akses ditolak. Hanya admin yang bisa restore data.']);
+    echo json_encode(['success' => false, 'message' => 'Akses ditolak. Hanya admin atau developer yang bisa restore data.']);
     exit;
 }
 
