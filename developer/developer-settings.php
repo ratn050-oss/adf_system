@@ -23,6 +23,9 @@ $success = '';
 $loginBgSetting = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'login_background'");
 $currentLoginBg = $loginBgSetting['setting_value'] ?? null;
 
+$loginLogoSetting = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'login_logo'");
+$currentLoginLogo = $loginLogoSetting['setting_value'] ?? null;
+
 $waSetting = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'developer_whatsapp'");
 $currentWA = $waSetting['setting_value'] ?? '';
 
@@ -98,6 +101,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['login_background']) 
             $error = 'Gagal upload file.';
         }
     }
+}
+
+// Handle login logo upload
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['login_logo']) && $_FILES['login_logo']['error'] === UPLOAD_ERR_OK) {
+    $file = $_FILES['login_logo'];
+    $allowedTypes = ['image/jpeg', 'image/png', 'image/jpg', 'image/svg+xml'];
+    $maxSize = 1 * 1024 * 1024;
+    
+    if (!in_array($file['type'], $allowedTypes)) {
+        $error = 'Tipe file tidak diizinkan. Gunakan JPG, PNG, atau SVG.';
+    } elseif ($file['size'] > $maxSize) {
+        $error = 'Ukuran file terlalu besar. Maksimal 1MB.';
+    } else {
+        $uploadDir = BASE_PATH . '/uploads/logos/';
+        if (!file_exists($uploadDir)) {
+            mkdir($uploadDir, 0755, true);
+        }
+        
+        $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
+        $filename = 'login-logo.' . $extension;
+        $uploadPath = $uploadDir . $filename;
+        
+        foreach (glob($uploadDir . 'login-logo.*') as $oldFile) {
+            unlink($oldFile);
+        }
+        
+        if (move_uploaded_file($file['tmp_name'], $uploadPath)) {
+            $db->query("INSERT INTO settings (setting_key, setting_value) VALUES ('login_logo', ?) ON DUPLICATE KEY UPDATE setting_value = ?", [$filename, $filename]);
+            $success = 'Logo login berhasil diupload!';
+            $currentLoginLogo = $filename;
+        } else {
+            $error = 'Gagal upload file.';
+        }
+    }
+}
+
+// Handle delete login logo
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_login_logo'])) {
+    $uploadDir = BASE_PATH . '/uploads/logos/';
+    foreach (glob($uploadDir . 'login-logo.*') as $oldFile) {
+        unlink($oldFile);
+    }
+    $db->query("DELETE FROM settings WHERE setting_key = 'login_logo'");
+    $success = 'Logo login berhasil dihapus!';
+    $currentLoginLogo = null;
 }
 
 // Handle WhatsApp number update
@@ -377,6 +425,50 @@ require_once __DIR__ . '/includes/header.php';
                         </div>
                         <button type="submit" class="btn btn-success w-100">
                             <i class="bi bi-upload me-1"></i>Upload Background
+                        </button>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Login Logo -->
+            <div class="settings-card">
+                <div class="settings-card-header">
+                    <div class="icon" style="background: rgba(59,130,246,0.15); color: #3b82f6;">
+                        <i class="bi bi-building"></i>
+                    </div>
+                    <div>
+                        <h5>Logo Login Page</h5>
+                        <small>Logo tampil di halaman login (mengganti emoji)</small>
+                    </div>
+                </div>
+                <div class="settings-card-body">
+                    <?php if ($currentLoginLogo && file_exists(BASE_PATH . '/uploads/logos/' . $currentLoginLogo)): ?>
+                    <div class="preview-box mb-3">
+                        <img src="<?php echo BASE_URL . '/uploads/logos/' . $currentLoginLogo; ?>?v=<?php echo time(); ?>" 
+                             alt="Login Logo" style="max-width:100px;max-height:100px;border-radius:8px;">
+                        <div class="mt-2">
+                            <form method="POST" style="display:inline;">
+                                <input type="hidden" name="delete_login_logo" value="1">
+                                <button type="submit" class="btn btn-sm btn-outline-danger">
+                                    <i class="bi bi-trash me-1"></i>Hapus Logo
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    <?php else: ?>
+                    <div class="preview-box mb-3">
+                        <div style="width:80px;height:80px;background:#e5e7eb;border-radius:8px;display:inline-flex;align-items:center;justify-content:center;font-size:2.5rem;">🏢</div>
+                        <div class="text-muted mt-2" style="font-size:0.85rem;">Default: Emoji icon</div>
+                    </div>
+                    <?php endif; ?>
+                    <form method="POST" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <label class="form-label">Upload Logo</label>
+                            <input type="file" name="login_logo" class="form-control" accept="image/*" required>
+                            <div class="form-text">Format: JPG, PNG, SVG • Maksimal 1MB • Rekomendasi: 100x100px</div>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="bi bi-upload me-1"></i>Upload Logo
                         </button>
                     </form>
                 </div>

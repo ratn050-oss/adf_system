@@ -26,11 +26,19 @@ $db = Database::getInstance();
 // Get custom login background from settings (with error handling)
 $customBg = null;
 $bgUrl = null;
+$loginLogo = null;
+$loginLogoUrl = null;
 try {
     $loginBgSetting = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'login_background'");
     $customBg = $loginBgSetting['setting_value'] ?? null;
     $bgUrl = $customBg && file_exists(BASE_PATH . '/uploads/backgrounds/' . $customBg) 
         ? BASE_URL . '/uploads/backgrounds/' . $customBg 
+        : null;
+    
+    $loginLogoSetting = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'login_logo'");
+    $loginLogo = $loginLogoSetting['setting_value'] ?? null;
+    $loginLogoUrl = $loginLogo && file_exists(BASE_PATH . '/uploads/logos/' . $loginLogo) 
+        ? BASE_URL . '/uploads/logos/' . $loginLogo 
         : null;
 } catch (Exception $e) {
     // Settings table might not exist yet, continue without background
@@ -230,7 +238,7 @@ if (isset($_GET['biz'])) {
             display: flex;
             align-items: center;
             justify-content: center;
-            padding: 2rem;
+            padding: 1rem;
             position: relative;
             <?php if ($bgUrl): ?>
             background-image: linear-gradient(135deg, rgba(30,41,59,0.85), rgba(15,23,42,0.9)), url('<?php echo $bgUrl; ?>?v=<?php echo time(); ?>');
@@ -245,52 +253,60 @@ if (isset($_GET['biz'])) {
         
         .login-box {
             background: #1e293b;
-            border-radius: 12px;
-            padding: 3rem;
-            box-shadow: 0 20px 25px -5px rgba(0, 0, 0, 0.1);
+            border-radius: 10px;
+            padding: 1.25rem;
+            box-shadow: 0 15px 20px -5px rgba(0, 0, 0, 0.15);
             border: 1px solid #334155;
             width: 100%;
-            max-width: 450px;
+            max-width: 300px;
             position: relative;
         }
         
         .login-header {
             text-align: center;
-            margin-bottom: 2.5rem;
+            margin-bottom: 0.75rem;
             position: relative;
         }
         
         .business-logo-icon {
-            font-size: 3.5rem;
-            margin-bottom: 1rem;
+            font-size: 2rem;
+            margin-bottom: 0.5rem;
             display: block;
         }
         
+        .business-logo-img {
+            width: 50px;
+            height: 50px;
+            object-fit: contain;
+            margin-bottom: 0.5rem;
+            border-radius: 6px;
+        }
+        
         .login-logo {
-            font-size: 1.75rem;
-            font-weight: 900;
+            font-size: 1.1rem;
+            font-weight: 700;
             color: #ffffff;
-            margin-bottom: 0.25rem;
-            letter-spacing: -0.5px;
+            margin-bottom: 0.15rem;
+            letter-spacing: -0.3px;
         }
         
         .login-subtitle {
-            color: #cbd5e1;
-            font-size: 0.875rem;
+            color: #94a3b8;
+            font-size: 0.7rem;
             font-weight: 500;
-            margin-top: 0.5rem;
+            margin-top: 0.15rem;
         }
         
         .form-group {
-            margin-bottom: 1.5rem;
+            margin-bottom: 0.75rem;
         }
         
         .form-label {
             display: block;
             color: #e2e8f0;
-            font-size: 0.875rem;
+            font-size: 0.75rem;
             font-weight: 500;
-            margin-bottom: 0.5rem;
+            margin-bottom: 0.35rem;
         }
         
         .password-wrapper {
@@ -299,12 +315,12 @@ if (isset($_GET['biz'])) {
         
         .password-toggle {
             position: absolute;
-            right: 12px;
+            right: 10px;
             top: 50%;
             transform: translateY(-50%);
             cursor: pointer;
             color: #94a3b8;
-            font-size: 1.25rem;
+            font-size: 1rem;
             user-select: none;
             transition: color 0.2s;
         }
@@ -315,12 +331,12 @@ if (isset($_GET['biz'])) {
         
         .form-control {
             width: 100%;
-            padding: 0.75rem;
+            padding: 0.5rem 0.65rem;
             background: #0f172a;
             border: 1px solid #475569;
-            border-radius: 8px;
+            border-radius: 6px;
             color: #e2e8f0;
-            font-size: 1rem;
+            font-size: 0.85rem;
         }
         
         .form-control:focus {
@@ -333,26 +349,27 @@ if (isset($_GET['biz'])) {
             background: rgba(239, 68, 68, 0.1);
             border: 1px solid #ef4444;
             color: #fca5a5;
-            padding: 1rem;
-            border-radius: 8px;
-            margin-bottom: 1.5rem;
+            padding: 0.6rem;
+            border-radius: 6px;
+            margin-bottom: 0.75rem;
             text-align: center;
+            font-size: 0.75rem;
         }
         
         .database-status {
             background: linear-gradient(135deg, rgba(15, 23, 42, 0.8), rgba(15, 23, 42, 0.6));
             border: 1px solid #334155;
-            padding: 1rem;
-            border-radius: 8px;
-            margin-top: 1.5rem;
+            padding: 0.6rem 0.75rem;
+            border-radius: 6px;
+            margin-top: 0.75rem;
             display: flex;
             align-items: center;
-            gap: 0.75rem;
+            gap: 0.5rem;
         }
         
         .status-indicator {
-            width: 14px;
-            height: 14px;
+            width: 10px;
+            height: 10px;
             border-radius: 50%;
             background: #10b981;
             box-shadow: 0 0 10px rgba(16, 185, 129, 1), inset 0 0 3px rgba(255, 255, 255, 0.3);
@@ -380,15 +397,15 @@ if (isset($_GET['biz'])) {
         }
         
         .db-label {
-            font-size: 0.75rem;
+            font-size: 0.6rem;
             color: #94a3b8;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 0.25rem;
+            letter-spacing: 0.3px;
+            margin-bottom: 0.1rem;
         }
         
         .db-name {
-            font-size: 0.938rem;
+            font-size: 0.75rem;
             color: #e2e8f0;
             font-weight: 600;
             font-family: 'Courier New', monospace;
@@ -396,10 +413,10 @@ if (isset($_GET['biz'])) {
         
         .demo-credentials {
             background: #334155;
-            padding: 1rem;
-            border-radius: 8px;
-            margin-top: 2rem;
-            font-size: 0.875rem;
+            padding: 0.6rem 0.75rem;
+            border-radius: 6px;
+            margin-top: 1rem;
+            font-size: 0.7rem;
             color: #cbd5e1;
         }
         
@@ -409,24 +426,24 @@ if (isset($_GET['biz'])) {
         
         .login-footer {
             text-align: center;
-            margin-top: 2rem;
-            padding-top: 2rem;
+            margin-top: 1rem;
+            padding-top: 1rem;
             border-top: 1px solid #334155;
             color: #64748b;
-            font-size: 0.875rem;
+            font-size: 0.7rem;
         }
         
         .login-buttons {
             display: flex;
-            gap: 0.75rem;
-            margin-top: 1.5rem;
+            gap: 0.5rem;
+            margin-top: 0.75rem;
         }
         
         .login-buttons button {
             flex: 1;
-            padding: 0.875rem 1rem;
-            border-radius: 8px;
-            font-size: 0.9rem;
+            padding: 0.6rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.8rem;
             font-weight: 600;
             cursor: pointer;
             border: none;
@@ -460,7 +477,11 @@ if (isset($_GET['biz'])) {
     <div class="login-container">
         <div class="login-box">
             <div class="login-header">
+                <?php if ($loginLogoUrl): ?>
+                <img src="<?php echo $loginLogoUrl; ?>?v=<?php echo time(); ?>" alt="Logo" class="business-logo-img">
+                <?php else: ?>
                 <span class="business-logo-icon"><?php echo $displayInfo['icon']; ?></span>
+                <?php endif; ?>
                 <h1 class="login-logo"><?php echo $displayInfo['name']; ?></h1>
                 <p class="login-subtitle"><?php echo $displayInfo['subtitle']; ?></p>
                 <?php if (isset($_GET['biz'])): ?>
