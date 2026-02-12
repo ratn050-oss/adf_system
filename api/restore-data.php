@@ -53,13 +53,44 @@ try {
     // Disable foreign key checks
     $conn->exec("SET FOREIGN_KEY_CHECKS=0");
     
-    // Split SQL into individual statements
-    $statements = array_filter(
-        array_map('trim', explode(';', $sql)),
-        function($statement) {
-            return !empty($statement) && !preg_match('/^--/', $statement);
+    // Better SQL parsing that handles semicolons inside strings
+    $statements = [];
+    $currentStatement = '';
+    $inString = false;
+    $stringChar = '';
+    $length = strlen($sql);
+    
+    for ($i = 0; $i < $length; $i++) {
+        $char = $sql[$i];
+        $prevChar = $i > 0 ? $sql[$i - 1] : '';
+        
+        // Handle string detection
+        if (($char === "'" || $char === '"') && $prevChar !== '\\') {
+            if (!$inString) {
+                $inString = true;
+                $stringChar = $char;
+            } elseif ($char === $stringChar) {
+                $inString = false;
+            }
         }
-    );
+        
+        // Check for statement end (semicolon outside of string)
+        if ($char === ';' && !$inString) {
+            $statement = trim($currentStatement);
+            if (!empty($statement) && !preg_match('/^--/', $statement)) {
+                $statements[] = $statement;
+            }
+            $currentStatement = '';
+        } else {
+            $currentStatement .= $char;
+        }
+    }
+    
+    // Add last statement if exists
+    $lastStatement = trim($currentStatement);
+    if (!empty($lastStatement) && !preg_match('/^--/', $lastStatement)) {
+        $statements[] = $lastStatement;
+    }
     
     $executedCount = 0;
     $errors = [];
