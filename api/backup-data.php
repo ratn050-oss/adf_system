@@ -8,10 +8,10 @@ header('Content-Type: application/json');
 $auth = new Auth();
 $auth->requireLogin();
 
-// Only admin can backup
-if (!$auth->hasRole('admin')) {
+// Only admin or developer can backup
+if (!$auth->hasRole('admin') && !$auth->hasRole('developer')) {
     http_response_code(403);
-    echo json_encode(['success' => false, 'message' => 'Akses ditolak. Hanya admin yang bisa backup data.']);
+    echo json_encode(['success' => false, 'message' => 'Akses ditolak. Hanya admin atau developer yang bisa backup data.']);
     exit;
 }
 
