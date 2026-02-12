@@ -26,6 +26,9 @@ $currentLoginBg = $loginBgSetting['setting_value'] ?? null;
 $loginLogoSetting = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'login_logo'");
 $currentLoginLogo = $loginLogoSetting['setting_value'] ?? null;
 
+$faviconSetting = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'site_favicon'");
+$currentFavicon = $faviconSetting['setting_value'] ?? null;
+
 $waSetting = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'developer_whatsapp'");
 $currentWA = $waSetting['setting_value'] ?? '';
 
@@ -146,6 +149,51 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_login_logo']))
     $db->query("DELETE FROM settings WHERE setting_key = 'login_logo'");
     $success = 'Logo login berhasil dihapus!';
     $currentLoginLogo = null;
+}
+
+// Handle favicon upload
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['site_favicon']) && $_FILES['site_favicon']['error'] === UPLOAD_ERR_OK) {
+    $file = $_FILES['site_favicon'];
+    $allowedTypes = ['image/x-icon', 'image/vnd.microsoft.icon', 'image/png', 'image/svg+xml'];
+    $maxSize = 500 * 1024; // 500KB
+    
+    if (!in_array($file['type'], $allowedTypes)) {
+        $error = 'Tipe file tidak diizinkan. Gunakan ICO, PNG, atau SVG.';
+    } elseif ($file['size'] > $maxSize) {
+        $error = 'Ukuran file terlalu besar. Maksimal 500KB.';
+    } else {
+        $uploadDir = BASE_PATH . '/uploads/icons/';
+        if (!file_exists($uploadDir)) {
+            mkdir($uploadDir, 0755, true);
+        }
+        
+        $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
+        $filename = 'favicon.' . $extension;
+        $uploadPath = $uploadDir . $filename;
+        
+        foreach (glob($uploadDir . 'favicon.*') as $oldFile) {
+            unlink($oldFile);
+        }
+        
+        if (move_uploaded_file($file['tmp_name'], $uploadPath)) {
+            $db->query("INSERT INTO settings (setting_key, setting_value) VALUES ('site_favicon', ?) ON DUPLICATE KEY UPDATE setting_value = ?", [$filename, $filename]);
+            $success = 'Favicon berhasil diupload!';
+            $currentFavicon = $filename;
+        } else {
+            $error = 'Gagal upload file.';
+        }
+    }
+}
+
+// Handle delete favicon
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_favicon'])) {
+    $uploadDir = BASE_PATH . '/uploads/icons/';
+    foreach (glob($uploadDir . 'favicon.*') as $oldFile) {
+        unlink($oldFile);
+    }
+    $db->query("DELETE FROM settings WHERE setting_key = 'site_favicon'");
+    $success = 'Favicon berhasil dihapus!';
+    $currentFavicon = null;
 }
 
 // Handle WhatsApp number update
@@ -469,6 +517,59 @@ require_once __DIR__ . '/includes/header.php';
                         </div>
                         <button type="submit" class="btn btn-primary w-100">
                             <i class="bi bi-upload me-1"></i>Upload Logo
+                        </button>
+                    </form>
+                </div>
+            </div>
+            
+            <!-- Favicon Browser -->
+            <div class="settings-card">
+                <div class="settings-card-header">
+                    <div class="icon" style="background: rgba(245,158,11,0.15); color: #f59e0b;">
+                        <i class="bi bi-window"></i>
+                    </div>
+                    <div>
+                        <h5>Favicon Browser</h5>
+                        <small>Icon di tab browser (favicon)</small>
+                    </div>
+                </div>
+                <div class="settings-card-body">
+                    <?php if ($currentFavicon && file_exists(BASE_PATH . '/uploads/icons/' . $currentFavicon)): ?>
+                    <div class="preview-box mb-3">
+                        <img src="<?php echo BASE_URL . '/uploads/icons/' . $currentFavicon; ?>?v=<?php echo time(); ?>" 
+                             alt="Favicon" style="width:48px;height:48px;border-radius:4px;">
+                        <div class="mt-2" style="font-size:0.75rem;color:#888;">
+                            Preview di tab: 
+                            <span style="display:inline-flex;align-items:center;background:#f1f5f9;padding:4px 10px;border-radius:6px;margin-left:5px;">
+                                <img src="<?php echo BASE_URL . '/uploads/icons/' . $currentFavicon; ?>?v=<?php echo time(); ?>" style="width:16px;height:16px;margin-right:6px;">
+                                <span style="font-size:0.7rem;color:#333;">ADF System</span>
+                            </span>
+                        </div>
+                        <div class="mt-2">
+                            <form method="POST" style="display:inline;">
+                                <input type="hidden" name="delete_favicon" value="1">
+                                <button type="submit" class="btn btn-sm btn-outline-danger">
+                                    <i class="bi bi-trash me-1"></i>Hapus Favicon
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    <?php else: ?>
+                    <div class="preview-box mb-3">
+                        <div style="width:48px;height:48px;background:#e5e7eb;border-radius:6px;display:inline-flex;align-items:center;justify-content:center;">
+                            <i class="bi bi-globe text-muted" style="font-size:1.5rem;"></i>
+                        </div>
+                        <div class="text-muted mt-2" style="font-size:0.85rem;">Belum ada favicon custom</div>
+                    </div>
+                    <?php endif; ?>
+                    <form method="POST" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <label class="form-label">Upload Favicon</label>
+                            <input type="file" name="site_favicon" class="form-control" accept=".ico,.png,.svg,image/x-icon,image/png,image/svg+xml" required>
+                            <div class="form-text">Format: ICO, PNG, SVG • Maksimal 500KB • Rekomendasi: 32x32px atau 64x64px</div>
+                        </div>
+                        <button type="submit" class="btn btn-warning w-100">
+                            <i class="bi bi-upload me-1"></i>Upload Favicon
                         </button>
                     </form>
                 </div>

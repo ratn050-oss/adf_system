@@ -1,6 +1,21 @@
 <?php
 // Load helper functions
 require_once __DIR__ . '/functions.php';
+
+// Get favicon from settings
+$faviconUrl = null;
+try {
+    if (class_exists('Database')) {
+        $db = Database::getInstance();
+        $faviconSetting = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'site_favicon'");
+        $faviconFile = $faviconSetting['setting_value'] ?? null;
+        if ($faviconFile && file_exists(BASE_PATH . '/uploads/icons/' . $faviconFile)) {
+            $faviconUrl = BASE_URL . '/uploads/icons/' . $faviconFile;
+        }
+    }
+} catch (Exception $e) {
+    // Silent fail
+}
 ?>
 <!DOCTYPE html>
 <html lang="<?php echo $_SESSION['user_language'] ?? 'id'; ?>">
@@ -8,6 +23,12 @@ require_once __DIR__ . '/functions.php';
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?php echo isset($pageTitle) ? $pageTitle . ' - ' : ''; ?><?php echo APP_NAME; ?></title>
+    
+    <!-- Favicon -->
+    <?php if ($faviconUrl): ?>
+    <link rel="icon" type="image/x-icon" href="<?php echo $faviconUrl; ?>?v=<?php echo time(); ?>">
+    <link rel="shortcut icon" href="<?php echo $faviconUrl; ?>?v=<?php echo time(); ?>">
+    <?php endif; ?>
     
     <!-- Preconnect for performance -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
