@@ -2335,5 +2335,20 @@ $logoFile = 'logo-alt.png';
         // Auto refresh every 2 minutes
         setInterval(refreshData, 120000);
     </script>
+    
+    <!-- Main JavaScript for Sidebar Dropdown -->
+    <script src="<?php echo BASE_URL; ?>/assets/js/main.js?v=<?php echo time(); ?>"></script>
+    <script>
+        // Replace feather icons and reinitialize dropdowns
+        if (typeof feather !== 'undefined') {
+            feather.replace();
+            // Re-setup dropdowns after feather replaces icons
+            setTimeout(function() {
+                if (typeof setupDropdownToggles === 'function') {
+                    setupDropdownToggles();
+                }
+            }, 100);
+        }
+    </script>
 </body>
 </html>
