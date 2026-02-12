@@ -144,7 +144,31 @@ try {
         LIMIT 20
     ");
     $stats['guests_today'] = $guestsTodayResult;
-    $stats['guests_today'] = $guestsTodayResult;
+
+    // 9. Checkout Guests Today - Detail list
+    $checkoutGuestsResult = $db->fetchAll("
+        SELECT 
+            b.id,
+            g.guest_name,
+            g.phone,
+            b.room_id,
+            r.room_number,
+            rt.type_name as room_type,
+            b.check_in_date,
+            b.check_out_date,
+            b.final_price,
+            b.status,
+            COALESCE((SELECT SUM(amount) FROM booking_payments WHERE booking_id = b.id), 0) as paid_amount
+        FROM bookings b
+        JOIN rooms r ON b.room_id = r.id
+        LEFT JOIN room_types rt ON r.room_type_id = rt.id
+        LEFT JOIN guests g ON b.guest_id = g.id
+        WHERE DATE(b.check_out_date) = ?
+        AND b.status = 'checked_in'
+        ORDER BY r.room_number ASC
+        LIMIT 10
+    ", [$today]);
+    $stats['checkout_guests'] = $checkoutGuestsResult;
 
 } catch (Exception $e) {
     error_log("Dashboard Stats Error: " . $e->getMessage());
@@ -152,7 +176,7 @@ try {
         'in_house' => 0, 'checkout_today' => 0, 'arrival_today' => 0,
         'predicted_tomorrow' => 0, 'total_rooms' => 0, 'occupied_rooms' => 0,
         'available_rooms' => 0, 'occupancy_rate' => 0, 'revenue_today' => 0,
-        'expected_revenue' => 0, 'guests_today' => []
+        'expected_revenue' => 0, 'guests_today' => [], 'checkout_guests' => []
     ];
 }
 
@@ -1115,6 +1139,11 @@ include '../../includes/header.php';
         grid-template-columns: 1fr;
     }
 
+    /* Dashboard Grid - Stack on tablet */
+    div[style*="grid-template-columns: 320px 1fr"] {
+        grid-template-columns: 1fr !important;
+    }
+
     .revenue-widget {
         grid-template-columns: 1fr;
     }
@@ -1124,8 +1153,8 @@ include '../../includes/header.php';
     }
 
     .revenue-cards-grid {
-        grid-template-columns: 1fr;
-        gap: 1.25rem;
+        grid-template-columns: 1fr !important;
+        gap: 0.75rem !important;
     }
 
     .revenue-title {
@@ -1342,42 +1371,52 @@ include '../../includes/header.php';
         </div>
     </div>
 
-    <!-- Charts Section - MOVED TO TOP -->
-    <div class="charts-grid" style="margin-bottom: 0.75rem;">
-        <!-- Occupancy Pie Chart -->
-        <div class="chart-card" style="padding: 0.85rem; border-radius: 12px;">
-            <h3 style="font-size: 0.85rem; margin-bottom: 0.5rem;">
+    <!-- Premium Dashboard Grid - Pie Chart Left, Revenue Right -->
+    <div style="display: grid; grid-template-columns: 320px 1fr; gap: 1rem; margin-bottom: 1rem;">
+        <!-- LEFT: Occupancy Pie Chart -->
+        <div class="chart-card" style="padding: 1rem; border-radius: 14px; height: fit-content;">
+            <h3 style="font-size: 0.9rem; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem;">
                 🥧 Occupancy Status 
-                <span style="font-size: 0.65rem; color: var(--text-secondary); font-weight: 500;">
-                    (Total: <?php echo $stats['total_rooms']; ?> Rooms)
+                <span style="font-size: 0.65rem; color: var(--text-secondary); font-weight: 500; background: var(--bg-tertiary); padding: 0.2rem 0.5rem; border-radius: 20px;">
+                    <?php echo $stats['total_rooms']; ?> Rooms
                 </span>
             </h3>
-            <div class="chart-container" style="height: 220px; position: relative;">
-                <canvas id="occupancyChart"></canvas>
-                <!-- Center Text for 2028 Design -->
+            <div class="chart-container" style="height: 200px; position: relative; display: flex; align-items: center; justify-content: center;">
+                <canvas id="occupancyChart" style="max-width: 200px; max-height: 200px;"></canvas>
+                <!-- Center Text - Perfectly Centered -->
                 <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center; pointer-events: none; z-index: 10;">
-                    <div style="font-size: 2.2rem; font-weight: 900; background: linear-gradient(135deg, #6366f1, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; line-height: 1; letter-spacing: -1px; filter: drop-shadow(0 4px 12px rgba(99, 102, 241, 0.3));">
+                    <div style="font-size: 2rem; font-weight: 900; background: linear-gradient(135deg, #6366f1, #8b5cf6); -webkit-background-clip: text; -webkit-text-fill-color: transparent; background-clip: text; line-height: 1; letter-spacing: -1px;">
                         <?php echo $stats['occupancy_rate']; ?>%
                     </div>
-                    <div style="font-size: 0.75rem; font-weight: 700; color: var(--text-secondary); margin-top: 4px; text-transform: uppercase; letter-spacing: 1px;">
+                    <div style="font-size: 0.7rem; font-weight: 700; color: var(--text-secondary); margin-top: 2px; text-transform: uppercase; letter-spacing: 0.5px;">
                         Occupied
                     </div>
                 </div>
             </div>
-        </div>
-    </div>
-
-    <!-- Premium Revenue Status Section - Below Pie Chart -->
-    <div class="revenue-premium-container">
-        <div class="revenue-header">
-            <h2 class="revenue-title">
-                <span class="revenue-icon">💎</span>
-                Revenue Overview
-            </h2>
-            <p class="revenue-subtitle">Real-time financial performance tracking</p>
+            <!-- Legend -->
+            <div style="display: flex; justify-content: center; gap: 1.5rem; margin-top: 0.75rem; font-size: 0.75rem;">
+                <div style="display: flex; align-items: center; gap: 0.4rem;">
+                    <span style="width: 10px; height: 10px; background: #10b981; border-radius: 50%;"></span>
+                    <span>TERISI (<?php echo $stats['occupied_rooms']; ?>)</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.4rem;">
+                    <span style="width: 10px; height: 10px; background: #818cf8; border-radius: 50%;"></span>
+                    <span>KOSONG (<?php echo $stats['available_rooms']; ?>)</span>
+                </div>
+            </div>
         </div>
         
-        <div class="revenue-cards-grid">
+        <!-- RIGHT: Revenue Overview -->
+        <div class="revenue-premium-container" style="margin: 0; padding: 1rem;">
+            <div class="revenue-header" style="margin-bottom: 0.75rem;">
+                <h2 class="revenue-title" style="font-size: 1rem; margin: 0;">
+                    <span class="revenue-icon">💎</span>
+                    Revenue Overview
+                </h2>
+                <p class="revenue-subtitle" style="font-size: 0.7rem; margin: 0.25rem 0 0 0;">Real-time financial performance tracking</p>
+            </div>
+            
+            <div class="revenue-cards-grid" style="grid-template-columns: repeat(3, 1fr); gap: 0.75rem;">
             <!-- Actual Revenue Card -->
             <div class="revenue-card revenue-card-actual">
                 <div class="revenue-card-header">
@@ -1445,37 +1484,74 @@ include '../../includes/header.php';
                     </div>
                 </div>
             </div>
-
-            <!-- Total Revenue Card -->
-            <div class="revenue-card revenue-card-total">
-                <div class="revenue-card-header">
-                    <div class="revenue-card-icon">
-                        <span>🏆</span>
-                    </div>
-                    <div class="revenue-card-badge revenue-badge-total">Combined</div>
-                </div>
-                <div class="revenue-card-body">
-                    <p class="revenue-card-label">Total Potential</p>
-                    <h3 class="revenue-card-amount">
-                        Rp <?php echo number_format($stats['revenue_today'] + $stats['expected_revenue'], 0, ',', '.'); ?>
-                    </h3>
-                    <p class="revenue-card-desc">Actual + Expected revenue</p>
-                </div>
-                <div class="revenue-card-footer">
-                    <div class="revenue-stats-mini">
-                        <div class="revenue-stat-item">
-                            <span class="stat-mini-icon">✅</span>
-                            <span class="stat-mini-value"><?php echo $stats['expected_revenue'] > 0 ? round(($stats['revenue_today'] / ($stats['revenue_today'] + $stats['expected_revenue'])) * 100, 1) : 0; ?>%</span>
-                        </div>
-                        <div class="revenue-stat-item">
-                            <span class="stat-mini-icon">⏳</span>
-                            <span class="stat-mini-value"><?php echo $stats['expected_revenue'] > 0 ? round(($stats['expected_revenue'] / ($stats['revenue_today'] + $stats['expected_revenue'])) * 100, 1) : 0; ?>%</span>
-                        </div>
-                    </div>
-                </div>
             </div>
         </div>
     </div>
+    <!-- End Premium Dashboard Grid -->
+
+    <!-- Checkout Guests Today - Detail Section -->
+    <?php if (!empty($stats['checkout_guests'])): ?>
+    <div class="checkout-section" style="background: linear-gradient(135deg, rgba(245, 158, 11, 0.08), rgba(251, 191, 36, 0.05)); border: 1px solid rgba(245, 158, 11, 0.2); border-radius: 14px; padding: 1rem; margin-bottom: 1rem;">
+        <h3 style="font-size: 0.9rem; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem; color: #b45309;">
+            👋 Check-out Today
+            <span style="font-size: 0.65rem; background: rgba(245, 158, 11, 0.15); color: #d97706; padding: 0.2rem 0.6rem; border-radius: 20px; font-weight: 600;">
+                <?php echo count($stats['checkout_guests']); ?> Tamu
+            </span>
+        </h3>
+        <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem;">
+                <thead>
+                    <tr style="background: rgba(245, 158, 11, 0.1);">
+                        <th style="padding: 0.6rem 0.75rem; text-align: left; font-weight: 600; color: #92400e; border-bottom: 1px solid rgba(245, 158, 11, 0.2);">Tamu</th>
+                        <th style="padding: 0.6rem 0.75rem; text-align: center; font-weight: 600; color: #92400e; border-bottom: 1px solid rgba(245, 158, 11, 0.2);">Room</th>
+                        <th style="padding: 0.6rem 0.75rem; text-align: center; font-weight: 600; color: #92400e; border-bottom: 1px solid rgba(245, 158, 11, 0.2);">Tipe</th>
+                        <th style="padding: 0.6rem 0.75rem; text-align: center; font-weight: 600; color: #92400e; border-bottom: 1px solid rgba(245, 158, 11, 0.2);">Check-out</th>
+                        <th style="padding: 0.6rem 0.75rem; text-align: right; font-weight: 600; color: #92400e; border-bottom: 1px solid rgba(245, 158, 11, 0.2);">Total</th>
+                        <th style="padding: 0.6rem 0.75rem; text-align: right; font-weight: 600; color: #92400e; border-bottom: 1px solid rgba(245, 158, 11, 0.2);">Dibayar</th>
+                        <th style="padding: 0.6rem 0.75rem; text-align: center; font-weight: 600; color: #92400e; border-bottom: 1px solid rgba(245, 158, 11, 0.2);">Status</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($stats['checkout_guests'] as $guest): 
+                        $remaining = $guest['final_price'] - $guest['paid_amount'];
+                        $isPaid = $remaining <= 0;
+                    ?>
+                    <tr style="border-bottom: 1px solid rgba(245, 158, 11, 0.1);">
+                        <td style="padding: 0.6rem 0.75rem;">
+                            <div style="font-weight: 600; color: var(--text-primary);"><?php echo htmlspecialchars($guest['guest_name']); ?></div>
+                            <div style="font-size: 0.7rem; color: var(--text-secondary);"><?php echo htmlspecialchars($guest['phone'] ?? '-'); ?></div>
+                        </td>
+                        <td style="padding: 0.6rem 0.75rem; text-align: center;">
+                            <span style="background: linear-gradient(135deg, #f59e0b, #fbbf24); color: white; padding: 0.25rem 0.6rem; border-radius: 6px; font-weight: 700; font-size: 0.75rem;">
+                                <?php echo htmlspecialchars($guest['room_number']); ?>
+                            </span>
+                        </td>
+                        <td style="padding: 0.6rem 0.75rem; text-align: center; font-size: 0.75rem; color: var(--text-secondary);">
+                            <?php echo htmlspecialchars($guest['room_type'] ?? '-'); ?>
+                        </td>
+                        <td style="padding: 0.6rem 0.75rem; text-align: center; font-size: 0.75rem;">
+                            <?php echo date('H:i', strtotime($guest['check_out_date'])); ?>
+                        </td>
+                        <td style="padding: 0.6rem 0.75rem; text-align: right; font-weight: 600;">
+                            Rp <?php echo number_format($guest['final_price'], 0, ',', '.'); ?>
+                        </td>
+                        <td style="padding: 0.6rem 0.75rem; text-align: right; color: #10b981; font-weight: 500;">
+                            Rp <?php echo number_format($guest['paid_amount'], 0, ',', '.'); ?>
+                        </td>
+                        <td style="padding: 0.6rem 0.75rem; text-align: center;">
+                            <?php if ($isPaid): ?>
+                                <span style="background: rgba(16, 185, 129, 0.1); color: #059669; padding: 0.2rem 0.5rem; border-radius: 6px; font-size: 0.7rem; font-weight: 600;">✅ LUNAS</span>
+                            <?php else: ?>
+                                <span style="background: rgba(239, 68, 68, 0.1); color: #dc2626; padding: 0.2rem 0.5rem; border-radius: 6px; font-size: 0.7rem; font-weight: 600;">⚠️ Rp <?php echo number_format($remaining, 0, ',', '.'); ?></span>
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <?php endif; ?>
 
     <!-- Statistics Widgets -->
     <div class="stats-grid">
