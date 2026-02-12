@@ -28,8 +28,45 @@ window.initiateEndShift = function initiateEndShift() {
         console.error('❌ Pop-up blocked!');
     } else {
         console.log('✅ Print report window opened successfully');
+        
+        // Send notification to owner/admin
+        sendEndShiftNotificationToOwner();
     }
 };
+
+// Send notification to owner when end-shift is done
+async function sendEndShiftNotificationToOwner() {
+    try {
+        // Fetch today's summary
+        const response = await fetch(BASE_URL + '/api/end-shift.php');
+        const result = await response.json();
+        
+        if (result.status === 'success') {
+            const data = result.data;
+            
+            // Send notification via API
+            await fetch(BASE_URL + '/api/send-notification.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    type: 'end_shift',
+                    data: {
+                        cashier_name: data.user?.name || window.APP_USER_NAME || 'Kasir',
+                        total_sales: data.daily_report?.total_income || 0,
+                        total_expense: data.daily_report?.total_expense || 0,
+                        net_balance: data.daily_report?.net_balance || 0,
+                        transaction_count: data.daily_report?.transaction_count || 0,
+                        date: data.daily_report?.date || new Date().toISOString().split('T')[0]
+                    }
+                })
+            });
+            
+            console.log('📨 End-shift notification sent to owner');
+        }
+    } catch (e) {
+        console.log('Notification send failed:', e);
+    }
+}
 
 function showLoadingModal(message) {
     let modal = document.getElementById('loadingModal');

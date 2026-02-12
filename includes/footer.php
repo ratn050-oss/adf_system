@@ -20,6 +20,65 @@
    <!-- Main JavaScript -->
    <script src="<?php echo BASE_URL; ?>/assets/js/main.js?v=<?php echo time(); ?>"></script>
    
+   <!-- Push Notifications -->
+   <script src="<?php echo BASE_URL; ?>/assets/js/notifications.js?v=<?php echo time(); ?>"></script>
+   <script>
+       // Initialize notification polling for owner/admin
+       <?php 
+       $userRole = $_SESSION['role'] ?? '';
+       $isOwnerAdmin = in_array($userRole, ['owner', 'admin', 'developer']);
+       ?>
+       <?php if ($isOwnerAdmin): ?>
+       (function() {
+           let lastNotificationCount = 0;
+           
+           // Check for new notifications every 30 seconds
+           async function checkNotifications() {
+               try {
+                   const response = await fetch('<?php echo BASE_URL; ?>/api/get-notifications.php');
+                   const data = await response.json();
+                   
+                   if (data.success && data.unread_count > lastNotificationCount) {
+                       // New notification arrived
+                       const newNotifs = data.notifications.slice(0, data.unread_count - lastNotificationCount);
+                       
+                       for (const notif of newNotifs) {
+                           if (window.NotificationManager && window.NotificationManager.isEnabled()) {
+                               await window.NotificationManager.showNotification(notif.title, {
+                                   body: notif.message,
+                                   tag: 'notif-' + notif.id,
+                                   data: notif.data
+                               });
+                           }
+                       }
+                       
+                       // Update badge
+                       updateNotificationBadge(data.unread_count);
+                   }
+                   
+                   lastNotificationCount = data.unread_count;
+               } catch (e) {
+                   console.log('Notification check failed:', e);
+               }
+           }
+           
+           function updateNotificationBadge(count) {
+               const badge = document.getElementById('notification-badge');
+               if (badge) {
+                   badge.textContent = count;
+                   badge.style.display = count > 0 ? 'inline-block' : 'none';
+               }
+           }
+           
+           // Check every 30 seconds
+           setInterval(checkNotifications, 30000);
+           
+           // Initial check
+           setTimeout(checkNotifications, 2000);
+       })();
+       <?php endif; ?>
+   </script>
+   
    <!-- End Shift Feature -->
    <script>
        // Inject BASE_URL for end-shift.js (define once)
