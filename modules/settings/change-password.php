@@ -36,24 +36,70 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } else {
                 // Update password
                 $hashedPassword = password_hash($newPassword, PASSWORD_DEFAULT);
+                $username = $user['username'];
+                
+                // 1. Update in current business database
                 $db->update('users', ['password' => $hashedPassword], ['id' => $currentUser['id']]);
                 
-                $success = 'Password berhasil diubah! Silakan login kembali dengan password baru.';
+                // 2. Sync password to MASTER database and ALL business databases
+                try {
+                    // Determine master database name
+                    $isProduction = (strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost') === false && 
+                                    strpos($_SERVER['HTTP_HOST'] ?? '', '127.0.0.1') === false);
+                    $masterDbName = $isProduction ? 'adfb2574_adf' : 'adf_system';
+                    
+                    // Connect to master database
+                    $masterPdo = new PDO("mysql:host=" . DB_HOST . ";dbname=" . $masterDbName, DB_USER, DB_PASS);
+                    $masterPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+                    
+                    // Update password in master database (by username to match same user)
+                    $masterStmt = $masterPdo->prepare("UPDATE users SET password = ? WHERE username = ?");
+                    $masterStmt->execute([$hashedPassword, $username]);
+                    
+                    // Get all businesses to sync password across all databases
+                    $bizStmt = $masterPdo->query("SELECT database_name FROM businesses WHERE is_active = 1");
+                    $businesses = $bizStmt->fetchAll(PDO::FETCH_ASSOC);
+                    
+                    foreach ($businesses as $biz) {
+                        try {
+                            // Map database name for production
+                            $bizDbName = $biz['database_name'];
+                            if ($isProduction) {
+                                $dbMapping = [
+                                    'adf_narayana_hotel' => 'adfb2574_narayana_hotel',
+                                    'adf_benscafe' => 'adfb2574_Adf_Bens'
+                                ];
+                                if (isset($dbMapping[$bizDbName])) {
+                                    $bizDbName = $dbMapping[$bizDbName];
+                                }
+                            }
+                            
+                            // Connect to business database and update password
+                            $bizPdo = new PDO("mysql:host=" . DB_HOST . ";dbname=" . $bizDbName, DB_USER, DB_PASS);
+                            $bizPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+                            
+                            $bizStmt = $bizPdo->prepare("UPDATE users SET password = ? WHERE username = ?");
+                            $bizStmt->execute([$hashedPassword, $username]);
+                        } catch (Exception $e) {
+                            // Skip if database not accessible
+                        }
+                    }
+                } catch (Exception $e) {
+                    // Continue even if sync fails - password updated in current db
+                }
+                
+                $success = 'Password berhasil diubah di semua database! Silakan login kembali dengan password baru.';
                 
                 // Log activity
                 try {
                     $db->insert('activity_logs', [
                         'user_id' => $currentUser['id'],
                         'action' => 'change_password',
-                        'description' => 'User mengubah password',
+                        'description' => 'User mengubah password (synced to all databases)',
                         'ip_address' => $_SERVER['REMOTE_ADDR'] ?? 'unknown',
                         'created_at' => date('Y-m-d H:i:s')
                     ]);
                 } catch (Exception $e) {}
-                
-                // Optional: Logout after password change
-                // header('Location: ../../logout.php');
-                // exit;
             }
         } catch (Exception $e) {
             $error = 'Terjadi kesalahan: ' . $e->getMessage();

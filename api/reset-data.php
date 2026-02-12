@@ -25,160 +25,274 @@ if (empty($resetType)) {
     exit;
 }
 
+/**
+ * Helper function to check if table exists
+ */
+function tableExists($conn, $tableName) {
+    try {
+        $result = $conn->query("SHOW TABLES LIKE '{$tableName}'");
+        return $result->rowCount() > 0;
+    } catch (Exception $e) {
+        return false;
+    }
+}
+
+/**
+ * Helper function to check if column exists in table
+ */
+function columnExists($conn, $tableName, $columnName) {
+    try {
+        $result = $conn->query("SHOW COLUMNS FROM `{$tableName}` LIKE '{$columnName}'");
+        return $result->rowCount() > 0;
+    } catch (Exception $e) {
+        return false;
+    }
+}
+
+/**
+ * Helper function to safely delete data from a table
+ */
+function safeDelete($conn, $table, $where = null, $params = []) {
+    if (!tableExists($conn, $table)) {
+        return ['deleted' => 0, 'error' => "Table {$table} tidak ditemukan"];
+    }
+    
+    try {
+        // Count first
+        $countSql = "SELECT COUNT(*) FROM `{$table}`" . ($where ? " WHERE {$where}" : "");
+        $stmt = $conn->prepare($countSql);
+        $stmt->execute($params);
+        $count = $stmt->fetchColumn();
+        
+        // Delete
+        $deleteSql = "DELETE FROM `{$table}`" . ($where ? " WHERE {$where}" : "");
+        $stmt = $conn->prepare($deleteSql);
+        $stmt->execute($params);
+        
+        return ['deleted' => $count, 'error' => null];
+    } catch (Exception $e) {
+        return ['deleted' => 0, 'error' => $e->getMessage()];
+    }
+}
+
 try {
     $db = Database::getInstance();
     $conn = $db->getConnection();
     
     $deletedCount = 0;
     $tables = [];
+    $errors = [];
+    $businessId = defined('ACTIVE_BUSINESS_ID') ? ACTIVE_BUSINESS_ID : null;
     
     switch ($resetType) {
         case 'accounting':
-            // Reset cash_book table ONLY untuk active business
-            $stmt = $conn->prepare("SELECT COUNT(*) FROM cash_book WHERE business_id = :business_id");
-            $stmt->execute(['business_id' => ACTIVE_BUSINESS_ID]);
-            $deletedCount = $stmt->fetchColumn();
+            // Reset cash_book table
+            if ($businessId && tableExists($conn, 'cash_book') && columnExists($conn, 'cash_book', 'business_id')) {
+                $result = safeDelete($conn, 'cash_book', 'business_id = :business_id', ['business_id' => $businessId]);
+            } else {
+                $result = safeDelete($conn, 'cash_book');
+            }
+            $deletedCount = $result['deleted'];
+            if ($result['error']) $errors[] = $result['error'];
+            $tables[] = 'cash_book';
+            $message = "Data accounting berhasil direset. {$deletedCount} transaksi dihapus.";
+            break;
             
-            $stmt = $conn->prepare("DELETE FROM cash_book WHERE business_id = :business_id");
-            $stmt->execute(['business_id' => ACTIVE_BUSINESS_ID]);
+        case 'bookings':
+            // Reset bookings/reservations
+            $bookingTables = ['bookings', 'reservations', 'booking_extras', 'booking_payments'];
+            foreach ($bookingTables as $table) {
+                if ($businessId && tableExists($conn, $table) && columnExists($conn, $table, 'business_id')) {
+                    $result = safeDelete($conn, $table, 'business_id = :business_id', ['business_id' => $businessId]);
+                } else {
+                    $result = safeDelete($conn, $table);
+                }
+                $deletedCount += $result['deleted'];
+                if ($result['error'] && strpos($result['error'], 'tidak ditemukan') === false) {
+                    $errors[] = $result['error'];
+                }
+                if (tableExists($conn, $table)) $tables[] = $table;
+            }
+            $message = "Data booking/reservasi berhasil direset. {$deletedCount} record dihapus.";
+            break;
             
-            $tables = ['cash_book (bisnis aktif saja)'];
-            $message = "Data accounting untuk bisnis ini berhasil direset. {$deletedCount} transaksi dihapus.";
+        case 'invoices':
+            // Reset invoices
+            $invoiceTables = ['invoices', 'invoice_items', 'invoice_payments'];
+            foreach ($invoiceTables as $table) {
+                if ($businessId && tableExists($conn, $table) && columnExists($conn, $table, 'business_id')) {
+                    $result = safeDelete($conn, $table, 'business_id = :business_id', ['business_id' => $businessId]);
+                } else {
+                    $result = safeDelete($conn, $table);
+                }
+                $deletedCount += $result['deleted'];
+                if ($result['error'] && strpos($result['error'], 'tidak ditemukan') === false) {
+                    $errors[] = $result['error'];
+                }
+                if (tableExists($conn, $table)) $tables[] = $table;
+            }
+            $message = "Data invoice berhasil direset. {$deletedCount} record dihapus.";
+            break;
+            
+        case 'procurement':
+            // Reset PO & Procurement
+            $poTables = ['purchase_orders', 'purchase_order_items', 'goods_receipts', 'goods_receipt_items'];
+            foreach ($poTables as $table) {
+                if ($businessId && tableExists($conn, $table) && columnExists($conn, $table, 'business_id')) {
+                    $result = safeDelete($conn, $table, 'business_id = :business_id', ['business_id' => $businessId]);
+                } else {
+                    $result = safeDelete($conn, $table);
+                }
+                $deletedCount += $result['deleted'];
+                if ($result['error'] && strpos($result['error'], 'tidak ditemukan') === false) {
+                    $errors[] = $result['error'];
+                }
+                if (tableExists($conn, $table)) $tables[] = $table;
+            }
+            $message = "Data procurement (PO) berhasil direset. {$deletedCount} record dihapus.";
+            break;
+            
+        case 'inventory':
+            // Reset inventory/stock
+            $invTables = ['inventory', 'stock_movements', 'stock_adjustments'];
+            foreach ($invTables as $table) {
+                if ($businessId && tableExists($conn, $table) && columnExists($conn, $table, 'business_id')) {
+                    $result = safeDelete($conn, $table, 'business_id = :business_id', ['business_id' => $businessId]);
+                } else {
+                    $result = safeDelete($conn, $table);
+                }
+                $deletedCount += $result['deleted'];
+                if ($result['error'] && strpos($result['error'], 'tidak ditemukan') === false) {
+                    $errors[] = $result['error'];
+                }
+                if (tableExists($conn, $table)) $tables[] = $table;
+            }
+            $message = "Data inventory berhasil direset. {$deletedCount} record dihapus.";
             break;
             
         case 'employees':
-            // Reset employees table - ONLY untuk active business jika ada business_id
-            $tableInfo = $conn->query("DESCRIBE employees")->fetchAll();
-            $hasBusiness = false;
-            foreach ($tableInfo as $col) {
-                if ($col['Field'] === 'business_id') {
-                    $hasBusiness = true;
-                    break;
-                }
-            }
-            
-            if ($hasBusiness) {
-                $stmt = $conn->prepare("SELECT COUNT(*) FROM employees WHERE business_id = :business_id");
-                $stmt->execute(['business_id' => ACTIVE_BUSINESS_ID]);
-                $deletedCount = $stmt->fetchColumn();
-                
-                $stmt = $conn->prepare("DELETE FROM employees WHERE business_id = :business_id");
-                $stmt->execute(['business_id' => ACTIVE_BUSINESS_ID]);
-                $tables = ['employees (bisnis aktif saja)'];
-                $message = "Data karyawan untuk bisnis ini berhasil direset. {$deletedCount} karyawan dihapus.";
+            // Reset employees
+            if ($businessId && tableExists($conn, 'employees') && columnExists($conn, 'employees', 'business_id')) {
+                $result = safeDelete($conn, 'employees', 'business_id = :business_id', ['business_id' => $businessId]);
             } else {
-                // No business_id column, reset all
-                $stmt = $conn->query("SELECT COUNT(*) FROM employees");
-                $deletedCount = $stmt->fetchColumn();
-                $conn->exec("TRUNCATE TABLE employees");
-                $tables = ['employees'];
-                $message = "Data karyawan berhasil direset. {$deletedCount} karyawan dihapus.";
+                $result = safeDelete($conn, 'employees');
             }
+            $deletedCount = $result['deleted'];
+            if ($result['error']) $errors[] = $result['error'];
+            $tables[] = 'employees';
+            $message = "Data karyawan berhasil direset. {$deletedCount} karyawan dihapus.";
             break;
             
         case 'users':
-            // Reset users table (except admin)
-            $stmt = $conn->prepare("SELECT COUNT(*) FROM users WHERE role != 'admin'");
-            $stmt->execute();
-            $deletedCount = $stmt->fetchColumn();
-            
-            $stmt = $conn->prepare("DELETE FROM users WHERE role != 'admin'");
-            $stmt->execute();
-            $tables = ['users'];
+            // Reset users (except admin)
+            $result = safeDelete($conn, 'users', "role != 'admin'");
+            $deletedCount = $result['deleted'];
+            if ($result['error']) $errors[] = $result['error'];
+            $tables[] = 'users';
             $message = "Data user berhasil direset. {$deletedCount} user (selain admin) dihapus.";
             break;
             
         case 'guests':
-            // Reset guests table - ONLY untuk active business jika ada business_id
-            $tableInfo = $conn->query("DESCRIBE guests")->fetchAll();
-            $hasBusiness = false;
-            foreach ($tableInfo as $col) {
-                if ($col['Field'] === 'business_id') {
-                    $hasBusiness = true;
-                    break;
-                }
-            }
-            
-            if ($hasBusiness) {
-                $stmt = $conn->prepare("SELECT COUNT(*) FROM guests WHERE business_id = :business_id");
-                $stmt->execute(['business_id' => ACTIVE_BUSINESS_ID]);
-                $deletedCount = $stmt->fetchColumn();
-                
-                $stmt = $conn->prepare("DELETE FROM guests WHERE business_id = :business_id");
-                $stmt->execute(['business_id' => ACTIVE_BUSINESS_ID]);
-                $tables = ['guests (bisnis aktif saja)'];
-                $message = "Data tamu untuk bisnis ini berhasil direset. {$deletedCount} tamu dihapus.";
+            // Reset guests
+            if ($businessId && tableExists($conn, 'guests') && columnExists($conn, 'guests', 'business_id')) {
+                $result = safeDelete($conn, 'guests', 'business_id = :business_id', ['business_id' => $businessId]);
             } else {
-                // No business_id column, reset all
-                $stmt = $conn->query("SELECT COUNT(*) FROM guests");
-                $deletedCount = $stmt->fetchColumn();
-                $conn->exec("TRUNCATE TABLE guests");
-                $tables = ['guests'];
-                $message = "Data tamu berhasil direset. {$deletedCount} tamu dihapus.";
+                $result = safeDelete($conn, 'guests');
             }
+            $deletedCount = $result['deleted'];
+            if ($result['error']) $errors[] = $result['error'];
+            $tables[] = 'guests';
+            $message = "Data tamu berhasil direset. {$deletedCount} tamu dihapus.";
             break;
             
-        case 'all':
-            // Reset everything EXCEPT settings, divisions, categories - ONLY untuk active business
-            $deletedCount = 0;
-            
-            // Reset cash_book untuk active business
-            $stmt = $conn->prepare("SELECT COUNT(*) FROM cash_book WHERE business_id = :business_id");
-            $stmt->execute(['business_id' => ACTIVE_BUSINESS_ID]);
-            $deletedCount += $stmt->fetchColumn();
-            $stmt = $conn->prepare("DELETE FROM cash_book WHERE business_id = :business_id");
-            $stmt->execute(['business_id' => ACTIVE_BUSINESS_ID]);
-            
-            // Reset employees jika ada business_id
-            $tableInfo = $conn->query("DESCRIBE employees")->fetchAll();
-            $employeeHasBusiness = false;
-            foreach ($tableInfo as $col) {
-                if ($col['Field'] === 'business_id') {
-                    $employeeHasBusiness = true;
-                    break;
+        case 'menu':
+            // Reset menu items (for cafe/restaurant)
+            $menuTables = ['menu_items', 'menu_categories'];
+            foreach ($menuTables as $table) {
+                if ($businessId && tableExists($conn, $table) && columnExists($conn, $table, 'business_id')) {
+                    $result = safeDelete($conn, $table, 'business_id = :business_id', ['business_id' => $businessId]);
+                } else {
+                    $result = safeDelete($conn, $table);
                 }
-            }
-            if ($employeeHasBusiness) {
-                $stmt = $conn->prepare("SELECT COUNT(*) FROM employees WHERE business_id = :business_id");
-                $stmt->execute(['business_id' => ACTIVE_BUSINESS_ID]);
-                $deletedCount += $stmt->fetchColumn();
-                $stmt = $conn->prepare("DELETE FROM employees WHERE business_id = :business_id");
-                $stmt->execute(['business_id' => ACTIVE_BUSINESS_ID]);
-            }
-            
-            // Reset guests jika ada business_id
-            $tableInfo = $conn->query("DESCRIBE guests")->fetchAll();
-            $guestHasBusiness = false;
-            foreach ($tableInfo as $col) {
-                if ($col['Field'] === 'business_id') {
-                    $guestHasBusiness = true;
-                    break;
+                $deletedCount += $result['deleted'];
+                if ($result['error'] && strpos($result['error'], 'tidak ditemukan') === false) {
+                    $errors[] = $result['error'];
                 }
+                if (tableExists($conn, $table)) $tables[] = $table;
             }
-            if ($guestHasBusiness) {
-                $stmt = $conn->prepare("SELECT COUNT(*) FROM guests WHERE business_id = :business_id");
-                $stmt->execute(['business_id' => ACTIVE_BUSINESS_ID]);
-                $deletedCount += $stmt->fetchColumn();
-                $stmt = $conn->prepare("DELETE FROM guests WHERE business_id = :business_id");
-                $stmt->execute(['business_id' => ACTIVE_BUSINESS_ID]);
-            }
+            $message = "Data menu berhasil direset. {$deletedCount} item dihapus.";
+            break;
             
-            $tables = ['cash_book', 'employees', 'guests', 'users (non-admin) - GLOBAL'];
-            $message = "Semua data untuk bisnis ini berhasil direset. Total {$deletedCount} record dihapus. (Users global tidak dihapus)";
+        case 'orders':
+            // Reset orders (for cafe/restaurant)
+            $orderTables = ['orders', 'order_items'];
+            foreach ($orderTables as $table) {
+                if ($businessId && tableExists($conn, $table) && columnExists($conn, $table, 'business_id')) {
+                    $result = safeDelete($conn, $table, 'business_id = :business_id', ['business_id' => $businessId]);
+                } else {
+                    $result = safeDelete($conn, $table);
+                }
+                $deletedCount += $result['deleted'];
+                if ($result['error'] && strpos($result['error'], 'tidak ditemukan') === false) {
+                    $errors[] = $result['error'];
+                }
+                if (tableExists($conn, $table)) $tables[] = $table;
+            }
+            $message = "Data orders berhasil direset. {$deletedCount} order dihapus.";
+            break;
+            
+        case 'reports':
+            // Reset shift reports
+            $reportTables = ['shift_reports', 'daily_reports', 'breakfast_records'];
+            foreach ($reportTables as $table) {
+                if ($businessId && tableExists($conn, $table) && columnExists($conn, $table, 'business_id')) {
+                    $result = safeDelete($conn, $table, 'business_id = :business_id', ['business_id' => $businessId]);
+                } else {
+                    $result = safeDelete($conn, $table);
+                }
+                $deletedCount += $result['deleted'];
+                if ($result['error'] && strpos($result['error'], 'tidak ditemukan') === false) {
+                    $errors[] = $result['error'];
+                }
+                if (tableExists($conn, $table)) $tables[] = $table;
+            }
+            $message = "Data reports berhasil direset. {$deletedCount} record dihapus.";
+            break;
+            
+        case 'logs':
+            // Reset activity logs
+            $logTables = ['activity_logs', 'audit_logs', 'system_logs'];
+            foreach ($logTables as $table) {
+                $result = safeDelete($conn, $table);
+                $deletedCount += $result['deleted'];
+                if (tableExists($conn, $table)) $tables[] = $table;
+            }
+            $message = "Data logs berhasil direset. {$deletedCount} log dihapus.";
             break;
             
         default:
             http_response_code(400);
-            echo json_encode(['success' => false, 'message' => 'Tipe reset tidak valid.']);
+            echo json_encode(['success' => false, 'message' => 'Tipe reset tidak valid: ' . $resetType]);
             exit;
     }
     
-    echo json_encode([
+    // Filter out empty tables
+    $tables = array_filter($tables, function($t) use ($conn) {
+        return tableExists($conn, $t);
+    });
+    
+    $response = [
         'success' => true,
         'message' => $message,
         'deleted_count' => $deletedCount,
-        'tables' => $tables
-    ]);
+        'tables' => array_values($tables)
+    ];
+    
+    if (!empty($errors)) {
+        $response['warnings'] = $errors;
+    }
+    
+    echo json_encode($response);
     
 } catch (Exception $e) {
     http_response_code(500);

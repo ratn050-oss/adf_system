@@ -221,10 +221,82 @@ include '../../includes/header.php';
                 <input type="checkbox" name="reset_type" value="accounting">
                 <div>
                     <div style="font-weight: 600; font-size: 0.875rem; color: var(--text-primary);">
-                        Data Accounting
+                        Data Accounting (Cash Book)
                     </div>
                     <div style="font-size: 0.75rem; color: var(--text-muted);">
-                        Hapus semua transaksi di cash book
+                        Hapus semua transaksi kas masuk & kas keluar
+                    </div>
+                </div>
+            </label>
+            
+            <label class="checkbox-label">
+                <input type="checkbox" name="reset_type" value="bookings">
+                <div>
+                    <div style="font-weight: 600; font-size: 0.875rem; color: var(--text-primary);">
+                        Data Booking / Reservasi
+                    </div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">
+                        Hapus semua data reservasi & booking tamu
+                    </div>
+                </div>
+            </label>
+            
+            <label class="checkbox-label">
+                <input type="checkbox" name="reset_type" value="invoices">
+                <div>
+                    <div style="font-weight: 600; font-size: 0.875rem; color: var(--text-primary);">
+                        Data Invoice
+                    </div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">
+                        Hapus semua invoice dan pembayaran
+                    </div>
+                </div>
+            </label>
+            
+            <label class="checkbox-label">
+                <input type="checkbox" name="reset_type" value="procurement">
+                <div>
+                    <div style="font-weight: 600; font-size: 0.875rem; color: var(--text-primary);">
+                        Data PO & Procurement
+                    </div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">
+                        Hapus semua Purchase Order & Goods Receipt
+                    </div>
+                </div>
+            </label>
+            
+            <label class="checkbox-label">
+                <input type="checkbox" name="reset_type" value="inventory">
+                <div>
+                    <div style="font-weight: 600; font-size: 0.875rem; color: var(--text-primary);">
+                        Data Inventory / Stok
+                    </div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">
+                        Hapus data stok barang dan movement
+                    </div>
+                </div>
+            </label>
+            
+            <label class="checkbox-label">
+                <input type="checkbox" name="reset_type" value="reports">
+                <div>
+                    <div style="font-weight: 600; font-size: 0.875rem; color: var(--text-primary);">
+                        Data Reports / Shift
+                    </div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">
+                        Hapus data shift reports, daily reports, breakfast records
+                    </div>
+                </div>
+            </label>
+            
+            <label class="checkbox-label">
+                <input type="checkbox" name="reset_type" value="guests">
+                <div>
+                    <div style="font-weight: 600; font-size: 0.875rem; color: var(--text-primary);">
+                        Data Tamu
+                    </div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">
+                        Hapus semua data tamu hotel
                     </div>
                 </div>
             </label>
@@ -254,13 +326,13 @@ include '../../includes/header.php';
             </label>
             
             <label class="checkbox-label">
-                <input type="checkbox" name="reset_type" value="guests">
+                <input type="checkbox" name="reset_type" value="logs">
                 <div>
                     <div style="font-weight: 600; font-size: 0.875rem; color: var(--text-primary);">
-                        Data Tamu
+                        Data Activity Logs
                     </div>
                     <div style="font-size: 0.75rem; color: var(--text-muted);">
-                        Hapus semua data tamu hotel
+                        Hapus semua log aktivitas sistem
                     </div>
                 </div>
             </label>
