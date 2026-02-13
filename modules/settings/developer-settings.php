@@ -182,6 +182,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['developer_logo'])) {
 include '../../includes/header.php';
 ?>
 
+<?php require_once '../../includes/business_helper.php'; ?>
+
+<?php
+$businesses = getAvailableBusinesses();
+$selectedBusiness = $_POST['reset_business_id'] ?? getActiveBusinessId();
+$resetResult = null;
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_data_submit'])) {
+    $resetTypes = $_POST['reset_type'] ?? [];
+    $selectedBusiness = $_POST['reset_business_id'] ?? getActiveBusinessId();
+    if (!empty($resetTypes) && isset($businesses[$selectedBusiness])) {
+        // Set session for business context
+        setActiveBusinessId($selectedBusiness);
+        $resetResult = [];
+        foreach ($resetTypes as $type) {
+            $ch = curl_init(BASE_URL . '/api/reset-data.php');
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+            curl_setopt($ch, CURLOPT_POST, 1);
+            curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
+            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(['reset_type' => $type]));
+            curl_setopt($ch, CURLOPT_COOKIE, session_name() . '=' . session_id());
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            curl_close($ch);
+            $resetResult[$type] = ['response' => $response, 'http' => $httpCode];
+        }
+    }
+}
+
 <style>
     .preview-box {
         background: var(--bg-secondary);
@@ -202,6 +230,61 @@ include '../../includes/header.php';
         padding: 0.5rem;
     }
 </style>
+
+<!-- RESET DATA (Developer) -->
+<div class="card" style="margin-top: 2rem;">
+    <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1.25rem;">
+        <div style="width: 36px; height: 36px; border-radius: var(--radius-md); background: linear-gradient(135deg, #ef4444, #f59e42); display: flex; align-items: center; justify-content: center;">
+            <i data-feather="trash-2" style="width: 18px; height: 18px; color: white;"></i>
+        </div>
+        <div>
+            <h3 style="font-size: 1.125rem; font-weight: 700; color: var(--text-primary); margin: 0;">Reset Data Bisnis</h3>
+            <p style="font-size: 0.813rem; color: var(--text-muted); margin: 0;">Hapus data tertentu untuk bisnis terpilih</p>
+        </div>
+    </div>
+    <form method="POST" onsubmit="return confirm('Yakin ingin reset data untuk bisnis ini? Data akan dihapus permanen!');">
+        <div class="form-group">
+            <label class="form-label">Pilih Bisnis</label>
+            <select name="reset_business_id" class="form-control" required>
+                <?php foreach ($businesses as $bid => $b): ?>
+                    <option value="<?php echo htmlspecialchars($bid); ?>" <?php if ($selectedBusiness == $bid) echo 'selected'; ?>><?php echo getBusinessDisplayName($bid); ?></option>
+                <?php endforeach; ?>
+            </select>
+        </div>
+        <div class="form-group" style="margin-top: 1rem;">
+            <label class="form-label">Pilih Data yang Direset</label>
+            <div class="checkbox-group">
+                <label class="checkbox-label"><input type="checkbox" name="reset_type[]" value="accounting"> Data Accounting</label>
+                <label class="checkbox-label"><input type="checkbox" name="reset_type[]" value="bookings"> Data Booking/Reservasi</label>
+                <label class="checkbox-label"><input type="checkbox" name="reset_type[]" value="invoices"> Data Invoice</label>
+                <label class="checkbox-label"><input type="checkbox" name="reset_type[]" value="procurement"> Data PO & Procurement</label>
+                <label class="checkbox-label"><input type="checkbox" name="reset_type[]" value="inventory"> Data Inventory</label>
+                <label class="checkbox-label"><input type="checkbox" name="reset_type[]" value="employees"> Data Karyawan</label>
+                <label class="checkbox-label"><input type="checkbox" name="reset_type[]" value="users"> Data User (non-admin)</label>
+                <label class="checkbox-label"><input type="checkbox" name="reset_type[]" value="guests"> Data Tamu</label>
+                <label class="checkbox-label"><input type="checkbox" name="reset_type[]" value="menu"> Data Menu</label>
+                <label class="checkbox-label"><input type="checkbox" name="reset_type[]" value="orders"> Data Orders</label>
+                <label class="checkbox-label"><input type="checkbox" name="reset_type[]" value="reports"> Data Reports</label>
+                <label class="checkbox-label"><input type="checkbox" name="reset_type[]" value="logs"> Data Logs</label>
+            </div>
+        </div>
+        <div style="margin-top: 1rem;">
+            <button type="submit" name="reset_data_submit" class="btn btn-danger" style="width: 100%; font-weight: 600;">Reset Data yang Dipilih</button>
+        </div>
+    </form>
+    <?php if ($resetResult !== null): ?>
+        <div style="margin-top: 1rem;">
+            <h4>Hasil Reset:</h4>
+            <ul style="font-size: 0.95em;">
+                <?php foreach ($resetResult as $type => $res): 
+                    $data = json_decode($res['response'], true);
+                ?>
+                    <li><b><?php echo htmlspecialchars($type); ?>:</b> <?php echo $res['http'] == 200 && !empty($data['success']) ? '✅ ' . htmlspecialchars($data['message']) : '❌ ' . ($data['message'] ?? 'Gagal'); ?></li>
+                <?php endforeach; ?>
+            </ul>
+        </div>
+    <?php endif; ?>
+</div>
 
 <!-- Page Header -->
 <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 1.5rem;">
