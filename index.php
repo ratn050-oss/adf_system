@@ -123,6 +123,52 @@ $allTimeCashResult = $db->fetchOne(
 $totalRealCash = $allTimeCashResult['balance'] ?? 0;
 
 // ============================================
+// KAS MODAL OWNER (This Month) - From Master DB
+// ============================================
+try {
+    // Get owner capital account from master database
+    $masterDb = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
+    $masterDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    
+    $businessId = ACTIVE_BUSINESS_ID;
+    
+    // Get capital account ID
+    $stmt = $masterDb->prepare("SELECT id FROM cash_accounts WHERE business_id = ? AND account_type = 'owner_capital' AND is_default_account = 1 LIMIT 1");
+    $stmt->execute([$businessId]);
+    $capitalAccount = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    $capitalStats = [
+        'received' => 0,
+        'used' => 0,
+        'balance' => 0
+    ];
+    
+    if ($capitalAccount) {
+        $accountId = $capitalAccount['id'];
+        
+        // Get this month's stats
+        $stmt = $masterDb->prepare("
+            SELECT 
+                SUM(CASE WHEN transaction_type = 'capital_injection' THEN amount ELSE 0 END) as received,
+                SUM(CASE WHEN transaction_type = 'expense' THEN amount ELSE 0 END) as used,
+                SUM(CASE WHEN transaction_type = 'capital_injection' THEN amount ELSE -amount END) as balance
+            FROM cash_account_transactions 
+            WHERE cash_account_id = ? 
+            AND DATE_FORMAT(transaction_date, '%Y-%m') = ?
+        ");
+        $stmt->execute([$accountId, $thisMonth]);
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        $capitalStats['received'] = $result['received'] ?? 0;
+        $capitalStats['used'] = $result['used'] ?? 0;
+        $capitalStats['balance'] = $result['balance'] ?? 0;
+    }
+} catch (Exception $e) {
+    error_log("Error fetching capital stats: " . $e->getMessage());
+    $capitalStats = ['received' => 0, 'used' => 0, 'balance' => 0];
+}
+
+// ============================================
 // TOP DIVISIONS (This Month)
 // ============================================
 $topDivisions = $db->fetchAll(
@@ -428,6 +474,68 @@ if ($trialStatus) {
             </div>
             <div style="font-size: 0.688rem; color: var(--success);">📈 Pemasukan</div>
         </div>
+    </div>
+</div>
+
+<!-- KAS MODAL OWNER Widget -->
+<div class="card fade-in" style="margin-bottom: 1.25rem; background: linear-gradient(135deg, #fff5f5 0%, #ffe4e6 100%); border: 2px solid #fbbf24;">
+    <div style="padding: 1rem;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+            <h3 style="font-size: 1rem; color: #7c2d12; font-weight: 700; display: flex; align-items: center; gap: 0.5rem; margin: 0;">
+                <span style="font-size: 1.5rem;">💰</span>
+                Kas Modal Owner - <?php echo date('F Y'); ?>
+            </h3>
+            <a href="modules/owner/owner-capital-monitor.php" style="padding: 0.5rem 1rem; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); color: white; border-radius: 8px; text-decoration: none; font-size: 0.813rem; font-weight: 600; transition: all 0.3s ease;" onmouseover="this.style.transform='translateY(-2px)'" onmouseout="this.style.transform='translateY(0)'">
+                <i data-feather="external-link" style="width: 14px; height: 14px; margin-right: 4px;"></i>
+                Detail Monitor
+            </a>
+        </div>
+        
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem;">
+            <!-- Modal Diterima -->
+            <div style="background: linear-gradient(135deg, #dcfce7 0%, #bbf7d0 100%); padding: 0.875rem; border-radius: 8px; border-left: 4px solid #10b981;">
+                <div style="font-size: 0.688rem; color: #065f46; font-weight: 600; margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.05em;">💵 Modal Diterima</div>
+                <div style="font-size: 1.25rem; font-weight: 800; color: #10b981;">
+                    <?php echo formatCurrency($capitalStats['received']); ?>
+                </div>
+                <div style="font-size: 0.65rem; color: #059669; margin-top: 0.25rem;">Setoran owner bulan ini</div>
+            </div>
+            
+            <!-- Modal Digunakan -->
+            <div style="background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%); padding: 0.875rem; border-radius: 8px; border-left: 4px solid #ef4444;">
+                <div style="font-size: 0.688rem; color: #7f1d1d; font-weight: 600; margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.05em;">💸 Modal Digunakan</div>
+                <div style="font-size: 1.25rem; font-weight: 800; color: #ef4444;">
+                    <?php echo formatCurrency($capitalStats['used']); ?>
+                </div>
+                <div style="font-size: 0.65rem; color: #dc2626; margin-top: 0.25rem;">Pengeluaran dari modal</div>
+            </div>
+            
+            <!-- Saldo Modal -->
+            <div style="background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%); padding: 0.875rem; border-radius: 8px; border-left: 4px solid #3b82f6;">
+                <div style="font-size: 0.688rem; color: #1e3a8a; font-weight: 600; margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.05em;">💎 Saldo Modal</div>
+                <div style="font-size: 1.25rem; font-weight: 800; color: #3b82f6;">
+                    <?php echo formatCurrency($capitalStats['balance']); ?>
+                </div>
+                <div style="font-size: 0.65rem; color: #2563eb; margin-top: 0.25rem;">
+                    <?php 
+                    if ($capitalStats['received'] > 0) {
+                        $efficiency = ($capitalStats['used'] / $capitalStats['received']) * 100;
+                        echo sprintf('Efisiensi: %.1f%%', $efficiency);
+                    } else {
+                        echo 'Belum ada setoran';
+                    }
+                    ?>
+                </div>
+            </div>
+        </div>
+        
+        <?php if ($capitalStats['balance'] < 0): ?>
+        <div style="margin-top: 0.75rem; padding: 0.625rem; background: #fef2f2; border-left: 4px solid #ef4444; border-radius: 4px;">
+            <div style="font-size: 0.75rem; color: #991b1b; font-weight: 600;">
+                ⚠️ Peringatan: Saldo modal negatif! Modal sudah habis.
+            </div>
+        </div>
+        <?php endif; ?>
     </div>
 </div>
 
