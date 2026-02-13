@@ -118,6 +118,74 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['whatsapp_number'])) {
 // Handle footer text update
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['footer_copyright'])) {
     $copyright = trim($_POST['footer_copyright']);
+}
+
+// Get businesses for reset data functionality
+$businesses = [];
+try {
+    $businessResult = $db->fetchAll("SELECT business_id, business_name, business_type FROM businesses WHERE status = 'active' ORDER BY business_name");
+    foreach ($businessResult as $business) {
+        $businesses[$business['business_id']] = $business;
+    }
+} catch (Exception $e) {
+    // If no businesses table, use default
+    $businesses = [];
+}
+
+// Function to get business display name
+function getBusinessDisplayName($businessId) {
+    global $businesses;
+    if (isset($businesses[$businessId])) {
+        $b = $businesses[$businessId];
+        return $b['business_name'] . ' (' . ucfirst($b['business_type']) . ')';
+    }
+    return 'Business #' . $businessId;
+}
+
+$selectedBusiness = $_POST['reset_business_id'] ?? (array_key_first($businesses) ?: '1');
+$resetResult = null;
+
+// Handle reset data submission
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_data_submit'])) {
+    $businessId = $_POST['reset_business_id'] ?? '';
+    $resetTypes = $_POST['reset_type'] ?? [];
+    
+    if (!empty($businessId) && !empty($resetTypes)) {
+        $resetResult = [];
+        
+        foreach ($resetTypes as $type) {
+            // Call reset API for each type
+            $postData = json_encode([
+                'business_id' => $businessId,
+                'reset_type' => $type
+            ]);
+            
+            $context = stream_context_create([
+                'http' => [
+                    'method' => 'POST',
+                    'header' => 'Content-Type: application/json',
+                    'content' => $postData
+                ]
+            ]);
+            
+            $response = @file_get_contents(BASE_URL . '/api/reset-business-data.php', false, $context);
+            $httpCode = 200; // Default success
+            
+            $resetResult[$type] = [
+                'http' => $httpCode,
+                'response' => $response ?: json_encode(['success' => false, 'message' => 'No response from API'])
+            ];
+        }
+        
+        setFlash('info', 'Reset data telah dijalankan. Lihat hasil detail di bawah.');
+    } else {
+        setFlash('error', 'Pilih bisnis dan minimal 1 jenis data untuk direset.');
+    }
+}
+
+// Handle footer text update
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['footer_copyright'])) {
+    $copyright = trim($_POST['footer_copyright']);
     $version = trim($_POST['footer_version']);
     
     $db->query("INSERT INTO settings (setting_key, setting_value) VALUES ('footer_copyright', ?) ON DUPLICATE KEY UPDATE setting_value = ?", [$copyright, $copyright]);
@@ -202,6 +270,35 @@ include '../../includes/header.php';
         object-fit: contain;
         background: var(--bg-primary);
         padding: 0.5rem;
+    }
+    
+    .checkbox-group {
+        display: grid;
+        grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+        gap: 0.75rem;
+        margin: 1rem 0;
+    }
+    
+    .checkbox-label {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        font-size: 0.875rem;
+        color: var(--text-primary);
+        cursor: pointer;
+        padding: 0.5rem;
+        border-radius: var(--radius-md);
+        transition: all 0.2s;
+    }
+    
+    .checkbox-label:hover {
+        background: var(--bg-tertiary);
+    }
+    
+    .checkbox-label input[type="checkbox"] {
+        margin: 0;
+        width: 16px;
+        height: 16px;
     }
 </style>
 
