@@ -98,11 +98,66 @@ if (isPost()) {
                 'is_editable' => 1
             ];
             
-            if ($db->insert('cash_book', $data)) {
-                setFlash('success', 'Transaksi berhasil ditambahkan!');
-                redirect(BASE_URL . '/modules/cashbook/index.php');
-            } else {
-                setFlash('error', 'Gagal menambahkan transaksi!');
+            // Start transaction for atomic operation
+            $db->beginTransaction();
+            
+            try {
+                // Insert to cash_book (business database)
+                if ($db->insert('cash_book', $data)) {
+                    $transactionId = $db->getConnection()->lastInsertId();
+                    
+                    // If user selected a cash account, also save to cash_account_transactions (master DB)
+                    if (!empty($cashAccountId)) {
+                        try {
+                            $masterDb = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
+                            $masterDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+                            
+                            // Get account type to determine transaction type
+                            $stmt = $masterDb->prepare("SELECT account_type FROM cash_accounts WHERE id = ?");
+                            $stmt->execute([$cashAccountId]);
+                            $account = $stmt->fetch(PDO::FETCH_ASSOC);
+                            
+                            // Determine transaction type for cash_account_transactions
+                            $accountTransactionType = $transactionType; // Default: 'income' or 'expense'
+                            
+                            // If this is owner_capital account and income = capital injection
+                            if ($account && $account['account_type'] === 'owner_capital' && $transactionType === 'income') {
+                                $accountTransactionType = 'capital_injection';
+                            }
+                            
+                            // Insert to cash_account_transactions
+                            $stmt = $masterDb->prepare("
+                                INSERT INTO cash_account_transactions 
+                                (cash_account_id, transaction_id, transaction_date, description, amount, transaction_type, created_by) 
+                                VALUES (?, ?, ?, ?, ?, ?, ?)
+                            ");
+                            
+                            $stmt->execute([
+                                $cashAccountId,
+                                $transactionId,
+                                $transactionDate,
+                                $description ?: $categoryName,
+                                $amount,
+                                $accountTransactionType,
+                                $_SESSION['user_id']
+                            ]);
+                            
+                        } catch (Exception $e) {
+                            error_log("Error saving to cash_account_transactions: " . $e->getMessage());
+                            // Don't fail the whole transaction, just log the error
+                        }
+                    }
+                    
+                    $db->commit();
+                    setFlash('success', 'Transaksi berhasil ditambahkan!');
+                    redirect(BASE_URL . '/modules/cashbook/index.php');
+                } else {
+                    $db->rollBack();
+                    setFlash('error', 'Gagal menambahkan transaksi!');
+                }
+            } catch (Exception $e) {
+                $db->rollBack();
+                setFlash('error', 'Error: ' . $e->getMessage());
             }
         } catch (Exception $e) {
             setFlash('error', 'Error: ' . $e->getMessage());
