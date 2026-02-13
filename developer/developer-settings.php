@@ -64,14 +64,16 @@ try {
     ];
 }
 
-// Function to get business display name
-function getBusinessDisplayName($businessId) {
-    global $businesses;
-    if (isset($businesses[$businessId])) {
-        $b = $businesses[$businessId];
-        return $b['business_name'] . ' (' . ucfirst($b['business_type']) . ')';
+// Check if function exists, if not create a simple version
+if (!function_exists('getBusinessDisplayName')) {
+    function getBusinessDisplayName($businessId) {
+        global $businesses;
+        if (isset($businesses[$businessId])) {
+            $b = $businesses[$businessId];
+            return $b['business_name'] . ' (' . ucfirst($b['business_type']) . ')';
+        }
+        return 'Business #' . $businessId;
     }
-    return 'Business #' . $businessId;
 }
 
 $selectedBusiness = $_POST['reset_business_id'] ?? (array_key_first($businesses) ?: '1');
