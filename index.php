@@ -52,6 +52,32 @@ $today = date('Y-m-d');
 $thisMonth = date('Y-m');
 $thisYear = date('Y');
 
+// ============================================
+// EXCLUDE OWNER CAPITAL FROM OPERATIONAL STATS
+// ============================================
+// Get owner capital account IDs to exclude from operational income
+$ownerCapitalAccountIds = [];
+try {
+    $masterDb = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
+    $masterDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    
+    $businessIdentifier = ACTIVE_BUSINESS_ID;
+    $businessMapping = ['narayana-hotel' => 1, 'bens-cafe' => 2];
+    $businessId = $businessMapping[$businessIdentifier] ?? 1;
+    
+    $stmt = $masterDb->prepare("SELECT id FROM cash_accounts WHERE business_id = ? AND account_type = 'owner_capital'");
+    $stmt->execute([$businessId]);
+    $ownerCapitalAccountIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
+} catch (Exception $e) {
+    error_log("Error fetching owner capital accounts: " . $e->getMessage());
+}
+
+// Build exclusion clause
+$excludeOwnerCapital = '';
+if (!empty($ownerCapitalAccountIds)) {
+    $excludeOwnerCapital = " AND (cash_account_id IS NULL OR cash_account_id NOT IN (" . implode(',', $ownerCapitalAccountIds) . "))";
+}
+
 // Colors for divisions
 $divisionColors = [
     '#6366f1', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', 
@@ -59,11 +85,11 @@ $divisionColors = [
 ];
 
 // ============================================
-// TODAY STATISTICS
+// TODAY STATISTICS (Exclude Owner Capital)
 // ============================================
 $todayIncomeResult = $db->fetchAll(
     "SELECT COALESCE(SUM(amount), 0) as total FROM cash_book 
-     WHERE transaction_type = 'income' AND transaction_date = :date",
+     WHERE transaction_type = 'income' AND transaction_date = :date" . $excludeOwnerCapital,
     ['date' => $today]
 );
 $todayIncome = ['total' => $todayIncomeResult[0]['total'] ?? 0];
@@ -76,11 +102,11 @@ $todayExpenseResult = $db->fetchAll(
 $todayExpense = ['total' => $todayExpenseResult[0]['total'] ?? 0];
 
 // ============================================
-// MONTHLY STATISTICS
+// MONTHLY STATISTICS (Exclude Owner Capital)
 // ============================================
 $monthlyIncomeResult = $db->fetchAll(
     "SELECT COALESCE(SUM(amount), 0) as total FROM cash_book 
-     WHERE transaction_type = 'income' AND DATE_FORMAT(transaction_date, '%Y-%m') = :month",
+     WHERE transaction_type = 'income' AND DATE_FORMAT(transaction_date, '%Y-%m') = :month" . $excludeOwnerCapital,
     ['month' => $thisMonth]
 );
 $monthlyIncome = ['total' => $monthlyIncomeResult[0]['total'] ?? 0];
@@ -93,11 +119,11 @@ $monthlyExpenseResult = $db->fetchAll(
 $monthlyExpense = ['total' => $monthlyExpenseResult[0]['total'] ?? 0];
 
 // ============================================
-// YEARLY STATISTICS
+// YEARLY STATISTICS (Exclude Owner Capital)
 // ============================================
 $yearlyIncomeResult = $db->fetchAll(
     "SELECT COALESCE(SUM(amount), 0) as total FROM cash_book 
-     WHERE transaction_type = 'income' AND YEAR(transaction_date) = :year",
+     WHERE transaction_type = 'income' AND YEAR(transaction_date) = :year" . $excludeOwnerCapital,
     ['year' => $thisYear]
 );
 $yearlyIncome = ['total' => $yearlyIncomeResult[0]['total'] ?? 0];
@@ -115,10 +141,10 @@ $yearlyExpense = ['total' => $yearlyExpenseResult[0]['total'] ?? 0];
 $totalBalance = ($yearlyIncome['total'] ?? 0) - ($yearlyExpense['total'] ?? 0);
 
 // ============================================
-// ALL TIME CASH (REAL MONEY)
+// ALL TIME CASH (REAL MONEY - Operational Only)
 // ============================================
 $allTimeCashResult = $db->fetchOne(
-    "SELECT SUM(CASE WHEN transaction_type = 'income' THEN amount ELSE -amount END) as balance FROM cash_book"
+    "SELECT SUM(CASE WHEN transaction_type = 'income' THEN amount ELSE -amount END) as balance FROM cash_book WHERE 1=1" . $excludeOwnerCapital
 );
 $totalRealCash = $allTimeCashResult['balance'] ?? 0;
 
@@ -172,7 +198,7 @@ try {
 }
 
 // ============================================
-// TOP DIVISIONS (This Month)
+// TOP DIVISIONS (This Month - Operational Only)
 // ============================================
 $topDivisions = $db->fetchAll(
     "SELECT 
@@ -183,7 +209,7 @@ $topDivisions = $db->fetchAll(
         COALESCE(SUM(CASE WHEN cb.transaction_type = 'income' THEN cb.amount ELSE -cb.amount END), 0) as net
     FROM divisions d
     LEFT JOIN cash_book cb ON d.id = cb.division_id 
-        AND DATE_FORMAT(cb.transaction_date, '%Y-%m') = :month
+        AND DATE_FORMAT(cb.transaction_date, '%Y-%m') = :month" . str_replace('WHERE 1=1', '', $excludeOwnerCapital) . "
     WHERE d.is_active = 1
     GROUP BY d.id, d.division_name, d.division_code
     ORDER BY net DESC
@@ -209,7 +235,7 @@ $recentTransactions = $db->fetchAll(
 );
 
 // ============================================
-// CHART DATA - Division Income (Pie Chart)
+// CHART DATA - Division Income (Pie Chart - Operational Only)
 // ============================================
 $divisionIncomeData = $db->fetchAll(
     "SELECT 
@@ -219,7 +245,7 @@ $divisionIncomeData = $db->fetchAll(
     FROM divisions d
     LEFT JOIN cash_book cb ON d.id = cb.division_id 
         AND cb.transaction_type = 'income'
-        AND DATE_FORMAT(cb.transaction_date, '%Y-%m') = :month
+        AND DATE_FORMAT(cb.transaction_date, '%Y-%m') = :month" . str_replace('WHERE 1=1', '', $excludeOwnerCapital) . "
     WHERE d.is_active = 1
     GROUP BY d.id, d.division_name, d.division_code
     HAVING total > 0
@@ -262,14 +288,14 @@ for ($i = 1; $i <= $daysInMonth; $i++) {
     $dates[] = $selectedMonth . '-' . sprintf('%02d', $i);
 }
 
-// Get actual transaction data for the month
+// Get actual transaction data for the month (Exclude Owner Capital from Income)
 $transData = $db->fetchAll(
     "SELECT 
         DATE(transaction_date) as date,
         SUM(CASE WHEN transaction_type = 'income' THEN amount ELSE 0 END) as income,
         SUM(CASE WHEN transaction_type = 'expense' THEN amount ELSE 0 END) as expense
     FROM cash_book
-    WHERE DATE_FORMAT(transaction_date, '%Y-%m') = :month
+    WHERE DATE_FORMAT(transaction_date, '%Y-%m') = :month" . $excludeOwnerCapital . "
     GROUP BY DATE(transaction_date)
     ORDER BY date ASC",
     ['month' => $selectedMonth]
@@ -292,7 +318,7 @@ foreach ($dates as $date) {
 }
 
 // ============================================
-// CHART DATA - Top Categories This Month
+// CHART DATA - Top Categories This Month (Operational Only)
 // ============================================
 $topCategories = $db->fetchAll(
     "SELECT 
@@ -303,7 +329,7 @@ $topCategories = $db->fetchAll(
     FROM cash_book cb
     JOIN categories c ON cb.category_id = c.id
     JOIN divisions d ON cb.division_id = d.id
-    WHERE DATE_FORMAT(cb.transaction_date, '%Y-%m') = :month
+    WHERE DATE_FORMAT(cb.transaction_date, '%Y-%m') = :month" . str_replace('WHERE 1=1 AND', ' AND', $excludeOwnerCapital) . "
     GROUP BY c.id, c.category_name, d.division_name, cb.transaction_type
     ORDER BY total DESC
     LIMIT 10",
