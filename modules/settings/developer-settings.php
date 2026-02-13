@@ -182,33 +182,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['developer_logo'])) {
 include '../../includes/header.php';
 ?>
 
-<?php require_once '../../includes/business_helper.php'; ?>
 
-<?php
-$businesses = getAvailableBusinesses();
-$selectedBusiness = $_POST['reset_business_id'] ?? getActiveBusinessId();
-$resetResult = null;
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_data_submit'])) {
-    $resetTypes = $_POST['reset_type'] ?? [];
-    $selectedBusiness = $_POST['reset_business_id'] ?? getActiveBusinessId();
-    if (!empty($resetTypes) && isset($businesses[$selectedBusiness])) {
-        // Set session for business context
-        setActiveBusinessId($selectedBusiness);
-        $resetResult = [];
-        foreach ($resetTypes as $type) {
-            $ch = curl_init(BASE_URL . '/api/reset-data.php');
-            curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
-            curl_setopt($ch, CURLOPT_POST, 1);
-            curl_setopt($ch, CURLOPT_HTTPHEADER, ['Content-Type: application/json']);
-            curl_setopt($ch, CURLOPT_POSTFIELDS, json_encode(['reset_type' => $type]));
-            curl_setopt($ch, CURLOPT_COOKIE, session_name() . '=' . session_id());
-            $response = curl_exec($ch);
-            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            curl_close($ch);
-            $resetResult[$type] = ['response' => $response, 'http' => $httpCode];
-        }
-    }
-}
 
 <style>
     .preview-box {
