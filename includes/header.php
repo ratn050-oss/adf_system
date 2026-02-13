@@ -366,12 +366,6 @@ if (isset($_SESSION['user_id'])) {
                                     <span>Display & Theme</span>
                                 </a>
                             </li>
-                            <li class="submenu-item">
-                                <a href="<?php echo BASE_URL; ?>/modules/settings/reset.php" class="submenu-link <?php echo activeMenu('reset.php'); ?>">
-                                    <i data-feather="alert-circle" class="submenu-icon"></i>
-                                    <span>Reset Data</span>
-                                </a>
-                            </li>
                         </ul>
                     </li>
                     <?php endif; ?>
