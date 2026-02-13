@@ -468,6 +468,44 @@ require_once __DIR__ . '/includes/header.php';
     .reset-data-grid .col-md-6 {
         padding: 0.2rem;
     }
+    
+    /* Ultra compact container */
+    .container-fluid {
+        padding: 1rem 0.8rem !important;
+        max-width: 95% !important;
+    }
+    
+    /* Compact rows and columns */
+    .row {
+        margin: 0 -0.3rem;
+    }
+    
+    .col-lg-6 {
+        padding: 0 0.3rem;
+    }
+    
+    /* Smaller page header */
+    .d-flex.justify-content-between {
+        margin-bottom: 0.8rem !important;
+    }
+    
+    /* More compact layout */
+    .py-4 {
+        padding-top: 0.8rem !important;
+        padding-bottom: 0.8rem !important;
+    }
+    
+    /* Tighter card spacing */
+    .settings-card + .settings-card {
+        margin-top: 0.5rem;
+    }
+    
+    /* Compact grid system */
+    @media (min-width: 992px) {
+        .col-lg-6:first-child {
+            margin-bottom: 0.5rem;
+        }
+    }
 </style>
 
 <div class="container-fluid py-4">
