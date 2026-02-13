@@ -67,6 +67,25 @@ return [
         'dark_theme' => 'Tema Gelap',
     ],
     
+    // Menu Navigation
+    'menu' => [
+        'frontdesk' => 'Front Desk',
+        'reservations' => 'Reservasi',
+        'calendar' => 'Kalender',
+        'in_house' => 'In House', 
+        'breakfast' => 'Sarapan',
+        'reports' => 'Laporan',
+        'sales' => 'Penjualan',
+        'sales_invoice' => 'Faktur Penjualan', 
+        'procurement' => 'Pengadaan',
+        'purchase_orders' => 'Purchase Order',
+        'purchase_invoices' => 'Faktur Pembelian',
+        'suppliers' => 'Pemasok',
+        'investor' => 'Investor',
+        'project' => 'Proyek',
+        'logout' => 'Keluar',
+    ],
+    
     // Messages
     'messages' => [
         'save_success' => 'Data berhasil disimpan!',

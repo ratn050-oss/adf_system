@@ -2,6 +2,9 @@
 // Load helper functions
 require_once __DIR__ . '/functions.php';
 
+// Load language system
+require_once __DIR__ . '/language.php';
+
 // Get favicon from settings
 $faviconUrl = null;
 try {
@@ -198,31 +201,31 @@ if (isset($_SESSION['user_id'])) {
                     <li class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/frontdesk/') !== false) ? 'open' : ''; ?>">
                         <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo activeMenu('frontdesk'); ?>">
                             <i data-feather="home" class="nav-icon"></i>
-                            <span>Front Desk</span>
+                            <span><?php echo __('menu.frontdesk'); ?></span>
                         </a>
                         <ul class="submenu">
                             <li class="submenu-item">
                                 <a href="<?php echo BASE_URL; ?>/modules/frontdesk/dashboard.php" class="submenu-link <?php echo activeMenu('dashboard.php'); ?>">
                                     <i data-feather="layout" class="submenu-icon"></i>
-                                    <span>Dashboard</span>
+                                    <span><?php echo __('dashboard.title'); ?></span>
                                 </a>
                             </li>
                             <li class="submenu-item">
                                 <a href="<?php echo BASE_URL; ?>/modules/frontdesk/reservasi.php" class="submenu-link <?php echo activeMenu('reservasi.php'); ?>">
                                     <i data-feather="calendar" class="submenu-icon"></i>
-                                    <span>Reservasi</span>
+                                    <span><?php echo __('menu.reservations'); ?></span>
                                 </a>
                             </li>
                             <li class="submenu-item">
                                 <a href="<?php echo BASE_URL; ?>/modules/frontdesk/calendar.php" class="submenu-link <?php echo activeMenu('calendar.php'); ?>">
                                     <i data-feather="grid" class="submenu-icon"></i>
-                                    <span>Calendar View</span>
+                                    <span><?php echo __('menu.calendar'); ?></span>
                                 </a>
                             </li>
                             <li class="submenu-item">
                                 <a href="<?php echo BASE_URL; ?>/modules/frontdesk/in-house.php" class="submenu-link <?php echo activeMenu('in-house.php'); ?>">
                                     <i data-feather="users" class="submenu-icon"></i>
-                                    <span>Tamu In House</span>
+                                    <span><?php echo __('menu.in_house'); ?></span>
                                 </a>
                             </li>
                             <li class="submenu-item">
@@ -230,19 +233,19 @@ if (isset($_SESSION['user_id'])) {
                                    class="submenu-link <?php echo activeMenu('breakfast.php'); ?>"
                                    onclick="console.log('Breakfast link clicked!'); return true;">
                                     <i data-feather="coffee" class="submenu-icon"></i>
-                                    <span>Breakfast Order</span>
+                                    <span><?php echo __('menu.breakfast'); ?></span>
                                 </a>
                             </li>
                             <li class="submenu-item">
                                 <a href="<?php echo BASE_URL; ?>/modules/frontdesk/laporan.php" class="submenu-link <?php echo activeMenu('laporan.php'); ?>">
                                     <i data-feather="file-text" class="submenu-icon"></i>
-                                    <span>Laporan</span>
+                                    <span><?php echo __('menu.reports'); ?></span>
                                 </a>
                             </li>
                             <li class="submenu-item">
                                 <a href="<?php echo BASE_URL; ?>/modules/frontdesk/settings.php" class="submenu-link <?php echo activeMenu('settings.php'); ?>">
                                     <i data-feather="settings" class="submenu-icon"></i>
-                                    <span>Pengaturan</span>
+                                    <span><?php echo __('settings.title'); ?></span>
                                 </a>
                             </li>
                         </ul>
@@ -254,7 +257,7 @@ if (isset($_SESSION['user_id'])) {
                     <li class="nav-item">
                         <a href="<?php echo BASE_URL; ?>/modules/sales/" class="nav-link <?php echo activeMenu('sales'); ?>">
                             <i data-feather="file-text" class="nav-icon"></i>
-                            <span>Sales Invoice</span>
+                            <span><?php echo __('menu.sales_invoice'); ?></span>
                         </a>
                     </li>
                     <?php endif; ?>
@@ -264,25 +267,25 @@ if (isset($_SESSION['user_id'])) {
                     <li class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/procurement/') !== false) ? 'open' : ''; ?>">
                         <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo activeMenu('procurement'); ?>">
                             <i data-feather="shopping-cart" class="nav-icon"></i>
-                            <span>PO & SHOOP</span>
+                            <span><?php echo __('menu.procurement'); ?></span>
                         </a>
                         <ul class="submenu">
                             <li class="submenu-item">
                                 <a href="<?php echo BASE_URL; ?>/modules/procurement/purchase-orders.php" class="submenu-link <?php echo activeMenu('purchase-orders.php'); ?>">
                                     <i data-feather="file-plus" class="submenu-icon"></i>
-                                    <span>Purchase Orders</span>
+                                    <span><?php echo __('menu.purchase_orders'); ?></span>
                                 </a>
                             </li>
                             <li class="submenu-item">
                                 <a href="<?php echo BASE_URL; ?>/modules/procurement/purchases.php" class="submenu-link <?php echo activeMenu('purchases.php'); ?>">
                                     <i data-feather="package" class="submenu-icon"></i>
-                                    <span>Purchase Invoices</span>
+                                    <span><?php echo __('menu.purchase_invoices'); ?></span>
                                 </a>
                             </li>
                             <li class="submenu-item">
                                 <a href="<?php echo BASE_URL; ?>/modules/procurement/suppliers.php" class="submenu-link <?php echo activeMenu('suppliers.php'); ?>">
                                     <i data-feather="users" class="submenu-icon"></i>
-                                    <span>Suppliers</span>
+                                    <span><?php echo __('menu.suppliers'); ?></span>
                                 </a>
                             </li>
                         </ul>
@@ -294,7 +297,7 @@ if (isset($_SESSION['user_id'])) {
                     <li class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/reports/') !== false) ? 'open' : ''; ?>">
                         <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo activeMenu('reports'); ?>">
                             <i data-feather="bar-chart-2" class="nav-icon"></i>
-                            <span><?php echo 'Reports'; ?></span>
+                            <span><?php echo __('menu.reports'); ?></span>
                         </a>
                         <ul class="submenu">
                             <li class="submenu-item">
@@ -373,7 +376,7 @@ if (isset($_SESSION['user_id'])) {
                     <li class="nav-item" style="margin-top: 2rem;">
                         <a href="<?php echo BASE_URL; ?>/logout.php" class="nav-link">
                             <i data-feather="log-out" class="nav-icon"></i>
-                            <span>Logout</span>
+                            <span><?php echo __('menu.logout'); ?></span>
                         </a>
                     </li>
                 </ul>

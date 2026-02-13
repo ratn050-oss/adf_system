@@ -67,6 +67,25 @@ return [
         'dark_theme' => 'Dark Theme',
     ],
     
+    // Menu Navigation
+    'menu' => [
+        'frontdesk' => 'Front Desk',
+        'reservations' => 'Reservations',
+        'calendar' => 'Calendar',
+        'in_house' => 'In House',
+        'breakfast' => 'Breakfast',
+        'reports' => 'Reports',
+        'sales' => 'Sales',
+        'sales_invoice' => 'Sales Invoice',
+        'procurement' => 'Procurement', 
+        'purchase_orders' => 'Purchase Orders',
+        'purchase_invoices' => 'Purchase Invoices',
+        'suppliers' => 'Suppliers',
+        'investor' => 'Investor',
+        'project' => 'Project',
+        'logout' => 'Logout',
+    ],
+    
     // Messages
     'messages' => [
         'save_success' => 'Data has been saved successfully!',

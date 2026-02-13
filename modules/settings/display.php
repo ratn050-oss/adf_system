@@ -115,8 +115,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         // Don't update global session for theme (it's now per-business)
         // Each business will load its own theme from database
         
+        // Update session language immediately so it takes effect
+        $_SESSION['user_language'] = $language;
+        
         $db->getConnection()->commit();
-        setFlashMessage('success', 'Pengaturan tampilan untuk ' . BUSINESS_NAME . ' berhasil diupdate!');
+        
+        // Use translated message based on selected language  
+        if ($language === 'en') {
+            setFlashMessage('success', 'Display settings for ' . BUSINESS_NAME . ' have been updated successfully!');
+        } else {
+            setFlashMessage('success', 'Pengaturan tampilan untuk ' . BUSINESS_NAME . ' berhasil diperbarui!');
+        }
         header('Location: display.php?saved=1');
         exit;
     } catch (Exception $e) {
