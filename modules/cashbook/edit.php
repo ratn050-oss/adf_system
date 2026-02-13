@@ -138,10 +138,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 $divisions = $db->fetchAll("SELECT * FROM divisions WHERE is_active = 1 ORDER BY division_name");
 $categories = $db->fetchAll("SELECT * FROM categories ORDER BY category_name");
 
-// Get ALL cash accounts
-$cashAccounts = $db->fetchAll(
-    "SELECT id, account_name, account_type FROM cash_accounts WHERE is_active = 1 ORDER BY is_default_account DESC, account_name"
-);
+// Get cash accounts from MASTER database (cash_accounts table is in adf_system, not business DB)
+$cashAccounts = [];
+try {
+    $masterDb = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
+    $masterDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $businessId = ACTIVE_BUSINESS_ID;
+    
+    $stmt = $masterDb->prepare("SELECT id, account_name, account_type FROM cash_accounts WHERE business_id = ? ORDER BY is_default_account DESC, account_name");
+    $stmt->execute([$businessId]);
+    $cashAccounts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+} catch (Exception $e) {
+    error_log("Error fetching cash accounts: " . $e->getMessage());
+    $cashAccounts = []; // Empty array if query fails
+}
 
 include '../../includes/header.php';
 ?>
