@@ -130,7 +130,10 @@ try {
     $masterDb = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
     $masterDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     
-    $businessId = ACTIVE_BUSINESS_ID;
+    // CRITICAL: ACTIVE_BUSINESS_ID is STRING identifier, convert to INT database ID
+    $businessIdentifier = ACTIVE_BUSINESS_ID;
+    $businessMapping = ['narayana-hotel' => 1, 'bens-cafe' => 2];
+    $businessId = $businessMapping[$businessIdentifier] ?? 1;
     
     // Get capital account ID
     $stmt = $masterDb->prepare("SELECT id FROM cash_accounts WHERE business_id = ? AND account_type = 'owner_capital' AND is_default_account = 1 LIMIT 1");
