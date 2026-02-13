@@ -300,6 +300,14 @@ include '../../includes/header.php';
                         </label>
                         
                         <label class="payment-method-card" style="padding: 0.5rem;">
+                            <input type="radio" name="payment_method" value="edc" required>
+                            <div class="payment-content" style="text-align: center; position: relative;">
+                                <i data-feather="cpu" style="width: 16px; height: 16px; margin-bottom: 0.125rem; color: #ec4899;"></i>
+                                <div style="font-weight: 600; font-size: 0.688rem; color: var(--text-primary);">EDC</div>
+                            </div>
+                        </label>
+                        
+                        <label class="payment-method-card" style="padding: 0.5rem;">
                             <input type="radio" name="payment_method" value="other" required>
                             <div class="payment-content" style="text-align: center; position: relative;">
                                 <i data-feather="more-horizontal" style="width: 16px; height: 16px; margin-bottom: 0.125rem; color: #6b7280;"></i>

@@ -239,8 +239,11 @@ include '../../includes/header.php';
                 <label class="form-label">Metode Pembayaran *</label>
                 <select name="payment_method" class="form-control" required>
                     <option value="cash" <?php echo $transaction['payment_method'] == 'cash' ? 'selected' : ''; ?>>Cash</option>
+                    <option value="debit" <?php echo $transaction['payment_method'] == 'debit' ? 'selected' : ''; ?>>Debit</option>
                     <option value="transfer" <?php echo $transaction['payment_method'] == 'transfer' ? 'selected' : ''; ?>>Transfer</option>
                     <option value="qr" <?php echo $transaction['payment_method'] == 'qr' ? 'selected' : ''; ?>>QR Code</option>
+                    <option value="edc" <?php echo $transaction['payment_method'] == 'edc' ? 'selected' : ''; ?>>EDC</option>
+                    <option value="other" <?php echo $transaction['payment_method'] == 'other' ? 'selected' : ''; ?>>Lainnya</option>
                 </select>
             </div>
 

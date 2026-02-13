@@ -679,8 +679,11 @@ echo getPrintCSS();
             <select name="payment" class="form-control" style="height: 38px; font-size: 0.875rem;">
                 <option value="all" <?php echo $filterPayment === 'all' ? 'selected' : ''; ?>>Semua</option>
                 <option value="cash" <?php echo $filterPayment === 'cash' ? 'selected' : ''; ?>>Cash</option>
+                <option value="debit" <?php echo $filterPayment === 'debit' ? 'selected' : ''; ?>>Debit</option>
                 <option value="transfer" <?php echo $filterPayment === 'transfer' ? 'selected' : ''; ?>>Transfer</option>
                 <option value="qr" <?php echo $filterPayment === 'qr' ? 'selected' : ''; ?>>QR Code</option>
+                <option value="edc" <?php echo $filterPayment === 'edc' ? 'selected' : ''; ?>>EDC</option>
+                <option value="other" <?php echo $filterPayment === 'other' ? 'selected' : ''; ?>>Lainnya</option>
             </select>
         </div>
         
