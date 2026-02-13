@@ -335,66 +335,138 @@ require_once __DIR__ . '/includes/header.php';
 <style>
     .settings-card {
         background: white;
-        border-radius: 12px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.06);
-        margin-bottom: 1.5rem;
+        border-radius: 8px;
+        box-shadow: 0 1px 4px rgba(0,0,0,0.05);
+        margin-bottom: 0.8rem;
         overflow: hidden;
     }
     .settings-card-header {
-        padding: 1rem 1.25rem;
+        padding: 0.6rem 0.9rem;
         border-bottom: 1px solid #eee;
         display: flex;
         align-items: center;
-        gap: 0.75rem;
+        gap: 0.5rem;
     }
     .settings-card-header .icon {
-        width: 36px;
-        height: 36px;
-        border-radius: 8px;
+        width: 26px;
+        height: 26px;
+        border-radius: 6px;
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 1rem;
+        font-size: 0.8rem;
     }
     .settings-card-header h5 {
         margin: 0;
         font-weight: 600;
-        font-size: 1rem;
+        font-size: 0.85rem;
     }
     .settings-card-header small {
         color: #888;
         font-weight: 400;
+        font-size: 0.7rem;
     }
     .settings-card-body {
-        padding: 1.25rem;
+        padding: 0.9rem;
     }
     .preview-box {
         background: #f8f9fa;
-        border: 2px dashed #dee2e6;
-        border-radius: 10px;
-        padding: 1.25rem;
+        border: 1px dashed #dee2e6;
+        border-radius: 6px;
+        padding: 0.8rem;
         text-align: center;
     }
     .preview-box img {
-        max-width: 120px;
-        max-height: 120px;
-        border-radius: 8px;
+        max-width: 90px;
+        max-height: 90px;
+        border-radius: 6px;
     }
     .current-value {
         background: #f8f9fa;
-        border-left: 3px solid var(--dev-primary);
-        padding: 0.75rem 1rem;
-        border-radius: 0 6px 6px 0;
-        margin-top: 1rem;
+        border-left: 2px solid var(--dev-primary);
+        padding: 0.5rem 0.7rem;
+        border-radius: 0 4px 4px 0;
+        margin-top: 0.6rem;
     }
     .current-value small {
         color: #888;
-        font-size: 0.75rem;
+        font-size: 0.65rem;
     }
     .current-value strong {
         display: block;
         color: #333;
-        margin-top: 0.25rem;
+        margin-top: 0.2rem;
+        font-size: 0.8rem;
+    }
+    
+    /* Compact form elements */
+    .form-control {
+        padding: 0.4rem 0.6rem;
+        font-size: 0.8rem;
+        border-radius: 4px;
+    }
+    
+    .btn {
+        padding: 0.4rem 0.8rem;
+        font-size: 0.8rem;
+        border-radius: 4px;
+    }
+    
+    .btn-sm {
+        padding: 0.25rem 0.5rem;
+        font-size: 0.7rem;
+    }
+    
+    /* Compact spacing */
+    .mb-3 {
+        margin-bottom: 0.6rem !important;
+    }
+    
+    .mb-4 {
+        margin-bottom: 0.8rem !important;
+    }
+    
+    /* Smaller alert boxes */
+    .alert {
+        padding: 0.6rem 0.8rem;
+        font-size: 0.8rem;
+    }
+    
+    /* Smaller headings in developer panel */
+    h4 {
+        font-size: 1.1rem;
+    }
+    
+    h5 {
+        font-size: 0.9rem;
+    }
+    
+    /* Compact text */
+    .text-muted {
+        font-size: 0.7rem !important;
+    }
+    
+    /* Compact checkboxes and form checks */
+    .form-check {
+        margin-bottom: 0.4rem;
+    }
+    
+    .form-check-label {
+        font-size: 0.8rem;
+        padding-left: 0.3rem;
+    }
+    
+    .form-check-input {
+        margin-top: 0.2rem;
+    }
+    
+    /* Reset data specific styling */
+    .reset-data-grid {
+        gap: 0.4rem;
+    }
+    
+    .reset-data-grid .col-md-6 {
+        padding: 0.2rem;
     }
 </style>
 
