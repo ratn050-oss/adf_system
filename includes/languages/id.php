@@ -27,15 +27,15 @@ return [
     
     // Dashboard
     'dashboard' => [
-        'title' => 'Dashboard',
-        'subtitle' => 'Monitoring Real-time Accounting',
+        'title' => 'Dasbor',
+        'subtitle' => 'Pemantauan Akuntansi Waktu Nyata',
         'monthly_income' => 'Pemasukan Bulan Ini',
         'monthly_expense' => 'Pengeluaran Bulan Ini',
         'today_income' => 'Pemasukan Hari Ini',
         'today_expense' => 'Pengeluaran Hari Ini',
         'net_balance' => 'Saldo Bersih',
         'income_by_division' => 'Pemasukan per Divisi',
-        'live_chart' => 'Live Chart - Daily Transaksi',
+        'live_chart' => 'Grafik Langsung - Transaksi Harian',
     ],
     
     // Cashbook
@@ -70,10 +70,17 @@ return [
     // Messages
     'messages' => [
         'save_success' => 'Data berhasil disimpan!',
-        'save_error' => 'Gagal menyimpan data!',
+        'save_error' => 'Data tidak berhasil disimpan!',
         'delete_success' => 'Data berhasil dihapus!',
-        'delete_error' => 'Gagal menghapus data!',
-        'required_fields' => 'Mohon lengkapi semua field yang wajib diisi!',
+        'delete_error' => 'Data tidak berhasil dihapus!',
+        'required_fields' => 'Mohon lengkapi semua kolom yang wajib diisi!',
+        'login_success' => 'Berhasil masuk ke sistem!',
+        'login_failed' => 'Nama pengguna atau kata sandi tidak tepat!',
+        'access_denied' => 'Akses ditolak! Anda tidak memiliki izin untuk mengakses halaman ini.',
+        'system_error' => 'Terjadi kesalahan sistem. Silakan coba lagi.',
+        'file_upload_success' => 'Berkas berhasil diunggah!',
+        'file_upload_error' => 'Berkas tidak berhasil diunggah!',
+        'invalid_file_type' => 'Jenis berkas tidak didukung.',
     ],
     
     // Divisions
@@ -148,7 +155,14 @@ return [
         'save_preferences' => 'Simpan Preferensi',
         'cancel' => 'Batal',
         'back' => 'Kembali',
-        'required_field' => 'Field wajib diisi',
-        'fill_all_fields' => 'Mohon lengkapi semua field yang wajib diisi',
+        'required_field' => 'Kolom wajib diisi',
+        'fill_all_fields' => 'Mohon lengkapi semua kolom yang wajib diisi',
+        'username' => 'Nama Pengguna',
+        'password' => 'Kata Sandi',
+        'confirm_password' => 'Konfirmasi Kata Sandi',
+        'email' => 'Alamat Surel',
+        'login' => 'Masuk',
+        'logout' => 'Keluar',
+        'register' => 'Daftar',
     ],
 ];

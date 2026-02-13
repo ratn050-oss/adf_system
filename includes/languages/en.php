@@ -69,11 +69,18 @@ return [
     
     // Messages
     'messages' => [
-        'save_success' => 'Data saved successfully!',
+        'save_success' => 'Data has been saved successfully!',
         'save_error' => 'Failed to save data!',
-        'delete_success' => 'Data deleted successfully!',
+        'delete_success' => 'Data has been deleted successfully!',
         'delete_error' => 'Failed to delete data!',
         'required_fields' => 'Please fill in all required fields!',
+        'login_success' => 'Successfully logged into the system!',
+        'login_failed' => 'Incorrect username or password!',
+        'access_denied' => 'Access denied! You do not have permission to access this page.',
+        'system_error' => 'A system error occurred. Please try again.',
+        'file_upload_success' => 'File has been uploaded successfully!',
+        'file_upload_error' => 'Failed to upload file!',
+        'invalid_file_type' => 'Unsupported file type.',
     ],
     
     // Divisions
@@ -150,5 +157,16 @@ return [
         'back' => 'Back',
         'required_field' => 'Required field',
         'fill_all_fields' => 'Please fill in all required fields',
+        'username' => 'Username',
+        'password' => 'Password',
+        'confirm_password' => 'Confirm Password',
+        'email' => 'Email Address',
+        'login' => 'Log In',
+        'logout' => 'Log Out',
+        'register' => 'Register',
+        'check_in' => 'Check-In',
+        'check_out' => 'Check-Out',
+        'guest_name' => 'Guest Name',
+        'room_number' => 'Room Number',
     ],
 ];

@@ -96,11 +96,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['login_background']))
                 // Save to settings table
                 $db->query("INSERT INTO settings (setting_key, setting_value) VALUES ('login_background', ?) ON DUPLICATE KEY UPDATE setting_value = ?", [$filename, $filename]);
                 
-                setFlash('success', 'Background login berhasil diupload!');
+                setFlash('success', 'Latar belakang masuk berhasil diunggah!');
                 header('Location: developer-settings.php');
                 exit;
             } else {
-                setFlash('error', 'Gagal upload file.');
+                setFlash('error', 'Tidak berhasil mengunggah berkas.');
             }
         }
     }
@@ -238,10 +238,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['developer_logo'])) {
                     header('Location: developer-settings.php');
                     exit;
                 } else {
-                    setFlash('error', 'File uploaded tapi gagal update config.');
+                    setFlash('error', 'Berkas terunggah tetapi tidak berhasil memperbarui konfigurasi.');
                 }
             } else {
-                setFlash('error', 'Gagal upload file.');
+                setFlash('error', 'Tidak berhasil mengunggah berkas.');
             }
         }
     }

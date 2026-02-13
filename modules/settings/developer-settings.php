@@ -121,7 +121,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['developer_name'])) {
             header('Location: developer-settings.php');
             exit;
         } else {
-            setFlash('error', 'Gagal update config file. Periksa permission folder.');
+            setFlash('error', 'Tidak berhasil memperbarui berkas konfigurasi. Periksa izin folder.');
         }
     } else {
         setFlash('error', 'Nama developer tidak boleh kosong.');

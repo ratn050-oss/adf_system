@@ -104,11 +104,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['invoice_logo'])) {
                     ]);
                 }
                 
-                setFlashMessage('success', 'Logo invoice berhasil diupload!');
+                setFlashMessage('success', 'Logo faktur berhasil diunggah!');
                 header('Location: report-settings.php');
                 exit;
             } else {
-                setFlashMessage('error', 'Gagal upload file.');
+                setFlashMessage('error', 'Tidak berhasil mengunggah berkas.');
             }
         }
     }
@@ -127,7 +127,7 @@ if (isset($_GET['delete_invoice_logo']) && $_GET['delete_invoice_logo'] === '1')
         
         $db->query("DELETE FROM settings WHERE setting_key = :key", 
             ['key' => $settingKey]);
-        setFlashMessage('success', 'Logo invoice berhasil dihapus!');
+        setFlashMessage('success', 'Logo faktur berhasil dihapus!');
         header('Location: report-settings.php');
         exit;
     }

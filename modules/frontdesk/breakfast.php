@@ -157,7 +157,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             // Build detailed message
             $itemscount = count($menuItems);
             $guestName = trim($_POST['guest_name']);
-            $message = "✅ BERHASIL! Breakfast order untuk <strong>$guestName</strong> ($itemscount menu items) sudah tersimpan dengan ID #$lastOrderId";
+            $message = "✅ Berhasil! Pesanan sarapan untuk <strong>$guestName</strong> ($itemscount item menu) telah tersimpan dengan ID #$lastOrderId";
             
             // Don't redirect - show success and keep form visible for more entries
             // header('Location: ' . $_SERVER['PHP_SELF']);

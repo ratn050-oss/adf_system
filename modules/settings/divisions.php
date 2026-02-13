@@ -55,7 +55,7 @@ if ($action === 'delete' && $id > 0) {
         if ($result !== false) {
              setFlashMessage('success', 'Divisi berhasil dihapus!');
         } else {
-             setFlashMessage('error', 'Gagal menghapus divisi. Kemungkinan masih ada transaksi terkait.');
+             setFlashMessage('error', 'Tidak berhasil menghapus divisi. Kemungkinan masih ada transaksi terkait.');
         }
         header('Location: divisions.php');
         exit;

@@ -856,7 +856,7 @@ include '../../includes/header.php';
 </div>
 
 <script>
-// Function untuk detect light/dark theme dan get text color
+// Function to detect light/dark theme and get text color
 function getChartTextColor() {
     const isDark = document.documentElement.getAttribute('data-theme') === 'dark' || 
                    window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;

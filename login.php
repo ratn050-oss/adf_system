@@ -83,7 +83,7 @@ if (isPost()) {
             $masterUser = $userStmt->fetch(PDO::FETCH_ASSOC);
             
             if (!$masterUser) {
-                $error = 'User tidak terdaftar di sistem! Hubungi developer untuk setup akses.';
+                $error = 'Pengguna tidak terdaftar di sistem! Hubungi pengembang untuk mengatur akses.';
                 $auth->logout();
             } else {
                 $masterId = $masterUser['id'];
@@ -96,7 +96,7 @@ if (isPost()) {
                         setFlash('success', 'Login Owner berhasil!');
                         redirect(BASE_URL . '/modules/owner/dashboard.php');
                     } else {
-                        $error = 'Akses ditolak! Hanya Owner yang dapat mengakses Owner Dashboard.';
+                        $error = 'Akses ditolak! Hanya Pemilik yang dapat mengakses Dasbor Pemilik.';
                         $auth->logout();
                     }
                 }
@@ -126,7 +126,7 @@ if (isPost()) {
                 $userBusinesses = $bizStmt->fetchAll(PDO::FETCH_ASSOC);
                 
                 if (empty($userBusinesses)) {
-                    $error = 'Anda tidak memiliki akses ke bisnis manapun! Hubungi developer.';
+                    $error = 'Anda tidak memiliki akses ke bisnis manapun! Hubungi pengembang.';
                     $auth->logout();
                 } elseif ($forcedBusiness) {
                     // Direct link with business parameter - validate access
@@ -151,7 +151,7 @@ if (isPost()) {
                         setFlash('success', 'Login berhasil!');
                         redirect(BASE_URL . '/index.php');
                     } else {
-                        $error = 'Anda tidak punya akses ke bisnis tersebut!';
+                        $error = 'Anda tidak memiliki akses ke bisnis tersebut!';
                         $auth->logout();
                     }
                 } else {
@@ -182,7 +182,7 @@ if (isPost()) {
             $auth->logout();
         }
     } else {
-        $error = 'Username atau password salah!';
+        $error = 'Nama pengguna atau kata sandi tidak tepat!';
     }
 }
 

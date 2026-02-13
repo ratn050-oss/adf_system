@@ -30,7 +30,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['hotel_logo'])) {
     
     if ($file['error'] === UPLOAD_ERR_OK) {
         if (!in_array($file['type'], $allowedTypes)) {
-            setFlash('error', 'Tipe file tidak diizinkan. Gunakan JPG, PNG, atau GIF.');
+            setFlash('error', 'Jenis berkas tidak diizinkan. Gunakan JPEG, PNG, atau GIF.');
         } elseif ($file['size'] > $maxSize) {
             setFlash('error', 'Ukuran file terlalu besar. Maksimal 2MB.');
         } else {
@@ -65,11 +65,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['hotel_logo'])) {
                     ]);
                 }
                 
-                setFlash('success', 'Logo hotel berhasil diupload!');
+                setFlash('success', 'Logo hotel berhasil diunggah!');
                 header('Location: hotel-logo.php');
                 exit;
             } else {
-                setFlash('error', 'Gagal upload file. Periksa permission folder.');
+                setFlash('error', 'Tidak berhasil mengunggah berkas. Periksa izin folder.');
             }
         }
     } else {
@@ -189,10 +189,10 @@ include '../../includes/header.php';
                 Rekomendasi
             </h4>
             <ul style="font-size: 0.813rem; color: var(--text-secondary); margin: 0; padding-left: 1.25rem;">
-                <li>Format: JPG, PNG, atau GIF</li>
+                <li>Format: JPEG, PNG, atau GIF</li>
                 <li>Ukuran: Maksimal 2MB</li>
-                <li>Dimensi: 200x200px (persegi)</li>
-                <li>Background transparan (PNG)</li>
+                <li>Dimensi: 200x200px (kotak)</li>
+                <li>Latar belakang transparan (PNG)</li>
             </ul>
         </div>
     </div>
@@ -207,15 +207,15 @@ include '../../includes/header.php';
             <div class="upload-area" id="uploadArea">
                 <i data-feather="upload-cloud" style="width: 48px; height: 48px; color: var(--text-muted); margin: 0 auto 0.75rem;"></i>
                 <h4 style="font-size: 1rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.5rem;">
-                    Drop file di sini atau klik untuk upload
+                    Seret berkas ke sini atau klik untuk mengunggah
                 </h4>
                 <p style="font-size: 0.813rem; color: var(--text-muted); margin-bottom: 1rem;">
-                    JPG, PNG atau GIF • Maksimal 2MB
+                    JPEG, PNG, atau GIF • Maksimal 2MB
                 </p>
                 <input type="file" name="hotel_logo" id="hotelLogo" accept="image/*" style="display: none;" required>
                 <button type="button" onclick="document.getElementById('hotelLogo').click()" class="btn btn-primary">
                     <i data-feather="folder" style="width: 16px; height: 16px;"></i>
-                    Pilih File
+                    Pilih Berkas
                 </button>
             </div>
             

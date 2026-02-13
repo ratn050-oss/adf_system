@@ -178,7 +178,7 @@ include '../../includes/header.php';
         <div class="file-upload-area" id="uploadArea">
             <i data-feather="upload-cloud" style="width: 42px; height: 42px; color: var(--text-muted); margin: 0 auto 0.75rem;"></i>
             <p style="font-size: 0.938rem; font-weight: 600; color: var(--text-primary); margin-bottom: 0.375rem;">
-                Drop file SQL atau klik untuk upload
+                Seret berkas SQL ke sini atau klik untuk mengunggah
             </p>
             <p style="font-size: 0.813rem; color: var(--text-muted); margin: 0;">
                 Maksimal 50MB
