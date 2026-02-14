@@ -119,7 +119,7 @@ foreach ($currentAccounts as $acc) {
 }
 
 echo "</table>";
-
+?>
 
 <hr>
 <h2>📋 Recommended Account Setup:</h2>
