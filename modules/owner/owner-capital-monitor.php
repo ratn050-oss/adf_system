@@ -59,8 +59,12 @@ if (!$ownerCapitalAccount) {
 }
 
 // Determine business DB name for cross-DB join
+// Detect environment: production if not localhost
+$isProduction = (strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost') === false && 
+                 strpos($_SERVER['HTTP_HOST'] ?? '', '127.0.0.1') === false);
+
 $businessDbName = '';
-if (IS_PRODUCTION) {
+if ($isProduction) {
     if ($businessId == 1) {
         $businessDbName = 'adfb2574_narayana';
     } else {
