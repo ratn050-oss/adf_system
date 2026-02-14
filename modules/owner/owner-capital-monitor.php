@@ -20,11 +20,15 @@ if (!in_array($userRole, ['admin', 'owner', 'manager', 'developer'])) {
     exit;
 }
 
-// Get business ID
-$businessId = $_SESSION['business_id'] ?? null;
-if (!$businessId) {
-    die('❌ Business ID not set in session');
-}
+// Get business ID from ACTIVE_BUSINESS_ID constant (string like 'narayana-hotel')
+// Then map to numeric business_id for database queries
+$businessMapping = [
+    'narayana-hotel' => 1,
+    'bens-cafe' => 2
+];
+
+$businessIdString = ACTIVE_BUSINESS_ID;
+$businessId = $businessMapping[$businessIdString] ?? 1;
 
 // Get period filter from GET or default to current month
 $selectedPeriod = $_GET['period'] ?? date('Y-m');
@@ -41,23 +45,16 @@ if (!$ownerCapitalAccount) {
     die('❌ Kas Modal Owner account not found. Please run accounting setup first.');
 }
 
-// Get business database name mapping
-$businessMapping = [
-    'narayana-hotel' => 1,
-    'bens-cafe' => 2
-];
-$numericBusinessId = $businessMapping[ACTIVE_BUSINESS_ID] ?? 1;
-
-// Determine business DB name
+// Determine business DB name for cross-DB join
 $businessDbName = '';
 if (IS_PRODUCTION) {
-    if ($numericBusinessId == 1) {
+    if ($businessId == 1) {
         $businessDbName = 'adfb2574_narayana';
     } else {
         $businessDbName = 'adfb2574_benscafe';
     }
 } else {
-    if ($numericBusinessId == 1) {
+    if ($businessId == 1) {
         $businessDbName = 'adf_narayana_hotel';
     } else {
         $businessDbName = 'adf_benscafe';
