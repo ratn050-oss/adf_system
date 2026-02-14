@@ -378,12 +378,14 @@ include '../../includes/header.php';
                         <option value="">-- Pilih Akun --</option>
                         <?php foreach ($cashAccounts as $acc): ?>
                             <?php 
-                            // Petty Cash label
+                            // Add descriptive label based on account type
                             $label = $acc['account_name'];
                             if ($acc['account_type'] === 'cash') {
-                                $label .= ' (Uang operasional dari owner)';
+                                $label .= ' (Uang cash dari tamu)';
                             } elseif ($acc['account_type'] === 'bank') {
-                                $label .= ' (Hasil penjualan hotel/resto/rental)';
+                                $label .= ' (Hasil transfer dari tamu)';
+                            } elseif ($acc['account_type'] === 'owner_capital') {
+                                $label .= ' (Modal operasional dari owner)';
                             }
                             ?>
                             <option value="<?php echo htmlspecialchars($acc['id']); ?>">
@@ -392,7 +394,7 @@ include '../../includes/header.php';
                         <?php endforeach; ?>
                     </select>
                     <div style="font-size: 0.625rem; color: var(--text-muted); margin-top: 0.2rem; line-height: 1.3;">
-                        💡 <strong>Petty Cash:</strong> Operasional | <strong>Bank:</strong> Penjualan
+                        💡 <strong>Petty Cash:</strong> Cash tamu | <strong>Bank:</strong> Transfer tamu | <strong>Kas Modal:</strong> Modal owner
                     </div>
                 </div>
                 
