@@ -109,32 +109,46 @@ if (isPost()) {
                     $masterDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
                     
                     // Get selected account info and current balance
-                    $stmt = $masterDb->prepare("SELECT account_type, current_balance FROM cash_accounts WHERE id = ?");
+                    $stmt = $masterDb->prepare("SELECT account_type, account_name, current_balance FROM cash_accounts WHERE id = ?");
                     $stmt->execute([$cashAccountId]);
                     $selectedAccount = $stmt->fetch(PDO::FETCH_ASSOC);
                     
+                    error_log("SMART LOGIC CHECK - Account: {$selectedAccount['account_name']}, Type: {$selectedAccount['account_type']}, Balance: {$selectedAccount['current_balance']}, Amount: {$amount}");
+                    
                     // If Petty Cash (cash type) and balance not enough
                     if ($selectedAccount && $selectedAccount['account_type'] === 'cash' && $selectedAccount['current_balance'] < $amount) {
+                        error_log("SMART LOGIC TRIGGERED - Petty Cash insufficient");
+                        
                         // Get business ID
                         $businessIdentifier = ACTIVE_BUSINESS_ID;
                         $businessMapping = ['narayana-hotel' => 1, 'bens-cafe' => 2];
                         $businessId = $businessMapping[$businessIdentifier] ?? 1;
                         
                         // Find Modal Owner account
-                        $stmt = $masterDb->prepare("SELECT id, current_balance FROM cash_accounts WHERE business_id = ? AND account_type = 'owner_capital' LIMIT 1");
+                        $stmt = $masterDb->prepare("SELECT id, account_name, current_balance FROM cash_accounts WHERE business_id = ? AND account_type = 'owner_capital' ORDER BY id LIMIT 1");
                         $stmt->execute([$businessId]);
                         $modalOwnerAccount = $stmt->fetch(PDO::FETCH_ASSOC);
                         
-                        // If Modal Owner exists and has enough balance, auto-switch
-                        if ($modalOwnerAccount && $modalOwnerAccount['current_balance'] >= $amount) {
+                        if ($modalOwnerAccount) {
+                            error_log("MODAL OWNER FOUND - ID: {$modalOwnerAccount['id']}, Balance: {$modalOwnerAccount['current_balance']}");
+                            
+                            // Auto-switch regardless of Modal Owner balance (allow going negative if needed)
                             $cashAccountId = $modalOwnerAccount['id'];
                             $data['cash_account_id'] = $cashAccountId;
                             $autoSwitched = true;
                             
                             // Add notification to description
                             $originalDesc = $description ?: '';
-                            $data['description'] = $originalDesc . ' [AUTO: Petty Cash habis, potong dari Modal Owner]';
+                            $autoNote = '[AUTO: Petty Cash habis, potong dari Modal Owner]';
+                            $data['description'] = trim($originalDesc . ' ' . $autoNote);
+                            $description = $data['description']; // Update $description variable too
+                            
+                            error_log("AUTO-SWITCHED to Modal Owner ID: {$cashAccountId}");
+                        } else {
+                            error_log("MODAL OWNER NOT FOUND - Cannot auto-switch");
                         }
+                    } else {
+                        error_log("SMART LOGIC NOT TRIGGERED - Sufficient balance or not Petty Cash");
                     }
                 } catch (Exception $e) {
                     error_log("Smart logic error: " . $e->getMessage());
@@ -153,6 +167,8 @@ if (isPost()) {
                     
                     // If user selected a cash account, also save to cash_account_transactions (master DB)
                     if (!empty($cashAccountId)) {
+                        error_log("PROCESSING cash account transaction - Account ID: {$cashAccountId}, Type: {$transactionType}, Amount: {$amount}");
+                        
                         try {
                             $masterDb = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
                             $masterDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
@@ -181,27 +197,35 @@ if (isPost()) {
                                 $cashAccountId,
                                 $transactionId,
                                 $transactionDate,
-                                $description ?: $categoryName,
+                                $data['description'] ?: $categoryName, // Use updated description from $data
                                 $amount,
                                 $accountTransactionType,
                                 $_SESSION['user_id']
                             ]);
+                            
+                            error_log("SAVED to cash_account_transactions - Account ID: {$cashAccountId}, Type: {$accountTransactionType}, Amount: {$amount}");
                             
                             // Update current_balance in cash_accounts
                             if ($transactionType === 'income') {
                                 // Income: add to balance
                                 $stmt = $masterDb->prepare("UPDATE cash_accounts SET current_balance = current_balance + ? WHERE id = ?");
                                 $stmt->execute([$amount, $cashAccountId]);
+                                error_log("BALANCE UPDATED - Account ID: {$cashAccountId} - INCOME +{$amount}");
                             } else {
-                                // Expense: subtract from balance (smart logic already ensured sufficient balance)
+                                // Expense: subtract from balance (smart logic already handled account switch)
                                 $stmt = $masterDb->prepare("UPDATE cash_accounts SET current_balance = current_balance - ? WHERE id = ?");
                                 $stmt->execute([$amount, $cashAccountId]);
+                                error_log("BALANCE UPDATED - Account ID: {$cashAccountId} - EXPENSE -{$amount}");
                             }
                             
                         } catch (Exception $e) {
-                            error_log("Error saving to cash_account_transactions: " . $e->getMessage());
-                            // Don't fail the whole transaction, just log the error
+                            error_log("ERROR saving to cash_account_transactions: " . $e->getMessage());
+                            error_log("ERROR Stack Trace: " . $e->getTraceAsString());
+                            // Rethrow to fail the transaction if balance update fails
+                            throw new Exception("Gagal update balance akun: " . $e->getMessage());
                         }
+                    } else {
+                        error_log("WARNING: cash_account_id is empty, skipping cash account transaction");
                     }
                     
                     $db->commit();
