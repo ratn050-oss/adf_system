@@ -256,27 +256,34 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_data_submit']))
         $resetResult = [];
         
         foreach ($resetTypes as $type) {
-            // Call reset API for each type
-            $postData = json_encode([
-                'business_id' => $businessId,
-                'reset_type' => $type
-            ]);
+            // Call reset API for each type  
+            $postData = json_encode(['reset_type' => $type]);
             
             $context = stream_context_create([
                 'http' => [
                     'method' => 'POST',
-                    'header' => 'Content-Type: application/json',
+                    'header' => [
+                        'Content-Type: application/json',
+                        'Cookie: ' . (isset($_SERVER['HTTP_COOKIE']) ? $_SERVER['HTTP_COOKIE'] : '')
+                    ],
                     'content' => $postData
                 ]
             ]);
             
-            $response = @file_get_contents(BASE_URL . '/api/reset-business-data.php', false, $context);
-            $httpCode = 200; // Default success
+            $response = @file_get_contents(BASE_URL . '/api/reset-data.php', false, $context);
             
-            $resetResult[$type] = [
-                'http' => $httpCode,
-                'response' => $response ?: json_encode(['success' => false, 'message' => 'No response from API'])
-            ];
+            if ($response === false) {
+                $resetResult[$type] = [
+                    'success' => false,
+                    'message' => 'No response from API - Check if API endpoint exists'
+                ];
+            } else {
+                $decoded = json_decode($response, true);
+                $resetResult[$type] = $decoded ?: [
+                    'success' => false,
+                    'message' => 'Invalid JSON response: ' . substr($response, 0, 100)
+                ];
+            }
         }
         
         $success = 'Reset data telah dijalankan untuk ' . count($resetTypes) . ' jenis data pada ' . getBusinessDisplayName($businessId) . '. Lihat hasil detail di bawah.';
@@ -1003,23 +1010,23 @@ require_once __DIR__ . '/includes/header.php';
         </div>
         <div class="settings-card-body">
             <!-- Warning Notice -->
-            <div class="alert alert-danger" style="border-left: 4px solid #dc2626;">
+            <div class="alert alert-danger" style="border-left: 3px solid #dc2626; padding: 0.75rem;">
                 <div class="d-flex align-items-start">
-                    <i class="bi bi-exclamation-triangle-fill text-danger me-3" style="font-size: 1.2rem; margin-top: 0.1rem;"></i>
+                    <i class="bi bi-exclamation-triangle-fill text-danger me-2" style="font-size: 1rem;"></i>
                     <div>
-                        <h6 class="mb-1">⚠️ PERINGATAN - Reset Data Permanen</h6>
-                        <p class="mb-0" style="font-size: 0.875rem;">
-                            Data yang dihapus <strong>tidak dapat dikembalikan!</strong> Pastikan sudah backup database sebelum melakukan reset.
+                        <h6 class="mb-1" style="font-size: 0.813rem; font-weight: 600;">⚠️ PERINGATAN - Reset Data Permanen</h6>
+                        <p class="mb-0" style="font-size: 0.75rem;">
+                            Data yang dihapus <strong>tidak dapat dikembalikan!</strong> Pastikan backup dulu.
                         </p>
                     </div>
                 </div>
             </div>
             
-            <form method="POST" onsubmit="return confirmReset();" style="margin-top: 1.5rem;">
-                <div class="row g-3">
+            <form method="POST" onsubmit="return confirmReset();" style="margin-top: 1rem;">
+                <div class="row g-2">
                     <!-- Business Selection -->
                     <div class="col-md-6">
-                        <label class="form-label">Pilih Bisnis</label>
+                        <label class="form-label" style="font-size: 0.875rem; font-weight: 600;">Pilih Bisnis</label>
                         <select name="reset_business_id" class="form-select" required>
                             <?php if (!empty($businesses)): ?>
                                 <?php foreach ($businesses as $bid => $b): ?>
@@ -1036,7 +1043,7 @@ require_once __DIR__ . '/includes/header.php';
                     
                     <!-- Reset Button Column -->
                     <div class="col-md-6 d-flex align-items-end">
-                        <button type="submit" name="reset_data_submit" class="btn btn-danger w-100" style="font-weight: 600;">
+                        <button type="submit" name="reset_data_submit" class="btn btn-danger w-100" style="font-weight: 600; font-size: 0.875rem; padding: 0.5rem 1rem;">
                             <i class="bi bi-trash me-1"></i>
                             Reset Data yang Dipilih
                         </button>
@@ -1044,60 +1051,107 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
                 
                 <!-- Data Type Selection -->  
-                <div style="margin-top: 1.5rem;">
-                    <label class="form-label">Pilih Data yang Direset</label>
+                <div style="margin-top: 1rem;">
+                    <label class="form-label" style="font-size: 0.875rem; font-weight: 600;">Pilih Data yang Direset</label>
                     <div class="row g-2">
-                        <div class="col-md-3">
-                            <div class="form-check">
+                        <div class="col-md-3 col-sm-6">
+                            <div class="form-check" style="padding: 0.5rem; background: #f9fafb; border-radius: 6px; border: 1px solid #e5e7eb;">
                                 <input class="form-check-input" type="checkbox" name="reset_type[]" value="accounting" id="reset_accounting">
-                                <label class="form-check-label" for="reset_accounting">
+                                <label class="form-check-label" for="reset_accounting" style="font-size: 0.813rem; cursor: pointer;">
                                     💰 Data Accounting
                                 </label>
                             </div>
                         </div>
-                        <div class="col-md-3">
-                            <div class="form-check">
+                        <div class="col-md-3 col-sm-6">
+                            <div class="form-check" style="padding: 0.5rem; background: #f9fafb; border-radius: 6px; border: 1px solid #e5e7eb;">
                                 <input class="form-check-input" type="checkbox" name="reset_type[]" value="bookings" id="reset_bookings">
-                                <label class="form-check-label" for="reset_bookings">
-                                    📅 Data Booking/Reservasi
+                                <label class="form-check-label" for="reset_bookings" style="font-size: 0.813rem; cursor: pointer;">
+                                    📅 Booking/Reservasi
                                 </label>
                             </div>
                         </div>
-                        <div class="col-md-3">
-                            <div class="form-check">
+                        <div class="col-md-3 col-sm-6">
+                            <div class="form-check" style="padding: 0.5rem; background: #f9fafb; border-radius: 6px; border: 1px solid #e5e7eb;">
                                 <input class="form-check-input" type="checkbox" name="reset_type[]" value="invoices" id="reset_invoices">
-                                <label class="form-check-label" for="reset_invoices">
-                                    🧾 Data Invoice
+                                <label class="form-check-label" for="reset_invoices" style="font-size: 0.813rem; cursor: pointer;">
+                                    🧾 Invoice
                                 </label>
                             </div>
                         </div>
-                        <div class="col-md-3">
-                            <div class="form-check">
+                        <div class="col-md-3 col-sm-6">
+                            <div class="form-check" style="padding: 0.5rem; background: #f9fafb; border-radius: 6px; border: 1px solid #e5e7eb;">
                                 <input class="form-check-input" type="checkbox" name="reset_type[]" value="procurement" id="reset_procurement">
-                                <label class="form-check-label" for="reset_procurement">
-                                    📋 Data PO & Procurement
+                                <label class="form-check-label" for="reset_procurement" style="font-size: 0.813rem; cursor: pointer;">
+                                    📋 PO & Procurement
                                 </label>
                             </div>
                         </div>
-                        <div class="col-md-3">
-                            <div class="form-check">
+                        <div class="col-md-3 col-sm-6">
+                            <div class="form-check" style="padding: 0.5rem; background: #f9fafb; border-radius: 6px; border: 1px solid #e5e7eb;">
                                 <input class="form-check-input" type="checkbox" name="reset_type[]" value="inventory" id="reset_inventory">
-                                <label class="form-check-label" for="reset_inventory">
-                                    📦 Data Inventory
+                                <label class="form-check-label" for="reset_inventory" style="font-size: 0.813rem; cursor: pointer;">
+                                    📦 Inventory
                                 </label>
                             </div>
                         </div>
-                        <div class="col-md-3">
-                            <div class="form-check">
+                        <div class="col-md-3 col-sm-6">
+                            <div class="form-check" style="padding: 0.5rem; background: #f9fafb; border-radius: 6px; border: 1px solid #e5e7eb;">
                                 <input class="form-check-input" type="checkbox" name="reset_type[]" value="employees" id="reset_employees">
-                                <label class="form-check-label" for="reset_employees">
-                                    👥 Data Karyawan
+                                <label class="form-check-label" for="reset_employees" style="font-size: 0.813rem; cursor: pointer;">
+                                    👥 Karyawan
                                 </label>
                             </div>
                         </div>
-                        <div class="col-md-3">
-                            <div class="form-check">
+                        <div class="col-md-3 col-sm-6">
+                            <div class="form-check" style="padding: 0.5rem; background: #f9fafb; border-radius: 6px; border: 1px solid #e5e7eb;">
                                 <input class="form-check-input" type="checkbox" name="reset_type[]" value="users" id="reset_users">
+                                <label class="form-check-label" for="reset_users" style="font-size: 0.813rem; cursor: pointer;">
+                                    👤 Users
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-sm-6">
+                            <div class="form-check" style="padding: 0.5rem; background: #f9fafb; border-radius: 6px; border: 1px solid #e5e7eb;">
+                                <input class="form-check-input" type="checkbox" name="reset_type[]" value="guests" id="reset_guests">
+                                <label class="form-check-label" for="reset_guests" style="font-size: 0.813rem; cursor: pointer;">
+                                    🧑‍🤝‍🧑 Guests
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-sm-6">
+                            <div class="form-check" style="padding: 0.5rem; background: #f9fafb; border-radius: 6px; border: 1px solid #e5e7eb;">
+                                <input class="form-check-input" type="checkbox" name="reset_type[]" value="menu" id="reset_menu">
+                                <label class="form-check-label" for="reset_menu" style="font-size: 0.813rem; cursor: pointer;">
+                                    🍽️ Menu
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-sm-6">
+                            <div class="form-check" style="padding: 0.5rem; background: #f9fafb; border-radius: 6px; border: 1px solid #e5e7eb;">
+                                <input class="form-check-input" type="checkbox" name="reset_type[]" value="orders" id="reset_orders">
+                                <label class="form-check-label" for="reset_orders" style="font-size: 0.813rem; cursor: pointer;">
+                                    🛒 Orders
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-sm-6">
+                            <div class="form-check" style="padding: 0.5rem; background: #f9fafb; border-radius: 6px; border: 1px solid #e5e7eb;">
+                                <input class="form-check-input" type="checkbox" name="reset_type[]" value="reports" id="reset_reports">
+                                <label class="form-check-label" for="reset_reports" style="font-size: 0.813rem; cursor: pointer;">
+                                    📊 Reports
+                                </label>
+                            </div>
+                        </div>
+                        <div class="col-md-3 col-sm-6">
+                            <div class="form-check" style="padding: 0.5rem; background: #f9fafb; border-radius: 6px; border: 1px solid #e5e7eb;">
+                                <input class="form-check-input" type="checkbox" name="reset_type[]" value="logs" id="reset_logs">
+                                <label class="form-check-label" for="reset_logs" style="font-size: 0.813rem; cursor: pointer;">
+                                    📝 Logs
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                </div>
                                 <label class="form-check-label" for="reset_users">
                                     🔐 Data User (non-admin)
                                 </label>
@@ -1149,23 +1203,24 @@ require_once __DIR__ . '/includes/header.php';
             
             <!-- Reset Results Display -->
             <?php if ($resetResult !== null): ?>
-                <div class="mt-4 p-3" style="background: rgba(59,130,246,0.05); border-radius: 0.5rem; border-left: 3px solid #3b82f6;">
-                    <h6 class="text-primary mb-3">📊 Hasil Reset Data:</h6>
-                    <div class="row">
+                <div class="mt-3 p-3" style="background: rgba(59,130,246,0.05); border-radius: 8px; border-left: 4px solid #3b82f6;">
+                    <h6 class="text-primary mb-2" style="font-size: 0.875rem; font-weight: 600;">📊 Hasil Reset Data:</h6>
+                    <div class="row g-2">
                         <?php foreach ($resetResult as $type => $res): 
-                            $data = json_decode($res['response'], true);
-                            $isSuccess = $res['http'] == 200 && !empty($data['success']);
-                            $message = $data['message'] ?? 'No response';
+                            $isSuccess = !empty($res['success']);
+                            $message = $res['message'] ?? 'No response';
                         ?>
-                            <div class="col-md-6 mb-2">
-                                <div class="d-flex align-items-center">
-                                    <span class="badge <?php echo $isSuccess ? 'bg-success' : 'bg-danger'; ?> me-2">
+                            <div class="col-md-6 col-lg-4">
+                                <div class="d-flex align-items-start p-2" style="background: white; border-radius: 6px; border: 1px solid <?php echo $isSuccess ? '#10b981' : '#ef4444'; ?>;">
+                                    <span class="badge <?php echo $isSuccess ? 'bg-success' : 'bg-danger'; ?> me-2" style="font-size: 0.7rem;">
                                         <?php echo $isSuccess ? '✅' : '❌'; ?>
                                     </span>
-                                    <small>
-                                        <strong><?php echo htmlspecialchars($type); ?>:</strong> 
-                                        <?php echo htmlspecialchars($message); ?>
-                                    </small>
+                                    <div style="flex: 1;">
+                                        <strong style="font-size: 0.75rem; display: block; margin-bottom: 0.15rem;"><?php echo htmlspecialchars($type); ?></strong>
+                                        <small style="font-size: 0.7rem; color: #666; line-height: 1.2;">
+                                            <?php echo htmlspecialchars($message); ?>
+                                        </small>
+                                    </div>
                                 </div>
                             </div>
                         <?php endforeach; ?>
