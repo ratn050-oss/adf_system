@@ -1152,53 +1152,6 @@ require_once __DIR__ . '/includes/header.php';
                         </div>
                     </div>
                 </div>
-                                <label class="form-check-label" for="reset_users">
-                                    🔐 Data User (non-admin)
-                                </label>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="reset_type[]" value="guests" id="reset_guests">
-                                <label class="form-check-label" for="reset_guests">
-                                    🏨 Data Tamu
-                                </label>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="reset_type[]" value="menu" id="reset_menu">
-                                <label class="form-check-label" for="reset_menu">
-                                    🍽️ Data Menu
-                                </label>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="reset_type[]" value="orders" id="reset_orders">
-                                <label class="form-check-label" for="reset_orders">
-                                    🛒 Data Orders
-                                </label>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="reset_type[]" value="reports" id="reset_reports">
-                                <label class="form-check-label" for="reset_reports">
-                                    📊 Data Reports
-                                </label>
-                            </div>
-                        </div>
-                        <div class="col-md-3">
-                            <div class="form-check">
-                                <input class="form-check-input" type="checkbox" name="reset_type[]" value="logs" id="reset_logs">
-                                <label class="form-check-label" for="reset_logs">
-                                    📝 Data Logs
-                                </label>
-                            </div>
-                        </div>
-                    </div>
-                </div>
             </form>
             
             <!-- Reset Results Display -->
