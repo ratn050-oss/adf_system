@@ -232,11 +232,15 @@ try {
     // TOTAL KAS OPERASIONAL = Petty Cash + Modal Owner (physical cash available)
     $totalOperationalCash = $pettyCashStats['balance'] + $capitalStats['balance'];
     
+    // TOTAL PENGELUARAN OPERASIONAL = Petty Cash expense + Modal Owner expense
+    $totalOperationalExpense = $pettyCashStats['used'] + $capitalStats['used'];
+    
 } catch (Exception $e) {
     error_log("Error fetching operational cash stats: " . $e->getMessage());
     $capitalStats = ['received' => 0, 'used' => 0, 'balance' => 0];
     $pettyCashStats = ['received' => 0, 'used' => 0, 'balance' => 0];
     $totalOperationalCash = 0;
+    $totalOperationalExpense = 0;
 }
 
 // ============================================
@@ -594,13 +598,13 @@ if ($trialStatus) {
                 <div style="font-size: 0.65rem; color: #2563eb; margin-top: 0.25rem; font-weight: 600;">Uang cash tersedia</div>
             </div>
             
-            <!-- Modal Digunakan -->
+            <!-- Total Digunakan (Petty Cash + Modal Owner) -->
             <div style="background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%); padding: 0.875rem; border-radius: 8px; border-left: 4px solid #ef4444;">
                 <div style="font-size: 0.688rem; color: #7f1d1d; font-weight: 600; margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.05em;">💸 Digunakan</div>
                 <div style="font-size: 1.25rem; font-weight: 800; color: #ef4444;">
-                    <?php echo formatCurrency($capitalStats['used']); ?>
+                    <?php echo formatCurrency($totalOperationalExpense); ?>
                 </div>
-                <div style="font-size: 0.65rem; color: #dc2626; margin-top: 0.25rem;">Pengeluaran operasional</div>
+                <div style="font-size: 0.65rem; color: #dc2626; margin-top: 0.25rem;">Total pengeluaran operasional</div>
             </div>
         </div>
         
