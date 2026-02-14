@@ -13,6 +13,31 @@ header('Cache-Control: no-cache, must-revalidate');
 
 $db = Database::getInstance();
 
+// ============================================
+// EXCLUDE OWNER CAPITAL FROM OPERATIONAL STATS
+// ============================================
+$ownerCapitalAccountIds = [];
+try {
+    $masterDb = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
+    $masterDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    
+    $businessIdentifier = ACTIVE_BUSINESS_ID;
+    $businessMapping = ['narayana-hotel' => 1, 'bens-cafe' => 2];
+    $businessId = $businessMapping[$businessIdentifier] ?? 1;
+    
+    $stmt = $masterDb->prepare("SELECT id FROM cash_accounts WHERE business_id = ? AND account_type = 'owner_capital'");
+    $stmt->execute([$businessId]);
+    $ownerCapitalAccountIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
+} catch (Exception $e) {
+    error_log("Error fetching owner capital accounts: " . $e->getMessage());
+}
+
+// Build exclusion condition for CASE statement
+$ownerCapitalExcludeCondition = '';
+if (!empty($ownerCapitalAccountIds)) {
+    $ownerCapitalExcludeCondition = " AND (cash_account_id IS NULL OR cash_account_id NOT IN (" . implode(',', $ownerCapitalAccountIds) . "))";
+}
+
 // Get selected month from parameter, default to current month
 $selectedMonth = isset($_GET['month']) ? $_GET['month'] : date('Y-m');
 
@@ -32,11 +57,11 @@ for ($i = 1; $i <= $daysInMonth; $i++) {
     $dates[] = $selectedMonth . '-' . sprintf('%02d', $i);
 }
 
-// Get actual transaction data for the month
+// Get actual transaction data for the month - Exclude Owner Capital from Income
 $transData = $db->fetchAll(
     "SELECT 
         DATE(transaction_date) as date,
-        SUM(CASE WHEN transaction_type = 'income' THEN amount ELSE 0 END) as income,
+        SUM(CASE WHEN transaction_type = 'income'{$ownerCapitalExcludeCondition} THEN amount ELSE 0 END) as income,
         SUM(CASE WHEN transaction_type = 'expense' THEN amount ELSE 0 END) as expense
     FROM cash_book
     WHERE DATE_FORMAT(transaction_date, '%Y-%m') = :month
