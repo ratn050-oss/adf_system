@@ -998,17 +998,17 @@ require_once __DIR__ . '/includes/header.php';
     </div>
     
     <!-- Reset Data Business Section --> 
-    <div class="settings-card" style="background: linear-gradient(135deg, rgba(220,38,38,0.05), rgba(239,68,68,0.05)); border: 2px solid rgba(220,38,38,0.1);">
-        <div class="settings-card-header">
-            <div class="icon" style="background: rgba(220,38,38,0.15); color: #dc2626;">
+    <div class="settings-card" style="background: linear-gradient(135deg, rgba(220,38,38,0.05), rgba(239,68,68,0.05)); border: 2px solid rgba(220,38,38,0.1); margin-bottom: 1rem;">
+        <div class="settings-card-header" style="padding: 1rem;">
+            <div class="icon" style="background: rgba(220,38,38,0.15); color: #dc2626; width: 2.5rem; height: 2.5rem;">
                 <i class="bi bi-trash"></i>
             </div>
             <div>
-                <h5>🗑️ Reset Data Business</h5>
-                <small>Hapus data tertentu untuk bisnis terpilih</small>
+                <h5 style="font-size: 1rem; margin-bottom: 0.25rem;">🗑️ Reset Data Business</h5>
+                <small style="font-size: 0.75rem;">Hapus data tertentu untuk bisnis terpilih</small>
             </div>
         </div>
-        <div class="settings-card-body">
+        <div class="settings-card-body" style="padding: 1rem;">
             <!-- Warning Notice -->
             <div class="alert alert-danger" style="border-left: 3px solid #dc2626; padding: 0.75rem;">
                 <div class="d-flex align-items-start">
