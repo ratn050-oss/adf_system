@@ -96,7 +96,7 @@ $todayIncome = ['total' => $todayIncomeResult[0]['total'] ?? 0];
 
 $todayExpenseResult = $db->fetchAll(
     "SELECT COALESCE(SUM(amount), 0) as total FROM cash_book 
-     WHERE transaction_type = 'expense' AND transaction_date = :date",
+     WHERE transaction_type = 'expense' AND transaction_date = :date" . $excludeOwnerCapital,
     ['date' => $today]
 );
 $todayExpense = ['total' => $todayExpenseResult[0]['total'] ?? 0];
@@ -113,7 +113,7 @@ $monthlyIncome = ['total' => $monthlyIncomeResult[0]['total'] ?? 0];
 
 $monthlyExpenseResult = $db->fetchAll(
     "SELECT COALESCE(SUM(amount), 0) as total FROM cash_book 
-     WHERE transaction_type = 'expense' AND DATE_FORMAT(transaction_date, '%Y-%m') = :month",
+     WHERE transaction_type = 'expense' AND DATE_FORMAT(transaction_date, '%Y-%m') = :month" . $excludeOwnerCapital,
     ['month' => $thisMonth]
 );
 $monthlyExpense = ['total' => $monthlyExpenseResult[0]['total'] ?? 0];
@@ -130,7 +130,7 @@ $yearlyIncome = ['total' => $yearlyIncomeResult[0]['total'] ?? 0];
 
 $yearlyExpenseResult = $db->fetchAll(
     "SELECT COALESCE(SUM(amount), 0) as total FROM cash_book 
-     WHERE transaction_type = 'expense' AND YEAR(transaction_date) = :year",
+     WHERE transaction_type = 'expense' AND YEAR(transaction_date) = :year" . $excludeOwnerCapital,
     ['year' => $thisYear]
 );
 $yearlyExpense = ['total' => $yearlyExpenseResult[0]['total'] ?? 0];

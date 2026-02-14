@@ -88,14 +88,14 @@ if (!empty($ownerCapitalAccountIds)) {
     $ownerCapitalExcludeCondition = " AND (cb.cash_account_id IS NULL OR cb.cash_account_id NOT IN (" . implode(',', $ownerCapitalAccountIds) . "))";
 }
 
-// Get yearly summary
+// Get yearly summary - Exclude owner capital from income AND expense
 $yearlySummary = $db->fetchAll("
     SELECT 
         YEAR(cb.transaction_date) as year,
         COALESCE(SUM(CASE WHEN cb.transaction_type = 'income'{$ownerCapitalExcludeCondition} THEN cb.amount ELSE 0 END), 0) as total_income,
-        COALESCE(SUM(CASE WHEN cb.transaction_type = 'expense' THEN cb.amount ELSE 0 END), 0) as total_expense,
+        COALESCE(SUM(CASE WHEN cb.transaction_type = 'expense'{$ownerCapitalExcludeCondition} THEN cb.amount ELSE 0 END), 0) as total_expense,
         COALESCE(SUM(CASE WHEN cb.transaction_type = 'income'{$ownerCapitalExcludeCondition} THEN cb.amount ELSE 0 END), 0) - 
-        COALESCE(SUM(CASE WHEN cb.transaction_type = 'expense' THEN cb.amount ELSE 0 END), 0) as net_balance,
+        COALESCE(SUM(CASE WHEN cb.transaction_type = 'expense'{$ownerCapitalExcludeCondition} THEN cb.amount ELSE 0 END), 0) as net_balance,
         COUNT(*) as transaction_count
     FROM cash_book cb
     WHERE $whereClause
