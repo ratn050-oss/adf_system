@@ -37,7 +37,8 @@ try {
     
     $businessId = $businessMapping[$businessIdentifier] ?? 1;
     
-    $stmt = $masterDb->prepare("SELECT id, account_name, account_type FROM cash_accounts WHERE business_id = ? ORDER BY is_default_account DESC, account_name");
+    // FILTER: Only show Petty Cash (cash) and Bank (bank) accounts
+    $stmt = $masterDb->prepare("SELECT id, account_name, account_type FROM cash_accounts WHERE business_id = ? AND account_type IN ('cash', 'bank') ORDER BY account_type = 'cash' DESC, account_name");
     $stmt->execute([$businessId]);
     $cashAccounts = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (Exception $e) {
@@ -249,37 +250,60 @@ include '../../includes/header.php';
     position: relative;
     display: flex;
     align-items: center;
-    padding: 0.875rem;
+    justify-content: center;
     background: var(--bg-tertiary);
-    border: 2px solid transparent;
-    border-radius: 0.75rem;
+    border: 3px solid transparent;
+    border-radius: 1rem;
     cursor: pointer;
-    transition: all 0.2s ease;
+    transition: all 0.3s ease;
+    min-height: 140px;
 }
 
 .transaction-type-card:hover {
     background: var(--bg-secondary);
+    transform: translateY(-3px);
+    box-shadow: 0 6px 16px rgba(0,0,0,0.12);
 }
 
 .transaction-type-card input[type="radio"] {
-    margin-right: 0.75rem;
+    position: absolute;
+    opacity: 0;
 }
 
-.transaction-type-card input[type="radio"]:checked {
-    accent-color: var(--primary-color);
+.transaction-type-card input[type="radio"]:checked ~ div i {
+    transform: scale(1.1);
+}
+
+.transaction-type-card:has(input[type="radio"]:checked) {
+    background: rgba(99, 102, 241, 0.08);
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 4px rgba(99, 102, 241, 0.15), 0 8px 20px rgba(0,0,0,0.15);
+    transform: translateY(-2px);
+}
+
+/* Green highlight for income */
+.transaction-type-card:has(input[value="income"]:checked) {
+    border-color: #10b981;
+    box-shadow: 0 0 0 4px rgba(16, 185, 129, 0.15), 0 8px 20px rgba(16, 185, 129, 0.2);
+}
+
+/* Red highlight for expense */
+.transaction-type-card:has(input[value="expense"]:checked) {
+    border-color: #ef4444;
+    box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.15), 0 8px 20px rgba(239, 68, 68, 0.2);
 }
 </style>
 
 <form method="POST" id="transactionForm" onsubmit="return validateForm('transactionForm')">
     <!-- Main Form Container -->
-    <div class="card" style="max-width: 620px; margin: 0 auto 0.875rem;">
-        <div style="padding: 0.875rem 1rem; border-bottom: 1px solid var(--bg-tertiary); background: linear-gradient(135deg, var(--primary-color)15, var(--bg-secondary));">
-            <h3 style="font-size: 1rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem; margin: 0;">
-                <i data-feather="plus-circle" style="width: 18px; height: 18px;"></i> Tambah Transaksi Baru
+    <div class="card" style="max-width: 900px; margin: 0 auto 0.875rem;">
+        <div style="padding: 1.25rem 1.5rem; border-bottom: 1px solid var(--bg-tertiary); background: linear-gradient(135deg, var(--primary-color)15, var(--bg-secondary));">
+            <h3 style="font-size: 1.25rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 0.625rem; margin: 0;">
+                <i data-feather="plus-circle" style="width: 22px; height: 22px;"></i> Tambah Transaksi Baru
             </h3>
         </div>
         
-        <div style="padding: 1rem; display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem 1rem;">
+        <div style="padding: 1.5rem; display: grid; grid-template-columns: 1fr 1fr; gap: 1.25rem 1.5rem;">
             <!-- Column 1 -->
             <div>
                 <!-- Date & Time -->
@@ -320,25 +344,27 @@ include '../../includes/header.php';
             <!-- Column 2 -->
             <div>
                 <!-- Transaction Type -->
-                <div class="compact-form-group" style="margin-bottom: 0.75rem;">
-                    <label class="form-label" style="font-size: 0.75rem; font-weight: 600; margin-bottom: 0.375rem;">Tipe Transaksi <span style="color: var(--danger);">*</span></label>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
-                        <label class="transaction-type-card" style="padding: 0.5rem;">
+                <div class="compact-form-group" style="margin-bottom: 1rem;">
+                    <label class="form-label" style="font-size: 0.875rem; font-weight: 700; margin-bottom: 0.625rem;">Tipe Transaksi <span style="color: var(--danger);">*</span></label>
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.875rem;">
+                        <label class="transaction-type-card" style="padding: 1.25rem; border-width: 3px;">
                             <input type="radio" name="transaction_type" value="income" required checked>
-                            <div style="display: flex; align-items: center; gap: 0.375rem;">
-                                <i data-feather="trending-up" style="width: 14px; height: 14px; color: var(--success);"></i>
+                            <div style="display: flex; flex-direction: column; align-items: center; gap: 0.625rem; text-align: center;">
+                                <i data-feather="trending-up" style="width: 32px; height: 32px; color: var(--success); stroke-width: 2.5;"></i>
                                 <div>
-                                    <div style="font-weight: 600; font-size: 0.75rem; color: var(--text-primary);">Pemasukan</div>
+                                    <div style="font-weight: 700; font-size: 1.125rem; color: var(--text-primary);">UANG MASUK</div>
+                                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Pemasukan</div>
                                 </div>
                             </div>
                         </label>
                         
-                        <label class="transaction-type-card" style="padding: 0.5rem;">
+                        <label class="transaction-type-card" style="padding: 1.25rem; border-width: 3px;">
                             <input type="radio" name="transaction_type" value="expense" required>
-                            <div style="display: flex; align-items: center; gap: 0.375rem;">
-                                <i data-feather="trending-down" style="width: 14px; height: 14px; color: var(--danger);"></i>
+                            <div style="display: flex; flex-direction: column; align-items: center; gap: 0.625rem; text-align: center;">
+                                <i data-feather="trending-down" style="width: 32px; height: 32px; color: var(--danger); stroke-width: 2.5;"></i>
                                 <div>
-                                    <div style="font-weight: 600; font-size: 0.75rem; color: var(--text-primary);">Pengeluaran</div>
+                                    <div style="font-weight: 700; font-size: 1.125rem; color: var(--text-primary);">UANG KELUAR</div>
+                                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.25rem;">Pengeluaran</div>
                                 </div>
                             </div>
                         </label>
@@ -346,18 +372,27 @@ include '../../includes/header.php';
                 </div>
                 
                 <!-- Cash Account Selection -->
-                <div class="compact-form-group" style="margin-bottom: 0.75rem;">
-                    <label class="form-label" style="font-size: 0.75rem; font-weight: 600; margin-bottom: 0.375rem;">Akun Kas</label>
-                    <select name="cash_account_id" class="form-control" style="height: 34px; font-size: 0.813rem;">
-                        <option value="">-- Pilih Akun Kas (opsional) --</option>
+                <div class="compact-form-group" style="margin-bottom: 0.875rem;">
+                    <label class="form-label" style="font-size: 0.875rem; font-weight: 700; margin-bottom: 0.5rem;">Pilih Akun <span style="color: var(--danger);">*</span></label>
+                    <select name="cash_account_id" class="form-control" style="height: 42px; font-size: 0.938rem; font-weight: 600;" required>
+                        <option value="">-- Pilih Akun --</option>
                         <?php foreach ($cashAccounts as $acc): ?>
+                            <?php 
+                            // Petty Cash label
+                            $label = $acc['account_name'];
+                            if ($acc['account_type'] === 'cash') {
+                                $label .= ' (Uang operasional dari owner)';
+                            } elseif ($acc['account_type'] === 'bank') {
+                                $label .= ' (Hasil penjualan hotel/resto/rental)';
+                            }
+                            ?>
                             <option value="<?php echo htmlspecialchars($acc['id']); ?>">
-                                <?php echo htmlspecialchars($acc['account_name']); ?>
+                                <?php echo htmlspecialchars($label); ?>
                             </option>
                         <?php endforeach; ?>
                     </select>
-                    <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 0.25rem;">
-                        💡 Pilih akun untuk tracking yang lebih detail
+                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.375rem; line-height: 1.4;">
+                        💡 <strong>Petty Cash:</strong> Uang owner untuk operasional | <strong>Bank:</strong> Hasil penjualan
                     </div>
                 </div>
                 
@@ -425,7 +460,7 @@ include '../../includes/header.php';
     </div>
     
     <!-- Form Actions Container -->
-    <div class="card" style="max-width: 620px; margin: 0 auto; padding: 0.75rem 1rem; background: var(--bg-secondary); display: flex; justify-content: flex-end; gap: 0.625rem;">
+    <div class="card" style="max-width: 900px; margin: 0 auto; padding: 1rem 1.5rem; background: var(--bg-secondary); display: flex; justify-content: flex-end; gap: 0.75rem;">
         <a href="index.php" class="btn btn-secondary" style="padding: 0.5rem 1rem; font-size: 0.813rem;">
             <i data-feather="x" style="width: 14px; height: 14px;"></i> Batal
         </a>
