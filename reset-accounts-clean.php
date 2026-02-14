@@ -16,11 +16,30 @@ $businessId = 1; // narayana-hotel
 // Process DELETE ALL
 if (isset($_POST['action']) && $_POST['action'] === 'delete_all') {
     try {
-        $stmt = $masterDb->prepare("DELETE FROM cash_accounts WHERE business_id = ?");
+        // Step 1: Get all account IDs for this business
+        $stmt = $masterDb->prepare("SELECT id FROM cash_accounts WHERE business_id = ?");
         $stmt->execute([$businessId]);
-        $deleted = $stmt->rowCount();
+        $accountIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
         
-        echo "<div class='box box-green'>✅ <strong>Berhasil hapus {$deleted} accounts!</strong><br>
+        $deletedTransactions = 0;
+        $deletedAccounts = 0;
+        
+        if (!empty($accountIds)) {
+            // Step 2: Delete transactions that reference these accounts
+            $placeholders = implode(',', array_fill(0, count($accountIds), '?'));
+            $stmt = $masterDb->prepare("DELETE FROM cash_account_transactions WHERE cash_account_id IN ($placeholders)");
+            $stmt->execute($accountIds);
+            $deletedTransactions = $stmt->rowCount();
+            
+            // Step 3: Now safe to delete accounts
+            $stmt = $masterDb->prepare("DELETE FROM cash_accounts WHERE business_id = ?");
+            $stmt->execute([$businessId]);
+            $deletedAccounts = $stmt->rowCount();
+        }
+        
+        echo "<div class='box box-green'>✅ <strong>Berhasil hapus:</strong><br>
+        - {$deletedTransactions} transaksi<br>
+        - {$deletedAccounts} accounts<br><br>
         <a href='reset-accounts-clean.php'>Refresh page</a> atau 
         <a href='modules/cashbook/add.php'>Lihat form input</a></div>";
     } catch (Exception $e) {
@@ -108,12 +127,13 @@ hr { border: none; border-top: 2px solid #ddd; margin: 30px 0; }
 
 <div class="box box-red">
 <h3>⚠️ Ada Duplikat!</h3>
-<p>Klik tombol di bawah untuk <strong>HAPUS SEMUA</strong> accounts lalu create ulang yang benar (3 accounts saja).</p>
+<p>Klik tombol di bawah untuk <strong>HAPUS SEMUA</strong> accounts + transaksi lalu create ulang yang benar (3 accounts saja).</p>
+<p style="color:#dc3545;"><strong>⚠️ WARNING:</strong> Ini akan hapus semua transaksi yang terkait dengan accounts ini!</p>
 
 <form method="POST" style="margin-top:15px;">
 <button type="submit" name="action" value="delete_all" class="btn btn-danger" 
-onclick="return confirm('Yakin hapus SEMUA <?= count($currentAccounts) ?> accounts?')">
-🗑️ DELETE ALL ACCOUNTS
+onclick="return confirm('Yakin hapus SEMUA <?= count($currentAccounts) ?> accounts + transaksinya?')">
+🗑️ DELETE ALL (Accounts + Transaksi)
 </button>
 </form>
 </div>
