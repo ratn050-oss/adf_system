@@ -86,7 +86,7 @@ try {
     
     switch ($resetType) {
         case 'accounting':
-            // Reset cash_book table
+            // Reset cash_book table (business database)
             if ($businessId && tableExists($conn, 'cash_book') && columnExists($conn, 'cash_book', 'business_id')) {
                 $result = safeDelete($conn, 'cash_book', 'business_id = :business_id', ['business_id' => $businessId]);
             } else {
@@ -95,7 +95,35 @@ try {
             $deletedCount = $result['deleted'];
             if ($result['error']) $errors[] = $result['error'];
             $tables[] = 'cash_book';
-            $message = "Data accounting berhasil direset. {$deletedCount} transaksi dihapus.";
+            
+            // Also reset cash accounting tables in MASTER database
+            try {
+                $masterDb = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
+                $masterDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+                
+                // Get business database ID from identifier
+                $businessIdentifier = ACTIVE_BUSINESS_ID;
+                $businessMapping = ['narayana-hotel' => 1, 'bens-cafe' => 2];
+                $businessDbId = $businessMapping[$businessIdentifier] ?? 1;
+                
+                // Delete cash_account_transactions for this business
+                $stmt = $masterDb->prepare("DELETE FROM cash_account_transactions WHERE cash_account_id IN (SELECT id FROM cash_accounts WHERE business_id = ?)");
+                $stmt->execute([$businessDbId]);
+                $deletedTransactions = $stmt->rowCount();
+                $deletedCount += $deletedTransactions;
+                
+                // Reset current_balance to 0 for all accounts
+                $stmt = $masterDb->prepare("UPDATE cash_accounts SET current_balance = 0 WHERE business_id = ?");
+                $stmt->execute([$businessDbId]);
+                $updatedAccounts = $stmt->rowCount();
+                
+                $message = "Data accounting berhasil direset. {$deletedCount} transaksi dihapus, {$updatedAccounts} akun kas di-reset.";
+                
+            } catch (Exception $e) {
+                $errors[] = "Error reset cash accounts: " . $e->getMessage();
+                $message = "Data accounting berhasil direset. {$deletedCount} transaksi dihapus.";
+            }
+            
             break;
             
         case 'bookings':
