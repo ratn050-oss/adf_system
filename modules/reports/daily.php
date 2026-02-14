@@ -43,21 +43,74 @@ $allTimeCashResult = $db->fetchOne(
 );
 $totalRealCash = $allTimeCashResult['balance'] ?? 0;
 
-// Get Cash Account Balances from Master DB
+// Get Cash Account Balances from Master DB (SAME LOGIC AS DASHBOARD)
 $pettyCashBalance = 0;
 $ownerCapitalBalance = 0;
+$pettyCashIncome = 0;
+$ownerCapitalIncome = 0;
+$totalExpense = 0;
+$hotelRevenue = 0;
+
 try {
-    // Get Petty Cash balance (Kas Besar - account_type = 'cash')
-    $stmt = $masterDb->prepare("SELECT current_balance FROM cash_accounts WHERE business_id = ? AND account_type = 'cash' AND is_default_account = 1");
+    // Get ALL Petty Cash account IDs (account_type = 'cash')
+    $stmt = $masterDb->prepare("SELECT id FROM cash_accounts WHERE business_id = ? AND account_type = 'cash'");
     $stmt->execute([$businessId]);
-    $pettyCashResult = $stmt->fetch(PDO::FETCH_ASSOC);
-    $pettyCashBalance = $pettyCashResult['current_balance'] ?? 0;
+    $pettyCashAccounts = $stmt->fetchAll(PDO::FETCH_COLUMN);
     
-    // Get Owner Capital balance
-    $stmt = $masterDb->prepare("SELECT current_balance FROM cash_accounts WHERE business_id = ? AND account_type = 'owner_capital'");
+    // Get ALL Modal Owner account IDs (account_type = 'owner_capital')
+    $stmt = $masterDb->prepare("SELECT id FROM cash_accounts WHERE business_id = ? AND account_type = 'owner_capital'");
     $stmt->execute([$businessId]);
-    $ownerCapitalResult = $stmt->fetch(PDO::FETCH_ASSOC);
-    $ownerCapitalBalance = $ownerCapitalResult['current_balance'] ?? 0;
+    $modalOwnerAccounts = $stmt->fetchAll(PDO::FETCH_COLUMN);
+    
+    // Query Petty Cash balance and income from cash_book (business DB)
+    if (!empty($pettyCashAccounts)) {
+        $placeholders = implode(',', array_fill(0, count($pettyCashAccounts), '?'));
+        $query = "
+            SELECT 
+                COALESCE(SUM(CASE WHEN transaction_type = 'income' THEN amount ELSE 0 END), 0) as total_income,
+                COALESCE(SUM(CASE WHEN transaction_type = 'expense' THEN amount ELSE 0 END), 0) as total_expense,
+                COALESCE(SUM(CASE WHEN transaction_type = 'income' THEN amount ELSE 0 END), 0) - 
+                COALESCE(SUM(CASE WHEN transaction_type = 'expense' THEN amount ELSE 0 END), 0) as balance
+            FROM cash_book 
+            WHERE cash_account_id IN ($placeholders)
+        ";
+        $stmt = $db->getConnection()->prepare($query);
+        $stmt->execute($pettyCashAccounts);
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        $pettyCashBalance = $result['balance'] ?? 0;
+        $pettyCashIncome = $result['total_income'] ?? 0;
+        $hotelRevenue = $pettyCashIncome; // Hotel revenue = Petty Cash income only
+    }
+    
+    // Query Modal Owner balance and income from cash_book (business DB)
+    if (!empty($modalOwnerAccounts)) {
+        $placeholders = implode(',', array_fill(0, count($modalOwnerAccounts), '?'));
+        $query = "
+            SELECT 
+                COALESCE(SUM(CASE WHEN transaction_type = 'income' THEN amount ELSE 0 END), 0) as total_income,
+                COALESCE(SUM(CASE WHEN transaction_type = 'expense' THEN amount ELSE 0 END), 0) as total_expense,
+                COALESCE(SUM(CASE WHEN transaction_type = 'income' THEN amount ELSE 0 END), 0) - 
+                COALESCE(SUM(CASE WHEN transaction_type = 'expense' THEN amount ELSE 0 END), 0) as balance
+            FROM cash_book 
+            WHERE cash_account_id IN ($placeholders)
+        ";
+        $stmt = $db->getConnection()->prepare($query);
+        $stmt->execute($modalOwnerAccounts);
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        $ownerCapitalBalance = $result['balance'] ?? 0;
+        $ownerCapitalIncome = $result['total_income'] ?? 0;
+    }
+    
+    // Get total expense (from all accounts)
+    $stmt = $db->getConnection()->prepare("
+        SELECT COALESCE(SUM(amount), 0) as total
+        FROM cash_book 
+        WHERE transaction_type = 'expense'
+    ");
+    $stmt->execute();
+    $result = $stmt->fetch(PDO::FETCH_ASSOC);
+    $totalExpense = $result['total'] ?? 0;
+    
 } catch (Exception $e) {
     error_log("Error fetching cash account balances: " . $e->getMessage());
 }
@@ -112,14 +165,14 @@ if (!empty($ownerCapitalAccountIds)) {
     $ownerCapitalExcludeCondition = " AND (cb.cash_account_id IS NULL OR cb.cash_account_id NOT IN (" . implode(',', $ownerCapitalAccountIds) . "))";
 }
 
-// Get daily summary - Exclude owner capital from income AND expense
+// Get daily summary - Exclude owner capital ONLY from income, NOT from expense
 $dailySummary = $db->fetchAll("
     SELECT 
         DATE(cb.transaction_date) as date,
         COALESCE(SUM(CASE WHEN cb.transaction_type = 'income'{$ownerCapitalExcludeCondition} THEN cb.amount ELSE 0 END), 0) as total_income,
-        COALESCE(SUM(CASE WHEN cb.transaction_type = 'expense'{$ownerCapitalExcludeCondition} THEN cb.amount ELSE 0 END), 0) as total_expense,
+        COALESCE(SUM(CASE WHEN cb.transaction_type = 'expense' THEN cb.amount ELSE 0 END), 0) as total_expense,
         COALESCE(SUM(CASE WHEN cb.transaction_type = 'income'{$ownerCapitalExcludeCondition} THEN cb.amount ELSE 0 END), 0) - 
-        COALESCE(SUM(CASE WHEN cb.transaction_type = 'expense'{$ownerCapitalExcludeCondition} THEN cb.amount ELSE 0 END), 0) as net_balance,
+        COALESCE(SUM(CASE WHEN cb.transaction_type = 'expense' THEN cb.amount ELSE 0 END), 0) as net_balance,
         COUNT(*) as transaction_count
     FROM cash_book cb
     WHERE $whereClause
@@ -435,7 +488,68 @@ function closePDFPreview() {
         </script>
     </div>
 
-<!-- Summary Cards -->
+<!-- Summary Cards - SIMPLIFIED VERSION -->
+<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.2rem; margin-bottom: 1.5rem;">
+    
+    <!-- 1. Modal dari Owner -->
+    <div class="card" style="padding: 1.25rem; border-left: 5px solid #f59e0b; background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);">
+        <div style="font-size: 0.813rem; color: #92400e; margin-bottom: 0.5rem; font-weight: 600;">
+            1️⃣ MODAL DARI OWNER
+        </div>
+        <div style="font-size: 2rem; font-weight: 900; color: #b45309;">
+            <?php echo formatCurrency($ownerCapitalIncome); ?>
+        </div>
+        <div style="font-size: 0.75rem; color: #78350f; margin-top: 8px;">Uang masuk dari Owner untuk operasional</div>
+    </div>
+    
+    <!-- 2. Uang Masuk Hotel (Petty Cash) -->
+    <div class="card" style="padding: 1.25rem; border-left: 5px solid #10b981; background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);">
+        <div style="font-size: 0.813rem; color: #065f46; margin-bottom: 0.5rem; font-weight: 600;">
+            2️⃣ UANG MASUK HOTEL
+        </div>
+        <div style="font-size: 2rem; font-weight: 900; color: #059669;">
+            <?php echo formatCurrency($pettyCashIncome); ?>
+        </div>
+        <div style="font-size: 0.75rem; color: #047857; margin-top: 8px;">Pendapatan dari tamu (Petty Cash)</div>
+    </div>
+    
+    <!-- 3. Total Pengeluaran -->
+    <div class="card" style="padding: 1.25rem; border-left: 5px solid #ef4444; background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);">
+        <div style="font-size: 0.813rem; color: #7f1d1d; margin-bottom: 0.5rem; font-weight: 600;">
+            3️⃣ TOTAL PENGELUARAN
+        </div>
+        <div style="font-size: 2rem; font-weight: 900; color: #dc2626;">
+            <?php echo formatCurrency($totalExpense); ?>
+        </div>
+        <div style="font-size: 0.75rem; color: #991b1b; margin-top: 8px;">Semua expense operasional</div>
+    </div>
+    
+    <!-- 4. Saldo Akhir -->
+    <div class="card" style="padding: 1.25rem; border-left: 5px solid #6366f1; background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);">
+        <div style="font-size: 0.813rem; color: #3730a3; margin-bottom: 0.5rem; font-weight: 600;">
+            4️⃣ SALDO AKHIR
+        </div>
+        <div style="font-size: 2rem; font-weight: 900; color: <?php echo ($pettyCashBalance + $ownerCapitalBalance) >= 0 ? '#6366f1' : '#dc2626'; ?>;">
+            <?php echo formatCurrency($pettyCashBalance + $ownerCapitalBalance); ?>
+        </div>
+        <div style="font-size: 0.75rem; color: #4338ca; margin-top: 8px;">Petty Cash (<?php echo formatCurrency($pettyCashBalance); ?>) + Modal Owner (<?php echo formatCurrency($ownerCapitalBalance); ?>)</div>
+    </div>
+    
+    <!-- 5. Pendapatan Bersih Hotel -->
+    <div class="card" style="padding: 1.25rem; border-left: 5px solid #3b82f6; background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);">
+        <div style="font-size: 0.813rem; color: #1e3a8a; margin-bottom: 0.5rem; font-weight: 700;">
+            5️⃣ PENDAPATAN BERSIH HOTEL
+        </div>
+        <div style="font-size: 2.2rem; font-weight: 900; color: #2563eb;">
+            <?php echo formatCurrency($hotelRevenue); ?>
+        </div>
+        <div style="font-size: 0.75rem; color: #1e40af; margin-top: 8px;">Revenue murni dari tamu (tidak termasuk modal owner)</div>
+    </div>
+    
+</div>
+
+<!-- Old Summary Cards - Hidden -->
+<div style="display: none;">
 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1rem; margin-bottom: 1.5rem;">
     <div class="card" style="padding: 1rem;">
         <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem;">Total Pemasukan</div>
@@ -477,12 +591,22 @@ function closePDFPreview() {
         <div style="font-size: 0.7rem; color: var(--text-muted); margin-top: 5px;">(Untuk Expense Operasional)</div>
     </div>
     
+    <!-- TOTAL KAS OPERASIONAL (Same logic as dashboard) -->
+    <div class="card" style="padding: 1rem; border-left: 4px solid #3b82f6; background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);">
+        <div style="font-size: 0.75rem; color: #2563eb; margin-bottom: 0.5rem; font-weight: 600;">💰 TOTAL KAS OPERASIONAL</div>
+        <div style="font-size: 1.5rem; font-weight: 800; color: #1d4ed8;">
+            <?php echo formatCurrency($pettyCashBalance + $ownerCapitalBalance); ?>
+        </div>
+        <div style="font-size: 0.7rem; color: #2563eb; margin-top: 5px;">(Petty Cash + Modal Owner)</div>
+    </div>
+    
     <div class="card" style="padding: 1rem;">
         <div style="font-size: 0.75rem; color: var(--text-muted); margin-bottom: 0.5rem;">Total Transaksi</div>
         <div style="font-size: 1.5rem; font-weight: 800; color: var(--primary-color);">
             <?php echo number_format($grandTransactions); ?>
         </div>
     </div>
+</div>
 </div>
 
 <!-- Daily Summary Table -->

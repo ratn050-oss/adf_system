@@ -96,7 +96,7 @@ $todayIncome = ['total' => $todayIncomeResult[0]['total'] ?? 0];
 
 $todayExpenseResult = $db->fetchAll(
     "SELECT COALESCE(SUM(amount), 0) as total FROM cash_book 
-     WHERE transaction_type = 'expense' AND transaction_date = :date" . $excludeOwnerCapital,
+     WHERE transaction_type = 'expense' AND transaction_date = :date",
     ['date' => $today]
 );
 $todayExpense = ['total' => $todayExpenseResult[0]['total'] ?? 0];
@@ -113,7 +113,7 @@ $monthlyIncome = ['total' => $monthlyIncomeResult[0]['total'] ?? 0];
 
 $monthlyExpenseResult = $db->fetchAll(
     "SELECT COALESCE(SUM(amount), 0) as total FROM cash_book 
-     WHERE transaction_type = 'expense' AND DATE_FORMAT(transaction_date, '%Y-%m') = :month" . $excludeOwnerCapital,
+     WHERE transaction_type = 'expense' AND DATE_FORMAT(transaction_date, '%Y-%m') = :month",
     ['month' => $thisMonth]
 );
 $monthlyExpense = ['total' => $monthlyExpenseResult[0]['total'] ?? 0];
@@ -130,7 +130,7 @@ $yearlyIncome = ['total' => $yearlyIncomeResult[0]['total'] ?? 0];
 
 $yearlyExpenseResult = $db->fetchAll(
     "SELECT COALESCE(SUM(amount), 0) as total FROM cash_book 
-     WHERE transaction_type = 'expense' AND YEAR(transaction_date) = :year" . $excludeOwnerCapital,
+     WHERE transaction_type = 'expense' AND YEAR(transaction_date) = :year",
     ['year' => $thisYear]
 );
 $yearlyExpense = ['total' => $yearlyExpenseResult[0]['total'] ?? 0];
@@ -244,8 +244,14 @@ try {
 }
 
 // ============================================
-// TOP DIVISIONS (This Month - Operational Only)
+// TOP DIVISIONS (This Month)
 // ============================================
+// Exclude owner capital ONLY from income, not from expense
+$divisionOwnerCapitalFilter = '';
+if (!empty($ownerCapitalAccountIds)) {
+    $divisionOwnerCapitalFilter = " AND (cb.transaction_type = 'expense' OR cb.cash_account_id IS NULL OR cb.cash_account_id NOT IN (" . implode(',', $ownerCapitalAccountIds) . "))";
+}
+
 $topDivisions = $db->fetchAll(
     "SELECT 
         d.division_name,
@@ -255,7 +261,7 @@ $topDivisions = $db->fetchAll(
         COALESCE(SUM(CASE WHEN cb.transaction_type = 'income' THEN cb.amount ELSE -cb.amount END), 0) as net
     FROM divisions d
     LEFT JOIN cash_book cb ON d.id = cb.division_id 
-        AND DATE_FORMAT(cb.transaction_date, '%Y-%m') = :month" . str_replace('WHERE 1=1', '', $excludeOwnerCapital) . "
+        AND DATE_FORMAT(cb.transaction_date, '%Y-%m') = :month" . $divisionOwnerCapitalFilter . "
     WHERE d.is_active = 1
     GROUP BY d.id, d.division_name, d.division_code
     ORDER BY net DESC
@@ -281,8 +287,14 @@ $recentTransactions = $db->fetchAll(
 );
 
 // ============================================
-// CHART DATA - Division Income (Pie Chart - Operational Only)
+// CHART DATA - Division Income (Pie Chart)
 // ============================================
+// Exclude owner capital from income
+$divisionIncomeFilter = '';
+if (!empty($ownerCapitalAccountIds)) {
+    $divisionIncomeFilter = " AND (cb.cash_account_id IS NULL OR cb.cash_account_id NOT IN (" . implode(',', $ownerCapitalAccountIds) . "))";
+}
+
 $divisionIncomeData = $db->fetchAll(
     "SELECT 
         d.division_name,
@@ -291,7 +303,7 @@ $divisionIncomeData = $db->fetchAll(
     FROM divisions d
     LEFT JOIN cash_book cb ON d.id = cb.division_id 
         AND cb.transaction_type = 'income'
-        AND DATE_FORMAT(cb.transaction_date, '%Y-%m') = :month" . str_replace('WHERE 1=1', '', $excludeOwnerCapital) . "
+        AND DATE_FORMAT(cb.transaction_date, '%Y-%m') = :month" . $divisionIncomeFilter . "
     WHERE d.is_active = 1
     GROUP BY d.id, d.division_name, d.division_code
     HAVING total > 0
@@ -334,14 +346,15 @@ for ($i = 1; $i <= $daysInMonth; $i++) {
     $dates[] = $selectedMonth . '-' . sprintf('%02d', $i);
 }
 
-// Get actual transaction data for the month (Exclude Owner Capital from Income)
+// Get actual transaction data for the month
+// IMPORTANT: Exclude owner capital ONLY from income (not from expense!)
 $transData = $db->fetchAll(
     "SELECT 
         DATE(transaction_date) as date,
-        SUM(CASE WHEN transaction_type = 'income' THEN amount ELSE 0 END) as income,
+        SUM(CASE WHEN transaction_type = 'income'" . $excludeOwnerCapital . " THEN amount ELSE 0 END) as income,
         SUM(CASE WHEN transaction_type = 'expense' THEN amount ELSE 0 END) as expense
     FROM cash_book
-    WHERE DATE_FORMAT(transaction_date, '%Y-%m') = :month" . $excludeOwnerCapital . "
+    WHERE DATE_FORMAT(transaction_date, '%Y-%m') = :month
     GROUP BY DATE(transaction_date)
     ORDER BY date ASC",
     ['month' => $selectedMonth]
@@ -364,8 +377,14 @@ foreach ($dates as $date) {
 }
 
 // ============================================
-// CHART DATA - Top Categories This Month (Operational Only)
+// CHART DATA - Top Categories This Month
 // ============================================
+// Exclude owner capital ONLY from income, not from expense
+$ownerCapitalFilter = '';
+if (!empty($ownerCapitalAccountIds)) {
+    $ownerCapitalFilter = " AND (cb.transaction_type = 'expense' OR cb.cash_account_id IS NULL OR cb.cash_account_id NOT IN (" . implode(',', $ownerCapitalAccountIds) . "))";
+}
+
 $topCategories = $db->fetchAll(
     "SELECT 
         c.category_name,
@@ -375,7 +394,7 @@ $topCategories = $db->fetchAll(
     FROM cash_book cb
     JOIN categories c ON cb.category_id = c.id
     JOIN divisions d ON cb.division_id = d.id
-    WHERE DATE_FORMAT(cb.transaction_date, '%Y-%m') = :month" . str_replace('WHERE 1=1 AND', ' AND', $excludeOwnerCapital) . "
+    WHERE DATE_FORMAT(cb.transaction_date, '%Y-%m') = :month" . $ownerCapitalFilter . "
     GROUP BY c.id, c.category_name, d.division_name, cb.transaction_type
     ORDER BY total DESC
     LIMIT 10",
@@ -589,15 +608,6 @@ if ($trialStatus) {
                 <div style="font-size: 0.65rem; color: #d97706; margin-top: 0.25rem;">Uang cash dari tamu</div>
             </div>
             
-            <!-- TOTAL KAS OPERASIONAL (HIGHLIGHTED) -->
-            <div style="background: linear-gradient(135deg, #dbeafe 0%, #93c5fd 100%); padding: 0.875rem; border-radius: 8px; border: 3px solid #3b82f6; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);">
-                <div style="font-size: 0.688rem; color: #1e3a8a; font-weight: 700; margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.05em;">🏦 TOTAL KAS</div>
-                <div style="font-size: 1.4rem; font-weight: 900; color: #1e40af;">
-                    <?php echo formatCurrency($totalOperationalCash); ?>
-                </div>
-                <div style="font-size: 0.65rem; color: #2563eb; margin-top: 0.25rem; font-weight: 600;">Uang cash tersedia</div>
-            </div>
-            
             <!-- Total Digunakan (Petty Cash + Modal Owner) -->
             <div style="background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%); padding: 0.875rem; border-radius: 8px; border-left: 4px solid #ef4444;">
                 <div style="font-size: 0.688rem; color: #7f1d1d; font-weight: 600; margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.05em;">💸 Digunakan</div>
@@ -605,6 +615,15 @@ if ($trialStatus) {
                     <?php echo formatCurrency($totalOperationalExpense); ?>
                 </div>
                 <div style="font-size: 0.65rem; color: #dc2626; margin-top: 0.25rem;">Total pengeluaran operasional</div>
+            </div>
+            
+            <!-- TOTAL KAS OPERASIONAL (HIGHLIGHTED - PALING AKHIR) -->
+            <div style="background: linear-gradient(135deg, #dbeafe 0%, #93c5fd 100%); padding: 0.875rem; border-radius: 8px; border: 3px solid #3b82f6; box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);">
+                <div style="font-size: 0.688rem; color: #1e3a8a; font-weight: 700; margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.05em;">🏦 TOTAL KAS</div>
+                <div style="font-size: 1.4rem; font-weight: 900; color: #1e40af;">
+                    <?php echo formatCurrency($totalOperationalCash); ?>
+                </div>
+                <div style="font-size: 0.65rem; color: #2563eb; margin-top: 0.25rem; font-weight: 600;">Uang cash tersedia</div>
             </div>
         </div>
         

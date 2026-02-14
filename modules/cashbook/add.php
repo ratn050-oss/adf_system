@@ -100,55 +100,63 @@ if (isPost()) {
             ];
             
             // ============================================
-            // SMART LOGIC - Auto Switch Petty Cash to Modal Owner
+            // SMART LOGIC - ALWAYS Use Petty Cash First for Expense
             // ============================================
             $autoSwitched = false;
-            if ($transactionType === 'expense' && !empty($cashAccountId)) {
+            if ($transactionType === 'expense') {
                 try {
                     $masterDb = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
                     $masterDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
                     
-                    // Get selected account info and current balance
-                    $stmt = $masterDb->prepare("SELECT account_type, account_name, current_balance FROM cash_accounts WHERE id = ?");
-                    $stmt->execute([$cashAccountId]);
-                    $selectedAccount = $stmt->fetch(PDO::FETCH_ASSOC);
+                    // Get business ID
+                    $businessIdentifier = ACTIVE_BUSINESS_ID;
+                    $businessMapping = ['narayana-hotel' => 1, 'bens-cafe' => 2];
+                    $businessId = $businessMapping[$businessIdentifier] ?? 1;
                     
-                    error_log("SMART LOGIC CHECK - Account: {$selectedAccount['account_name']}, Type: {$selectedAccount['account_type']}, Balance: {$selectedAccount['current_balance']}, Amount: {$amount}");
+                    // ALWAYS get Petty Cash account first
+                    $stmt = $masterDb->prepare("SELECT id, account_name, current_balance FROM cash_accounts WHERE business_id = ? AND account_type = 'cash' ORDER BY id LIMIT 1");
+                    $stmt->execute([$businessId]);
+                    $pettyCashAccount = $stmt->fetch(PDO::FETCH_ASSOC);
                     
-                    // If Petty Cash (cash type) and balance not enough
-                    if ($selectedAccount && $selectedAccount['account_type'] === 'cash' && $selectedAccount['current_balance'] < $amount) {
-                        error_log("SMART LOGIC TRIGGERED - Petty Cash insufficient");
+                    if ($pettyCashAccount) {
+                        error_log("SMART LOGIC - Petty Cash: {$pettyCashAccount['account_name']}, Balance: {$pettyCashAccount['current_balance']}, Expense Amount: {$amount}");
                         
-                        // Get business ID
-                        $businessIdentifier = ACTIVE_BUSINESS_ID;
-                        $businessMapping = ['narayana-hotel' => 1, 'bens-cafe' => 2];
-                        $businessId = $businessMapping[$businessIdentifier] ?? 1;
-                        
-                        // Find Modal Owner account
-                        $stmt = $masterDb->prepare("SELECT id, account_name, current_balance FROM cash_accounts WHERE business_id = ? AND account_type = 'owner_capital' ORDER BY id LIMIT 1");
-                        $stmt->execute([$businessId]);
-                        $modalOwnerAccount = $stmt->fetch(PDO::FETCH_ASSOC);
-                        
-                        if ($modalOwnerAccount) {
-                            error_log("MODAL OWNER FOUND - ID: {$modalOwnerAccount['id']}, Balance: {$modalOwnerAccount['current_balance']}");
-                            
-                            // Auto-switch regardless of Modal Owner balance (allow going negative if needed)
-                            $cashAccountId = $modalOwnerAccount['id'];
+                        // Check if Petty Cash is enough
+                        if ($pettyCashAccount['current_balance'] >= $amount) {
+                            // Petty Cash cukup, pakai Petty Cash
+                            $cashAccountId = $pettyCashAccount['id'];
                             $data['cash_account_id'] = $cashAccountId;
-                            $autoSwitched = true;
-                            
-                            // Add notification to description
-                            $originalDesc = $description ?: '';
-                            $autoNote = '[AUTO: Petty Cash habis, potong dari Modal Owner]';
-                            $data['description'] = trim($originalDesc . ' ' . $autoNote);
-                            $description = $data['description']; // Update $description variable too
-                            
-                            error_log("AUTO-SWITCHED to Modal Owner ID: {$cashAccountId}");
+                            error_log("SMART LOGIC - Using Petty Cash (sufficient balance)");
                         } else {
-                            error_log("MODAL OWNER NOT FOUND - Cannot auto-switch");
+                            // Petty Cash tidak cukup, switch ke Modal Owner
+                            error_log("SMART LOGIC TRIGGERED - Petty Cash insufficient, switching to Modal Owner");
+                            
+                            // Find Modal Owner account
+                            $stmt = $masterDb->prepare("SELECT id, account_name, current_balance FROM cash_accounts WHERE business_id = ? AND account_type = 'owner_capital' ORDER BY id LIMIT 1");
+                            $stmt->execute([$businessId]);
+                            $modalOwnerAccount = $stmt->fetch(PDO::FETCH_ASSOC);
+                            
+                            if ($modalOwnerAccount) {
+                                error_log("MODAL OWNER FOUND - ID: {$modalOwnerAccount['id']}, Balance: {$modalOwnerAccount['current_balance']}");
+                                
+                                // Auto-switch to Modal Owner (allow going negative if needed)
+                                $cashAccountId = $modalOwnerAccount['id'];
+                                $data['cash_account_id'] = $cashAccountId;
+                                $autoSwitched = true;
+                                
+                                // Add notification to description
+                                $originalDesc = $description ?: '';
+                                $autoNote = '[AUTO: Petty Cash habis (Saldo: ' . number_format($pettyCashAccount['current_balance']) . '), potong dari Modal Owner]';
+                                $data['description'] = trim($originalDesc . ' ' . $autoNote);
+                                $description = $data['description'];
+                                
+                                error_log("AUTO-SWITCHED to Modal Owner ID: {$cashAccountId}");
+                            } else {
+                                error_log("MODAL OWNER NOT FOUND - Using original account selection");
+                            }
                         }
                     } else {
-                        error_log("SMART LOGIC NOT TRIGGERED - Sufficient balance or not Petty Cash");
+                        error_log("PETTY CASH NOT FOUND - Using original account selection");
                     }
                 } catch (Exception $e) {
                     error_log("Smart logic error: " . $e->getMessage());

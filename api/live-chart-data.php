@@ -57,12 +57,13 @@ for ($i = 1; $i <= $daysInMonth; $i++) {
     $dates[] = $selectedMonth . '-' . sprintf('%02d', $i);
 }
 
-// Get actual transaction data for the month - Exclude Owner Capital from Income AND Expense
+// Get actual transaction data for the month
+// IMPORTANT: Exclude owner capital ONLY from income, NOT from expense!
 $transData = $db->fetchAll(
     "SELECT 
         DATE(transaction_date) as date,
         SUM(CASE WHEN transaction_type = 'income'{$ownerCapitalExcludeCondition} THEN amount ELSE 0 END) as income,
-        SUM(CASE WHEN transaction_type = 'expense'{$ownerCapitalExcludeCondition} THEN amount ELSE 0 END) as expense
+        SUM(CASE WHEN transaction_type = 'expense' THEN amount ELSE 0 END) as expense
     FROM cash_book
     WHERE DATE_FORMAT(transaction_date, '%Y-%m') = :month
     GROUP BY DATE(transaction_date)

@@ -90,6 +90,22 @@ try {
 }
 
 // ============================================
+// GET ALL AVAILABLE ROOMS (For Multi-Room Booking)
+// ============================================
+try {
+    $rooms = $db->fetchAll("
+        SELECT r.id, r.room_number, r.floor_number, r.status, rt.type_name, rt.base_price, rt.color_code
+        FROM rooms r
+        LEFT JOIN room_types rt ON r.room_type_id = rt.id
+        WHERE r.status != 'maintenance'
+        ORDER BY rt.type_name ASC, r.floor_number ASC, r.room_number ASC
+    ", []);
+} catch (Exception $e) {
+    error_log("Rooms Error: " . $e->getMessage());
+    $rooms = [];
+}
+
+// ============================================
 // CALCULATE OTA FEE & NET INCOME
 // ============================================
 function calculateNetIncome($roomPrice, $otaProvider, $otaProviders) {
@@ -557,6 +573,19 @@ include '../../includes/header.php';
                             <button class="action-btn" onclick="editBooking(<?php echo $booking['id']; ?>)">
                                 Edit
                             </button>
+                            <button class="action-btn" style="background-color: #6366f1; color: white; border-color: #4f46e5;" onclick="printInvoice(<?php echo $booking['id']; ?>)">
+                                📄 Invoice
+                            </button>
+                            
+                            <?php 
+                            // Calculate remaining balance
+                            $remaining = $booking['final_price'] - max($booking['paid_amount'], $booking['total_paid']);
+                            if ($remaining > 0 && $booking['status'] !== 'cancelled' && $booking['status'] !== 'checked_out'): 
+                            ?>
+                            <button class="action-btn" style="background-color: #f59e0b; color: white; border-color: #d97706;" onclick="addPayment(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_code']); ?>', <?php echo $remaining; ?>)">
+                                💰 Pay
+                            </button>
+                            <?php endif; ?>
                             
                             <?php if ($booking['status'] === 'confirmed'): ?>
                             <button class="action-btn action-checkin" style="background-color: #10b981; color: white; border-color: #059669;" onclick="checkinBooking(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_code']); ?>')">
@@ -587,13 +616,607 @@ include '../../includes/header.php';
 
 </div>
 
+<!-- NEW BOOKING MODAL -->
+<div id="newBookingModal" class="modal-overlay" style="display: none;">
+    <div class="modal-compact-booking">
+        <div class="modal-header-compact">
+            <h2>New Reservation - Multiple Rooms</h2>
+            <button type="button" class="close-btn" onclick="closeNewBookingModal()">&times;</button>
+        </div>
+        
+        <form id="newBookingForm" onsubmit="submitMultiRoomBooking(event)">
+            <div class="form-compact">
+                <!-- GUEST INFO -->
+                <div class="form-row-2col">
+                    <div class="input-compact">
+                        <label>Guest Name*</label>
+                        <input type="text" id="guestName" name="guest_name" required placeholder="Full name">
+                    </div>
+                    <div class="input-compact">
+                        <label>Phone</label>
+                        <input type="text" id="guestPhone" name="guest_phone" placeholder="Phone/WA">
+                    </div>
+                </div>
+
+                <!-- DATES -->
+                <div class="form-row-2col">
+                    <div class="input-compact">
+                        <label>Check In*</label>
+                        <input type="date" id="checkInDate" name="check_in_date" required onchange="loadAvailableRooms()">
+                    </div>
+                    <div class="input-compact">
+                        <label>Check Out*</label>
+                        <input type="date" id="checkOutDate" name="check_out_date" required onchange="loadAvailableRooms()">
+                    </div>
+                </div>
+
+                <!-- ROOMS SELECTION (MULTI SELECT) -->
+                <div class="input-compact">
+                    <label>Select Rooms* (dapat pilih lebih dari 1)</label>
+                    <div id="availabilityInfo" style="margin-bottom: 8px; font-size: 0.85rem;"></div>
+                    <div id="roomsChecklistContainer" class="rooms-checklist" style="max-height: 200px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 5px; background: #f9f9f9;">
+                        <em style="color: #888;">Loading rooms...</em>
+                    </div>
+                    <div id="selectedRoomsSummary" style="margin-top: 8px; font-size: 0.85rem; color: #6366f1;"></div>
+                </div>
+
+                <!-- SOURCE & PAYMENT METHOD -->
+                <div class="form-row-2col">
+                    <div class="input-compact">
+                        <label>Booking Source</label>
+                        <select id="bookingSource" name="booking_source">
+                            <option value="walk_in">Direct (Walk-in)</option>
+                            <option value="phone">Direct (Phone)</option>
+                            <option value="agoda">Agoda</option>
+                            <option value="booking">Booking.com</option>
+                            <option value="tiket">Tiket.com</option>
+                            <option value="airbnb">Airbnb</option>
+                        </select>
+                    </div>
+                    <div class="input-compact">
+                        <label>Payment Method</label>
+                        <select name="payment_method" id="paymentMethod">
+                            <option value="cash">Cash</option>
+                            <option value="transfer">Transfer</option>
+                            <option value="qris">QRIS</option>
+                            <option value="ota">OTA</option>
+                        </select>
+                    </div>
+                </div>
+
+                <!-- PRICE SUMMARY -->
+                <div class="price-summary-compact">
+                    <div class="price-line">
+                        <span>Total Rooms:</span>
+                        <strong id="totalRoomsDisplay">0 rooms</strong>
+                    </div>
+                    <div class="price-line">
+                        <span>Nights:</span>
+                        <strong id="displayNights">0</strong>
+                    </div>
+                    <div class="price-line">
+                        <span>Subtotal:</span>
+                        <strong id="subtotalDisplay">Rp 0</strong>
+                    </div>
+                    <div class="price-line">
+                        <span>Discount (Rp):</span>
+                        <input type="number" id="discount" name="discount" value="0" onchange="calculateMultiRoomTotal()" style="text-align:right; width: 150px;">
+                    </div>
+                    <div class="price-line-total">
+                        <span>GRAND TOTAL:</span>
+                        <strong id="grandTotalDisplay" style="color:#10b981; font-size: 1.3rem;">Rp 0</strong>
+                    </div>
+                 </div>
+
+                <!-- PAYMENT -->
+                <div class="input-compact">
+                    <label>Initial Payment (DP) - Rp</label>
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                        <input type="number" id="paidAmount" name="paid_amount" value="0" placeholder="0" style="flex: 1;">
+                        <button type="button" onclick="payFullMultiRoom()" class="btn-pay-all" title="Pay Full Amount">Pay All</button>
+                    </div>
+                </div>
+
+                <!-- SPECIAL REQUEST -->
+                <div class="input-compact">
+                    <label>Special Request</label>
+                    <textarea name="special_request" id="specialRequest" rows="2" style="width: 100%; padding: 8px; border-radius: 5px; border: 1px solid #ddd;"></textarea>
+                </div>
+            </div>
+
+            <div class="modal-footer-compact">
+                <button type="button" class="btn-cancel" onclick="closeNewBookingModal()">Cancel</button>
+                <button type="submit" class="btn-save">Save Reservation</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<style>
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 9999;
+    backdrop-filter: blur(3px);
+}
+
+.modal-compact-booking {
+    width: 90%;
+    max-width: 700px;
+    max-height: 90vh;
+    background: white;
+    border-radius: 12px;
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+    overflow-y: auto;
+}
+
+.modal-header-compact {
+    padding: 1.2rem 1.5rem;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    color: white;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    position: sticky;
+    top: 0;
+    z-index: 10;
+}
+
+.modal-header-compact h2 {
+    margin: 0;
+    font-size: 1.2rem;
+    font-weight: 700;
+}
+
+.close-btn {
+    background: rgba(255,255,255,0.2);
+    border: none;
+    color: white;
+    font-size: 1.8rem;
+    width: 35px;
+    height: 35px;
+    border-radius: 50%;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.2s;
+    line-height: 1;
+}
+
+.close-btn:hover {
+    background: rgba(255,255,255,0.3);
+    transform: rotate(90deg);
+}
+
+.form-compact {
+    padding: 1.5rem;
+}
+
+.form-row-2col {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1rem;
+    margin-bottom: 1rem;
+}
+
+.input-compact {
+    margin-bottom: 1rem;
+}
+
+.input-compact label {
+    display: block;
+    font-size: 0.85rem;
+    font-weight: 600;
+    color: #1f2937;
+    margin-bottom: 0.4rem;
+}
+
+.input-compact input,
+.input-compact select {
+    width: 100%;
+    padding: 0.6rem 0.8rem;
+    border: 1px solid #d1d5db;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    transition: all 0.2s;
+}
+
+.input-compact input:focus,
+.input-compact select:focus {
+    outline: none;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.rooms-checklist {
+    max-height: 200px;
+    overflow-y: auto;
+    border: 1px solid #ddd;
+    padding: 10px;
+    border-radius: 5px;
+    background: #f9f9f9;
+}
+
+.room-checkbox-item {
+    display: block;
+    padding: 8px;
+    margin-bottom: 5px;
+    background: white;
+    border-radius: 3px;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.room-checkbox-item:hover {
+    background: #f0f9ff;
+    border-left: 3px solid #6366f1;
+}
+
+.room-checkbox-item input:checked + * {
+    font-weight: bold;
+}
+
+.price-summary-compact {
+    background: #f9fafb;
+    padding: 1rem;
+    border-radius: 8px;
+    margin-bottom: 1rem;
+}
+
+.price-line {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.6rem;
+    font-size: 0.9rem;
+}
+
+.price-line-total {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding-top: 0.8rem;
+    margin-top: 0.8rem;
+    border-top: 2px solid #e5e7eb;
+    font-size: 1.1rem;
+    font-weight: 700;
+}
+
+.btn-pay-all {
+    background: #10b981;
+    color: white;
+    border: none;
+    padding: 0.6rem 1rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+}
+
+.btn-pay-all:hover {
+    background: #059669;
+}
+
+.modal-footer-compact {
+    padding: 1rem 1.5rem;
+    background: #f9fafb;
+    border-top: 1px solid #e5e7eb;
+    display: flex;
+    gap: 1rem;
+    justify-content: flex-end;
+    position: sticky;
+    bottom: 0;
+}
+
+.btn-cancel {
+    padding: 0.7rem 1.5rem;
+    background: #6b7280;
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+.btn-cancel:hover {
+    background: #4b5563;
+}
+
+.btn-save {
+    padding: 0.7rem 2rem;
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    transition: all 0.2s;
+}
+
+.btn-save:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 10px 20px rgba(16, 185, 129, 0.3);
+}
+</style>
+
 <script>
 function filterBookings(value) {
     window.location.search = '?status=' + value;
 }
 
 function openNewBookingModal() {
-    alert('Coming Soon: New Booking Modal');
+    document.getElementById('newBookingModal').style.display = 'flex';
+    // Set default dates
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    document.getElementById('checkInDate').value = today.toISOString().split('T')[0];
+    document.getElementById('checkOutDate').value = tomorrow.toISOString().split('T')[0];
+    
+    // Load available rooms for default dates
+    loadAvailableRooms();
+}
+
+function closeNewBookingModal() {
+    document.getElementById('newBookingModal').style.display = 'none';
+    document.getElementById('newBookingForm').reset();
+}
+
+function updateCheckOutMinDate() {
+    const checkInInput = document.getElementById('checkInDate');
+    const checkOutInput = document.getElementById('checkOutDate');
+    
+    if (checkInInput && checkOutInput && checkInInput.value) {
+        // Set min check-out to day after check-in
+        const checkInDate = new Date(checkInInput.value);
+        checkInDate.setDate(checkInDate.getDate() + 1);
+        const minCheckOut = checkInDate.toISOString().split('T')[0];
+        checkOutInput.min = minCheckOut;
+        
+        // If current check-out is before min, auto-update it
+        if (!checkOutInput.value || checkOutInput.value <= checkInInput.value) {
+            checkOutInput.value = minCheckOut;
+        }
+    }
+}
+
+async function loadAvailableRooms() {
+    const checkIn = document.getElementById('checkInDate').value;
+    const checkOut = document.getElementById('checkOutDate').value;
+    
+    // Update min date for check-out
+    updateCheckOutMinDate();
+    
+    if (!checkIn || !checkOut) {
+        document.getElementById('roomsChecklistContainer').innerHTML = '<em style="color: #ef4444;">Pilih tanggal check-in dan check-out terlebih dahulu</em>';
+        return;
+    }
+    
+    // Validate dates
+    if (new Date(checkOut) <= new Date(checkIn)) {
+        document.getElementById('roomsChecklistContainer').innerHTML = '<em style="color: #ef4444;">❌ Check-out harus minimal 1 hari setelah check-in</em>';
+        document.getElementById('availabilityInfo').innerHTML = '<small style="color: #ef4444;">Invalid dates</small>';
+        return;
+    }
+    
+    // Show loading
+    document.getElementById('roomsChecklistContainer').innerHTML = '<div style="text-align:center; padding: 20px;"><em>Loading available rooms...</em></div>';
+    
+    try {
+        const response = await fetch(`../../api/get-available-rooms.php?check_in=${checkIn}&check_out=${checkOut}`);
+        
+        // Check if response is OK
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        
+        if (result.success && result.rooms.length > 0) {
+            let html = '';
+            result.rooms.forEach(room => {
+                html += `
+                    <label class="room-checkbox-item" style="display: block; padding: 8px; margin-bottom: 5px; background: white; border-radius: 3px; cursor: pointer; transition: all 0.2s;">
+                        <input type="checkbox" name="rooms[]" value="${room.id}" 
+                               data-price="${room.base_price}"
+                               data-room="${room.room_number}"
+                               data-type="${room.type_name}"
+                               onchange="calculateMultiRoomTotal()"
+                               style="margin-right: 8px;">
+                        <strong>Room ${room.room_number}</strong> - ${room.type_name}
+                        <span style="color: #10b981; font-weight: bold;">(Rp ${parseInt(room.base_price).toLocaleString('id-ID')}/night)</span>
+                    </label>
+                `;
+            });
+            document.getElementById('roomsChecklistContainer').innerHTML = html;
+            document.getElementById('availabilityInfo').innerHTML = `<small style="color: #10b981;">✅ ${result.available_rooms} room(s) available (${result.booked_rooms} booked)</small>`;
+        } else if (result.success && result.rooms.length === 0) {
+            document.getElementById('roomsChecklistContainer').innerHTML = '<em style="color: #ef4444;">❌ Tidak ada room yang tersedia untuk tanggal ini (semua sudah di-booking)</em>';
+            document.getElementById('availabilityInfo').innerHTML = `<small style="color: #ef4444;">0 rooms available (all ${result.booked_rooms} rooms booked)</small>`;
+        } else {
+            document.getElementById('roomsChecklistContainer').innerHTML = '<em style="color: #ef4444;">Error loading rooms: ' + (result.message || 'Unknown error') + '</em>';
+        }
+        
+        // Recalculate totals
+        calculateMultiRoomTotal();
+        
+    } catch (error) {
+        console.error('Error loading rooms:', error);
+        document.getElementById('roomsChecklistContainer').innerHTML = '<em style="color: #ef4444;">Error loading rooms. Please try again.</em>';
+    }
+}
+
+function calculateMultiRoomTotal() {
+    const checkInStr = document.getElementById('checkInDate').value;
+    const checkOutStr = document.getElementById('checkOutDate').value;
+    const discount = parseFloat(document.getElementById('discount').value) || 0;
+    
+    if (!checkInStr || !checkOutStr) {
+        return;
+    }
+    
+    const checkIn = new Date(checkInStr);
+    const checkOut = new Date(checkOutStr);
+    const nights = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
+    
+    if (nights <= 0) {
+        alert('Check-out must be after check-in!');
+        return;
+    }
+    
+    // Get all checked rooms
+    const checkedRooms = document.querySelectorAll('input[name="rooms[]"]:checked');
+    const totalRooms = checkedRooms.length;
+    
+    let subtotal = 0;
+    let roomDetails = [];
+    
+    checkedRooms.forEach(checkbox => {
+        const price = parseFloat(checkbox.dataset.price) || 0;
+        const roomNumber = checkbox.dataset.room;
+        const roomType = checkbox.dataset.type;
+        const roomTotal = price * nights;
+        subtotal += roomTotal;
+        roomDetails.push(`Room ${roomNumber} (${roomType}): Rp ${roomTotal.toLocaleString('id-ID')}`);
+    });
+    
+    const grandTotal = subtotal - discount;
+    
+    // Update display
+    document.getElementById('totalRoomsDisplay').textContent = totalRooms + ' room' + (totalRooms !== 1 ? 's' : '');
+    document.getElementById('displayNights').textContent = nights + ' night' + (nights !== 1 ? 's' : '');
+    document.getElementById('subtotalDisplay').textContent = 'Rp ' + subtotal.toLocaleString('id-ID');
+    document.getElementById('grandTotalDisplay').textContent = 'Rp ' + grandTotal.toLocaleString('id-ID');
+    
+    // Update summary
+    if (totalRooms > 0) {
+        document.getElementById('selectedRoomsSummary').innerHTML = 
+            '<strong>Selected:</strong> ' + totalRooms + ' room(s) × ' + nights + ' night(s) = Rp ' + subtotal.toLocaleString('id-ID');
+    } else {
+        document.getElementById('selectedRoomsSummary').innerHTML = '<em style="color: #ef4444;">Belum ada room yang dipilih</em>';
+    }
+}
+
+function payFullMultiRoom() {
+    const grandTotalText = document.getElementById('grandTotalDisplay').textContent;
+    const grandTotal = parseFloat(grandTotalText.replace(/[^\d]/g, ''));
+    document.getElementById('paidAmount').value = grandTotal;
+}
+
+async function submitMultiRoomBooking(event) {
+    event.preventDefault();
+    
+    // Validate room selection
+    const checkedRooms = document.querySelectorAll('input[name="rooms[]"]:checked');
+    if (checkedRooms.length === 0) {
+        alert('Silakan pilih minimal 1 room!');
+        return;
+    }
+    
+    // Get form data
+    const guestName = document.getElementById('guestName').value;
+    const guestPhone = document.getElementById('guestPhone').value || '';
+    const checkIn = document.getElementById('checkInDate').value;
+    const checkOut = document.getElementById('checkOutDate').value;
+    const bookingSource = document.getElementById('bookingSource').value;
+    const paymentMethod = document.getElementById('paymentMethod').value;
+    const discount = parseFloat(document.getElementById('discount').value) || 0;
+    const paidAmount = parseFloat(document.getElementById('paidAmount').value) || 0;
+    const specialRequest = document.getElementById('specialRequest').value || '';
+    
+    // Calculate nights
+    const nights = Math.ceil((new Date(checkOut) - new Date(checkIn)) / (1000 * 60 * 60 * 24));
+    
+    // Calculate discount per room (distribute equally)
+    const discountPerRoom = discount / checkedRooms.length;
+    
+    // Calculate payment per room (distribute proportionally)
+    let totalPrice = 0;
+    const roomPrices = [];
+    checkedRooms.forEach(checkbox => {
+        const price = parseFloat(checkbox.dataset.price) * nights - discountPerRoom;
+        roomPrices.push(price);
+        totalPrice += price;
+    });
+    
+    // Disable submit button
+    const submitBtn = event.target.querySelector('button[type="submit"]');
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Creating bookings...';
+    
+    let successCount = 0;
+    let errorCount = 0;
+    const bookingCodes = [];
+    
+    // Create booking for each room
+    for (let i = 0; i < checkedRooms.length; i++) {
+        const checkbox = checkedRooms[i];
+        const roomId = checkbox.value;
+        const roomNumber = checkbox.dataset.room;
+        const roomPrice = roomPrices[i];
+        
+        // Calculate proportional payment
+        const proportionalPayment = totalPrice > 0 ? (paidAmount * (roomPrice / totalPrice)) : 0;
+        
+        // Create FormData for API
+        const formData = new FormData();
+        formData.append('guest_name', guestName);
+        formData.append('guest_phone', guestPhone);
+        formData.append('room_id', roomId);
+        formData.append('check_in', checkIn);
+        formData.append('check_out', checkOut);
+        formData.append('adults', 1);
+        formData.append('children', 0);
+        formData.append('final_price', roomPrice);
+        formData.append('booking_source', bookingSource);
+        formData.append('payment_method', paymentMethod);
+        formData.append('paid_amount', proportionalPayment);
+        formData.append('special_request', specialRequest);
+        
+        try {
+            const response = await fetch('api/create-reservation.php', {
+                method: 'POST',
+                body: formData
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                successCount++;
+                bookingCodes.push(result.booking_code);
+            } else {
+                errorCount++;
+                console.error(`Error booking Room ${roomNumber}:`, result.message);
+            }
+        } catch (error) {
+            errorCount++;
+            console.error(`Error booking Room ${roomNumber}:`, error);
+        }
+    }
+    
+    // Re-enable submit button
+    submitBtn.disabled = false;
+    submitBtn.textContent = 'Create Booking';
+    
+    // Show results
+    if (successCount > 0) {
+        alert(`✅ Berhasil membuat ${successCount} booking!\n\nBooking Codes: ${bookingCodes.join(', ')}\n\n${errorCount > 0 ? `⚠️ ${errorCount} booking gagal dibuat.` : ''}`);
+        closeNewBookingModal();
+        window.location.reload(); // Refresh to show new bookings
+    } else {
+        alert('❌ Gagal membuat booking. Silakan coba lagi.');
+    }
 }
 
 function viewBooking(id) {
@@ -604,11 +1227,136 @@ function editBooking(id) {
     window.location.href = 'edit-booking.php?id=' + id;
 }
 
-function checkinBooking(id, bookingCode) {
-    if (!confirm(`Konfirmasi Check-in untuk booking ${bookingCode}?\n\n- Status akan berubah menjadi CHECKED IN\n- Kamar akan ditandai TERISI`)) {
+function printInvoice(id) {
+    // Open invoice in new window for printing
+    window.open('invoice.php?booking_id=' + id, '_blank', 'width=800,height=900');
+}
+
+function addPayment(bookingId, bookingCode, remainingAmount) {
+    const formattedRemaining = 'Rp ' + remainingAmount.toLocaleString('id-ID');
+    
+    const amount = prompt(
+        `💰 TAMBAH PEMBAYARAN\n\n` +
+        `Booking: ${bookingCode}\n` +
+        `Sisa Tagihan: ${formattedRemaining}\n\n` +
+        `Masukkan jumlah pembayaran:`,
+        remainingAmount
+    );
+    
+    if (amount === null) return; // User cancelled
+    
+    const payAmount = parseFloat(amount);
+    if (isNaN(payAmount) || payAmount <= 0) {
+        alert('❌ Jumlah pembayaran tidak valid!');
         return;
     }
     
+    if (payAmount > remainingAmount) {
+        if (!confirm(`⚠️ Jumlah melebihi sisa tagihan!\n\nSisa: ${formattedRemaining}\nInput: Rp ${payAmount.toLocaleString('id-ID')}\n\nLanjutkan?`)) {
+            return;
+        }
+    }
+    
+    // Ask for payment method
+    const method = prompt(
+        `Pilih metode pembayaran:\n\n` +
+        `1 = Cash\n` +
+        `2 = Transfer\n` +
+        `3 = QRIS\n` +
+        `4 = Card\n\n` +
+        `Masukkan nomor pilihan:`,
+        '1'
+    );
+    
+    const methodMap = {
+        '1': 'cash',
+        '2': 'transfer',
+        '3': 'qris',
+        '4': 'card'
+    };
+    
+    const paymentMethod = methodMap[method] || 'cash';
+    
+    // Submit payment
+    const formData = new FormData();
+    formData.append('booking_id', bookingId);
+    formData.append('amount', payAmount);
+    formData.append('payment_method', paymentMethod);
+    
+    fetch('../../api/add-booking-payment.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('✅ PEMBAYARAN BERHASIL!\n\n' + (data.message || 'Payment recorded successfully'));
+            location.reload();
+        } else {
+            alert('❌ Error: ' + data.message);
+        }
+    })
+    .catch(error => {
+        alert('❌ Error: ' + error.message);
+        console.error('Error:', error);
+    });
+}
+
+function checkinBooking(id, bookingCode) {
+    // First, check payment status
+    fetch('../../api/get-booking-details.php?id=' + id)
+    .then(response => response.json())
+    .then(data => {
+        if (!data.success) {
+            alert('Error: ' + data.message);
+            return;
+        }
+        
+        const booking = data.booking;
+        const finalPrice = parseFloat(booking.final_price);
+        const paidAmount = parseFloat(booking.paid_amount);
+        const remaining = finalPrice - paidAmount;
+        
+        // If not fully paid, ask user what to do
+        if (remaining > 0) {
+            const formattedRemaining = 'Rp ' + remaining.toLocaleString('id-ID');
+            const formattedTotal = 'Rp ' + finalPrice.toLocaleString('id-ID');
+            const formattedPaid = 'Rp ' + paidAmount.toLocaleString('id-ID');
+            
+            const choice = confirm(
+                `⚠️ PEMBAYARAN BELUM LUNAS!\n\n` +
+                `Booking: ${bookingCode}\n` +
+                `Total Tagihan: ${formattedTotal}\n` +
+                `Sudah Dibayar: ${formattedPaid}\n` +
+                `SISA KURANG: ${formattedRemaining}\n\n` +
+                `Klik OK untuk BAYAR SEKARANG\n` +
+                `Klik Cancel untuk TETAP CHECK-IN (tagihan masih ada)`
+            );
+            
+            if (choice) {
+                // User wants to pay - open payment modal
+                openPaymentModal(id, bookingCode, remaining);
+            } else {
+                // User wants to check-in anyway
+                proceedCheckin(id, bookingCode);
+            }
+        } else {
+            // Fully paid, just confirm check-in
+            if (confirm(`Konfirmasi Check-in untuk booking ${bookingCode}?\n\n- Status akan berubah menjadi CHECKED IN\n- Kamar akan ditandai TERISI`)) {
+                proceedCheckin(id, bookingCode);
+            }
+        }
+    })
+    .catch(error => {
+        console.error('Error:', error);
+        // Fallback - just proceed with check-in
+        if (confirm(`Konfirmasi Check-in untuk booking ${bookingCode}?\n\n- Status akan berubah menjadi CHECKED IN\n- Kamar akan ditandai TERISI`)) {
+            proceedCheckin(id, bookingCode);
+        }
+    });
+}
+
+function proceedCheckin(id, bookingCode) {
     fetch('../../api/checkin-guest.php', {
         method: 'POST',
         headers: {
@@ -621,7 +1369,7 @@ function checkinBooking(id, bookingCode) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            alert('Check-in BERHASIL! Tamu sudah masuk.');
+            alert('✅ Check-in BERHASIL! Tamu sudah masuk.');
             location.reload();
         } else {
             alert('Error: ' + data.message);
@@ -629,6 +1377,73 @@ function checkinBooking(id, bookingCode) {
     })
     .catch(error => {
         alert('Error: ' + error.message);
+        console.error('Error:', error);
+    });
+}
+
+function openPaymentModal(bookingId, bookingCode, remainingAmount) {
+    const amount = prompt(
+        `💰 PEMBAYARAN BOOKING ${bookingCode}\n\n` +
+        `Sisa Tagihan: Rp ${remainingAmount.toLocaleString('id-ID')}\n\n` +
+        `Masukkan jumlah pembayaran:`,
+        remainingAmount
+    );
+    
+    if (amount === null) return; // User cancelled
+    
+    const payAmount = parseFloat(amount);
+    if (isNaN(payAmount) || payAmount <= 0) {
+        alert('❌ Jumlah pembayaran tidak valid!');
+        return;
+    }
+    
+    // Ask for payment method
+    const method = prompt(
+        `Pilih metode pembayaran:\n\n` +
+        `1 = Cash\n` +
+        `2 = Transfer\n` +
+        `3 = QRIS\n` +
+        `4 = Card\n\n` +
+        `Masukkan nomor pilihan:`,
+        '1'
+    );
+    
+    const methodMap = {
+        '1': 'cash',
+        '2': 'transfer',
+        '3': 'qris',
+        '4': 'card'
+    };
+    
+    const paymentMethod = methodMap[method] || 'cash';
+    
+    // Submit payment
+    const formData = new FormData();
+    formData.append('booking_id', bookingId);
+    formData.append('amount', payAmount);
+    formData.append('payment_method', paymentMethod);
+    
+    fetch('../../api/add-booking-payment.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            alert('✅ Pembayaran berhasil!\n\n' + (data.message || ''));
+            
+            // Now proceed with check-in
+            if (confirm(`Lanjutkan Check-in untuk booking ${bookingCode}?`)) {
+                proceedCheckin(bookingId, bookingCode);
+            } else {
+                location.reload();
+            }
+        } else {
+            alert('❌ Error: ' + data.message);
+        }
+    })
+    .catch(error => {
+        alert('❌ Error: ' + error.message);
         console.error('Error:', error);
     });
 }

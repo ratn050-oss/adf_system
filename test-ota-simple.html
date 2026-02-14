@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>OTA Fee Test - Simple</title>
+    <style>
+        body { font-family: Arial; padding: 20px; background: #f5f5f5; }
+        .box { background: white; padding: 20px; margin: 10px 0; border-radius: 5px; box-shadow: 0 2px 5px rgba(0,0,0,0.1); }
+        .success { background: #d4edda; border-left: 4px solid #28a745; }
+        .error { background: #f8d7da; border-left: 4px solid #dc3545; }
+        button { background: #007bff; color: white; border: none; padding: 15px 30px; font-size: 16px; cursor: pointer; border-radius: 5px; }
+        button:hover { background: #0056b3; }
+        pre { background: #f4f4f4; padding: 15px; border-radius: 5px; overflow: auto; }
+        .highlight { background: #fff3cd; padding: 10px; margin: 10px 0; border-radius: 5px; }
+    </style>
+</head>
+<body>
+    <h1>🧪 OTA Fee Test - Agoda 18%</h1>
+    
+    <div class="box">
+        <h3>Test Data:</h3>
+        <ul>
+            <li>Guest: TEST AGODA</li>
+            <li>Room: 101 - King</li>
+            <li>Check In/Out: 2026-02-18 → 2026-02-19</li>
+            <li>Room Price: Rp 1.450.000</li>
+            <li>Payment: Rp 1.450.000 (Full Pay)</li>
+            <li><strong>Booking Source: agoda</strong></li>
+            <li><strong>Payment Method: ota</strong></li>
+        </ul>
+        <p class="highlight">
+            <strong>Expected Result:</strong><br>
+            Gross: Rp 1.450.000<br>
+            OTA Fee (18%): -Rp 261.000<br>
+            Net: Rp 1.189.000 → Bank
+        </p>
+    </div>
+
+    <button onclick="testAPI()">🚀 Test API Call</button>
+    
+    <div id="loading" style="display:none;" class="box">
+        <h3>⏳ Loading...</h3>
+    </div>
+
+    <div id="result"></div>
+
+    <script>
+    async function testAPI() {
+        document.getElementById('loading').style.display = 'block';
+        document.getElementById('result').innerHTML = '';
+
+        const formData = new FormData();
+        formData.append('guest_name', 'TEST AGODA');
+        formData.append('guest_phone', '08123456789');
+        formData.append('guest_email', '');
+        formData.append('room_id', '1');
+        formData.append('check_in_date', '2026-02-18');
+        formData.append('check_out_date', '2026-02-19');
+        formData.append('room_price', '1450000');
+        formData.append('final_price', '1450000');
+        formData.append('total_price', '1450000');
+        formData.append('total_nights', '1');
+        formData.append('adult_count', '1');
+        formData.append('children_count', '0');
+        formData.append('paid_amount', '1450000');
+        formData.append('payment_method', 'ota');
+        formData.append('booking_source', 'agoda');
+        formData.append('discount', '0');
+        formData.append('special_request', 'Test OTA Fee Agoda 18%');
+
+        try {
+            const response = await fetch('http://localhost:8081/adf_system/api/create-reservation.php', {
+                method: 'POST',
+                body: formData
+            });
+
+            const data = await response.json();
+            document.getElementById('loading').style.display = 'none';
+
+            let html = '';
+
+            // Success/Error box
+            if (data.success) {
+                html += '<div class="box success">';
+                html += '<h2>✅ API Call SUCCESS</h2>';
+            } else {
+                html += '<div class="box error">';
+                html += '<h2>❌ API Call FAILED</h2>';
+            }
+            html += '</div>';
+
+            // Full Response
+            html += '<div class="box">';
+            html += '<h3>📦 Full API Response:</h3>';
+            html += '<pre>' + JSON.stringify(data, null, 2) + '</pre>';
+            html += '</div>';
+
+            // Message
+            if (data.message) {
+                html += '<div class="box">';
+                html += '<h3>💬 Message Field:</h3>';
+                html += '<pre>' + data.message + '</pre>';
+                html += '</div>';
+            }
+
+            // Debug Info
+            if (data.debug) {
+                html += '<div class="box">';
+                html += '<h3>🔍 Debug Info:</h3>';
+                html += '<table border="1" cellpadding="10" style="border-collapse: collapse; width: 100%;">';
+                html += '<tr><td><strong>OTA Fee Percent:</strong></td><td>' + data.debug.ota_fee_percent + '%</td></tr>';
+                html += '<tr><td><strong>OTA Fee Amount:</strong></td><td>Rp ' + (data.debug.ota_fee_amount || 0).toLocaleString('id-ID') + '</td></tr>';
+                html += '<tr><td><strong>Net Amount:</strong></td><td>Rp ' + (data.debug.net_amount || 0).toLocaleString('id-ID') + '</td></tr>';
+                html += '<tr><td><strong>Original Source:</strong></td><td>' + data.debug.original_booking_source + '</td></tr>';
+                html += '<tr><td><strong>Mapped Source:</strong></td><td>' + data.debug.mapped_booking_source + '</td></tr>';
+                html += '</table>';
+                html += '</div>';
+            }
+
+            // Check OTA Fee
+            html += '<div class="box ' + (data.message && data.message.includes('OTA Fee') ? 'success' : 'error') + '">';
+            html += '<h3>🎯 OTA Fee Check:</h3>';
+            if (data.message && data.message.includes('OTA Fee')) {
+                html += '<h2 style="color: green;">✅ OTA Fee FOUND in message!</h2>';
+                html += '<p>Message contains OTA Fee breakdown</p>';
+            } else {
+                html += '<h2 style="color: red;">❌ OTA Fee NOT FOUND in message</h2>';
+                html += '<p>Message does NOT contain OTA Fee breakdown</p>';
+            }
+            html += '</div>';
+
+            // Alert Preview
+            html += '<div class="box">';
+            html += '<h3>📱 What Popup Would Show:</h3>';
+            html += '<button onclick="alert(`' + (data.message || '').replace(/`/g, '\\`') + '`)">Show Alert()</button>';
+            html += '</div>';
+
+            document.getElementById('result').innerHTML = html;
+
+        } catch (error) {
+            document.getElementById('loading').style.display = 'none';
+            document.getElementById('result').innerHTML = `
+                <div class="box error">
+                    <h2>❌ Fetch Error</h2>
+                    <p>${error.message}</p>
+                </div>
+            `;
+        }
+    }
+    </script>
+</body>
+</html>

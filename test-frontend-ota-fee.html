@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test OTA Fee Popup</title>
+</head>
+<body>
+    <h2>🧪 Test Submit Reservation - OTA Fee</h2>
+    <button onclick="testSubmit()">Test Submit (Agoda)</button>
+    <div id="result"></div>
+
+    <script>
+    function testSubmit() {
+        const formData = new FormData();
+        formData.append('guest_name', 'TEST OTA');
+        formData.append('guest_phone', '08123456789');
+        formData.append('room_id', '1');
+        formData.append('check_in', '2026-02-18');
+        formData.append('check_out', '2026-02-19');
+        formData.append('room_price', '1450000');
+        formData.append('final_price', '1450000');
+        formData.append('paid_amount', '1450000');
+        formData.append('payment_method', 'ota');
+        formData.append('booking_source', 'agoda');  // Test Agoda 18%
+        formData.append('discount', '0');
+        formData.append('notes', 'Test OTA Fee');
+
+        console.log('Sending to API...');
+        
+        fetch('http://localhost:8081/adf_system/api/create-reservation.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(response => response.json())
+        .then(data => {
+            console.log('API Response:', data);
+            
+            document.getElementById('result').innerHTML = `
+                <h3>📥 API Response:</h3>
+                <pre style="background: #f4f4f4; padding: 15px; border: 1px solid #ddd;">
+${JSON.stringify(data, null, 2)}</pre>
+                
+                <h3>💬 Message:</h3>
+                <pre style="background: #fff3cd; padding: 15px; border: 2px solid #ffc107;">
+${data.message}</pre>
+                
+                <h3>🎯 Check OTA Fee:</h3>
+                <div style="background: ${data.message.includes('OTA Fee') ? '#d4edda' : '#f8d7da'}; padding: 15px; border: 2px solid ${data.message.includes('OTA Fee') ? 'green' : 'red'};">
+                    ${data.message.includes('OTA Fee') ? '✅ OTA Fee FOUND!' : '❌ OTA Fee NOT FOUND!'}
+                </div>
+                
+                <h3>📋 What alert() would show:</h3>
+                <button onclick="alert(\`${data.message}\`)">Show Alert Popup</button>
+            `;
+        })
+        .catch(error => {
+            console.error('Error:', error);
+            document.getElementById('result').innerHTML = `<p style="color: red;">Error: ${error.message}</p>`;
+        });
+    }
+    </script>
+</body>
+</html>

@@ -2487,6 +2487,12 @@ window.submitBookingPayment = function submitBookingPayment() {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
+            // Show detailed success message with cashbook info
+            let successMsg = '✅ PEMBAYARAN BERHASIL!\n\n';
+            successMsg += data.message || 'Payment saved';
+            
+            alert(successMsg);
+            
             closeBookingPaymentModal();
             // Refresh booking details
             return fetch('../../api/get-booking-details.php?id=' + currentPaymentBooking.id)
@@ -2500,8 +2506,9 @@ window.submitBookingPayment = function submitBookingPayment() {
                         }
                     }
                 });
+        } else {
+            alert('Error: ' + (data.message || 'Unknown error'));
         }
-        alert('Error: ' + data.message);
     })
     .catch(err => {
         console.error(err);
@@ -2516,8 +2523,40 @@ window.changeDate = function changeDate() {
 }
 
 window.openNewReservationForm = function openNewReservationForm() {
-    // Open reservation form from reservasi.php
-    window.location.href = '<?php echo BASE_URL; ?>/modules/frontdesk/reservasi.php?action=new';
+    // Open reservation modal with today's date
+    const modal = document.getElementById('reservationModal');
+    
+    // Reset Form First
+    const form = document.getElementById('reservationForm');
+    if(form) form.reset();
+
+    const checkInInput = document.getElementById('checkInDate');
+    const checkOutInput = document.getElementById('checkOutDate');
+    
+    // Set default dates (today and tomorrow)
+    const today = new Date();
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    if (checkInInput) checkInInput.value = today.toISOString().split('T')[0];
+    if (checkOutInput) checkOutInput.value = tomorrow.toISOString().split('T')[0];
+    
+    // Load available rooms for default dates
+    loadAvailableRoomsCalendar();
+    
+    // Reset payment method class
+    document.querySelectorAll('#reservationModal .pm-item').forEach(d => d.classList.remove('active'));
+    // Set cash active
+    const cashBtn = document.querySelector('#reservationModal .pm-item:first-child');
+    if(cashBtn) {
+        cashBtn.classList.add('active');
+        document.getElementById('paymentMethod').value = 'cash';
+    }
+    
+    // Show Modal
+    if(modal) {
+        modal.classList.add('active');
+    }
 }
 
 window.openCellReservation = function openCellReservation(element) {
@@ -2533,7 +2572,6 @@ window.openCellReservation = function openCellReservation(element) {
 
     const checkInInput = document.getElementById('checkInDate');
     const checkOutInput = document.getElementById('checkOutDate');
-    const roomSelect = document.getElementById('roomSelect');
     
     if (checkInInput) checkInInput.value = date;
     
@@ -2544,11 +2582,8 @@ window.openCellReservation = function openCellReservation(element) {
         checkOutInput.value = nextDay.toISOString().split('T')[0];
     }
     
-    if (roomSelect) {
-        roomSelect.value = roomId;
-        updateRoomPrice(); 
-        updateStayDetails();
-    }
+    // Load available rooms for selected dates
+    loadAvailableRoomsCalendar();
     
     // Trigger source update to hide fees by default
     if(typeof updateSourceDetails === 'function') updateSourceDetails();
@@ -2744,49 +2779,272 @@ window.setPaymentMethod = function(method, btn) {
     if(btn) btn.classList.add('active');
 }
 
-window.submitReservation = function(event) {
+window.payFullAmount = function() {
+    const hiddenFinalPrice = document.getElementById('hiddenFinalPrice');
+    const paidAmount = document.getElementById('paidAmount');
+    
+    if (hiddenFinalPrice && paidAmount) {
+        const totalAmount = parseFloat(hiddenFinalPrice.value) || 0;
+        paidAmount.value = totalAmount;
+        
+        // Optional: Show confirmation
+        if (totalAmount > 0) {
+            const formattedAmount = 'Rp ' + totalAmount.toLocaleString('id-ID');
+            console.log('Pay All clicked - Amount set to:', formattedAmount);
+        }
+    }
+}
+
+// ============================================
+// MULTI-ROOM BOOKING FUNCTIONS FOR CALENDAR
+// ============================================
+
+function updateCheckOutMinDateCalendar() {
+    const checkInInput = document.getElementById('checkInDate');
+    const checkOutInput = document.getElementById('checkOutDate');
+    
+    if (checkInInput && checkOutInput && checkInInput.value) {
+        // Set min check-out to day after check-in
+        const checkInDate = new Date(checkInInput.value);
+        checkInDate.setDate(checkInDate.getDate() + 1);
+        const minCheckOut = checkInDate.toISOString().split('T')[0];
+        checkOutInput.min = minCheckOut;
+        
+        // If current check-out is before min, auto-update it
+        if (!checkOutInput.value || checkOutInput.value <= checkInInput.value) {
+            checkOutInput.value = minCheckOut;
+        }
+    }
+}
+
+async function loadAvailableRoomsCalendar() {
+    const checkIn = document.getElementById('checkInDate').value;
+    const checkOut = document.getElementById('checkOutDate').value;
+    
+    // Update min date for check-out
+    updateCheckOutMinDateCalendar();
+    
+    if (!checkIn || !checkOut) {
+        document.getElementById('roomsChecklistCalendar').innerHTML = '<em style="color: #ef4444;">Pilih tanggal check-in dan check-out terlebih dahulu</em>';
+        return;
+    }
+    
+    // Validate dates
+    if (new Date(checkOut) <= new Date(checkIn)) {
+        document.getElementById('roomsChecklistCalendar').innerHTML = '<em style="color: #ef4444;">❌ Check-out harus minimal 1 hari setelah check-in</em>';
+        document.getElementById('availabilityInfoCalendar').innerHTML = '<small style="color: #ef4444;">Invalid dates</small>';
+        return;
+    }
+    
+    // Show loading
+    document.getElementById('roomsChecklistCalendar').innerHTML = '<div style="text-align:center; padding: 20px;"><em>Loading available rooms...</em></div>';
+    
+    try {
+        const response = await fetch(`../../api/get-available-rooms.php?check_in=${checkIn}&check_out=${checkOut}`);
+        
+        // Check if response is OK
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
+        }
+        
+        const result = await response.json();
+        
+        if (result.success && result.rooms.length > 0) {
+            let html = '';
+            result.rooms.forEach(room => {
+                html += `
+                    <label class="room-checkbox-item" style="display: block; padding: 8px; margin-bottom: 5px; background: white; border-radius: 3px; cursor: pointer; transition: all 0.2s;">
+                        <input type="checkbox" name="rooms[]" value="${room.id}" 
+                               data-price="${room.base_price}"
+                               data-room="${room.room_number}"
+                               data-type="${room.type_name}"
+                               onchange="calculateMultiRoomTotalCalendar()"
+                               style="margin-right: 8px;">
+                        <strong>Room ${room.room_number}</strong> - ${room.type_name}
+                        <span style="color: #10b981; font-weight: bold;">(Rp ${parseInt(room.base_price).toLocaleString('id-ID')}/night)</span>
+                    </label>
+                `;
+            });
+            document.getElementById('roomsChecklistCalendar').innerHTML = html;
+            document.getElementById('availabilityInfoCalendar').innerHTML = `<small style="color: #10b981;">✅ ${result.available_rooms} room(s) available (${result.booked_rooms} booked)</small>`;
+        } else if (result.success && result.rooms.length === 0) {
+            document.getElementById('roomsChecklistCalendar').innerHTML = '<em style="color: #ef4444;">❌ Tidak ada room yang tersedia untuk tanggal ini (semua sudah di-booking)</em>';
+            document.getElementById('availabilityInfoCalendar').innerHTML = `<small style="color: #ef4444;">0 rooms available (all ${result.booked_rooms} rooms booked)</small>`;
+        } else {
+            document.getElementById('roomsChecklistCalendar').innerHTML = '<em style="color: #ef4444;">Error loading rooms: ' + (result.message || 'Unknown error') + '</em>';
+        }
+        
+        // Recalculate totals
+        calculateMultiRoomTotalCalendar();
+        
+    } catch (error) {
+        console.error('Error loading rooms:', error);
+        document.getElementById('roomsChecklistCalendar').innerHTML = '<em style="color: #ef4444;">Error loading rooms. Please try again.</em>';
+    }
+}
+
+function calculateMultiRoomTotalCalendar() {
+    const checkInStr = document.getElementById('checkInDate').value;
+    const checkOutStr = document.getElementById('checkOutDate').value;
+    const discount = parseFloat(document.getElementById('discount').value) || 0;
+    
+    if (!checkInStr || !checkOutStr) {
+        return;
+    }
+    
+    const checkIn = new Date(checkInStr);
+    const checkOut = new Date(checkOutStr);
+    const nights = Math.ceil((checkOut - checkIn) / (1000 * 60 * 60 * 24));
+    
+    if (nights <= 0) {
+        return;
+    }
+    
+    // Get all checked rooms
+    const checkedRooms = document.querySelectorAll('input[name="rooms[]"]:checked');
+    const totalRooms = checkedRooms.length;
+    
+    let subtotal = 0;
+    let roomDetails = [];
+    
+    checkedRooms.forEach(checkbox => {
+        const price = parseFloat(checkbox.dataset.price) || 0;
+        const roomNumber = checkbox.dataset.room;
+        const roomType = checkbox.dataset.type;
+        const roomTotal = price * nights;
+        subtotal += roomTotal;
+        roomDetails.push(`Room ${roomNumber} (${roomType}): Rp ${roomTotal.toLocaleString('id-ID')}`);
+    });
+    
+    const grandTotal = subtotal - discount;
+    
+    // Update display
+    document.getElementById('totalRoomsDisplayCalendar').textContent = totalRooms + ' room' + (totalRooms !== 1 ? 's' : '');
+    document.getElementById('displayNights').textContent = nights + ' night' + (nights !== 1 ? 's' : '');
+    document.getElementById('subtotalDisplayCalendar').textContent = 'Rp ' + subtotal.toLocaleString('id-ID');
+    document.getElementById('grandTotalDisplayCalendar').textContent = 'Rp ' + grandTotal.toLocaleString('id-ID');
+    
+    // Update summary
+    if (totalRooms > 0) {
+        document.getElementById('selectedRoomsSummaryCalendar').innerHTML = 
+            '<strong>Selected:</strong> ' + totalRooms + ' room(s) × ' + nights + ' night(s) = Rp ' + subtotal.toLocaleString('id-ID');
+    } else {
+        document.getElementById('selectedRoomsSummaryCalendar').innerHTML = '<em style="color: #ef4444;">Belum ada room yang dipilih</em>';
+    }
+}
+
+function payFullMultiRoomCalendar() {
+    const grandTotalText = document.getElementById('grandTotalDisplayCalendar').textContent;
+    const grandTotal = parseFloat(grandTotalText.replace(/[^\d]/g, ''));
+    document.getElementById('paidAmount').value = grandTotal;
+}
+
+window.submitReservation = async function(event) {
     event.preventDefault();
     
-    const form = event.target;
-    // ensure final price is up to date before submitting
-    calculateFinalPrice();
+    // Validate room selection
+    const checkedRooms = document.querySelectorAll('input[name="rooms[]"]:checked');
+    if (checkedRooms.length === 0) {
+        alert('Silakan pilih minimal 1 room!');
+        return;
+    }
     
-    const formData = new FormData(form);
+    const form = event.target;
     const submitBtn = form.querySelector('button[type="submit"]');
     const originalText = submitBtn.innerText;
     
-    submitBtn.disabled = true;
-    submitBtn.innerText = 'Saving...';
+    // Get form data
+    const guestName = document.getElementById('guestName').value;
+    const guestPhone = document.getElementById('guestPhone').value || '';
+    const checkIn = document.getElementById('checkInDate').value;
+    const checkOut = document.getElementById('checkOutDate').value;
+    const bookingSource = document.getElementById('bookingSource').value;
+    const paymentMethod = document.getElementById('paymentMethod').value;
+    const discount = parseFloat(document.getElementById('discount').value) || 0;
+    const paidAmount = parseFloat(document.getElementById('paidAmount').value) || 0;
+    const adultCount = parseInt(document.getElementById('adultCount').value) || 1;
     
-    const apiUrl = '<?php echo BASE_URL; ?>/api/create-reservation.php';
-    console.log('Submitting to:', apiUrl);
-    console.log('Form data:', Object.fromEntries(formData));
+    // Calculate nights
+    const nights = Math.ceil((new Date(checkOut) - new Date(checkIn)) / (1000 * 60 * 60 * 24));
     
-    fetch(apiUrl, {
-        method: 'POST',
-        body: formData
-    })
-    .then(response => {
-        console.log('Response status:', response.status);
-        return response.json();
-    })
-    .then(data => {
-        console.log('API Response:', data);
-        if(data.success || data.status === 'success') {
-            closeReservationModal();
-            location.reload(); 
-        } else {
-            alert('Error: ' + (data.message || 'Unknown error'));
-            submitBtn.disabled = false;
-            submitBtn.innerText = originalText;
-        }
-    })
-    .catch(error => {
-        console.error('Fetch Error:', error);
-        alert('Connection error: ' + error.message);
-        submitBtn.disabled = false;
-        submitBtn.innerText = originalText;
+    // Calculate discount per room (distribute equally)
+    const discountPerRoom = discount / checkedRooms.length;
+    
+    // Calculate payment per room (distribute proportionally)
+    let totalPrice = 0;
+    const roomPrices = [];
+    checkedRooms.forEach(checkbox => {
+        const price = parseFloat(checkbox.dataset.price) * nights - discountPerRoom;
+        roomPrices.push(price);
+        totalPrice += price;
     });
+    
+    // Disable submit button
+    submitBtn.disabled = true;
+    submitBtn.textContent = 'Creating bookings...';
+    
+    let successCount = 0;
+    let errorCount = 0;
+    const bookingCodes = [];
+    
+    // Create booking for each room
+    for (let i = 0; i < checkedRooms.length; i++) {
+        const checkbox = checkedRooms[i];
+        const roomId = checkbox.value;
+        const roomNumber = checkbox.dataset.room;
+        const roomPrice = roomPrices[i];
+        
+        // Calculate proportional payment
+        const proportionalPayment = totalPrice > 0 ? (paidAmount * (roomPrice / totalPrice)) : 0;
+        
+        // Create FormData for API
+        const formData = new FormData();
+        formData.append('guest_name', guestName);
+        formData.append('guest_phone', guestPhone);
+        formData.append('room_id', roomId);
+        formData.append('check_in', checkIn);
+        formData.append('check_out', checkOut);
+        formData.append('adults', adultCount);
+        formData.append('children', 0);
+        formData.append('final_price', roomPrice);
+        formData.append('booking_source', bookingSource);
+        formData.append('payment_method', paymentMethod);
+        formData.append('paid_amount', proportionalPayment);
+        
+        try {
+            const apiUrl = '<?php echo BASE_URL; ?>/api/create-reservation.php';
+            const response = await fetch(apiUrl, {
+                method: 'POST',
+                body: formData
+            });
+            
+            const result = await response.json();
+            
+            if (result.success) {
+                successCount++;
+                bookingCodes.push(result.booking_code);
+            } else {
+                errorCount++;
+                console.error(`Error booking Room ${roomNumber}:`, result.message);
+            }
+        } catch (error) {
+            errorCount++;
+            console.error(`Error booking Room ${roomNumber}:`, error);
+        }
+    }
+    
+    // Re-enable submit button
+    submitBtn.disabled = false;
+    submitBtn.textContent = originalText;
+    
+    // Show results
+    if (successCount > 0) {
+        alert(`✅ Berhasil membuat ${successCount} booking!\n\nBooking Codes: ${bookingCodes.join(', ')}\n\n${errorCount > 0 ? `⚠️ ${errorCount} booking gagal dibuat.` : ''}`);
+        closeReservationModal();
+        location.reload(); // Refresh to show new bookings
+    } else {
+        alert('❌ Gagal membuat booking. Silakan coba lagi.');
+    }
 }
 
 const shiftCalendarDays = (days) => {
@@ -3337,33 +3595,30 @@ document.addEventListener('DOMContentLoaded', function() {
                 <div class="form-row-2col">
                     <div class="input-compact">
                         <label>Check In*</label>
-                        <input type="date" id="checkInDate" name="check_in_date" required onchange="updateStayDetails()">
+                        <input type="date" id="checkInDate" name="check_in_date" required onchange="loadAvailableRoomsCalendar()">
                     </div>
                     <div class="input-compact">
                         <label>Check Out*</label>
-                        <input type="date" id="checkOutDate" name="check_out_date" required onchange="updateStayDetails()">
+                        <input type="date" id="checkOutDate" name="check_out_date" required onchange="loadAvailableRoomsCalendar()">
                     </div>
                 </div>
 
-                <!-- ROOM & GUESTS -->
-                <div class="form-row-2col">
-                    <div class="input-compact">
-                        <label>Room*</label>
-                        <select id="roomSelect" name="room_id" required onchange="updateRoomPrice()">
-                            <option value="">Select...</option>
-                            <?php foreach ($rooms as $r): ?>
-                                <option value="<?php echo $r['id']; ?>" data-price="<?php echo $r['base_price']; ?>">
-                                    Room <?php echo $r['room_number']; ?> - <?php echo $r['type_name']; ?>
-                                </option>
-                            <?php endforeach; ?>
-                        </select>
+                <!-- ROOMS SELECTION (MULTI SELECT) -->
+                <div class="input-compact">
+                    <label>Select Rooms* (dapat pilih lebih dari 1)</label>
+                    <div id="availabilityInfoCalendar" style="margin-bottom: 8px; font-size: 0.85rem;"></div>
+                    <div id="roomsChecklistCalendar" style="max-height: 200px; overflow-y: auto; border: 1px solid #ddd; padding: 10px; border-radius: 5px; background: #f9f9f9;">
+                        <em style="color: #888;">Pilih tanggal untuk melihat room yang tersedia...</em>
                     </div>
-                    <div class="input-compact">
-                        <label>Guests</label>
-                        <div class="guest-inputs">
-                            <input type="number" id="adultCount" name="adult_count" value="1" min="1" style="flex:1;">
-                            <span style="font-size:0.75rem; color:#888; padding:0 4px;">adult</span>
-                        </div>
+                    <div id="selectedRoomsSummaryCalendar" style="margin-top: 8px; font-size: 0.85rem; color: #6366f1;"></div>
+                </div>
+
+                <!-- GUESTS -->
+                <div class="input-compact">
+                    <label>Guests</label>
+                    <div class="guest-inputs">
+                        <input type="number" id="adultCount" name="adult_count" value="1" min="1" style="flex:1;">
+                        <span style="font-size:0.75rem; color:#888; padding:0 4px;">adult</span>
                     </div>
                 </div>
 
@@ -3393,27 +3648,34 @@ document.addEventListener('DOMContentLoaded', function() {
                 <!-- PRICE SUMMARY -->
                 <div class="price-summary-compact">
                     <div class="price-line">
-                        <span>Room Price (Rp):</span>
-                        <input type="number" id="roomPrice" name="room_price" readonly style="text-align:right;">
+                        <span>Total Rooms:</span>
+                        <strong id="totalRoomsDisplayCalendar">0 rooms</strong>
                     </div>
                     <div class="price-line">
                         <span>Nights:</span>
-                        <span id="displayNights" style="font-weight:bold;">1</span>
+                        <strong id="displayNights">0</strong>
+                    </div>
+                    <div class="price-line">
+                        <span>Subtotal:</span>
+                        <strong id="subtotalDisplayCalendar">Rp 0</strong>
                     </div>
                     <div class="price-line">
                         <span>Discount (Rp):</span>
-                        <input type="number" id="discount" name="discount" value="0" onchange="calculateFinalPrice()" style="text-align:right;">
+                        <input type="number" id="discount" name="discount" value="0" onchange="calculateMultiRoomTotalCalendar()" style="text-align:right; width: 150px;">
                     </div>
                     <div class="price-line-total">
-                        <span>TOTAL:</span>
-                        <strong id="finalPriceDisplay" style="color:#10b981;">Rp 0</strong>
+                        <span>GRAND TOTAL:</span>
+                        <strong id="grandTotalDisplayCalendar" style="color:#10b981; font-size: 1.3rem;">Rp 0</strong>
                     </div>
                 </div>
 
                 <!-- PAYMENT -->
                 <div class="input-compact">
                     <label>Initial Payment (DP) - Rp</label>
-                    <input type="number" id="paidAmount" name="paid_amount" value="0" placeholder="0">
+                    <div style="display: flex; gap: 0.5rem; align-items: center;">
+                        <input type="number" id="paidAmount" name="paid_amount" value="0" placeholder="0" style="flex: 1;">
+                        <button type="button" onclick="payFullMultiRoomCalendar()" class="btn-pay-all" title="Pay Full Amount">Pay All</button>
+                    </div>
                 </div>
             </div>
 
@@ -3598,6 +3860,29 @@ body[data-theme="dark"] .btn-cancel {
     background: #334155;
     border-color: #475569;
     color: white;
+}
+
+.btn-pay-all {
+    padding: 0.5rem 1rem;
+    background: linear-gradient(135deg, #10b981, #059669);
+    color: white;
+    border: none;
+    border-radius: 6px;
+    cursor: pointer;
+    font-weight: 600;
+    font-size: 0.85rem;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+
+.btn-pay-all:hover {
+    background: linear-gradient(135deg, #059669, #047857);
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+}
+
+body[data-theme="dark"] .btn-pay-all {
+    background: linear-gradient(135deg, #10b981, #059669);
 }
 
 .btn-cancel:hover {

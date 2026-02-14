@@ -82,6 +82,9 @@ try {
         $paymentMethod = 'cash';
     }
     
+    // Save original booking source for OTA fee calculation
+    $originalBookingSource = $bookingSource;
+    
     // Map booking source to database enum values
     $sourceMap = [
         'walk_in' => 'walk_in',
@@ -198,15 +201,235 @@ try {
         if (!$paymentStmt) {
             throw new Exception('Failed to create payment record');
         }
+        
+        // ==========================================
+        // AUTO-INSERT TO CASHBOOK SYSTEM
+        // ==========================================
+        $cashbookInserted = false;
+        $cashbookMessage = '';
+        $cashAccountName = '';
+        
+        // Initialize OTA fee variables OUTSIDE try block for accessibility
+        $otaFeePercent = 0;
+        $otaFeeAmount = 0;
+        $netAmount = $paidAmount;
+        
+        try {
+            // Get master database connection
+            $masterDb = new PDO(
+                "mysql:host=" . DB_HOST . ";dbname=adf_system;charset=" . DB_CHARSET,
+                DB_USER,
+                DB_PASS,
+                [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+            );
+            
+            // Get business ID from session
+            $businessId = $_SESSION['business_id'] ?? 1;
+            
+            // ==========================================
+            // OTA FEE CALCULATION
+            // ==========================================
+            // Check if booking source is OTA (use original source before mapping)
+            $otaSources = ['agoda', 'booking', 'tiket', 'airbnb', 'ota'];
+            if (in_array($originalBookingSource, $otaSources)) {
+                // Map booking source to settings key
+                $settingKeyMap = [
+                    'agoda' => 'ota_fee_agoda',
+                    'booking' => 'ota_fee_booking_com',
+                    'tiket' => 'ota_fee_tiket_com',
+                    'airbnb' => 'ota_fee_airbnb',
+                    'ota' => 'ota_fee_other_ota'
+                ];
+                
+                $settingKey = $settingKeyMap[$originalBookingSource] ?? 'ota_fee_other_ota';
+                
+                // Get OTA fee from settings (use masterDb, not business db)
+                $feeStmt = $masterDb->prepare("SELECT setting_value FROM settings WHERE setting_key = ?");
+                $feeStmt->execute([$settingKey]);
+                $feeQuery = $feeStmt->fetch(PDO::FETCH_ASSOC);
+                
+                if ($feeQuery) {
+                    $otaFeePercent = (float)($feeQuery['setting_value'] ?? 0);
+                    if ($otaFeePercent > 0) {
+                        $otaFeeAmount = ($paidAmount * $otaFeePercent) / 100;
+                        $netAmount = $paidAmount - $otaFeeAmount;
+                    }
+                }
+            }
+            
+            // Use netAmount for cashbook (after OTA fee deduction)
+            $amountToRecord = $netAmount;
+            
+            // Determine cash account based on payment method
+            $accountType = ($paymentMethod === 'cash') ? 'cash' : 'bank';
+            
+            // Get appropriate cash account
+            $cashAccountQuery = $masterDb->prepare("
+                SELECT id, account_name, current_balance 
+                FROM cash_accounts 
+                WHERE business_id = ? 
+                AND account_type = ?
+                AND is_active = 1 
+                ORDER BY is_default_account DESC
+                LIMIT 1
+            ");
+            $cashAccountQuery->execute([$businessId, $accountType]);
+            $account = $cashAccountQuery->fetch(PDO::FETCH_ASSOC);
+            
+            if ($account) {
+                $accountId = $account['id'];
+                $cashAccountName = $account['account_name'];
+                
+                // Get default division and category for frontdesk
+                $division = $db->fetchOne("SELECT id FROM divisions WHERE LOWER(division_name) LIKE '%hotel%' OR LOWER(division_name) LIKE '%frontdesk%' ORDER BY id ASC LIMIT 1");
+                if (!$division) {
+                    $division = $db->fetchOne("SELECT id FROM divisions ORDER BY id ASC LIMIT 1");
+                }
+                $divisionId = $division['id'] ?? 1;
+                
+                // Get category for ROOM SALES specifically
+                $category = $db->fetchOne("
+                    SELECT id FROM categories 
+                    WHERE category_type = 'income' 
+                    AND (
+                        LOWER(category_name) LIKE '%room%' 
+                        OR LOWER(category_name) LIKE '%kamar%'
+                        OR LOWER(category_name) LIKE '%penjualan kamar%'
+                    )
+                    ORDER BY id ASC 
+                    LIMIT 1
+                ");
+                
+                // Fallback to any income category
+                if (!$category) {
+                    $category = $db->fetchOne("SELECT id FROM categories WHERE category_type = 'income' ORDER BY id ASC LIMIT 1");
+                }
+                $categoryId = $category['id'] ?? 1;
+                
+                // Get room info for description
+                $roomInfo = $db->fetchOne("SELECT room_number FROM rooms WHERE id = ?", [$roomId]);
+                $roomNumber = $roomInfo['room_number'] ?? '';
+                
+                // Prepare description
+                $description = "Pembayaran Reservasi - {$guestName}";
+                if ($roomNumber) {
+                    $description .= " (Room {$roomNumber})";
+                }
+                $description .= " - {$bookingCode}";
+                
+                // Determine payment status label
+                $paymentLabel = '';
+                if ($paidAmount >= $finalPrice) {
+                    $paymentLabel = ' [LUNAS]';
+                } else {
+                    $paymentLabel = ' [DP]';
+                }
+                $description .= $paymentLabel;
+                
+                // Insert into business cash_book table
+                $cashBookInsert = $db->getConnection()->prepare("
+                    INSERT INTO cash_book (
+                        transaction_date, transaction_time, division_id, category_id,
+                        description, transaction_type, amount, payment_method,
+                        cash_account_id, created_by, created_at
+                    ) VALUES (NOW(), NOW(), ?, ?, ?, 'income', ?, ?, ?, ?, NOW())
+                ");
+                
+                $cashBookSuccess = $cashBookInsert->execute([
+                    $divisionId,
+                    $categoryId,
+                    $description,
+                    $amountToRecord,
+                    $paymentMethod,
+                    $accountId,
+                    $_SESSION['user_id'] ?? 1
+                ]);
+                
+                if ($cashBookSuccess) {
+                    $transactionId = $db->getConnection()->lastInsertId();
+                    
+                    // Insert into master cash_account_transactions
+                    $masterTransInsert = $masterDb->prepare("
+                        INSERT INTO cash_account_transactions (
+                            cash_account_id, transaction_id, transaction_date,
+                            description, amount, transaction_type,
+                            reference_number, created_by, created_at
+                        ) VALUES (?, ?, NOW(), ?, ?, 'income', ?, ?, NOW())
+                    ");
+                    
+                    $masterTransInsert->execute([
+                        $accountId,
+                        $transactionId,
+                        $description,
+                        $amountToRecord,
+                        $bookingCode,
+                        $_SESSION['user_id'] ?? 1
+                    ]);
+                    
+                    // Update current_balance in master cash_accounts
+                    $newBalance = $account['current_balance'] + $amountToRecord;
+                    $updateBalance = $masterDb->prepare("
+                        UPDATE cash_accounts 
+                        SET current_balance = ? 
+                        WHERE id = ?
+                    ");
+                    $updateBalance->execute([$newBalance, $accountId]);
+                    
+                    $cashbookInserted = true;
+                    $cashbookMessage = "Berhasil tercatat di Buku Kas - {$cashAccountName}";
+                }
+            } else {
+                $cashbookMessage = "Warning: Akun kas tidak ditemukan untuk payment method '{$paymentMethod}'";
+                error_log($cashbookMessage);
+            }
+        } catch (Exception $cashbookError) {
+            // Log error but don't fail the reservation
+            $cashbookMessage = "Error mencatat ke buku kas: " . $cashbookError->getMessage();
+            error_log("Cashbook auto-insert error: " . $cashbookError->getMessage());
+        }
     }
 
     $db->commit();
     
+    // Prepare success message
+    $successMessage = 'Reservation created successfully';
+    if ($paidAmount > 0) {
+        if ($cashbookInserted) {
+            $successMessage .= "\n\n✅ Payment tercatat di Buku Kas!";
+            if ($otaFeePercent > 0) {
+                $successMessage .= "\nGross: Rp " . number_format($paidAmount, 0, ',', '.');
+                $successMessage .= "\nOTA Fee ({$otaFeePercent}%): -Rp " . number_format($otaFeeAmount, 0, ',', '.');
+                $successMessage .= "\nNet: Rp " . number_format($netAmount, 0, ',', '.') . " → {$cashAccountName}";
+            } else {
+                $successMessage .= "\nRp " . number_format($paidAmount, 0, ',', '.') . " → {$cashAccountName}";
+            }
+            if ($paidAmount >= $finalPrice) {
+                $successMessage .= "\nStatus: LUNAS";
+            } else {
+                $remaining = $finalPrice - $paidAmount;
+                $successMessage .= "\nStatus: DP (Sisa: Rp " . number_format($remaining, 0, ',', '.') . ")";
+            }
+        } else {
+            $successMessage .= "\n\n⚠️ " . $cashbookMessage;
+        }
+    }
+    
     echo json_encode([
         'success' => true,
-        'message' => 'Reservation created successfully',
+        'message' => $successMessage,
         'booking_id' => $bookingId,
-        'booking_code' => $bookingCode
+        'booking_code' => $bookingCode,
+        'cashbook_inserted' => $cashbookInserted,
+        'cash_account' => $cashAccountName,
+        'paid_amount' => $paidAmount,
+        // DEBUG: Add OTA fee info
+        'debug' => [
+            'ota_fee_percent' => $otaFeePercent,
+            'ota_fee_amount' => $otaFeeAmount,
+            'net_amount' => $netAmount,
+            'original_booking_source' => $originalBookingSource,
+            'mapped_booking_source' => $bookingSource
+        ]
     ]);
     
 } catch (Exception $e) {
