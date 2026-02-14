@@ -178,9 +178,10 @@ try {
         // Get this month's stats
         $stmt = $masterDb->prepare("
             SELECT 
-                SUM(CASE WHEN transaction_type = 'capital_injection' THEN amount ELSE 0 END) as received,
+                SUM(CASE WHEN transaction_type IN ('capital_injection', 'income') THEN amount ELSE 0 END) as received,
                 SUM(CASE WHEN transaction_type = 'expense' THEN amount ELSE 0 END) as used,
-                SUM(CASE WHEN transaction_type = 'capital_injection' THEN amount ELSE -amount END) as balance
+                (SUM(CASE WHEN transaction_type IN ('capital_injection', 'income') THEN amount ELSE 0 END) - 
+                 SUM(CASE WHEN transaction_type = 'expense' THEN amount ELSE 0 END)) as balance
             FROM cash_account_transactions 
             WHERE cash_account_id = ? 
             AND DATE_FORMAT(transaction_date, '%Y-%m') = ?
@@ -1137,11 +1138,6 @@ if ($trialStatus) {
                         label: function(context) {
                             let label = context.dataset.label || '';
                             let value = context.parsed.y || 0;
-                            if (value >= 1000000) {
-                                return label + ': Rp ' + (value / 1000000).toFixed(2) + ' juta';
-                            } else if (value >= 1000) {
-                                return label + ': Rp ' + (value / 1000).toFixed(0) + ' ribu';
-                            }
                             return label + ': Rp ' + value.toLocaleString('id-ID');
                         },
                         footer: function(tooltipItems) {
@@ -1303,11 +1299,6 @@ if ($trialStatus) {
     
     // Helper function to format currency
     function formatRupiah(amount) {
-        if (amount >= 1000000) {
-            return 'Rp ' + (amount / 1000000).toFixed(2) + ' juta';
-        } else if (amount >= 1000) {
-            return 'Rp ' + (amount / 1000).toFixed(0) + ' ribu';
-        }
         return 'Rp ' + amount.toLocaleString('id-ID');
     }
     
