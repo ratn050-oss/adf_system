@@ -82,9 +82,7 @@ if ($isProduction) {
 // Query from MASTER DB because cash_account_transactions is in master DB
 $stmt = $masterDb->prepare(
     "SELECT cat.*, 
-            cb.description as cash_book_desc,
-            cb.category,
-            cb.division_id
+            cb.description as cash_book_desc
      FROM cash_account_transactions cat
      LEFT JOIN {$businessDbName}.cash_book cb ON cat.transaction_id = cb.id AND cat.transaction_type IN ('income', 'expense')
      WHERE cat.cash_account_id = ?
@@ -484,7 +482,7 @@ $remainingCapital = $currentBalance;
                         <tr>
                             <th>Tanggal</th>
                             <th>Deskripsi</th>
-                            <th>Kategori/Divisi</th>
+                            <th>Referensi</th>
                             <th>Tipe</th>
                             <th>Uang Masuk</th>
                             <th>Uang Keluar</th>
@@ -519,11 +517,10 @@ $remainingCapital = $currentBalance;
                                 <td><?php echo htmlspecialchars($description); ?></td>
                                 <td style="font-size: 0.813rem; color: #64748b;">
                                     <?php 
-                                    if ($txn['category']) {
-                                        echo '<span style="background: #e0e7ff; color: #4338ca; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem;">' . htmlspecialchars($txn['category']) . '</span>';
-                                    }
-                                    if ($txn['division_id']) {
-                                        echo '<br><small>Divisi: ' . $txn['division_id'] . '</small>';
+                                    if (!empty($txn['reference_number'])) {
+                                        echo '<span style="background: #e0e7ff; color: #4338ca; padding: 0.2rem 0.5rem; border-radius: 4px; font-size: 0.75rem;">Ref: ' . htmlspecialchars($txn['reference_number']) . '</span>';
+                                    } else {
+                                        echo '-';
                                     }
                                     ?>
                                 </td>
