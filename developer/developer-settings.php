@@ -38,6 +38,13 @@ $currentFooterCopyright = $footerCopyrightSetting['setting_value'] ?? '';
 $footerVersionSetting = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'footer_version'");
 $currentFooterVersion = $footerVersionSetting['setting_value'] ?? '';
 
+// Get demo credentials
+$demoUsernameSetting = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'demo_username'");
+$currentDemoUsername = $demoUsernameSetting['setting_value'] ?? 'admin';
+
+$demoPasswordSetting = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'demo_password'");
+$currentDemoPassword = $demoPasswordSetting['setting_value'] ?? 'admin';
+
 // Read current config
 $configFile = BASE_PATH . '/config/config.php';
 $configContent = file_get_contents($configFile);
@@ -215,6 +222,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['footer_copyright'])) 
     $success = 'Teks footer berhasil diupdate!';
     $currentFooterCopyright = $copyright;
     $currentFooterVersion = $version;
+}
+
+// Handle demo credentials update
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['demo_username'])) {
+    $demoUsername = trim($_POST['demo_username']);
+    $demoPassword = trim($_POST['demo_password']);
+    
+    if (!empty($demoUsername) && !empty($demoPassword)) {
+        $db->query("INSERT INTO settings (setting_key, setting_value) VALUES ('demo_username', ?) ON DUPLICATE KEY UPDATE setting_value = ?", [$demoUsername, $demoUsername]);
+        $db->query("INSERT INTO settings (setting_key, setting_value) VALUES ('demo_password', ?) ON DUPLICATE KEY UPDATE setting_value = ?", [$demoPassword, $demoPassword]);
+        
+        $success = 'Demo credentials berhasil diupdate!';
+        $currentDemoUsername = $demoUsername;
+        $currentDemoPassword = $demoPassword;
+    } else {
+        $error = 'Username dan password tidak boleh kosong.';
+    }
 }
 
 // Handle logo upload
@@ -886,6 +910,55 @@ require_once __DIR__ . '/includes/header.php';
                         <?php echo htmlspecialchars($currentFooterVersion ?: 'Version ' . APP_VERSION); ?>
                     </div>
                 </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Demo Credentials Settings -->
+    <div class="settings-card">
+        <div class="settings-card-header">
+            <div class="icon" style="background: rgba(236,72,153,0.15); color: #ec4899;">
+                <i class="bi bi-key-fill"></i>
+            </div>
+            <div>
+                <h5>🎯 Demo Credentials</h5>
+                <small>Konfigurasi username dan password yang tampil di login page</small>
+            </div>
+        </div>
+        <div class="settings-card-body">
+            <form method="POST">
+                <div class="row">
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Demo Username</label>
+                        <input type="text" name="demo_username" class="form-control" 
+                               value="<?php echo htmlspecialchars($currentDemoUsername); ?>" 
+                               placeholder="admin" required maxlength="50">
+                        <div class="form-text">Username yang tampil di halaman login</div>
+                    </div>
+                    <div class="col-md-6 mb-3">
+                        <label class="form-label">Demo Password</label>
+                        <input type="text" name="demo_password" class="form-control" 
+                               value="<?php echo htmlspecialchars($currentDemoPassword); ?>" 
+                               placeholder="admin" required maxlength="50">
+                        <div class="form-text">Password yang tampil di halaman login</div>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-primary">
+                    <i class="bi bi-check-lg me-1"></i>Simpan Demo Credentials
+                </button>
+            </form>
+            
+            <!-- Preview -->
+            <div class="mt-4 pt-3 border-top">
+                <small class="text-muted d-block mb-2"><i class="bi bi-eye me-1"></i>Preview di Login Page:</small>
+                <div class="p-3 rounded" style="background:#1e293b; color: #cbd5e1; font-size: 0.85rem;">
+                    <div style="text-align: center; margin-bottom: 0.5rem;"><strong>🎯 Demo Credentials (Click to Fill)</strong></div>
+                    <div>👤 Username: <strong style="color: #818cf8;"><?php echo htmlspecialchars($currentDemoUsername); ?></strong></div>
+                    <div>🔑 Password: <strong style="color: #818cf8;"><?php echo htmlspecialchars($currentDemoPassword); ?></strong></div>
+                </div>
+                <small class="text-muted d-block mt-2">
+                    <i class="bi bi-info-circle me-1"></i>User bisa klik box ini untuk auto-fill username & password
+                </small>
             </div>
         </div>
     </div>

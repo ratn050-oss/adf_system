@@ -47,6 +47,13 @@ try {
     $faviconUrl = $faviconFile && file_exists(BASE_PATH . '/uploads/icons/' . $faviconFile) 
         ? BASE_URL . '/uploads/icons/' . $faviconFile 
         : null;
+    
+    // Get demo credentials from settings
+    $demoUsernameSetting = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'demo_username'");
+    $demoUsername = $demoUsernameSetting['setting_value'] ?? 'admin';
+    
+    $demoPasswordSetting = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'demo_password'");
+    $demoPassword = $demoPasswordSetting['setting_value'] ?? 'admin';
 } catch (Exception $e) {
     // Settings table might not exist yet, continue without background
 }
@@ -487,6 +494,28 @@ if (isset($_GET['biz'])) {
             text-shadow: 0 0 10px rgba(16, 185, 129, 0.3);
         }
         
+        .remember-me-wrapper {
+            display: flex;
+            align-items: center;
+            gap: 0.5rem;
+            margin-bottom: 1rem;
+        }
+        
+        .remember-me-wrapper input[type="checkbox"] {
+            width: 16px;
+            height: 16px;
+            cursor: pointer;
+            accent-color: #818cf8;
+        }
+        
+        .remember-me-wrapper label {
+            color: #cbd5e1;
+            font-size: 0.75rem;
+            cursor: pointer;
+            margin-bottom: 0;
+            user-select: none;
+        }
+        
         .demo-credentials {
             background: rgba(51, 65, 85, 0.6);
             border: 1px solid rgba(71, 85, 105, 0.4);
@@ -500,6 +529,17 @@ if (isset($_GET['biz'])) {
         
         .demo-credentials strong {
             color: #818cf8;
+        }
+        
+        .demo-credentials-clickable {
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .demo-credentials-clickable:hover {
+            background: rgba(71, 85, 105, 0.6);
+            transform: translateY(-2px);
+            box-shadow: 0 4px 12px rgba(129, 140, 248, 0.2);
         }
         
         .login-footer {
@@ -623,16 +663,21 @@ if (isset($_GET['biz'])) {
                     </div>
                 </div>
                 
+                <div class="remember-me-wrapper">
+                    <input type="checkbox" name="remember_me" id="rememberMe">
+                    <label for="rememberMe">💾 Simpan Password</label>
+                </div>
+                
                 <div class="login-buttons">
                     <button type="submit" name="login_type" value="owner" class="btn-owner">📊 Login Owner</button>
                     <button type="submit" name="login_type" value="normal" class="btn-primary">🏢 Login System</button>
                 </div>
             </form>
             
-            <div class="demo-credentials">
-                <div style="text-align: center; margin-bottom: 0.5rem;"><strong>Demo Credentials:</strong></div>
-                <div>👤 Username: <strong>admin</strong></div>
-                <div>🔑 Password: <strong>admin</strong></div>
+            <div class="demo-credentials demo-credentials-clickable" onclick="fillDemoCredentials()" title="Klik untuk isi otomatis">
+                <div style="text-align: center; margin-bottom: 0.5rem;"><strong>🎯 Demo Credentials (Click to Fill)</strong></div>
+                <div id="demoUsername">👤 Username: <strong><?php echo htmlspecialchars($demoUsername); ?></strong></div>
+                <div id="demoPassword">🔑 Password: <strong><?php echo htmlspecialchars($demoPassword); ?></strong></div>
             </div>
             
             <div class="login-footer">
@@ -642,16 +687,61 @@ if (isset($_GET['biz'])) {
     </div>
     
     <script>
+    // Toggle password visibility
     function togglePassword(inputId, iconElement) {
         const input = document.getElementById(inputId);
         if (input.type === 'password') {
             input.type = 'text';
-            iconElement.textContent = '👁️‍🗨️'; // Eye with slash
+            iconElement.textContent = '👁️‍🗨️';
         } else {
             input.type = 'password';
-            iconElement.textContent = '👁️'; // Normal eye
+            iconElement.textContent = '👁️';
         }
     }
+    
+    // Fill demo credentials
+    function fillDemoCredentials() {
+        const demoUsername = document.getElementById('demoUsername').querySelector('strong').textContent.trim();
+        const demoPassword = document.getElementById('demoPassword').querySelector('strong').textContent.trim();
+        
+        document.querySelector('input[name="username"]').value = demoUsername;
+        document.querySelector('input[name="password"]').value = demoPassword;
+        
+        // Focus on submit button
+        document.querySelector('.btn-primary').focus();
+    }
+    
+    // Save credentials to localStorage
+    document.addEventListener('DOMContentLoaded', function() {
+        const form = document.querySelector('form');
+        const usernameInput = document.querySelector('input[name="username"]');
+        const passwordInput = document.querySelector('input[name="password"]');
+        const rememberCheckbox = document.getElementById('rememberMe');
+        
+        // Load saved credentials
+        const savedUsername = localStorage.getItem('saved_username');
+        const savedPassword = localStorage.getItem('saved_password');
+        const rememberMe = localStorage.getItem('remember_me') === 'true';
+        
+        if (rememberMe && savedUsername && savedPassword) {
+            usernameInput.value = savedUsername;
+            passwordInput.value = savedPassword;
+            rememberCheckbox.checked = true;
+        }
+        
+        // Save on form submit
+        form.addEventListener('submit', function() {
+            if (rememberCheckbox.checked) {
+                localStorage.setItem('saved_username', usernameInput.value);
+                localStorage.setItem('saved_password', passwordInput.value);
+                localStorage.setItem('remember_me', 'true');
+            } else {
+                localStorage.removeItem('saved_username');
+                localStorage.removeItem('saved_password');
+                localStorage.removeItem('remember_me');
+            }
+        });
+    });
     </script>
 </body>
 </html>
