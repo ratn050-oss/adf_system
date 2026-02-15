@@ -146,7 +146,7 @@ include '../../includes/header.php';
     </a>
     
     <!-- Backup & Reset Data -->
-    <a href="backup-reset.php" class="card" style="text-decoration: none; transition: all 0.3s; cursor: pointer;">
+    <a href="reset.php" class="card" style="text-decoration: none; transition: all 0.3s; cursor: pointer;">
         <div style="padding: 1.25rem;">
             <div style="width: 48px; height: 48px; border-radius: var(--radius-lg); background: linear-gradient(135deg, rgba(234, 179, 8, 0.2), rgba(234, 179, 8, 0.05)); display: flex; align-items: center; justify-content: center; margin-bottom: 0.875rem;">
                 <i data-feather="database" style="width: 24px; height: 24px; color: #eab308;"></i>

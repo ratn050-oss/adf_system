@@ -336,6 +336,30 @@ include '../../includes/header.php';
                     </div>
                 </div>
             </label>
+            
+            <label class="checkbox-label">
+                <input type="checkbox" name="reset_type" value="menu">
+                <div>
+                    <div style="font-weight: 600; font-size: 0.875rem; color: var(--text-primary);">
+                        Data Menu Items
+                    </div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">
+                        Hapus semua menu makanan/minuman (untuk cafe/restaurant)
+                    </div>
+                </div>
+            </label>
+            
+            <label class="checkbox-label">
+                <input type="checkbox" name="reset_type" value="orders">
+                <div>
+                    <div style="font-weight: 600; font-size: 0.875rem; color: var(--text-primary);">
+                        Data Orders
+                    </div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">
+                        Hapus semua data pesanan (untuk cafe/restaurant)
+                    </div>
+                </div>
+            </label>
         </div>
         
         <div class="warning-box">
@@ -504,9 +528,18 @@ include '../../includes/header.php';
         const typeNames = types.map(t => {
             switch(t) {
                 case 'accounting': return 'Data Accounting';
+                case 'bookings': return 'Data Booking/Reservasi';
+                case 'invoices': return 'Data Invoice';
+                case 'procurement': return 'Data PO & Procurement';
+                case 'inventory': return 'Data Inventory/Stok';
+                case 'reports': return 'Data Reports/Shift';
+                case 'guests': return 'Data Tamu';
                 case 'employees': return 'Data Karyawan';
                 case 'users': return 'Data User';
-                case 'guests': return 'Data Tamu';
+                case 'logs': return 'Data Activity Logs';
+                case 'menu': return 'Data Menu Items';
+                case 'orders': return 'Data Orders';
+                default: return `Data ${t}`;
             }
         });
         
