@@ -855,7 +855,8 @@ if ($trialStatus) {
     function getLegendTextColor() {
         const isDark = document.documentElement.getAttribute('data-theme') === 'dark' || 
                        window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-        return isDark ? '#fff' : '#000';
+        // Gunakan warna soft, bukan hitam/putih pekat
+        return isDark ? 'rgba(255, 255, 255, 0.95)' : 'rgba(0, 0, 0, 0.75)';
     }
     
     Chart.defaults.color = getChartTextColor();
@@ -1172,8 +1173,8 @@ if ($trialStatus) {
                     labels: {
                         padding: 20,
                         font: { 
-                            size: 14, 
-                            weight: 'bold',
+                            size: 11, 
+                            weight: '600',
                             family: "'Inter', sans-serif"
                         },
                         color: getLegendTextColor(),
