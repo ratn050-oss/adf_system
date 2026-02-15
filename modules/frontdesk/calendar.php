@@ -1469,64 +1469,65 @@ body[data-theme="light"] .btn-secondary {
     margin-top: 0.5rem;
 }
 
-/* Dashboard Stats Grid - Compact & Clean */
+/* Dashboard Stats Grid - Elegant Modern Design */
 .stats-dashboard-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
-    gap: 0.5rem;
-    margin-bottom: 0.5rem;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-bottom: 1rem;
 }
 
 .stats-card {
-    background: var(--card-bg);
-    border: 1px solid var(--border-color);
-    border-radius: 6px;
-    padding: 0.5rem;
-    backdrop-filter: blur(10px);
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(249, 250, 251, 0.9));
+    border: 1px solid rgba(99, 102, 241, 0.15);
+    border-radius: 10px;
+    padding: 1rem;
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+    transition: all 0.3s ease;
+}
+
+.stats-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 16px rgba(99, 102, 241, 0.15);
 }
 
 body[data-theme="light"] .stats-card {
-    background: rgba(255, 255, 255, 0.6);
+    background: linear-gradient(135deg, rgba(255, 255, 255, 0.95), rgba(249, 250, 251, 0.9));
+    border-color: rgba(99, 102, 241, 0.15);
+}
+
+body[data-theme="dark"] .stats-card {
+    background: linear-gradient(135deg, rgba(30, 41, 59, 0.95), rgba(15, 23, 42, 0.9));
     border-color: rgba(99, 102, 241, 0.2);
 }
 
 .stats-card h3 {
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     font-weight: 700;
-    margin: 0 0 0.4rem 0;
+    margin: 0 0 0.75rem 0;
     color: #6366f1;
     text-transform: uppercase;
-    letter-spacing: 0.3px;
-    border-bottom: 1px solid rgba(99, 102, 241, 0.1);
-    padding-bottom: 0.3rem;
-    display: flex;
-    align-items: center;
-    gap: 0.3rem;
+    letter-spacing: 0.5px;
+    padding-bottom: 0.5rem;
+    border-bottom: 2px solid rgba(99, 102, 241, 0.15);
 }
 
 .stats-list {
     list-style: none;
     padding: 0;
     margin: 0;
-    max-height: 100px;
-    overflow-y: auto;
-}
-
-.stats-list::-webkit-scrollbar {
-    width: 3px;
-}
-.stats-list::-webkit-scrollbar-thumb {
-    background: rgba(99, 102, 241, 0.2);
-    border-radius: 2px;
 }
 
 .stats-list li {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.4rem 0;
-    border-bottom: 1px dashed var(--border-color);
-    font-size: 0.75rem;
+    padding: 0.6rem 0;
+    border-bottom: 1px solid rgba(0, 0, 0, 0.05);
+}
+
+body[data-theme="dark"] .stats-list li {
+    border-bottom: 1px solid rgba(255, 255, 255, 0.05);
 }
 
 .stats-list li:last-child {
@@ -1536,26 +1537,34 @@ body[data-theme="light"] .stats-card {
 .stat-info {
     display: flex;
     flex-direction: column;
-    gap: 2px;
+    gap: 3px;
+    flex: 1;
 }
 
 .stat-name {
     font-weight: 600;
     color: var(--text-primary);
-    font-size: 0.8rem;
+    font-size: 0.85rem;
 }
 
 .stat-meta {
     font-size: 0.7rem;
-    color: var(--text-secondary);
+    color: #64748b;
 }
 
 .stat-tag {
-    font-size: 0.65rem;
-    padding: 2px 6px;
-    border-radius: 3px;
+    font-size: 0.7rem;
+    padding: 3px 8px;
+    border-radius: 4px;
     font-weight: 600;
     color: white;
+    white-space: nowrap;
+}
+
+@media (max-width: 1024px) {
+    .stats-dashboard-grid {
+        grid-template-columns: 1fr;
+    }
 }
 </style>
 
@@ -1793,15 +1802,17 @@ body[data-theme="light"] .stats-card {
     </div>
 
     <!-- DASHBOARD STATS WIDGETS -->
-    <div class="stats-dashboard-grid" style="margin-top: 1rem;">
+    <div class="stats-dashboard-grid" style="margin-top: 1.5rem;">
         <!-- New Reservations -->
         <div class="stats-card">
             <h3>Reservasi Terbaru</h3>
             <ul class="stats-list">
                 <?php if (empty($recentBookings)): ?>
-                    <li style="justify-content:center; color:var(--text-secondary);">Belum ada data</li>
+                    <li style="justify-content:center; color:#94a3b8;">Belum ada data</li>
                 <?php else: ?>
-                    <?php foreach($recentBookings as $rb): 
+                    <?php 
+                    $displayBookings = array_slice($recentBookings, 0, 5); // Limit 5 items
+                    foreach($displayBookings as $rb): 
                         $bName = $rb['guest_name'] ?? 'Guest';
                         $bStats = str_replace('_', ' ', $rb['status']);
                         $bColor = $rb['status'] == 'confirmed' ? '#3b82f6' : ($rb['status'] == 'pending' ? '#f59e0b' : '#10b981');
@@ -1825,9 +1836,11 @@ body[data-theme="light"] .stats-card {
             <h3>Check-in Terbaru</h3>
             <ul class="stats-list">
                 <?php if (empty($recentCheckins)): ?>
-                    <li style="justify-content:center; color:var(--text-secondary);">Belum ada data</li>
+                    <li style="justify-content:center; color:#94a3b8;">Belum ada data</li>
                 <?php else: ?>
-                    <?php foreach($recentCheckins as $rc): ?>
+                    <?php 
+                    $displayCheckins = array_slice($recentCheckins, 0, 5); // Limit 5 items
+                    foreach($displayCheckins as $rc): ?>
                     <li>
                         <div class="stat-info">
                             <span class="stat-name"><?php echo htmlspecialchars(substr($rc['guest_name'] ?? '', 0, 18)); ?></span>
@@ -1845,9 +1858,11 @@ body[data-theme="light"] .stats-card {
             <h3>Checkout Terbaru</h3>
             <ul class="stats-list">
                 <?php if (empty($recentCheckouts)): ?>
-                    <li style="justify-content:center; color:var(--text-secondary);">Belum ada data</li>
+                    <li style="justify-content:center; color:#94a3b8;">Belum ada data</li>
                 <?php else: ?>
-                    <?php foreach($recentCheckouts as $rco): ?>
+                    <?php 
+                    $displayCheckouts = array_slice($recentCheckouts, 0, 5); // Limit 5 items
+                    foreach($displayCheckouts as $rco): ?>
                     <li>
                         <div class="stat-info">
                             <span class="stat-name"><?php echo htmlspecialchars(substr($rco['guest_name'] ?? '', 0, 18)); ?></span>
@@ -3960,35 +3975,6 @@ body[data-theme="dark"] .btn-pay-all {
     background: #94a3b8;
 }
 </style>
-                                <span class="pm-icon">📱</span>
-                                <span class="pm-name">QRIS</span>
-                            </div>
-                            <div class="pm-item" onclick="setPaymentMethod('edc', this)">
-                                <span class="pm-icon">💳</span>
-                                <span class="pm-name">EDC</span>
-                            </div>
-                            <!-- Added OTA Payment Method -->
-                            <div class="pm-item" id="pm-ota" onclick="setPaymentMethod('ota', this)" style="display:none;">
-                                <span class="pm-icon">🌐</span>
-                                <span class="pm-name">OTA</span>
-                            </div>
-                        </div>
-                        
-                        <div id="otaFeeInfo" style="display:none; text-align: center; margin-top: 10px; font-size: 0.8rem; color: #db2777; background: rgba(236,72,153,0.1); padding: 5px; border-radius: 6px;">
-                            ℹ️ Full payment recorded automatically for OTA.
-                        </div>
-
-                    </div>
-                </div>
-            </div>
-
-            <div class="modal-footer-modern">
-                <button type="button" class="btn-ghost" onclick="closeReservationModal()">Cancel</button>
-                <button type="submit" class="btn-glow">Save Reservation</button>
-            </div>
-        </form>
-    </div>
-</div>
 
 <style>
 /* SYSTEM 2028 STYLES */
