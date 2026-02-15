@@ -71,6 +71,28 @@ $remaining = $booking['final_price'] - $totalPaid;
 // Get business info
 $businessId = $_SESSION['business_id'] ?? 1;
 $business = $db->fetchOne("SELECT * FROM businesses WHERE id = ?", [$businessId]);
+
+// Get company settings from master DB
+$masterDb = Database::getInstance();
+$settingsQuery = "SELECT setting_key, setting_value FROM settings WHERE setting_key LIKE 'company_%'";
+$settingsResult = $masterDb->fetchAll($settingsQuery);
+$companySettings = [];
+foreach ($settingsResult as $setting) {
+    if (strpos($setting['setting_key'], 'company_logo_') === 0) {
+        $bizId = str_replace('company_logo_', '', $setting['setting_key']);
+        if ($bizId === ($_SESSION['selected_business_id'] ?? '')) {
+            $companySettings['logo'] = $setting['setting_value'];
+        }
+    } else {
+        $key = str_replace('company_', '', $setting['setting_key']);
+        $companySettings[$key] = $setting['setting_value'];
+    }
+}
+
+// Fallback for company name
+if (empty($companySettings['name'])) {
+    $companySettings['name'] = $business['business_name'] ?? 'Hotel';
+}
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -86,45 +108,108 @@ $business = $db->fetchOne("SELECT * FROM businesses WHERE id = ?", [$businessId]
         }
         
         body {
-            font-family: 'Segoe UI', Arial, sans-serif;
+            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Arial, sans-serif;
             padding: 20px;
-            background: white;
+            background: #f5f5f5;
             color: #1f2937;
+            line-height: 1.5;
         }
         
         .invoice-container {
             max-width: 800px;
             margin: 0 auto;
             background: white;
-            border: 2px solid #e5e7eb;
-            border-radius: 8px;
-            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
         }
         
+        /* Header dengan Logo & Info Perusahaan */
         .invoice-header {
-            background: linear-gradient(135deg, #6366f1, #8b5cf6);
-            color: white;
-            padding: 2rem;
-            text-align: center;
+            display: grid;
+            grid-template-columns: 200px 1fr;
+            gap: 2rem;
+            padding: 1.5rem 2rem;
+            border-bottom: 3px solid #6366f1;
         }
         
-        .invoice-header h1 {
-            font-size: 2rem;
+        .logo-section {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        
+        .logo-section img {
+            max-width: 180px;
+            max-height: 80px;
+            object-fit: contain;
             margin-bottom: 0.5rem;
         }
         
-        .invoice-header .business-name {
-            font-size: 1.2rem;
-            opacity: 0.9;
+        .company-info {
+            text-align: right;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+        
+        .company-info h1 {
+            font-size: 1.75rem;
+            font-weight: 800;
+            color: #1f2937;
+            margin-bottom: 0.25rem;
+            letter-spacing: -0.5px;
+        }
+        
+        .company-info .tagline {
+            font-size: 0.875rem;
+            color: #6366f1;
+            font-weight: 600;
+            margin-bottom: 0.75rem;
+        }
+        
+        .company-info .address {
+            font-size: 0.75rem;
+            color: #6b7280;
+            line-height: 1.4;
+        }
+        
+        .company-info .contact {
+            font-size: 0.75rem;
+            color: #6b7280;
+            margin-top: 0.25rem;
+        }
+        
+        /* Invoice Title & Date */
+        .invoice-title-bar {
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            color: white;
+            padding: 1rem 2rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .invoice-title-bar h2 {
+            font-size: 1.5rem;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+        
+        .invoice-title-bar .invoice-number {
+            font-size: 1rem;
+            font-weight: 600;
+            background: rgba(255, 255, 255, 0.2);
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
         }
         
         .invoice-body {
-            padding: 2rem;
+            padding: 1.5rem 2rem;
         }
         
+        /* Compact Section Styles */
         .section {
-            margin-bottom: 1.5rem;
-            padding-bottom: 1.5rem;
+            margin-bottom: 1.25rem;
+            padding-bottom: 1rem;
             border-bottom: 1px solid #e5e7eb;
         }
         
@@ -133,10 +218,10 @@ $business = $db->fetchOne("SELECT * FROM businesses WHERE id = ?", [$businessId]
         }
         
         .section-title {
-            font-size: 1rem;
+            font-size: 0.75rem;
             font-weight: 700;
             color: #6366f1;
-            margin-bottom: 0.75rem;
+            margin-bottom: 0.5rem;
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
@@ -144,23 +229,25 @@ $business = $db->fetchOne("SELECT * FROM businesses WHERE id = ?", [$businessId]
         .info-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 1rem;
+            gap: 0.75rem 1.5rem;
         }
         
         .info-item {
             display: flex;
             flex-direction: column;
-            gap: 0.25rem;
+            gap: 0.125rem;
         }
         
         .info-label {
-            font-size: 0.875rem;
-            color: #6b7280;
+            font-size: 0.688rem;
+            color: #9ca3af;
             font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
         }
         
         .info-value {
-            font-size: 1rem;
+            font-size: 0.875rem;
             color: #1f2937;
             font-weight: 600;
         }
@@ -169,20 +256,23 @@ $business = $db->fetchOne("SELECT * FROM businesses WHERE id = ?", [$businessId]
             width: 100%;
             border-collapse: collapse;
             margin-top: 0.5rem;
+            font-size: 0.875rem;
         }
         
         table th {
             background: #f9fafb;
-            padding: 0.75rem;
+            padding: 0.625rem;
             text-align: left;
             font-weight: 600;
-            font-size: 0.875rem;
+            font-size: 0.75rem;
             color: #374151;
             border-bottom: 2px solid #e5e7eb;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
         }
         
         table td {
-            padding: 0.75rem;
+            padding: 0.625rem;
             border-bottom: 1px solid #f3f4f6;
         }
         
@@ -196,7 +286,7 @@ $business = $db->fetchOne("SELECT * FROM businesses WHERE id = ?", [$businessId]
         
         .price-table tr:last-child td {
             font-weight: 700;
-            font-size: 1.1rem;
+            font-size: 1rem;
             color: #059669;
             border-bottom: none;
         }
@@ -214,15 +304,18 @@ $business = $db->fetchOne("SELECT * FROM businesses WHERE id = ?", [$businessId]
         .remaining-row {
             background: #fee2e2 !important;
             color: #dc2626;
-            font-size: 1.2rem !important;
+            font-size: 1.1rem !important;
+            font-weight: 800 !important;
         }
         
         .badge {
             display: inline-block;
-            padding: 0.25rem 0.75rem;
+            padding: 0.25rem 0.625rem;
             border-radius: 4px;
-            font-size: 0.875rem;
-            font-weight: 600;
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
         }
         
         .badge-paid {
@@ -240,54 +333,106 @@ $business = $db->fetchOne("SELECT * FROM businesses WHERE id = ?", [$businessId]
             color: #dc2626;
         }
         
+        .footer-notes {
+            background: #f9fafb;
+            padding: 1rem;
+            border-radius: 6px;
+            margin-top: 1.5rem;
+            text-align: center;
+            font-size: 0.75rem;
+            color: #6b7280;
+        }
+        
+        .footer-notes p {
+            margin: 0.25rem 0;
+        }
+        
         .print-button {
-            background: #6366f1;
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
             color: white;
             padding: 0.75rem 2rem;
             border: none;
             border-radius: 6px;
             font-weight: 600;
             cursor: pointer;
-            font-size: 1rem;
+            font-size: 0.875rem;
             margin-top: 1rem;
+            box-shadow: 0 4px 6px rgba(99, 102, 241, 0.3);
+            transition: all 0.3s;
         }
         
         .print-button:hover {
-            background: #4f46e5;
+            transform: translateY(-2px);
+            box-shadow: 0 6px 12px rgba(99, 102, 241, 0.4);
         }
         
         @media print {
             body {
                 padding: 0;
+                background: white;
             }
             
             .invoice-container {
-                border: none;
-                border-radius: 0;
+                box-shadow: none;
             }
             
             .print-button {
                 display: none;
             }
         }
+        
+        @page {
+            margin: 15mm;
+        }
     </style>
 </head>
 <body>
     <div class="invoice-container">
-        <!-- Header -->
+        <!-- Header with Logo & Company Info -->
         <div class="invoice-header">
-            <h1>INVOICE</h1>
-            <div class="business-name"><?php echo htmlspecialchars($business['business_name'] ?? 'Hotel'); ?></div>
-            <div style="font-size: 0.9rem; margin-top: 0.5rem; opacity: 0.9;">
-                <?php echo htmlspecialchars($business['address'] ?? ''); ?>
+            <div class="logo-section">
+                <?php if (!empty($companySettings['logo'])): ?>
+                    <img src="<?php echo BASE_URL; ?>/uploads/logos/<?php echo htmlspecialchars($companySettings['logo']); ?>" 
+                         alt="Company Logo"
+                         onerror="this.style.display='none'">
+                <?php else: ?>
+                    <div style="font-size: 1.5rem; font-weight: 800; color: #6366f1;">
+                        <?php echo htmlspecialchars($companySettings['name']); ?>
+                    </div>
+                <?php endif; ?>
             </div>
+            
+            <div class="company-info">
+                <h1><?php echo htmlspecialchars($companySettings['name']); ?></h1>
+                <?php if (!empty($companySettings['tagline'])): ?>
+                    <div class="tagline"><?php echo htmlspecialchars($companySettings['tagline']); ?></div>
+                <?php endif; ?>
+                <?php if (!empty($companySettings['address'])): ?>
+                    <div class="address"><?php echo nl2br(htmlspecialchars($companySettings['address'])); ?></div>
+                <?php endif; ?>
+                <div class="contact">
+                    <?php if (!empty($companySettings['phone'])): ?>
+                        📞 <?php echo htmlspecialchars($companySettings['phone']); ?>
+                    <?php endif; ?>
+                    <?php if (!empty($companySettings['email'])): ?>
+                        <?php echo !empty($companySettings['phone']) ? ' • ' : ''; ?>
+                        ✉️ <?php echo htmlspecialchars($companySettings['email']); ?>
+                    <?php endif; ?>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Invoice Title Bar -->
+        <div class="invoice-title-bar">
+            <h2>INVOICE</h2>
+            <div class="invoice-number"><?php echo htmlspecialchars($booking['booking_code']); ?></div>
         </div>
         
         <!-- Body -->
         <div class="invoice-body">
             <!-- Booking Info -->
             <div class="section">
-                <div class="section-title">Booking Information</div>
+                <div class="section-title">📋 Booking Information</div>
                 <div class="info-grid">
                     <div class="info-item">
                         <div class="info-label">Booking Code</div>
@@ -298,7 +443,11 @@ $business = $db->fetchOne("SELECT * FROM businesses WHERE id = ?", [$businessId]
                         <div class="info-value"><?php echo date('d M Y', strtotime($booking['created_at'])); ?></div>
                     </div>
                     <div class="info-item">
-                        <div class="info-label">Status</div>
+                        <div class="info-label">Booking Source</div>
+                        <div class="info-value"><?php echo strtoupper($booking['booking_source'] ?? 'Walk-in'); ?></div>
+                    </div>
+                    <div class="info-item">
+                        <div class="info-label">Payment Status</div>
                         <div class="info-value">
                             <span class="badge badge-<?php echo $booking['payment_status']; ?>">
                                 <?php echo strtoupper($booking['payment_status']); ?>
@@ -310,7 +459,7 @@ $business = $db->fetchOne("SELECT * FROM businesses WHERE id = ?", [$businessId]
             
             <!-- Guest Info -->
             <div class="section">
-                <div class="section-title">Guest Information</div>
+                <div class="section-title">👤 Guest Information</div>
                 <div class="info-grid">
                     <div class="info-item">
                         <div class="info-label">Guest Name</div>
@@ -333,7 +482,7 @@ $business = $db->fetchOne("SELECT * FROM businesses WHERE id = ?", [$businessId]
             
             <!-- Stay Details -->
             <div class="section">
-                <div class="section-title">Stay Details</div>
+                <div class="section-title">🏨 Stay Details</div>
                 <div class="info-grid">
                     <div class="info-item">
                         <div class="info-label">Room</div>
@@ -364,7 +513,7 @@ $business = $db->fetchOne("SELECT * FROM businesses WHERE id = ?", [$businessId]
             
             <!-- Price Breakdown -->
             <div class="section">
-                <div class="section-title">Price Breakdown</div>
+                <div class="section-title">💰 Price Breakdown</div>
                 <table class="price-table">
                     <tr>
                         <td>Room Price (<?php echo $booking['total_nights']; ?> nights × Rp <?php echo number_format($booking['room_price'], 0, ',', '.'); ?>)</td>
@@ -396,7 +545,7 @@ $business = $db->fetchOne("SELECT * FROM businesses WHERE id = ?", [$businessId]
             <!-- Payment History -->
             <?php if (!empty($payments)): ?>
             <div class="section">
-                <div class="section-title">Payment History</div>
+                <div class="section-title">💳 Payment History</div>
                 <table>
                     <thead>
                         <tr>
@@ -423,17 +572,24 @@ $business = $db->fetchOne("SELECT * FROM businesses WHERE id = ?", [$businessId]
             <!-- Special Request -->
             <?php if (!empty($booking['special_request'])): ?>
             <div class="section">
-                <div class="section-title">Special Request</div>
-                <div style="padding: 0.75rem; background: #f9fafb; border-radius: 6px;">
+                <div class="section-title">📝 Special Request</div>
+                <div style="padding: 0.625rem; background: #f9fafb; border-radius: 6px; font-size: 0.875rem;">
                     <?php echo nl2br(htmlspecialchars($booking['special_request'])); ?>
                 </div>
             </div>
             <?php endif; ?>
             
             <!-- Footer -->
-            <div style="text-align: center; padding-top: 1rem; color: #6b7280; font-size: 0.875rem;">
-                <p>Thank you for choosing <?php echo htmlspecialchars($business['business_name'] ?? 'our hotel'); ?>!</p>
-                <p style="margin-top: 0.5rem;">For inquiries, please contact: <?php echo htmlspecialchars($business['phone'] ?? ''); ?></p>
+            <div class="footer-notes">
+                <p style="font-weight: 600; color: #374151; margin-bottom: 0.5rem;">
+                    Thank you for choosing <?php echo htmlspecialchars($companySettings['name']); ?>!
+                </p>
+                <?php if (!empty($companySettings['phone'])): ?>
+                <p>For inquiries, please contact: <?php echo htmlspecialchars($companySettings['phone']); ?></p>
+                <?php endif; ?>
+                <?php if (!empty($companySettings['website'])): ?>
+                <p>Visit us: <?php echo htmlspecialchars($companySettings['website']); ?></p>
+                <?php endif; ?>
             </div>
             
             <!-- Print Button -->
