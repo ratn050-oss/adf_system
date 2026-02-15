@@ -431,7 +431,7 @@ body[data-theme="light"] .grid-room-type-header {
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: 26px;
+    min-height: 38px;
 }
 
 /* Light theme - better header visibility */
@@ -452,7 +452,7 @@ body[data-theme="light"] .grid-header-room {
     font-size: 0.65rem;
     color: var(--text-primary);
     position: relative;
-    min-height: 26px;
+    min-height: 38px;
 }
 
 /* Light theme - visible borders */
@@ -536,7 +536,7 @@ body[data-theme="light"] .grid-date-cell.today {
     min-width: 100px;
     cursor: grab;
     font-size: 0.85rem;
-    min-height: 26px;
+    min-height: 38px;
     box-shadow: 2px 0 5px rgba(0,0,0,0.1); /* Shadow to separate sidebar */
     white-space: normal;
     word-break: break-word;
@@ -568,7 +568,7 @@ body[data-theme="light"] .grid-room-label {
     font-size: 0.75rem;
     gap: 0.2rem;
     min-width: 100px;
-    min-height: 26px;
+    min-height: 38px;
     box-shadow: 2px 0 5px rgba(0,0,0,0.1);
 }
 
@@ -618,12 +618,12 @@ body .booking-bar > span {
     display: none;
 }
 
-/* Date Cells - Compact Style */
+/* Date Cells */
 .grid-date-cell {
     border-right: 0.5px solid var(--border-color);
     border-bottom: 0.5px solid var(--border-color);
     padding: 0.05rem 0.03rem;
-    min-height: 26px;
+    min-height: 38px;
     position: relative;
     background: transparent;
     cursor: pointer;
@@ -748,8 +748,6 @@ body[data-theme="light"] .grid-date-cell {
 .booking-bar.booking-past {
     opacity: 0.35 !important;
     background: linear-gradient(135deg, #9ca3af, #d1d5db) !important;
-    --bar-color-left: #9ca3af;
-    --bar-color-right: #d1d5db;
 }
 
 .booking-bar.booking-past > span {
@@ -759,27 +757,21 @@ body[data-theme="light"] .grid-date-cell {
 
 .booking-bar.booking-past:hover {
     opacity: 0.5 !important;
-    filter: brightness(1.05);
+    transform: skewX(-20deg) translateY(-2px);
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12) !important;
 }
 
-/* Status specific bars - warna segitiga ikut CSS variable */
+/* Status specific bars */
 .booking-confirmed {
     background: linear-gradient(135deg, #06b6d4, #22d3ee) !important;
-    --bar-color-left: #06b6d4;
-    --bar-color-right: #22d3eedd;
 }
 
 .booking-pending {
-    background: linear-gradient(135deg, #0ea5e9, #38bdf8) !important;
-    --bar-color-left: #0ea5e9;
-    --bar-color-right: #38bdf8dd;
+    background: linear-gradient(135deg, #f59e0b, #fbbf24) !important;
 }
 
 .booking-checked-in {
     background: linear-gradient(135deg, #10b981, #34d399) !important;
-    --bar-color-left: #10b981;
-    --bar-color-right: #34d399dd;
 }
 
 .booking-bar-guest,
@@ -1765,7 +1757,7 @@ body[data-theme="dark"] .stats-list li {
                                 ?>
                                 <div class="booking-bar-container" style="left: 50%; width: <?php echo $barWidth; ?>px;">
                                     <div class="booking-bar <?php echo $statusClass; ?>" 
-                                         style="background: linear-gradient(135deg, <?php echo $bookingColor['bg']; ?>, <?php echo $bookingColor['bg']; ?>dd) !important; --bar-color-left: <?php echo $bookingColor['bg']; ?>; --bar-color-right: <?php echo $bookingColor['bg']; ?>dd;"
+                                         style="background: linear-gradient(135deg, <?php echo $bookingColor['bg']; ?>, <?php echo $bookingColor['bg']; ?>dd) !important;"
                                          onclick="event.stopPropagation(); viewBooking(<?php echo $booking['id']; ?>, event);"
                                          title="<?php echo $statusIcon . $guestName; ?> (<?php echo $bookingCode; ?>) - <?php echo $statusText; ?><?php echo $isPastBooking ? ' [PAST]' : ''; ?>">
                                         <span><?php echo $statusIcon . $guestName; ?> • <?php echo $shortCode; ?></span>
