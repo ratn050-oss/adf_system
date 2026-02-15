@@ -658,7 +658,7 @@ body[data-theme="light"] .grid-date-cell {
     background: rgba(99, 102, 241, 0.05);
 }
 
-/* Booking Bars - Compact Modern Style */
+/* Booking Bars - CloudBeds Style (Rectangle + Arrow Tips) */
 .booking-bar-container {
     position: absolute;
     top: 2px;
@@ -673,17 +673,17 @@ body[data-theme="light"] .grid-date-cell {
 }
 
 .booking-bar {
-    width: 100%;
-    height: 18px;
-    padding: 0 0.5rem;
+    width: calc(100% - 12px); /* sisakan ruang untuk segitiga kiri & kanan */
+    margin-left: 6px;
+    height: 20px;
+    padding: 0 0.4rem;
     cursor: pointer;
-    overflow: visible;
+    overflow: hidden;
     display: flex;
     align-items: center;
     justify-content: flex-start;
     text-align: left;
-    transition: all 0.2s ease;
-    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.08);
+    transition: all 0.15s ease;
     font-weight: 600;
     font-size: 0.6rem;
     line-height: 1;
@@ -693,15 +693,35 @@ body[data-theme="light"] .grid-date-cell {
     white-space: nowrap;
     background: linear-gradient(135deg, #06b6d4, #22d3ee) !important;
     color: #ffffff !important;
-    /* CloudBeds style - ujung runcing seperti segitiga */
-    clip-path: polygon(
-        4px 0%,              /* kiri atas */
-        calc(100% - 4px) 0%, /* kanan atas */
-        100% 50%,            /* kanan tengah (runcing) */
-        calc(100% - 4px) 100%, /* kanan bawah */
-        4px 100%,            /* kiri bawah */
-        0% 50%               /* kiri tengah (runcing) */
-    );
+    box-shadow: 0 1px 2px rgba(0, 0, 0, 0.1);
+}
+
+/* Segitiga KIRI - panah mengarah ke kiri ◁ */
+.booking-bar::before {
+    content: '';
+    position: absolute;
+    left: -6px;
+    top: 0;
+    width: 0;
+    height: 0;
+    border-top: 10px solid transparent;
+    border-bottom: 10px solid transparent;
+    border-right: 6px solid var(--bar-color-left, #06b6d4);
+    z-index: 2;
+}
+
+/* Segitiga KANAN - panah mengarah ke kanan ▷ */
+.booking-bar::after {
+    content: '';
+    position: absolute;
+    right: -6px;
+    top: 0;
+    width: 0;
+    height: 0;
+    border-top: 10px solid transparent;
+    border-bottom: 10px solid transparent;
+    border-left: 6px solid var(--bar-color-right, #22d3ee);
+    z-index: 2;
 }
 
 .booking-bar > span {
@@ -719,16 +739,17 @@ body[data-theme="light"] .grid-date-cell {
 }
 
 .booking-bar:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1);
+    filter: brightness(1.08);
     z-index: 20;
-    filter: brightness(1.05);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.18);
 }
 
 /* Past Booking Styling - Samar-samar Abu-abu Transparan */
 .booking-bar.booking-past {
     opacity: 0.35 !important;
     background: linear-gradient(135deg, #9ca3af, #d1d5db) !important;
+    --bar-color-left: #9ca3af;
+    --bar-color-right: #d1d5db;
 }
 
 .booking-bar.booking-past > span {
@@ -738,33 +759,27 @@ body[data-theme="light"] .grid-date-cell {
 
 .booking-bar.booking-past:hover {
     opacity: 0.5 !important;
-    transform: translateY(-1px);
+    filter: brightness(1.05);
     box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12) !important;
 }
 
-/* Status specific bars */
+/* Status specific bars - warna segitiga ikut CSS variable */
 .booking-confirmed {
     background: linear-gradient(135deg, #06b6d4, #22d3ee) !important;
+    --bar-color-left: #06b6d4;
+    --bar-color-right: #22d3eedd;
 }
 
 .booking-pending {
     background: linear-gradient(135deg, #0ea5e9, #38bdf8) !important;
+    --bar-color-left: #0ea5e9;
+    --bar-color-right: #38bdf8dd;
 }
 
 .booking-checked-in {
-    background: linear-gradient(135deg, #0284c7, #0ea5e9) !important;
-}
-
-/* Border separator untuk multi-day bookings - CloudBeds style */
-.booking-bar::after {
-    content: '';
-    position: absolute;
-    right: -1px;
-    top: 2px;
-    bottom: 2px;
-    width: 1px;
-    background: rgba(255, 255, 255, 0.25);
-    z-index: 1;
+    background: linear-gradient(135deg, #10b981, #34d399) !important;
+    --bar-color-left: #10b981;
+    --bar-color-right: #34d399dd;
 }
 
 .booking-bar-guest,
@@ -1750,7 +1765,7 @@ body[data-theme="dark"] .stats-list li {
                                 ?>
                                 <div class="booking-bar-container" style="left: 50%; width: <?php echo $barWidth; ?>px;">
                                     <div class="booking-bar <?php echo $statusClass; ?>" 
-                                         style="background: linear-gradient(135deg, <?php echo $bookingColor['bg']; ?>, <?php echo $bookingColor['bg']; ?>dd) !important; border-right-color: <?php echo $bookingColor['bg']; ?>; border-left-color: <?php echo $bookingColor['bg']; ?>dd;"
+                                         style="background: linear-gradient(135deg, <?php echo $bookingColor['bg']; ?>, <?php echo $bookingColor['bg']; ?>dd) !important; --bar-color-left: <?php echo $bookingColor['bg']; ?>; --bar-color-right: <?php echo $bookingColor['bg']; ?>dd;"
                                          onclick="event.stopPropagation(); viewBooking(<?php echo $booking['id']; ?>, event);"
                                          title="<?php echo $statusIcon . $guestName; ?> (<?php echo $bookingCode; ?>) - <?php echo $statusText; ?><?php echo $isPastBooking ? ' [PAST]' : ''; ?>">
                                         <span><?php echo $statusIcon . $guestName; ?> • <?php echo $shortCode; ?></span>
