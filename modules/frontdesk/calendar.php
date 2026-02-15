@@ -555,7 +555,7 @@ body[data-theme="light"] .grid-room-label {
     background: #f1f5f9;
     border-right: 2px solid #cbd5e1;
     border-bottom: 1px solid #cbd5e1;
-    padding: 0.25rem 0.3rem;
+    padding: 0.2rem 0.25rem;
     font-weight: 800;
     color: var(--text-primary);
     position: sticky;
@@ -565,10 +565,10 @@ body[data-theme="light"] .grid-room-label {
     align-items: center;
     justify-content: center;
     text-align: center;
-    font-size: 0.8rem;
-    gap: 0.25rem;
+    font-size: 0.75rem;
+    gap: 0.2rem;
     min-width: 100px;
-    min-height: 30px; /* Slight increase for better spacing */
+    min-height: 26px;
     box-shadow: 2px 0 5px rgba(0,0,0,0.1);
 }
 
