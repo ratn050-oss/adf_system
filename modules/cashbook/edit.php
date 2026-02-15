@@ -144,16 +144,57 @@ try {
     $masterDb = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
     $masterDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     
-    // CRITICAL: ACTIVE_BUSINESS_ID is STRING identifier ('narayana-hotel'), need to get INT database ID
-    $businessIdentifier = ACTIVE_BUSINESS_ID;
-    $businessMapping = ['narayana-hotel' => 1, 'bens-cafe' => 2];
-    $businessId = $businessMapping[$businessIdentifier] ?? 1;
+    // Get business ID from session or database
+    $businessId = null;
     
-    $stmt = $masterDb->prepare("SELECT id, account_name, account_type FROM cash_accounts WHERE business_id = ? ORDER BY is_default_account DESC, account_name");
-    $stmt->execute([$businessId]);
-    $cashAccounts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    // Try to get from selected_business_id in session (most reliable)
+    if (isset($_SESSION['selected_business_id'])) {
+        $stmt = $masterDb->prepare("SELECT id FROM businesses WHERE id = ?");
+        $stmt->execute([$_SESSION['selected_business_id']]);
+        $businessRecord = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($businessRecord) {
+            $businessId = $businessRecord['id'];
+        }
+    }
+    
+    // Fallback: try to get from ACTIVE_BUSINESS_ID constant (string identifier)
+    if (!$businessId && defined('ACTIVE_BUSINESS_ID')) {
+        // Mapping business identifier to database ID
+        $businessMapping = [
+            'narayana-hotel' => 1,
+            'bens-cafe' => 2
+        ];
+        $businessId = $businessMapping[ACTIVE_BUSINESS_ID] ?? null;
+        
+        // If hardcoded mapping fails, try to get from database by identifier
+        if (!$businessId) {
+            $stmt = $masterDb->prepare("SELECT id FROM businesses WHERE business_identifier = ? OR database_name LIKE ?");
+            $stmt->execute([ACTIVE_BUSINESS_ID, '%' . ACTIVE_BUSINESS_ID . '%']);
+            $businessRecord = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($businessRecord) {
+                $businessId = $businessRecord['id'];
+            }
+        }
+    }
+    
+    // Final fallback: get first active business
+    if (!$businessId) {
+        $stmt = $masterDb->query("SELECT id FROM businesses WHERE is_active = 1 ORDER BY id LIMIT 1");
+        $businessRecord = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($businessRecord) {
+            $businessId = $businessRecord['id'];
+        }
+    }
+    
+    // Load cash accounts if we have a business ID
+    if ($businessId) {
+        $stmt = $masterDb->prepare("SELECT id, account_name, account_type FROM cash_accounts WHERE business_id = ? ORDER BY is_default_account DESC, account_name");
+        $stmt->execute([$businessId]);
+        $cashAccounts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
 } catch (Exception $e) {
-    error_log("Error fetching cash accounts: " . $e->getMessage());
+    error_log("Error fetching cash accounts in edit.php: " . $e->getMessage());
+    error_log("Stack trace: " . $e->getTraceAsString());
     $cashAccounts = []; // Empty array if query fails
 }
 
@@ -260,14 +301,24 @@ include '../../includes/header.php';
                 <label class="form-label">Akun Kas</label>
                 <select name="cash_account_id" class="form-control">
                     <option value="">-- Pilih Akun Kas (opsional) --</option>
-                    <?php foreach ($cashAccounts as $acc): ?>
-                        <option value="<?php echo htmlspecialchars($acc['id']); ?>" 
-                                <?php echo (!empty($transaction['cash_account_id']) && $transaction['cash_account_id'] == $acc['id'] ? 'selected' : ''); ?>>
-                            <?php echo htmlspecialchars($acc['account_name']); ?>
-                        </option>
-                    <?php endforeach; ?>
+                    <?php if (empty($cashAccounts)): ?>
+                        <option value="" disabled style="color: #dc2626;">⚠️ Tidak ada akun kas tersedia. Hubungi admin!</option>
+                    <?php else: ?>
+                        <?php foreach ($cashAccounts as $acc): ?>
+                            <option value="<?php echo htmlspecialchars($acc['id']); ?>" 
+                                    <?php echo (!empty($transaction['cash_account_id']) && $transaction['cash_account_id'] == $acc['id'] ? 'selected' : ''); ?>>
+                                <?php echo htmlspecialchars($acc['account_name']); ?>
+                            </option>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
                 </select>
-                <small style="color: var(--text-muted); display: block; margin-top: 0.25rem;">💡 Pilih akun untuk tracking yang lebih detail</small>
+                <?php if (empty($cashAccounts)): ?>
+                    <small style="color: #dc2626; display: block; margin-top: 0.25rem; padding: 0.5rem; background: #fee2e2; border-radius: 4px; border-left: 3px solid #dc2626;">
+                        <strong>⚠️ Error:</strong> Akun kas tidak ditemukan di database master. Pastikan cash_accounts sudah di-setup untuk bisnis ini.
+                    </small>
+                <?php else: ?>
+                    <small style="color: var(--text-muted); display: block; margin-top: 0.25rem;">💡 Pilih akun untuk tracking yang lebih detail</small>
+                <?php endif; ?>
             </div>
 
             <!-- Payment Method -->

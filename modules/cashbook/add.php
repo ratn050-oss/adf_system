@@ -26,23 +26,58 @@ try {
     $masterDb = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
     $masterDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     
-    // CRITICAL: ACTIVE_BUSINESS_ID is STRING identifier ('narayana-hotel'), need to get INT database ID
-    $businessIdentifier = ACTIVE_BUSINESS_ID; // e.g., 'narayana-hotel'
+    // Get business ID from session or database
+    $businessId = null;
     
-    // Mapping business identifier to database ID
-    $businessMapping = [
-        'narayana-hotel' => 1,
-        'bens-cafe' => 2
-    ];
+    // Try to get from selected_business_id in session (most reliable)
+    if (isset($_SESSION['selected_business_id'])) {
+        $stmt = $masterDb->prepare("SELECT id FROM businesses WHERE id = ?");
+        $stmt->execute([$_SESSION['selected_business_id']]);
+        $businessRecord = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($businessRecord) {
+            $businessId = $businessRecord['id'];
+        }
+    }
     
-    $businessId = $businessMapping[$businessIdentifier] ?? 1;
+    // Fallback: try to get from ACTIVE_BUSINESS_ID constant (string identifier)
+    if (!$businessId && defined('ACTIVE_BUSINESS_ID')) {
+        // Mapping business identifier to database ID
+        $businessMapping = [
+            'narayana-hotel' => 1,
+            'bens-cafe' => 2
+        ];
+        $businessId = $businessMapping[ACTIVE_BUSINESS_ID] ?? null;
+        
+        // If hardcoded mapping fails, try to get from database by identifier
+        if (!$businessId) {
+            $stmt = $masterDb->prepare("SELECT id FROM businesses WHERE business_identifier = ? OR database_name LIKE ?");
+            $stmt->execute([ACTIVE_BUSINESS_ID, '%' . ACTIVE_BUSINESS_ID . '%']);
+            $businessRecord = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($businessRecord) {
+                $businessId = $businessRecord['id'];
+            }
+        }
+    }
     
-    // Show all 3 account types: cash, bank, owner_capital
-    $stmt = $masterDb->prepare("SELECT id, account_name, account_type FROM cash_accounts WHERE business_id = ? AND account_type IN ('cash', 'bank', 'owner_capital') ORDER BY account_type = 'cash' DESC, account_type = 'bank' DESC, account_name");
-    $stmt->execute([$businessId]);
-    $cashAccounts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    // Final fallback: get first active business
+    if (!$businessId) {
+        $stmt = $masterDb->query("SELECT id FROM businesses WHERE is_active = 1 ORDER BY id LIMIT 1");
+        $businessRecord = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($businessRecord) {
+            $businessId = $businessRecord['id'];
+        }
+    }
+    
+    // Load cash accounts if we have a business ID
+    if ($businessId) {
+        // Show all 3 account types: cash, bank, owner_capital
+        $stmt = $masterDb->prepare("SELECT id, account_name, account_type FROM cash_accounts WHERE business_id = ? AND account_type IN ('cash', 'bank', 'owner_capital') ORDER BY account_type = 'cash' DESC, account_type = 'bank' DESC, account_name");
+        $stmt->execute([$businessId]);
+        $cashAccounts = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    }
 } catch (Exception $e) {
     error_log("Error fetching cash accounts: " . $e->getMessage());
+    error_log("Stack trace: " . $e->getTraceAsString());
     $cashAccounts = []; // Empty array if query fails
 }
 
@@ -470,26 +505,36 @@ include '../../includes/header.php';
                     <label class="form-label" style="font-size: 0.813rem; font-weight: 600; margin-bottom: 0.3rem;">Pilih Akun <span style="color: var(--danger);">*</span></label>
                     <select name="cash_account_id" class="form-control" style="height: 34px; font-size: 0.813rem; font-weight: 600;" required>
                         <option value="">-- Pilih Akun --</option>
-                        <?php foreach ($cashAccounts as $acc): ?>
-                            <?php 
-                            // Add descriptive label based on account type
-                            $label = $acc['account_name'];
-                            if ($acc['account_type'] === 'cash') {
-                                $label .= ' (Uang cash dari tamu)';
-                            } elseif ($acc['account_type'] === 'bank') {
-                                $label .= ' (Hasil transfer dari tamu)';
-                            } elseif ($acc['account_type'] === 'owner_capital') {
-                                $label .= ' (Modal operasional dari owner)';
-                            }
-                            ?>
-                            <option value="<?php echo htmlspecialchars($acc['id']); ?>">
-                                <?php echo htmlspecialchars($label); ?>
-                            </option>
-                        <?php endforeach; ?>
+                        <?php if (empty($cashAccounts)): ?>
+                            <option value="" disabled style="color: #dc2626;">⚠️ Tidak ada akun kas tersedia. Hubungi admin!</option>
+                        <?php else: ?>
+                            <?php foreach ($cashAccounts as $acc): ?>
+                                <?php 
+                                // Add descriptive label based on account type
+                                $label = $acc['account_name'];
+                                if ($acc['account_type'] === 'cash') {
+                                    $label .= ' (Uang cash dari tamu)';
+                                } elseif ($acc['account_type'] === 'bank') {
+                                    $label .= ' (Hasil transfer dari tamu)';
+                                } elseif ($acc['account_type'] === 'owner_capital') {
+                                    $label .= ' (Modal operasional dari owner)';
+                                }
+                                ?>
+                                <option value="<?php echo htmlspecialchars($acc['id']); ?>">
+                                    <?php echo htmlspecialchars($label); ?>
+                                </option>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
                     </select>
-                    <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.3rem; line-height: 1.4;">
-                        💡 <strong>Petty Cash:</strong> Cash tamu | <strong>Bank:</strong> Transfer tamu | <strong>Kas Modal:</strong> Modal owner
-                    </div>
+                    <?php if (empty($cashAccounts)): ?>
+                        <div style="font-size: 0.75rem; color: #dc2626; margin-top: 0.3rem; padding: 0.5rem; background: #fee2e2; border-radius: 4px; border-left: 3px solid #dc2626;">
+                            <strong>⚠️ Error:</strong> Akun kas tidak ditemukan di database master. Pastikan cash_accounts sudah di-setup untuk bisnis ini.
+                        </div>
+                    <?php else: ?>
+                        <div style="font-size: 0.75rem; color: var(--text-muted); margin-top: 0.3rem; line-height: 1.4;">
+                            💡 <strong>Petty Cash:</strong> Cash tamu | <strong>Bank:</strong> Transfer tamu | <strong>Kas Modal:</strong> Modal owner
+                        </div>
+                    <?php endif; ?>
                 </div>
                 
                 <!-- Payment Method -->
