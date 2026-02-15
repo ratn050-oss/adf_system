@@ -1,28 +1,26 @@
 <?php
-// Prevent any output before JSON
-ob_start();
-
+// CRITICAL: Set header & prevent output FIRST
 header('Content-Type: application/json');
-ini_set('display_errors', 0);
+if (ob_get_level() === 0) ob_start();
 error_reporting(0);
+ini_set('display_errors', 0);
 
 try {
-    // Clear output buffer
-    ob_clean();
+    // Clear any buffered output
+    while (ob_get_level() > 0) ob_end_clean();
+    ob_start();
     
     define('APP_ACCESS', true);
     require_once '../config/config.php';
     require_once '../config/database.php';
     
-    // Re-suppress errors AFTER config.php overrides them
+    // Re-suppress errors AFTER config.php
     error_reporting(0);
     ini_set('display_errors', 0);
-    ob_clean();
     
     $db = Database::getInstance();
-    $conn = $db->getConnection();
     
-    $bookingId = $_GET['id'] ?? null;
+    $bookingId = intval($_GET['id'] ?? 0);
     
     if (!$bookingId) {
         echo json_encode(['success' => false, 'message' => 'Booking ID required']);

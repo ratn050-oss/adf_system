@@ -4,35 +4,34 @@
  * Edit reservation details (dates, room, guest info, price)
  */
 
+header('Content-Type: application/json');
+if (ob_get_level() === 0) ob_start();
 error_reporting(0);
 ini_set('display_errors', 0);
-ob_start();
 
 define('APP_ACCESS', true);
 require_once '../config/config.php';
 require_once '../config/database.php';
 require_once '../includes/auth.php';
 
-// Re-suppress errors AFTER config.php overrides them
+// Re-suppress errors AFTER config.php
 error_reporting(0);
 ini_set('display_errors', 0);
-ob_clean();
-header('Content-Type: application/json');
-
-$auth = new Auth();
-if (!$auth->isLoggedIn()) {
-    echo json_encode(['success' => false, 'message' => 'Unauthorized']);
-    exit;
-}
-
-if (!$auth->hasPermission('frontdesk')) {
-    echo json_encode(['success' => false, 'message' => 'No permission']);
-    exit;
-}
-
-$db = Database::getInstance();
 
 try {
+    $auth = new Auth();
+    if (!$auth->isLoggedIn()) {
+        echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+        exit;
+    }
+
+    if (!$auth->hasPermission('frontdesk')) {
+        echo json_encode(['success' => false, 'message' => 'No permission']);
+        exit;
+    }
+
+    $db = Database::getInstance();
+
     $bookingId = intval($_POST['booking_id'] ?? 0);
     if (!$bookingId) {
         throw new Exception('Booking ID is required');
@@ -175,3 +174,5 @@ try {
 } catch (Exception $e) {
     echo json_encode(['success' => false, 'message' => $e->getMessage()]);
 }
+
+ob_end_flush();
