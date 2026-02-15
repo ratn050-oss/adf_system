@@ -54,12 +54,20 @@ try {
 }
 
 // ============================================
-// GET CALENDAR DATE RANGE
+// GET CALENDAR DATE RANGE (Include Past Dates for History)
 // ============================================
 $startDate = $_GET['start'] ?? date('Y-m-d');
-$daysToShow = 365; // Show 365 days (1 full year) untuk banyak scrollable content
+$daysBefore = 60; // Show 60 days before for history/checkout bookings
+$daysAfter = 365; // Show 365 days after for future bookings
 $dates = [];
-for ($i = 0; $i < $daysToShow; $i++) {
+
+// Add past dates (for history view)
+for ($i = $daysBefore; $i > 0; $i--) {
+    $dates[] = date('Y-m-d', strtotime($startDate . " -{$i} days"));
+}
+
+// Add current and future dates
+for ($i = 0; $i < $daysAfter; $i++) {
     $dates[] = date('Y-m-d', strtotime($startDate . " +{$i} days"));
 }
 
@@ -83,9 +91,11 @@ try {
 // GET BOOKINGS FOR DATE RANGE
 // ============================================
 try {
-    $endDate = date('Y-m-d', strtotime($startDate . " +{$daysToShow} days"));
+    // Calculate actual date range (including past dates)
+    $actualStartDate = date('Y-m-d', strtotime($startDate . " -{$daysBefore} days"));
+    $actualEndDate = date('Y-m-d', strtotime($startDate . " +{$daysAfter} days"));
     
-    // Fetch all bookings that overlap with date range
+    // Fetch all bookings that overlap with date range (including history)
     $bookings = $db->fetchAll("
         SELECT 
             b.id, 
@@ -103,9 +113,9 @@ try {
         LEFT JOIN guests g ON b.guest_id = g.id
         WHERE b.check_in_date < ? 
         AND b.check_out_date > ?
-        AND b.status IN ('pending', 'confirmed', 'checked_in')
+        AND b.status IN ('pending', 'confirmed', 'checked_in', 'checked_out')
         ORDER BY b.check_in_date ASC, b.room_id ASC
-    ", [$endDate, $startDate]);
+    ", [$actualEndDate, $actualStartDate]);
     
     echo "<!-- DEBUG: Found " . count($bookings) . " bookings -->\n";
     
@@ -127,10 +137,11 @@ foreach ($bookings as $booking) {
 }
 
 // ============================================
-// BOOKING COLORS - SIMPLE: Default vs Checked-In
+// BOOKING COLORS - SIMPLE: Default vs Checked-In vs Checked-Out
 // ============================================
-$defaultColor = ['bg' => '#3b82f6', 'text' => 'white'];      // Blue for pending/confirmed bookings
-$checkedInColor = ['bg' => '#10b981', 'text' => 'white'];    // Green for checked-in guests (active)
+$defaultColor = ['bg' => '#3b82f6', 'text' => 'white'];        // Blue for pending/confirmed bookings
+$checkedInColor = ['bg' => '#10b981', 'text' => 'white'];      // Green for checked-in guests (active)
+$checkedOutColor = ['bg' => '#9ca3af', 'text' => '#6b7280'];   // Gray transparent for checked-out (history)
 
 include '../../includes/header.php';
 ?>
@@ -1458,19 +1469,19 @@ body[data-theme="light"] .btn-secondary {
     margin-top: 0.5rem;
 }
 
-/* Dashboard Stats Grid */
+/* Dashboard Stats Grid - Compact & Clean */
 .stats-dashboard-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
-    gap: 0.75rem;
-    margin-bottom: 0.75rem;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 0.5rem;
+    margin-bottom: 0.5rem;
 }
 
 .stats-card {
     background: var(--card-bg);
     border: 1px solid var(--border-color);
-    border-radius: 8px;
-    padding: 0.75rem;
+    border-radius: 6px;
+    padding: 0.5rem;
     backdrop-filter: blur(10px);
 }
 
@@ -1480,29 +1491,29 @@ body[data-theme="light"] .stats-card {
 }
 
 .stats-card h3 {
-    font-size: 0.8rem;
-    font-weight: 800;
-    margin: 0 0 0.5rem 0;
+    font-size: 0.7rem;
+    font-weight: 700;
+    margin: 0 0 0.4rem 0;
     color: #6366f1;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
-    border-bottom: 2px solid rgba(99, 102, 241, 0.1);
-    padding-bottom: 0.4rem;
+    letter-spacing: 0.3px;
+    border-bottom: 1px solid rgba(99, 102, 241, 0.1);
+    padding-bottom: 0.3rem;
     display: flex;
     align-items: center;
-    gap: 0.4rem;
+    gap: 0.3rem;
 }
 
 .stats-list {
     list-style: none;
     padding: 0;
     margin: 0;
-    max-height: 140px;
+    max-height: 100px;
     overflow-y: auto;
 }
 
 .stats-list::-webkit-scrollbar {
-    width: 4px;
+    width: 3px;
 }
 .stats-list::-webkit-scrollbar-thumb {
     background: rgba(99, 102, 241, 0.2);
@@ -1513,9 +1524,9 @@ body[data-theme="light"] .stats-card {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 0.8rem 0;
+    padding: 0.4rem 0;
     border-bottom: 1px dashed var(--border-color);
-    font-size: 1rem;
+    font-size: 0.75rem;
 }
 
 .stats-list li:last-child {
@@ -1525,25 +1536,25 @@ body[data-theme="light"] .stats-card {
 .stat-info {
     display: flex;
     flex-direction: column;
-    gap: 4px;
+    gap: 2px;
 }
 
 .stat-name {
-    font-weight: 700;
+    font-weight: 600;
     color: var(--text-primary);
-    font-size: 1.1rem;
+    font-size: 0.8rem;
 }
 
 .stat-meta {
-    font-size: 0.95rem;
+    font-size: 0.7rem;
     color: var(--text-secondary);
 }
 
 .stat-tag {
-    font-size: 0.9rem;
-    padding: 4px 10px;
-    border-radius: 4px;
-    font-weight: 700;
+    font-size: 0.65rem;
+    padding: 2px 6px;
+    border-radius: 3px;
+    font-weight: 600;
     color: white;
 }
 </style>
@@ -1715,19 +1726,27 @@ body[data-theme="light"] .stats-card {
                                 
                                 $statusClass = 'booking-' . str_replace('_', '-', $booking['status']);
                                 
-                                // Check if booking is past (check-out date is before today)
+                                // Check if booking is past or checked out
                                 $today = strtotime(date('Y-m-d'));
                                 $isPastBooking = ($checkoutDate < $today);
-                                if ($isPastBooking) {
+                                $isCheckedOut = ($booking['status'] === 'checked_out');
+                                
+                                if ($isPastBooking || $isCheckedOut) {
                                     $statusClass .= ' booking-past';
                                 }
                                 
-                                // Determine color based on check-in status
+                                // Determine color based on status
                                 $isCheckedIn = ($booking['status'] === 'checked_in');
-                                $bookingColor = $isCheckedIn ? $checkedInColor : $defaultColor;
+                                if ($isCheckedOut || $isPastBooking) {
+                                    $bookingColor = $checkedOutColor;
+                                } elseif ($isCheckedIn) {
+                                    $bookingColor = $checkedInColor;
+                                } else {
+                                    $bookingColor = $defaultColor;
+                                }
                                 
-                                // Add checkmark icon for checked-in guests
-                                $statusIcon = $isCheckedIn ? '✓ ' : '';
+                                // Add status icons
+                                $statusIcon = $isCheckedIn ? '✓ ' : ($isCheckedOut ? '📭 ' : '');
                                 
                                 $guestName = htmlspecialchars(substr($booking['guest_name'] ?? 'Guest', 0, 12));
                                 $bookingCode = htmlspecialchars($booking['booking_code']);
@@ -1774,10 +1793,10 @@ body[data-theme="light"] .stats-card {
     </div>
 
     <!-- DASHBOARD STATS WIDGETS -->
-    <div class="stats-dashboard-grid" style="margin-top: 2rem;">
+    <div class="stats-dashboard-grid" style="margin-top: 1rem;">
         <!-- New Reservations -->
         <div class="stats-card">
-            <h3>📝 Reservasi Terbaru</h3>
+            <h3>Reservasi Terbaru</h3>
             <ul class="stats-list">
                 <?php if (empty($recentBookings)): ?>
                     <li style="justify-content:center; color:var(--text-secondary);">Belum ada data</li>
@@ -1803,7 +1822,7 @@ body[data-theme="light"] .stats-card {
 
         <!-- Latest Check-ins -->
         <div class="stats-card">
-            <h3>📥 Cekin Terbaru</h3>
+            <h3>Check-in Terbaru</h3>
             <ul class="stats-list">
                 <?php if (empty($recentCheckins)): ?>
                     <li style="justify-content:center; color:var(--text-secondary);">Belum ada data</li>
@@ -1823,7 +1842,7 @@ body[data-theme="light"] .stats-card {
 
         <!-- Latest Check-outs -->
         <div class="stats-card">
-            <h3>📤 Cek Out Terbaru</h3>
+            <h3>Checkout Terbaru</h3>
             <ul class="stats-list">
                 <?php if (empty($recentCheckouts)): ?>
                     <li style="justify-content:center; color:var(--text-secondary);">Belum ada data</li>
@@ -3433,6 +3452,18 @@ document.addEventListener('DOMContentLoaded', function() {
             scroller.addEventListener('touchend', () => {
                 isDown = false;
             });
+            
+            // ========================================
+            // AUTO-SCROLL TO TODAY ON PAGE LOAD
+            // ========================================
+            setTimeout(() => {
+                const todayCell = document.querySelector('.grid-date-cell.today');
+                if (todayCell && scroller) {
+                    const scrollPos = todayCell.offsetLeft - (scroller.offsetWidth / 2) + (todayCell.offsetWidth / 2);
+                    scroller.scrollLeft = scrollPos;
+                    console.log('✅ Auto-scrolled to today:', scrollPos);
+                }
+            }, 100);
         }
     } catch (e) {
         console.error('❌ Error in Drag Scroll setup:', e);
