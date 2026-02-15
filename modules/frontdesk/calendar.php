@@ -418,20 +418,20 @@ body[data-theme="light"] .grid-room-type-header {
     border-right: 2px solid #94a3b8;
     backdrop-filter: none;
     border-bottom: 0.5px solid var(--border-color);
-    padding: 0.15rem 0.1rem;
-    font-weight: 900;
+    padding: 0.1rem 0.08rem;
+    font-weight: 800;
     text-align: center;
     position: sticky;
     left: 0;
     z-index: 40;
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     color: var(--text-primary);
     box-shadow: 2px 0 5px rgba(0,0,0,0.1);
-    letter-spacing: 0.2px;
+    letter-spacing: 0.1px;
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: 32px;
+    min-height: 26px;
 }
 
 /* Light theme - better header visibility */
@@ -446,13 +446,13 @@ body[data-theme="light"] .grid-header-room {
     background: linear-gradient(180deg, rgba(99, 102, 241, 0.15), rgba(99, 102, 241, 0.05));
     border-right: 0.5px solid var(--border-color);
     border-bottom: 0.5px solid var(--border-color);
-    padding: 0.1rem 0.05rem;
+    padding: 0.08rem 0.04rem;
     text-align: center;
     font-weight: 600;
     font-size: 0.65rem;
     color: var(--text-primary);
     position: relative;
-    min-height: 32px;
+    min-height: 26px;
 }
 
 /* Light theme - visible borders */
@@ -521,7 +521,7 @@ body[data-theme="light"] .grid-date-cell.today {
     background: #f1f5f9; /* Solid background for sidebar effect */
     border-right: 2px solid #cbd5e1; /* Stronger border */
     border-bottom: 1px solid #cbd5e1;
-    padding: 0.1rem 0.15rem;
+    padding: 0.08rem 0.12rem;
     font-weight: 800;
     color: var(--text-primary);
     position: sticky;
@@ -535,8 +535,8 @@ body[data-theme="light"] .grid-date-cell.today {
     gap: 0.02rem;
     min-width: 100px;
     cursor: grab;
-    font-size: 0.9rem;
-    min-height: 32px;
+    font-size: 0.85rem;
+    min-height: 26px;
     box-shadow: 2px 0 5px rgba(0,0,0,0.1); /* Shadow to separate sidebar */
     white-space: normal;
     word-break: break-word;
@@ -600,11 +600,11 @@ body .booking-bar > span {
 }
 
 .grid-room-number {
-    font-size: 0.85rem;
+    font-size: 0.75rem;
     color: var(--text-primary);
-    font-weight: 900;
+    font-weight: 800;
     line-height: 1;
-    letter-spacing: 0.2px;
+    letter-spacing: 0.1px;
 }
 
 .grid-room-type {
@@ -618,12 +618,12 @@ body .booking-bar > span {
     display: none;
 }
 
-/* Date Cells */
+/* Date Cells - Compact Style */
 .grid-date-cell {
     border-right: 0.5px solid var(--border-color);
     border-bottom: 0.5px solid var(--border-color);
-    padding: 0.08rem 0.05rem;
-    min-height: 32px;
+    padding: 0.05rem 0.03rem;
+    min-height: 26px;
     position: relative;
     background: transparent;
     cursor: pointer;
@@ -658,12 +658,12 @@ body[data-theme="light"] .grid-date-cell {
     background: rgba(99, 102, 241, 0.05);
 }
 
-/* Booking Bars - CLOUDBED STYLE (Noon to Noon) */
+/* Booking Bars - Compact Modern Style */
 .booking-bar-container {
     position: absolute;
-    top: 1px;
+    top: 2px;
     left: 1px;
-    height: 30px;
+    height: 22px;
     display: flex;
     align-items: center;
     justify-content: flex-start;
@@ -674,34 +674,35 @@ body[data-theme="light"] .grid-date-cell {
 
 .booking-bar {
     width: 100%;
-    height: 24px;
-    padding: 0 0.25rem;
+    height: 18px;
+    padding: 0 0.4rem;
     cursor: pointer;
-    overflow: visible;
+    overflow: hidden;
     display: flex;
     align-items: center;
-    justify-content: center;
-    text-align: center;
-    transition: all 0.3s ease;
-    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2), 0 2px 3px rgba(0, 0, 0, 0.15);
-    font-weight: 700;
-    font-size: 0.7rem;
-    line-height: 1.2;
+    justify-content: flex-start;
+    text-align: left;
+    transition: all 0.2s ease;
+    box-shadow: 0 1px 3px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.08);
+    font-weight: 600;
+    font-size: 0.6rem;
+    line-height: 1;
     position: relative;
     pointer-events: auto;
-    border-radius: 4px;
+    border-radius: 3px;
     white-space: nowrap;
-    transform: skewX(-20deg);
     background: linear-gradient(135deg, #06b6d4, #22d3ee) !important;
     color: #ffffff !important;
+    border-left: 2px solid rgba(255, 255, 255, 0.3);
 }
 
 .booking-bar > span {
-    transform: skewX(20deg);
     color: #ffffff !important;
-    text-shadow: 0 2px 4px rgba(0, 0, 0, 0.7);
-    font-weight: 800;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.3);
+    font-weight: 700;
     display: block;
+    text-overflow: ellipsis;
+    overflow: hidden;
 }
 
 .booking-bar *,
@@ -709,46 +710,17 @@ body[data-theme="light"] .grid-date-cell {
     color: #ffffff !important;
 }
 
-.booking-bar::before {
-    content: '';
-    position: absolute;
-    left: -12px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 0;
-    height: 0;
-    border-top: 12px solid transparent;
-    border-bottom: 12px solid transparent;
-    border-right: 8px solid;
-    border-right-color: inherit;
-}
-
-.booking-bar::after {
-    content: '';
-    position: absolute;
-    right: -12px;
-    top: 50%;
-    transform: translateY(-50%);
-    width: 0;
-    height: 0;
-    border-top: 12px solid transparent;
-    border-bottom: 12px solid transparent;
-    border-left: 8px solid;
-    border-left-color: inherit;
-}
-
 .booking-bar:hover {
-    transform: skewX(-20deg) scaleY(1.15);
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+    transform: translateY(-1px);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.15), 0 2px 4px rgba(0, 0, 0, 0.1);
     z-index: 20;
+    filter: brightness(1.05);
 }
 
 /* Past Booking Styling - Samar-samar Abu-abu Transparan */
 .booking-bar.booking-past {
-    opacity: 0.4 !important;
+    opacity: 0.35 !important;
     background: linear-gradient(135deg, #9ca3af, #d1d5db) !important;
-    border-right-color: #9ca3af !important;
-    border-left-color: #d1d5db !important;
 }
 
 .booking-bar.booking-past > span {
@@ -757,9 +729,9 @@ body[data-theme="light"] .grid-date-cell {
 }
 
 .booking-bar.booking-past:hover {
-    opacity: 0.6 !important;
-    transform: skewX(-20deg) scaleY(1.1);
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15) !important;
+    opacity: 0.5 !important;
+    transform: translateY(-1px);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.12) !important;
 }
 
 /* Status specific bars */
