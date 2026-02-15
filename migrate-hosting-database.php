@@ -388,6 +388,10 @@ $execute = isset($_GET['execute']) && $_GET['execute'] === 'yes';
                     
                     echo '<p class="info-log">   Detected databases: ' . implode(', ', $actualDatabases) . '</p>';
                     
+                    $successCount = 0;
+                    $errorCount = 0;
+                    $skippedCount = 0;
+                    
                     foreach ($businesses as $biz) {
                         try {
                             // Auto-detect correct database name
@@ -432,17 +436,26 @@ $execute = isset($_GET['execute']) && $_GET['execute'] === 'yes';
                             
                             echo '<p class="info-log">   Processing: ' . $biz['business_name'] . ' → <code>' . $dbName . '</code></p>';
                             
-                            $bizDb = new PDO(
-                                "mysql:host=" . DB_HOST . ";dbname={$dbName};charset=utf8mb4",
-                                DB_USER,
-                                DB_PASS,
-                                [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
-                            );
+                            // Try to connect
+                            try {
+                                $bizDb = new PDO(
+                                    "mysql:host=" . DB_HOST . ";dbname={$dbName};charset=utf8mb4",
+                                    DB_USER,
+                                    DB_PASS,
+                                    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+                                );
+                            } catch (PDOException $e) {
+                                echo '<p class="error-log">      ❌ Cannot connect to database: ' . $e->getMessage() . '</p>';
+                                echo '<p class="warning-log">      ⚠️  Skipping this business (database not accessible)</p>';
+                                $skippedCount++;
+                                continue;
+                            }
                             
                             // Check if cash_book table exists
                             $tables = $bizDb->query("SHOW TABLES LIKE 'cash_book'")->fetchAll();
                             if (empty($tables)) {
                                 echo '<p class="warning-log">      ⚠️  Table cash_book not found, skipping...</p>';
+                                $skippedCount++;
                                 continue;
                             }
                             
@@ -474,17 +487,31 @@ $execute = isset($_GET['execute']) && $_GET['execute'] === 'yes';
                             }
                             
                             echo '<p class="success-log">   ✅ Business database updated successfully</p>';
+                            $successCount++;
                             
                         } catch (Exception $e) {
                             echo '<p class="error-log">   ❌ Error: ' . $e->getMessage() . '</p>';
+                            $errorCount++;
                         }
                     }
                     
                     echo '<p style="margin-top: 20px;"></p>';
                     echo '<p class="success-log">========================================</p>';
-                    echo '<p class="success-log">🎉 MIGRASI DATABASE SELESAI!</p>';
-                    echo '<p class="success-log">========================================</p>';
-                    echo '<p class="info-log">Semua perubahan telah berhasil diterapkan.</p>';
+                    
+                    if ($errorCount == 0 && $skippedCount == 0) {
+                        echo '<p class="success-log">🎉 MIGRASI DATABASE SELESAI!</p>';
+                        echo '<p class="success-log">========================================</p>';
+                        echo '<p class="info-log">Semua perubahan telah berhasil diterapkan.</p>';
+                    } else {
+                        echo '<p class="warning-log">⚠️  MIGRASI SELESAI DENGAN CATATAN</p>';
+                        echo '<p class="warning-log">========================================</p>';
+                        echo '<p class="info-log">✅ Berhasil: ' . $successCount . ' database</p>';
+                        echo '<p class="warning-log">⚠️  Dilewati: ' . $skippedCount . ' database (tidak ditemukan/tidak bisa diakses)</p>';
+                        echo '<p class="error-log">❌ Error: ' . $errorCount . ' database</p>';
+                        echo '<p></p>';
+                        echo '<p class="info-log"><strong>Catatan:</strong> Database yang gagal kemungkinan belum dibuat di hosting atau user tidak punya permission.</p>';
+                    }
+                    
                     echo '<p class="info-log">Silakan test fitur-fitur yang menggunakan cash accounts.</p>';
                     
                 } catch (Exception $e) {
