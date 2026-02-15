@@ -789,6 +789,267 @@ body[data-theme="light"] .grid-date-cell {
     font-weight: 800;
 }
 
+/* Action buttons on booking bars */
+.bar-action-btn {
+    position: absolute;
+    right: 4px;
+    top: 50%;
+    transform: skewX(20deg) translateY(-50%);
+    width: 18px;
+    height: 18px;
+    border-radius: 50%;
+    border: 1.5px solid rgba(255,255,255,0.7);
+    background: rgba(255,255,255,0.2);
+    color: #fff;
+    font-size: 0.65rem;
+    font-weight: 900;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    opacity: 0;
+    transition: all 0.2s ease;
+    z-index: 15;
+    line-height: 1;
+    padding: 0;
+}
+
+.booking-bar:hover .bar-action-btn {
+    opacity: 1;
+}
+
+.bar-action-btn:hover {
+    background: rgba(255,255,255,0.5);
+    transform: skewX(20deg) translateY(-50%) scale(1.15);
+    border-color: #fff;
+}
+
+.bar-extend-btn {
+    background: rgba(16, 185, 129, 0.5);
+    border-color: rgba(255,255,255,0.8);
+}
+
+.bar-edit-btn {
+    background: rgba(99, 102, 241, 0.5);
+    border-color: rgba(255,255,255,0.8);
+}
+
+/* Drag & Drop Styles */
+.booking-bar-container[draggable="true"] {
+    cursor: grab;
+}
+
+.booking-bar-container[draggable="true"]:active {
+    cursor: grabbing;
+}
+
+.booking-bar-container.dragging {
+    opacity: 0.4;
+    z-index: 50;
+}
+
+.grid-date-cell.drag-over {
+    background: rgba(99, 102, 241, 0.15) !important;
+    outline: 2px dashed #6366f1;
+    outline-offset: -2px;
+}
+
+.grid-date-cell.drag-over-valid {
+    background: rgba(16, 185, 129, 0.15) !important;
+    outline: 2px dashed #10b981;
+}
+
+.grid-date-cell.drag-over-invalid {
+    background: rgba(239, 68, 68, 0.15) !important;
+    outline: 2px dashed #ef4444;
+}
+
+/* Extend Stay Modal */
+.extend-modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 10000;
+    justify-content: center;
+    align-items: center;
+}
+
+.extend-modal-overlay.active {
+    display: flex;
+}
+
+.extend-modal {
+    background: var(--card-bg, #fff);
+    border-radius: 12px;
+    padding: 1.5rem;
+    width: 360px;
+    max-width: 90vw;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+}
+
+.extend-modal h3 {
+    margin: 0 0 1rem;
+    font-size: 1rem;
+    color: var(--text-primary);
+}
+
+.extend-modal .form-group {
+    margin-bottom: 0.75rem;
+}
+
+.extend-modal label {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 0.25rem;
+}
+
+.extend-modal input, .extend-modal select {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 0.85rem;
+    background: var(--card-bg, #fff);
+    color: var(--text-primary);
+}
+
+.extend-modal .modal-actions {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+    margin-top: 1rem;
+}
+
+.extend-modal .btn-cancel {
+    padding: 0.45rem 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 0.8rem;
+}
+
+.extend-modal .btn-confirm {
+    padding: 0.45rem 1rem;
+    border: none;
+    border-radius: 6px;
+    background: #10b981;
+    color: #fff;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 0.8rem;
+}
+
+.extend-modal .btn-confirm:hover {
+    background: #059669;
+}
+
+/* Edit Reservation Modal */
+.edit-res-overlay {
+    display: none;
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.5);
+    z-index: 10000;
+    justify-content: center;
+    align-items: center;
+}
+
+.edit-res-overlay.active {
+    display: flex;
+}
+
+.edit-res-modal {
+    background: var(--card-bg, #fff);
+    border-radius: 12px;
+    padding: 1.5rem;
+    width: 480px;
+    max-width: 95vw;
+    max-height: 85vh;
+    overflow-y: auto;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+}
+
+.edit-res-modal h3 {
+    margin: 0 0 1rem;
+    font-size: 1rem;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 0.4rem;
+}
+
+.edit-res-modal .form-row {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+    margin-bottom: 0.75rem;
+}
+
+.edit-res-modal .form-group {
+    margin-bottom: 0.75rem;
+}
+
+.edit-res-modal label {
+    display: block;
+    font-size: 0.75rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 0.25rem;
+}
+
+.edit-res-modal input, .edit-res-modal select, .edit-res-modal textarea {
+    width: 100%;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    font-size: 0.85rem;
+    background: var(--card-bg, #fff);
+    color: var(--text-primary);
+    box-sizing: border-box;
+}
+
+.edit-res-modal textarea {
+    resize: vertical;
+    min-height: 60px;
+}
+
+.edit-res-modal .modal-actions {
+    display: flex;
+    gap: 0.5rem;
+    justify-content: flex-end;
+    margin-top: 1rem;
+}
+
+.edit-res-modal .btn-cancel {
+    padding: 0.45rem 1rem;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: transparent;
+    color: var(--text-secondary);
+    cursor: pointer;
+    font-size: 0.8rem;
+}
+
+.edit-res-modal .btn-save {
+    padding: 0.45rem 1rem;
+    border: none;
+    border-radius: 6px;
+    background: #6366f1;
+    color: #fff;
+    cursor: pointer;
+    font-weight: 700;
+    font-size: 0.8rem;
+}
+
+.edit-res-modal .btn-save:hover {
+    background: #4f46e5;
+}
+
 /* Legend */
 .legend {
     display: flex;
@@ -1762,12 +2023,25 @@ body[data-theme="dark"] .stats-list li {
                                 $shortCode = substr($bookingCode, 0, 8); // Show first 8 chars
                                 $statusText = ucfirst(str_replace('_', ' ', $booking['status']));
                                 ?>
-                                <div class="booking-bar-container" style="left: 50%; width: <?php echo $barWidth; ?>px;">
+                                <div class="booking-bar-container" style="left: 50%; width: <?php echo $barWidth; ?>px;"
+                                     data-booking-id="<?php echo $booking['id']; ?>"
+                                     data-room-id="<?php echo $booking['room_id']; ?>"
+                                     data-check-in="<?php echo $booking['check_in_date']; ?>"
+                                     data-check-out="<?php echo $booking['check_out_date']; ?>"
+                                     data-status="<?php echo $booking['status']; ?>"
+                                     data-nights="<?php echo $totalNights; ?>"
+                                     data-guest="<?php echo $guestName; ?>"
+                                     <?php if (!$isPastBooking && !$isCheckedOut): ?>draggable="true"<?php endif; ?>>
                                     <div class="booking-bar <?php echo $statusClass; ?>" 
                                          style="background: linear-gradient(135deg, <?php echo $bookingColor['bg']; ?>, <?php echo $bookingColor['bg']; ?>dd) !important; border-right-color: <?php echo $bookingColor['bg']; ?>; border-left-color: <?php echo $bookingColor['bg']; ?>dd;"
                                          onclick="event.stopPropagation(); viewBooking(<?php echo $booking['id']; ?>, event);"
                                          title="<?php echo $statusIcon . $guestName; ?> (<?php echo $bookingCode; ?>) - <?php echo $statusText; ?><?php echo $isPastBooking ? ' [PAST]' : ''; ?>">
                                         <span><?php echo $statusIcon . $guestName; ?> • <?php echo $shortCode; ?></span>
+                                        <?php if ($isCheckedIn && !$isPastBooking): ?>
+                                        <button class="bar-action-btn bar-extend-btn" onclick="event.stopPropagation(); openExtendModal(<?php echo $booking['id']; ?>, '<?php echo $guestName; ?>', '<?php echo $booking['check_out_date']; ?>', <?php echo $totalNights; ?>)" title="Extend Stay">+</button>
+                                        <?php elseif (!$isCheckedIn && !$isCheckedOut && !$isPastBooking): ?>
+                                        <button class="bar-action-btn bar-edit-btn" onclick="event.stopPropagation(); openEditReservationModal(<?php echo $booking['id']; ?>)" title="Edit Reservasi">✎</button>
+                                        <?php endif; ?>
                                     </div>
                                 </div>
                                 <?php
@@ -4548,6 +4822,358 @@ body[data-theme="dark"] .modal-footer-modern {
     background: rgba(99, 102, 241, 0.5);
 }
 </style>
+
+<!-- EXTEND STAY MODAL -->
+<div id="extendModal" class="extend-modal-overlay" onclick="if(event.target===this)closeExtendModal()">
+    <div class="extend-modal">
+        <h3>➕ Extend Stay</h3>
+        <input type="hidden" id="extendBookingId">
+        <div style="background:rgba(16,185,129,0.08); border-radius:8px; padding:0.75rem; margin-bottom:0.75rem; font-size:0.8rem;">
+            <div><strong>Guest:</strong> <span id="extendGuestName">-</span></div>
+            <div><strong>Current Check-out:</strong> <span id="extendCurrentCO">-</span></div>
+        </div>
+        <div class="form-group">
+            <label>Tambah Malam</label>
+            <div style="display:flex; gap:0.5rem; align-items:center;">
+                <button type="button" onclick="adjustExtendNights(-1)" style="width:32px;height:32px;border:1px solid var(--border-color);border-radius:6px;background:transparent;cursor:pointer;font-size:1rem;font-weight:700;color:var(--text-primary);">−</button>
+                <input type="number" id="extendNights" value="1" min="1" max="30" style="width:60px;text-align:center;">
+                <button type="button" onclick="adjustExtendNights(1)" style="width:32px;height:32px;border:1px solid var(--border-color);border-radius:6px;background:transparent;cursor:pointer;font-size:1rem;font-weight:700;color:var(--text-primary);">+</button>
+                <span style="font-size:0.8rem;color:var(--text-secondary);margin-left:0.5rem;">New CO: <strong id="extendNewCO">-</strong></span>
+            </div>
+        </div>
+        <div class="modal-actions">
+            <button class="btn-cancel" onclick="closeExtendModal()">Batal</button>
+            <button class="btn-confirm" onclick="submitExtendStay()">Extend Stay</button>
+        </div>
+    </div>
+</div>
+
+<!-- EDIT RESERVATION MODAL -->
+<div id="editResModal" class="edit-res-overlay" onclick="if(event.target===this)closeEditResModal()">
+    <div class="edit-res-modal">
+        <h3>✏️ Edit Reservasi</h3>
+        <input type="hidden" id="editResBookingId">
+        <div class="form-row">
+            <div class="form-group">
+                <label>Nama Tamu</label>
+                <input type="text" id="editResGuestName">
+            </div>
+            <div class="form-group">
+                <label>Telepon</label>
+                <input type="text" id="editResGuestPhone">
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Check-in</label>
+                <input type="date" id="editResCheckIn">
+            </div>
+            <div class="form-group">
+                <label>Check-out</label>
+                <input type="date" id="editResCheckOut">
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Email</label>
+                <input type="email" id="editResEmail">
+            </div>
+            <div class="form-group">
+                <label>No. KTP/Paspor</label>
+                <input type="text" id="editResIdNumber">
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
+                <label>Jumlah Tamu</label>
+                <input type="number" id="editResNumGuests" min="1" max="10" value="1">
+            </div>
+            <div class="form-group">
+                <label>Harga/Malam</label>
+                <input type="number" id="editResRoomPrice">
+            </div>
+        </div>
+        <div class="form-group">
+            <label>Permintaan Khusus</label>
+            <textarea id="editResSpecialRequests"></textarea>
+        </div>
+        <div id="editResInfo" style="background:rgba(99,102,241,0.06);border-radius:8px;padding:0.6rem;font-size:0.8rem;color:var(--text-secondary);"></div>
+        <div class="modal-actions">
+            <button class="btn-cancel" onclick="closeEditResModal()">Batal</button>
+            <button class="btn-save" onclick="submitEditReservation()">💾 Simpan</button>
+        </div>
+    </div>
+</div>
+
+<script>
+// ===== DRAG & DROP BOOKING BARS =====
+(function() {
+    let dragData = null;
+
+    // Setup drag events on booking bars
+    document.addEventListener('dragstart', function(e) {
+        const container = e.target.closest('.booking-bar-container[draggable="true"]');
+        if (!container) return;
+        
+        dragData = {
+            bookingId: container.dataset.bookingId,
+            roomId: container.dataset.roomId,
+            checkIn: container.dataset.checkIn,
+            checkOut: container.dataset.checkOut,
+            nights: parseInt(container.dataset.nights),
+            guest: container.dataset.guest
+        };
+        
+        container.classList.add('dragging');
+        e.dataTransfer.effectAllowed = 'move';
+        e.dataTransfer.setData('text/plain', dragData.bookingId);
+        
+        // Show drop zones
+        document.querySelectorAll('.grid-date-cell').forEach(cell => {
+            cell.style.transition = 'background 0.15s ease';
+        });
+    });
+
+    document.addEventListener('dragend', function(e) {
+        const container = e.target.closest('.booking-bar-container');
+        if (container) container.classList.remove('dragging');
+        
+        // Clean up all drag styling
+        document.querySelectorAll('.grid-date-cell').forEach(cell => {
+            cell.classList.remove('drag-over', 'drag-over-valid', 'drag-over-invalid');
+        });
+        dragData = null;
+    });
+
+    document.addEventListener('dragover', function(e) {
+        const cell = e.target.closest('.grid-date-cell');
+        if (!cell || !dragData) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = 'move';
+        
+        // Highlight drop target
+        document.querySelectorAll('.grid-date-cell.drag-over').forEach(c => {
+            c.classList.remove('drag-over', 'drag-over-valid', 'drag-over-invalid');
+        });
+        cell.classList.add('drag-over');
+    });
+
+    document.addEventListener('dragleave', function(e) {
+        const cell = e.target.closest('.grid-date-cell');
+        if (cell) {
+            cell.classList.remove('drag-over', 'drag-over-valid', 'drag-over-invalid');
+        }
+    });
+
+    document.addEventListener('drop', function(e) {
+        const cell = e.target.closest('.grid-date-cell');
+        if (!cell || !dragData) return;
+        e.preventDefault();
+        
+        const newDate = cell.dataset.date;
+        const newRoomId = cell.dataset.roomId;
+        
+        if (!newDate || !newRoomId) return;
+        
+        // Calculate new check-in and check-out
+        const newCheckIn = newDate;
+        const ciDate = new Date(newCheckIn);
+        ciDate.setDate(ciDate.getDate() + dragData.nights);
+        const newCheckOut = ciDate.toISOString().split('T')[0];
+        
+        // Confirm move
+        const confirmMsg = `Pindahkan booking ${dragData.guest}?\n\nDari: ${dragData.checkIn} → ${dragData.checkOut}\nKe: ${newCheckIn} → ${newCheckOut}\nRoom: ${cell.dataset.roomNumber || 'Room ' + newRoomId}`;
+        
+        if (!confirm(confirmMsg)) {
+            cell.classList.remove('drag-over', 'drag-over-valid', 'drag-over-invalid');
+            return;
+        }
+        
+        // API call to move booking
+        const formData = new FormData();
+        formData.append('booking_id', dragData.bookingId);
+        formData.append('new_check_in', newCheckIn);
+        formData.append('new_check_out', newCheckOut);
+        formData.append('new_room_id', newRoomId);
+        
+        fetch('../../api/move-booking.php', {
+            method: 'POST',
+            body: formData
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                alert('✅ ' + data.message + '\n\nHarga baru: Rp ' + new Intl.NumberFormat('id-ID').format(data.data.final_price));
+                location.reload();
+            } else {
+                alert('❌ ' + data.message);
+            }
+        })
+        .catch(err => {
+            alert('❌ Error: ' + err.message);
+        });
+        
+        // Clean up
+        cell.classList.remove('drag-over', 'drag-over-valid', 'drag-over-invalid');
+    });
+})();
+
+// ===== EXTEND STAY FUNCTIONS =====
+let extendCurrentCO = '';
+
+window.openExtendModal = function(bookingId, guestName, checkoutDate, nights) {
+    document.getElementById('extendBookingId').value = bookingId;
+    document.getElementById('extendGuestName').textContent = guestName;
+    document.getElementById('extendCurrentCO').textContent = new Date(checkoutDate).toLocaleDateString('id-ID', {day:'numeric', month:'short', year:'numeric'});
+    document.getElementById('extendNights').value = 1;
+    extendCurrentCO = checkoutDate;
+    updateExtendPreview();
+    document.getElementById('extendModal').classList.add('active');
+};
+
+window.closeExtendModal = function() {
+    document.getElementById('extendModal').classList.remove('active');
+};
+
+window.adjustExtendNights = function(delta) {
+    const input = document.getElementById('extendNights');
+    let val = parseInt(input.value) + delta;
+    if (val < 1) val = 1;
+    if (val > 30) val = 30;
+    input.value = val;
+    updateExtendPreview();
+};
+
+document.addEventListener('change', function(e) {
+    if (e.target.id === 'extendNights') updateExtendPreview();
+});
+
+function updateExtendPreview() {
+    const nights = parseInt(document.getElementById('extendNights').value) || 1;
+    const co = new Date(extendCurrentCO);
+    co.setDate(co.getDate() + nights);
+    document.getElementById('extendNewCO').textContent = co.toLocaleDateString('id-ID', {day:'numeric', month:'short', year:'numeric'});
+}
+
+window.submitExtendStay = function() {
+    const bookingId = document.getElementById('extendBookingId').value;
+    const nights = document.getElementById('extendNights').value;
+    
+    if (!bookingId || nights < 1) return;
+    
+    const formData = new FormData();
+    formData.append('booking_id', bookingId);
+    formData.append('extra_nights', nights);
+    
+    fetch('../../api/extend-stay.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            alert('✅ ' + data.message + '\n\nTambahan: Rp ' + new Intl.NumberFormat('id-ID').format(data.data.additional_price));
+            closeExtendModal();
+            location.reload();
+        } else {
+            alert('❌ ' + data.message);
+        }
+    })
+    .catch(err => alert('❌ Error: ' + err.message));
+};
+
+// ===== EDIT RESERVATION FUNCTIONS =====
+window.openEditReservationModal = function(bookingId) {
+    // Fetch booking details
+    fetch('../../api/get-booking-details.php?id=' + bookingId)
+    .then(r => r.text())
+    .then(text => {
+        let data;
+        try { data = JSON.parse(text); } catch(e) {
+            console.error('Raw response:', text);
+            alert('❌ Server error - response bukan JSON');
+            return;
+        }
+        if (!data.success) {
+            alert('❌ ' + data.message);
+            return;
+        }
+        const b = data.booking;
+        document.getElementById('editResBookingId').value = b.id;
+        document.getElementById('editResGuestName').value = b.guest_name || '';
+        document.getElementById('editResGuestPhone').value = b.guest_phone || '';
+        document.getElementById('editResEmail').value = b.guest_email || '';
+        document.getElementById('editResIdNumber').value = b.guest_id_number || '';
+        document.getElementById('editResCheckIn').value = b.check_in_date;
+        document.getElementById('editResCheckOut').value = b.check_out_date;
+        document.getElementById('editResNumGuests').value = b.num_guests || b.adults || 1;
+        document.getElementById('editResRoomPrice').value = b.room_price || '';
+        document.getElementById('editResSpecialRequests').value = b.special_requests || '';
+        
+        updateEditResInfo();
+        document.getElementById('editResModal').classList.add('active');
+    })
+    .catch(err => alert('❌ Error loading data: ' + err.message));
+};
+
+window.closeEditResModal = function() {
+    document.getElementById('editResModal').classList.remove('active');
+};
+
+function updateEditResInfo() {
+    const ci = document.getElementById('editResCheckIn').value;
+    const co = document.getElementById('editResCheckOut').value;
+    const price = parseFloat(document.getElementById('editResRoomPrice').value) || 0;
+    
+    if (ci && co) {
+        const nights = Math.ceil((new Date(co) - new Date(ci)) / 86400000);
+        const total = price * nights;
+        document.getElementById('editResInfo').innerHTML = `
+            <strong>${nights} malam</strong> × Rp ${new Intl.NumberFormat('id-ID').format(price)} = <strong>Rp ${new Intl.NumberFormat('id-ID').format(total)}</strong>
+        `;
+    }
+}
+
+// Live update edit form info
+['editResCheckIn', 'editResCheckOut', 'editResRoomPrice'].forEach(id => {
+    document.addEventListener('input', function(e) {
+        if (e.target.id === id) updateEditResInfo();
+    });
+});
+
+window.submitEditReservation = function() {
+    const bookingId = document.getElementById('editResBookingId').value;
+    if (!bookingId) return;
+    
+    const formData = new FormData();
+    formData.append('booking_id', bookingId);
+    formData.append('guest_name', document.getElementById('editResGuestName').value);
+    formData.append('guest_phone', document.getElementById('editResGuestPhone').value);
+    formData.append('guest_email', document.getElementById('editResEmail').value);
+    formData.append('guest_id_number', document.getElementById('editResIdNumber').value);
+    formData.append('check_in_date', document.getElementById('editResCheckIn').value);
+    formData.append('check_out_date', document.getElementById('editResCheckOut').value);
+    formData.append('num_guests', document.getElementById('editResNumGuests').value);
+    formData.append('room_price', document.getElementById('editResRoomPrice').value);
+    formData.append('special_requests', document.getElementById('editResSpecialRequests').value);
+    
+    fetch('../../api/update-reservation.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            alert('✅ ' + data.message);
+            closeEditResModal();
+            location.reload();
+        } else {
+            alert('❌ ' + data.message);
+        }
+    })
+    .catch(err => alert('❌ Error: ' + err.message));
+};
+</script>
 
 <?php include '../../includes/footer.php'; ?>
 

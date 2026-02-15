@@ -14,6 +14,11 @@ try {
     require_once '../config/config.php';
     require_once '../config/database.php';
     
+    // Re-suppress errors AFTER config.php overrides them
+    error_reporting(0);
+    ini_set('display_errors', 0);
+    ob_clean();
+    
     $db = Database::getInstance();
     $conn = $db->getConnection();
     
@@ -29,6 +34,7 @@ try {
         SELECT 
             b.id,
             b.booking_code,
+            b.room_id,
             b.check_in_date,
             b.check_out_date,
             b.total_nights,
@@ -40,7 +46,9 @@ try {
             b.payment_status,
             b.booking_source,
             COALESCE(b.adults, 1) as adults,
+            COALESCE(b.adults, 1) as num_guests,
             COALESCE(b.children, 0) as children,
+            COALESCE(b.special_request, '') as special_requests,
             g.guest_name,
             g.phone as guest_phone,
             g.email as guest_email,
