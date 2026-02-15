@@ -675,9 +675,9 @@ body[data-theme="light"] .grid-date-cell {
 .booking-bar {
     width: 100%;
     height: 18px;
-    padding: 0 0.4rem;
+    padding: 0 0.5rem;
     cursor: pointer;
-    overflow: hidden;
+    overflow: visible;
     display: flex;
     align-items: center;
     justify-content: flex-start;
@@ -689,11 +689,19 @@ body[data-theme="light"] .grid-date-cell {
     line-height: 1;
     position: relative;
     pointer-events: auto;
-    border-radius: 3px;
+    border-radius: 0;
     white-space: nowrap;
     background: linear-gradient(135deg, #06b6d4, #22d3ee) !important;
     color: #ffffff !important;
-    border-left: 2px solid rgba(255, 255, 255, 0.3);
+    /* CloudBeds style - ujung runcing seperti segitiga */
+    clip-path: polygon(
+        4px 0%,              /* kiri atas */
+        calc(100% - 4px) 0%, /* kanan atas */
+        100% 50%,            /* kanan tengah (runcing) */
+        calc(100% - 4px) 100%, /* kanan bawah */
+        4px 100%,            /* kiri bawah */
+        0% 50%               /* kiri tengah (runcing) */
+    );
 }
 
 .booking-bar > span {
@@ -737,20 +745,26 @@ body[data-theme="light"] .grid-date-cell {
 /* Status specific bars */
 .booking-confirmed {
     background: linear-gradient(135deg, #06b6d4, #22d3ee) !important;
-    border-right-color: #06b6d4;
-    border-left-color: #22d3ee;
 }
 
 .booking-pending {
     background: linear-gradient(135deg, #0ea5e9, #38bdf8) !important;
-    border-right-color: #0ea5e9;
-    border-left-color: #38bdf8;
 }
 
 .booking-checked-in {
     background: linear-gradient(135deg, #0284c7, #0ea5e9) !important;
-    border-right-color: #0284c7;
-    border-left-color: #0ea5e9;
+}
+
+/* Border separator untuk multi-day bookings - CloudBeds style */
+.booking-bar::after {
+    content: '';
+    position: absolute;
+    right: -1px;
+    top: 2px;
+    bottom: 2px;
+    width: 1px;
+    background: rgba(255, 255, 255, 0.25);
+    z-index: 1;
 }
 
 .booking-bar-guest,
