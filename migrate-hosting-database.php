@@ -398,14 +398,35 @@ $execute = isset($_GET['execute']) && $_GET['execute'] === 'yes';
                             $exists = $stmt->fetch();
                             
                             if (!$exists) {
-                                // Try with hosting prefix (adfb2574_)
+                                // Extract keywords from business identifier
                                 $identifier = $biz['business_identifier'] ?? str_replace('adf_', '', $dbName);
+                                $keywords = preg_split('/[-_]/', strtolower($identifier));
+                                
+                                // Try to find matching database
+                                $bestMatch = null;
+                                $maxMatchCount = 0;
+                                
                                 foreach ($actualDatabases as $actualDb) {
-                                    if (stripos($actualDb, $identifier) !== false || 
-                                        stripos($actualDb, str_replace('-', '_', $identifier)) !== false) {
-                                        $dbName = $actualDb;
-                                        break;
+                                    $matchCount = 0;
+                                    $dbLower = strtolower($actualDb);
+                                    
+                                    // Count how many keywords match
+                                    foreach ($keywords as $keyword) {
+                                        if (!empty($keyword) && stripos($dbLower, $keyword) !== false) {
+                                            $matchCount++;
+                                        }
                                     }
+                                    
+                                    // Keep track of best match
+                                    if ($matchCount > $maxMatchCount) {
+                                        $maxMatchCount = $matchCount;
+                                        $bestMatch = $actualDb;
+                                    }
+                                }
+                                
+                                if ($bestMatch && $maxMatchCount > 0) {
+                                    $dbName = $bestMatch;
+                                    echo '<p class="warning-log">      Auto-mapped: ' . $biz['database_name'] . ' → ' . $bestMatch . '</p>';
                                 }
                             }
                             
