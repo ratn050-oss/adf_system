@@ -590,9 +590,13 @@ function doCheckOutGuest(bookingId, guestName, roomNumber) {
     }
     
     // Show loading
-    const btn = event.target.closest('.qv-checkout-btn');
+    const btn = event.target.closest('.ih-btn-checkout');
+    if (!btn) {
+        console.error('Button not found');
+        return;
+    }
     const originalHTML = btn.innerHTML;
-    btn.innerHTML = '<span>⏳</span><span>Processing...</span>';
+    btn.innerHTML = '⏳ Processing...';
     btn.disabled = true;
     
     fetch('<?php echo BASE_URL; ?>/api/checkout-guest.php', {
