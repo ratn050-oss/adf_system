@@ -30,7 +30,9 @@ define('APP_ACCESS', true);
 require_once 'config/config.php';
 
 // Security check
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 if (!isset($_SESSION['user_id']) || !in_array($_SESSION['role'], ['admin', 'developer', 'owner'])) {
     die("❌ Akses ditolak. Hanya admin/developer/owner yang bisa menjalankan migrasi.");
 }
