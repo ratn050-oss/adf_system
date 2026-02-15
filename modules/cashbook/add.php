@@ -232,13 +232,12 @@ if (isPost()) {
                             // Insert to cash_account_transactions
                             $stmt = $masterDb->prepare("
                                 INSERT INTO cash_account_transactions 
-                                (cash_account_id, transaction_id, transaction_date, description, amount, transaction_type, created_by) 
-                                VALUES (?, ?, ?, ?, ?, ?, ?)
+                                (cash_account_id, transaction_date, description, amount, transaction_type, created_by) 
+                                VALUES (?, ?, ?, ?, ?, ?)
                             ");
                             
                             $stmt->execute([
                                 $cashAccountId,
-                                $transactionId,
                                 $transactionDate,
                                 $data['description'] ?: $categoryName, // Use updated description from $data
                                 $amount,
