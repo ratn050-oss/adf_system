@@ -60,6 +60,7 @@ try {
         $paymentMethod,
         $currentUser['id']
     ]);
+    $newPaymentId = $db->getConnection()->lastInsertId();
 
     $payment = $db->fetchOne("SELECT COALESCE(SUM(amount), 0) as paid FROM booking_payments WHERE booking_id = ?", [$bookingId]);
     $totalPaid = max((float)$payment['paid'], (float)$booking['paid_amount']);
@@ -301,6 +302,13 @@ try {
                 
                 $cashbookInserted = true;
                 $cashbookMessage = "Berhasil tercatat di Buku Kas - {$cashAccountName}";
+
+                // Mark payment as synced to cashbook
+                try {
+                    $db->query("UPDATE booking_payments SET synced_to_cashbook = 1, cashbook_id = ? WHERE id = ?", [$transactionId, $newPaymentId]);
+                } catch (Exception $syncFlagErr) {
+                    error_log("Failed to set sync flag: " . $syncFlagErr->getMessage());
+                }
             }
         } else {
             $cashbookMessage = "Warning: Akun kas tidak ditemukan untuk payment method '{$paymentMethod}'";

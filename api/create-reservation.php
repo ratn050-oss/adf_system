@@ -211,6 +211,7 @@ try {
         if (!$paymentStmt) {
             throw new Exception('Failed to create payment record');
         }
+        $newPaymentId = $db->getConnection()->lastInsertId();
         
         // ==========================================
         // AUTO-INSERT TO CASHBOOK SYSTEM
@@ -410,6 +411,13 @@ try {
                     
                     $cashbookInserted = true;
                     $cashbookMessage = "Berhasil tercatat di Buku Kas - {$cashAccountName}";
+
+                    // Mark payment as synced to cashbook
+                    try {
+                        $db->query("UPDATE booking_payments SET synced_to_cashbook = 1, cashbook_id = ? WHERE id = ?", [$transactionId, $newPaymentId]);
+                    } catch (Exception $syncFlagErr) {
+                        error_log("Failed to set sync flag: " . $syncFlagErr->getMessage());
+                    }
                 }
             } else {
                 $cashbookMessage = "Warning: Akun kas tidak ditemukan untuk payment method '{$paymentMethod}'";

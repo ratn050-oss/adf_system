@@ -94,22 +94,62 @@ try {
 }
 
 // ==========================================
-// 5. Verify created_by FK - check if business users table has the user
+// 5. Add synced_to_cashbook column to booking_payments
+// ==========================================
+try {
+    $tables = $pdo->query("SHOW TABLES LIKE 'booking_payments'")->fetchAll();
+    if (!empty($tables)) {
+        $cols = $pdo->query("SHOW COLUMNS FROM booking_payments LIKE 'synced_to_cashbook'")->fetchAll();
+        if (empty($cols)) {
+            $pdo->exec("ALTER TABLE booking_payments ADD COLUMN synced_to_cashbook TINYINT(1) NOT NULL DEFAULT 0");
+            $fixes[] = "✅ Added 'synced_to_cashbook' column to booking_payments";
+        } else {
+            $fixes[] = "⏭️ 'synced_to_cashbook' already exists in booking_payments";
+        }
+
+        $cols2 = $pdo->query("SHOW COLUMNS FROM booking_payments LIKE 'cashbook_id'")->fetchAll();
+        if (empty($cols2)) {
+            $pdo->exec("ALTER TABLE booking_payments ADD COLUMN cashbook_id INT(11) DEFAULT NULL");
+            $fixes[] = "✅ Added 'cashbook_id' column to booking_payments";
+        } else {
+            $fixes[] = "⏭️ 'cashbook_id' already exists in booking_payments";
+        }
+
+        // Mark existing payments that are already in cash_book as synced
+        try {
+            $pdo->exec("
+                UPDATE booking_payments bp
+                INNER JOIN bookings b ON bp.booking_id = b.id
+                INNER JOIN cash_book cb ON cb.description LIKE CONCAT('%', b.booking_code, '%')
+                    AND cb.transaction_type = 'income'
+                    AND ABS(cb.amount - bp.amount) < 1
+                SET bp.synced_to_cashbook = 1, bp.cashbook_id = cb.id
+                WHERE bp.synced_to_cashbook = 0
+            ");
+            $markedCount = $pdo->query("SELECT ROW_COUNT() as cnt")->fetch(PDO::FETCH_ASSOC);
+            $fixes[] = "✅ Marked " . ($markedCount['cnt'] ?? 0) . " existing payments as synced";
+        } catch (Exception $e) {
+            $fixes[] = "⚠️ Could not auto-mark synced payments: " . $e->getMessage();
+        }
+    } else {
+        $fixes[] = "⏭️ No booking_payments table (not a hotel business)";
+    }
+} catch (Exception $e) {
+    $fixes[] = "❌ Error adding sync columns: " . $e->getMessage();
+}
+
+// ==========================================
+// 6. Verify created_by FK - check business users
 // ==========================================
 try {
     $userCount = $pdo->query("SELECT COUNT(*) as cnt FROM users")->fetch(PDO::FETCH_ASSOC);
     $fixes[] = "ℹ️ Business DB has {$userCount['cnt']} users";
-    
-    if ((int)$userCount['cnt'] === 0) {
-        $fixes[] = "⚠️ WARNING: No users in business DB! Cashbook INSERT will fail on created_by FK";
-        $fixes[] = "   → Run: INSERT INTO users (id, username, password, full_name, role_id) SELECT id, username, password, full_name, role_id FROM [master_db].users";
-    }
 } catch (Exception $e) {
     $fixes[] = "❌ Error checking users: " . $e->getMessage();
 }
 
 // ==========================================
-// 6. Show final cash_book schema
+// 7. Show results
 // ==========================================
 echo "\n📋 Results:\n";
 foreach ($fixes as $fix) {

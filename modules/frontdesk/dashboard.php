@@ -72,7 +72,7 @@ try {
 
     // ==========================================
     // AUTO-SYNC BOOKING PAYMENTS TO CASHBOOK
-    // Sync any booking_payments not yet recorded in cash_book
+    // Uses synced_to_cashbook flag for reliable tracking
     // ==========================================
     try {
         // Get master database name (handles hosting vs local)
@@ -85,7 +85,7 @@ try {
 
         $businessId = $_SESSION['business_id'] ?? 1;
 
-        // Validate created_by user exists in business DB (login uses master DB)
+        // Validate created_by user exists in business DB
         $cbUserId = $currentUser['id'] ?? 1;
         $userExists = $db->fetchOne("SELECT id FROM users WHERE id = ? LIMIT 1", [$cbUserId]);
         if (!$userExists) {
@@ -93,8 +93,28 @@ try {
             $cbUserId = $firstUser['id'] ?? 1;
         }
 
-        // Get all booking payments from last 30 days
-        $recentPayments = $db->fetchAll("
+        // Ensure synced_to_cashbook column exists
+        $hasSyncCol = false;
+        try {
+            $syncColChk = $db->getConnection()->query("SHOW COLUMNS FROM booking_payments LIKE 'synced_to_cashbook'");
+            $hasSyncCol = $syncColChk && $syncColChk->rowCount() > 0;
+        } catch (Exception $e) {}
+        if (!$hasSyncCol) {
+            try {
+                $db->getConnection()->exec("ALTER TABLE booking_payments ADD COLUMN synced_to_cashbook TINYINT(1) NOT NULL DEFAULT 0");
+                $db->getConnection()->exec("ALTER TABLE booking_payments ADD COLUMN cashbook_id INT(11) DEFAULT NULL");
+            } catch (Exception $e) {}
+        }
+
+        // Check if cash_account_id column exists in cash_book
+        $hasCashAccountId = false;
+        try {
+            $colChk = $db->getConnection()->query("SHOW COLUMNS FROM cash_book LIKE 'cash_account_id'");
+            $hasCashAccountId = $colChk && $colChk->rowCount() > 0;
+        } catch (Exception $e) {}
+
+        // Get UNSYNCED booking payments only
+        $unsyncedPayments = $db->fetchAll("
             SELECT bp.id as payment_id, bp.booking_id, bp.amount, bp.payment_method, bp.payment_date,
                    b.booking_code, b.booking_source, b.final_price,
                    g.guest_name, r.room_number
@@ -102,23 +122,23 @@ try {
             JOIN bookings b ON bp.booking_id = b.id
             LEFT JOIN guests g ON b.guest_id = g.id
             LEFT JOIN rooms r ON b.room_id = r.id
-            WHERE bp.payment_date >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+            WHERE bp.synced_to_cashbook = 0
             ORDER BY bp.id ASC
         ");
 
+        // Pre-fetch division and category (once, not per payment)
+        $division = $db->fetchOne("SELECT id FROM divisions WHERE LOWER(division_name) LIKE '%hotel%' OR LOWER(division_name) LIKE '%frontdesk%' ORDER BY id ASC LIMIT 1");
+        if (!$division) $division = $db->fetchOne("SELECT id FROM divisions ORDER BY id ASC LIMIT 1");
+        $divisionId = $division['id'] ?? 1;
+
+        $category = $db->fetchOne("SELECT id FROM categories WHERE category_type = 'income' AND (LOWER(category_name) LIKE '%room%' OR LOWER(category_name) LIKE '%kamar%') ORDER BY id ASC LIMIT 1");
+        if (!$category) $category = $db->fetchOne("SELECT id FROM categories WHERE category_type = 'income' ORDER BY id ASC LIMIT 1");
+        $categoryId = $category['id'] ?? 1;
+
         $syncCount = 0;
-        foreach ($recentPayments as $payment) {
-            // Check if this payment is already in cash_book (by booking_code in description)
-            $existing = $db->fetchOne("
-                SELECT id FROM cash_book 
-                WHERE description LIKE ? 
-                AND ABS(amount - ?) < 1
-                AND transaction_type = 'income'
-                LIMIT 1
-            ", ['%' . $payment['booking_code'] . '%', $payment['amount']]);
-
-            if ($existing) continue; // Already synced
-
+        foreach ($unsyncedPayments as $payment) {
+            // Per-payment try-catch so one failure doesn't block others
+            try {
             // Calculate OTA fee if applicable
             $netAmount = (float)$payment['amount'];
             $otaFeePercent = 0;
@@ -144,17 +164,10 @@ try {
             $accountStmt->execute([$businessId, $accountType]);
             $account = $accountStmt->fetch(PDO::FETCH_ASSOC);
 
-            if (!$account) continue; // No account found
-
-            // Find division (Hotel/Frontdesk)
-            $division = $db->fetchOne("SELECT id FROM divisions WHERE LOWER(division_name) LIKE '%hotel%' OR LOWER(division_name) LIKE '%frontdesk%' ORDER BY id ASC LIMIT 1");
-            if (!$division) $division = $db->fetchOne("SELECT id FROM divisions ORDER BY id ASC LIMIT 1");
-            $divisionId = $division['id'] ?? 1;
-
-            // Find category (Room Rental/Room Sell)
-            $category = $db->fetchOne("SELECT id FROM categories WHERE category_type = 'income' AND (LOWER(category_name) LIKE '%room%' OR LOWER(category_name) LIKE '%kamar%') ORDER BY id ASC LIMIT 1");
-            if (!$category) $category = $db->fetchOne("SELECT id FROM categories WHERE category_type = 'income' ORDER BY id ASC LIMIT 1");
-            $categoryId = $category['id'] ?? 1;
+            if (!$account) {
+                error_log("Cashbook sync skip payment#{$payment['payment_id']}: no account for type '{$accountType}'");
+                continue;
+            }
 
             // Build description
             $guestName = $payment['guest_name'] ?? 'Guest';
@@ -173,15 +186,6 @@ try {
             $cbMethod = $pmMap[$cbMethod] ?? $cbMethod;
             $validMethods = ['cash','debit','transfer','qr','bank_transfer','ota','agoda','booking','other'];
             if (!in_array($cbMethod, $validMethods)) $cbMethod = 'other';
-
-            // Check if cash_account_id column exists (may not exist on hosting)
-            if (!isset($hasCashAccountId)) {
-                $hasCashAccountId = false;
-                try {
-                    $colChk = $db->getConnection()->query("SHOW COLUMNS FROM cash_book LIKE 'cash_account_id'");
-                    $hasCashAccountId = $colChk && $colChk->rowCount() > 0;
-                } catch (Exception $e) {}
-            }
 
             // Insert into cash_book (dynamic based on schema)
             if ($hasCashAccountId) {
@@ -215,6 +219,9 @@ try {
 
             $transactionId = $db->getConnection()->lastInsertId();
 
+            // Mark payment as synced
+            $db->query("UPDATE booking_payments SET synced_to_cashbook = 1, cashbook_id = ? WHERE id = ?", [$transactionId, $payment['payment_id']]);
+
             // Insert into master cash_account_transactions
             $masterTransInsert = $masterDb->prepare("
                 INSERT INTO cash_account_transactions (
@@ -233,13 +240,17 @@ try {
             $updateBal->execute([$netAmount, $account['id']]);
 
             $syncCount++;
+            } catch (Exception $paymentError) {
+                error_log("Cashbook sync error payment#{$payment['payment_id']}: " . $paymentError->getMessage());
+                continue;
+            }
         }
 
         if ($syncCount > 0) {
             error_log("Cashbook auto-sync: {$syncCount} payments synced to cashbook");
         }
     } catch (Exception $syncError) {
-        error_log("Cashbook sync error: " . $syncError->getMessage());
+        error_log("Cashbook sync setup error: " . $syncError->getMessage());
     }
 
     // 1. Total In-House Guests (checked in, currently staying)

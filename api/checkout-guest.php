@@ -117,22 +117,14 @@ try {
             $cbUserId = $firstUser['id'] ?? 1;
         }
 
-        // Get all payments for this booking
+        // Get all payments for this booking that haven't been synced yet
         $payments = $db->fetchAll("
             SELECT id, amount, payment_method, payment_date 
-            FROM booking_payments WHERE booking_id = ? ORDER BY id
+            FROM booking_payments WHERE booking_id = ? AND synced_to_cashbook = 0 ORDER BY id
         ", [$bookingId]);
 
         $syncCount = 0;
         foreach ($payments as $pmt) {
-            // Check if already in cashbook
-            $exists = $db->fetchOne("
-                SELECT id FROM cash_book 
-                WHERE description LIKE ? AND ABS(amount - ?) < 1 AND transaction_type = 'income'
-                LIMIT 1
-            ", ['%' . $booking['booking_code'] . '%', $pmt['amount']]);
-
-            if ($exists) continue;
 
             // Calculate net amount (OTA fee)
             $netAmt = (float)$pmt['amount'];
@@ -193,6 +185,10 @@ try {
             }
 
             $txId = $db->getConnection()->lastInsertId();
+
+            // Mark payment as synced
+            $db->query("UPDATE booking_payments SET synced_to_cashbook = 1, cashbook_id = ? WHERE id = ?", [$txId, $pmt['id']]);
+
             $masterDb->prepare("INSERT INTO cash_account_transactions (cash_account_id, transaction_id, transaction_date, description, amount, transaction_type, reference_number, created_by, created_at) VALUES (?, ?, DATE(?), ?, ?, 'income', ?, ?, NOW())")->execute([
                 $acct['id'], $txId, $pmt['payment_date'], $desc, $netAmt, $booking['booking_code'], $cbUserId
             ]);

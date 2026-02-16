@@ -16,6 +16,138 @@ $auth->requireLogin();
 $currentUser = $auth->getCurrentUser();
 $db = Database::getInstance();
 
+// ==========================================
+// AUTO-SYNC UNSYNCED BOOKING PAYMENTS TO CASHBOOK
+// Ensures payments appear even if dashboard wasn't visited
+// ==========================================
+try {
+    // Check if this is a hotel business with booking_payments table
+    $hasBookingPayments = false;
+    try {
+        $db->getConnection()->query("SELECT 1 FROM booking_payments LIMIT 1");
+        $hasBookingPayments = true;
+    } catch (Exception $e) {}
+
+    if ($hasBookingPayments) {
+        // Ensure synced_to_cashbook column exists
+        $hasSyncCol = false;
+        try {
+            $syncColChk = $db->getConnection()->query("SHOW COLUMNS FROM booking_payments LIKE 'synced_to_cashbook'");
+            $hasSyncCol = $syncColChk && $syncColChk->rowCount() > 0;
+        } catch (Exception $e) {}
+        if (!$hasSyncCol) {
+            try {
+                $db->getConnection()->exec("ALTER TABLE booking_payments ADD COLUMN synced_to_cashbook TINYINT(1) NOT NULL DEFAULT 0");
+                $db->getConnection()->exec("ALTER TABLE booking_payments ADD COLUMN cashbook_id INT(11) DEFAULT NULL");
+            } catch (Exception $e) {}
+        }
+
+        $unsyncedCount = $db->fetchOne("SELECT COUNT(*) as cnt FROM booking_payments WHERE synced_to_cashbook = 0");
+        if ($unsyncedCount && (int)$unsyncedCount['cnt'] > 0) {
+            $masterDbName = defined('MASTER_DB_NAME') ? MASTER_DB_NAME : 'adf_system';
+            $masterDb = new PDO(
+                "mysql:host=" . DB_HOST . ";dbname=" . $masterDbName . ";charset=" . DB_CHARSET,
+                DB_USER, DB_PASS,
+                [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+            );
+            $businessId = $_SESSION['business_id'] ?? 1;
+
+            $cbUserId = $currentUser['id'] ?? 1;
+            $userExists = $db->fetchOne("SELECT id FROM users WHERE id = ? LIMIT 1", [$cbUserId]);
+            if (!$userExists) {
+                $firstUser = $db->fetchOne("SELECT id FROM users ORDER BY id ASC LIMIT 1");
+                $cbUserId = $firstUser['id'] ?? 1;
+            }
+
+            $hasCashAccountId = false;
+            try {
+                $colChk = $db->getConnection()->query("SHOW COLUMNS FROM cash_book LIKE 'cash_account_id'");
+                $hasCashAccountId = $colChk && $colChk->rowCount() > 0;
+            } catch (Exception $e) {}
+
+            $division = $db->fetchOne("SELECT id FROM divisions WHERE LOWER(division_name) LIKE '%hotel%' OR LOWER(division_name) LIKE '%frontdesk%' ORDER BY id ASC LIMIT 1");
+            if (!$division) $division = $db->fetchOne("SELECT id FROM divisions ORDER BY id ASC LIMIT 1");
+            $divisionId = $division['id'] ?? 1;
+
+            $category = $db->fetchOne("SELECT id FROM categories WHERE category_type = 'income' AND (LOWER(category_name) LIKE '%room%' OR LOWER(category_name) LIKE '%kamar%') ORDER BY id ASC LIMIT 1");
+            if (!$category) $category = $db->fetchOne("SELECT id FROM categories WHERE category_type = 'income' ORDER BY id ASC LIMIT 1");
+            $categoryId = $category['id'] ?? 1;
+
+            $unsyncedPayments = $db->fetchAll("
+                SELECT bp.id as payment_id, bp.booking_id, bp.amount, bp.payment_method, bp.payment_date,
+                       b.booking_code, b.booking_source, b.final_price,
+                       g.guest_name, r.room_number
+                FROM booking_payments bp
+                JOIN bookings b ON bp.booking_id = b.id
+                LEFT JOIN guests g ON b.guest_id = g.id
+                LEFT JOIN rooms r ON b.room_id = r.id
+                WHERE bp.synced_to_cashbook = 0
+                ORDER BY bp.id ASC
+            ");
+
+            $syncCount = 0;
+            foreach ($unsyncedPayments as $payment) {
+                try {
+                    $netAmount = (float)$payment['amount'];
+                    if (in_array(strtolower($payment['payment_method']), ['ota', 'agoda', 'booking'])) {
+                        $feeStmt = $masterDb->prepare("SELECT setting_value FROM settings WHERE setting_key = 'ota_fee_other_ota'");
+                        $feeStmt->execute();
+                        $feeQuery = $feeStmt->fetch(PDO::FETCH_ASSOC);
+                        if ($feeQuery && (float)($feeQuery['setting_value'] ?? 0) > 0) {
+                            $netAmount = $payment['amount'] - ($payment['amount'] * (float)$feeQuery['setting_value'] / 100);
+                        }
+                    }
+
+                    $accountType = ($payment['payment_method'] === 'cash') ? 'cash' : 'bank';
+                    $accountStmt = $masterDb->prepare("SELECT id, current_balance FROM cash_accounts WHERE business_id = ? AND account_type = ? AND is_active = 1 ORDER BY is_default_account DESC LIMIT 1");
+                    $accountStmt->execute([$businessId, $accountType]);
+                    $account = $accountStmt->fetch(PDO::FETCH_ASSOC);
+                    if (!$account) continue;
+
+                    $guestName = $payment['guest_name'] ?? 'Guest';
+                    $roomNum = $payment['room_number'] ?? '';
+                    $desc = "Pembayaran Reservasi - {$guestName}";
+                    if ($roomNum) $desc .= " (Room {$roomNum})";
+                    $desc .= " - {$payment['booking_code']}";
+                    $totalPaid = $db->fetchOne("SELECT COALESCE(SUM(amount),0) as total FROM booking_payments WHERE booking_id = ?", [$payment['booking_id']]);
+                    $desc .= ((float)$totalPaid['total'] >= (float)$payment['final_price']) ? ' [LUNAS]' : ' [CICILAN]';
+
+                    $pmMap = ['bank_transfer'=>'transfer','credit_card'=>'debit','credit'=>'debit'];
+                    $cbMethod = strtolower($payment['payment_method'] ?? 'cash');
+                    $cbMethod = $pmMap[$cbMethod] ?? $cbMethod;
+                    $validMethods = ['cash','debit','transfer','qr','bank_transfer','ota','agoda','booking','other'];
+                    if (!in_array($cbMethod, $validMethods)) $cbMethod = 'other';
+
+                    if ($hasCashAccountId) {
+                        $cashBookInsert = $db->getConnection()->prepare("INSERT INTO cash_book (transaction_date, transaction_time, division_id, category_id, description, transaction_type, amount, payment_method, cash_account_id, created_by, created_at) VALUES (DATE(?), TIME(?), ?, ?, ?, 'income', ?, ?, ?, ?, NOW())");
+                        $cashBookInsert->execute([$payment['payment_date'], $payment['payment_date'], $divisionId, $categoryId, $desc, $netAmount, $cbMethod, $account['id'], $cbUserId]);
+                    } else {
+                        $cashBookInsert = $db->getConnection()->prepare("INSERT INTO cash_book (transaction_date, transaction_time, division_id, category_id, description, transaction_type, amount, payment_method, created_by, created_at) VALUES (DATE(?), TIME(?), ?, ?, ?, 'income', ?, ?, ?, NOW())");
+                        $cashBookInsert->execute([$payment['payment_date'], $payment['payment_date'], $divisionId, $categoryId, $desc, $netAmount, $cbMethod, $cbUserId]);
+                    }
+
+                    $transactionId = $db->getConnection()->lastInsertId();
+                    $db->query("UPDATE booking_payments SET synced_to_cashbook = 1, cashbook_id = ? WHERE id = ?", [$transactionId, $payment['payment_id']]);
+
+                    $masterDb->prepare("INSERT INTO cash_account_transactions (cash_account_id, transaction_id, transaction_date, description, amount, transaction_type, reference_number, created_by, created_at) VALUES (?, ?, DATE(?), ?, ?, 'income', ?, ?, NOW())")->execute([
+                        $account['id'], $transactionId, $payment['payment_date'], $desc, $netAmount, $payment['booking_code'], $cbUserId
+                    ]);
+                    $masterDb->prepare("UPDATE cash_accounts SET current_balance = current_balance + ? WHERE id = ?")->execute([$netAmount, $account['id']]);
+                    $syncCount++;
+                } catch (Exception $paymentError) {
+                    error_log("Cashbook page sync error payment#{$payment['payment_id']}: " . $paymentError->getMessage());
+                    continue;
+                }
+            }
+            if ($syncCount > 0) {
+                error_log("Cashbook page auto-sync: {$syncCount} payments synced");
+            }
+        }
+    }
+} catch (Exception $syncError) {
+    error_log("Cashbook page sync setup error: " . $syncError->getMessage());
+}
+
 // Load business configuration
 $businessConfig = require '../../config/businesses/' . ACTIVE_BUSINESS_ID . '.php';
 
