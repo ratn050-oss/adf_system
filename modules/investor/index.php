@@ -391,30 +391,40 @@ include $base_path . '/includes/header.php';
     justify-content: center;
 }
 
-.btn-outline {
-    background: transparent;
-    border: 1.5px solid var(--border-color);
-    color: var(--text-secondary);
-    transition: all 0.2s ease;
+.btn-kas {
+    background: linear-gradient(135deg, #3b82f6, #2563eb) !important;
+    color: white !important;
+    border: none !important;
+    font-weight: 600;
 }
-
-.btn-outline:hover {
-    background: rgba(99, 102, 241, 0.1);
-    border-color: #6366f1;
-    color: #6366f1;
-}
-
-.btn-danger {
-    background: #ef4444;
-    border: 1.5px solid #ef4444;
-    color: white;
-    transition: all 0.2s ease;
-}
-
-.btn-danger:hover {
-    background: #dc2626;
-    border-color: #dc2626;
+.btn-kas:hover {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
     transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(37,99,235,0.4);
+}
+
+.btn-edit {
+    background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+    color: white !important;
+    border: none !important;
+    font-weight: 600;
+}
+.btn-edit:hover {
+    background: linear-gradient(135deg, #d97706, #b45309) !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(217,119,6,0.4);
+}
+
+.btn-hapus {
+    background: linear-gradient(135deg, #ef4444, #dc2626) !important;
+    color: white !important;
+    border: none !important;
+    font-weight: 600;
+}
+.btn-hapus:hover {
+    background: linear-gradient(135deg, #dc2626, #b91c1c) !important;
+    transform: translateY(-1px);
+    box-shadow: 0 4px 12px rgba(239,68,68,0.4);
 }
 
 /* Projects Section */
@@ -510,12 +520,10 @@ include $base_path . '/includes/header.php';
 }
 
 .project-card .btn-sm {
-    padding: 0.35rem 0.5rem;
-    font-size: 0.65rem;
-    border-radius: 5px;
+    padding: 0.45rem 0.7rem;
+    font-size: 0.72rem;
+    border-radius: 6px;
     flex: 1;
-    min-width: 60px;
-    max-width: 80px;
     text-align: center;
     display: flex;
     align-items: center;
@@ -523,13 +531,9 @@ include $base_path . '/includes/header.php';
     gap: 0.2rem;
     white-space: nowrap;
     line-height: 1;
-    height: 28px;
-}
-
-.project-card .btn-sm svg {
-    width: 10px;
-    height: 10px;
-    flex-shrink: 0;
+    height: 30px;
+    cursor: pointer;
+    transition: all 0.2s ease;
 }
 
 .add-project-card {
@@ -904,27 +908,14 @@ include $base_path . '/includes/header.php';
                         </div>
                     </div>
                     <div class="project-actions">
-                        <button class="btn btn-sm btn-outline" onclick="event.stopPropagation(); goToProjectLedger(<?= $project['id'] ?>)">
-                            <svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                <path d="M9 12h6m-6 4h6M9 8h6m-13 9a10 10 0 1120 0 10 10 0 01-20 0z"/>
-                            </svg>
-                            Kas
+                        <button class="btn btn-sm btn-kas" onclick="event.stopPropagation(); goToProjectLedger(<?= $project['id'] ?>)">
+                            📒 Buku Kas
                         </button>
-                        <button class="btn btn-sm btn-outline" onclick="event.stopPropagation(); editProject(<?= $project['id'] ?>)">
-                            <svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
-                                <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                            </svg>
-                            Edit
+                        <button class="btn btn-sm btn-edit" onclick="event.stopPropagation(); editProject(<?= $project['id'] ?>)">
+                            ✏️ Edit
                         </button>
-                        <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); deleteProject(<?= $project['id'] ?>, '<?= htmlspecialchars($project['project_name'], ENT_QUOTES) ?>')">
-                            <svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                                <polyline points="3,6 5,6 21,6"></polyline>
-                                <path d="m19,6v14a2,2 0 0,1 -2,2H7a2,2 0 0,1 -2,-2V6m3,0V4a2,2 0 0,1 2,-2h4a2,2 0 0,1 2,2v2"></path>
-                                <line x1="10" y1="11" x2="10" y2="17"></line>
-                                <line x1="14" y1="11" x2="14" y2="17"></line>
-                            </svg>
-                            Hapus
+                        <button class="btn btn-sm btn-hapus" onclick="event.stopPropagation(); deleteProject(<?= $project['id'] ?>, '<?= htmlspecialchars($project['project_name'], ENT_QUOTES) ?>')">
+                            🗑️ Hapus
                         </button>
                     </div>
                 </div>
