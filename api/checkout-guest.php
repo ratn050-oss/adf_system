@@ -193,7 +193,7 @@ try {
             if (!$acct) continue;
 
             // Division & Category
-            $div = $db->fetchOne("SELECT id FROM divisions WHERE LOWER(division_name) LIKE '%hotel%' ORDER BY id LIMIT 1");
+            $div = $db->fetchOne("SELECT id FROM divisions WHERE LOWER(division_name) LIKE '%hotel%' OR LOWER(division_name) LIKE '%front%' OR LOWER(division_name) LIKE '%room%' OR LOWER(division_name) LIKE '%kamar%' ORDER BY id LIMIT 1");
             if (!$div) $div = $db->fetchOne("SELECT id FROM divisions ORDER BY id LIMIT 1");
             $cat = $db->fetchOne("SELECT id FROM categories WHERE category_type = 'income' AND (LOWER(category_name) LIKE '%room%' OR LOWER(category_name) LIKE '%kamar%') ORDER BY id LIMIT 1");
             if (!$cat) $cat = $db->fetchOne("SELECT id FROM categories WHERE category_type = 'income' ORDER BY id LIMIT 1");

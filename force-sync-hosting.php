@@ -93,11 +93,14 @@ try {
             $divisionId = 1; // Default
             $categoryId = 1; // Default
             
-            // Get proper IDs
-            $div = $conn->query("SELECT id FROM divisions ORDER BY id ASC LIMIT 1")->fetch();
+            // Get HOTEL/FRONTDESK division first, fallback to first division
+            $div = $conn->query("SELECT id FROM divisions WHERE LOWER(division_name) LIKE '%hotel%' OR LOWER(division_name) LIKE '%front%' OR LOWER(division_name) LIKE '%room%' OR LOWER(division_name) LIKE '%kamar%' LIMIT 1")->fetch();
+            if (!$div) $div = $conn->query("SELECT id FROM divisions ORDER BY id ASC LIMIT 1")->fetch();
             if ($div) $divisionId = $div['id'];
             
-            $cat = $conn->query("SELECT id FROM categories WHERE category_type='income' ORDER BY id ASC LIMIT 1")->fetch();
+            // Get ROOM SALES category first, fallback to first income category
+            $cat = $conn->query("SELECT id FROM categories WHERE category_type='income' AND (LOWER(category_name) LIKE '%room%' OR LOWER(category_name) LIKE '%kamar%') LIMIT 1")->fetch();
+            if (!$cat) $cat = $conn->query("SELECT id FROM categories WHERE category_type='income' ORDER BY id ASC LIMIT 1")->fetch();
             if ($cat) $categoryId = $cat['id'];
             
             // INSERT TO CASHBOOK
