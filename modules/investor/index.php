@@ -71,6 +71,24 @@ try {
     $recentDeposits = [];
 }
 
+// Get all projects for project management section
+try {
+    $projects = $db->query("
+        SELECT p.*,
+               COALESCE(SUM(pe.amount), 0) as total_expenses,
+               COUNT(pe.id) as expense_count
+        FROM projects p
+        LEFT JOIN project_expenses pe ON p.id = pe.project_id
+        GROUP BY p.id
+        ORDER BY p.created_at DESC
+        LIMIT 8
+    ")->fetchAll(PDO::FETCH_ASSOC);
+} catch (Exception $e) {
+    $projects = [];
+}
+
+$totalProjects = count($projects);
+
 // Calculate totals
 $totalInvestors = count($investors);
 $totalCapital = 0;
@@ -84,46 +102,61 @@ include $base_path . '/includes/header.php';
 ?>
 
 <style>
+* {
+    box-sizing: border-box;
+}
+
 .investor-page {
-    padding: 1.5rem;
-    max-width: 1400px;
+    padding: 2rem;
+    max-width: 1600px;
     margin: 0 auto;
+    background: var(--bg-primary);
+    min-height: 100vh;
 }
 
 .page-header {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 2rem;
-    padding-bottom: 1rem;
-    border-bottom: 1px solid var(--border-color);
+    margin-bottom: 3rem;
+    padding-bottom: 1.5rem;
+    border-bottom: 2px solid rgba(99, 102, 241, 0.1);
 }
 
 .page-header h1 {
-    font-size: 1.5rem;
-    font-weight: 600;
-    color: var(--text-primary);
+    font-size: 2rem;
+    font-weight: 700;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    -webkit-background-clip: text;
+    -webkit-text-fill-color: transparent;
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: 1rem;
 }
 
 .header-actions {
     display: flex;
-    gap: 0.75rem;
+    gap: 1rem;
+    flex-wrap: wrap;
 }
 
 .btn {
-    padding: 0.6rem 1.2rem;
-    border-radius: 8px;
-    font-size: 0.85rem;
-    font-weight: 500;
+    padding: 0.75rem 1.5rem;
+    border-radius: 10px;
+    font-size: 0.9rem;
+    font-weight: 600;
     cursor: pointer;
     border: none;
     display: inline-flex;
     align-items: center;
-    gap: 0.5rem;
-    transition: all 0.2s;
+    gap: 0.6rem;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+.btn:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 20px rgba(0, 0, 0, 0.15);
 }
 
 .btn-primary {
@@ -132,8 +165,7 @@ include $base_path . '/includes/header.php';
 }
 
 .btn-primary:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(99, 102, 241, 0.3);
+    box-shadow: 0 8px 20px rgba(99, 102, 241, 0.4);
 }
 
 .btn-success {
@@ -142,41 +174,66 @@ include $base_path . '/includes/header.php';
 }
 
 .btn-success:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
+    box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4);
+}
+
+.btn:active {
+    transform: translateY(0);
 }
 
 /* Summary Cards */
 .summary-cards {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
     gap: 1.5rem;
-    margin-bottom: 2rem;
+    margin-bottom: 3rem;
 }
 
 .summary-card {
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
-    border-radius: 12px;
-    padding: 1.5rem;
+    border-radius: 14px;
+    padding: 1.75rem;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.summary-card::before {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    width: 200px;
+    height: 200px;
+    background: radial-gradient(circle, rgba(99, 102, 241, 0.05), transparent);
+    border-radius: 50%;
+}
+
+.summary-card:hover {
+    border-color: rgba(99, 102, 241, 0.3);
+    box-shadow: 0 8px 24px rgba(99, 102, 241, 0.1);
+    transform: translateY(-4px);
 }
 
 .summary-card .label {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     color: var(--text-muted);
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.75rem;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 1px;
+    font-weight: 600;
 }
 
 .summary-card .value {
-    font-size: 1.75rem;
-    font-weight: 700;
+    font-size: 2rem;
+    font-weight: 800;
     color: var(--text-primary);
+    line-height: 1.2;
 }
 
 .summary-card.highlight {
-    background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.1));
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.15), rgba(139, 92, 246, 0.15));
     border-color: rgba(99, 102, 241, 0.3);
 }
 
@@ -184,20 +241,490 @@ include $base_path . '/includes/header.php';
     color: #6366f1;
 }
 
-/* Investor List */
+/* Section Header */
+.section-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin: 2.5rem 0 1.5rem 0;
+    padding-bottom: 1rem;
+    border-bottom: 2px solid rgba(99, 102, 241, 0.1);
+}
+
 .section-title {
-    font-size: 1rem;
-    font-weight: 600;
+    font-size: 1.3rem;
+    font-weight: 700;
     color: var(--text-primary);
-    margin-bottom: 1rem;
     display: flex;
     align-items: center;
+    gap: 0.75rem;
+}
+
+.section-title svg {
+    stroke: #6366f1;
+    stroke-width: 2.5;
+}
+
+/* Investor List */
+.investor-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(360px, 1fr));
+    gap: 1.5rem;
+    margin-bottom: 3rem;
+}
+
+.investor-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    padding: 1.5rem;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.investor-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #6366f1, #8b5cf6);
+}
+
+.investor-card:hover {
+    border-color: rgba(99, 102, 241, 0.4);
+    box-shadow: 0 12px 32px rgba(99, 102, 241, 0.15);
+    transform: translateY(-6px);
+}
+
+.investor-card .header {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+    gap: 1rem;
+}
+
+.investor-card .name {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.investor-card .contact {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+    margin-top: 0.25rem;
+    word-break: break-word;
+}
+
+.investor-card .amount {
+    text-align: right;
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: #10b981;
+    background: rgba(16, 185, 129, 0.1);
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+}
+
+.investor-card .actions {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+}
+
+.investor-card .btn-sm {
+    padding: 0.5rem 0.9rem;
+    font-size: 0.75rem;
+    border-radius: 8px;
+    flex: 1;
+    min-width: 80px;
+    text-align: center;
+    justify-content: center;
+}
+
+.btn-outline {
+    background: transparent;
+    border: 1.5px solid var(--border-color);
+    color: var(--text-secondary);
+    transition: all 0.2s ease;
+}
+
+.btn-outline:hover {
+    background: rgba(99, 102, 241, 0.1);
+    border-color: #6366f1;
+    color: #6366f1;
+}
+
+/* Projects Section */
+.projects-section {
+    margin-bottom: 3rem;
+}
+
+.projects-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 1.5rem;
+}
+
+.project-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    padding: 1.5rem;
+    transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+    position: relative;
+    cursor: pointer;
+}
+
+.project-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #f59e0b, #ec4899);
+}
+
+.project-card:hover {
+    border-color: rgba(245, 158, 11, 0.4);
+    box-shadow: 0 12px 32px rgba(245, 158, 11, 0.15);
+    transform: translateY(-6px);
+}
+
+.project-card .project-name {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.project-card .project-code {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.project-card .project-amount {
+    font-size: 1.2rem;
+    font-weight: 700;
+    color: #f59e0b;
+}
+
+.project-card .project-meta {
+    display: flex;
+    justify-content: space-between;
+    padding: 1rem 0;
+    border-top: 1px solid var(--border-color);
+    font-size: 0.85rem;
+    color: var(--text-muted);
+}
+
+.project-card .meta-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.project-card .meta-value {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.project-card .project-actions {
+    display: flex;
     gap: 0.5rem;
 }
 
-.investor-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(320px, 1fr));
+.project-card .btn-sm {
+    padding: 0.5rem 0.9rem;
+    font-size: 0.75rem;
+    border-radius: 8px;
+    flex: 1;
+    text-align: center;
+    justify-content: center;
+}
+
+.add-project-card {
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.05), rgba(236, 72, 153, 0.05));
+    border: 2px dashed rgba(245, 158, 11, 0.3);
+    border-radius: 14px;
+    padding: 2rem;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 1rem;
+    text-align: center;
+    transition: all 0.3s ease;
+    cursor: pointer;
+}
+
+.add-project-card:hover {
+    border-color: rgba(245, 158, 11, 0.6);
+    background: linear-gradient(135deg, rgba(245, 158, 11, 0.1), rgba(236, 72, 153, 0.1));
+    box-shadow: 0 8px 20px rgba(245, 158, 11, 0.15);
+}
+
+.add-project-card svg {
+    width: 48px;
+    height: 48px;
+    stroke: #f59e0b;
+    stroke-width: 2;
+}
+
+.add-project-card .text {
+    font-weight: 600;
+    color: var(--text-secondary);
+}
+
+/* History Table */
+.history-section {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    padding: 2rem;
+    margin-top: 3rem;
+}
+
+.history-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.history-table th,
+.history-table td {
+    padding: 1rem;
+    text-align: left;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.history-table th {
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    background: rgba(99, 102, 241, 0.05);
+}
+
+.history-table td {
+    font-size: 0.9rem;
+    color: var(--text-primary);
+}
+
+.history-table tr:hover {
+    background: rgba(99, 102, 241, 0.02);
+}
+
+.history-table .amount-cell {
+    font-weight: 700;
+    color: #10b981;
+}
+
+.history-table .date-cell {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+.empty-state {
+    text-align: center;
+    padding: 3rem 2rem;
+    color: var(--text-muted);
+}
+
+.empty-state svg {
+    width: 64px;
+    height: 64px;
+    margin-bottom: 1rem;
+    opacity: 0.3;
+}
+
+.empty-state p {
+    font-size: 1rem;
+    margin: 0;
+}
+
+/* Modal Styling */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0, 0, 0, 0.6);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 1000;
+    animation: fadeIn 0.2s ease;
+}
+
+@keyframes fadeIn {
+    from { opacity: 0; }
+    to { opacity: 1; }
+}
+
+.modal-overlay.active {
+    display: flex;
+}
+
+.modal-content {
+    background: var(--bg-secondary);
+    border-radius: 16px;
+    width: 100%;
+    max-width: 520px;
+    max-height: 90vh;
+    overflow-y: auto;
+    animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+    box-shadow: 0 20px 60px rgba(0, 0, 0, 0.3);
+}
+
+@keyframes slideUp {
+    from {
+        opacity: 0;
+        transform: translateY(20px);
+    }
+    to {
+        opacity: 1;
+        transform: translateY(0);
+    }
+}
+
+.modal-header {
+    padding: 1.5rem;
+    border-bottom: 1px solid var(--border-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+.modal-header h3 {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+}
+
+.modal-close {
+    background: none;
+    border: none;
+    font-size: 1.75rem;
+    color: var(--text-muted);
+    cursor: pointer;
+    transition: color 0.2s ease;
+    padding: 0;
+    width: 32px;
+    height: 32px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 6px;
+}
+
+.modal-close:hover {
+    color: var(--text-primary);
+    background: rgba(99, 102, 241, 0.1);
+}
+
+.modal-body {
+    padding: 2rem;
+}
+
+.form-group {
+    margin-bottom: 1.5rem;
+}
+
+.form-group label {
+    display: block;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-secondary);
+    margin-bottom: 0.6rem;
+}
+
+.form-group input,
+.form-group select,
+.form-group textarea {
+    width: 100%;
+    padding: 0.85rem 1rem;
+    border: 1.5px solid var(--border-color);
+    border-radius: 10px;
+    font-size: 0.95rem;
+    background: var(--bg-primary);
+    color: var(--text-primary);
+    transition: all 0.2s ease;
+    font-family: inherit;
+}
+
+.form-group input:focus,
+.form-group select:focus,
+.form-group textarea:focus {
+    outline: none;
+    border-color: #6366f1;
+    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.modal-footer {
+    padding: 1.5rem;
+    border-top: 1px solid var(--border-color);
+    display: flex;
+    justify-content: flex-end;
+    gap: 1rem;
+}
+
+.btn-secondary {
+    background: var(--bg-tertiary);
+    color: var(--text-secondary);
+    border: 1.5px solid var(--border-color);
+}
+
+.btn-secondary:hover {
+    background: rgba(99, 102, 241, 0.05);
+    border-color: #6366f1;
+    color: #6366f1;
+}
+
+@media (max-width: 768px) {
+    .investor-page {
+        padding: 1rem;
+    }
+    
+    .page-header {
+        flex-direction: column;
+        gap: 1rem;
+        align-items: flex-start;
+    }
+    
+    .header-actions {
+        width: 100%;
+    }
+    
+    .header-actions .btn {
+        flex: 1;
+    }
+    
+    .investor-grid {
+        grid-template-columns: 1fr;
+    }
+    
+    .projects-grid {
+        grid-template-columns: 1fr;
+    }
+}
+</style>
+
+<div class="investor-page">
     gap: 1rem;
     margin-bottom: 2rem;
 }
@@ -220,211 +747,19 @@ include $base_path . '/includes/header.php';
     justify-content: space-between;
     align-items: flex-start;
     margin-bottom: 1rem;
-}
-
-.investor-card .name {
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: var(--text-primary);
-}
-
-.investor-card .contact {
-    font-size: 0.8rem;
-    color: var(--text-muted);
-    margin-top: 0.25rem;
-}
-
-.investor-card .amount {
-    font-size: 1.25rem;
-    font-weight: 700;
-    color: #10b981;
-}
-
-.investor-card .actions {
-    display: flex;
-    gap: 0.5rem;
-    margin-top: 1rem;
-    padding-top: 1rem;
-    border-top: 1px solid var(--border-color);
-}
-
-.investor-card .btn-sm {
-    padding: 0.4rem 0.8rem;
-    font-size: 0.75rem;
-    border-radius: 6px;
-}
-
-.btn-outline {
-    background: transparent;
-    border: 1px solid var(--border-color);
-    color: var(--text-secondary);
-}
-
-.btn-outline:hover {
-    background: var(--bg-tertiary);
-    border-color: #6366f1;
-    color: #6366f1;
-}
-
-/* History Table */
-.history-section {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    padding: 1.5rem;
-}
-
-.history-table {
-    width: 100%;
-    border-collapse: collapse;
-}
-
-.history-table th,
-.history-table td {
-    padding: 0.75rem;
-    text-align: left;
-    border-bottom: 1px solid var(--border-color);
-}
-
-.history-table th {
-    font-size: 0.75rem;
-    font-weight: 600;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.5px;
-}
-
-.history-table td {
-    font-size: 0.9rem;
-    color: var(--text-primary);
-}
-
-.history-table .amount-cell {
-    font-weight: 600;
-    color: #10b981;
-}
-
-.history-table .date-cell {
-    color: var(--text-muted);
-    font-size: 0.85rem;
-}
-
-.empty-state {
-    text-align: center;
-    padding: 2rem;
-    color: var(--text-muted);
-}
-
-/* Modal */
-.modal-overlay {
-    position: fixed;
-    top: 0;
-    left: 0;
-    right: 0;
-    bottom: 0;
-    background: rgba(0, 0, 0, 0.5);
-    display: none;
-    align-items: center;
-    justify-content: center;
-    z-index: 1000;
-}
-
-.modal-overlay.active {
-    display: flex;
-}
-
-.modal-content {
-    background: var(--bg-secondary);
-    border-radius: 16px;
-    width: 100%;
-    max-width: 500px;
-    max-height: 90vh;
-    overflow-y: auto;
-}
-
-.modal-header {
-    padding: 1.25rem 1.5rem;
-    border-bottom: 1px solid var(--border-color);
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-}
-
-.modal-header h3 {
-    font-size: 1.1rem;
-    font-weight: 600;
-    color: var(--text-primary);
-}
-
-.modal-close {
-    background: none;
-    border: none;
-    font-size: 1.5rem;
-    color: var(--text-muted);
-    cursor: pointer;
-}
-
-.modal-body {
-    padding: 1.5rem;
-}
-
-.form-group {
-    margin-bottom: 1.25rem;
-}
-
-.form-group label {
-    display: block;
-    font-size: 0.85rem;
-    font-weight: 500;
-    color: var(--text-secondary);
-    margin-bottom: 0.5rem;
-}
-
-.form-group input,
-.form-group select,
-.form-group textarea {
-    width: 100%;
-    padding: 0.75rem 1rem;
-    border: 1px solid var(--border-color);
-    border-radius: 8px;
-    font-size: 0.9rem;
-    background: var(--bg-primary);
-    color: var(--text-primary);
-}
-
-.form-group input:focus,
-.form-group select:focus {
-    outline: none;
-    border-color: #6366f1;
-    box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
-}
-
-.modal-footer {
-    padding: 1rem 1.5rem;
-    border-top: 1px solid var(--border-color);
-    display: flex;
-    justify-content: flex-end;
-    gap: 0.75rem;
-}
-
-.btn-secondary {
-    background: var(--bg-tertiary);
-    color: var(--text-secondary);
-    border: 1px solid var(--border-color);
-}
 </style>
 
 <div class="investor-page">
     <!-- Header -->
     <div class="page-header">
         <h1>
-            <svg width="24" height="24" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <svg width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                 <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
                 <circle cx="9" cy="7" r="4"/>
                 <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
                 <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
             </svg>
-            Data Investor
+            Investor & Projek
         </h1>
         <div class="header-actions">
             <button class="btn btn-success" onclick="openDepositModal()">
@@ -448,27 +783,123 @@ include $base_path . '/includes/header.php';
     <!-- Summary Cards -->
     <div class="summary-cards">
         <div class="summary-card">
-            <div class="label">Jumlah Investor</div>
+            <div class="label">📊 Jumlah Investor</div>
             <div class="value"><?= $totalInvestors ?></div>
         </div>
         <div class="summary-card highlight">
-            <div class="label">Total Modal Terkumpul</div>
+            <div class="label">💰 Total Modal</div>
             <div class="value">Rp <?= number_format($totalCapital, 0, ',', '.') ?></div>
+        </div>
+        <div class="summary-card">
+            <div class="label">🏗️ Projek Aktif</div>
+            <div class="value"><?= $totalProjects ?></div>
+        </div>
+    </div>
+
+    <!-- Projects Section -->
+    <div class="projects-section">
+        <div class="section-header">
+            <h2 class="section-title">
+                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path d="M9 11l3 3L22 4"/>
+                    <path d="M21 12a9 9 0 11-18 0 9 9 0 0118 0z"/>
+                </svg>
+                Manajemen Projek
+            </h2>
+            <button class="btn btn-primary" onclick="openAddProjectModal()">
+                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <line x1="12" y1="5" x2="12" y2="19"/>
+                    <line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+                Tambah Projek
+            </button>
+        </div>
+
+        <div class="projects-grid">
+            <?php if (empty($projects)): ?>
+                <div class="add-project-card" onclick="openAddProjectModal()">
+                    <svg width="48" height="48" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <rect x="3" y="3" width="18" height="18" rx="2" ry="2"/>
+                        <line x1="9" y1="9" x2="15" y2="9"/>
+                        <line x1="9" y1="15" x2="15" y2="15"/>
+                    </svg>
+                    <div class="text">Buat Projek Pertama</div>
+                    <p style="font-size: 0.85rem; color: var(--text-muted); margin: 0;">Kelola budget dan pengeluaran projek dengan buku kas</p>
+                </div>
+            <?php else: ?>
+                <?php foreach ($projects as $project): ?>
+                <div class="project-card" onclick="goToProjectLedger(<?= $project['id'] ?>)">
+                    <div>
+                        <div class="project-name"><?= htmlspecialchars($project['project_name'] ?? 'N/A') ?></div>
+                        <div class="project-code">
+                            <?php 
+                            $code = $project['project_code'] ?? 'PROJ-' . str_pad($project['id'], 4, '0', STR_PAD_LEFT);
+                            echo htmlspecialchars($code);
+                            ?>
+                        </div>
+                    </div>
+                    <div class="project-amount">
+                        Rp <?= number_format($project['budget_idr'] ?? 0, 0, ',', '.') ?>
+                    </div>
+                    <div class="project-meta">
+                        <div class="meta-item">
+                            <span>Pengeluaran</span>
+                            <div class="meta-value">Rp <?= number_format($project['total_expenses'] ?? 0, 0, ',', '.') ?></div>
+                        </div>
+                        <div class="meta-item">
+                            <span>Transaksi</span>
+                            <div class="meta-value"><?= $project['expense_count'] ?? 0 ?></div>
+                        </div>
+                    </div>
+                    <div class="project-actions">
+                        <button class="btn btn-sm btn-outline" onclick="event.stopPropagation(); goToProjectLedger(<?= $project['id'] ?>)">
+                            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path d="M9 12h6m-6 4h6M9 8h6m-13 9a10 10 0 1120 0 10 10 0 01-20 0z"/>
+                            </svg>
+                            Buku Kas
+                        </button>
+                        <button class="btn btn-sm btn-outline" onclick="event.stopPropagation(); editProject(<?= $project['id'] ?>)">
+                            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+                                <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                            </svg>
+                            Edit
+                        </button>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+                
+                <div class="add-project-card" onclick="openAddProjectModal()">
+                    <svg width="40" height="40" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <line x1="12" y1="5" x2="12" y2="19"/>
+                        <line x1="5" y1="12" x2="19" y2="12"/>
+                    </svg>
+                    <div class="text">Tambah Projek Baru</div>
+                </div>
+            <?php endif; ?>
         </div>
     </div>
 
     <!-- Investor List -->
-    <h2 class="section-title">
-        <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-            <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
-            <circle cx="9" cy="7" r="4"/>
-        </svg>
-        Daftar Investor
-    </h2>
+    <div class="section-header">
+        <h2 class="section-title">
+            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                <circle cx="9" cy="7" r="4"/>
+                <path d="M23 21v-2a4 4 0 0 0-3-3.87"/>
+                <path d="M16 3.13a4 4 0 0 1 0 7.75"/>
+            </svg>
+            Daftar Investor
+        </h2>
+    </div>
     
     <div class="investor-grid">
         <?php if (empty($investors)): ?>
             <div class="empty-state">
+                <svg width="64" height="64" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
+                    <circle cx="9" cy="7" r="4"/>
+                </svg>
                 <p>Belum ada data investor</p>
             </div>
         <?php else: ?>
@@ -488,12 +919,23 @@ include $base_path . '/includes/header.php';
                 </div>
                 <div class="actions">
                     <button class="btn btn-sm btn-outline" onclick="openDepositModal(<?= $investor['id'] ?>, '<?= htmlspecialchars($investor['name'] ?? $investor['investor_name'] ?? '') ?>')">
-                        + Setoran
+                        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path d="M12 5v14M5 12h14"/>
+                        </svg>
+                        Setoran
                     </button>
                     <button class="btn btn-sm btn-outline" onclick="viewHistory(<?= $investor['id'] ?>)">
+                        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <circle cx="12" cy="12" r="10"/>
+                            <polyline points="12,6 12,12 16,14"/>
+                        </svg>
                         History
                     </button>
                     <button class="btn btn-sm btn-outline" onclick="editInvestor(<?= $investor['id'] ?>)">
+                        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
+                            <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
+                        </svg>
                         Edit
                     </button>
                 </div>
@@ -505,7 +947,7 @@ include $base_path . '/includes/header.php';
     <!-- Recent Deposits History -->
     <div class="history-section">
         <h2 class="section-title">
-            <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+            <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                 <circle cx="12" cy="12" r="10"/>
                 <polyline points="12,6 12,12 16,14"/>
             </svg>
@@ -686,6 +1128,22 @@ function viewHistory(investorId) {
 function editInvestor(investorId) {
     // TODO: Implement edit
     alert('Fitur edit akan segera tersedia');
+}
+
+function openAddProjectModal() {
+    // Redirect to project creation page or open modal
+    // For now, redirect to projects module
+    window.location.href = '<?= BASE_URL ?>/modules/finance/index.php';
+}
+
+function goToProjectLedger(projectId) {
+    // Go to project ledger/buku kas
+    window.location.href = '<?= BASE_URL ?>/modules/finance/ledger.php?project_id=' + projectId;
+}
+
+function editProject(projectId) {
+    // Redirect to project edit page
+    window.location.href = '<?= BASE_URL ?>/modules/finance/index.php?edit=' + projectId;
 }
 
 // Close modal when clicking outside
