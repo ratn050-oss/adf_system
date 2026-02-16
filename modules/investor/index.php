@@ -501,29 +501,35 @@ include $base_path . '/includes/header.php';
 
 .project-card .project-actions {
     display: flex;
-    gap: 0.4rem;
+    gap: 0.3rem;
     margin-top: 0.75rem;
     flex-wrap: wrap;
     width: 100%;
+    z-index: 10;
+    position: relative;
 }
 
 .project-card .btn-sm {
-    padding: 0.4rem 0.6rem;
-    font-size: 0.7rem;
-    border-radius: 6px;
+    padding: 0.35rem 0.5rem;
+    font-size: 0.65rem;
+    border-radius: 5px;
     flex: 1;
-    min-width: 70px;
+    min-width: 60px;
+    max-width: 80px;
     text-align: center;
     display: flex;
     align-items: center;
     justify-content: center;
-    gap: 0.25rem;
+    gap: 0.2rem;
     white-space: nowrap;
+    line-height: 1;
+    height: 28px;
 }
 
 .project-card .btn-sm svg {
-    width: 12px;
-    height: 12px;
+    width: 10px;
+    height: 10px;
+    flex-shrink: 0;
 }
 
 .add-project-card {
@@ -899,20 +905,20 @@ include $base_path . '/includes/header.php';
                     </div>
                     <div class="project-actions">
                         <button class="btn btn-sm btn-outline" onclick="event.stopPropagation(); goToProjectLedger(<?= $project['id'] ?>)">
-                            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                 <path d="M9 12h6m-6 4h6M9 8h6m-13 9a10 10 0 1120 0 10 10 0 01-20 0z"/>
                             </svg>
-                            Buku Kas
+                            Kas
                         </button>
                         <button class="btn btn-sm btn-outline" onclick="event.stopPropagation(); editProject(<?= $project['id'] ?>)">
-                            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                 <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
                                 <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
                             </svg>
                             Edit
                         </button>
                         <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); deleteProject(<?= $project['id'] ?>, '<?= htmlspecialchars($project['project_name'], ENT_QUOTES) ?>')">
-                            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                            <svg width="10" height="10" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                                 <polyline points="3,6 5,6 21,6"></polyline>
                                 <path d="m19,6v14a2,2 0 0,1 -2,2H7a2,2 0 0,1 -2,-2V6m3,0V4a2,2 0 0,1 2,-2h4a2,2 0 0,1 2,2v2"></path>
                                 <line x1="10" y1="11" x2="10" y2="17"></line>
