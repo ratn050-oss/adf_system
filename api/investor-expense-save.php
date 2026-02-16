@@ -72,33 +72,49 @@ try {
             CREATE TABLE IF NOT EXISTS project_expenses (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 project_id INT NOT NULL,
-                category_id INT,
                 amount DECIMAL(15,2) NOT NULL,
                 description TEXT,
                 expense_date DATE,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 created_by INT,
-                FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
                 INDEX idx_project (project_id),
                 INDEX idx_date (expense_date)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
         ");
     }
 
-    // Insert expense
-    $stmt = $db->prepare("
-        INSERT INTO project_expenses (project_id, category_id, description, amount, expense_date, created_by, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, NOW())
-    ");
-    
-    $stmt->execute([
-        $project_id,
-        $category_id,
-        $description,
-        $amount,
-        $expense_date,
-        $_SESSION['user_id'] ?? 1
-    ]);
+    // Detect available columns in project_expenses
+    try {
+        $stmt = $db->query("DESCRIBE project_expenses");
+        $expCols = array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'Field');
+    } catch (Exception $e) {
+        $expCols = ['id', 'project_id', 'amount', 'description', 'expense_date', 'created_by'];
+    }
+
+    // Build dynamic INSERT
+    $ins_cols = ['project_id'];
+    $ins_vals = ['?'];
+    $ins_params = [$project_id];
+
+    if (in_array('description', $expCols)) {
+        $ins_cols[] = 'description'; $ins_vals[] = '?'; $ins_params[] = $description;
+    }
+    if (in_array('amount', $expCols)) {
+        $ins_cols[] = 'amount'; $ins_vals[] = '?'; $ins_params[] = $amount;
+    }
+    if (in_array('expense_date', $expCols)) {
+        $ins_cols[] = 'expense_date'; $ins_vals[] = '?'; $ins_params[] = $expense_date;
+    }
+    if (in_array('category_id', $expCols) && $category_id) {
+        $ins_cols[] = 'category_id'; $ins_vals[] = '?'; $ins_params[] = $category_id;
+    }
+    if (in_array('created_by', $expCols)) {
+        $ins_cols[] = 'created_by'; $ins_vals[] = '?'; $ins_params[] = $_SESSION['user_id'] ?? 1;
+    }
+
+    $sql = "INSERT INTO project_expenses (" . implode(', ', $ins_cols) . ") VALUES (" . implode(', ', $ins_vals) . ")";
+    $stmt = $db->prepare($sql);
+    $stmt->execute($ins_params);
 
     $expense_id = $db->lastInsertId();
 

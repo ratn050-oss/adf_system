@@ -80,14 +80,25 @@ if ($project_id) {
         if ($project) {
             // Get expenses for this project
             try {
-                $stmt = $db->prepare("
-                    SELECT id, project_id, category_id, amount, description, 
-                           COALESCE(expense_date, created_at) as expense_date, 
-                           created_at
-                    FROM project_expenses
-                    WHERE project_id = ?
-                    ORDER BY expense_date DESC, created_at DESC
-                ");
+                // Detect project_expenses columns
+                $expColsStmt = $db->query("DESCRIBE project_expenses");
+                $expCols = array_column($expColsStmt->fetchAll(PDO::FETCH_ASSOC), 'Field');
+                
+                $sel = ['id', 'project_id', 'amount'];
+                if (in_array('description', $expCols)) $sel[] = 'description';
+                if (in_array('category_id', $expCols)) $sel[] = 'category_id';
+                if (in_array('expense_date', $expCols) && in_array('created_at', $expCols)) {
+                    $sel[] = 'COALESCE(expense_date, created_at) as expense_date';
+                } elseif (in_array('expense_date', $expCols)) {
+                    $sel[] = 'expense_date';
+                } elseif (in_array('created_at', $expCols)) {
+                    $sel[] = 'created_at as expense_date';
+                }
+                if (in_array('created_at', $expCols)) $sel[] = 'created_at';
+                
+                $order = in_array('expense_date', $expCols) ? 'expense_date DESC' : 'created_at DESC';
+                
+                $stmt = $db->prepare("SELECT " . implode(', ', $sel) . " FROM project_expenses WHERE project_id = ? ORDER BY $order");
                 $stmt->execute([$project_id]);
                 $expenses = $stmt->fetchAll(PDO::FETCH_ASSOC);
                 

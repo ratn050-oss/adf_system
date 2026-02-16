@@ -72,9 +72,14 @@ try {
 
     try {
         // Delete project expenses first (foreign key dependency)
-        $stmt = $db->prepare("DELETE FROM project_expenses WHERE project_id = ?");
-        $stmt->execute([$project_id]);
-        $deleted_expenses = $stmt->rowCount();
+        $deleted_expenses = 0;
+        try {
+            $stmt = $db->prepare("DELETE FROM project_expenses WHERE project_id = ?");
+            $stmt->execute([$project_id]);
+            $deleted_expenses = $stmt->rowCount();
+        } catch (Exception $e) {
+            // project_expenses table might not exist yet, that's fine
+        }
 
         // Delete project
         $stmt = $db->prepare("DELETE FROM projects WHERE id = ?");

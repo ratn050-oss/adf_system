@@ -43,9 +43,15 @@ try {
         exit;
     }
 
-    // Verify expense exists and belongs to the project
-    $stmt = $db->prepare("SELECT id FROM project_expenses WHERE id = ? AND project_id = ?");
-    $stmt->execute([$expense_id, $project_id]);
+    // Verify expense exists
+    if ($project_id > 0) {
+        $stmt = $db->prepare("SELECT id FROM project_expenses WHERE id = ? AND project_id = ?");
+        $stmt->execute([$expense_id, $project_id]);
+    } else {
+        $stmt = $db->prepare("SELECT id FROM project_expenses WHERE id = ?");
+        $stmt->execute([$expense_id]);
+    }
+    
     if (!$stmt->fetch()) {
         echo json_encode(['success' => false, 'message' => 'Pengeluaran tidak ditemukan']);
         exit;
