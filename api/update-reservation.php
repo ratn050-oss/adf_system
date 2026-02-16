@@ -4,22 +4,36 @@
  * Edit reservation details (dates, room, guest info, price)
  */
 
+// LOG ALL ERRORS
+$logFile = __DIR__ . '/../api_debug.log';
+ini_set('log_errors', 1);
+ini_set('error_log', $logFile);
+
 header('Content-Type: application/json');
 if (ob_get_level() === 0) ob_start();
-error_reporting(0);
+error_reporting(E_ALL);
 ini_set('display_errors', 0);
 
 define('APP_ACCESS', true);
-require_once '../config/config.php';
-require_once '../config/database.php';
-require_once '../includes/auth.php';
-
-// Re-suppress errors AFTER config.php
-error_reporting(0);
-ini_set('display_errors', 0);
 
 try {
+    error_log("=== update-reservation.php START ===");
+    
+    require_once '../config/config.php';
+    error_log("config.php loaded");
+    
+    require_once '../config/database.php';
+    error_log("database.php loaded");
+    
+    require_once '../includes/auth.php';
+    error_log("auth.php loaded");
+    
+    error_reporting(0);
+    ini_set('display_errors', 0);
+    
     $auth = new Auth();
+    error_log("Auth instantiated");
+    
     if (!$auth->isLoggedIn()) {
         echo json_encode(['success' => false, 'message' => 'Unauthorized']);
         exit;
@@ -31,6 +45,7 @@ try {
     }
 
     $db = Database::getInstance();
+    error_log("Database instance obtained");
 
     $bookingId = intval($_POST['booking_id'] ?? 0);
     if (!$bookingId) {
@@ -172,7 +187,13 @@ try {
     ]);
 
 } catch (Exception $e) {
+    error_log("ERROR: " . $e->getMessage() . " at " . $e->getFile() . ":" . $e->getLine());
+    error_log("Stack: " . $e->getTraceAsString());
     echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+} catch (Throwable $t) {
+    error_log("FATAL: " . $t->getMessage() . " at " . $t->getFile() . ":" . $t->getLine());
+    error_log("Stack: " . $t->getTraceAsString());
+    echo json_encode(['success' => false, 'message' => 'Fatal error: ' . $t->getMessage()]);
 }
-
+error_log("=== update-reservation.php END ===");
 ob_end_flush();
