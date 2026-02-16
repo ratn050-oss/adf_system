@@ -64,6 +64,16 @@ $tables_sql = [
         status ENUM('pending','approved','paid') DEFAULT 'pending',
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         created_by INT
+    )",
+    "CREATE TABLE IF NOT EXISTS project_contractors (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        project_id INT NOT NULL,
+        name VARCHAR(100) NOT NULL,
+        bidang VARCHAR(100) DEFAULT '',
+        pic_name VARCHAR(100) DEFAULT '',
+        phone VARCHAR(20) DEFAULT '',
+        status ENUM('active','inactive') DEFAULT 'active',
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )"
 ];
 foreach ($tables_sql as $sql) {
@@ -110,8 +120,10 @@ $expenses = [];
 $workers = [];
 $salaries = [];
 $division_expenses = [];
+$contractors = [];
 $division_list = [];
-$laporan_data = [];
+$laporan_gaji = [];
+$laporan_jasa = [];
 $projCols = getTableColumns($db, 'projects');
 
 // Get selected project
@@ -167,46 +179,60 @@ if ($project_id) {
                 $division_expenses = $stmt->fetchAll(PDO::FETCH_ASSOC);
             } catch (Exception $e) { $division_expenses = []; }
 
-            // Load distinct division names for dropdown
+            // Load contractors
             try {
-                $divNames = [];
-                $stmt = $db->prepare("SELECT DISTINCT division_name FROM project_division_expenses WHERE project_id = ? AND division_name IS NOT NULL AND division_name != ''");
+                $stmt = $db->prepare("SELECT * FROM project_contractors WHERE project_id = ? ORDER BY name");
                 $stmt->execute([$project_id]);
-                foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $dn) $divNames[$dn] = true;
-                $expCols2 = getTableColumns($db, 'project_expenses');
-                if (in_array('division_name', $expCols2)) {
-                    $stmt = $db->prepare("SELECT DISTINCT division_name FROM project_expenses WHERE project_id = ? AND division_name IS NOT NULL AND division_name != ''");
-                    $stmt->execute([$project_id]);
-                    foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $dn) $divNames[$dn] = true;
-                }
-                $division_list = array_keys($divNames);
-                sort($division_list);
-            } catch (Exception $e) { $division_list = []; }
+                $contractors = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            } catch (Exception $e) { $contractors = []; }
 
-            // Build Laporan data - group expenses by division
+            // Build division_list from contractors for dropdown
+            $division_list = array_map(function($c) { return $c['name']; }, $contractors);
+
+            // Build Laporan Gaji - group salaries by worker
+            foreach ($salaries as $s) {
+                $wname = $s['worker_name'] ?? 'Unknown';
+                $wrole = $s['worker_role'] ?? '';
+                $key = $wname;
+                if (!isset($laporan_gaji[$key])) $laporan_gaji[$key] = ['role' => $wrole, 'items' => [], 'total' => 0];
+                $laporan_gaji[$key]['items'][] = [
+                    'period' => $s['period_label'] ?: ($s['period_type']=='weekly'?'Mingguan':'Bulanan'),
+                    'daily_rate' => $s['daily_rate'] ?? 0,
+                    'overtime' => $s['overtime_per_day'] ?? 0,
+                    'other' => $s['other_per_day'] ?? 0,
+                    'days' => $s['total_days'] ?? 0,
+                    'total' => $s['total_salary'] ?? 0,
+                    'status' => $s['status'] ?? 'draft',
+                ];
+                $laporan_gaji[$key]['total'] += ($s['total_salary'] ?? 0);
+            }
+            uasort($laporan_gaji, function($a, $b) { return $b['total'] - $a['total']; });
+
+            // Build Laporan Jasa - group expenses by division/kontraktor
             foreach ($expenses as $ex) {
-                $div = !empty($ex['division_name']) ? $ex['division_name'] : 'Umum (Tanpa Divisi)';
-                if (!isset($laporan_data[$div])) $laporan_data[$div] = ['items' => [], 'total' => 0];
-                $laporan_data[$div]['items'][] = [
+                if (empty($ex['division_name'])) continue;
+                $div = $ex['division_name'];
+                if (!isset($laporan_jasa[$div])) $laporan_jasa[$div] = ['items' => [], 'total' => 0];
+                $laporan_jasa[$div]['items'][] = [
                     'source' => 'Pengeluaran',
                     'description' => $ex['description'] ?? '-',
                     'amount' => $ex['amount'] ?? 0,
                     'date' => $ex['expense_date'] ?? $ex['created_at'] ?? '-',
                 ];
-                $laporan_data[$div]['total'] += ($ex['amount'] ?? 0);
+                $laporan_jasa[$div]['total'] += ($ex['amount'] ?? 0);
             }
             foreach ($division_expenses as $dx) {
                 $div = $dx['division_name'] ?? 'Lainnya';
-                if (!isset($laporan_data[$div])) $laporan_data[$div] = ['items' => [], 'total' => 0];
-                $laporan_data[$div]['items'][] = [
+                if (!isset($laporan_jasa[$div])) $laporan_jasa[$div] = ['items' => [], 'total' => 0];
+                $laporan_jasa[$div]['items'][] = [
                     'source' => 'Divisi/Kontraktor',
                     'description' => $dx['description'] ?? '-',
                     'amount' => $dx['amount'] ?? 0,
                     'date' => $dx['expense_date'] ?? '-',
                 ];
-                $laporan_data[$div]['total'] += ($dx['amount'] ?? 0);
+                $laporan_jasa[$div]['total'] += ($dx['amount'] ?? 0);
             }
-            uasort($laporan_data, function($a, $b) { return $b['total'] - $a['total']; });
+            uasort($laporan_jasa, function($a, $b) { return $b['total'] - $a['total']; });
         }
     } catch (Exception $e) {
         error_log('Ledger error: ' . $e->getMessage());
@@ -223,7 +249,8 @@ try {
 
 $total_gaji = array_sum(array_column($salaries, 'total_salary'));
 $total_divisi = array_sum(array_column($division_expenses, 'amount'));
-$grand_total_laporan = array_sum(array_map(function($d) { return $d['total']; }, $laporan_data));
+$grand_total_gaji = array_sum(array_map(function($d) { return $d['total']; }, $laporan_gaji));
+$grand_total_jasa = array_sum(array_map(function($d) { return $d['total']; }, $laporan_jasa));
 
 $pageTitle = 'Buku Kas - Investor';
 include $base_path . '/includes/header.php';
@@ -541,69 +568,77 @@ include $base_path . '/includes/header.php';
                     </table>
                 </div>
 
-                <!-- ═══ TAB: DIVISI/KONTRAKTOR ═══ -->
+                <!-- ═══ TAB: DIVISI/KONTRAKTOR (Master Data) ═══ -->
                 <?php elseif ($tab == 'division'): ?>
                 <div class="panel no-print">
-                    <div class="panel-head"><h3>🏗️ Pengeluaran Divisi / Kontraktor</h3></div>
-                    <form id="divisionForm" onsubmit="saveDivision(event)">
-                        <div class="inline-form" style="margin-bottom:.5rem">
-                            <div class="fg w2"><label>Divisi / Kontraktor</label><input type="text" name="division_name" required placeholder="Divisi Listrik / CV. ABC"></div>
-                            <div class="fg w2"><label>Deskripsi</label><input type="text" name="description" required placeholder="Instalasi listrik lantai 2"></div>
-                            <div class="fg"><label>Jumlah (Rp)</label><input type="number" name="amount" required min="1" placeholder="0"></div>
-                        </div>
+                    <div class="panel-head"><h3>🏗️ Tambah Data Kontraktor</h3></div>
+                    <form id="contractorForm" onsubmit="saveContractor(event)">
                         <div class="inline-form">
-                            <div class="fg"><label>PIC</label><input type="text" name="contractor_name" placeholder="Nama PIC"></div>
-                            <div class="fg"><label>Tanggal</label><input type="date" name="expense_date" value="<?= date('Y-m-d') ?>"></div>
-                            <div class="fg w-auto"><label>&nbsp;</label><button type="submit" class="btn btn-emerald">+ Catat</button></div>
+                            <div class="fg w2"><label>Nama Kontraktor</label><input type="text" name="name" required placeholder="CV. ABC / Kontraktor Moyong"></div>
+                            <div class="fg"><label>Bidang</label>
+                                <select name="bidang">
+                                    <option value="">— Pilih —</option>
+                                    <option>Sipil</option><option>Listrik</option><option>Plumbing</option>
+                                    <option>Interior</option><option>Atap</option><option>Besi/Las</option>
+                                    <option>Cat</option><option>Keramik</option><option>Taman</option><option>Lainnya</option>
+                                </select>
+                            </div>
+                            <div class="fg"><label>PIC</label><input type="text" name="pic_name" placeholder="Nama penanggung jawab"></div>
+                            <div class="fg"><label>HP</label><input type="text" name="phone" placeholder="08xx"></div>
+                            <div class="fg w-auto"><label>&nbsp;</label><button type="submit" class="btn btn-emerald">+ Tambah</button></div>
                         </div>
                     </form>
                 </div>
                 <div class="panel">
                     <div class="panel-head">
-                        <h3>Riwayat Divisi</h3>
-                        <div class="action-row no-print">
-                            <button onclick="window.print()" class="btn btn-sky btn-xs">🖨️ Print</button>
-                            <button onclick="submitDivToOwner()" class="btn btn-amber btn-xs">📤 Ajukan ke Owner</button>
-                        </div>
+                        <h3>Daftar Kontraktor <span class="badge badge-active" style="margin-left:.4rem"><?= count($contractors) ?></span></h3>
+                        <div class="action-row no-print"><button onclick="window.print()" class="btn btn-sky btn-xs">🖨️ Print</button></div>
                     </div>
                     <table class="tbl">
-                        <thead><tr><th>#</th><th>Divisi</th><th>PIC</th><th>Deskripsi</th><th>Tanggal</th><th style="text-align:right">Jumlah</th><th>Status</th><th class="no-print" style="width:50px"></th></tr></thead>
+                        <thead><tr><th>#</th><th>Nama Kontraktor</th><th>Bidang</th><th>PIC</th><th>HP</th><th>Status</th><th class="no-print" style="width:50px">Aksi</th></tr></thead>
                         <tbody>
-                        <?php if (empty($division_expenses)): ?>
-                            <tr class="empty"><td colspan="8">Belum ada data</td></tr>
+                        <?php if (empty($contractors)): ?>
+                            <tr class="empty"><td colspan="7">Belum ada data kontraktor</td></tr>
                         <?php else: ?>
-                            <?php foreach ($division_expenses as $i => $d): ?>
+                            <?php foreach ($contractors as $i => $c): ?>
                             <tr>
                                 <td style="color:var(--text-muted)"><?= $i+1 ?></td>
-                                <td><strong><?= htmlspecialchars($d['division_name']) ?></strong></td>
-                                <td><?= htmlspecialchars($d['contractor_name']??'-') ?></td>
-                                <td><?= htmlspecialchars($d['description']??'-') ?></td>
-                                <td><?= $d['expense_date'] ? date('d/m/Y', strtotime($d['expense_date'])) : '-' ?></td>
-                                <td class="money" style="text-align:right">Rp <?= number_format($d['amount']??0,0,',','.') ?></td>
-                                <td><span class="badge badge-<?= $d['status']??'pending' ?>"><?= $d['status']??'pending' ?></span></td>
-                                <td class="no-print"><button class="btn btn-rose btn-xs" onclick="deleteDivision(<?= $d['id'] ?>)">✕</button></td>
+                                <td><strong><?= htmlspecialchars($c['name']) ?></strong></td>
+                                <td><?= htmlspecialchars($c['bidang'] ?? '-') ?></td>
+                                <td><?= htmlspecialchars($c['pic_name'] ?? '-') ?></td>
+                                <td style="color:var(--text-muted)"><?= htmlspecialchars($c['phone'] ?? '-') ?></td>
+                                <td><span class="badge badge-<?= $c['status']??'active' ?>"><?= $c['status']??'active' ?></span></td>
+                                <td class="no-print"><button class="btn btn-rose btn-xs" onclick="deleteContractor(<?= $c['id'] ?>)">✕</button></td>
                             </tr>
                             <?php endforeach; ?>
-                            <tr class="foot"><td colspan="5">TOTAL</td><td class="money" style="text-align:right" colspan="2">Rp <?= number_format($total_divisi,0,',','.') ?></td><td></td></tr>
                         <?php endif; ?>
                         </tbody>
                     </table>
                 </div>
 
-                <!-- ═══ TAB: LAPORAN PER DIVISI ═══ -->
+                <!-- ═══ TAB: LAPORAN ═══ -->
                 <?php elseif ($tab == 'laporan'): ?>
+
+                <!-- Sub-tab toggle -->
+                <?php $sub = $_GET['sub'] ?? 'jasa'; ?>
+                <div class="nav-tabs no-print" style="margin-bottom:.8rem">
+                    <a class="nav-tab <?= $sub=='jasa'?'active':'' ?>" href="?project_id=<?= $project_id ?>&tab=laporan&sub=jasa">🏗️ Laporan Jasa / Kontraktor</a>
+                    <a class="nav-tab <?= $sub=='gaji'?'active':'' ?>" href="?project_id=<?= $project_id ?>&tab=laporan&sub=gaji">💰 Laporan Gaji</a>
+                </div>
+
+                <?php if ($sub == 'jasa'): ?>
+                <!-- ── LAPORAN JASA / KONTRAKTOR ── -->
                 <div class="panel">
                     <div class="panel-head">
-                        <h3>📊 Laporan Pengeluaran per Divisi</h3>
+                        <h3>🏗️ Laporan Pengeluaran per Kontraktor</h3>
                         <div class="action-row no-print"><button onclick="window.print()" class="btn btn-sky btn-xs">🖨️ Print</button></div>
                     </div>
-                    <?php if (empty($laporan_data)): ?>
-                        <div class="empty-state">Belum ada data pengeluaran untuk ditampilkan</div>
+                    <?php if (empty($laporan_jasa)): ?>
+                        <div class="empty-state">Belum ada pengeluaran yang dikaitkan ke kontraktor.<br><span class="hint">Tambah kontraktor di tab Divisi, lalu pilih kontraktor saat catat pengeluaran.</span></div>
                     <?php else: ?>
-                        <!-- Summary Cards per Division -->
                         <div class="laporan-grid">
-                            <?php foreach ($laporan_data as $divName => $divData): ?>
-                            <div class="lap-card" onclick="document.getElementById('detail-<?= md5($divName) ?>').scrollIntoView({behavior:'smooth'})">
+                            <?php foreach ($laporan_jasa as $divName => $divData): ?>
+                            <div class="lap-card" onclick="document.getElementById('jasa-<?= md5($divName) ?>').scrollIntoView({behavior:'smooth'})">
                                 <div class="lap-name"><?= htmlspecialchars($divName) ?></div>
                                 <div class="lap-total">Rp <?= number_format($divData['total'],0,',','.') ?></div>
                                 <div class="lap-count"><?= count($divData['items']) ?> transaksi</div>
@@ -611,17 +646,15 @@ include $base_path . '/includes/header.php';
                             <?php endforeach; ?>
                         </div>
 
-                        <!-- Grand Total -->
                         <div class="summary-strip" style="grid-template-columns:1fr">
                             <div class="sc c-amber">
-                                <div class="sc-label">Total Semua Divisi</div>
-                                <div class="sc-val">Rp <?= number_format($grand_total_laporan,0,',','.') ?></div>
+                                <div class="sc-label">Total Semua Kontraktor</div>
+                                <div class="sc-val">Rp <?= number_format($grand_total_jasa,0,',','.') ?></div>
                             </div>
                         </div>
 
-                        <!-- Detail per Division -->
-                        <?php foreach ($laporan_data as $divName => $divData): ?>
-                        <div class="panel lap-detail" id="detail-<?= md5($divName) ?>">
+                        <?php foreach ($laporan_jasa as $divName => $divData): ?>
+                        <div class="panel lap-detail" id="jasa-<?= md5($divName) ?>">
                             <div class="panel-head">
                                 <h3>🏗️ <?= htmlspecialchars($divName) ?></h3>
                                 <span class="badge badge-submitted">Rp <?= number_format($divData['total'],0,',','.') ?></span>
@@ -645,6 +678,63 @@ include $base_path . '/includes/header.php';
                         <?php endforeach; ?>
                     <?php endif; ?>
                 </div>
+
+                <?php else: ?>
+                <!-- ── LAPORAN GAJI ── -->
+                <div class="panel">
+                    <div class="panel-head">
+                        <h3>💰 Laporan Gaji per Pekerja</h3>
+                        <div class="action-row no-print"><button onclick="window.print()" class="btn btn-sky btn-xs">🖨️ Print</button></div>
+                    </div>
+                    <?php if (empty($laporan_gaji)): ?>
+                        <div class="empty-state">Belum ada data gaji.<br><span class="hint">Tambah pekerja di tab Pekerja, lalu input gaji di tab Gaji.</span></div>
+                    <?php else: ?>
+                        <div class="laporan-grid">
+                            <?php foreach ($laporan_gaji as $wName => $wData): ?>
+                            <div class="lap-card" onclick="document.getElementById('gaji-<?= md5($wName) ?>').scrollIntoView({behavior:'smooth'})">
+                                <div class="lap-name"><?= htmlspecialchars($wName) ?></div>
+                                <div class="lap-total">Rp <?= number_format($wData['total'],0,',','.') ?></div>
+                                <div class="lap-count"><?= count($wData['items']) ?> pembayaran · <?= htmlspecialchars($wData['role']) ?></div>
+                            </div>
+                            <?php endforeach; ?>
+                        </div>
+
+                        <div class="summary-strip" style="grid-template-columns:1fr">
+                            <div class="sc c-red">
+                                <div class="sc-label">Total Gaji Semua Pekerja</div>
+                                <div class="sc-val">Rp <?= number_format($grand_total_gaji,0,',','.') ?></div>
+                            </div>
+                        </div>
+
+                        <?php foreach ($laporan_gaji as $wName => $wData): ?>
+                        <div class="panel lap-detail" id="gaji-<?= md5($wName) ?>">
+                            <div class="panel-head">
+                                <h3>👷 <?= htmlspecialchars($wName) ?> <span class="hint" style="margin-left:.5rem"><?= htmlspecialchars($wData['role']) ?></span></h3>
+                                <span class="badge badge-submitted">Rp <?= number_format($wData['total'],0,',','.') ?></span>
+                            </div>
+                            <table class="tbl">
+                                <thead><tr><th>#</th><th>Periode</th><th style="text-align:right">Upah/Hari</th><th style="text-align:right">Lembur</th><th style="text-align:right">Lain²</th><th>Hari</th><th style="text-align:right">Total</th><th>Status</th></tr></thead>
+                                <tbody>
+                                <?php foreach ($wData['items'] as $idx => $item): ?>
+                                <tr>
+                                    <td style="color:var(--text-muted)"><?= $idx+1 ?></td>
+                                    <td><?= htmlspecialchars($item['period']) ?></td>
+                                    <td style="text-align:right">Rp <?= number_format($item['daily_rate'],0,',','.') ?></td>
+                                    <td style="text-align:right">Rp <?= number_format($item['overtime'],0,',','.') ?></td>
+                                    <td style="text-align:right">Rp <?= number_format($item['other'],0,',','.') ?></td>
+                                    <td style="text-align:center"><?= $item['days'] ?></td>
+                                    <td class="money" style="text-align:right">Rp <?= number_format($item['total'],0,',','.') ?></td>
+                                    <td><span class="badge badge-<?= $item['status'] ?>"><?= $item['status'] ?></span></td>
+                                </tr>
+                                <?php endforeach; ?>
+                                <tr class="foot"><td colspan="6">SUBTOTAL</td><td class="money" style="text-align:right">Rp <?= number_format($wData['total'],0,',','.') ?></td><td></td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
+                </div>
+                <?php endif; ?>
                 <?php endif; ?>
 
     <?php endif; ?>
@@ -748,6 +838,21 @@ async function saveDivision(e) {
 async function deleteDivision(id) {
     if (!confirm('Hapus pengeluaran divisi ini?')) return;
     const res = await apiPost('/api/investor-division-delete.php', { division_id: id });
+    if (res.success) location.reload(); else alert('Error: ' + res.message);
+}
+
+async function saveContractor(e) {
+    e.preventDefault();
+    const fd = new FormData(e.target);
+    fd.append('project_id', PID);
+    const r = await fetch(BASE + '/api/investor-contractor-save.php', { method: 'POST', body: fd });
+    const res = await r.json();
+    if (res.success) location.reload(); else alert('Error: ' + res.message);
+}
+
+async function deleteContractor(id) {
+    if (!confirm('Hapus data kontraktor ini?')) return;
+    const res = await apiPost('/api/investor-contractor-delete.php', { contractor_id: id });
     if (res.success) location.reload(); else alert('Error: ' + res.message);
 }
 
