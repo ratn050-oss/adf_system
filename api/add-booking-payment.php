@@ -233,8 +233,22 @@ try {
             $pmMap = ['bank_transfer'=>'transfer','credit_card'=>'debit','credit'=>'debit'];
             $cbMethod = strtolower($paymentMethod ?? 'cash');
             $cbMethod = $pmMap[$cbMethod] ?? $cbMethod;
-            $validMethods = ['cash','debit','transfer','qr','bank_transfer','ota','agoda','booking','other'];
-            if (!in_array($cbMethod, $validMethods)) $cbMethod = 'other';
+            // Detect ENUM on cash_book.payment_method (hosting may have restrictive ENUM)
+            $allowedPaymentMethods = null;
+            try {
+                $pmColInfo = $db->getConnection()->query("SHOW COLUMNS FROM cash_book LIKE 'payment_method'")->fetch(PDO::FETCH_ASSOC);
+                if ($pmColInfo && strpos($pmColInfo['Type'], 'enum') === 0) {
+                    preg_match_all("/'([^']+)'/", $pmColInfo['Type'], $enumMatches);
+                    $allowedPaymentMethods = $enumMatches[1] ?? ['cash'];
+                }
+            } catch (Exception $e) {}
+            if ($allowedPaymentMethods !== null && !in_array($cbMethod, $allowedPaymentMethods)) {
+                $cbMethod = in_array('other', $allowedPaymentMethods) ? 'other' :
+                           (in_array('cash', $allowedPaymentMethods) ? 'cash' : $allowedPaymentMethods[0]);
+            } elseif ($allowedPaymentMethods === null) {
+                $validMethods = ['cash','debit','transfer','qr','bank_transfer','ota','agoda','booking','other'];
+                if (!in_array($cbMethod, $validMethods)) $cbMethod = 'other';
+            }
 
             // Check if cash_account_id column exists (may not exist on hosting)
             $hasCashAccountId = false;

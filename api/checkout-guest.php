@@ -117,14 +117,36 @@ try {
             $cbUserId = $firstUser['id'] ?? 1;
         }
 
-        // Get all payments for this booking that haven't been synced yet
-        $payments = $db->fetchAll("
-            SELECT id, amount, payment_method, payment_date 
-            FROM booking_payments WHERE booking_id = ? AND synced_to_cashbook = 0 ORDER BY id
-        ", [$bookingId]);
+        // Check if synced_to_cashbook column exists
+        $hasSyncCol = false;
+        try {
+            $syncColChk = $db->getConnection()->query("SHOW COLUMNS FROM booking_payments LIKE 'synced_to_cashbook'");
+            $hasSyncCol = $syncColChk && $syncColChk->rowCount() > 0;
+        } catch (Exception $e) {}
+
+        // Get payments to sync
+        if ($hasSyncCol) {
+            $payments = $db->fetchAll("
+                SELECT id, amount, payment_method, payment_date 
+                FROM booking_payments WHERE booking_id = ? AND synced_to_cashbook = 0 ORDER BY id
+            ", [$bookingId]);
+        } else {
+            // Fallback: get all payments and dedup in loop
+            $payments = $db->fetchAll("
+                SELECT id, amount, payment_method, payment_date 
+                FROM booking_payments WHERE booking_id = ? ORDER BY id
+            ", [$bookingId]);
+        }
 
         $syncCount = 0;
         foreach ($payments as $pmt) {
+            try {
+            // Fallback dedup if no sync column
+            if (!$hasSyncCol) {
+                $exists = $db->fetchOne("SELECT id FROM cash_book WHERE description LIKE ? AND ABS(amount - ?) < 1 AND transaction_type = 'income' LIMIT 1",
+                    ['%' . $booking['booking_code'] . '%', $pmt['amount']]);
+                if ($exists) continue;
+            }
 
             // Calculate net amount (OTA fee)
             $netAmt = (float)$pmt['amount'];
@@ -156,8 +178,21 @@ try {
             $pmMap = ['bank_transfer'=>'transfer','credit_card'=>'debit','credit'=>'debit'];
             $cbMethod = strtolower($pmt['payment_method'] ?? 'cash');
             $cbMethod = $pmMap[$cbMethod] ?? $cbMethod;
-            $validMethods = ['cash','debit','transfer','qr','bank_transfer','ota','agoda','booking','other'];
-            if (!in_array($cbMethod, $validMethods)) $cbMethod = 'other';
+            // Detect ENUM and ensure value is allowed
+            if (!isset($allowedPaymentMethods)) {
+                $allowedPaymentMethods = null;
+                try {
+                    $pmColInfo = $db->getConnection()->query("SHOW COLUMNS FROM cash_book LIKE 'payment_method'")->fetch(PDO::FETCH_ASSOC);
+                    if ($pmColInfo && strpos($pmColInfo['Type'], 'enum') === 0) {
+                        preg_match_all("/'([^']+)'/", $pmColInfo['Type'], $enumMatches);
+                        $allowedPaymentMethods = $enumMatches[1] ?? ['cash'];
+                    }
+                } catch (Exception $e) {}
+            }
+            if ($allowedPaymentMethods !== null && !in_array($cbMethod, $allowedPaymentMethods)) {
+                $cbMethod = in_array('other', $allowedPaymentMethods) ? 'other' :
+                           (in_array('cash', $allowedPaymentMethods) ? 'cash' : $allowedPaymentMethods[0]);
+            }
 
             // Check if cash_account_id column exists
             if (!isset($hasCashAccountId)) {
@@ -186,14 +221,24 @@ try {
 
             $txId = $db->getConnection()->lastInsertId();
 
-            // Mark payment as synced
-            $db->query("UPDATE booking_payments SET synced_to_cashbook = 1, cashbook_id = ? WHERE id = ?", [$txId, $pmt['id']]);
+            // Mark payment as synced (only if column exists)
+            if ($hasSyncCol) {
+                try { $db->query("UPDATE booking_payments SET synced_to_cashbook = 1, cashbook_id = ? WHERE id = ?", [$txId, $pmt['id']]); } catch (Exception $e) {}
+            }
 
-            $masterDb->prepare("INSERT INTO cash_account_transactions (cash_account_id, transaction_id, transaction_date, description, amount, transaction_type, reference_number, created_by, created_at) VALUES (?, ?, DATE(?), ?, ?, 'income', ?, ?, NOW())")->execute([
-                $acct['id'], $txId, $pmt['payment_date'], $desc, $netAmt, $booking['booking_code'], $cbUserId
-            ]);
-            $masterDb->prepare("UPDATE cash_accounts SET current_balance = current_balance + ? WHERE id = ?")->execute([$netAmt, $acct['id']]);
+            try {
+                $masterDb->prepare("INSERT INTO cash_account_transactions (cash_account_id, transaction_id, transaction_date, description, amount, transaction_type, reference_number, created_by, created_at) VALUES (?, ?, DATE(?), ?, ?, 'income', ?, ?, NOW())")->execute([
+                    $acct['id'], $txId, $pmt['payment_date'], $desc, $netAmt, $booking['booking_code'], $cbUserId
+                ]);
+                $masterDb->prepare("UPDATE cash_accounts SET current_balance = current_balance + ? WHERE id = ?")->execute([$netAmt, $acct['id']]);
+            } catch (Exception $masterErr) {
+                error_log("Checkout master sync error: " . $masterErr->getMessage());
+            }
             $syncCount++;
+            } catch (Exception $pmtErr) {
+                error_log("Checkout sync error payment#{$pmt['id']}: " . $pmtErr->getMessage());
+                continue;
+            }
         }
         if ($syncCount > 0) {
             $cashbookMsg = " | {$syncCount} pembayaran di-sync ke Buku Kas";
