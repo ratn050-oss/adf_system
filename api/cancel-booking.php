@@ -119,59 +119,100 @@ try {
     
     // Record refund in cash_book if there's refund amount
     $refundRecorded = false;
+    $refundError = '';
+    
     if ($finalRefundAmount > 0) {
-        // Get master database name (handles hosting vs local)
-        $masterDbName = defined('MASTER_DB_NAME') ? MASTER_DB_NAME : 'adf_system';
-        
-        // Get default cash account (petty cash or owner capital)
-        $accountStmt = $pdo->prepare("
-            SELECT id, account_name, current_balance 
-            FROM {$masterDbName}.cash_accounts 
-            WHERE business_id = ? AND account_type IN ('cash', 'owner_capital')
-            ORDER BY current_balance DESC
-            LIMIT 1
-        ");
-        $accountStmt->execute([$businessId]);
-        $cashAccount = $accountStmt->fetch(PDO::FETCH_ASSOC);
-        
-        if ($cashAccount) {
-            // Insert expense record for refund
-            $refundDesc = "Refund pembatalan {$booking['booking_code']} - {$booking['guest_name']} ({$refundPolicy})";
+        try {
+            // Get master database name (handles hosting vs local)
+            $masterDbName = defined('MASTER_DB_NAME') ? MASTER_DB_NAME : 'adf_system';
             
-            $insertStmt = $pdo->prepare("
-                INSERT INTO cash_book (
-                    transaction_date, transaction_time, transaction_type, 
-                    category, amount, description, 
-                    cash_account_id, reference_id, reference_type,
-                    created_by, created_at
-                ) VALUES (
-                    CURDATE(), CURTIME(), 'expense',
-                    'refund', ?, ?,
-                    ?, ?, 'booking_refund',
-                    ?, NOW()
-                )
+            error_log("REFUND DEBUG: Starting refund process. Amount: {$finalRefundAmount}, BusinessID: {$businessId}, MasterDB: {$masterDbName}");
+            
+            // Create separate connection to master database for balance update
+            $masterPdo = new PDO(
+                "mysql:host=" . DB_HOST . ";dbname=" . $masterDbName . ";charset=utf8mb4",
+                DB_USER,
+                DB_PASS,
+                [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+            );
+            
+            // Get default cash account (petty cash or owner capital)
+            $accountStmt = $masterPdo->prepare("
+                SELECT id, account_name, current_balance, account_type
+                FROM cash_accounts 
+                WHERE business_id = ? AND account_type IN ('cash', 'owner_capital')
+                ORDER BY current_balance DESC
+                LIMIT 1
             ");
-            $insertStmt->execute([
-                $finalRefundAmount,
-                $refundDesc,
-                $cashAccount['id'],
-                $bookingId,
-                $currentUser['id']
-            ]);
+            $accountStmt->execute([$businessId]);
+            $cashAccount = $accountStmt->fetch(PDO::FETCH_ASSOC);
             
-            // Update cash account balance in master database
-            $updateBalanceStmt = $pdo->prepare("
-                UPDATE {$masterDbName}.cash_accounts 
-                SET current_balance = current_balance - ?
-                WHERE id = ?
-            ");
-            $updateBalanceStmt->execute([$finalRefundAmount, $cashAccount['id']]);
+            error_log("REFUND DEBUG: Cash account query result: " . json_encode($cashAccount));
             
-            $refundRecorded = true;
-            
-            error_log("REFUND RECORDED: Booking {$booking['booking_code']}, Amount: {$finalRefundAmount}, Account ID: {$cashAccount['id']}, DB: {$masterDbName}");
-        } else {
-            error_log("REFUND WARNING: No cash account found for business_id {$businessId}");
+            if ($cashAccount) {
+                $oldBalance = $cashAccount['current_balance'];
+                
+                // Insert expense record for refund in business database
+                $refundDesc = "Refund pembatalan {$booking['booking_code']} - {$booking['guest_name']} ({$refundPolicy})";
+                
+                $insertStmt = $pdo->prepare("
+                    INSERT INTO cash_book (
+                        transaction_date, transaction_time, transaction_type, 
+                        category, amount, description, 
+                        cash_account_id, reference_id, reference_type,
+                        created_by, created_at
+                    ) VALUES (
+                        CURDATE(), CURTIME(), 'expense',
+                        'refund', ?, ?,
+                        ?, ?, 'booking_refund',
+                        ?, NOW()
+                    )
+                ");
+                $insertStmt->execute([
+                    $finalRefundAmount,
+                    $refundDesc,
+                    $cashAccount['id'],
+                    $bookingId,
+                    $currentUser['id']
+                ]);
+                
+                $cashBookId = $pdo->lastInsertId();
+                error_log("REFUND DEBUG: cash_book insert OK, ID: {$cashBookId}");
+                
+                // Update cash account balance in master database using DIRECT connection
+                $updateBalanceStmt = $masterPdo->prepare("
+                    UPDATE cash_accounts 
+                    SET current_balance = current_balance - ?
+                    WHERE id = ?
+                ");
+                $updateResult = $updateBalanceStmt->execute([$finalRefundAmount, $cashAccount['id']]);
+                $rowsAffected = $updateBalanceStmt->rowCount();
+                
+                error_log("REFUND DEBUG: Balance update - Result: " . ($updateResult ? 'true' : 'false') . ", Rows: {$rowsAffected}");
+                
+                // Verify the balance was updated
+                $verifyStmt = $masterPdo->prepare("SELECT current_balance FROM cash_accounts WHERE id = ?");
+                $verifyStmt->execute([$cashAccount['id']]);
+                $newBalance = $verifyStmt->fetchColumn();
+                
+                $expectedBalance = $oldBalance - $finalRefundAmount;
+                
+                error_log("REFUND DEBUG: Balance verification - Old: {$oldBalance}, Expected: {$expectedBalance}, New: {$newBalance}");
+                
+                if ($newBalance == $expectedBalance) {
+                    $refundRecorded = true;
+                    error_log("REFUND SUCCESS: Booking {$booking['booking_code']}, Amount: {$finalRefundAmount}, Account: {$cashAccount['account_name']} (ID:{$cashAccount['id']}), Balance: {$oldBalance} -> {$newBalance}");
+                } else {
+                    $refundError = "Balance mismatch after update";
+                    error_log("REFUND ERROR: Balance mismatch! Old: {$oldBalance}, Expected: {$expectedBalance}, Got: {$newBalance}");
+                }
+            } else {
+                $refundError = "No cash account found for business_id {$businessId}";
+                error_log("REFUND WARNING: " . $refundError);
+            }
+        } catch (Exception $refundEx) {
+            $refundError = $refundEx->getMessage();
+            error_log("REFUND EXCEPTION: " . $refundError);
         }
     }
     
@@ -216,7 +257,8 @@ try {
             'refund_percentage' => $refundPercentage,
             'refund_policy' => $refundPolicy,
             'refund_amount' => $finalRefundAmount,
-            'refund_recorded' => $refundRecorded
+            'refund_recorded' => $refundRecorded,
+            'refund_error' => $refundError
         ]
     ]);
     
