@@ -70,6 +70,14 @@ foreach ($tables_sql as $sql) {
     try { $db->exec($sql); } catch (Exception $e) { /* table exists */ }
 }
 
+// Add division_name column to project_expenses if not exists
+try {
+    $cols = array_column($db->query("DESCRIBE project_expenses")->fetchAll(PDO::FETCH_ASSOC), 'Field');
+    if (!in_array('division_name', $cols)) {
+        $db->exec("ALTER TABLE project_expenses ADD COLUMN division_name VARCHAR(100) DEFAULT NULL AFTER description");
+    }
+} catch (Exception $e) { /* table may not exist yet */ }
+
 // ====== HELPER: Detect columns ======
 function getTableColumns($db, $table) {
     try {
@@ -102,6 +110,8 @@ $expenses = [];
 $workers = [];
 $salaries = [];
 $division_expenses = [];
+$division_list = [];
+$laporan_data = [];
 $projCols = getTableColumns($db, 'projects');
 
 // Get selected project
@@ -119,6 +129,7 @@ if ($project_id) {
                 $expCols = getTableColumns($db, 'project_expenses');
                 $sel = ['id','project_id','amount'];
                 if (in_array('description', $expCols)) $sel[] = 'description';
+                if (in_array('division_name', $expCols)) $sel[] = 'division_name';
                 if (in_array('expense_date', $expCols)) $sel[] = 'expense_date';
                 if (in_array('created_at', $expCols)) $sel[] = 'created_at';
                 $stmt = $db->prepare("SELECT " . implode(',', $sel) . " FROM project_expenses WHERE project_id = ? ORDER BY id DESC");
@@ -155,6 +166,47 @@ if ($project_id) {
                 $stmt->execute([$project_id]);
                 $division_expenses = $stmt->fetchAll(PDO::FETCH_ASSOC);
             } catch (Exception $e) { $division_expenses = []; }
+
+            // Load distinct division names for dropdown
+            try {
+                $divNames = [];
+                $stmt = $db->prepare("SELECT DISTINCT division_name FROM project_division_expenses WHERE project_id = ? AND division_name IS NOT NULL AND division_name != ''");
+                $stmt->execute([$project_id]);
+                foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $dn) $divNames[$dn] = true;
+                $expCols2 = getTableColumns($db, 'project_expenses');
+                if (in_array('division_name', $expCols2)) {
+                    $stmt = $db->prepare("SELECT DISTINCT division_name FROM project_expenses WHERE project_id = ? AND division_name IS NOT NULL AND division_name != ''");
+                    $stmt->execute([$project_id]);
+                    foreach ($stmt->fetchAll(PDO::FETCH_COLUMN) as $dn) $divNames[$dn] = true;
+                }
+                $division_list = array_keys($divNames);
+                sort($division_list);
+            } catch (Exception $e) { $division_list = []; }
+
+            // Build Laporan data - group expenses by division
+            foreach ($expenses as $ex) {
+                $div = !empty($ex['division_name']) ? $ex['division_name'] : 'Umum (Tanpa Divisi)';
+                if (!isset($laporan_data[$div])) $laporan_data[$div] = ['items' => [], 'total' => 0];
+                $laporan_data[$div]['items'][] = [
+                    'source' => 'Pengeluaran',
+                    'description' => $ex['description'] ?? '-',
+                    'amount' => $ex['amount'] ?? 0,
+                    'date' => $ex['expense_date'] ?? $ex['created_at'] ?? '-',
+                ];
+                $laporan_data[$div]['total'] += ($ex['amount'] ?? 0);
+            }
+            foreach ($division_expenses as $dx) {
+                $div = $dx['division_name'] ?? 'Lainnya';
+                if (!isset($laporan_data[$div])) $laporan_data[$div] = ['items' => [], 'total' => 0];
+                $laporan_data[$div]['items'][] = [
+                    'source' => 'Divisi/Kontraktor',
+                    'description' => $dx['description'] ?? '-',
+                    'amount' => $dx['amount'] ?? 0,
+                    'date' => $dx['expense_date'] ?? '-',
+                ];
+                $laporan_data[$div]['total'] += ($dx['amount'] ?? 0);
+            }
+            uasort($laporan_data, function($a, $b) { return $b['total'] - $a['total']; });
         }
     } catch (Exception $e) {
         error_log('Ledger error: ' . $e->getMessage());
@@ -171,6 +223,7 @@ try {
 
 $total_gaji = array_sum(array_column($salaries, 'total_salary'));
 $total_divisi = array_sum(array_column($division_expenses, 'amount'));
+$grand_total_laporan = array_sum(array_map(function($d) { return $d['total']; }, $laporan_data));
 
 $pageTitle = 'Buku Kas - Investor';
 include $base_path . '/includes/header.php';
@@ -178,53 +231,53 @@ include $base_path . '/includes/header.php';
 
 <style>
 * { box-sizing: border-box; }
-.lp { padding: 1.2rem 1.5rem; max-width: 1400px; margin: 0 auto; }
+.lp { padding: 1.5rem 2rem; max-width: 1400px; margin: 0 auto; }
 
 /* ── Top Bar ── */
 .top-bar { display: flex; align-items: center; gap: 1rem; margin-bottom: 1.2rem; flex-wrap: wrap; }
-.top-bar .back-link { display: inline-flex; align-items: center; gap: .35rem; color: var(--text-muted,#888); font-size: .78rem; font-weight: 600; text-decoration: none; padding: .4rem .8rem; border-radius: 6px; border: 1px solid var(--border-color,#e5e7eb); transition: all .2s; background: var(--bg-secondary,#fff); }
+.top-bar .back-link { display: inline-flex; align-items: center; gap: .4rem; color: var(--text-muted,#888); font-size: .92rem; font-weight: 600; text-decoration: none; padding: .5rem 1rem; border-radius: 6px; border: 1px solid var(--border-color,#e5e7eb); transition: all .2s; background: var(--bg-secondary,#fff); }
 .top-bar .back-link:hover { border-color: #6366f1; color: #6366f1; }
 .proj-select { position: relative; }
-.proj-select select { appearance: none; -webkit-appearance: none; padding: .5rem 2rem .5rem .85rem; border: 1.5px solid var(--border-color,#e5e7eb); border-radius: 8px; background: var(--bg-secondary,#fff); color: var(--text-primary,#111); font-size: .82rem; font-weight: 600; cursor: pointer; min-width: 200px; transition: all .2s; }
+.proj-select select { appearance: none; -webkit-appearance: none; padding: .55rem 2.2rem .55rem 1rem; border: 1.5px solid var(--border-color,#e5e7eb); border-radius: 8px; background: var(--bg-secondary,#fff); color: var(--text-primary,#111); font-size: .95rem; font-weight: 600; cursor: pointer; min-width: 240px; transition: all .2s; }
 .proj-select select:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,.12); }
-.proj-select::after { content: '▾'; position: absolute; right: .7rem; top: 50%; transform: translateY(-50%); font-size: .7rem; color: var(--text-muted,#888); pointer-events: none; }
-.top-bar .proj-badge { font-size: .68rem; padding: .2rem .55rem; border-radius: 20px; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff; font-weight: 700; letter-spacing: .3px; }
+.proj-select::after { content: '▾'; position: absolute; right: .8rem; top: 50%; transform: translateY(-50%); font-size: .82rem; color: var(--text-muted,#888); pointer-events: none; }
+.top-bar .proj-badge { font-size: .82rem; padding: .25rem .65rem; border-radius: 20px; background: linear-gradient(135deg, #6366f1, #8b5cf6); color: #fff; font-weight: 700; letter-spacing: .3px; }
 
 /* ── Tabs ── */
-.nav-tabs { display: flex; gap: .35rem; margin-bottom: 1rem; padding: .3rem; background: var(--bg-secondary,#f8f9fa); border-radius: 10px; border: 1px solid var(--border-color,#e5e7eb); }
-.nav-tab { flex: 1; padding: .5rem .4rem; text-align: center; font-size: .72rem; font-weight: 600; color: var(--text-muted,#888); border-radius: 7px; text-decoration: none; transition: all .2s; white-space: nowrap; }
+.nav-tabs { display: flex; gap: .4rem; margin-bottom: 1.2rem; padding: .35rem; background: var(--bg-secondary,#f8f9fa); border-radius: 10px; border: 1px solid var(--border-color,#e5e7eb); }
+.nav-tab { flex: 1; padding: .6rem .5rem; text-align: center; font-size: .88rem; font-weight: 600; color: var(--text-muted,#888); border-radius: 7px; text-decoration: none; transition: all .2s; white-space: nowrap; }
 .nav-tab:hover { color: #6366f1; background: rgba(99,102,241,.06); }
 .nav-tab.active { background: #fff; color: #6366f1; box-shadow: 0 1px 4px rgba(0,0,0,.08); }
 
 /* ── Summary Strip ── */
-.summary-strip { display: grid; grid-template-columns: repeat(4,1fr); gap: .6rem; margin-bottom: 1rem; }
-.sc { padding: .65rem .8rem; border-radius: 8px; background: var(--bg-secondary,#fff); border: 1px solid var(--border-color,#e5e7eb); position: relative; overflow: hidden; }
-.sc::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3px; }
+.summary-strip { display: grid; grid-template-columns: repeat(4,1fr); gap: .75rem; margin-bottom: 1.2rem; }
+.sc { padding: .8rem 1rem; border-radius: 8px; background: var(--bg-secondary,#fff); border: 1px solid var(--border-color,#e5e7eb); position: relative; overflow: hidden; }
+.sc::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3.5px; }
 .sc.c-blue::before { background: linear-gradient(180deg,#3b82f6,#6366f1); }
 .sc.c-amber::before { background: linear-gradient(180deg,#f59e0b,#ef4444); }
 .sc.c-red::before { background: linear-gradient(180deg,#ef4444,#dc2626); }
 .sc.c-green::before { background: linear-gradient(180deg,#10b981,#059669); }
-.sc .sc-label { font-size: .6rem; text-transform: uppercase; font-weight: 700; letter-spacing: .5px; color: var(--text-muted,#999); margin-bottom: .15rem; }
-.sc .sc-val { font-size: .92rem; font-weight: 800; color: var(--text-primary,#111); }
+.sc .sc-label { font-size: .75rem; text-transform: uppercase; font-weight: 700; letter-spacing: .5px; color: var(--text-muted,#999); margin-bottom: .2rem; }
+.sc .sc-val { font-size: 1.15rem; font-weight: 800; color: var(--text-primary,#111); }
 
 /* ── Card / Panel ── */
-.panel { background: var(--bg-secondary,#fff); border: 1px solid var(--border-color,#e5e7eb); border-radius: 10px; padding: 1rem 1.2rem; margin-bottom: .8rem; }
-.panel-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: .75rem; }
-.panel-head h3 { font-size: .85rem; font-weight: 700; color: var(--text-primary,#111); margin: 0; display: flex; align-items: center; gap: .4rem; }
-.panel-head .sub { font-size: .68rem; color: var(--text-muted,#888); font-weight: 500; }
+.panel { background: var(--bg-secondary,#fff); border: 1px solid var(--border-color,#e5e7eb); border-radius: 10px; padding: 1.2rem 1.5rem; margin-bottom: 1rem; }
+.panel-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: .85rem; }
+.panel-head h3 { font-size: 1.05rem; font-weight: 700; color: var(--text-primary,#111); margin: 0; display: flex; align-items: center; gap: .4rem; }
+.panel-head .sub { font-size: .82rem; color: var(--text-muted,#888); font-weight: 500; }
 
 /* ── Forms ── */
-.inline-form { display: flex; gap: .5rem; flex-wrap: wrap; align-items: flex-end; }
-.fg { display: flex; flex-direction: column; flex: 1; min-width: 120px; }
-.fg.w2 { flex: 2; min-width: 180px; }
+.inline-form { display: flex; gap: .6rem; flex-wrap: wrap; align-items: flex-end; }
+.fg { display: flex; flex-direction: column; flex: 1; min-width: 130px; }
+.fg.w2 { flex: 2; min-width: 200px; }
 .fg.w-auto { flex: 0 0 auto; min-width: auto; }
-.fg label { font-size: .65rem; font-weight: 600; margin-bottom: .2rem; color: var(--text-muted,#888); text-transform: uppercase; letter-spacing: .3px; }
-.fg input, .fg select { padding: .45rem .6rem; border: 1.5px solid var(--border-color,#e5e7eb); border-radius: 6px; background: var(--bg-primary,#fff); color: var(--text-primary,#111); font-size: .8rem; transition: border .2s; }
+.fg label { font-size: .8rem; font-weight: 600; margin-bottom: .25rem; color: var(--text-muted,#888); text-transform: uppercase; letter-spacing: .3px; }
+.fg input, .fg select { padding: .5rem .75rem; border: 1.5px solid var(--border-color,#e5e7eb); border-radius: 6px; background: var(--bg-primary,#fff); color: var(--text-primary,#111); font-size: .95rem; transition: border .2s; }
 .fg input:focus, .fg select:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 2px rgba(99,102,241,.1); }
-.fg .total-display { background: linear-gradient(135deg,#f0fdf4,#dcfce7) !important; font-weight: 800; color: #059669 !important; font-size: .9rem; border: 1.5px solid #86efac !important; }
+.fg .total-display { background: linear-gradient(135deg,#f0fdf4,#dcfce7) !important; font-weight: 800; color: #059669 !important; font-size: 1.05rem; border: 1.5px solid #86efac !important; }
 
 /* ── Buttons ── */
-.btn { padding: .4rem .85rem; border-radius: 6px; font-size: .72rem; font-weight: 600; cursor: pointer; border: none; display: inline-flex; align-items: center; gap: .3rem; transition: all .15s; text-decoration: none; white-space: nowrap; }
+.btn { padding: .5rem 1rem; border-radius: 6px; font-size: .88rem; font-weight: 600; cursor: pointer; border: none; display: inline-flex; align-items: center; gap: .35rem; transition: all .15s; text-decoration: none; white-space: nowrap; }
 .btn:hover { transform: translateY(-1px); box-shadow: 0 3px 10px rgba(0,0,0,.12); }
 .btn-emerald { background: linear-gradient(135deg,#10b981,#059669); color: #fff; }
 .btn-indigo { background: linear-gradient(135deg,#6366f1,#4f46e5); color: #fff; }
@@ -233,21 +286,21 @@ include $base_path . '/includes/header.php';
 .btn-rose { background: linear-gradient(135deg,#f43f5e,#e11d48); color: #fff; }
 .btn-ghost { background: transparent; border: 1px solid var(--border-color,#e5e7eb); color: var(--text-muted,#888); }
 .btn-ghost:hover { border-color: #6366f1; color: #6366f1; }
-.btn-xs { padding: .25rem .5rem; font-size: .65rem; border-radius: 4px; }
-.action-row { display: flex; gap: .4rem; flex-wrap: wrap; }
+.btn-xs { padding: .35rem .65rem; font-size: .8rem; border-radius: 4px; }
+.action-row { display: flex; gap: .5rem; flex-wrap: wrap; }
 
 /* ── Table ── */
 .tbl { width: 100%; border-collapse: separate; border-spacing: 0; }
-.tbl th { padding: .5rem .6rem; font-size: .62rem; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--text-muted,#999); background: rgba(99,102,241,.03); border-bottom: 1.5px solid var(--border-color,#e5e7eb); text-align: left; }
-.tbl td { padding: .5rem .6rem; font-size: .78rem; color: var(--text-primary,#111); border-bottom: 1px solid var(--border-color,#f0f0f0); vertical-align: middle; }
+.tbl th { padding: .6rem .75rem; font-size: .78rem; font-weight: 700; text-transform: uppercase; letter-spacing: .5px; color: var(--text-muted,#999); background: rgba(99,102,241,.03); border-bottom: 1.5px solid var(--border-color,#e5e7eb); text-align: left; }
+.tbl td { padding: .6rem .75rem; font-size: .92rem; color: var(--text-primary,#111); border-bottom: 1px solid var(--border-color,#f0f0f0); vertical-align: middle; }
 .tbl tbody tr { transition: background .15s; }
 .tbl tbody tr:hover { background: rgba(99,102,241,.02); }
 .tbl .money { font-weight: 700; color: #d97706; font-variant-numeric: tabular-nums; }
 .tbl .foot td { background: rgba(99,102,241,.04); font-weight: 700; border-top: 2px solid #6366f1; }
-.tbl .empty td { text-align: center; padding: 1.5rem; color: var(--text-muted,#999); font-size: .8rem; }
+.tbl .empty td { text-align: center; padding: 1.5rem; color: var(--text-muted,#999); font-size: .92rem; }
 
 /* ── Badge ── */
-.badge { display: inline-block; padding: .15rem .45rem; border-radius: 20px; font-size: .58rem; font-weight: 700; text-transform: uppercase; letter-spacing: .3px; }
+.badge { display: inline-block; padding: .2rem .55rem; border-radius: 20px; font-size: .72rem; font-weight: 700; text-transform: uppercase; letter-spacing: .3px; }
 .badge-draft { background: #fef3c7; color: #92400e; }
 .badge-submitted { background: #dbeafe; color: #1e40af; }
 .badge-approved { background: #d1fae5; color: #065f46; }
@@ -256,17 +309,28 @@ include $base_path . '/includes/header.php';
 .badge-active { background: #d1fae5; color: #065f46; }
 .badge-inactive { background: #fee2e2; color: #991b1b; }
 
-.empty-state { text-align: center; padding: 1.5rem; color: var(--text-muted,#999); font-size: .8rem; }
-.hint { font-size: .68rem; color: var(--text-muted,#888); font-weight: 500; }
+.empty-state { text-align: center; padding: 2rem; color: var(--text-muted,#999); font-size: .95rem; }
+.hint { font-size: .82rem; color: var(--text-muted,#888); font-weight: 500; }
 .hint a { color: #6366f1; text-decoration: none; font-weight: 600; }
+
+/* ── Laporan Cards ── */
+.laporan-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: .75rem; margin-bottom: 1.2rem; }
+.lap-card { padding: .85rem 1rem; border-radius: 8px; background: var(--bg-secondary,#fff); border: 1px solid var(--border-color,#e5e7eb); position: relative; overflow: hidden; cursor: pointer; transition: all .2s; }
+.lap-card:hover { border-color: #6366f1; box-shadow: 0 2px 8px rgba(99,102,241,.1); }
+.lap-card::before { content: ''; position: absolute; left: 0; top: 0; bottom: 0; width: 3.5px; background: linear-gradient(180deg,#6366f1,#8b5cf6); }
+.lap-card .lap-name { font-size: .88rem; font-weight: 700; color: var(--text-primary,#111); margin-bottom: .2rem; }
+.lap-card .lap-total { font-size: 1.1rem; font-weight: 800; color: #d97706; }
+.lap-card .lap-count { font-size: .75rem; color: var(--text-muted,#888); }
+.lap-detail { margin-bottom: 1rem; }
 
 @media print {
     .top-bar, .nav-tabs, .no-print, .btn, .action-row { display: none !important; }
     .panel { border: 1px solid #ddd; box-shadow: none; }
-    .tbl th, .tbl td { padding: .3rem .4rem; font-size: .7rem; }
+    .tbl th, .tbl td { padding: .4rem .5rem; font-size: .8rem; }
 }
 @media (max-width: 768px) {
     .summary-strip { grid-template-columns: repeat(2,1fr); }
+    .laporan-grid { grid-template-columns: 1fr; }
     .inline-form { flex-direction: column; }
     .fg { min-width: 100% !important; }
 }
@@ -301,6 +365,7 @@ include $base_path . '/includes/header.php';
             <a class="nav-tab <?= $tab=='workers'?'active':'' ?>" href="?project_id=<?= $project_id ?>&tab=workers">👷 Pekerja</a>
             <a class="nav-tab <?= $tab=='salary'?'active':'' ?>" href="?project_id=<?= $project_id ?>&tab=salary">💰 Gaji</a>
             <a class="nav-tab <?= $tab=='division'?'active':'' ?>" href="?project_id=<?= $project_id ?>&tab=division">🏗️ Divisi</a>
+            <a class="nav-tab <?= $tab=='laporan'?'active':'' ?>" href="?project_id=<?= $project_id ?>&tab=laporan">📊 Laporan</a>
         </div>
 
         <!-- SUMMARY -->
@@ -318,6 +383,14 @@ include $base_path . '/includes/header.php';
                     <form id="expenseForm" onsubmit="saveExpense(event)">
                         <div class="inline-form">
                             <div class="fg w2"><label>Deskripsi</label><input type="text" name="description" required placeholder="Nama item pengeluaran"></div>
+                            <div class="fg"><label>Divisi / Kontraktor</label>
+                                <input type="text" name="division_name" list="divisionList" placeholder="Pilih atau ketik divisi">
+                                <datalist id="divisionList">
+                                    <?php foreach ($division_list as $dn): ?>
+                                    <option value="<?= htmlspecialchars($dn) ?>">
+                                    <?php endforeach; ?>
+                                </datalist>
+                            </div>
                             <div class="fg"><label>Jumlah (Rp)</label><input type="number" name="amount" required min="1" placeholder="0"></div>
                             <div class="fg"><label>Tanggal</label><input type="date" name="expense_date" value="<?= date('Y-m-d') ?>"></div>
                             <div class="fg w-auto"><label>&nbsp;</label><button type="submit" class="btn btn-emerald">+ Catat</button></div>
@@ -330,21 +403,22 @@ include $base_path . '/includes/header.php';
                         <div class="action-row no-print"><button onclick="window.print()" class="btn btn-sky btn-xs">🖨️ Print</button></div>
                     </div>
                     <table class="tbl">
-                        <thead><tr><th>#</th><th>Tanggal</th><th>Deskripsi</th><th style="text-align:right">Jumlah</th><th class="no-print" style="width:50px">Aksi</th></tr></thead>
+                        <thead><tr><th>#</th><th>Tanggal</th><th>Deskripsi</th><th>Divisi</th><th style="text-align:right">Jumlah</th><th class="no-print" style="width:50px">Aksi</th></tr></thead>
                         <tbody>
                         <?php if (empty($expenses)): ?>
-                            <tr class="empty"><td colspan="5">Belum ada data pengeluaran</td></tr>
+                            <tr class="empty"><td colspan="6">Belum ada data pengeluaran</td></tr>
                         <?php else: ?>
                             <?php foreach ($expenses as $i => $e): ?>
                             <tr>
                                 <td style="color:var(--text-muted)"><?= $i+1 ?></td>
                                 <td><?= date('d/m/Y', strtotime($e['expense_date'] ?? $e['created_at'] ?? 'now')) ?></td>
                                 <td><?= htmlspecialchars($e['description'] ?? '-') ?></td>
+                                <td><?php if (!empty($e['division_name'])): ?><span class="badge badge-submitted"><?= htmlspecialchars($e['division_name']) ?></span><?php else: ?><span style="color:var(--text-muted)">—</span><?php endif; ?></td>
                                 <td class="money" style="text-align:right">Rp <?= number_format($e['amount']??0,0,',','.') ?></td>
                                 <td class="no-print"><button class="btn btn-rose btn-xs" onclick="deleteExpense(<?= $e['id'] ?>)">✕</button></td>
                             </tr>
                             <?php endforeach; ?>
-                            <tr class="foot"><td colspan="3">TOTAL</td><td class="money" style="text-align:right">Rp <?= number_format($project['total_expenses'],0,',','.') ?></td><td></td></tr>
+                            <tr class="foot"><td colspan="4">TOTAL</td><td class="money" style="text-align:right">Rp <?= number_format($project['total_expenses'],0,',','.') ?></td><td></td></tr>
                         <?php endif; ?>
                         </tbody>
                     </table>
@@ -514,6 +588,62 @@ include $base_path . '/includes/header.php';
                         <?php endif; ?>
                         </tbody>
                     </table>
+                </div>
+
+                <!-- ═══ TAB: LAPORAN PER DIVISI ═══ -->
+                <?php elseif ($tab == 'laporan'): ?>
+                <div class="panel">
+                    <div class="panel-head">
+                        <h3>📊 Laporan Pengeluaran per Divisi</h3>
+                        <div class="action-row no-print"><button onclick="window.print()" class="btn btn-sky btn-xs">🖨️ Print</button></div>
+                    </div>
+                    <?php if (empty($laporan_data)): ?>
+                        <div class="empty-state">Belum ada data pengeluaran untuk ditampilkan</div>
+                    <?php else: ?>
+                        <!-- Summary Cards per Division -->
+                        <div class="laporan-grid">
+                            <?php foreach ($laporan_data as $divName => $divData): ?>
+                            <div class="lap-card" onclick="document.getElementById('detail-<?= md5($divName) ?>').scrollIntoView({behavior:'smooth'})">
+                                <div class="lap-name"><?= htmlspecialchars($divName) ?></div>
+                                <div class="lap-total">Rp <?= number_format($divData['total'],0,',','.') ?></div>
+                                <div class="lap-count"><?= count($divData['items']) ?> transaksi</div>
+                            </div>
+                            <?php endforeach; ?>
+                        </div>
+
+                        <!-- Grand Total -->
+                        <div class="summary-strip" style="grid-template-columns:1fr">
+                            <div class="sc c-amber">
+                                <div class="sc-label">Total Semua Divisi</div>
+                                <div class="sc-val">Rp <?= number_format($grand_total_laporan,0,',','.') ?></div>
+                            </div>
+                        </div>
+
+                        <!-- Detail per Division -->
+                        <?php foreach ($laporan_data as $divName => $divData): ?>
+                        <div class="panel lap-detail" id="detail-<?= md5($divName) ?>">
+                            <div class="panel-head">
+                                <h3>🏗️ <?= htmlspecialchars($divName) ?></h3>
+                                <span class="badge badge-submitted">Rp <?= number_format($divData['total'],0,',','.') ?></span>
+                            </div>
+                            <table class="tbl">
+                                <thead><tr><th>#</th><th>Sumber</th><th>Deskripsi</th><th>Tanggal</th><th style="text-align:right">Jumlah</th></tr></thead>
+                                <tbody>
+                                <?php foreach ($divData['items'] as $idx => $item): ?>
+                                <tr>
+                                    <td style="color:var(--text-muted)"><?= $idx+1 ?></td>
+                                    <td><span class="badge <?= $item['source']=='Pengeluaran'?'badge-pending':'badge-approved' ?>"><?= $item['source'] ?></span></td>
+                                    <td><?= htmlspecialchars($item['description']) ?></td>
+                                    <td><?= $item['date'] != '-' ? date('d/m/Y', strtotime($item['date'])) : '-' ?></td>
+                                    <td class="money" style="text-align:right">Rp <?= number_format($item['amount'],0,',','.') ?></td>
+                                </tr>
+                                <?php endforeach; ?>
+                                <tr class="foot"><td colspan="4">SUBTOTAL</td><td class="money" style="text-align:right">Rp <?= number_format($divData['total'],0,',','.') ?></td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
                 </div>
                 <?php endif; ?>
 

@@ -39,6 +39,7 @@ try {
     $amount = floatval($_POST['amount'] ?? 0);
     $expense_date = $_POST['expense_date'] ?? date('Y-m-d');
     $category_id = intval($_POST['category_id'] ?? 0) ?: null;
+    $division_name = trim($_POST['division_name'] ?? '');
 
     // Validate
     if (!$project_id) {
@@ -107,6 +108,9 @@ try {
     }
     if (in_array('category_id', $expCols) && $category_id) {
         $ins_cols[] = 'category_id'; $ins_vals[] = '?'; $ins_params[] = $category_id;
+    }
+    if (in_array('division_name', $expCols) && $division_name !== '') {
+        $ins_cols[] = 'division_name'; $ins_vals[] = '?'; $ins_params[] = $division_name;
     }
     if (in_array('created_by', $expCols)) {
         $ins_cols[] = 'created_by'; $ins_vals[] = '?'; $ins_params[] = $_SESSION['user_id'] ?? 1;
