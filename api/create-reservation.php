@@ -311,6 +311,20 @@ try {
             $cashAccountQuery->execute([$businessId, $accountType]);
             $account = $cashAccountQuery->fetch(PDO::FETCH_ASSOC);
             
+            // FALLBACK: If no specific account type found, get ANY active account
+            if (!$account) {
+                $fallbackQuery = $masterDb->prepare("
+                    SELECT id, account_name, current_balance 
+                    FROM cash_accounts 
+                    WHERE business_id = ? 
+                    AND is_active = 1 
+                    ORDER BY is_default_account DESC
+                    LIMIT 1
+                ");
+                $fallbackQuery->execute([$businessId]);
+                $account = $fallbackQuery->fetch(PDO::FETCH_ASSOC);
+            }
+            
             if ($account) {
                 $accountId = $account['id'];
                 $cashAccountName = $account['account_name'];

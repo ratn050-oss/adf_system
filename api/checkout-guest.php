@@ -183,6 +183,13 @@ try {
             $acctStmt = $masterDb->prepare("SELECT id, current_balance FROM cash_accounts WHERE business_id = ? AND account_type = ? AND is_active = 1 ORDER BY is_default_account DESC LIMIT 1");
             $acctStmt->execute([$businessId, $acctType]);
             $acct = $acctStmt->fetch(PDO::FETCH_ASSOC);
+            
+            // FALLBACK: If no specific account type found, get ANY active account
+            if (!$acct) {
+                $fallbackStmt = $masterDb->prepare("SELECT id, current_balance FROM cash_accounts WHERE business_id = ? AND is_active = 1 ORDER BY is_default_account DESC LIMIT 1");
+                $fallbackStmt->execute([$businessId]);
+                $acct = $fallbackStmt->fetch(PDO::FETCH_ASSOC);
+            }
             if (!$acct) continue;
 
             // Division & Category

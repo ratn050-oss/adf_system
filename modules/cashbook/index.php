@@ -162,6 +162,13 @@ try {
                     $accountStmt = $masterDb->prepare("SELECT id, current_balance FROM cash_accounts WHERE business_id = ? AND account_type = ? AND is_active = 1 ORDER BY is_default_account DESC LIMIT 1");
                     $accountStmt->execute([$businessId, $accountType]);
                     $account = $accountStmt->fetch(PDO::FETCH_ASSOC);
+                    
+                    // FALLBACK: If no specific account type found, get ANY active account
+                    if (!$account) {
+                        $fallbackStmt = $masterDb->prepare("SELECT id, current_balance FROM cash_accounts WHERE business_id = ? AND is_active = 1 ORDER BY is_default_account DESC LIMIT 1");
+                        $fallbackStmt->execute([$businessId]);
+                        $account = $fallbackStmt->fetch(PDO::FETCH_ASSOC);
+                    }
                     if (!$account) continue;
 
                     $guestName = $payment['guest_name'] ?? 'Guest';
