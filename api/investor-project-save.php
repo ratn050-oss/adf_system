@@ -38,7 +38,22 @@ try {
     $project_code = trim($_POST['project_code'] ?? '') ?: null;
     $budget_idr = floatval($_POST['budget_idr'] ?? 0);
     $description = trim($_POST['description'] ?? '');
-    $status = $_POST['status'] ?? 'planning';
+    $status_input = $_POST['status'] ?? 'ongoing';
+    
+    // Map status values to database-compatible values
+    $status_map = [
+        'planning' => 'planning',
+        'ongoing' => 'ongoing', 
+        'on_hold' => 'on_hold',
+        'completed' => 'completed',
+        'cancelled' => 'cancelled'
+    ];
+    
+    // Try common variations if direct mapping fails
+    $status = $status_map[$status_input] ?? 'ongoing';
+    
+    // Debug: Log what we're trying to insert
+    error_log("Inserting project with status: '$status' (original: '$status_input')");
 
     // Validate
     if (empty($project_name)) {
@@ -152,6 +167,26 @@ try {
     }
     
     if (in_array('status', $columns)) {
+        // Try to determine valid enum values first
+        try {
+            $stmt = $db->query("SHOW COLUMNS FROM projects LIKE 'status'");
+            $col_info = $stmt->fetch(PDO::FETCH_ASSOC);
+            if ($col_info && strpos($col_info['Type'], 'enum') !== false) {
+                // Extract enum values from type
+                preg_match("/enum\((.+)\)/", $col_info['Type'], $matches);
+                if (isset($matches[1])) {
+                    $enum_values = str_getcsv($matches[1], ',', "'");
+                    // If our status is not in enum, use first available value
+                    if (!in_array($status, $enum_values)) {
+                        $status = $enum_values[0] ?? 'active';
+                        error_log("Status '$status_input' not in enum, using '$status' instead");
+                    }
+                }
+            }
+        } catch (Exception $e) {
+            error_log("Could not check status enum: " . $e->getMessage());
+        }
+        
         $insert_cols[] = 'status';
         $insert_vals[] = '?';
         $params[] = $status;
