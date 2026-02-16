@@ -92,9 +92,10 @@ try {
     $netAmount = $amount;
     
     try {
-        // Get master database connection
+        // Get master database name (handles hosting vs local)
+        $masterDbName = defined('MASTER_DB_NAME') ? MASTER_DB_NAME : 'adf_system';
         $masterDb = new PDO(
-            "mysql:host=" . DB_HOST . ";dbname=adf_system;charset=" . DB_CHARSET,
+            "mysql:host=" . DB_HOST . ";dbname=" . $masterDbName . ";charset=" . DB_CHARSET,
             DB_USER,
             DB_PASS,
             [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]

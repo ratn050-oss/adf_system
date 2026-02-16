@@ -75,8 +75,10 @@ try {
     // Sync any booking_payments not yet recorded in cash_book
     // ==========================================
     try {
+        // Get master database name (handles hosting vs local)
+        $masterDbName = defined('MASTER_DB_NAME') ? MASTER_DB_NAME : 'adf_system';
         $masterDb = new PDO(
-            "mysql:host=" . DB_HOST . ";dbname=" . MASTER_DB_NAME . ";charset=" . DB_CHARSET,
+            "mysql:host=" . DB_HOST . ";dbname=" . $masterDbName . ";charset=" . DB_CHARSET,
             DB_USER, DB_PASS,
             [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
         );
@@ -157,14 +159,15 @@ try {
             $totalPaid = $db->fetchOne("SELECT COALESCE(SUM(amount),0) as total FROM booking_payments WHERE booking_id = ?", [$payment['booking_id']]);
             $desc .= ((float)$totalPaid['total'] >= (float)$payment['final_price']) ? ' [LUNAS]' : ' [CICILAN]';
 
-            // Insert into cash_book
-            $db->query("
+            // Insert into cash_book (same pattern as add-booking-payment.php)
+            $cashBookInsert = $db->getConnection()->prepare("
                 INSERT INTO cash_book (
                     transaction_date, transaction_time, division_id, category_id,
                     description, transaction_type, amount, payment_method,
-                    cash_account_id, source_type, created_by, created_at
-                ) VALUES (DATE(?), TIME(?), ?, ?, ?, 'income', ?, ?, ?, 'booking_payment', ?, NOW())
-            ", [
+                    cash_account_id, created_by, created_at
+                ) VALUES (DATE(?), TIME(?), ?, ?, ?, 'income', ?, ?, ?, ?, NOW())
+            ");
+            $cashBookInsert->execute([
                 $payment['payment_date'], $payment['payment_date'],
                 $divisionId, $categoryId, $desc, $netAmount,
                 $payment['payment_method'], $account['id'],

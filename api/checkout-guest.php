@@ -100,8 +100,10 @@ try {
     // ==========================================
     $cashbookMsg = '';
     try {
+        // Get master database name (handles hosting vs local)
+        $masterDbName = defined('MASTER_DB_NAME') ? MASTER_DB_NAME : 'adf_system';
         $masterDb = new PDO(
-            "mysql:host=" . DB_HOST . ";dbname=" . MASTER_DB_NAME . ";charset=" . DB_CHARSET,
+            "mysql:host=" . DB_HOST . ";dbname=" . $masterDbName . ";charset=" . DB_CHARSET,
             DB_USER, DB_PASS,
             [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
         );
@@ -150,7 +152,8 @@ try {
 
             $desc = "Pembayaran Reservasi - {$booking['guest_name']} (Room {$booking['room_number']}) - {$booking['booking_code']} [CHECKOUT-SYNC]";
 
-            $db->query("INSERT INTO cash_book (transaction_date, transaction_time, division_id, category_id, description, transaction_type, amount, payment_method, cash_account_id, source_type, created_by, created_at) VALUES (DATE(?), TIME(?), ?, ?, ?, 'income', ?, ?, ?, 'booking_payment', ?, NOW())", [
+            $cashBookInsert = $db->getConnection()->prepare("INSERT INTO cash_book (transaction_date, transaction_time, division_id, category_id, description, transaction_type, amount, payment_method, cash_account_id, created_by, created_at) VALUES (DATE(?), TIME(?), ?, ?, ?, 'income', ?, ?, ?, ?, NOW())");
+            $cashBookInsert->execute([
                 $pmt['payment_date'], $pmt['payment_date'],
                 $div['id'] ?? 1, $cat['id'] ?? 1, $desc, $netAmt,
                 $pmt['payment_method'], $acct['id'], $currentUser['id']
