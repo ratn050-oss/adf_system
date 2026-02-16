@@ -278,6 +278,11 @@ include '../../includes/header.php';
     color: #ef4444;
 }
 
+.badge-cancelled {
+    background: rgba(245, 158, 11, 0.2);
+    color: #f59e0b;
+}
+
 /* Actions */
 .row-actions {
     display: flex;
