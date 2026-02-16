@@ -145,6 +145,21 @@ include '../../includes/header.php';
         </div>
     </a>
     
+    <!-- Cloudbed PMS Integration -->
+    <a href="cloudbed-pms.php" class="card" style="text-decoration: none; transition: all 0.3s; cursor: pointer;">
+        <div style="padding: 1.25rem;">
+            <div style="width: 48px; height: 48px; border-radius: var(--radius-lg); background: linear-gradient(135deg, rgba(59, 130, 246, 0.2), rgba(147, 197, 253, 0.05)); display: flex; align-items: center; justify-content: center; margin-bottom: 0.875rem;">
+                <i data-feather="cloud" style="width: 24px; height: 24px; color: #3b82f6;"></i>
+            </div>
+            <h3 style="font-size: 1rem; font-weight: 700; color: var(--text-primary); margin-bottom: 0.4rem;">
+                ☁️ Cloudbed PMS Integration
+            </h3>
+            <p style="font-size: 0.813rem; color: var(--text-muted); margin: 0;">
+                Sinkronisasi reservasi, tamu, kamar dengan Cloudbed Property Management System
+            </p>
+        </div>
+    </a>
+    
     <!-- Backup & Reset Data -->
     <a href="reset.php" class="card" style="text-decoration: none; transition: all 0.3s; cursor: pointer;">
         <div style="padding: 1.25rem;">
