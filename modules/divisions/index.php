@@ -23,9 +23,18 @@ $monthNum = date('m', strtotime($filterDate));
 $monthName = date('F Y', strtotime($filterDate));
 
 // Get all divisions
-$divisions = $db->fetchAll("SELECT * FROM divisions ORDER BY division_name");
+$divisions = [];
+try {
+    $divisions = $db->fetchAll("SELECT * FROM divisions ORDER BY division_name");
+} catch (\Throwable $e) {
+    error_log("Error fetching divisions: " . $e->getMessage());
+    // Only show error if debugging
+    if (isset($_GET['debug'])) echo "Error fetching divisions: " . $e->getMessage();
+}
 
 // Get summary data per division for selected month
+$divisionSummary = [];
+try {
 $summaryQuery = "
     SELECT 
         d.id as division_id,
@@ -48,6 +57,10 @@ $divisionSummary = $db->fetchAll($summaryQuery, [
     'year' => $year,
     'month' => $monthNum
 ]);
+} catch (\Throwable $e) {
+    error_log("Error fetching division summary: " . $e->getMessage());
+    if (isset($_GET['debug'])) echo "Error fetching division summary: " . $e->getMessage();
+}
 
 // If specific division is selected, get detailed data
 $divisionDetail = null;
