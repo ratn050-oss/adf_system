@@ -41,3 +41,17 @@
 [16-Feb-2026 07:03:50 Asia/Jakarta] Auth instantiated
 [16-Feb-2026 07:03:50 Asia/Jakarta] Database instance obtained
 [16-Feb-2026 07:03:50 Asia/Jakarta] === move-booking.php END ===
+[16-Feb-2026 01:09:40 Europe/Berlin] === move-booking.php START ===
+[16-Feb-2026 07:09:40 Asia/Jakarta] config.php loaded
+[16-Feb-2026 07:09:40 Asia/Jakarta] database.php loaded
+[16-Feb-2026 07:09:40 Asia/Jakarta] auth.php loaded
+[16-Feb-2026 07:09:40 Asia/Jakarta] Auth instantiated
+[16-Feb-2026 07:09:40 Asia/Jakarta] Database instance obtained
+[16-Feb-2026 07:09:40 Asia/Jakarta] === move-booking.php END ===
+[16-Feb-2026 01:09:53 Europe/Berlin] === move-booking.php START ===
+[16-Feb-2026 07:09:53 Asia/Jakarta] config.php loaded
+[16-Feb-2026 07:09:53 Asia/Jakarta] database.php loaded
+[16-Feb-2026 07:09:53 Asia/Jakarta] auth.php loaded
+[16-Feb-2026 07:09:53 Asia/Jakarta] Auth instantiated
+[16-Feb-2026 07:09:53 Asia/Jakarta] Database instance obtained
+[16-Feb-2026 07:09:53 Asia/Jakarta] === move-booking.php END ===

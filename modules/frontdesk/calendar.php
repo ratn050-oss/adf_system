@@ -2867,9 +2867,15 @@ window.openNewReservationForm = function openNewReservationForm() {
     }
 }
 
+// Store clicked roomId for auto-selection after rooms load
+let pendingRoomSelection = null;
+
 window.openCellReservation = function openCellReservation(element) {
     const date = element.getAttribute('data-date');
     const roomId = element.getAttribute('data-room-id');
+    
+    // Store roomId for auto-selection after rooms load
+    pendingRoomSelection = roomId;
     
     // Populate Modal
     const modal = document.getElementById('reservationModal');
@@ -2890,7 +2896,7 @@ window.openCellReservation = function openCellReservation(element) {
         checkOutInput.value = nextDay.toISOString().split('T')[0];
     }
     
-    // Load available rooms for selected dates
+    // Load available rooms for selected dates (will auto-select room)
     loadAvailableRoomsCalendar();
     
     // Trigger source update to hide fees by default
@@ -3175,6 +3181,17 @@ async function loadAvailableRoomsCalendar() {
             });
             document.getElementById('roomsChecklistCalendar').innerHTML = html;
             document.getElementById('availabilityInfoCalendar').innerHTML = `<small style="color: #10b981;">✅ ${result.available_rooms} room(s) available (${result.booked_rooms} booked)</small>`;
+            
+            // Auto-select room if clicked from calendar cell
+            if (pendingRoomSelection) {
+                const roomCheckbox = document.querySelector(`input[name="rooms[]"][value="${pendingRoomSelection}"]`);
+                if (roomCheckbox) {
+                    roomCheckbox.checked = true;
+                    roomCheckbox.closest('.room-checkbox-item').style.background = '#dcfce7';
+                }
+                pendingRoomSelection = null; // Clear after use
+                calculateMultiRoomTotalCalendar(); // Update totals
+            }
         } else if (result.success && result.rooms.length === 0) {
             document.getElementById('roomsChecklistCalendar').innerHTML = '<em style="color: #ef4444;">❌ Tidak ada room yang tersedia untuk tanggal ini (semua sudah di-booking)</em>';
             document.getElementById('availabilityInfoCalendar').innerHTML = `<small style="color: #ef4444;">0 rooms available (all ${result.booked_rooms} rooms booked)</small>`;
@@ -3294,6 +3311,7 @@ window.submitReservation = async function(event) {
     let successCount = 0;
     let errorCount = 0;
     const bookingCodes = [];
+    const errorMessages = [];
     
     // Create booking for each room
     for (let i = 0; i < checkedRooms.length; i++) {
@@ -3305,16 +3323,24 @@ window.submitReservation = async function(event) {
         // Calculate proportional payment
         const proportionalPayment = totalPrice > 0 ? (paidAmount * (roomPrice / totalPrice)) : 0;
         
-        // Create FormData for API
+        // Create FormData for API - FIELD NAMES MUST MATCH API EXPECTATIONS
+        const roomBasePrice = parseFloat(checkbox.dataset.price);
+        const roomTotalPrice = roomBasePrice * nights;
+        const roomFinalPrice = roomTotalPrice - discountPerRoom;
+        
         const formData = new FormData();
         formData.append('guest_name', guestName);
         formData.append('guest_phone', guestPhone);
         formData.append('room_id', roomId);
-        formData.append('check_in', checkIn);
-        formData.append('check_out', checkOut);
-        formData.append('adults', adultCount);
-        formData.append('children', 0);
-        formData.append('final_price', roomPrice);
+        formData.append('check_in_date', checkIn);  // API expects check_in_date
+        formData.append('check_out_date', checkOut); // API expects check_out_date
+        formData.append('total_nights', nights);
+        formData.append('adult_count', adultCount);
+        formData.append('children_count', 0);
+        formData.append('room_price', roomBasePrice);  // API expects room_price (per night)
+        formData.append('total_price', roomTotalPrice); // API expects total_price
+        formData.append('discount', discountPerRoom);
+        formData.append('final_price', roomFinalPrice);
         formData.append('booking_source', bookingSource);
         formData.append('payment_method', paymentMethod);
         formData.append('paid_amount', proportionalPayment);
@@ -3326,17 +3352,31 @@ window.submitReservation = async function(event) {
                 body: formData
             });
             
-            const result = await response.json();
+            // Get raw text first for debugging
+            const responseText = await response.text();
+            let result;
+            
+            try {
+                result = JSON.parse(responseText);
+            } catch (parseErr) {
+                console.error(`Room ${roomNumber} - Invalid JSON response:`, responseText);
+                errorMessages.push(`Room ${roomNumber}: Server error`);
+                errorCount++;
+                continue;
+            }
             
             if (result.success) {
                 successCount++;
                 bookingCodes.push(result.booking_code);
             } else {
                 errorCount++;
-                console.error(`Error booking Room ${roomNumber}:`, result.message);
+                const errMsg = result.message || 'Unknown error';
+                errorMessages.push(`Room ${roomNumber}: ${errMsg}`);
+                console.error(`Error booking Room ${roomNumber}:`, errMsg);
             }
         } catch (error) {
             errorCount++;
+            errorMessages.push(`Room ${roomNumber}: Network error`);
             console.error(`Error booking Room ${roomNumber}:`, error);
         }
     }
@@ -3347,11 +3387,12 @@ window.submitReservation = async function(event) {
     
     // Show results
     if (successCount > 0) {
-        alert(`✅ Berhasil membuat ${successCount} booking!\n\nBooking Codes: ${bookingCodes.join(', ')}\n\n${errorCount > 0 ? `⚠️ ${errorCount} booking gagal dibuat.` : ''}`);
+        alert(`✅ Berhasil membuat ${successCount} booking!\n\nBooking Codes: ${bookingCodes.join(', ')}\n\n${errorCount > 0 ? `⚠️ ${errorCount} booking gagal:\n${errorMessages.join('\n')}` : ''}`);
         closeReservationModal();
         location.reload(); // Refresh to show new bookings
     } else {
-        alert('❌ Gagal membuat booking. Silakan coba lagi.');
+        const errDetail = errorMessages.length > 0 ? `\n\nDetail error:\n${errorMessages.join('\n')}` : '';
+        alert('❌ Gagal membuat booking. Silakan coba lagi.' + errDetail);
     }
 }
 
