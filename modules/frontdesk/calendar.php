@@ -5000,7 +5000,16 @@ body[data-theme="dark"] .modal-footer-modern {
             method: 'POST',
             body: formData
         })
-        .then(r => r.json())
+        .then(r => {
+            if (!r.ok) {
+                return r.text().then(text => {
+                    throw { status: r.status, statusText: r.statusText, body: text };
+                });
+            }
+            return r.json().catch(err => {
+                throw { parseError: true, message: 'Response bukan JSON', body: text };
+            });
+        })
         .then(data => {
             if (data.success) {
                 alert('✅ ' + data.message + '\n\nHarga baru: Rp ' + new Intl.NumberFormat('id-ID').format(data.data.final_price));
@@ -5010,7 +5019,15 @@ body[data-theme="dark"] .modal-footer-modern {
             }
         })
         .catch(err => {
-            alert('❌ Error: ' + err.message);
+            if (err.status) {
+                console.error('API Error:', err);
+                alert('❌ Error ' + err.status + ':\n' + err.body.substring(0, 300));
+            } else if (err.parseError) {
+                console.error('Parse Error:', err);
+                alert('❌ Respons server tidak valid:\n' + err.body.substring(0, 300));
+            } else {
+                alert('❌ Error: ' + err.message);
+            }
         });
         
         // Clean up
@@ -5069,7 +5086,16 @@ window.submitExtendStay = function() {
         method: 'POST',
         body: formData
     })
-    .then(r => r.json())
+    .then(r => {
+        if (!r.ok) {
+            return r.text().then(text => {
+                throw { status: r.status, statusText: r.statusText, body: text };
+            });
+        }
+        return r.json().catch(err => {
+            throw { parseError: true, message: 'Response bukan JSON' };
+        });
+    })
     .then(data => {
         if (data.success) {
             alert('✅ ' + data.message + '\n\nTambahan: Rp ' + new Intl.NumberFormat('id-ID').format(data.data.additional_price));
@@ -5079,23 +5105,55 @@ window.submitExtendStay = function() {
             alert('❌ ' + data.message);
         }
     })
-    .catch(err => alert('❌ Error: ' + err.message));
+    .catch(err => {
+        if (err.status) {
+            console.error('API Error:', err);
+            alert('❌ Error ' + err.status + ':\n' + err.body.substring(0, 300));
+        } else if (err.parseError) {
+            console.error('Parse Error:', err);
+            alert('❌ Respons server tidak valid');
+        } else {
+            alert('❌ Error: ' + err.message);
+        }
+    });
 };
 
 // ===== EDIT RESERVATION FUNCTIONS =====
 window.openEditReservationModal = function(bookingId) {
     // Fetch booking details
     fetch('../../api/get-booking-details.php?id=' + bookingId)
-    .then(r => r.text())
+    .then(r => {
+        // Check status code
+        if (!r.ok) {
+            return r.text().then(text => {
+                throw { 
+                    status: r.status, 
+                    statusText: r.statusText, 
+                    body: text 
+                };
+            });
+        }
+        return r.text();
+    })
     .then(text => {
         let data;
         try { data = JSON.parse(text); } catch(e) {
+            console.error('❌ JSON Parse Error:', e);
             console.error('Raw response:', text);
-            alert('❌ Server error - response bukan JSON');
+            
+            // Try to extract error message from HTML error response
+            let errorMsg = 'Server Error: Respons bukan JSON';
+            if (text.includes('Fatal error') || text.includes('Error')) {
+                const match = text.match(/Fatal error.*?:<\/b>\s*(.+?)(?:<br|<\/|$)/i);
+                if (match) errorMsg = 'Server Error: ' + match[1];
+            }
+            
+            alert('❌ ' + errorMsg + '\n\nSilakan cek console browser untuk detail lengkap.');
+            console.error('Full error response:', text);
             return;
         }
         if (!data.success) {
-            alert('❌ ' + data.message);
+            alert('❌ ' + (data.message || 'Gagal load data'));
             return;
         }
         const b = data.booking;
@@ -5113,7 +5171,17 @@ window.openEditReservationModal = function(bookingId) {
         updateEditResInfo();
         document.getElementById('editResModal').classList.add('active');
     })
-    .catch(err => alert('❌ Error loading data: ' + err.message));
+    .catch(err => {
+        if (err.status) {
+            // HTTP Error
+            let errorMsg = '❌ Error ' + err.status + ' (' + err.statusText + '):\n' + err.body.substring(0, 200);
+            console.error('HTTP Error Response:', err);
+            alert(errorMsg);
+        } else {
+            // Network error
+            alert('❌ Network Error: ' + err.message);
+        }
+    });
 };
 
 window.closeEditResModal = function() {
@@ -5161,7 +5229,16 @@ window.submitEditReservation = function() {
         method: 'POST',
         body: formData
     })
-    .then(r => r.json())
+    .then(r => {
+        if (!r.ok) {
+            return r.text().then(text => {
+                throw { status: r.status, statusText: r.statusText, body: text };
+            });
+        }
+        return r.json().catch(err => {
+            throw { parseError: true, message: 'Response bukan JSON' };
+        });
+    })
     .then(data => {
         if (data.success) {
             alert('✅ ' + data.message);
@@ -5171,7 +5248,17 @@ window.submitEditReservation = function() {
             alert('❌ ' + data.message);
         }
     })
-    .catch(err => alert('❌ Error: ' + err.message));
+    .catch(err => {
+        if (err.status) {
+            console.error('API Error:', err);
+            alert('❌ Error ' + err.status + ':\n' + err.body.substring(0, 300));
+        } else if (err.parseError) {
+            console.error('Parse Error:', err);
+            alert('❌ Respons server tidak valid');
+        } else {
+            alert('❌ Error: ' + err.message);
+        }
+    });
 };
 </script>
 
