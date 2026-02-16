@@ -155,24 +155,54 @@ try {
                 // Insert expense record for refund in business database
                 $refundDesc = "Refund pembatalan {$booking['booking_code']} - {$booking['guest_name']} ({$refundPolicy})";
                 
-                // Get frontdesk division ID - try to find it or use NULL
-                $divisionStmt = $pdo->prepare("SELECT id FROM divisions WHERE LOWER(name) LIKE '%front%' OR LOWER(name) LIKE '%reserv%' LIMIT 1");
+                // Get Hotel/Front Desk division ID (ID 5 = Hotel)
+                $divisionStmt = $pdo->prepare("
+                    SELECT id FROM divisions 
+                    WHERE LOWER(division_name) LIKE '%hotel%' 
+                       OR LOWER(division_name) LIKE '%front%' 
+                       OR LOWER(division_name) LIKE '%reserv%'
+                    LIMIT 1
+                ");
                 $divisionStmt->execute();
-                $divisionId = $divisionStmt->fetchColumn() ?: null;
+                $divisionId = $divisionStmt->fetchColumn() ?: 5; // Default to Hotel (ID 5)
+                
+                // Get or create Refund category
+                $categoryStmt = $pdo->prepare("
+                    SELECT id FROM categories 
+                    WHERE LOWER(category_name) LIKE '%refund%' 
+                      AND category_type = 'expense'
+                    LIMIT 1
+                ");
+                $categoryStmt->execute();
+                $categoryId = $categoryStmt->fetchColumn();
+                
+                if (!$categoryId) {
+                    // Create Refund category if not exists
+                    $createCatStmt = $pdo->prepare("
+                        INSERT INTO categories (branch_id, division_id, category_name, category_type, description, is_active, created_at)
+                        VALUES ('narayana-hotel', ?, 'Refund Booking', 'expense', 'Refund untuk pembatalan booking', 1, NOW())
+                    ");
+                    $createCatStmt->execute([$divisionId]);
+                    $categoryId = $pdo->lastInsertId();
+                    error_log("REFUND DEBUG: Created new Refund category ID: {$categoryId}");
+                }
+                
+                error_log("REFUND DEBUG: Using Division ID: {$divisionId}, Category ID: {$categoryId}");
                 
                 $insertStmt = $pdo->prepare("
                     INSERT INTO cash_book (
                         transaction_date, transaction_time, transaction_type, 
-                        division_id, description, amount, payment_method,
+                        division_id, category_id, description, amount, payment_method,
                         cash_account_id, created_by, created_at
                     ) VALUES (
                         CURDATE(), CURTIME(), 'expense',
-                        ?, ?, ?, 'cash',
+                        ?, ?, ?, ?, 'cash',
                         ?, ?, NOW()
                     )
                 ");
                 $insertStmt->execute([
                     $divisionId,
+                    $categoryId,
                     $refundDesc,
                     $finalRefundAmount,
                     $cashAccount['id'],
