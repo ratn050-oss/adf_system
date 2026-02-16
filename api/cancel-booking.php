@@ -155,24 +155,27 @@ try {
                 // Insert expense record for refund in business database
                 $refundDesc = "Refund pembatalan {$booking['booking_code']} - {$booking['guest_name']} ({$refundPolicy})";
                 
+                // Get frontdesk division ID - try to find it or use NULL
+                $divisionStmt = $pdo->prepare("SELECT id FROM divisions WHERE LOWER(name) LIKE '%front%' OR LOWER(name) LIKE '%reserv%' LIMIT 1");
+                $divisionStmt->execute();
+                $divisionId = $divisionStmt->fetchColumn() ?: null;
+                
                 $insertStmt = $pdo->prepare("
                     INSERT INTO cash_book (
                         transaction_date, transaction_time, transaction_type, 
-                        category, amount, description, 
-                        cash_account_id, reference_id, reference_type,
-                        created_by, created_at
+                        division_id, description, amount, payment_method,
+                        cash_account_id, created_by, created_at
                     ) VALUES (
                         CURDATE(), CURTIME(), 'expense',
-                        'refund', ?, ?,
-                        ?, ?, 'booking_refund',
-                        ?, NOW()
+                        ?, ?, ?, 'cash',
+                        ?, ?, NOW()
                     )
                 ");
                 $insertStmt->execute([
-                    $finalRefundAmount,
+                    $divisionId,
                     $refundDesc,
+                    $finalRefundAmount,
                     $cashAccount['id'],
-                    $bookingId,
                     $currentUser['id']
                 ]);
                 
