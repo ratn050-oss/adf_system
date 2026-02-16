@@ -43,7 +43,22 @@ try {
     }
 
     // Check if project exists
-    $stmt = $db->prepare("SELECT id, COALESCE(project_name, name, 'Project') as project_name FROM projects WHERE id = ?");
+    // First, detect available columns
+    try {
+        $stmt = $db->query("DESCRIBE projects");
+        $columnsInfo = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $columns = array_column($columnsInfo, 'Field');
+    } catch (Exception $e) {
+        $columns = ['id', 'name']; // fallback
+    }
+    
+    // Build name query dynamically
+    $name_col = 'COALESCE(';
+    if (in_array('project_name', $columns)) $name_col .= 'project_name, ';
+    if (in_array('name', $columns)) $name_col .= 'name, ';
+    $name_col .= "'Project') as project_name";
+    
+    $stmt = $db->prepare("SELECT id, $name_col FROM projects WHERE id = ?");
     $stmt->execute([$project_id]);
     $project = $stmt->fetch(PDO::FETCH_ASSOC);
 
