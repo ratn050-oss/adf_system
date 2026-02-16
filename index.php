@@ -898,25 +898,27 @@ if ($trialStatus) {
                 legend: {
                     position: 'bottom',
                     labels: {
-                        padding: 15,
+                        padding: 12,
                         font: { 
-                            size: 14, 
-                            weight: 'bold',
+                            size: 10, 
+                            weight: '400',
                             family: "'Inter', sans-serif"
                         },
                         color: getLegendTextColor(),
                         usePointStyle: true,
                         pointStyle: 'circle',
-                        boxWidth: 12,
-                        boxHeight: 12
+                        boxWidth: 8,
+                        boxHeight: 8
                     }
                 },
                 tooltip: {
                     backgroundColor: 'rgba(15, 23, 42, 0.95)',
-                    padding: 12,
-                    titleFont: { size: 14, weight: '700' },
-                    bodyFont: { size: 13 },
-                    cornerRadius: 8,
+                    padding: 10,
+                    titleFont: { size: 11, weight: '500' },
+                    bodyFont: { size: 10, weight: '400' },
+                    titleColor: 'rgba(255, 255, 255, 0.9)',
+                    bodyColor: 'rgba(255, 255, 255, 0.85)',
+                    cornerRadius: 6,
                     callbacks: {
                         label: function(context) {
                             let label = context.label || '';
@@ -978,24 +980,26 @@ if ($trialStatus) {
                 legend: {
                     position: 'bottom',
                     labels: {
-                        padding: 15,
+                        padding: 12,
                         font: { 
-                            size: 14, 
-                            weight: 'bold' 
+                            size: 10, 
+                            weight: '400' 
                         },
                         color: getLegendTextColor(),
                         usePointStyle: true,
                         pointStyle: 'circle',
-                        boxWidth: 12,
-                        boxHeight: 12
+                        boxWidth: 8,
+                        boxHeight: 8
                     }
                 },
                 tooltip: {
                     backgroundColor: 'rgba(15, 23, 42, 0.95)',
-                    padding: 12,
-                    titleFont: { size: 14, weight: '700' },
-                    bodyFont: { size: 13 },
-                    cornerRadius: 8,
+                    padding: 10,
+                    titleFont: { size: 11, weight: '500' },
+                    bodyFont: { size: 10, weight: '400' },
+                    titleColor: 'rgba(255, 255, 255, 0.9)',
+                    bodyColor: 'rgba(255, 255, 255, 0.85)',
+                    cornerRadius: 6,
                     callbacks: {
                         label: function(context) {
                             let label = context.label || '';
@@ -1171,42 +1175,42 @@ if ($trialStatus) {
                     position: 'top',
                     align: 'end',
                     labels: {
-                        padding: 20,
+                        padding: 15,
                         font: { 
-                            size: 11, 
-                            weight: '600',
+                            size: 10, 
+                            weight: '400',
                             family: "'Inter', sans-serif"
                         },
                         color: getLegendTextColor(),
                         usePointStyle: true,
                         pointStyle: 'circle',
-                        boxWidth: 10,
-                        boxHeight: 10
+                        boxWidth: 8,
+                        boxHeight: 8
                     }
                 },
                 tooltip: {
                     enabled: true,
-                    backgroundColor: 'rgba(15, 23, 42, 0.98)',
-                    titleColor: '#fff',
-                    bodyColor: '#fff',
-                    borderColor: 'rgba(99, 102, 241, 0.5)',
-                    borderWidth: 2,
-                    padding: 16,
+                    backgroundColor: 'rgba(15, 23, 42, 0.95)',
+                    titleColor: 'rgba(255, 255, 255, 0.9)',
+                    bodyColor: 'rgba(255, 255, 255, 0.85)',
+                    borderColor: 'rgba(99, 102, 241, 0.3)',
+                    borderWidth: 1,
+                    padding: 12,
                     titleFont: { 
-                        size: 15, 
-                        weight: '800',
+                        size: 11, 
+                        weight: '500',
                         family: "'Inter', sans-serif"
                     },
                     bodyFont: { 
-                        size: 14,
-                        weight: '600',
+                        size: 10,
+                        weight: '400',
                         family: "'Inter', sans-serif"
                     },
-                    cornerRadius: 12,
+                    cornerRadius: 8,
                     displayColors: true,
-                    boxWidth: 12,
-                    boxHeight: 12,
-                    boxPadding: 8,
+                    boxWidth: 8,
+                    boxHeight: 8,
+                    boxPadding: 4,
                     callbacks: {
                         title: function(context) {
                             return 'Tanggal ' + context[0].label + ' <?php echo date('M Y', strtotime($firstDay)); ?>';
@@ -1220,7 +1224,7 @@ if ($trialStatus) {
                             let income = tooltipItems.find(item => item.dataset.label === 'Pemasukan')?.parsed.y || 0;
                             let expense = tooltipItems.find(item => item.dataset.label === 'Pengeluaran')?.parsed.y || 0;
                             let net = income - expense;
-                            return '─────────────────\nNet Hari Ini: Rp ' + net.toLocaleString('id-ID');
+                            return '───────────────\nNet Hari Ini: Rp ' + net.toLocaleString('id-ID');
                         },
                         footerColor: function(tooltipItems) {
                             let income = tooltipItems[0].dataset.label === 'Pemasukan' ? tooltipItems[0].parsed.y : (tooltipItems[1]?.parsed.y || 0);
@@ -1230,9 +1234,10 @@ if ($trialStatus) {
                         }
                     },
                     footerFont: {
-                        size: 13,
-                        weight: '700'
-                    }
+                        size: 10,
+                        weight: '400'
+                    },
+                    footerColor: 'rgba(255, 255, 255, 0.7)'
                 }
             },
             scales: {
