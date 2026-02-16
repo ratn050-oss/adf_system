@@ -7,7 +7,9 @@
 require_once 'config/config.php';
 
 // Check if user has admin access
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 if (!isset($_SESSION['user_id'])) {
     die('Access denied. Please login first.');
 }
@@ -60,7 +62,7 @@ try {
         echo "<code>" . htmlspecialchars($preview) . "</code><br>";
         
         try {
-            $result = $db->execute($query);
+            $result = $db->query($query);
             echo "<span style='color: green;'>✓ SUCCESS</span>";
             $successCount++;
         } catch (Exception $e) {

@@ -213,18 +213,18 @@ class CloudbedPMS {
             catatan, created_at, updated_at
         ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())";
         
-        $this->db->execute($sql, [
-            $adfReservation['cloudbed_reservation_id'],
-            $guestId,
-            $adfReservation['tanggal_checkin'],
-            $adfReservation['tanggal_checkout'],
-            $adfReservation['tipe_kamar'],
-            $adfReservation['jumlah_tamu'],
-            $adfReservation['total_harga'],
-            $adfReservation['status_reservasi'],
-            $adfReservation['sumber_reservasi'],
-            $adfReservation['catatan']
-        ]);
+            $this->db->query($sql, [
+                $adfReservation['cloudbed_reservation_id'],
+                $guestId,
+                $adfReservation['tanggal_checkin'],
+                $adfReservation['tanggal_checkout'],
+                $adfReservation['tipe_kamar'],
+                $adfReservation['jumlah_tamu'],
+                $adfReservation['total_harga'],
+                $adfReservation['status_reservasi'],
+                $adfReservation['sumber_reservasi'],
+                $adfReservation['catatan']
+            ]);
     }
     
     /**
@@ -237,7 +237,7 @@ class CloudbedPMS {
             catatan = ?, updated_at = NOW()
             WHERE reservasi_id = ?";
         
-        $this->db->execute($sql, [
+        $this->db->query($sql, [
             $adfReservation['tanggal_checkin'],
             $adfReservation['tanggal_checkout'],
             $adfReservation['tipe_kamar'],
@@ -264,17 +264,17 @@ class CloudbedPMS {
         
         if ($existing) {
             // Update existing guest
-            $this->db->execute("UPDATE guest SET nama_tamu = ?, email = ?, no_telp = ?, alamat = ?, updated_at = NOW() WHERE guest_id = ?", [
+            $this->db->query("UPDATE guest SET nama_tamu = ?, email = ?, no_telp = ?, alamat = ?, updated_at = NOW() WHERE guest_id = ?", [
                 $guestData['nama_tamu'], $guestData['email'], $guestData['no_telp'], 
                 $guestData['alamat'], $existing['guest_id']
             ]);
             return $existing['guest_id'];
         } else {
             // Create new guest
-            $this->db->execute("INSERT INTO guest (nama_tamu, email, no_telp, alamat, created_at, updated_at) VALUES (?, ?, ?, ?, NOW(), NOW())", [
+            $this->db->query("INSERT INTO guest (nama_tamu, email, no_telp, alamat, created_at, updated_at) VALUES (?, ?, ?, ?, NOW(), NOW())", [
                 $guestData['nama_tamu'], $guestData['email'], $guestData['no_telp'], $guestData['alamat']
             ]);
-            return $this->db->lastInsertId();
+            return $this->db->getConnection()->lastInsertId();
         }
     }
     
@@ -304,8 +304,8 @@ class CloudbedPMS {
             $cloudbedReservationId = $result['data']['data']['reservationID'];
             
             // Update ADF reservation with Cloudbed ID
-            $this->db->execute("UPDATE reservasi SET cloudbed_reservation_id = ?, updated_at = NOW() WHERE reservasi_id = ?", 
-                             [$cloudbedReservationId, $reservationId]);
+            $this->db->query("UPDATE reservasi SET cloudbed_reservation_id = ?, updated_at = NOW() WHERE reservasi_id = ?", 
+                           [$cloudbedReservationId, $reservationId]);
             
             return [
                 'success' => true,
@@ -482,7 +482,7 @@ class CloudbedPMS {
      */
     private function logAPIUsage($endpoint, $method, $httpCode, $requestData) {
         try {
-            $this->db->execute("INSERT INTO cloudbed_api_log (endpoint, method, http_code, request_data, created_at) VALUES (?, ?, ?, ?, NOW())", 
+            $this->db->query("INSERT INTO cloudbed_api_log (endpoint, method, http_code, request_data, created_at) VALUES (?, ?, ?, ?, NOW())", 
             [$endpoint, $method, $httpCode, json_encode($requestData)]);
         } catch (Exception $e) {
             // Ignore logging errors

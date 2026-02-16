@@ -66,7 +66,7 @@ class AIHotelService {
         
         if ($responseResult['success']) {
             // Save analysis to database for tracking
-            $this->db->execute("INSERT INTO review_analysis (
+            $this->db->query("INSERT INTO review_analysis (
                 review_text, rating, platform, sentiment, analysis_data, 
                 suggested_response, created_at
             ) VALUES (?, ?, ?, ?, ?, ?, NOW())", [
@@ -208,7 +208,7 @@ class AIHotelService {
         }
         
         // Save report to database
-        $this->db->execute("INSERT INTO daily_reports (
+        $this->db->query("INSERT INTO daily_reports (
             report_date, occupancy_rate, total_revenue, guest_count, 
             ai_summary, report_data, created_at
         ) VALUES (?, ?, ?, ?, ?, ?, NOW())", [

@@ -60,7 +60,7 @@ try {
         echo "<code>" . htmlspecialchars($preview) . "</code><br>";
         
         try {
-            $result = $db->execute($query);
+            $result = $db->query($query);
             echo "<span style='color: green;'>✓ SUCCESS</span>";
             $successCount++;
         } catch (Exception $e) {

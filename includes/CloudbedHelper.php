@@ -66,7 +66,7 @@ class CloudbedHelper {
         if ($result['success'] && isset($result['data']['access_token'])) {
             // Save access token to database
             $db = Database::getInstance();
-            $db->execute("INSERT INTO settings (setting_key, setting_value) VALUES ('cloudbed_access_token', ?) 
+            $db->query("INSERT INTO settings (setting_key, setting_value) VALUES ('cloudbed_access_token', ?) 
                          ON DUPLICATE KEY UPDATE setting_value = ?", 
                         [$result['data']['access_token'], $result['data']['access_token']]);
             
@@ -193,7 +193,7 @@ class CloudbedHelper {
                     country = VALUES(country),
                     updated_at = NOW()";
                 
-                $db->execute($sql, [
+                $db->query($sql, [
                     $guestData['guestID'],
                     $guestData['guestFirstName'] ?? '',
                     $guestData['guestLastName'] ?? '',
@@ -251,7 +251,7 @@ class CloudbedHelper {
         if ($result['success']) {
             // Update local reservation with Cloudbed ID
             $cloudbedReservationId = $result['data']['data']['reservationID'];
-            $db->execute("UPDATE reservasi SET cloudbed_reservation_id = ? WHERE reservasi_id = ?", 
+            $db->query("UPDATE reservasi SET cloudbed_reservation_id = ? WHERE reservasi_id = ?", 
                         [$cloudbedReservationId, $localReservationId]);
         }
         
