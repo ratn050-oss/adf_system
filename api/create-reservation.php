@@ -181,6 +181,16 @@ try {
     
     $bookingId = $db->getConnection()->lastInsertId();
     
+    // ==========================================
+    // Initialize variables before payment check
+    // ==========================================
+    $cashbookInserted = false;
+    $cashbookMessage = '';
+    $cashAccountName = '';
+    $otaFeePercent = 0;
+    $otaFeeAmount = 0;
+    $netAmount = $paidAmount; // Use paidAmount for calculations
+    
     // Create initial payment record if paid amount exists
     if ($paidAmount > 0) {
         $columnInfo = $db->fetchOne("SHOW COLUMNS FROM booking_payments LIKE 'payment_method'");
@@ -205,14 +215,6 @@ try {
         // ==========================================
         // AUTO-INSERT TO CASHBOOK SYSTEM
         // ==========================================
-        $cashbookInserted = false;
-        $cashbookMessage = '';
-        $cashAccountName = '';
-        
-        // Initialize OTA fee variables OUTSIDE try block for accessibility
-        $otaFeePercent = 0;
-        $otaFeeAmount = 0;
-        $netAmount = $paidAmount;
         
         try {
             // Get master database connection
