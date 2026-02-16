@@ -400,6 +400,117 @@ include '../../includes/header.php';
         padding: 0.5rem;
     }
 }
+
+/* Cancel Modal Styles */
+.cancel-modal-overlay {
+    display: none;
+    position: fixed;
+    top: 0;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    background: rgba(0,0,0,0.6);
+    z-index: 9999;
+    justify-content: center;
+    align-items: center;
+}
+.cancel-modal-overlay.active {
+    display: flex;
+}
+.cancel-modal {
+    background: white;
+    border-radius: 12px;
+    width: 90%;
+    max-width: 480px;
+    box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+    overflow: hidden;
+}
+.cancel-modal-header {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: white;
+    padding: 1.2rem;
+    font-weight: 700;
+    font-size: 1.1rem;
+}
+.cancel-modal-body {
+    padding: 1.5rem;
+}
+.cancel-booking-info {
+    background: #f8fafc;
+    border-radius: 8px;
+    padding: 1rem;
+    margin-bottom: 1rem;
+}
+.cancel-booking-info h4 {
+    margin: 0 0 0.5rem 0;
+    color: #1e293b;
+}
+.cancel-booking-info p {
+    margin: 0.3rem 0;
+    color: #64748b;
+    font-size: 0.9rem;
+}
+.refund-policy-box {
+    border: 2px solid #e2e8f0;
+    border-radius: 8px;
+    padding: 1rem;
+    margin: 1rem 0;
+    text-align: center;
+}
+.refund-policy-label {
+    font-size: 0.85rem;
+    color: #64748b;
+    margin-bottom: 0.3rem;
+}
+.refund-policy-value {
+    font-size: 1.1rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+}
+.refund-amount-row {
+    display: flex;
+    justify-content: space-between;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid #e2e8f0;
+}
+.refund-amount-row:last-child {
+    border-bottom: none;
+    font-weight: 700;
+}
+.refund-amount-row.refund {
+    color: #10b981;
+}
+.refund-amount-row.forfeit {
+    color: #ef4444;
+}
+.cancel-modal-actions {
+    display: flex;
+    gap: 0.5rem;
+    padding: 1rem 1.5rem;
+    background: #f8fafc;
+    justify-content: flex-end;
+}
+.cancel-modal-actions button {
+    padding: 0.7rem 1.5rem;
+    border-radius: 6px;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+}
+.btn-cancel-modal {
+    background: #e2e8f0;
+    color: #475569;
+}
+.btn-cancel-modal:hover {
+    background: #cbd5e1;
+}
+.btn-confirm-cancel {
+    background: #ef4444;
+    color: white;
+}
+.btn-confirm-cancel:hover {
+    background: #dc2626;
+}
 </style>
 
 <div class="reservasi-container">
@@ -949,6 +1060,55 @@ include '../../includes/header.php';
 }
 </style>
 
+<!-- Cancel Booking Modal -->
+<div id="cancelBookingModal" class="cancel-modal-overlay">
+    <div class="cancel-modal">
+        <div class="cancel-modal-header">
+            ⚠️ Konfirmasi Pembatalan Reservasi
+        </div>
+        <div class="cancel-modal-body">
+            <div class="cancel-booking-info">
+                <h4 id="cancelBookingCode">-</h4>
+                <p><strong>Tamu:</strong> <span id="cancelGuestName">-</span></p>
+                <p><strong>Check-in:</strong> <span id="cancelCheckIn">-</span></p>
+                <p><strong>Check-out:</strong> <span id="cancelCheckOut">-</span></p>
+            </div>
+            
+            <div class="refund-policy-box" id="refundPolicyBox">
+                <div class="refund-policy-label">Kebijakan Refund</div>
+                <div class="refund-policy-value" id="refundPolicyLabel">Loading...</div>
+                <small id="refundDaysInfo"></small>
+            </div>
+            
+            <div style="margin-top: 1rem;">
+                <div class="refund-amount-row">
+                    <span>Total Dibayar</span>
+                    <span id="cancelPaidAmount">Rp 0</span>
+                </div>
+                <div class="refund-amount-row refund">
+                    <span>Refund (<span id="refundPercentage">0</span>%)</span>
+                    <span id="cancelRefundAmount">Rp 0</span>
+                </div>
+                <div class="refund-amount-row forfeit">
+                    <span>Hangus</span>
+                    <span id="cancelForfeitAmount">Rp 0</span>
+                </div>
+            </div>
+            
+            <p style="margin-top: 1rem; font-size: 0.85rem; color: #64748b;">
+                💡 Refund akan otomatis dicatat sebagai pengeluaran di Kas Besar
+            </p>
+        </div>
+        <div class="cancel-modal-actions">
+            <button class="btn-cancel-modal" onclick="closeCancelModal()">Batal</button>
+            <button class="btn-confirm-cancel" id="btnConfirmCancel" onclick="confirmCancelBooking()">
+                ❌ Ya, Batalkan Reservasi
+            </button>
+        </div>
+    </div>
+</div>
+<input type="hidden" id="cancelBookingId" value="">
+
 <script>
 function filterBookings(value) {
     window.location.search = '?status=' + value;
@@ -1449,6 +1609,115 @@ function openPaymentModal(bookingId, bookingCode, remainingAmount) {
 }
 
 function cancelBooking(id, bookingCode) {
+    // Show loading
+    document.getElementById('cancelBookingModal').classList.add('active');
+    document.getElementById('cancelBookingCode').textContent = bookingCode;
+    document.getElementById('cancelGuestName').textContent = 'Loading...';
+    document.getElementById('cancelBookingId').value = id;
+    
+    // Fetch refund preview
+    fetch(`../../api/get-refund-preview.php?booking_id=${id}`)
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const d = data.data;
+            document.getElementById('cancelGuestName').textContent = d.guest_name || '-';
+            document.getElementById('cancelCheckIn').textContent = formatDateID(d.check_in_date);
+            document.getElementById('cancelCheckOut').textContent = formatDateID(d.check_out_date);
+            document.getElementById('cancelPaidAmount').textContent = formatRupiah(d.paid_amount);
+            document.getElementById('refundPercentage').textContent = d.refund_percentage;
+            document.getElementById('cancelRefundAmount').textContent = formatRupiah(d.refund_amount);
+            document.getElementById('cancelForfeitAmount').textContent = formatRupiah(d.forfeit_amount);
+            
+            // Update policy box
+            const policyBox = document.getElementById('refundPolicyBox');
+            policyBox.style.borderColor = d.policy_color;
+            document.getElementById('refundPolicyLabel').textContent = `${d.refund_percentage}% Refund`;
+            document.getElementById('refundPolicyLabel').style.color = d.policy_color;
+            document.getElementById('refundDaysInfo').textContent = d.refund_policy + ` (${d.days_until_checkin} hari lagi)`;
+            
+            // Enable/disable confirm button based on refund
+            const btnConfirm = document.getElementById('btnConfirmCancel');
+            if (d.paid_amount <= 0) {
+                btnConfirm.textContent = '❌ Ya, Batalkan Reservasi';
+            } else if (d.refund_amount > 0) {
+                btnConfirm.textContent = `❌ Batalkan & Refund ${formatRupiah(d.refund_amount)}`;
+            } else {
+                btnConfirm.textContent = '❌ Batalkan (Tanpa Refund)';
+            }
+        } else {
+            alert('Error: ' + data.message);
+            closeCancelModal();
+        }
+    })
+    .catch(error => {
+        alert('Error loading refund data: ' + error.message);
+        closeCancelModal();
+    });
+}
+
+function closeCancelModal() {
+    document.getElementById('cancelBookingModal').classList.remove('active');
+    document.getElementById('cancelBookingId').value = '';
+}
+
+function confirmCancelBooking() {
+    const bookingId = document.getElementById('cancelBookingId').value;
+    if (!bookingId) return;
+    
+    const btn = document.getElementById('btnConfirmCancel');
+    btn.disabled = true;
+    btn.textContent = 'Processing...';
+    
+    fetch('../../api/cancel-booking.php', {
+        method: 'POST',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+            booking_id: bookingId
+        })
+    })
+    .then(response => response.json())
+    .then(data => {
+        if (data.success) {
+            const d = data.data;
+            let msg = `✅ Reservasi ${d.booking_code} berhasil dibatalkan!\n\n`;
+            msg += `Kebijakan: ${d.refund_policy}\n`;
+            if (d.refund_amount > 0) {
+                msg += `Refund: ${formatRupiah(d.refund_amount)}\n`;
+                if (d.refund_recorded) {
+                    msg += `\n💰 Refund telah dicatat di Kas Besar sebagai pengeluaran`;
+                }
+            }
+            alert(msg);
+            closeCancelModal();
+            location.reload();
+        } else {
+            alert('❌ Error: ' + data.message);
+            btn.disabled = false;
+            btn.textContent = '❌ Ya, Batalkan Reservasi';
+        }
+    })
+    .catch(error => {
+        alert('❌ Error: ' + error.message);
+        btn.disabled = false;
+        btn.textContent = '❌ Ya, Batalkan Reservasi';
+    });
+}
+
+function formatDateID(dateStr) {
+    if (!dateStr) return '-';
+    const d = new Date(dateStr);
+    return d.toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' });
+}
+
+function formatRupiah(amount) {
+    return 'Rp ' + parseInt(amount || 0).toLocaleString('id-ID');
+}
+
+function cancelBookingOld(id, bookingCode) {
+    // Old function kept for reference
     if (!confirm(`Yakin ingin CANCEL reservasi ${bookingCode}?\n\nStatus akan berubah menjadi CANCELLED`)) {
         return;
     }
