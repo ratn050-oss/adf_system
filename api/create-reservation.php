@@ -218,14 +218,37 @@ try {
         // ==========================================
         
         try {
-            // Get master database name (handles hosting vs local)
+            // Get master database name - Smart Detection for Hosting
             $masterDbName = defined('MASTER_DB_NAME') ? MASTER_DB_NAME : 'adf_system';
-            $masterDb = new PDO(
-                "mysql:host=" . DB_HOST . ";dbname=" . $masterDbName . ";charset=" . DB_CHARSET,
-                DB_USER,
-                DB_PASS,
-                [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
-            );
+            $masterDb = null;
+            
+            // Try connecting to configured Master DB
+            try {
+                $masterDb = new PDO(
+                    "mysql:host=" . DB_HOST . ";dbname=" . $masterDbName . ";charset=" . DB_CHARSET,
+                    DB_USER,
+                    DB_PASS,
+                    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+                );
+            } catch (\Throwable $mErr) {
+                // FALLBACK FOR HOSTING: If Master DB fails, try current DB
+                // This handles Single-DB hosting environments (common)
+                if (defined('DB_NAME')) {
+                    try {
+                        $masterDb = new PDO(
+                            "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET,
+                            DB_USER,
+                            DB_PASS,
+                            [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+                        );
+                    } catch (\Throwable $e2) {
+                         // Last resort: use current $db connection and pray
+                         $masterDb = $db->getConnection();
+                    }
+                } else {
+                    $masterDb = $db->getConnection();
+                }
+            }
             
             // Get business ID from session
             $businessId = $_SESSION['business_id'] ?? 1;

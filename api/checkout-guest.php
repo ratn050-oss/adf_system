@@ -100,13 +100,32 @@ try {
     // ==========================================
     $cashbookMsg = '';
     try {
-        // Get master database name (handles hosting vs local)
+        // Get master database name - Smart Detection for Hosting
         $masterDbName = defined('MASTER_DB_NAME') ? MASTER_DB_NAME : 'adf_system';
-        $masterDb = new PDO(
-            "mysql:host=" . DB_HOST . ";dbname=" . $masterDbName . ";charset=" . DB_CHARSET,
-            DB_USER, DB_PASS,
-            [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
-        );
+        $masterDb = null;
+        
+        try {
+            $masterDb = new PDO(
+                "mysql:host=" . DB_HOST . ";dbname=" . $masterDbName . ";charset=" . DB_CHARSET,
+                DB_USER, DB_PASS,
+                [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+            );
+        } catch (\Throwable $mErr) {
+             // Fallback: Use current DB as master for Single-DB Hosting
+             if (defined('DB_NAME')) {
+                 try {
+                     $masterDb = new PDO(
+                         "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET,
+                         DB_USER, DB_PASS,
+                         [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+                     );
+                 } catch (\Throwable $e2) {
+                     $masterDb = $db->getConnection();
+                 }
+             } else {
+                 $masterDb = $db->getConnection();
+             }
+        }
         $businessId = $_SESSION['business_id'] ?? 1;
 
         // Validate created_by user exists in business DB (login uses master DB)

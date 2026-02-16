@@ -59,11 +59,30 @@ try {
 
         if ($needsSync) {
             $masterDbName = defined('MASTER_DB_NAME') ? MASTER_DB_NAME : 'adf_system';
-            $masterDb = new PDO(
-                "mysql:host=" . DB_HOST . ";dbname=" . $masterDbName . ";charset=" . DB_CHARSET,
-                DB_USER, DB_PASS,
-                [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
-            );
+            $masterDb = null;
+            try {
+                $masterDb = new PDO(
+                    "mysql:host=" . DB_HOST . ";dbname=" . $masterDbName . ";charset=" . DB_CHARSET,
+                    DB_USER, DB_PASS,
+                    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+                );
+            } catch (\Throwable $masterErr) {
+                // FALLBACK: Use current DB connection if Master DB fails
+                // Critical for Single-DB Hosting environments
+                if (defined('DB_NAME')) {
+                    try {
+                        $masterDb = new PDO(
+                            "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET,
+                            DB_USER, DB_PASS,
+                            [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+                        );
+                    } catch (\Throwable $e2) {
+                        $masterDb = $db->getConnection();
+                    }
+                } else {
+                    $masterDb = $db->getConnection();
+                }
+            }
             $businessId = $_SESSION['business_id'] ?? 1;
 
             $cbUserId = $currentUser['id'] ?? 1;
