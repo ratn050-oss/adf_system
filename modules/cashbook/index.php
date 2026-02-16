@@ -195,25 +195,26 @@ try {
                     if ($hasSyncCol) {
                         try { $db->query("UPDATE booking_payments SET synced_to_cashbook = 1, cashbook_id = ? WHERE id = ?", [$transactionId, $payment['payment_id']]); } catch (\Throwable $e) {}
                     }
-                    
-                    // SMART FIX: Check if transaction_id column exists
-                    $hasTransIdCol = false;
-                    try {
-                        $chk = $masterDb->query("SHOW COLUMNS FROM cash_account_transactions LIKE 'transaction_id'");
-                        $hasTransIdCol = $chk && $chk->rowCount() > 0;
-                    } catch (\Throwable $e) {}
 
-                    if ($hasTransIdCol) {
-                        $masterDb->prepare("INSERT INTO cash_account_transactions (cash_account_id, transaction_id, transaction_date, description, amount, transaction_type, reference_number, created_by, created_at) VALUES (?, ?, DATE(?), ?, ?, 'income', ?, ?, NOW())")->execute([
-                            $account['id'], $transactionId, $payment['payment_date'], $desc, $netAmount, $payment['booking_code'], $cbUserId
-                        ]);
-                    } else {
-                        $masterDb->prepare("INSERT INTO cash_account_transactions (cash_account_id, transaction_date, description, amount, transaction_type, reference_number, created_by, created_at) VALUES (?, DATE(?), ?, ?, 'income', ?, ?, NOW())")->execute([
-                            $account['id'], $payment['payment_date'], $desc, $netAmount, $payment['booking_code'], $cbUserId
-                        ]);
-                    }
-                    
-                    $masterDb->prepare("UPDATE cash_accounts SET current_balance = current_balance + ? WHERE id = ?")->execute([$netAmount, $account['id']]);
+                    try {
+                        // SMART FIX: Check if transaction_id column exists
+                        $hasTransIdCol = false;
+                        try {
+                            $chk = $masterDb->query("SHOW COLUMNS FROM cash_account_transactions LIKE 'transaction_id'");
+                            $hasTransIdCol = $chk && $chk->rowCount() > 0;
+                        } catch (\Throwable $e) {}
+
+                        if ($hasTransIdCol) {
+                            $masterDb->prepare("INSERT INTO cash_account_transactions (cash_account_id, transaction_id, transaction_date, description, amount, transaction_type, reference_number, created_by, created_at) VALUES (?, ?, DATE(?), ?, ?, 'income', ?, ?, NOW())")->execute([
+                                $account['id'], $transactionId, $payment['payment_date'], $desc, $netAmount, $payment['booking_code'], $cbUserId
+                            ]);
+                        } else {
+                            $masterDb->prepare("INSERT INTO cash_account_transactions (cash_account_id, transaction_date, description, amount, transaction_type, reference_number, created_by, created_at) VALUES (?, DATE(?), ?, ?, 'income', ?, ?, NOW())")->execute([
+                                $account['id'], $payment['payment_date'], $desc, $netAmount, $payment['booking_code'], $cbUserId
+                            ]);
+                        }
+                        
+                        $masterDb->prepare("UPDATE cash_accounts SET current_balance = current_balance + ? WHERE id = ?")->execute([$netAmount, $account['id']]);
                     } catch (\Throwable $masterErr) {
                         error_log("Cashbook page master sync error: " . $masterErr->getMessage());
                     }
