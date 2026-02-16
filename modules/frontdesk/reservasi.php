@@ -780,7 +780,7 @@ include '../../includes/header.php';
                 <div class="form-row-2col">
                     <div class="input-compact">
                         <label>Booking Source</label>
-                        <select id="bookingSource" name="booking_source">
+                        <select id="bookingSource" name="booking_source" onchange="calculateMultiRoomTotal()">
                             <option value="walk_in">Direct (Walk-in)</option>
                             <option value="phone">Direct (Phone)</option>
                             <option value="agoda">Agoda</option>
@@ -828,6 +828,11 @@ include '../../includes/header.php';
                             <span id="discountTypeLabel" style="font-size: 0.8rem; color: #888; min-width: 30px;">Rp</span>
                         </div>
                         <div id="discountPreview" style="font-size: 0.75rem; color: #10b981; margin-top: 4px;"></div>
+                    </div>
+                    <div class="price-line" id="otaFeeRow" style="display: none; background: #fef3c7; padding: 8px; border-radius: 6px; margin: 4px 0;">
+                        <span style="color: #92400e;">OTA Fee (<span id="otaFeePercentDisplay">0</span>%):</span>
+                        <strong id="otaFeeAmountDisplay" style="color: #dc2626;">- Rp 0</strong>
+                        <input type="hidden" id="otaFeeAmount" name="ota_fee_amount" value="0">
                     </div>
                     <div class="price-line-total">
                         <span>GRAND TOTAL:</span>
@@ -1142,6 +1147,15 @@ include '../../includes/header.php';
 <input type="hidden" id="cancelBookingId" value="">
 
 <script>
+// OTA Fee percentages from settings
+var OTA_FEES = {
+<?php 
+foreach ($otaProviders as $key => $data) {
+    echo "    '$key': " . $data['fee'] . ",\n";
+}
+?>
+};
+
 function filterBookings(value) {
     window.location.search = '?status=' + value;
 }
@@ -1332,7 +1346,33 @@ function calculateMultiRoomTotal() {
         discountPreview.textContent = '';
     }
     
-    const grandTotal = subtotal - discountAmount;
+    // Calculate OTA Fee based on booking source
+    const bookingSource = document.getElementById('bookingSource').value;
+    const otaFeeRow = document.getElementById('otaFeeRow');
+    const otaFeePercentDisplay = document.getElementById('otaFeePercentDisplay');
+    const otaFeeAmountDisplay = document.getElementById('otaFeeAmountDisplay');
+    const otaFeeAmountInput = document.getElementById('otaFeeAmount');
+    
+    let otaFeePercent = 0;
+    let otaFeeAmount = 0;
+    
+    // Get OTA fee from settings
+    if (typeof OTA_FEES !== 'undefined' && OTA_FEES[bookingSource]) {
+        otaFeePercent = OTA_FEES[bookingSource];
+    }
+    
+    if (otaFeePercent > 0 && subtotal > 0) {
+        otaFeeAmount = Math.round(subtotal * (otaFeePercent / 100));
+        otaFeeRow.style.display = 'flex';
+        otaFeePercentDisplay.textContent = otaFeePercent;
+        otaFeeAmountDisplay.textContent = '- Rp ' + otaFeeAmount.toLocaleString('id-ID');
+        otaFeeAmountInput.value = otaFeeAmount;
+    } else {
+        otaFeeRow.style.display = 'none';
+        otaFeeAmountInput.value = 0;
+    }
+    
+    const grandTotal = subtotal - discountAmount - otaFeeAmount;
     
     // Update display
     document.getElementById('totalRoomsDisplay').textContent = totalRooms + ' room' + (totalRooms !== 1 ? 's' : '');
@@ -1395,14 +1435,23 @@ async function submitMultiRoomBooking(event) {
         discount = discountValue;
     }
     
+    // Calculate OTA fee
+    let otaFeePercent = 0;
+    let otaFeeAmount = 0;
+    if (typeof OTA_FEES !== 'undefined' && OTA_FEES[bookingSource]) {
+        otaFeePercent = OTA_FEES[bookingSource];
+        otaFeeAmount = Math.round(subtotal * (otaFeePercent / 100));
+    }
+    
     // Calculate discount per room (distribute equally)
     const discountPerRoom = discount / checkedRooms.length;
+    const otaFeePerRoom = otaFeeAmount / checkedRooms.length;
     
     // Calculate payment per room (distribute proportionally)
     let totalPrice = 0;
     const roomPrices = [];
     checkedRooms.forEach(checkbox => {
-        const price = parseFloat(checkbox.dataset.price) * nights - discountPerRoom;
+        const price = parseFloat(checkbox.dataset.price) * nights - discountPerRoom - otaFeePerRoom;
         roomPrices.push(price);
         totalPrice += price;
     });
@@ -1427,15 +1476,24 @@ async function submitMultiRoomBooking(event) {
         const proportionalPayment = totalPrice > 0 ? (paidAmount * (roomPrice / totalPrice)) : 0;
         
         // Create FormData for API
+        const roomBasePrice = parseFloat(checkbox.dataset.price);
+        const roomTotalPrice = roomBasePrice * nights;
+        const roomFinalPrice = roomTotalPrice - discountPerRoom - otaFeePerRoom;
+        
         const formData = new FormData();
         formData.append('guest_name', guestName);
         formData.append('guest_phone', guestPhone);
         formData.append('room_id', roomId);
-        formData.append('check_in', checkIn);
-        formData.append('check_out', checkOut);
+        formData.append('check_in_date', checkIn);
+        formData.append('check_out_date', checkOut);
+        formData.append('room_price', roomBasePrice);
+        formData.append('total_price', roomTotalPrice);
+        formData.append('total_nights', nights);
         formData.append('adults', 1);
         formData.append('children', 0);
-        formData.append('final_price', roomPrice);
+        formData.append('discount', discountPerRoom);
+        formData.append('ota_fee', otaFeePerRoom);
+        formData.append('final_price', roomFinalPrice);
         formData.append('booking_source', bookingSource);
         formData.append('payment_method', paymentMethod);
         formData.append('paid_amount', proportionalPayment);

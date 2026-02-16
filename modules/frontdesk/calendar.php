@@ -3015,6 +3015,11 @@ window.updateSourceDetails = function() {
     }
     
     calculateFinalPrice();
+    
+    // Also recalculate multi-room total if that modal is open
+    if (typeof calculateMultiRoomTotalCalendar === 'function') {
+        calculateMultiRoomTotalCalendar();
+    }
 }
 
 window.calculateFinalPrice = function() {
@@ -3290,7 +3295,33 @@ function calculateMultiRoomTotalCalendar() {
         discountPreview.textContent = '';
     }
     
-    const grandTotal = subtotal - discountAmount;
+    // Calculate OTA Fee based on booking source
+    const bookingSource = document.getElementById('bookingSource').value;
+    const otaFeeRow = document.getElementById('otaFeeRow');
+    const otaFeePercentDisplay = document.getElementById('otaFeePercentDisplay');
+    const otaFeeAmountDisplay = document.getElementById('otaFeeAmountDisplay');
+    const otaFeeAmountInput = document.getElementById('otaFeeAmount');
+    
+    let otaFeePercent = 0;
+    let otaFeeAmount = 0;
+    
+    // Get OTA fee from settings
+    if (typeof OTA_FEES !== 'undefined' && OTA_FEES[bookingSource]) {
+        otaFeePercent = OTA_FEES[bookingSource];
+    }
+    
+    if (otaFeePercent > 0 && subtotal > 0) {
+        otaFeeAmount = Math.round(subtotal * (otaFeePercent / 100));
+        otaFeeRow.style.display = 'flex';
+        otaFeePercentDisplay.textContent = otaFeePercent;
+        otaFeeAmountDisplay.textContent = '- Rp ' + otaFeeAmount.toLocaleString('id-ID');
+        otaFeeAmountInput.value = otaFeeAmount;
+    } else {
+        otaFeeRow.style.display = 'none';
+        otaFeeAmountInput.value = 0;
+    }
+    
+    const grandTotal = subtotal - discountAmount - otaFeeAmount;
     
     // Update display
     document.getElementById('totalRoomsDisplayCalendar').textContent = totalRooms + ' room' + (totalRooms !== 1 ? 's' : '');
@@ -3357,14 +3388,23 @@ window.submitReservation = async function(event) {
         discount = discountValue;
     }
     
+    // Calculate OTA fee
+    let otaFeePercent = 0;
+    let otaFeeAmount = 0;
+    if (typeof OTA_FEES !== 'undefined' && OTA_FEES[bookingSource]) {
+        otaFeePercent = OTA_FEES[bookingSource];
+        otaFeeAmount = Math.round(subtotal * (otaFeePercent / 100));
+    }
+    
     // Calculate discount per room (distribute equally)
     const discountPerRoom = discount / checkedRooms.length;
+    const otaFeePerRoom = otaFeeAmount / checkedRooms.length;
     
     // Calculate payment per room (distribute proportionally)
     let totalPrice = 0;
     const roomPrices = [];
     checkedRooms.forEach(checkbox => {
-        const price = parseFloat(checkbox.dataset.price) * nights - discountPerRoom;
+        const price = parseFloat(checkbox.dataset.price) * nights - discountPerRoom - otaFeePerRoom;
         roomPrices.push(price);
         totalPrice += price;
     });
@@ -3391,7 +3431,7 @@ window.submitReservation = async function(event) {
         // Create FormData for API - FIELD NAMES MUST MATCH API EXPECTATIONS
         const roomBasePrice = parseFloat(checkbox.dataset.price);
         const roomTotalPrice = roomBasePrice * nights;
-        const roomFinalPrice = roomTotalPrice - discountPerRoom;
+        const roomFinalPrice = roomTotalPrice - discountPerRoom - otaFeePerRoom;
         
         const formData = new FormData();
         formData.append('guest_name', guestName);
@@ -3405,6 +3445,7 @@ window.submitReservation = async function(event) {
         formData.append('room_price', roomBasePrice);  // API expects room_price (per night)
         formData.append('total_price', roomTotalPrice); // API expects total_price
         formData.append('discount', discountPerRoom);
+        formData.append('ota_fee', otaFeePerRoom);
         formData.append('final_price', roomFinalPrice);
         formData.append('booking_source', bookingSource);
         formData.append('payment_method', paymentMethod);
@@ -4099,6 +4140,11 @@ document.addEventListener('DOMContentLoaded', function() {
                             <span id="discountTypeLabel" style="font-size: 0.8rem; color: #888; min-width: 30px;">Rp</span>
                         </div>
                         <div id="discountPreview" style="font-size: 0.75rem; color: #10b981; margin-top: 4px;"></div>
+                    </div>
+                    <div class="price-line" id="otaFeeRow" style="display: none; background: #fef3c7; padding: 8px; border-radius: 6px; margin: 4px 0;">
+                        <span style="color: #92400e;">OTA Fee (<span id="otaFeePercentDisplay">0</span>%):</span>
+                        <strong id="otaFeeAmountDisplay" style="color: #dc2626;">- Rp 0</strong>
+                        <input type="hidden" id="otaFeeAmount" name="ota_fee_amount" value="0">
                     </div>
                     <div class="price-line-total">
                         <span>GRAND TOTAL:</span>
