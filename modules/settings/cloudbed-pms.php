@@ -5,10 +5,12 @@
  */
 
 require_once '../../config/config.php';
-require_once '../includes/CloudbedPMS.php';
+require_once '../../includes/CloudbedPMS.php';
 
 // Check if user is logged in
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 if (!isset($_SESSION['user_id'])) {
     header('Location: /adf_system/login.php');
     exit;
