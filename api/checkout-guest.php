@@ -246,9 +246,23 @@ try {
             }
 
             try {
-                $masterDb->prepare("INSERT INTO cash_account_transactions (cash_account_id, transaction_id, transaction_date, description, amount, transaction_type, reference_number, created_by, created_at) VALUES (?, ?, DATE(?), ?, ?, 'income', ?, ?, NOW())")->execute([
-                    $acct['id'], $txId, $pmt['payment_date'], $desc, $netAmt, $booking['booking_code'], $cbUserId
-                ]);
+                // SMART FIX: Check if transaction_id column exists
+                $hasTransIdCol = false;
+                try {
+                    $chk = $masterDb->query("SHOW COLUMNS FROM cash_account_transactions LIKE 'transaction_id'");
+                    $hasTransIdCol = $chk && $chk->rowCount() > 0;
+                } catch (\Throwable $e) {}
+
+                if ($hasTransIdCol) {
+                    $masterDb->prepare("INSERT INTO cash_account_transactions (cash_account_id, transaction_id, transaction_date, description, amount, transaction_type, reference_number, created_by, created_at) VALUES (?, ?, DATE(?), ?, ?, 'income', ?, ?, NOW())")->execute([
+                        $acct['id'], $txId, $pmt['payment_date'], $desc, $netAmt, $booking['booking_code'], $cbUserId
+                    ]);
+                } else {
+                    $masterDb->prepare("INSERT INTO cash_account_transactions (cash_account_id, transaction_date, description, amount, transaction_type, reference_number, created_by, created_at) VALUES (?, DATE(?), ?, ?, 'income', ?, ?, NOW())")->execute([
+                        $acct['id'], $pmt['payment_date'], $desc, $netAmt, $booking['booking_code'], $cbUserId
+                    ]);
+                }
+                
                 $masterDb->prepare("UPDATE cash_accounts SET current_balance = current_balance + ? WHERE id = ?")->execute([$netAmt, $acct['id']]);
             } catch (\Throwable $masterErr) {
                 error_log("Checkout master sync error: " . $masterErr->getMessage());

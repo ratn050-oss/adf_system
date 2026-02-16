@@ -307,23 +307,49 @@ try {
             if ($cashBookSuccess) {
                 $transactionId = $db->getConnection()->lastInsertId();
                 
-                // Insert into master cash_account_transactions
-                $masterTransInsert = $masterDb->prepare("
-                    INSERT INTO cash_account_transactions (
-                        cash_account_id, transaction_id, transaction_date,
-                        description, amount, transaction_type,
-                        reference_number, created_by, created_at
-                    ) VALUES (?, ?, NOW(), ?, ?, 'income', ?, ?, NOW())
-                ");
-                
-                $masterTransInsert->execute([
-                    $accountId,
-                    $transactionId,
-                    $description,
-                    $amountToRecord,
-                    $bookingCode,
-                    $cbUserId
-                ]);
+                // SMART FIX: Check if transaction_id column exists
+                $hasTransIdCol = false;
+                try {
+                    $chk = $masterDb->query("SHOW COLUMNS FROM cash_account_transactions LIKE 'transaction_id'");
+                    $hasTransIdCol = $chk && $chk->rowCount() > 0;
+                } catch (\Throwable $e) {}
+
+                if ($hasTransIdCol) {
+                    // Standard Insert
+                    $masterTransInsert = $masterDb->prepare("
+                        INSERT INTO cash_account_transactions (
+                            cash_account_id, transaction_id, transaction_date,
+                            description, amount, transaction_type,
+                            reference_number, created_by, created_at
+                        ) VALUES (?, ?, NOW(), ?, ?, 'income', ?, ?, NOW())
+                    ");
+                    
+                    $masterTransInsert->execute([
+                        $accountId,
+                        $transactionId,
+                        $description,
+                        $amountToRecord,
+                        $bookingCode, // Use $bookingCode variable which exists in scope
+                        $cbUserId
+                    ]);
+                } else {
+                    // Hosting Fallback (no transaction_id)
+                    $masterTransInsert = $masterDb->prepare("
+                        INSERT INTO cash_account_transactions (
+                            cash_account_id, transaction_date,
+                            description, amount, transaction_type,
+                            reference_number, created_by, created_at
+                        ) VALUES (?, NOW(), ?, ?, 'income', ?, ?, NOW())
+                    ");
+                    
+                    $masterTransInsert->execute([
+                        $accountId,
+                        $description,
+                        $amountToRecord,
+                        $bookingCode, // Use $bookingCode variable which exists in scope
+                        $cbUserId
+                    ]);
+                }
                 
                 // Update current_balance in master cash_accounts
                 $newBalance = $account['current_balance'] + $amountToRecord;
