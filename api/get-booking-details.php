@@ -19,6 +19,7 @@ try {
     ini_set('display_errors', 0);
     
     $db = Database::getInstance();
+    $conn = $db->getConnection();
     
     $bookingId = intval($_GET['id'] ?? 0);
     
