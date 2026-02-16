@@ -241,7 +241,7 @@ try {
                     preg_match_all("/'([^']+)'/", $pmColInfo['Type'], $enumMatches);
                     $allowedPaymentMethods = $enumMatches[1] ?? ['cash'];
                 }
-            } catch (Exception $e) {}
+            } catch (\Throwable $e) {}
             if ($allowedPaymentMethods !== null && !in_array($cbMethod, $allowedPaymentMethods)) {
                 $cbMethod = in_array('other', $allowedPaymentMethods) ? 'other' :
                            (in_array('cash', $allowedPaymentMethods) ? 'cash' : $allowedPaymentMethods[0]);
@@ -255,7 +255,7 @@ try {
             try {
                 $colChk = $db->getConnection()->query("SHOW COLUMNS FROM cash_book LIKE 'cash_account_id'");
                 $hasCashAccountId = $colChk && $colChk->rowCount() > 0;
-            } catch (Exception $e) {}
+            } catch (\Throwable $e) {}
 
             // Insert into business cash_book table (dynamic based on schema)
             if ($hasCashAccountId) {
@@ -320,7 +320,7 @@ try {
                 // Mark payment as synced to cashbook
                 try {
                     $db->query("UPDATE booking_payments SET synced_to_cashbook = 1, cashbook_id = ? WHERE id = ?", [$transactionId, $newPaymentId]);
-                } catch (Exception $syncFlagErr) {
+                } catch (\Throwable $syncFlagErr) {
                     error_log("Failed to set sync flag: " . $syncFlagErr->getMessage());
                 }
             }
@@ -328,7 +328,7 @@ try {
             $cashbookMessage = "Warning: Akun kas tidak ditemukan untuk payment method '{$paymentMethod}'";
             error_log($cashbookMessage);
         }
-    } catch (Exception $cashbookError) {
+    } catch (\Throwable $cashbookError) {
         // Log error but don't fail the payment
         $cashbookMessage = "Error mencatat ke buku kas: " . $cashbookError->getMessage();
         error_log("Cashbook auto-insert error: " . $cashbookError->getMessage());
@@ -366,7 +366,7 @@ try {
         'cash_account' => $cashAccountName
     ]);
 
-} catch (Exception $e) {
+} catch (\Throwable $e) {
     if ($db->inTransaction()) {
         $db->rollBack();
     }

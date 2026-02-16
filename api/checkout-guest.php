@@ -122,7 +122,7 @@ try {
         try {
             $syncColChk = $db->getConnection()->query("SHOW COLUMNS FROM booking_payments LIKE 'synced_to_cashbook'");
             $hasSyncCol = $syncColChk && $syncColChk->rowCount() > 0;
-        } catch (Exception $e) {}
+        } catch (\Throwable $e) {}
 
         // Get payments to sync
         if ($hasSyncCol) {
@@ -187,7 +187,7 @@ try {
                         preg_match_all("/'([^']+)'/", $pmColInfo['Type'], $enumMatches);
                         $allowedPaymentMethods = $enumMatches[1] ?? ['cash'];
                     }
-                } catch (Exception $e) {}
+                } catch (\Throwable $e) {}
             }
             if ($allowedPaymentMethods !== null && !in_array($cbMethod, $allowedPaymentMethods)) {
                 $cbMethod = in_array('other', $allowedPaymentMethods) ? 'other' :
@@ -200,7 +200,7 @@ try {
                 try {
                     $colChk = $db->getConnection()->query("SHOW COLUMNS FROM cash_book LIKE 'cash_account_id'");
                     $hasCashAccountId = $colChk && $colChk->rowCount() > 0;
-                } catch (Exception $e) {}
+                } catch (\Throwable $e) {}
             }
 
             if ($hasCashAccountId) {
@@ -223,7 +223,7 @@ try {
 
             // Mark payment as synced (only if column exists)
             if ($hasSyncCol) {
-                try { $db->query("UPDATE booking_payments SET synced_to_cashbook = 1, cashbook_id = ? WHERE id = ?", [$txId, $pmt['id']]); } catch (Exception $e) {}
+                try { $db->query("UPDATE booking_payments SET synced_to_cashbook = 1, cashbook_id = ? WHERE id = ?", [$txId, $pmt['id']]); } catch (\Throwable $e) {}
             }
 
             try {
@@ -231,11 +231,11 @@ try {
                     $acct['id'], $txId, $pmt['payment_date'], $desc, $netAmt, $booking['booking_code'], $cbUserId
                 ]);
                 $masterDb->prepare("UPDATE cash_accounts SET current_balance = current_balance + ? WHERE id = ?")->execute([$netAmt, $acct['id']]);
-            } catch (Exception $masterErr) {
+            } catch (\Throwable $masterErr) {
                 error_log("Checkout master sync error: " . $masterErr->getMessage());
             }
             $syncCount++;
-            } catch (Exception $pmtErr) {
+            } catch (\Throwable $pmtErr) {
                 error_log("Checkout sync error payment#{$pmt['id']}: " . $pmtErr->getMessage());
                 continue;
             }
@@ -243,7 +243,7 @@ try {
         if ($syncCount > 0) {
             $cashbookMsg = " | {$syncCount} pembayaran di-sync ke Buku Kas";
         }
-    } catch (Exception $cbErr) {
+    } catch (\Throwable $cbErr) {
         error_log("Checkout cashbook sync error: " . $cbErr->getMessage());
     }
     
@@ -255,7 +255,7 @@ try {
         'room_number' => $booking['room_number']
     ]);
     
-} catch (Exception $e) {
+} catch (\Throwable $e) {
     if ($db->inTransaction()) {
         $db->rollBack();
     }

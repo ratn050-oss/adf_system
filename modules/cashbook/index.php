@@ -26,7 +26,7 @@ try {
     try {
         $db->getConnection()->query("SELECT 1 FROM booking_payments LIMIT 1");
         $hasBookingPayments = true;
-    } catch (Exception $e) {}
+    } catch (\Throwable $e) {}
 
     if ($hasBookingPayments) {
         // Ensure synced_to_cashbook column exists
@@ -34,13 +34,13 @@ try {
         try {
             $syncColChk = $db->getConnection()->query("SHOW COLUMNS FROM booking_payments LIKE 'synced_to_cashbook'");
             $hasSyncCol = $syncColChk && $syncColChk->rowCount() > 0;
-        } catch (Exception $e) {}
+        } catch (\Throwable $e) {}
         if (!$hasSyncCol) {
             try {
                 $db->getConnection()->exec("ALTER TABLE booking_payments ADD COLUMN synced_to_cashbook TINYINT(1) NOT NULL DEFAULT 0");
                 $db->getConnection()->exec("ALTER TABLE booking_payments ADD COLUMN cashbook_id INT(11) DEFAULT NULL");
                 $hasSyncCol = true;
-            } catch (Exception $e) {
+            } catch (\Throwable $e) {
                 error_log("Cashbook page: Cannot add synced_to_cashbook column: " . $e->getMessage());
                 $hasSyncCol = false;
             }
@@ -77,7 +77,7 @@ try {
             try {
                 $colChk = $db->getConnection()->query("SHOW COLUMNS FROM cash_book LIKE 'cash_account_id'");
                 $hasCashAccountId = $colChk && $colChk->rowCount() > 0;
-            } catch (Exception $e) {}
+            } catch (\Throwable $e) {}
 
             // Detect payment_method ENUM
             $allowedPaymentMethods = null;
@@ -87,7 +87,7 @@ try {
                     preg_match_all("/'([^']+)'/", $pmColInfo['Type'], $enumMatches);
                     $allowedPaymentMethods = $enumMatches[1] ?? ['cash'];
                 }
-            } catch (Exception $e) {}
+            } catch (\Throwable $e) {}
 
             $division = $db->fetchOne("SELECT id FROM divisions WHERE LOWER(division_name) LIKE '%hotel%' OR LOWER(division_name) LIKE '%frontdesk%' ORDER BY id ASC LIMIT 1");
             if (!$division) $division = $db->fetchOne("SELECT id FROM divisions ORDER BY id ASC LIMIT 1");
@@ -174,7 +174,7 @@ try {
                     $transactionId = $db->getConnection()->lastInsertId();
 
                     if ($hasSyncCol) {
-                        try { $db->query("UPDATE booking_payments SET synced_to_cashbook = 1, cashbook_id = ? WHERE id = ?", [$transactionId, $payment['payment_id']]); } catch (Exception $e) {}
+                        try { $db->query("UPDATE booking_payments SET synced_to_cashbook = 1, cashbook_id = ? WHERE id = ?", [$transactionId, $payment['payment_id']]); } catch (\Throwable $e) {}
                     }
 
                     try {
@@ -182,11 +182,11 @@ try {
                             $account['id'], $transactionId, $payment['payment_date'], $desc, $netAmount, $payment['booking_code'], $cbUserId
                         ]);
                         $masterDb->prepare("UPDATE cash_accounts SET current_balance = current_balance + ? WHERE id = ?")->execute([$netAmount, $account['id']]);
-                    } catch (Exception $masterErr) {
+                    } catch (\Throwable $masterErr) {
                         error_log("Cashbook page master sync error: " . $masterErr->getMessage());
                     }
                     $syncCount++;
-                } catch (Exception $paymentError) {
+                } catch (\Throwable $paymentError) {
                     error_log("Cashbook page sync error payment#{$payment['payment_id']}: " . $paymentError->getMessage());
                     continue;
                 }
@@ -196,7 +196,7 @@ try {
             }
         }
     }
-} catch (Exception $syncError) {
+} catch (\Throwable $syncError) {
     error_log("Cashbook page sync setup error: " . $syncError->getMessage());
 }
 

@@ -98,13 +98,13 @@ try {
         try {
             $syncColChk = $db->getConnection()->query("SHOW COLUMNS FROM booking_payments LIKE 'synced_to_cashbook'");
             $hasSyncCol = $syncColChk && $syncColChk->rowCount() > 0;
-        } catch (Exception $e) {}
+        } catch (\Throwable $e) {}
         if (!$hasSyncCol) {
             try {
                 $db->getConnection()->exec("ALTER TABLE booking_payments ADD COLUMN synced_to_cashbook TINYINT(1) NOT NULL DEFAULT 0");
                 $db->getConnection()->exec("ALTER TABLE booking_payments ADD COLUMN cashbook_id INT(11) DEFAULT NULL");
                 $hasSyncCol = true; // ALTER succeeded
-            } catch (Exception $e) {
+            } catch (\Throwable $e) {
                 error_log("Cannot add synced_to_cashbook column (hosting?): " . $e->getMessage());
                 $hasSyncCol = false; // Will use fallback method
             }
@@ -115,7 +115,7 @@ try {
         try {
             $colChk = $db->getConnection()->query("SHOW COLUMNS FROM cash_book LIKE 'cash_account_id'");
             $hasCashAccountId = $colChk && $colChk->rowCount() > 0;
-        } catch (Exception $e) {}
+        } catch (\Throwable $e) {}
 
         // Detect payment_method valid ENUM values on cash_book
         $allowedPaymentMethods = null; // null = varchar, accepts anything
@@ -125,7 +125,7 @@ try {
                 preg_match_all("/'([^']+)'/", $pmColInfo['Type'], $enumMatches);
                 $allowedPaymentMethods = $enumMatches[1] ?? ['cash'];
             }
-        } catch (Exception $e) {}
+        } catch (\Throwable $e) {}
 
         // Get booking payments to sync - method depends on whether column exists
         if ($hasSyncCol) {
@@ -269,7 +269,7 @@ try {
                 if ($hasSyncCol) {
                     try {
                         $db->query("UPDATE booking_payments SET synced_to_cashbook = 1, cashbook_id = ? WHERE id = ?", [$transactionId, $payment['payment_id']]);
-                    } catch (Exception $e) {}
+                    } catch (\Throwable $e) {}
                 }
 
                 // Insert into master cash_account_transactions
@@ -289,12 +289,12 @@ try {
                     // Update cash account balance
                     $updateBal = $masterDb->prepare("UPDATE cash_accounts SET current_balance = current_balance + ? WHERE id = ?");
                     $updateBal->execute([$netAmount, $account['id']]);
-                } catch (Exception $masterErr) {
+                } catch (\Throwable $masterErr) {
                     error_log("Master DB sync error payment#{$payment['payment_id']}: " . $masterErr->getMessage());
                 }
 
                 $syncCount++;
-            } catch (Exception $paymentError) {
+            } catch (\Throwable $paymentError) {
                 error_log("Cashbook sync error payment#{$payment['payment_id']}: " . $paymentError->getMessage());
                 continue;
             }
@@ -303,7 +303,7 @@ try {
         if ($syncCount > 0) {
             error_log("Cashbook auto-sync: {$syncCount} payments synced to cashbook");
         }
-    } catch (Exception $syncError) {
+    } catch (\Throwable $syncError) {
         error_log("Cashbook sync setup error: " . $syncError->getMessage());
     }
 
@@ -440,7 +440,7 @@ try {
     ", [$today]);
     $stats['checkout_guests'] = $checkoutGuestsResult;
 
-} catch (Exception $e) {
+} catch (\Throwable $e) {
     error_log("Dashboard Stats Error: " . $e->getMessage());
     $stats = [
         'in_house' => 0, 'checkout_today' => 0, 'arrival_today' => 0,
