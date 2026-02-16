@@ -98,6 +98,57 @@ echo "<li class='highlight'><strong>Total Kas Operasional:</strong> Rp " . numbe
 echo "</ul>";
 echo "</div>";
 
+// Monthly Closing Information
+echo "<div class='box box-blue'>";
+echo "<h2>🔄 Monthly Closing System</h2>";
+
+// Check if monthly closing tables exist
+$monthlyTablesExist = false;
+try {
+    $stmt = $businessDb->prepare("SHOW TABLES LIKE 'monthly_archives'");
+    $stmt->execute();
+    $monthlyTablesExist = $stmt->rowCount() > 0;
+} catch (Exception $e) {
+    // Tables don't exist
+}
+
+if ($monthlyTablesExist) {
+    // Get last monthly closing
+    $stmt = $businessDb->prepare("
+        SELECT * FROM monthly_archives 
+        WHERE business_id = ? 
+        ORDER BY archive_month DESC 
+        LIMIT 1
+    ");
+    $stmt->execute([$businessId]);
+    $lastClosing = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    if ($lastClosing) {
+        echo "<p>📅 <strong>Last Monthly Closing:</strong> " . date('F Y', strtotime($lastClosing['archive_month'] . '-01')) . "</p>";
+        echo "<p>💰 <strong>Profit:</strong> Rp " . number_format($lastClosing['monthly_profit'], 0, ',', '.') . "</p>";
+        echo "<p>🔄 <strong>Transferred:</strong> Rp " . number_format($lastClosing['excess_transferred'], 0, ',', '.') . "</p>";
+        echo "<p>⚡ <strong>Current Balance adalah carry-forward dari closing terakhir</strong></p>";
+    } else {
+        echo "<p>⚠️ Belum ada monthly closing yang dilakukan</p>";
+        echo "<p>💡 Sistem siap untuk monthly closing pertama</p>";
+    }
+    
+    echo "<p><strong>Recommended Monthly Closing:</strong></p>";
+    echo "<ul>";
+    echo "<li>Minimum Operational: Rp 500.000</li>";
+    echo "<li>Excess Transfer: Rp " . number_format(max(0, $totalOperational - 500000), 0, ',', '.') . "</li>";
+    echo "<li>Keep for Operation: Rp " . number_format(min($totalOperational, 500000), 0, ',', '.') . "</li>";
+    echo "</ul>";
+    
+    echo "<a href='modules/admin/monthly-closing.php' style='display: inline-block; margin-top: 1rem; padding: 0.75rem 1.5rem; background: #f59e0b; color: white; text-decoration: none; border-radius: 6px;'>🔄 Process Monthly Closing</a>";
+} else {
+    echo "<p>⚠️ Monthly Closing System belum disetup</p>";
+    echo "<p>💡 Setup monthly closing untuk reset bulanan otomatis</p>";
+    echo "<a href='setup-monthly-closing.php' style='display: inline-block; margin-top: 1rem; padding: 0.75rem 1.5rem; background: #3b82f6; color: white; text-decoration: none; border-radius: 6px;'>⚙️ Setup Monthly Closing</a>";
+}
+
+echo "</div>";
+
 // Recent transactions from cash_book
 $stmt = $businessDb->prepare("
     SELECT cb.*, ca.account_name, ca.account_type 
