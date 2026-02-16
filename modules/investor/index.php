@@ -462,6 +462,39 @@ include $base_path . '/includes/header.php';
     justify-content: center;
 }
 
+.btn-setoran {
+    background: linear-gradient(135deg, #10b981, #059669) !important;
+    color: white !important;
+    border: none !important;
+    font-weight: 600;
+}
+.btn-setoran:hover {
+    background: linear-gradient(135deg, #059669, #047857) !important;
+    box-shadow: 0 4px 12px rgba(16,185,129,0.4);
+}
+
+.btn-history {
+    background: linear-gradient(135deg, #3b82f6, #2563eb) !important;
+    color: white !important;
+    border: none !important;
+    font-weight: 600;
+}
+.btn-history:hover {
+    background: linear-gradient(135deg, #2563eb, #1d4ed8) !important;
+    box-shadow: 0 4px 12px rgba(59,130,246,0.4);
+}
+
+.btn-inv-edit {
+    background: linear-gradient(135deg, #f59e0b, #d97706) !important;
+    color: white !important;
+    border: none !important;
+    font-weight: 600;
+}
+.btn-inv-edit:hover {
+    background: linear-gradient(135deg, #d97706, #b45309) !important;
+    box-shadow: 0 4px 12px rgba(245,158,11,0.4);
+}
+
 .btn-kas {
     background: linear-gradient(135deg, #3b82f6, #2563eb) !important;
     color: white !important;
@@ -1146,25 +1179,14 @@ include $base_path . '/includes/header.php';
                     <div class="amount">Rp <?= number_format($investor['total_capital'] ?? $investor['balance'] ?? 0, 0, ',', '.') ?></div>
                 </div>
                 <div class="actions">
-                    <button class="btn btn-sm btn-outline" onclick="openDepositModal(<?= $investor['id'] ?>, '<?= htmlspecialchars($investor['name'] ?? $investor['investor_name'] ?? '') ?>')">
-                        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                            <path d="M12 5v14M5 12h14"/>
-                        </svg>
-                        Setoran
+                    <button class="btn btn-sm btn-setoran" onclick="openDepositModal(<?= $investor['id'] ?>, '<?= htmlspecialchars($investor['name'] ?? $investor['investor_name'] ?? '') ?>')">
+                        ➕ Setoran
                     </button>
-                    <button class="btn btn-sm btn-outline" onclick="viewHistory(<?= $investor['id'] ?>)">
-                        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                            <circle cx="12" cy="12" r="10"/>
-                            <polyline points="12,6 12,12 16,14"/>
-                        </svg>
-                        History
+                    <button class="btn btn-sm btn-history" onclick="viewHistory(<?= $investor['id'] ?>)">
+                        🕐 History
                     </button>
-                    <button class="btn btn-sm btn-outline" onclick="editInvestor(<?= $investor['id'] ?>)">
-                        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
-                            <path d="M11 4H4a2 2 0 00-2 2v14a2 2 0 002 2h14a2 2 0 002-2v-7"/>
-                            <path d="M18.5 2.5a2.121 2.121 0 013 3L12 15l-4 1 1-4 9.5-9.5z"/>
-                        </svg>
-                        Edit
+                    <button class="btn btn-sm btn-inv-edit" onclick="editInvestor(<?= $investor['id'] ?>)">
+                        ✏️ Edit
                     </button>
                 </div>
             </div>
