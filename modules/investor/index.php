@@ -16,6 +16,14 @@ require_once $base_path . '/includes/auth.php';
 $auth = new Auth();
 $auth->requireLogin();
 
+// Define base_url for API calls
+if (!defined('BASE_URL')) {
+    $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off' || $_SERVER['SERVER_PORT'] == 443) ? "https://" : "http://";
+    $base_url = $protocol . $_SERVER['HTTP_HOST'];
+} else {
+    $base_url = BASE_URL;
+}
+
 $db = Database::getInstance()->getConnection();
 
 // Get all investors with their total deposits
@@ -531,15 +539,11 @@ include $base_path . '/includes/header.php';
                 </div>
                 <div class="form-group">
                     <label>No. Telepon</label>
-                    <input type="text" name="contact" placeholder="08xxxx">
+                    <input type="text" name="phone" placeholder="08xxxx">
                 </div>
                 <div class="form-group">
                     <label>Email</label>
                     <input type="email" name="email" placeholder="email@example.com">
-                </div>
-                <div class="form-group">
-                    <label>Modal Awal (Rp)</label>
-                    <input type="number" name="initial_capital" placeholder="0" min="0">
                 </div>
                 <div class="form-group">
                     <label>Catatan</label>
@@ -617,7 +621,7 @@ async function saveInvestor(e) {
     const formData = new FormData(form);
     
     try {
-        const response = await fetch('<?= $base_url ?>/api/investor-save.php', {
+        const response = await fetch('<?= BASE_URL ?>/api/investor-save.php', {
             method: 'POST',
             body: formData
         });
@@ -640,7 +644,7 @@ async function saveDeposit(e) {
     const formData = new FormData(form);
     
     try {
-        const response = await fetch('<?= $base_url ?>/api/investor-deposit.php', {
+        const response = await fetch('<?= BASE_URL ?>/api/investor-deposit.php', {
             method: 'POST',
             body: formData
         });
