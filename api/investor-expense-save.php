@@ -64,6 +64,27 @@ try {
         exit;
     }
 
+    // Ensure project_expenses table exists
+    try {
+        $db->query("SELECT 1 FROM project_expenses LIMIT 1");
+    } catch (Exception $e) {
+        $db->exec("
+            CREATE TABLE IF NOT EXISTS project_expenses (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                project_id INT NOT NULL,
+                category_id INT,
+                amount DECIMAL(15,2) NOT NULL,
+                description TEXT,
+                expense_date DATE,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                created_by INT,
+                FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
+                INDEX idx_project (project_id),
+                INDEX idx_date (expense_date)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci
+        ");
+    }
+
     // Insert expense
     $stmt = $db->prepare("
         INSERT INTO project_expenses (project_id, category_id, description, amount, expense_date, created_by, created_at)

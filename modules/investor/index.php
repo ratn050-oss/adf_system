@@ -73,18 +73,30 @@ try {
 
 // Get all projects for project management section
 try {
+    // Check if projects table exists and has data
     $projects = $db->query("
-        SELECT p.*,
-               COALESCE(SUM(pe.amount), 0) as total_expenses,
-               COUNT(pe.id) as expense_count
-        FROM projects p
-        LEFT JOIN project_expenses pe ON p.id = pe.project_id
-        GROUP BY p.id
-        ORDER BY p.created_at DESC
+        SELECT id,
+               COALESCE(project_name, name) as project_name,
+               COALESCE(project_code, code) as project_code,
+               COALESCE(budget_idr, budget) as budget_idr,
+               description,
+               status,
+               created_at,
+               0 as total_expenses,
+               0 as expense_count
+        FROM projects
+        ORDER BY created_at DESC
         LIMIT 8
     ")->fetchAll(PDO::FETCH_ASSOC);
 } catch (Exception $e) {
-    $projects = [];
+    // Try alternative query without columns
+    try {
+        $stmt = $db->query("SELECT COUNT(*) as cnt FROM projects");
+        $projects = [];
+    } catch (Exception $e2) {
+        // Projects table doesn't exist yet
+        $projects = [];
+    }
 }
 
 $totalProjects = count($projects);

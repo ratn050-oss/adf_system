@@ -33,26 +33,41 @@ $categories = [];
 if ($project_id) {
     try {
         $stmt = $db->prepare("
-            SELECT p.*,
-                   COALESCE(SUM(pe.amount), 0) as total_expenses
-            FROM projects p
-            LEFT JOIN project_expenses pe ON p.id = pe.project_id
-            WHERE p.id = ?
-            GROUP BY p.id
+            SELECT id,
+                   COALESCE(project_name, name) as project_name,
+                   COALESCE(project_code, code) as project_code,
+                   COALESCE(budget_idr, budget) as budget_idr,
+                   description,
+                   status,
+                   created_at,
+                   0 as total_expenses
+            FROM projects
+            WHERE id = ?
         ");
         $stmt->execute([$project_id]);
         $project = $stmt->fetch(PDO::FETCH_ASSOC);
 
         if ($project) {
             // Get expenses for this project
-            $stmt = $db->prepare("
-                SELECT pe.* 
-                FROM project_expenses pe
-                WHERE pe.project_id = ?
-                ORDER BY pe.expense_date DESC, pe.created_at DESC
-            ");
-            $stmt->execute([$project_id]);
-            $expenses = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            try {
+                $stmt = $db->prepare("
+                    SELECT id, project_id, category_id, amount, description, expense_date, created_at
+                    FROM project_expenses
+                    WHERE project_id = ?
+                    ORDER BY expense_date DESC, created_at DESC
+                ");
+                $stmt->execute([$project_id]);
+                $expenses = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                
+                // Calculate total expenses
+                $total_exp = 0;
+                foreach ($expenses as $exp) {
+                    $total_exp += $exp['amount'] ?? 0;
+                }
+                $project['total_expenses'] = $total_exp;
+            } catch (Exception $e) {
+                $expenses = [];
+            }
         }
     } catch (Exception $e) {
         error_log('Project fetch error: ' . $e->getMessage());
@@ -62,12 +77,16 @@ if ($project_id) {
 // Get all projects
 try {
     $stmt = $db->query("
-        SELECT p.*,
-               COALESCE(SUM(pe.amount), 0) as total_expenses
-        FROM projects p
-        LEFT JOIN project_expenses pe ON p.id = pe.project_id
-        GROUP BY p.id
-        ORDER BY p.created_at DESC
+        SELECT id,
+               COALESCE(project_name, name) as project_name,
+               COALESCE(project_code, code) as project_code,
+               COALESCE(budget_idr, budget) as budget_idr,
+               description,
+               status,
+               created_at
+        FROM projects
+        ORDER BY created_at DESC
+        LIMIT 100
     ");
     $projects = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (Exception $e) {

@@ -54,15 +54,20 @@ try {
     // Check if projects table exists, if not create it
     try {
         $db->query("SELECT 1 FROM projects LIMIT 1");
+        $table_exists = true;
     } catch (Exception $e) {
-        // Create projects table if not exists
+        $table_exists = false;
+    }
+
+    if (!$table_exists) {
+        // Create projects table with flexible column names
         $db->exec("
             CREATE TABLE IF NOT EXISTS projects (
                 id INT AUTO_INCREMENT PRIMARY KEY,
                 project_name VARCHAR(150) NOT NULL,
                 project_code VARCHAR(50),
                 description TEXT,
-                budget_idr DECIMAL(15,2),
+                budget_idr DECIMAL(15,2) DEFAULT 0,
                 status ENUM('planning', 'ongoing', 'on_hold', 'completed', 'cancelled') DEFAULT 'planning',
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                 updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
@@ -77,7 +82,7 @@ try {
     try {
         $db->query("SELECT 1 FROM project_expenses LIMIT 1");
     } catch (Exception $e) {
-        // Create project_expenses table if not exists
+        // Create project_expenses table
         $db->exec("
             CREATE TABLE IF NOT EXISTS project_expenses (
                 id INT AUTO_INCREMENT PRIMARY KEY,
@@ -95,11 +100,19 @@ try {
         ");
     }
 
-    // Insert project
-    $stmt = $db->prepare("
-        INSERT INTO projects (project_name, project_code, description, budget_idr, status, created_by, created_at)
-        VALUES (?, ?, ?, ?, ?, ?, NOW())
-    ");
+    // Get actual column names to use flexible naming
+    $stmt = $db->query("DESCRIBE projects");
+    $columns = $stmt->fetchAll(PDO::FETCH_COLUMN);
+    
+    $name_col = in_array('project_name', $columns) ? 'project_name' : (in_array('name', $columns) ? 'name' : 'project_name');
+    $code_col = in_array('project_code', $columns) ? 'project_code' : (in_array('code', $columns) ? 'code' : 'project_code');
+    $budget_col = in_array('budget_idr', $columns) ? 'budget_idr' : (in_array('budget', $columns) ? 'budget' : 'budget_idr');
+
+    // Insert project with flexible column names
+    $sql = "INSERT INTO projects ($name_col, $code_col, description, $budget_col, status, created_by, created_at) 
+            VALUES (?, ?, ?, ?, ?, ?, NOW())";
+    
+    $stmt = $db->prepare($sql);
     
     $stmt->execute([
         $project_name,
