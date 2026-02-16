@@ -725,31 +725,6 @@ include $base_path . '/includes/header.php';
 </style>
 
 <div class="investor-page">
-    gap: 1rem;
-    margin-bottom: 2rem;
-}
-
-.investor-card {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-color);
-    border-radius: 12px;
-    padding: 1.25rem;
-    transition: all 0.2s;
-}
-
-.investor-card:hover {
-    border-color: #6366f1;
-    box-shadow: 0 4px 12px rgba(0, 0, 0, 0.05);
-}
-
-.investor-card .header {
-    display: flex;
-    justify-content: space-between;
-    align-items: flex-start;
-    margin-bottom: 1rem;
-</style>
-
-<div class="investor-page">
     <!-- Header -->
     <div class="page-header">
         <h1>
@@ -1017,6 +992,49 @@ include $base_path . '/includes/header.php';
     </div>
 </div>
 
+<!-- Modal: Add Project -->
+<div class="modal-overlay" id="addProjectModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Tambah Projek Baru</h3>
+            <button class="modal-close" onclick="closeModal('addProjectModal')">&times;</button>
+        </div>
+        <form id="addProjectForm" onsubmit="saveProject(event)">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Nama Projek *</label>
+                    <input type="text" name="project_name" required placeholder="Nama projek">
+                </div>
+                <div class="form-group">
+                    <label>Kode Projek</label>
+                    <input type="text" name="project_code" placeholder="PROJ-001">
+                </div>
+                <div class="form-group">
+                    <label>Budget (Rp) *</label>
+                    <input type="number" name="budget_idr" required placeholder="0" min="1">
+                </div>
+                <div class="form-group">
+                    <label>Deskripsi</label>
+                    <textarea name="description" rows="2" placeholder="Deskripsi projek..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Status</label>
+                    <select name="status" required>
+                        <option value="planning">Perencanaan</option>
+                        <option value="ongoing" selected>Berjalan</option>
+                        <option value="on_hold">Tunda</option>
+                        <option value="completed">Selesai</option>
+                    </select>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('addProjectModal')">Batal</button>
+                <button type="submit" class="btn btn-primary">Simpan Projek</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <!-- Modal: Add Deposit -->
 <div class="modal-overlay" id="depositModal">
     <div class="modal-content">
@@ -1131,19 +1149,41 @@ function editInvestor(investorId) {
 }
 
 function openAddProjectModal() {
-    // Redirect to project creation page or open modal
-    // For now, redirect to projects module
-    window.location.href = '<?= BASE_URL ?>/modules/finance/index.php';
+    document.getElementById('addProjectForm').reset();
+    document.getElementById('addProjectModal').classList.add('active');
+}
+
+async function saveProject(e) {
+    e.preventDefault();
+    const form = e.target;
+    const formData = new FormData(form);
+    
+    try {
+        const response = await fetch('<?= BASE_URL ?>/api/investor-project-save.php', {
+            method: 'POST',
+            body: formData
+        });
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('Projek berhasil ditambahkan');
+            location.reload();
+        } else {
+            alert('Error: ' + (result.message || 'Gagal menyimpan'));
+        }
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
 }
 
 function goToProjectLedger(projectId) {
-    // Go to project ledger/buku kas
-    window.location.href = '<?= BASE_URL ?>/modules/finance/ledger.php?project_id=' + projectId;
+    // Go to investor ledger page with project selected
+    window.location.href = '<?= BASE_URL ?>/modules/investor/ledger.php?project_id=' + projectId;
 }
 
 function editProject(projectId) {
-    // Redirect to project edit page
-    window.location.href = '<?= BASE_URL ?>/modules/finance/index.php?edit=' + projectId;
+    // TODO: Implement edit project modal
+    alert('Fitur edit proyek akan segera tersedia');
 }
 
 // Close modal when clicking outside
