@@ -85,6 +85,14 @@ try {
 
         $businessId = $_SESSION['business_id'] ?? 1;
 
+        // Validate created_by user exists in business DB (login uses master DB)
+        $cbUserId = $currentUser['id'] ?? 1;
+        $userExists = $db->fetchOne("SELECT id FROM users WHERE id = ? LIMIT 1", [$cbUserId]);
+        if (!$userExists) {
+            $firstUser = $db->fetchOne("SELECT id FROM users ORDER BY id ASC LIMIT 1");
+            $cbUserId = $firstUser['id'] ?? 1;
+        }
+
         // Get all booking payments from last 30 days
         $recentPayments = $db->fetchAll("
             SELECT bp.id as payment_id, bp.booking_id, bp.amount, bp.payment_method, bp.payment_date,
@@ -159,20 +167,51 @@ try {
             $totalPaid = $db->fetchOne("SELECT COALESCE(SUM(amount),0) as total FROM booking_payments WHERE booking_id = ?", [$payment['booking_id']]);
             $desc .= ((float)$totalPaid['total'] >= (float)$payment['final_price']) ? ' [LUNAS]' : ' [CICILAN]';
 
-            // Insert into cash_book (same pattern as add-booking-payment.php)
-            $cashBookInsert = $db->getConnection()->prepare("
-                INSERT INTO cash_book (
-                    transaction_date, transaction_time, division_id, category_id,
-                    description, transaction_type, amount, payment_method,
-                    cash_account_id, created_by, created_at
-                ) VALUES (DATE(?), TIME(?), ?, ?, ?, 'income', ?, ?, ?, ?, NOW())
-            ");
-            $cashBookInsert->execute([
-                $payment['payment_date'], $payment['payment_date'],
-                $divisionId, $categoryId, $desc, $netAmount,
-                $payment['payment_method'], $account['id'],
-                $currentUser['id']
-            ]);
+            // Map payment_method to valid ENUM values for cash_book
+            $pmMap = ['bank_transfer'=>'transfer','credit_card'=>'debit','credit'=>'debit'];
+            $cbMethod = strtolower($payment['payment_method'] ?? 'cash');
+            $cbMethod = $pmMap[$cbMethod] ?? $cbMethod;
+            $validMethods = ['cash','debit','transfer','qr','bank_transfer','ota','agoda','booking','other'];
+            if (!in_array($cbMethod, $validMethods)) $cbMethod = 'other';
+
+            // Check if cash_account_id column exists (may not exist on hosting)
+            if (!isset($hasCashAccountId)) {
+                $hasCashAccountId = false;
+                try {
+                    $colChk = $db->getConnection()->query("SHOW COLUMNS FROM cash_book LIKE 'cash_account_id'");
+                    $hasCashAccountId = $colChk && $colChk->rowCount() > 0;
+                } catch (Exception $e) {}
+            }
+
+            // Insert into cash_book (dynamic based on schema)
+            if ($hasCashAccountId) {
+                $cashBookInsert = $db->getConnection()->prepare("
+                    INSERT INTO cash_book (
+                        transaction_date, transaction_time, division_id, category_id,
+                        description, transaction_type, amount, payment_method,
+                        cash_account_id, created_by, created_at
+                    ) VALUES (DATE(?), TIME(?), ?, ?, ?, 'income', ?, ?, ?, ?, NOW())
+                ");
+                $cashBookInsert->execute([
+                    $payment['payment_date'], $payment['payment_date'],
+                    $divisionId, $categoryId, $desc, $netAmount,
+                    $cbMethod, $account['id'],
+                    $cbUserId
+                ]);
+            } else {
+                $cashBookInsert = $db->getConnection()->prepare("
+                    INSERT INTO cash_book (
+                        transaction_date, transaction_time, division_id, category_id,
+                        description, transaction_type, amount, payment_method,
+                        created_by, created_at
+                    ) VALUES (DATE(?), TIME(?), ?, ?, ?, 'income', ?, ?, ?, NOW())
+                ");
+                $cashBookInsert->execute([
+                    $payment['payment_date'], $payment['payment_date'],
+                    $divisionId, $categoryId, $desc, $netAmount,
+                    $cbMethod, $cbUserId
+                ]);
+            }
 
             $transactionId = $db->getConnection()->lastInsertId();
 
@@ -186,7 +225,7 @@ try {
             ");
             $masterTransInsert->execute([
                 $account['id'], $transactionId, $payment['payment_date'],
-                $desc, $netAmount, $payment['booking_code'], $currentUser['id']
+                $desc, $netAmount, $payment['booking_code'], $cbUserId
             ]);
 
             // Update cash account balance

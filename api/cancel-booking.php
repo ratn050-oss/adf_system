@@ -125,6 +125,14 @@ try {
         try {
             // Get master database name (handles hosting vs local)
             $masterDbName = defined('MASTER_DB_NAME') ? MASTER_DB_NAME : 'adf_system';
+
+            // Validate created_by user exists in business DB (login uses master DB)
+            $cbUserId = $currentUser['id'] ?? 1;
+            $userExists = $db->fetchOne("SELECT id FROM users WHERE id = ? LIMIT 1", [$cbUserId]);
+            if (!$userExists) {
+                $firstUser = $db->fetchOne("SELECT id FROM users ORDER BY id ASC LIMIT 1");
+                $cbUserId = $firstUser['id'] ?? 1;
+            }
             
             error_log("REFUND DEBUG: Starting refund process. Amount: {$finalRefundAmount}, BusinessID: {$businessId}, MasterDB: {$masterDbName}");
             
@@ -189,25 +197,46 @@ try {
                 
                 error_log("REFUND DEBUG: Using Division ID: {$divisionId}, Category ID: {$categoryId}");
                 
-                $insertStmt = $pdo->prepare("
-                    INSERT INTO cash_book (
-                        transaction_date, transaction_time, transaction_type, 
-                        division_id, category_id, description, amount, payment_method,
-                        cash_account_id, created_by, created_at
-                    ) VALUES (
-                        CURDATE(), CURTIME(), 'expense',
-                        ?, ?, ?, ?, 'cash',
-                        ?, ?, NOW()
-                    )
-                ");
-                $insertStmt->execute([
-                    $divisionId,
-                    $categoryId,
-                    $refundDesc,
-                    $finalRefundAmount,
-                    $cashAccount['id'],
-                    $currentUser['id']
-                ]);
+                // Check if cash_account_id column exists (may not exist on hosting)
+                $hasCashAccountId = false;
+                try {
+                    $colChk = $pdo->query("SHOW COLUMNS FROM cash_book LIKE 'cash_account_id'");
+                    $hasCashAccountId = $colChk && $colChk->rowCount() > 0;
+                } catch (Exception $e) {}
+
+                if ($hasCashAccountId) {
+                    $insertStmt = $pdo->prepare("
+                        INSERT INTO cash_book (
+                            transaction_date, transaction_time, transaction_type, 
+                            division_id, category_id, description, amount, payment_method,
+                            cash_account_id, created_by, created_at
+                        ) VALUES (
+                            CURDATE(), CURTIME(), 'expense',
+                            ?, ?, ?, ?, 'cash',
+                            ?, ?, NOW()
+                        )
+                    ");
+                    $insertStmt->execute([
+                        $divisionId, $categoryId, $refundDesc,
+                        $finalRefundAmount, $cashAccount['id'], $cbUserId
+                    ]);
+                } else {
+                    $insertStmt = $pdo->prepare("
+                        INSERT INTO cash_book (
+                            transaction_date, transaction_time, transaction_type, 
+                            division_id, category_id, description, amount, payment_method,
+                            created_by, created_at
+                        ) VALUES (
+                            CURDATE(), CURTIME(), 'expense',
+                            ?, ?, ?, ?, 'cash',
+                            ?, NOW()
+                        )
+                    ");
+                    $insertStmt->execute([
+                        $divisionId, $categoryId, $refundDesc,
+                        $finalRefundAmount, $cbUserId
+                    ]);
+                }
                 
                 $cashBookId = $pdo->lastInsertId();
                 error_log("REFUND DEBUG: cash_book insert OK, ID: {$cashBookId}");

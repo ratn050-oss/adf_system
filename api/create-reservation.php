@@ -228,6 +228,14 @@ try {
             
             // Get business ID from session
             $businessId = $_SESSION['business_id'] ?? 1;
+
+            // Validate created_by user exists in business DB (login uses master DB)
+            $cbUserId = $_SESSION['user_id'] ?? 1;
+            $userExists = $db->fetchOne("SELECT id FROM users WHERE id = ? LIMIT 1", [$cbUserId]);
+            if (!$userExists) {
+                $firstUser = $db->fetchOne("SELECT id FROM users ORDER BY id ASC LIMIT 1");
+                $cbUserId = $firstUser['id'] ?? 1;
+            }
             
             // ==========================================
             // OTA FEE CALCULATION
@@ -329,24 +337,46 @@ try {
                 }
                 $description .= $paymentLabel;
                 
-                // Insert into business cash_book table
-                $cashBookInsert = $db->getConnection()->prepare("
-                    INSERT INTO cash_book (
-                        transaction_date, transaction_time, division_id, category_id,
-                        description, transaction_type, amount, payment_method,
-                        cash_account_id, created_by, created_at
-                    ) VALUES (NOW(), NOW(), ?, ?, ?, 'income', ?, ?, ?, ?, NOW())
-                ");
-                
-                $cashBookSuccess = $cashBookInsert->execute([
-                    $divisionId,
-                    $categoryId,
-                    $description,
-                    $amountToRecord,
-                    $paymentMethod,
-                    $accountId,
-                    $_SESSION['user_id'] ?? 1
-                ]);
+                // Map payment_method to valid ENUM values for cash_book
+                $pmMap = ['bank_transfer'=>'transfer','credit_card'=>'debit','credit'=>'debit'];
+                $cbMethod = strtolower($paymentMethod ?? 'cash');
+                $cbMethod = $pmMap[$cbMethod] ?? $cbMethod;
+                $validMethods = ['cash','debit','transfer','qr','bank_transfer','ota','agoda','booking','other'];
+                if (!in_array($cbMethod, $validMethods)) $cbMethod = 'other';
+
+                // Check if cash_account_id column exists (may not exist on hosting)
+                $hasCashAccountId = false;
+                try {
+                    $colChk = $db->getConnection()->query("SHOW COLUMNS FROM cash_book LIKE 'cash_account_id'");
+                    $hasCashAccountId = $colChk && $colChk->rowCount() > 0;
+                } catch (Exception $e) {}
+
+                // Insert into business cash_book table (dynamic based on schema)
+                if ($hasCashAccountId) {
+                    $cashBookInsert = $db->getConnection()->prepare("
+                        INSERT INTO cash_book (
+                            transaction_date, transaction_time, division_id, category_id,
+                            description, transaction_type, amount, payment_method,
+                            cash_account_id, created_by, created_at
+                        ) VALUES (NOW(), NOW(), ?, ?, ?, 'income', ?, ?, ?, ?, NOW())
+                    ");
+                    $cashBookSuccess = $cashBookInsert->execute([
+                        $divisionId, $categoryId, $description,
+                        $amountToRecord, $cbMethod, $accountId, $cbUserId
+                    ]);
+                } else {
+                    $cashBookInsert = $db->getConnection()->prepare("
+                        INSERT INTO cash_book (
+                            transaction_date, transaction_time, division_id, category_id,
+                            description, transaction_type, amount, payment_method,
+                            created_by, created_at
+                        ) VALUES (NOW(), NOW(), ?, ?, ?, 'income', ?, ?, ?, NOW())
+                    ");
+                    $cashBookSuccess = $cashBookInsert->execute([
+                        $divisionId, $categoryId, $description,
+                        $amountToRecord, $cbMethod, $cbUserId
+                    ]);
+                }
                 
                 if ($cashBookSuccess) {
                     $transactionId = $db->getConnection()->lastInsertId();
@@ -366,7 +396,7 @@ try {
                         $description,
                         $amountToRecord,
                         $bookingCode,
-                        $_SESSION['user_id'] ?? 1
+                        $cbUserId
                     ]);
                     
                     // Update current_balance in master cash_accounts

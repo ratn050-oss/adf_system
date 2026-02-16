@@ -109,6 +109,14 @@ try {
         );
         $businessId = $_SESSION['business_id'] ?? 1;
 
+        // Validate created_by user exists in business DB (login uses master DB)
+        $cbUserId = $currentUser['id'] ?? 1;
+        $userExists = $db->fetchOne("SELECT id FROM users WHERE id = ? LIMIT 1", [$cbUserId]);
+        if (!$userExists) {
+            $firstUser = $db->fetchOne("SELECT id FROM users ORDER BY id ASC LIMIT 1");
+            $cbUserId = $firstUser['id'] ?? 1;
+        }
+
         // Get all payments for this booking
         $payments = $db->fetchAll("
             SELECT id, amount, payment_method, payment_date 
@@ -152,16 +160,41 @@ try {
 
             $desc = "Pembayaran Reservasi - {$booking['guest_name']} (Room {$booking['room_number']}) - {$booking['booking_code']} [CHECKOUT-SYNC]";
 
-            $cashBookInsert = $db->getConnection()->prepare("INSERT INTO cash_book (transaction_date, transaction_time, division_id, category_id, description, transaction_type, amount, payment_method, cash_account_id, created_by, created_at) VALUES (DATE(?), TIME(?), ?, ?, ?, 'income', ?, ?, ?, ?, NOW())");
-            $cashBookInsert->execute([
-                $pmt['payment_date'], $pmt['payment_date'],
-                $div['id'] ?? 1, $cat['id'] ?? 1, $desc, $netAmt,
-                $pmt['payment_method'], $acct['id'], $currentUser['id']
-            ]);
+            // Map payment_method to valid ENUM values
+            $pmMap = ['bank_transfer'=>'transfer','credit_card'=>'debit','credit'=>'debit'];
+            $cbMethod = strtolower($pmt['payment_method'] ?? 'cash');
+            $cbMethod = $pmMap[$cbMethod] ?? $cbMethod;
+            $validMethods = ['cash','debit','transfer','qr','bank_transfer','ota','agoda','booking','other'];
+            if (!in_array($cbMethod, $validMethods)) $cbMethod = 'other';
+
+            // Check if cash_account_id column exists
+            if (!isset($hasCashAccountId)) {
+                $hasCashAccountId = false;
+                try {
+                    $colChk = $db->getConnection()->query("SHOW COLUMNS FROM cash_book LIKE 'cash_account_id'");
+                    $hasCashAccountId = $colChk && $colChk->rowCount() > 0;
+                } catch (Exception $e) {}
+            }
+
+            if ($hasCashAccountId) {
+                $cashBookInsert = $db->getConnection()->prepare("INSERT INTO cash_book (transaction_date, transaction_time, division_id, category_id, description, transaction_type, amount, payment_method, cash_account_id, created_by, created_at) VALUES (DATE(?), TIME(?), ?, ?, ?, 'income', ?, ?, ?, ?, NOW())");
+                $cashBookInsert->execute([
+                    $pmt['payment_date'], $pmt['payment_date'],
+                    $div['id'] ?? 1, $cat['id'] ?? 1, $desc, $netAmt,
+                    $cbMethod, $acct['id'], $cbUserId
+                ]);
+            } else {
+                $cashBookInsert = $db->getConnection()->prepare("INSERT INTO cash_book (transaction_date, transaction_time, division_id, category_id, description, transaction_type, amount, payment_method, created_by, created_at) VALUES (DATE(?), TIME(?), ?, ?, ?, 'income', ?, ?, ?, NOW())");
+                $cashBookInsert->execute([
+                    $pmt['payment_date'], $pmt['payment_date'],
+                    $div['id'] ?? 1, $cat['id'] ?? 1, $desc, $netAmt,
+                    $cbMethod, $cbUserId
+                ]);
+            }
 
             $txId = $db->getConnection()->lastInsertId();
             $masterDb->prepare("INSERT INTO cash_account_transactions (cash_account_id, transaction_id, transaction_date, description, amount, transaction_type, reference_number, created_by, created_at) VALUES (?, ?, DATE(?), ?, ?, 'income', ?, ?, NOW())")->execute([
-                $acct['id'], $txId, $pmt['payment_date'], $desc, $netAmt, $booking['booking_code'], $currentUser['id']
+                $acct['id'], $txId, $pmt['payment_date'], $desc, $netAmt, $booking['booking_code'], $cbUserId
             ]);
             $masterDb->prepare("UPDATE cash_accounts SET current_balance = current_balance + ? WHERE id = ?")->execute([$netAmt, $acct['id']]);
             $syncCount++;
