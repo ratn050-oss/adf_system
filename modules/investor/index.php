@@ -439,6 +439,8 @@ include $base_path . '/includes/header.php';
     gap: 1rem;
     position: relative;
     cursor: pointer;
+    min-height: 250px;
+    overflow: visible;
 }
 
 .project-card::after {
@@ -499,16 +501,29 @@ include $base_path . '/includes/header.php';
 
 .project-card .project-actions {
     display: flex;
-    gap: 0.5rem;
+    gap: 0.4rem;
+    margin-top: 0.75rem;
+    flex-wrap: wrap;
+    width: 100%;
 }
 
 .project-card .btn-sm {
-    padding: 0.5rem 0.9rem;
-    font-size: 0.75rem;
-    border-radius: 8px;
+    padding: 0.4rem 0.6rem;
+    font-size: 0.7rem;
+    border-radius: 6px;
     flex: 1;
+    min-width: 70px;
     text-align: center;
+    display: flex;
+    align-items: center;
     justify-content: center;
+    gap: 0.25rem;
+    white-space: nowrap;
+}
+
+.project-card .btn-sm svg {
+    width: 12px;
+    height: 12px;
 }
 
 .add-project-card {
