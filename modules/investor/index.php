@@ -140,6 +140,77 @@ foreach ($investors as $inv) {
     $totalCapital += $inv['total_capital'] ?? 0;
 }
 
+// ====== CHART DATA ======
+$chart_budget_vs_expense = [];
+$chart_contractor_pie = [];
+$total_all_expenses = 0;
+
+foreach ($projects as &$proj) {
+    $pid = $proj['id'];
+    // Get real expense total per project
+    try {
+        $stmt = $db->prepare("SELECT COALESCE(SUM(amount),0) as total FROM project_expenses WHERE project_id = ?");
+        $stmt->execute([$pid]);
+        $proj['total_expenses'] = floatval($stmt->fetchColumn());
+    } catch (Exception $e) { $proj['total_expenses'] = 0; }
+
+    // Get salary + division totals
+    $proj['total_gaji'] = 0;
+    $proj['total_divisi'] = 0;
+    try {
+        $stmt = $db->prepare("SELECT COALESCE(SUM(total_salary),0) FROM project_salaries WHERE project_id = ?");
+        $stmt->execute([$pid]);
+        $proj['total_gaji'] = floatval($stmt->fetchColumn());
+    } catch (Exception $e) {}
+    try {
+        $stmt = $db->prepare("SELECT COALESCE(SUM(amount),0) FROM project_division_expenses WHERE project_id = ?");
+        $stmt->execute([$pid]);
+        $proj['total_divisi'] = floatval($stmt->fetchColumn());
+    } catch (Exception $e) {}
+
+    $proj['grand_expenses'] = $proj['total_expenses'] + $proj['total_gaji'] + $proj['total_divisi'];
+    $total_all_expenses += $proj['grand_expenses'];
+
+    $chart_budget_vs_expense[] = [
+        'name' => $proj['project_name'] ?? 'Project',
+        'budget' => floatval($proj['budget_idr'] ?? 0),
+        'expense' => $proj['grand_expenses'],
+    ];
+
+    // Expenses per contractor for this project
+    try {
+        $expCols = [];
+        try {
+            $stmt = $db->query("DESCRIBE project_expenses");
+            $expCols = array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'Field');
+        } catch (Exception $e) {}
+
+        if (in_array('division_name', $expCols)) {
+            $stmt = $db->prepare("SELECT division_name, SUM(amount) as total FROM project_expenses WHERE project_id = ? AND division_name IS NOT NULL AND division_name != '' GROUP BY division_name");
+            $stmt->execute([$pid]);
+            foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+                $dn = $row['division_name'];
+                if (!isset($chart_contractor_pie[$dn])) $chart_contractor_pie[$dn] = 0;
+                $chart_contractor_pie[$dn] += floatval($row['total']);
+            }
+        }
+    } catch (Exception $e) {}
+
+    try {
+        $stmt = $db->prepare("SELECT division_name, SUM(amount) as total FROM project_division_expenses WHERE project_id = ? GROUP BY division_name");
+        $stmt->execute([$pid]);
+        foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $row) {
+            $dn = $row['division_name'];
+            if (!isset($chart_contractor_pie[$dn])) $chart_contractor_pie[$dn] = 0;
+            $chart_contractor_pie[$dn] += floatval($row['total']);
+        }
+    } catch (Exception $e) {}
+}
+unset($proj);
+
+// Sort contractor pie by value descending
+arsort($chart_contractor_pie);
+
 $pageTitle = 'Data Investor';
 include $base_path . '/includes/header.php';
 ?>
@@ -425,6 +496,74 @@ include $base_path . '/includes/header.php';
     background: linear-gradient(135deg, #dc2626, #b91c1c) !important;
     transform: translateY(-1px);
     box-shadow: 0 4px 12px rgba(239,68,68,0.4);
+}
+
+/* Charts Section */
+.charts-section {
+    margin-bottom: 3rem;
+}
+
+.charts-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.5rem;
+}
+
+.chart-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    padding: 1.5rem;
+    position: relative;
+    overflow: hidden;
+}
+
+.chart-card::after {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+}
+
+.chart-card.chart-pie::after {
+    background: linear-gradient(90deg, #6366f1, #ec4899);
+}
+
+.chart-card.chart-bar::after {
+    background: linear-gradient(90deg, #10b981, #3b82f6);
+}
+
+.chart-card h3 {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0 0 .2rem 0;
+    display: flex;
+    align-items: center;
+    gap: .5rem;
+}
+
+.chart-card .chart-sub {
+    font-size: .8rem;
+    color: var(--text-muted);
+    margin-bottom: 1rem;
+}
+
+.chart-card canvas {
+    max-height: 300px;
+}
+
+.chart-empty {
+    text-align: center;
+    padding: 2rem;
+    color: var(--text-muted);
+    font-size: .9rem;
+}
+
+@media (max-width: 900px) {
+    .charts-grid { grid-template-columns: 1fr; }
 }
 
 /* Projects Section */
@@ -850,6 +989,42 @@ include $base_path . '/includes/header.php';
             <div class="label">🏗️ Projek Aktif</div>
             <div class="value"><?= $totalProjects ?></div>
         </div>
+        <div class="summary-card">
+            <div class="label">💸 Total Pengeluaran</div>
+            <div class="value" style="color:#d97706">Rp <?= number_format($total_all_expenses, 0, ',', '.') ?></div>
+        </div>
+    </div>
+
+    <!-- Charts Section -->
+    <div class="charts-section">
+        <div class="section-header">
+            <h2 class="section-title">
+                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path d="M18 20V10M12 20V4M6 20v-6"/>
+                </svg>
+                Grafik Pengeluaran
+            </h2>
+        </div>
+        <div class="charts-grid">
+            <div class="chart-card chart-pie">
+                <h3>🍩 Pengeluaran per Kontraktor</h3>
+                <div class="chart-sub">Distribusi biaya berdasarkan kontraktor / divisi</div>
+                <?php if (empty($chart_contractor_pie)): ?>
+                    <div class="chart-empty">Belum ada data pengeluaran per kontraktor.<br>Pilih kontraktor saat catat pengeluaran di Buku Kas.</div>
+                <?php else: ?>
+                    <canvas id="pieChart"></canvas>
+                <?php endif; ?>
+            </div>
+            <div class="chart-card chart-bar">
+                <h3>📊 Budget vs Pengeluaran</h3>
+                <div class="chart-sub">Perbandingan budget dan realisasi per projek</div>
+                <?php if (empty($chart_budget_vs_expense)): ?>
+                    <div class="chart-empty">Belum ada data projek.</div>
+                <?php else: ?>
+                    <canvas id="barChart"></canvas>
+                <?php endif; ?>
+            </div>
+        </div>
     </div>
 
     <!-- Projects Section -->
@@ -900,11 +1075,12 @@ include $base_path . '/includes/header.php';
                     <div class="project-meta">
                         <div class="meta-item">
                             <span>Pengeluaran</span>
-                            <div class="meta-value">Rp <?= number_format($project['total_expenses'] ?? 0, 0, ',', '.') ?></div>
+                            <div class="meta-value" style="color:#d97706">Rp <?= number_format($project['grand_expenses'] ?? $project['total_expenses'] ?? 0, 0, ',', '.') ?></div>
                         </div>
                         <div class="meta-item">
-                            <span>Transaksi</span>
-                            <div class="meta-value"><?= $project['expense_count'] ?? 0 ?></div>
+                            <span>Sisa</span>
+                            <?php $sisa = ($project['budget_idr'] ?? 0) - ($project['grand_expenses'] ?? 0); ?>
+                            <div class="meta-value" style="color:<?= $sisa >= 0 ? '#059669' : '#dc2626' ?>">Rp <?= number_format($sisa, 0, ',', '.') ?></div>
                         </div>
                     </div>
                     <div class="project-actions">
@@ -1151,7 +1327,126 @@ include $base_path . '/includes/header.php';
     </div>
 </div>
 
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script>
+// ====== CHART RENDERING ======
+document.addEventListener('DOMContentLoaded', function() {
+    const darkMode = document.documentElement.classList.contains('dark') || document.body.classList.contains('dark-mode');
+    const textColor = darkMode ? '#ccc' : '#666';
+    const gridColor = darkMode ? 'rgba(255,255,255,0.08)' : 'rgba(0,0,0,0.06)';
+
+    // Pie Chart - Pengeluaran per Kontraktor
+    <?php if (!empty($chart_contractor_pie)): ?>
+    const pieCtx = document.getElementById('pieChart');
+    if (pieCtx) {
+        const pieColors = ['#6366f1','#ec4899','#f59e0b','#10b981','#3b82f6','#8b5cf6','#ef4444','#14b8a6','#f97316','#06b6d4','#84cc16','#e879f9'];
+        new Chart(pieCtx, {
+            type: 'doughnut',
+            data: {
+                labels: <?= json_encode(array_keys($chart_contractor_pie)) ?>,
+                datasets: [{
+                    data: <?= json_encode(array_values($chart_contractor_pie)) ?>,
+                    backgroundColor: pieColors.slice(0, <?= count($chart_contractor_pie) ?>),
+                    borderWidth: 2,
+                    borderColor: darkMode ? '#1e1e2e' : '#fff',
+                    hoverOffset: 8,
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {
+                        position: 'bottom',
+                        labels: { color: textColor, padding: 12, font: { size: 12, weight: 600 }, usePointStyle: true, pointStyle: 'circle' }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(ctx) {
+                                const val = ctx.parsed;
+                                const total = ctx.dataset.data.reduce((a,b) => a+b, 0);
+                                const pct = ((val/total)*100).toFixed(1);
+                                return ctx.label + ': Rp ' + val.toLocaleString('id-ID') + ' (' + pct + '%)';
+                            }
+                        }
+                    }
+                }
+            }
+        });
+    }
+    <?php endif; ?>
+
+    // Bar Chart - Budget vs Pengeluaran
+    <?php if (!empty($chart_budget_vs_expense)): ?>
+    const barCtx = document.getElementById('barChart');
+    if (barCtx) {
+        new Chart(barCtx, {
+            type: 'bar',
+            data: {
+                labels: <?= json_encode(array_column($chart_budget_vs_expense, 'name')) ?>,
+                datasets: [
+                    {
+                        label: 'Budget',
+                        data: <?= json_encode(array_column($chart_budget_vs_expense, 'budget')) ?>,
+                        backgroundColor: 'rgba(59,130,246,0.7)',
+                        borderColor: '#3b82f6',
+                        borderWidth: 1,
+                        borderRadius: 6,
+                        barPercentage: 0.6,
+                    },
+                    {
+                        label: 'Pengeluaran',
+                        data: <?= json_encode(array_column($chart_budget_vs_expense, 'expense')) ?>,
+                        backgroundColor: 'rgba(245,158,11,0.7)',
+                        borderColor: '#f59e0b',
+                        borderWidth: 1,
+                        borderRadius: 6,
+                        barPercentage: 0.6,
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                plugins: {
+                    legend: {
+                        position: 'top',
+                        labels: { color: textColor, font: { size: 12, weight: 600 }, usePointStyle: true, pointStyle: 'circle', padding: 16 }
+                    },
+                    tooltip: {
+                        callbacks: {
+                            label: function(ctx) {
+                                return ctx.dataset.label + ': Rp ' + ctx.parsed.y.toLocaleString('id-ID');
+                            }
+                        }
+                    }
+                },
+                scales: {
+                    x: {
+                        ticks: { color: textColor, font: { size: 11 } },
+                        grid: { display: false }
+                    },
+                    y: {
+                        ticks: {
+                            color: textColor,
+                            font: { size: 11 },
+                            callback: function(val) {
+                                if (val >= 1e9) return 'Rp ' + (val/1e9).toFixed(1) + 'M';
+                                if (val >= 1e6) return 'Rp ' + (val/1e6).toFixed(0) + 'Jt';
+                                if (val >= 1e3) return 'Rp ' + (val/1e3).toFixed(0) + 'Rb';
+                                return 'Rp ' + val;
+                            }
+                        },
+                        grid: { color: gridColor }
+                    }
+                }
+            }
+        });
+    }
+    <?php endif; ?>
+});
+
+// ====== EXISTING FUNCTIONS ======
 function openAddInvestorModal() {
     document.getElementById('addInvestorForm').reset();
     document.getElementById('addInvestorModal').classList.add('active');
