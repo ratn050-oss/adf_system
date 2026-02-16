@@ -30,24 +30,40 @@ $db = Database::getInstance()->getConnection();
 try {
     $investors = $db->query("
         SELECT i.*, 
-               COALESCE(SUM(it.amount), 0) as total_deposits
+               COALESCE(SUM(CASE WHEN it.type = 'deposit' OR it.transaction_type = 'deposit' THEN it.amount ELSE 0 END), 0) as total_deposits,
+               COALESCE(i.name, i.investor_name) as name,
+               COALESCE(i.contact, i.contact_phone) as contact,
+               COALESCE(i.total_capital, i.balance) as total_capital
         FROM investors i
-        LEFT JOIN investor_transactions it ON i.id = it.investor_id AND it.type = 'deposit'
+        LEFT JOIN investor_transactions it ON i.id = it.investor_id
         GROUP BY i.id
-        ORDER BY i.name
+        ORDER BY COALESCE(i.name, i.investor_name)
     ")->fetchAll(PDO::FETCH_ASSOC);
 } catch (Exception $e) {
     // Fallback if investor_transactions doesn't have the right structure
-    $investors = $db->query("SELECT * FROM investors ORDER BY name")->fetchAll(PDO::FETCH_ASSOC);
+    try {
+        $investors = $db->query("
+            SELECT i.*, 
+                   COALESCE(i.name, i.investor_name) as name,
+                   COALESCE(i.contact, i.contact_phone) as contact,
+                   COALESCE(i.total_capital, i.balance) as total_capital
+            FROM investors i 
+            ORDER BY COALESCE(i.name, i.investor_name)
+        ")->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        // Absolute fallback
+        $investors = $db->query("SELECT * FROM investors")->fetchAll(PDO::FETCH_ASSOC);
+    }
 }
 
 // Get recent deposits
 try {
     $recentDeposits = $db->query("
-        SELECT it.*, i.name as investor_name 
+        SELECT it.*, 
+               COALESCE(i.name, i.investor_name) as investor_name
         FROM investor_transactions it
         JOIN investors i ON it.investor_id = i.id
-        WHERE it.type = 'deposit'
+        WHERE it.type = 'deposit' OR it.transaction_type = 'deposit'
         ORDER BY it.created_at DESC
         LIMIT 10
     ")->fetchAll(PDO::FETCH_ASSOC);
@@ -59,6 +75,7 @@ try {
 $totalInvestors = count($investors);
 $totalCapital = 0;
 foreach ($investors as $inv) {
+    // Use the flexible field name we calculated in the query
     $totalCapital += $inv['total_capital'] ?? 0;
 }
 
@@ -459,18 +476,18 @@ include $base_path . '/includes/header.php';
             <div class="investor-card">
                 <div class="header">
                     <div>
-                        <div class="name"><?= htmlspecialchars($investor['name']) ?></div>
+                        <div class="name"><?= htmlspecialchars($investor['name'] ?? $investor['investor_name'] ?? '-') ?></div>
                         <div class="contact">
-                            <?= htmlspecialchars($investor['contact'] ?? '-') ?>
+                            <?= htmlspecialchars($investor['contact'] ?? $investor['contact_phone'] ?? '-') ?>
                             <?php if (!empty($investor['email'])): ?>
                                 • <?= htmlspecialchars($investor['email']) ?>
                             <?php endif; ?>
                         </div>
                     </div>
-                    <div class="amount">Rp <?= number_format($investor['total_capital'] ?? 0, 0, ',', '.') ?></div>
+                    <div class="amount">Rp <?= number_format($investor['total_capital'] ?? $investor['balance'] ?? 0, 0, ',', '.') ?></div>
                 </div>
                 <div class="actions">
-                    <button class="btn btn-sm btn-outline" onclick="openDepositModal(<?= $investor['id'] ?>, '<?= htmlspecialchars($investor['name']) ?>')">
+                    <button class="btn btn-sm btn-outline" onclick="openDepositModal(<?= $investor['id'] ?>, '<?= htmlspecialchars($investor['name'] ?? $investor['investor_name'] ?? '') ?>')">
                         + Setoran
                     </button>
                     <button class="btn btn-sm btn-outline" onclick="viewHistory(<?= $investor['id'] ?>)">
