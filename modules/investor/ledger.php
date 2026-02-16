@@ -6,7 +6,7 @@ error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
 define('APP_ACCESS', true);
-$base_path = dirname(dirname(__FILE__));
+$base_path = dirname(dirname(dirname(__FILE__)));
 
 require_once $base_path . '/config/config.php';
 require_once $base_path . '/config/database.php';
