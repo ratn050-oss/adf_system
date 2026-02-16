@@ -34,6 +34,18 @@ $pageTitle = 'Front Desk Management';
 try {
     $today = date('Y-m-d');
 
+    // ==========================================
+    // AUTO-CHECKOUT OVERDUE BOOKINGS
+    // ==========================================
+    $overdueBookings = $db->fetchAll("
+        SELECT id, room_id FROM bookings 
+        WHERE status = 'checked_in' AND DATE(check_out_date) < ?
+    ", [$today]);
+    foreach ($overdueBookings as $ob) {
+        $db->query("UPDATE bookings SET status = 'checked_out', actual_checkout_time = check_out_date, updated_at = NOW() WHERE id = ?", [$ob['id']]);
+        $db->query("UPDATE rooms SET status = 'available', current_guest_id = NULL, updated_at = NOW() WHERE id = ? AND status = 'occupied'", [$ob['room_id']]);
+    }
+
     // Today's check-ins (using Database class query method)
     $checkinsResult = $db->fetchOne("
         SELECT COUNT(*) as count FROM bookings 
@@ -72,13 +84,11 @@ try {
     ", [$today]);
     $stats['revenue_today'] = $revenueResult['total'] ?? 0;
 
-    // Current occupancy
+    // Current occupancy - count all checked_in (overdue already auto-checked-out)
     $occupiedResult = $db->fetchOne("
-        SELECT COUNT(*) as count FROM bookings 
+        SELECT COUNT(DISTINCT room_id) as count FROM bookings 
         WHERE status = 'checked_in'
-        AND DATE(check_in_date) <= ?
-        AND DATE(check_out_date) > ?
-    ", [$today, $today]);
+    ");
     $stats['occupied'] = $occupiedResult['count'] ?? 0;
 
     $stats['occupancy_rate'] = $stats['total_rooms'] > 0 ? 

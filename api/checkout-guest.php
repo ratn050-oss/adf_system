@@ -94,10 +94,85 @@ try {
     ]);
     
     $db->commit();
+
+    // ==========================================
+    // AUTO-SYNC UNSYNC'D PAYMENTS TO CASHBOOK
+    // ==========================================
+    $cashbookMsg = '';
+    try {
+        $masterDb = new PDO(
+            "mysql:host=" . DB_HOST . ";dbname=" . MASTER_DB_NAME . ";charset=" . DB_CHARSET,
+            DB_USER, DB_PASS,
+            [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+        );
+        $businessId = $_SESSION['business_id'] ?? 1;
+
+        // Get all payments for this booking
+        $payments = $db->fetchAll("
+            SELECT id, amount, payment_method, payment_date 
+            FROM booking_payments WHERE booking_id = ? ORDER BY id
+        ", [$bookingId]);
+
+        $syncCount = 0;
+        foreach ($payments as $pmt) {
+            // Check if already in cashbook
+            $exists = $db->fetchOne("
+                SELECT id FROM cash_book 
+                WHERE description LIKE ? AND ABS(amount - ?) < 1 AND transaction_type = 'income'
+                LIMIT 1
+            ", ['%' . $booking['booking_code'] . '%', $pmt['amount']]);
+
+            if ($exists) continue;
+
+            // Calculate net amount (OTA fee)
+            $netAmt = (float)$pmt['amount'];
+            if (in_array(strtolower($pmt['payment_method']), ['ota', 'agoda', 'booking'])) {
+                $feeStmt = $masterDb->prepare("SELECT setting_value FROM settings WHERE setting_key = 'ota_fee_other_ota'");
+                $feeStmt->execute();
+                $feeQ = $feeStmt->fetch(PDO::FETCH_ASSOC);
+                if ($feeQ && (float)$feeQ['setting_value'] > 0) {
+                    $netAmt = $pmt['amount'] - ($pmt['amount'] * (float)$feeQ['setting_value'] / 100);
+                }
+            }
+
+            // Find cash account
+            $acctType = ($pmt['payment_method'] === 'cash') ? 'cash' : 'bank';
+            $acctStmt = $masterDb->prepare("SELECT id, current_balance FROM cash_accounts WHERE business_id = ? AND account_type = ? AND is_active = 1 ORDER BY is_default_account DESC LIMIT 1");
+            $acctStmt->execute([$businessId, $acctType]);
+            $acct = $acctStmt->fetch(PDO::FETCH_ASSOC);
+            if (!$acct) continue;
+
+            // Division & Category
+            $div = $db->fetchOne("SELECT id FROM divisions WHERE LOWER(division_name) LIKE '%hotel%' ORDER BY id LIMIT 1");
+            if (!$div) $div = $db->fetchOne("SELECT id FROM divisions ORDER BY id LIMIT 1");
+            $cat = $db->fetchOne("SELECT id FROM categories WHERE category_type = 'income' AND (LOWER(category_name) LIKE '%room%' OR LOWER(category_name) LIKE '%kamar%') ORDER BY id LIMIT 1");
+            if (!$cat) $cat = $db->fetchOne("SELECT id FROM categories WHERE category_type = 'income' ORDER BY id LIMIT 1");
+
+            $desc = "Pembayaran Reservasi - {$booking['guest_name']} (Room {$booking['room_number']}) - {$booking['booking_code']} [CHECKOUT-SYNC]";
+
+            $db->query("INSERT INTO cash_book (transaction_date, transaction_time, division_id, category_id, description, transaction_type, amount, payment_method, cash_account_id, source_type, created_by, created_at) VALUES (DATE(?), TIME(?), ?, ?, ?, 'income', ?, ?, ?, 'booking_payment', ?, NOW())", [
+                $pmt['payment_date'], $pmt['payment_date'],
+                $div['id'] ?? 1, $cat['id'] ?? 1, $desc, $netAmt,
+                $pmt['payment_method'], $acct['id'], $currentUser['id']
+            ]);
+
+            $txId = $db->getConnection()->lastInsertId();
+            $masterDb->prepare("INSERT INTO cash_account_transactions (cash_account_id, transaction_id, transaction_date, description, amount, transaction_type, reference_number, created_by, created_at) VALUES (?, ?, DATE(?), ?, ?, 'income', ?, ?, NOW())")->execute([
+                $acct['id'], $txId, $pmt['payment_date'], $desc, $netAmt, $booking['booking_code'], $currentUser['id']
+            ]);
+            $masterDb->prepare("UPDATE cash_accounts SET current_balance = current_balance + ? WHERE id = ?")->execute([$netAmt, $acct['id']]);
+            $syncCount++;
+        }
+        if ($syncCount > 0) {
+            $cashbookMsg = " | {$syncCount} pembayaran di-sync ke Buku Kas";
+        }
+    } catch (Exception $cbErr) {
+        error_log("Checkout cashbook sync error: " . $cbErr->getMessage());
+    }
     
     echo json_encode([
         'success' => true,
-        'message' => "Check-out berhasil! {$booking['guest_name']} - Room {$booking['room_number']}",
+        'message' => "Check-out berhasil! {$booking['guest_name']} - Room {$booking['room_number']}" . $cashbookMsg,
         'booking_id' => $bookingId,
         'guest_name' => $booking['guest_name'],
         'room_number' => $booking['room_number']

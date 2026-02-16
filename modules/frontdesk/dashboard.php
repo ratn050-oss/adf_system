@@ -34,14 +34,179 @@ try {
     $today = date('Y-m-d');
     $tomorrow = date('Y-m-d', strtotime('+1 day'));
 
-    // 1. Total In-House Guests (checked in, not yet checked out)
+    // ==========================================
+    // AUTO-CHECKOUT OVERDUE BOOKINGS
+    // Bookings with check_out_date < today that are still 'checked_in'
+    // ==========================================
+    $overdueBookings = $db->fetchAll("
+        SELECT b.id, b.room_id, b.booking_code, g.guest_name, r.room_number
+        FROM bookings b
+        LEFT JOIN guests g ON b.guest_id = g.id
+        LEFT JOIN rooms r ON b.room_id = r.id
+        WHERE b.status = 'checked_in'
+        AND DATE(b.check_out_date) < ?
+    ", [$today]);
+
+    if (!empty($overdueBookings)) {
+        foreach ($overdueBookings as $overdue) {
+            // Update booking status to checked_out
+            $db->query("
+                UPDATE bookings 
+                SET status = 'checked_out',
+                    actual_checkout_time = check_out_date,
+                    updated_at = NOW()
+                WHERE id = ?
+            ", [$overdue['id']]);
+
+            // Update room status to available
+            $db->query("
+                UPDATE rooms 
+                SET status = 'available',
+                    current_guest_id = NULL,
+                    updated_at = NOW()
+                WHERE id = ? AND status = 'occupied'
+            ", [$overdue['room_id']]);
+        }
+        error_log("Auto-checkout: " . count($overdueBookings) . " overdue bookings checked out");
+    }
+
+    // ==========================================
+    // AUTO-SYNC BOOKING PAYMENTS TO CASHBOOK
+    // Sync any booking_payments not yet recorded in cash_book
+    // ==========================================
+    try {
+        $masterDb = new PDO(
+            "mysql:host=" . DB_HOST . ";dbname=" . MASTER_DB_NAME . ";charset=" . DB_CHARSET,
+            DB_USER, DB_PASS,
+            [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+        );
+
+        $businessId = $_SESSION['business_id'] ?? 1;
+
+        // Get all booking payments from last 30 days
+        $recentPayments = $db->fetchAll("
+            SELECT bp.id as payment_id, bp.booking_id, bp.amount, bp.payment_method, bp.payment_date,
+                   b.booking_code, b.booking_source, b.final_price,
+                   g.guest_name, r.room_number
+            FROM booking_payments bp
+            JOIN bookings b ON bp.booking_id = b.id
+            LEFT JOIN guests g ON b.guest_id = g.id
+            LEFT JOIN rooms r ON b.room_id = r.id
+            WHERE bp.payment_date >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+            ORDER BY bp.id ASC
+        ");
+
+        $syncCount = 0;
+        foreach ($recentPayments as $payment) {
+            // Check if this payment is already in cash_book (by booking_code in description)
+            $existing = $db->fetchOne("
+                SELECT id FROM cash_book 
+                WHERE description LIKE ? 
+                AND ABS(amount - ?) < 1
+                AND transaction_type = 'income'
+                LIMIT 1
+            ", ['%' . $payment['booking_code'] . '%', $payment['amount']]);
+
+            if ($existing) continue; // Already synced
+
+            // Calculate OTA fee if applicable
+            $netAmount = (float)$payment['amount'];
+            $otaFeePercent = 0;
+            if (in_array(strtolower($payment['payment_method']), ['ota', 'agoda', 'booking'])) {
+                $feeStmt = $masterDb->prepare("SELECT setting_value FROM settings WHERE setting_key = 'ota_fee_other_ota'");
+                $feeStmt->execute();
+                $feeQuery = $feeStmt->fetch(PDO::FETCH_ASSOC);
+                if ($feeQuery) {
+                    $otaFeePercent = (float)($feeQuery['setting_value'] ?? 0);
+                    if ($otaFeePercent > 0) {
+                        $netAmount = $payment['amount'] - ($payment['amount'] * $otaFeePercent / 100);
+                    }
+                }
+            }
+
+            // Find cash account
+            $accountType = ($payment['payment_method'] === 'cash') ? 'cash' : 'bank';
+            $accountStmt = $masterDb->prepare("
+                SELECT id, account_name, current_balance FROM cash_accounts 
+                WHERE business_id = ? AND account_type = ? AND is_active = 1 
+                ORDER BY is_default_account DESC LIMIT 1
+            ");
+            $accountStmt->execute([$businessId, $accountType]);
+            $account = $accountStmt->fetch(PDO::FETCH_ASSOC);
+
+            if (!$account) continue; // No account found
+
+            // Find division (Hotel/Frontdesk)
+            $division = $db->fetchOne("SELECT id FROM divisions WHERE LOWER(division_name) LIKE '%hotel%' OR LOWER(division_name) LIKE '%frontdesk%' ORDER BY id ASC LIMIT 1");
+            if (!$division) $division = $db->fetchOne("SELECT id FROM divisions ORDER BY id ASC LIMIT 1");
+            $divisionId = $division['id'] ?? 1;
+
+            // Find category (Room Rental/Room Sell)
+            $category = $db->fetchOne("SELECT id FROM categories WHERE category_type = 'income' AND (LOWER(category_name) LIKE '%room%' OR LOWER(category_name) LIKE '%kamar%') ORDER BY id ASC LIMIT 1");
+            if (!$category) $category = $db->fetchOne("SELECT id FROM categories WHERE category_type = 'income' ORDER BY id ASC LIMIT 1");
+            $categoryId = $category['id'] ?? 1;
+
+            // Build description
+            $guestName = $payment['guest_name'] ?? 'Guest';
+            $roomNum = $payment['room_number'] ?? '';
+            $desc = "Pembayaran Reservasi - {$guestName}";
+            if ($roomNum) $desc .= " (Room {$roomNum})";
+            $desc .= " - {$payment['booking_code']}";
+
+            // Check if fully paid
+            $totalPaid = $db->fetchOne("SELECT COALESCE(SUM(amount),0) as total FROM booking_payments WHERE booking_id = ?", [$payment['booking_id']]);
+            $desc .= ((float)$totalPaid['total'] >= (float)$payment['final_price']) ? ' [LUNAS]' : ' [CICILAN]';
+
+            // Insert into cash_book
+            $db->query("
+                INSERT INTO cash_book (
+                    transaction_date, transaction_time, division_id, category_id,
+                    description, transaction_type, amount, payment_method,
+                    cash_account_id, source_type, created_by, created_at
+                ) VALUES (DATE(?), TIME(?), ?, ?, ?, 'income', ?, ?, ?, 'booking_payment', ?, NOW())
+            ", [
+                $payment['payment_date'], $payment['payment_date'],
+                $divisionId, $categoryId, $desc, $netAmount,
+                $payment['payment_method'], $account['id'],
+                $currentUser['id']
+            ]);
+
+            $transactionId = $db->getConnection()->lastInsertId();
+
+            // Insert into master cash_account_transactions
+            $masterTransInsert = $masterDb->prepare("
+                INSERT INTO cash_account_transactions (
+                    cash_account_id, transaction_id, transaction_date,
+                    description, amount, transaction_type,
+                    reference_number, created_by, created_at
+                ) VALUES (?, ?, DATE(?), ?, ?, 'income', ?, ?, NOW())
+            ");
+            $masterTransInsert->execute([
+                $account['id'], $transactionId, $payment['payment_date'],
+                $desc, $netAmount, $payment['booking_code'], $currentUser['id']
+            ]);
+
+            // Update cash account balance
+            $updateBal = $masterDb->prepare("UPDATE cash_accounts SET current_balance = current_balance + ? WHERE id = ?");
+            $updateBal->execute([$netAmount, $account['id']]);
+
+            $syncCount++;
+        }
+
+        if ($syncCount > 0) {
+            error_log("Cashbook auto-sync: {$syncCount} payments synced to cashbook");
+        }
+    } catch (Exception $syncError) {
+        error_log("Cashbook sync error: " . $syncError->getMessage());
+    }
+
+    // 1. Total In-House Guests (checked in, currently staying)
+    // Count ALL checked_in bookings (after auto-checkout, only current ones remain)
     $inHouseResult = $db->fetchOne("
         SELECT COUNT(DISTINCT b.guest_id) as count 
         FROM bookings b
         WHERE b.status = 'checked_in'
-        AND DATE(b.check_in_date) <= ?
-        AND DATE(b.check_out_date) > ?
-    ", [$today, $today]);
+    ");
     $stats['in_house'] = $inHouseResult['count'] ?? 0;
 
     // 2. Total Check-out Today
@@ -75,14 +240,12 @@ try {
     $totalRoomsResult = $db->fetchOne("SELECT COUNT(*) as count FROM rooms");
     $stats['total_rooms'] = max(1, $totalRoomsResult['count'] ?? 0);
 
-    // Count occupied rooms - Only include checked_in bookings
-    // Fix: Allow early check-ins to count as occupied (removed strict check_in_date start check)
+    // Count occupied rooms - All checked_in bookings (overdue already auto-checked-out)
     $occupiedRoomsResult = $db->fetchOne("
         SELECT COUNT(DISTINCT b.room_id) as count 
         FROM bookings b
         WHERE b.status = 'checked_in'
-        AND DATE(b.check_out_date) > ?
-    ", [$today]);
+    ");
     $stats['occupied_rooms'] = $occupiedRoomsResult['count'] ?? 0;
     $stats['available_rooms'] = max(0, $stats['total_rooms'] - $stats['occupied_rooms']);
     $stats['occupancy_rate'] = ($stats['total_rooms'] > 0) 
