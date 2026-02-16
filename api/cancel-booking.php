@@ -166,21 +166,32 @@ try {
         }
     }
     
-    // Log activity (use correct table name: activity_logs)
+    // Log activity (optional - wrapped in try-catch to handle FK constraint issues)
     $logDesc = "Cancelled booking {$booking['booking_code']} - {$booking['guest_name']}. {$refundPolicy}";
     if ($finalRefundAmount > 0) {
         $logDesc .= " Refund: Rp " . number_format($finalRefundAmount, 0, ',', '.');
     }
     
-    $logStmt = $pdo->prepare("
-        INSERT INTO activity_logs (user_id, action, description, created_at) 
-        VALUES (?, ?, ?, NOW())
-    ");
-    $logStmt->execute([
-        $currentUser['id'],
-        'cancel_booking',
-        $logDesc
-    ]);
+    try {
+        // Check if activity_logs table exists and user is valid
+        $checkUser = $pdo->prepare("SELECT id FROM users WHERE id = ? LIMIT 1");
+        $checkUser->execute([$currentUser['id']]);
+        
+        if ($checkUser->fetch()) {
+            $logStmt = $pdo->prepare("
+                INSERT INTO activity_logs (user_id, action, description, created_at) 
+                VALUES (?, ?, ?, NOW())
+            ");
+            $logStmt->execute([
+                $currentUser['id'],
+                'cancel_booking',
+                $logDesc
+            ]);
+        }
+    } catch (Exception $logError) {
+        // Activity logging failed but don't fail the whole transaction
+        error_log("Activity log insert failed: " . $logError->getMessage());
+    }
     
     $pdo->commit();
     

@@ -1086,13 +1086,29 @@ include '../../includes/header.php';
                     <span id="cancelPaidAmount">Rp 0</span>
                 </div>
                 <div class="refund-amount-row refund">
-                    <span>Refund (<span id="refundPercentage">0</span>%)</span>
+                    <span>Refund Otomatis (<span id="refundPercentage">0</span>%)</span>
                     <span id="cancelRefundAmount">Rp 0</span>
                 </div>
                 <div class="refund-amount-row forfeit">
                     <span>Hangus</span>
                     <span id="cancelForfeitAmount">Rp 0</span>
                 </div>
+            </div>
+            
+            <!-- Manual Refund Input -->
+            <div style="margin-top: 1rem; padding: 1rem; background: #f0fdf4; border-radius: 8px; border: 1px solid #86efac;">
+                <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: #166534;">✏️ Input Manual Refund (Opsional)</label>
+                <div style="display: flex; gap: 0.5rem; align-items: center;">
+                    <input type="number" id="manualRefundAmount" placeholder="Nominal (Rp)" 
+                           style="flex: 2; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.9rem;"
+                           onchange="updateManualRefund('nominal')">
+                    <span style="color: #9ca3af;">atau</span>
+                    <input type="number" id="manualRefundPercent" placeholder="%" min="0" max="100"
+                           style="flex: 1; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.9rem;"
+                           onchange="updateManualRefund('percent')">
+                    <span style="color: #9ca3af;">%</span>
+                </div>
+                <small style="color: #64748b; display: block; margin-top: 0.5rem;">Kosongkan untuk menggunakan kebijakan otomatis</small>
             </div>
             
             <p style="margin-top: 1rem; font-size: 0.85rem; color: #64748b;">
@@ -1629,6 +1645,13 @@ function cancelBooking(id, bookingCode) {
             document.getElementById('cancelRefundAmount').textContent = formatRupiah(d.refund_amount);
             document.getElementById('cancelForfeitAmount').textContent = formatRupiah(d.forfeit_amount);
             
+            // Store paid amount for manual calculation
+            currentPaidAmount = d.paid_amount;
+            
+            // Clear manual input fields
+            document.getElementById('manualRefundAmount').value = '';
+            document.getElementById('manualRefundPercent').value = '';
+            
             // Update policy box
             const policyBox = document.getElementById('refundPolicyBox');
             policyBox.style.borderColor = d.policy_color;
@@ -1659,6 +1682,65 @@ function cancelBooking(id, bookingCode) {
 function closeCancelModal() {
     document.getElementById('cancelBookingModal').classList.remove('active');
     document.getElementById('cancelBookingId').value = '';
+    // Clear manual inputs
+    document.getElementById('manualRefundAmount').value = '';
+    document.getElementById('manualRefundPercent').value = '';
+    currentPaidAmount = 0;
+}
+
+// Store paid amount for manual calculation
+let currentPaidAmount = 0;
+
+function updateManualRefund(type) {
+    const nominalInput = document.getElementById('manualRefundAmount');
+    const percentInput = document.getElementById('manualRefundPercent');
+    const refundDisplay = document.getElementById('cancelRefundAmount');
+    const forfeitDisplay = document.getElementById('cancelForfeitAmount');
+    
+    let manualRefund = 0;
+    
+    if (type === 'nominal' && nominalInput.value) {
+        manualRefund = parseFloat(nominalInput.value) || 0;
+        // Clear percent input
+        percentInput.value = '';
+    } else if (type === 'percent' && percentInput.value) {
+        const percent = parseFloat(percentInput.value) || 0;
+        manualRefund = (currentPaidAmount * percent) / 100;
+        // Clear nominal input
+        nominalInput.value = '';
+    }
+    
+    // Validate max refund
+    if (manualRefund > currentPaidAmount) {
+        manualRefund = currentPaidAmount;
+        nominalInput.value = manualRefund;
+    }
+    
+    const forfeit = currentPaidAmount - manualRefund;
+    
+    refundDisplay.textContent = formatRupiah(manualRefund);
+    forfeitDisplay.textContent = formatRupiah(forfeit);
+    
+    // Update button text
+    const btn = document.getElementById('btnConfirmCancel');
+    if (manualRefund > 0) {
+        btn.textContent = `❌ Batalkan & Refund ${formatRupiah(manualRefund)}`;
+    } else {
+        btn.textContent = '❌ Batalkan (Tanpa Refund)';
+    }
+}
+
+function getManualRefundAmount() {
+    const nominalInput = document.getElementById('manualRefundAmount');
+    const percentInput = document.getElementById('manualRefundPercent');
+    
+    if (nominalInput.value) {
+        return parseFloat(nominalInput.value) || null;
+    } else if (percentInput.value) {
+        const percent = parseFloat(percentInput.value) || 0;
+        return (currentPaidAmount * percent) / 100;
+    }
+    return null; // Use auto calculation
 }
 
 function confirmCancelBooking() {
@@ -1669,14 +1751,19 @@ function confirmCancelBooking() {
     btn.disabled = true;
     btn.textContent = 'Processing...';
     
+    // Get manual refund if set
+    const manualRefund = getManualRefundAmount();
+    const requestBody = { booking_id: bookingId };
+    if (manualRefund !== null) {
+        requestBody.refund_amount = manualRefund;
+    }
+    
     fetch('../../api/cancel-booking.php', {
         method: 'POST',
         headers: {
             'Content-Type': 'application/json',
         },
-        body: JSON.stringify({
-            booking_id: bookingId
-        })
+        body: JSON.stringify(requestBody)
     })
     .then(response => response.json())
     .then(data => {
