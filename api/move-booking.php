@@ -46,6 +46,7 @@ try {
 
     $db = Database::getInstance();
     error_log("Database instance obtained");
+    $conn = $db->getConnection();
 
     $bookingId = intval($_POST['booking_id'] ?? 0);
     $newCheckIn = trim($_POST['new_check_in'] ?? '');
@@ -57,7 +58,7 @@ try {
     }
 
     // Get current booking
-    $stmt = $db->prepare("SELECT * FROM bookings WHERE id = ?");
+    $stmt = $conn->prepare("SELECT * FROM bookings WHERE id = ?");
     $stmt->execute([$bookingId]);
     $booking = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -85,7 +86,7 @@ try {
     $nights = $ciDate->diff($coDate)->days;
 
     // Check room availability (exclude current booking)
-    $stmt = $db->prepare("
+    $stmt = $conn->prepare("
         SELECT COUNT(*) FROM bookings 
         WHERE room_id = ? 
         AND id != ? 
@@ -101,7 +102,7 @@ try {
     }
 
     // Get room price from room_types via rooms
-    $stmt = $db->prepare("
+    $stmt = $conn->prepare("
         SELECT rt.base_price 
         FROM rooms r 
         JOIN room_types rt ON r.room_type_id = rt.id 
@@ -121,7 +122,7 @@ try {
     $finalPrice = $totalPrice - $discount;
 
     // Update booking
-    $stmt = $db->prepare("
+    $stmt = $conn->prepare("
         UPDATE bookings SET 
             check_in_date = ?,
             check_out_date = ?,

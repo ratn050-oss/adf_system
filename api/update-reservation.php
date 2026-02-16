@@ -46,6 +46,7 @@ try {
 
     $db = Database::getInstance();
     error_log("Database instance obtained");
+    $conn = $db->getConnection();
 
     $bookingId = intval($_POST['booking_id'] ?? 0);
     if (!$bookingId) {
@@ -53,7 +54,7 @@ try {
     }
 
     // Get current booking
-    $stmt = $db->prepare("SELECT b.*, g.id as gid FROM bookings b LEFT JOIN guests g ON b.guest_id = g.id WHERE b.id = ?");
+    $stmt = $conn->prepare("SELECT b.*, g.id as gid FROM bookings b LEFT JOIN guests g ON b.guest_id = g.id WHERE b.id = ?");
     $stmt->execute([$bookingId]);
     $booking = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -91,7 +92,7 @@ try {
         if (!empty($guestUpdates)) {
             $guestParams[] = $booking['gid'];
             $sql = "UPDATE guests SET " . implode(', ', $guestUpdates) . ", updated_at = NOW() WHERE id = ?";
-            $stmt = $db->prepare($sql);
+            $stmt = $conn->prepare($sql);
             $stmt->execute($guestParams);
         }
     }
@@ -123,7 +124,7 @@ try {
 
     // Check availability if dates changed
     if ($checkIn !== $booking['check_in_date'] || $checkOut !== $booking['check_out_date']) {
-        $stmt = $db->prepare("
+        $stmt = $conn->prepare("
             SELECT COUNT(*) FROM bookings 
             WHERE room_id = ? AND id != ? 
             AND status NOT IN ('cancelled', 'checked_out')
@@ -142,7 +143,7 @@ try {
     }
     if (!$roomPrice) {
         // Fallback to room_types base_price
-        $stmt = $db->prepare("SELECT rt.base_price FROM rooms r JOIN room_types rt ON r.room_type_id = rt.id WHERE r.id = ?");
+        $stmt = $conn->prepare("SELECT rt.base_price FROM rooms r JOIN room_types rt ON r.room_type_id = rt.id WHERE r.id = ?");
         $stmt->execute([$roomId]);
         $rtRow = $stmt->fetch(PDO::FETCH_ASSOC);
         $roomPrice = $rtRow ? $rtRow['base_price'] : 0;
@@ -170,7 +171,7 @@ try {
     // Execute booking update
     $params[] = $bookingId;
     $sql = "UPDATE bookings SET " . implode(', ', $updates) . " WHERE id = ?";
-    $stmt = $db->prepare($sql);
+    $stmt = $conn->prepare($sql);
     $stmt->execute($params);
 
     echo json_encode([

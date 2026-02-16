@@ -46,6 +46,7 @@ try {
 
     $db = Database::getInstance();
     error_log("Database instance obtained");
+    $conn = $db->getConnection();
 
     $bookingId = intval($_POST['booking_id'] ?? 0);
     $extraNights = intval($_POST['extra_nights'] ?? 0);
@@ -55,7 +56,7 @@ try {
     }
 
     // Get current booking
-    $stmt = $db->prepare("SELECT * FROM bookings WHERE id = ? AND status = 'checked_in'");
+    $stmt = $conn->prepare("SELECT * FROM bookings WHERE id = ? AND status = 'checked_in'");
     $stmt->execute([$bookingId]);
     $booking = $stmt->fetch(PDO::FETCH_ASSOC);
 
@@ -70,7 +71,7 @@ try {
     $newCheckoutStr = $newCheckout->format('Y-m-d');
 
     // Check room availability for extended period
-    $stmt = $db->prepare("
+    $stmt = $conn->prepare("
         SELECT COUNT(*) FROM bookings 
         WHERE room_id = ? 
         AND id != ? 
@@ -95,7 +96,7 @@ try {
     $finalPrice = $newTotalPrice - $discount;
 
     // Update booking
-    $stmt = $db->prepare("
+    $stmt = $conn->prepare("
         UPDATE bookings SET 
             check_out_date = ?,
             total_nights = ?,

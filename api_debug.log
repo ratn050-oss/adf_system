@@ -1,0 +1,36 @@
+[16-Feb-2026 01:01:05 Europe/Berlin] === move-booking.php START ===
+[16-Feb-2026 07:01:05 Asia/Jakarta] config.php loaded
+[16-Feb-2026 07:01:05 Asia/Jakarta] database.php loaded
+[16-Feb-2026 07:01:05 Asia/Jakarta] auth.php loaded
+[16-Feb-2026 07:01:05 Asia/Jakarta] Auth instantiated
+[16-Feb-2026 07:01:05 Asia/Jakarta] Database instance obtained
+[16-Feb-2026 07:01:05 Asia/Jakarta] FATAL: Call to undefined method Database::prepare() at C:\xampp\htdocs\adf_system\api\move-booking.php:60
+[16-Feb-2026 07:01:05 Asia/Jakarta] Stack: #0 {main}
+[16-Feb-2026 07:01:05 Asia/Jakarta] === move-booking.php END ===
+[16-Feb-2026 01:01:27 Europe/Berlin] === move-booking.php START ===
+[16-Feb-2026 07:01:27 Asia/Jakarta] config.php loaded
+[16-Feb-2026 07:01:27 Asia/Jakarta] database.php loaded
+[16-Feb-2026 07:01:27 Asia/Jakarta] auth.php loaded
+[16-Feb-2026 07:01:27 Asia/Jakarta] Auth instantiated
+[16-Feb-2026 07:01:27 Asia/Jakarta] Database instance obtained
+[16-Feb-2026 07:01:27 Asia/Jakarta] FATAL: Call to undefined method Database::prepare() at C:\xampp\htdocs\adf_system\api\move-booking.php:60
+[16-Feb-2026 07:01:27 Asia/Jakarta] Stack: #0 {main}
+[16-Feb-2026 07:01:27 Asia/Jakarta] === move-booking.php END ===
+[16-Feb-2026 01:01:36 Europe/Berlin] === move-booking.php START ===
+[16-Feb-2026 07:01:36 Asia/Jakarta] config.php loaded
+[16-Feb-2026 07:01:36 Asia/Jakarta] database.php loaded
+[16-Feb-2026 07:01:36 Asia/Jakarta] auth.php loaded
+[16-Feb-2026 07:01:36 Asia/Jakarta] Auth instantiated
+[16-Feb-2026 07:01:36 Asia/Jakarta] Database instance obtained
+[16-Feb-2026 07:01:36 Asia/Jakarta] FATAL: Call to undefined method Database::prepare() at C:\xampp\htdocs\adf_system\api\move-booking.php:60
+[16-Feb-2026 07:01:36 Asia/Jakarta] Stack: #0 {main}
+[16-Feb-2026 07:01:36 Asia/Jakarta] === move-booking.php END ===
+[16-Feb-2026 01:02:05 Europe/Berlin] === move-booking.php START ===
+[16-Feb-2026 07:02:05 Asia/Jakarta] config.php loaded
+[16-Feb-2026 07:02:05 Asia/Jakarta] database.php loaded
+[16-Feb-2026 07:02:05 Asia/Jakarta] auth.php loaded
+[16-Feb-2026 07:02:05 Asia/Jakarta] Auth instantiated
+[16-Feb-2026 07:02:05 Asia/Jakarta] Database instance obtained
+[16-Feb-2026 07:02:05 Asia/Jakarta] FATAL: Call to undefined method Database::prepare() at C:\xampp\htdocs\adf_system\api\move-booking.php:60
+[16-Feb-2026 07:02:05 Asia/Jakarta] Stack: #0 {main}
+[16-Feb-2026 07:02:05 Asia/Jakarta] === move-booking.php END ===
