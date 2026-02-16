@@ -29,6 +29,9 @@ $db = Database::getInstance();
 $pdo = $db->getConnection();
 $currentUser = $auth->getCurrentUser();
 
+// Get business_id from user or session
+$businessId = $currentUser['business_id'] ?? $_SESSION['business_id'] ?? 1;
+
 $input = json_decode(file_get_contents('php://input'), true);
 $bookingId = $input['booking_id'] ?? null;
 $refundAmount = isset($input['refund_amount']) ? floatval($input['refund_amount']) : null;
@@ -117,15 +120,17 @@ try {
     // Record refund in cash_book if there's refund amount
     $refundRecorded = false;
     if ($finalRefundAmount > 0) {
+        // Get master database name (handles hosting vs local)
+        $masterDbName = defined('MASTER_DB_NAME') ? MASTER_DB_NAME : 'adf_system';
+        
         // Get default cash account (petty cash or owner capital)
         $accountStmt = $pdo->prepare("
             SELECT id, account_name, current_balance 
-            FROM adf_system.cash_accounts 
+            FROM {$masterDbName}.cash_accounts 
             WHERE business_id = ? AND account_type IN ('cash', 'owner_capital')
             ORDER BY current_balance DESC
             LIMIT 1
         ");
-        $businessId = $_SESSION['business_id'] ?? 1;
         $accountStmt->execute([$businessId]);
         $cashAccount = $accountStmt->fetch(PDO::FETCH_ASSOC);
         
@@ -154,15 +159,19 @@ try {
                 $currentUser['id']
             ]);
             
-            // Update cash account balance
+            // Update cash account balance in master database
             $updateBalanceStmt = $pdo->prepare("
-                UPDATE adf_system.cash_accounts 
+                UPDATE {$masterDbName}.cash_accounts 
                 SET current_balance = current_balance - ?
                 WHERE id = ?
             ");
             $updateBalanceStmt->execute([$finalRefundAmount, $cashAccount['id']]);
             
             $refundRecorded = true;
+            
+            error_log("REFUND RECORDED: Booking {$booking['booking_code']}, Amount: {$finalRefundAmount}, Account ID: {$cashAccount['id']}, DB: {$masterDbName}");
+        } else {
+            error_log("REFUND WARNING: No cash account found for business_id {$businessId}");
         }
     }
     
