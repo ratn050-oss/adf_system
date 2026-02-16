@@ -101,27 +101,72 @@ try {
     }
 
     // Get actual column names to use flexible naming
-    $stmt = $db->query("DESCRIBE projects");
-    $columns = $stmt->fetchAll(PDO::FETCH_COLUMN);
+    try {
+        $stmt = $db->query("DESCRIBE projects");
+        $columnsInfo = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $columns = array_column($columnsInfo, 'Field');
+    } catch (Exception $e) {
+        // Fallback: assume standard columns
+        $columns = ['id', 'project_name', 'project_code', 'description', 'budget_idr', 'status', 'created_at', 'created_by'];
+    }
     
-    $name_col = in_array('project_name', $columns) ? 'project_name' : (in_array('name', $columns) ? 'name' : 'project_name');
-    $code_col = in_array('project_code', $columns) ? 'project_code' : (in_array('code', $columns) ? 'code' : 'project_code');
-    $budget_col = in_array('budget_idr', $columns) ? 'budget_idr' : (in_array('budget', $columns) ? 'budget' : 'budget_idr');
+    // Build INSERT statement dynamically based on available columns
+    $insert_cols = [];
+    $insert_vals = [];
+    $params = [];
+    
+    // Add required columns and their values
+    if (in_array('project_name', $columns)) {
+        $insert_cols[] = 'project_name';
+        $insert_vals[] = '?';
+        $params[] = $project_name;
+    }
+    
+    if (in_array('project_code', $columns) && !empty($project_code)) {
+        $insert_cols[] = 'project_code';
+        $insert_vals[] = '?';
+        $params[] = $project_code;
+    }
+    
+    if (in_array('description', $columns)) {
+        $insert_cols[] = 'description';
+        $insert_vals[] = '?';
+        $params[] = $description;
+    }
+    
+    if (in_array('budget_idr', $columns)) {
+        $insert_cols[] = 'budget_idr';
+        $insert_vals[] = '?';
+        $params[] = $budget_idr;
+    } elseif (in_array('budget', $columns)) {
+        $insert_cols[] = 'budget';
+        $insert_vals[] = '?';
+        $params[] = $budget_idr;
+    }
+    
+    if (in_array('status', $columns)) {
+        $insert_cols[] = 'status';
+        $insert_vals[] = '?';
+        $params[] = $status;
+    }
+    
+    if (in_array('created_by', $columns)) {
+        $insert_cols[] = 'created_by';
+        $insert_vals[] = '?';
+        $params[] = $_SESSION['user_id'] ?? 1;
+    }
+    
+    // Don't manually add created_at - let database handle with DEFAULT CURRENT_TIMESTAMP
 
-    // Insert project with flexible column names
-    $sql = "INSERT INTO projects ($name_col, $code_col, description, $budget_col, status, created_by, created_at) 
-            VALUES (?, ?, ?, ?, ?, ?, NOW())";
+    // Build and execute INSERT
+    if (empty($insert_cols)) {
+        echo json_encode(['success' => false, 'message' => 'Tidak ada kolom yang sesuai di tabel projects']);
+        exit;
+    }
     
+    $sql = "INSERT INTO projects (" . implode(', ', $insert_cols) . ") VALUES (" . implode(', ', $insert_vals) . ")";
     $stmt = $db->prepare($sql);
-    
-    $stmt->execute([
-        $project_name,
-        $project_code,
-        $description,
-        $budget_idr,
-        $status,
-        $_SESSION['user_id'] ?? 1
-    ]);
+    $stmt->execute($params);
 
     $project_id = $db->lastInsertId();
 

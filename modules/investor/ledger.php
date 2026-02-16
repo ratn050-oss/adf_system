@@ -34,11 +34,11 @@ if ($project_id) {
     try {
         $stmt = $db->prepare("
             SELECT id,
-                   COALESCE(project_name, name) as project_name,
-                   COALESCE(project_code, code) as project_code,
-                   COALESCE(budget_idr, budget) as budget_idr,
-                   description,
-                   status,
+                   COALESCE(project_name, name, 'Project') as project_name,
+                   COALESCE(project_code, code, CONCAT('PROJ-', id)) as project_code,
+                   COALESCE(budget_idr, budget, 0) as budget_idr,
+                   COALESCE(description, '') as description,
+                   COALESCE(status, 'ongoing') as status,
                    created_at,
                    0 as total_expenses
             FROM projects
@@ -51,7 +51,9 @@ if ($project_id) {
             // Get expenses for this project
             try {
                 $stmt = $db->prepare("
-                    SELECT id, project_id, category_id, amount, description, expense_date, created_at
+                    SELECT id, project_id, category_id, amount, description, 
+                           COALESCE(expense_date, created_at) as expense_date, 
+                           created_at
                     FROM project_expenses
                     WHERE project_id = ?
                     ORDER BY expense_date DESC, created_at DESC
@@ -67,6 +69,7 @@ if ($project_id) {
                 $project['total_expenses'] = $total_exp;
             } catch (Exception $e) {
                 $expenses = [];
+                $project['total_expenses'] = 0;
             }
         }
     } catch (Exception $e) {
@@ -78,11 +81,11 @@ if ($project_id) {
 try {
     $stmt = $db->query("
         SELECT id,
-               COALESCE(project_name, name) as project_name,
-               COALESCE(project_code, code) as project_code,
-               COALESCE(budget_idr, budget) as budget_idr,
-               description,
-               status,
+               COALESCE(project_name, name, 'Project') as project_name,
+               COALESCE(project_code, code, CONCAT('PROJ-', id)) as project_code,
+               COALESCE(budget_idr, budget, 0) as budget_idr,
+               COALESCE(description, '') as description,
+               COALESCE(status, 'ongoing') as status,
                created_at
         FROM projects
         ORDER BY created_at DESC
