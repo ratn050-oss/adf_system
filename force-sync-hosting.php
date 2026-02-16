@@ -115,9 +115,24 @@ try {
             
             $transId = $conn->lastInsertId();
             
+            // AUTOMATIC FIX: Check if transaction_id exists in master table
+            $hasTransId = false;
+            try {
+                $chk = $masterDb->query("SHOW COLUMNS FROM cash_account_transactions LIKE 'transaction_id'");
+                $hasTransId = $chk && $chk->rowCount() > 0;
+            } catch (Exception $e) {
+                // Ignore error, assume false or handle gracefully
+            }
+            
             // INSERT TO MASTER TRANSACTION for Balance
-            $stmt2 = $masterDb->prepare("INSERT INTO cash_account_transactions (cash_account_id, transaction_id, transaction_date, description, amount, transaction_type, created_by, created_at) VALUES (?, ?, NOW(), ?, ?, 'income', 1, NOW())");
-            $stmt2->execute([$account['id'], $transId, $desc, $amount]);
+            if ($hasTransId) {
+                $stmt2 = $masterDb->prepare("INSERT INTO cash_account_transactions (cash_account_id, transaction_id, transaction_date, description, amount, transaction_type, created_by, created_at) VALUES (?, ?, NOW(), ?, ?, 'income', 1, NOW())");
+                $stmt2->execute([$account['id'], $transId, $desc, $amount]);
+            } else {
+                 // Fallback if column is missing (Hosting mismatch)
+                 $stmt2 = $masterDb->prepare("INSERT INTO cash_account_transactions (cash_account_id, transaction_date, description, amount, transaction_type, created_by, created_at) VALUES (?, NOW(), ?, ?, 'income', 1, NOW())");
+                 $stmt2->execute([$account['id'], $desc, $amount]);
+            }
             
             // UPDATE BALANCE
             $masterDb->query("UPDATE cash_accounts SET current_balance = current_balance + $amount WHERE id = {$account['id']}");
