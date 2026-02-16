@@ -73,14 +73,43 @@ try {
 
 // Get all projects for project management section
 try {
-    // Try flexible SELECT first
+    // Check what columns actually exist
+    $stmt = $db->query("DESCRIBE projects");
+    $columnsInfo = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $columns = array_column($columnsInfo, 'Field');
+    
+    // Build flexible SELECT based on available columns
+    $name_col = 'COALESCE(';
+    if (in_array('project_name', $columns)) $name_col .= 'project_name, ';
+    if (in_array('name', $columns)) $name_col .= 'name, ';
+    $name_col .= "'Project') as project_name";
+    
+    $code_col = 'COALESCE(';
+    if (in_array('project_code', $columns)) $code_col .= 'project_code, ';
+    if (in_array('code', $columns)) $code_col .= 'code, ';
+    $code_col .= "CONCAT('PROJ-', LPAD(id, 4, '0'))) as project_code";
+    
+    $budget_col = 'COALESCE(';
+    if (in_array('budget_idr', $columns)) $budget_col .= 'budget_idr, ';
+    if (in_array('budget', $columns)) $budget_col .= 'budget, ';
+    $budget_col .= '0) as budget_idr';
+    
+    $desc_col = 'COALESCE(';
+    if (in_array('description', $columns)) $desc_col .= 'description, ';
+    if (in_array('desc', $columns)) $desc_col .= 'desc, ';
+    $desc_col .= "'') as description";
+    
+    $status_col = 'COALESCE(';
+    if (in_array('status', $columns)) $status_col .= 'status, ';
+    $status_col .= "'ongoing') as status";
+    
     $projects = $db->query("
         SELECT id,
-               COALESCE(project_name, name, 'Project') as project_name,
-               COALESCE(project_code, code, CONCAT('PROJ-', id)) as project_code,
-               COALESCE(budget_idr, budget, 0) as budget_idr,
-               COALESCE(description, '') as description,
-               COALESCE(status, 'ongoing') as status,
+               $name_col,
+               $code_col,
+               $budget_col,
+               $desc_col,
+               $status_col,
                created_at,
                0 as total_expenses,
                0 as expense_count
@@ -373,6 +402,19 @@ include $base_path . '/includes/header.php';
     background: rgba(99, 102, 241, 0.1);
     border-color: #6366f1;
     color: #6366f1;
+}
+
+.btn-danger {
+    background: #ef4444;
+    border: 1.5px solid #ef4444;
+    color: white;
+    transition: all 0.2s ease;
+}
+
+.btn-danger:hover {
+    background: #dc2626;
+    border-color: #dc2626;
+    transform: translateY(-1px);
 }
 
 /* Projects Section */
@@ -854,6 +896,15 @@ include $base_path . '/includes/header.php';
                             </svg>
                             Edit
                         </button>
+                        <button class="btn btn-sm btn-danger" onclick="event.stopPropagation(); deleteProject(<?= $project['id'] ?>, '<?= htmlspecialchars($project['project_name'], ENT_QUOTES) ?>')">
+                            <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                                <polyline points="3,6 5,6 21,6"></polyline>
+                                <path d="m19,6v14a2,2 0 0,1 -2,2H7a2,2 0 0,1 -2,-2V6m3,0V4a2,2 0 0,1 2,-2h4a2,2 0 0,1 2,2v2"></path>
+                                <line x1="10" y1="11" x2="10" y2="17"></line>
+                                <line x1="14" y1="11" x2="14" y2="17"></line>
+                            </svg>
+                            Hapus
+                        </button>
                     </div>
                 </div>
                 <?php endforeach; ?>
@@ -1198,6 +1249,33 @@ function goToProjectLedger(projectId) {
 function editProject(projectId) {
     // TODO: Implement edit project modal
     alert('Fitur edit proyek akan segera tersedia');
+}
+
+async function deleteProject(projectId, projectName) {
+    if (!confirm(`Apakah Anda yakin ingin menghapus projek "${projectName}"?\n\nSemua data pengeluaran projek ini akan ikut terhapus!`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch('<?= BASE_URL ?>/api/investor-project-delete.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: 'project_id=' + encodeURIComponent(projectId)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert(result.message || 'Projek berhasil dihapus');
+            location.reload(); // Refresh page to update project list
+        } else {
+            alert('Error: ' + result.message);
+        }
+    } catch (error) {
+        alert('Error: ' + error.message);
+    }
 }
 
 // Close modal when clicking outside

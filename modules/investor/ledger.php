@@ -32,13 +32,43 @@ $categories = [];
 
 if ($project_id) {
     try {
+        // Check what columns actually exist
+        $stmt = $db->query("DESCRIBE projects");
+        $columnsInfo = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $columns = array_column($columnsInfo, 'Field');
+        
+        // Build flexible SELECT based on available columns
+        $name_col = 'COALESCE(';
+        if (in_array('project_name', $columns)) $name_col .= 'project_name, ';
+        if (in_array('name', $columns)) $name_col .= 'name, ';
+        $name_col .= "'Project') as project_name";
+        
+        $code_col = 'COALESCE(';
+        if (in_array('project_code', $columns)) $code_col .= 'project_code, ';
+        if (in_array('code', $columns)) $code_col .= 'code, ';
+        $code_col .= "CONCAT('PROJ-', LPAD(id, 4, '0'))) as project_code";
+        
+        $budget_col = 'COALESCE(';
+        if (in_array('budget_idr', $columns)) $budget_col .= 'budget_idr, ';
+        if (in_array('budget', $columns)) $budget_col .= 'budget, ';
+        $budget_col .= '0) as budget_idr';
+        
+        $desc_col = 'COALESCE(';
+        if (in_array('description', $columns)) $desc_col .= 'description, ';
+        if (in_array('desc', $columns)) $desc_col .= 'desc, ';
+        $desc_col .= "'') as description";
+        
+        $status_col = 'COALESCE(';
+        if (in_array('status', $columns)) $status_col .= 'status, ';
+        $status_col .= "'ongoing') as status";
+        
         $stmt = $db->prepare("
             SELECT id,
-                   COALESCE(project_name, name, 'Project') as project_name,
-                   COALESCE(project_code, code, CONCAT('PROJ-', id)) as project_code,
-                   COALESCE(budget_idr, budget, 0) as budget_idr,
-                   COALESCE(description, '') as description,
-                   COALESCE(status, 'ongoing') as status,
+                   $name_col,
+                   $code_col,
+                   $budget_col,
+                   $desc_col,
+                   $status_col,
                    created_at,
                    0 as total_expenses
             FROM projects
@@ -79,13 +109,43 @@ if ($project_id) {
 
 // Get all projects
 try {
+    // Check what columns actually exist in projects table
+    $stmt = $db->query("DESCRIBE projects");
+    $columnsInfo = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $columns = array_column($columnsInfo, 'Field');
+    
+    // Build flexible SELECT based on available columns
+    $name_col = 'COALESCE(';
+    if (in_array('project_name', $columns)) $name_col .= 'project_name, ';
+    if (in_array('name', $columns)) $name_col .= 'name, ';
+    $name_col .= "'Project') as project_name";
+    
+    $code_col = 'COALESCE(';
+    if (in_array('project_code', $columns)) $code_col .= 'project_code, ';
+    if (in_array('code', $columns)) $code_col .= 'code, ';
+    $code_col .= "CONCAT('PROJ-', LPAD(id, 4, '0'))) as project_code";
+    
+    $budget_col = 'COALESCE(';
+    if (in_array('budget_idr', $columns)) $budget_col .= 'budget_idr, ';
+    if (in_array('budget', $columns)) $budget_col .= 'budget, ';
+    $budget_col .= '0) as budget_idr';
+    
+    $desc_col = 'COALESCE(';
+    if (in_array('description', $columns)) $desc_col .= 'description, ';
+    if (in_array('desc', $columns)) $desc_col .= 'desc, ';
+    $desc_col .= "'') as description";
+    
+    $status_col = 'COALESCE(';
+    if (in_array('status', $columns)) $status_col .= 'status, ';
+    $status_col .= "'ongoing') as status";
+    
     $stmt = $db->query("
         SELECT id,
-               COALESCE(project_name, name, 'Project') as project_name,
-               COALESCE(project_code, code, CONCAT('PROJ-', id)) as project_code,
-               COALESCE(budget_idr, budget, 0) as budget_idr,
-               COALESCE(description, '') as description,
-               COALESCE(status, 'ongoing') as status,
+               $name_col,
+               $code_col,
+               $budget_col,
+               $desc_col,
+               $status_col,
                created_at
         FROM projects
         ORDER BY created_at DESC
