@@ -814,9 +814,20 @@ include '../../includes/header.php';
                         <span>Subtotal:</span>
                         <strong id="subtotalDisplay">Rp 0</strong>
                     </div>
-                    <div class="price-line">
-                        <span>Discount (Rp):</span>
-                        <input type="number" id="discount" name="discount" value="0" onchange="calculateMultiRoomTotal()" style="text-align:right; width: 150px;">
+                    <div class="price-line" style="flex-direction: column; align-items: flex-start;">
+                        <div style="display: flex; align-items: center; gap: 0.5rem; width: 100%; margin-bottom: 0.5rem;">
+                            <span>Discount:</span>
+                            <div class="discount-type-toggle" style="display: flex; gap: 0; margin-left: auto;">
+                                <button type="button" class="disc-type-btn active" data-type="rp" onclick="setDiscountType('rp')" style="padding: 4px 10px; font-size: 0.75rem; border: 1px solid #6366f1; background: #6366f1; color: white; border-radius: 4px 0 0 4px; cursor: pointer;">Rp</button>
+                                <button type="button" class="disc-type-btn" data-type="percent" onclick="setDiscountType('percent')" style="padding: 4px 10px; font-size: 0.75rem; border: 1px solid #6366f1; background: white; color: #6366f1; border-radius: 0 4px 4px 0; cursor: pointer;">%</button>
+                            </div>
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 0.5rem; width: 100%;">
+                            <input type="number" id="discount" name="discount" value="0" min="0" onchange="calculateMultiRoomTotal()" style="text-align:right; flex: 1; padding: 6px 8px; border: 1px solid #ddd; border-radius: 4px;" placeholder="0">
+                            <input type="hidden" id="discountType" name="discount_type" value="rp">
+                            <span id="discountTypeLabel" style="font-size: 0.8rem; color: #888; min-width: 30px;">Rp</span>
+                        </div>
+                        <div id="discountPreview" style="font-size: 0.75rem; color: #10b981; margin-top: 4px;"></div>
                     </div>
                     <div class="price-line-total">
                         <span>GRAND TOTAL:</span>
@@ -1238,10 +1249,43 @@ async function loadAvailableRooms() {
     }
 }
 
+function setDiscountType(type) {
+    const discountTypeInput = document.getElementById('discountType');
+    const discountLabel = document.getElementById('discountTypeLabel');
+    const discountInput = document.getElementById('discount');
+    const buttons = document.querySelectorAll('.disc-type-btn');
+    
+    buttons.forEach(btn => {
+        if (btn.dataset.type === type) {
+            btn.classList.add('active');
+            btn.style.background = '#6366f1';
+            btn.style.color = 'white';
+        } else {
+            btn.classList.remove('active');
+            btn.style.background = 'white';
+            btn.style.color = '#6366f1';
+        }
+    });
+    
+    discountTypeInput.value = type;
+    discountLabel.textContent = type === 'percent' ? '%' : 'Rp';
+    
+    if (type === 'percent') {
+        discountInput.max = 100;
+        discountInput.placeholder = '0-100';
+    } else {
+        discountInput.removeAttribute('max');
+        discountInput.placeholder = '0';
+    }
+    
+    calculateMultiRoomTotal();
+}
+
 function calculateMultiRoomTotal() {
     const checkInStr = document.getElementById('checkInDate').value;
     const checkOutStr = document.getElementById('checkOutDate').value;
-    const discount = parseFloat(document.getElementById('discount').value) || 0;
+    const discountValue = parseFloat(document.getElementById('discount').value) || 0;
+    const discountType = document.getElementById('discountType').value;
     
     if (!checkInStr || !checkOutStr) {
         return;
@@ -1272,7 +1316,23 @@ function calculateMultiRoomTotal() {
         roomDetails.push(`Room ${roomNumber} (${roomType}): Rp ${roomTotal.toLocaleString('id-ID')}`);
     });
     
-    const grandTotal = subtotal - discount;
+    // Calculate discount based on type
+    let discountAmount = 0;
+    const discountPreview = document.getElementById('discountPreview');
+    
+    if (discountType === 'percent') {
+        discountAmount = Math.round(subtotal * (discountValue / 100));
+        if (discountValue > 0 && subtotal > 0) {
+            discountPreview.textContent = `= Rp ${discountAmount.toLocaleString('id-ID')} (${discountValue}% dari ${subtotal.toLocaleString('id-ID')})`;
+        } else {
+            discountPreview.textContent = '';
+        }
+    } else {
+        discountAmount = discountValue;
+        discountPreview.textContent = '';
+    }
+    
+    const grandTotal = subtotal - discountAmount;
     
     // Update display
     document.getElementById('totalRoomsDisplay').textContent = totalRooms + ' room' + (totalRooms !== 1 ? 's' : '');
@@ -1312,12 +1372,28 @@ async function submitMultiRoomBooking(event) {
     const checkOut = document.getElementById('checkOutDate').value;
     const bookingSource = document.getElementById('bookingSource').value;
     const paymentMethod = document.getElementById('paymentMethod').value;
-    const discount = parseFloat(document.getElementById('discount').value) || 0;
+    const discountValue = parseFloat(document.getElementById('discount').value) || 0;
+    const discountType = document.getElementById('discountType').value;
     const paidAmount = parseFloat(document.getElementById('paidAmount').value) || 0;
     const specialRequest = document.getElementById('specialRequest').value || '';
     
     // Calculate nights
     const nights = Math.ceil((new Date(checkOut) - new Date(checkIn)) / (1000 * 60 * 60 * 24));
+    
+    // Calculate subtotal first for percentage discount
+    let subtotal = 0;
+    checkedRooms.forEach(checkbox => {
+        const price = parseFloat(checkbox.dataset.price) * nights;
+        subtotal += price;
+    });
+    
+    // Calculate actual discount amount in Rp
+    let discount = 0;
+    if (discountType === 'percent') {
+        discount = Math.round(subtotal * (discountValue / 100));
+    } else {
+        discount = discountValue;
+    }
     
     // Calculate discount per room (distribute equally)
     const discountPerRoom = discount / checkedRooms.length;
