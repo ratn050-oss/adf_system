@@ -1,7 +1,7 @@
-<?php
+﻿<?php
 /**
  * Investor Dashboard
- * Shows investment overview and returns from Narayana investor module
+ * Shows investment overview and detailed project expenses
  */
 session_start();
 require_once '../../config/config.php';
@@ -20,58 +20,84 @@ if (!in_array($currentUser['role'], ['owner', 'admin', 'developer'])) {
     exit;
 }
 
-// Connect to Narayana database where investor data is stored
+// Connect to Narayana database
 try {
     $pdo = new PDO("mysql:host=" . DB_HOST . ";dbname=" . getDbName('adf_narayana_hotel') . ";charset=utf8mb4", DB_USER, DB_PASS);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     
-    // Get all investors
-    $investors = $pdo->query("SELECT * FROM investors ORDER BY total_capital DESC")->fetchAll(PDO::FETCH_ASSOC);
-    
-    // Get total investor capital
-    $totalCapital = $pdo->query("SELECT COALESCE(SUM(total_capital), 0) FROM investors")->fetchColumn();
-    
-    // Get projects
+    // 1. Get List of Projects for the Selection Menu
     $projects = $pdo->query("SELECT * FROM projects ORDER BY budget DESC")->fetchAll(PDO::FETCH_ASSOC);
+
+    // 2. Handle Selected Project Logic
+    $selectedProjectId = isset($_GET['project_id']) ? (int)$_GET['project_id'] : null;
+    $selectedProject = null;
+    $projectExpenses = [];
+    $projectStats = [];
     
-    // Get total project budget
-    $totalBudget = $pdo->query("SELECT COALESCE(SUM(budget), 0) FROM projects")->fetchColumn();
-    
-    // Get total project expenses
-    $totalExpenses = $pdo->query("SELECT COALESCE(SUM(total_expenses), 0) FROM projects")->fetchColumn();
-    
-    // Get recent expenses
-    $recentExpenses = $pdo->query("
-        SELECT pe.*, p.name as project_name 
-        FROM project_expenses pe 
-        LEFT JOIN projects p ON pe.project_id = p.id 
-        ORDER BY pe.expense_date DESC 
-        LIMIT 5
-    ")->fetchAll(PDO::FETCH_ASSOC);
-    
-    // Get investor transactions with investor names
-    $transactions = $pdo->query("
-        SELECT t.*, i.name as investor_name 
-        FROM investor_transactions t 
-        LEFT JOIN investors i ON t.investor_id = i.id 
-        ORDER BY t.transaction_date DESC, t.id DESC
-    ")->fetchAll(PDO::FETCH_ASSOC);
-    
-} catch (Exception $e) {
-    $investors = [];
-    $projects = [];
+    // Also fetch totals for overview if no project selected
     $totalCapital = 0;
     $totalBudget = 0;
     $totalExpenses = 0;
-    $recentExpenses = [];
-    $transactions = [];
+
+    if ($selectedProjectId) {
+        // Get Project Details
+        $stmt = $pdo->prepare("SELECT * FROM projects WHERE id = ?");
+        $stmt->execute([$selectedProjectId]);
+        $selectedProject = $stmt->fetch(PDO::FETCH_ASSOC);
+
+        if ($selectedProject) {
+            // Get Specific Project Expenses
+            // Try to join with categories if table exists, otherwise just fetch expenses
+            try {
+                $stmtExp = $pdo->prepare("
+                    SELECT pe.*, pec.category_name 
+                    FROM project_expenses pe 
+                    LEFT JOIN project_expense_categories pec ON pe.expense_category_id = pec.id
+                    WHERE pe.project_id = ? 
+                    ORDER BY pe.expense_date DESC
+                ");
+                $stmtExp->execute([$selectedProjectId]);
+                $projectExpenses = $stmtExp->fetchAll(PDO::FETCH_ASSOC);
+            } catch (Exception $e) {
+                // Fallback if category table join fails
+                $stmtExp = $pdo->prepare("SELECT * FROM project_expenses WHERE project_id = ? ORDER BY expense_date DESC");
+                $stmtExp->execute([$selectedProjectId]);
+                $projectExpenses = $stmtExp->fetchAll(PDO::FETCH_ASSOC);
+            }
+
+            // Calculate Stats for this project
+            $totalBudget = $selectedProject['budget'] ?? 0;
+            $calcExpenses = 0;
+            foreach ($projectExpenses as $exp) {
+                $amount = $exp['amount_idr'] ?? $exp['amount'] ?? 0;
+                $calcExpenses += $amount;
+            }
+            // Use calculated if > 0, otherwise use stored total
+            $currentExpenses = ($calcExpenses > 0) ? $calcExpenses : ($selectedProject['total_expenses'] ?? 0);
+
+            $projectStats = [
+                'budget' => $totalBudget,
+                'expenses' => $currentExpenses,
+                'remaining' => $totalBudget - $currentExpenses,
+                'usage_percent' => $totalBudget > 0 ? ($currentExpenses / $totalBudget * 100) : 0
+            ];
+        }
+    } else {
+        // Overview Data
+        try {
+            $totalCapital = $pdo->query("SELECT COALESCE(SUM(total_capital), 0) FROM investors")->fetchColumn();
+            $totalBudget = $pdo->query("SELECT COALESCE(SUM(budget), 0) FROM projects")->fetchColumn();
+            $totalExpenses = $pdo->query("SELECT COALESCE(SUM(total_expenses), 0) FROM projects")->fetchColumn();
+        } catch (Exception $e) {
+            // Ignore if tables missings
+        }
+    }
+    
+} catch (Exception $e) {
+    echo "Database Error: " . $e->getMessage();
+    exit;
 }
 
-// Calculate remaining balance
-$remainingBalance = $totalBudget - $totalExpenses;
-$usagePercent = $totalBudget > 0 ? ($totalExpenses / $totalBudget * 100) : 0;
-
-// Format function
 function formatMoney($amount) {
     return 'Rp ' . number_format($amount, 0, ',', '.');
 }
@@ -81,421 +107,247 @@ function formatMoney($amount) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Investor Dashboard</title>
+    <title>Project Management - Investor View</title>
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet">
     <script src="https://unpkg.com/feather-icons"></script>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
+            font-family: 'Inter', sans-serif;
             background: linear-gradient(180deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%);
             min-height: 100vh;
             color: white;
+            padding-bottom: 80px;
         }
+        .container { padding: 1rem; max-width: 800px; margin: 0 auto; }
         
         .header {
-            padding: 1.5rem;
+            padding: 1.5rem 1rem;
             text-align: center;
             border-bottom: 1px solid rgba(255,255,255,0.1);
+            background: rgba(30, 27, 75, 0.5);
+            backdrop-filter: blur(5px);
+            position: sticky;
+            top: 0;
+            z-index: 100;
         }
-        
-        .header h1 {
-            font-size: 1.25rem;
-            font-weight: 700;
-            margin-bottom: 0.25rem;
-        }
-        
-        .header p {
-            font-size: 0.75rem;
-            color: rgba(255,255,255,0.6);
-        }
-        
-        .container {
-            padding: 1rem;
-            padding-bottom: 5rem;
-        }
-        
-        /* Summary Cards */
-        .summary-grid {
+        .header h1 { font-size: 1.25rem; font-weight: 700; }
+        .header p { font-size: 0.8rem; opacity: 0.7; }
+
+        /* Project Selection Cards */
+        .project-grid {
             display: grid;
-            grid-template-columns: repeat(2, 1fr);
-            gap: 0.75rem;
-            margin-bottom: 1.5rem;
+            grid-template-columns: 1fr;
+            gap: 1rem;
+            margin-top: 1rem;
         }
-        
-        .summary-card {
-            background: rgba(255,255,255,0.1);
-            backdrop-filter: blur(10px);
-            border-radius: 12px;
-            padding: 1rem;
-            text-align: center;
-        }
-        
-        .summary-card.full {
-            grid-column: span 2;
-            background: linear-gradient(135deg, #6366f1, #8b5cf6);
-        }
-        
-        .summary-icon {
-            width: 36px;
-            height: 36px;
-            background: rgba(255,255,255,0.2);
-            border-radius: 50%;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            margin: 0 auto 0.5rem;
-        }
-        
-        .summary-label {
-            font-size: 0.65rem;
-            color: rgba(255,255,255,0.7);
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            margin-bottom: 0.25rem;
-        }
-        
-        .summary-value {
-            font-size: 1rem;
-            font-weight: 700;
-        }
-        
-        .summary-card.full .summary-value {
-            font-size: 1.3rem;
-        }
-        
-        /* Investor List */
-        .section-title {
-            font-size: 0.9rem;
-            font-weight: 600;
-            margin-bottom: 0.75rem;
-            display: flex;
-            align-items: center;
-            gap: 0.5rem;
-        }
-        
-        .investor-list {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-            margin-bottom: 1.5rem;
-        }
-        
-        .investor-item {
-            background: rgba(255,255,255,0.1);
-            border-radius: 10px;
-            padding: 0.75rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .investor-name {
-            font-size: 0.85rem;
-            font-weight: 500;
-        }
-        
-        .investor-amount {
-            font-size: 0.8rem;
-            color: #34d399;
-            font-weight: 600;
-        }
-        
-        /* Project Card */
         .project-card {
             background: rgba(255,255,255,0.1);
             border-radius: 12px;
-            padding: 1rem;
-            margin-bottom: 1rem;
+            padding: 1.2rem;
+            border: 1px solid rgba(255,255,255,0.1);
+            transition: transform 0.2s, background 0.2s;
+            cursor: pointer;
+            text-decoration: none;
+            color: white;
+            display: block;
         }
+        .project-card:hover { transform: translateY(-2px); background: rgba(255,255,255,0.15); }
         
-        .project-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 0.75rem;
-        }
-        
-        .project-name {
-            font-size: 0.9rem;
-            font-weight: 600;
-        }
-        
-        .project-status {
-            font-size: 0.6rem;
-            padding: 0.25rem 0.5rem;
-            background: rgba(52, 211, 153, 0.2);
-            color: #34d399;
-            border-radius: 20px;
-            text-transform: uppercase;
-        }
-        
-        .progress-bar {
-            background: rgba(255,255,255,0.2);
-            height: 8px;
-            border-radius: 4px;
-            margin-bottom: 0.5rem;
-            overflow: hidden;
-        }
-        
-        .progress-fill {
-            height: 100%;
-            background: linear-gradient(90deg, #6366f1, #8b5cf6);
-            border-radius: 4px;
-            transition: width 0.5s;
-        }
-        
-        .project-stats {
-            display: flex;
-            justify-content: space-between;
-            font-size: 0.7rem;
-            color: rgba(255,255,255,0.7);
-        }
-        
-        /* Transaction List */
-        .transaction-list {
-            display: flex;
-            flex-direction: column;
-            gap: 0.5rem;
-            margin-bottom: 1.5rem;
-        }
-        
-        .transaction-item {
-            background: rgba(255,255,255,0.1);
-            border-radius: 10px;
-            padding: 0.75rem;
-        }
-        
-        .transaction-header {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            margin-bottom: 0.25rem;
-        }
-        
-        .transaction-investor {
-            font-size: 0.85rem;
-            font-weight: 500;
-        }
-        
-        .transaction-type {
-            font-size: 0.55rem;
-            padding: 0.2rem 0.4rem;
-            border-radius: 10px;
-            text-transform: uppercase;
-            font-weight: 600;
-        }
-        
-        .transaction-type.capital {
-            background: rgba(52, 211, 153, 0.2);
-            color: #34d399;
-        }
-        
-        .transaction-type.expense {
-            background: rgba(248, 113, 113, 0.2);
-            color: #f87171;
-        }
-        
-        .transaction-type.return {
-            background: rgba(96, 165, 250, 0.2);
-            color: #60a5fa;
-        }
-        
-        .transaction-details {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        
-        .transaction-date {
-            font-size: 0.7rem;
-            color: rgba(255,255,255,0.5);
-        }
-        
-        .transaction-amount {
-            font-size: 0.85rem;
-            font-weight: 600;
-        }
-        
-        .transaction-amount.positive {
-            color: #34d399;
-        }
-        
-        .transaction-amount.negative {
-            color: #f87171;
+        .card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; }
+        .card-title { font-weight: 700; font-size: 1.1rem; }
+        .status-badge {
+            font-size: 0.65rem; padding: 0.2rem 0.5rem; border-radius: 20px;
+            background: rgba(52, 211, 153, 0.2); color: #34d399; text-transform: uppercase;
         }
 
-        .bottom-nav {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
-            display: flex;
-            justify-content: space-around;
-            padding: 0.6rem 0;
-            box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.25);
-            z-index: 1000;
+        /* Detail View */
+        .detail-view { margin-top: 1rem; animation: fadeIn 0.3s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+
+        .stats-summary {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 0.8rem;
+            margin-bottom: 1.5rem;
         }
-        
-        .nav-item {
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            gap: 0.2rem;
-            color: rgba(255,255,255,0.6);
-            font-size: 0.6rem;
-            text-decoration: none;
-            padding: 0.35rem 0.75rem;
+        .stat-box { background: rgba(0,0,0,0.2); padding: 1rem; border-radius: 10px; text-align: center; }
+        .stat-box.full { grid-column: span 2; background: linear-gradient(135deg, #6366f1, #8b5cf6); }
+        .stat-label { font-size: 0.7rem; opacity: 0.8; text-transform: uppercase; letter-spacing: 0.5px; }
+        .stat-value { font-size: 1.2rem; font-weight: 700; margin-top: 0.3rem; }
+
+        .expenses-list { display: flex; flex-direction: column; gap: 0.8rem; }
+        .expense-item {
+            background: rgba(255,255,255,0.05);
             border-radius: 10px;
-            transition: all 0.3s;
+            padding: 1rem;
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            border-left: 3px solid #f87171; 
         }
-        
-        .nav-item:hover {
-            color: white;
-            background: rgba(255,255,255,0.1);
+        .expense-info h4 { font-size: 0.95rem; margin-bottom: 0.3rem; font-weight: 600; }
+        .expense-info p { font-size: 0.75rem; opacity: 0.6; }
+        .expense-amount { font-weight: 700; font-size: 0.95rem; color: #f87171; white-space: nowrap; margin-left: 1rem; }
+        .expense-date { font-size: 0.7rem; opacity: 0.5; display: block; margin-top: 0.3rem; text-align: right;}
+
+        /* Bottom Nav */
+        .bottom-nav {
+            position: fixed; bottom: 0; left: 0; right: 0;
+            background: linear-gradient(135deg, #1e1b4b 0%, #312e81 100%);
+            display: flex; justify-content: space-around; padding: 0.8rem 0;
+            box-shadow: 0 -4px 20px rgba(0, 0, 0, 0.25); z-index: 1000;
         }
-        
-        .nav-item.active {
-            color: white;
-            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+        .nav-item {
+            display: flex; flex-direction: column; align-items: center;
+            gap: 0.2rem; color: rgba(255,255,255,0.6); font-size: 0.65rem;
+            text-decoration: none; padding: 0.35rem; border-radius: 8px;
         }
+        .nav-item.active { color: white; }
     </style>
 </head>
 <body>
-    <div class="header">
-        <h1>📊 Investor Dashboard</h1>
-        <p>Narayana Hotel Investment Overview</p>
-    </div>
-    
-    <div class="container">
-        <!-- Summary Cards -->
-        <div class="summary-grid">
-            <div class="summary-card full">
-                <div class="summary-icon">
-                    <i data-feather="users" style="width: 18px; height: 18px; color: white;"></i>
-                </div>
-                <div class="summary-label">Total Investor Capital</div>
-                <div class="summary-value"><?= formatMoney($totalCapital) ?></div>
-            </div>
+
+    <?php if (!$selectedProject): ?>
+        <!-- VIEW 1: PROJECT SELECTION (Front Display) -->
+        <div class="header">
+            <h1> Project Manager</h1>
+            <p>Pilih project untuk melihat detail pengeluaran</p>
+        </div>
+
+        <div class="container">
+            <div class="section-title" style="margin-bottom: 1rem; opacity: 0.8; font-weight: 600;">Active Projects</div>
             
-            <div class="summary-card">
-                <div class="summary-icon">
-                    <i data-feather="briefcase" style="width: 18px; height: 18px; color: white;"></i>
-                </div>
-                <div class="summary-label">Project Budget</div>
-                <div class="summary-value"><?= formatMoney($totalBudget) ?></div>
-            </div>
-            
-            <div class="summary-card">
-                <div class="summary-icon">
-                    <i data-feather="trending-down" style="width: 18px; height: 18px; color: white;"></i>
-                </div>
-                <div class="summary-label">Total Expenses</div>
-                <div class="summary-value"><?= formatMoney($totalExpenses) ?></div>
-            </div>
-        </div>
-        
-        <!-- Investor List -->
-        <div class="section-title">
-            <i data-feather="users" style="width: 16px; height: 16px;"></i>
-            Investors (<?= count($investors) ?>)
-        </div>
-        <div class="investor-list">
-            <?php foreach ($investors as $investor): ?>
-            <div class="investor-item">
-                <div class="investor-name"><?= htmlspecialchars($investor['name']) ?></div>
-                <div class="investor-amount"><?= formatMoney($investor['total_capital']) ?></div>
-            </div>
-            <?php endforeach; ?>
-            <?php if (empty($investors)): ?>
-            <div class="investor-item">
-                <div class="investor-name" style="color: rgba(255,255,255,0.5);">No investors found</div>
-            </div>
-            <?php endif; ?>
-        </div>
-        
-        <!-- Projects -->
-        <div class="section-title">
-            <i data-feather="folder" style="width: 16px; height: 16px;"></i>
-            Projects (<?= count($projects) ?>)
-        </div>
-        <?php foreach ($projects as $project): 
-            $projectUsage = $project['budget'] > 0 ? ($project['total_expenses'] / $project['budget'] * 100) : 0;
-        ?>
-        <div class="project-card">
-            <div class="project-header">
-                <div class="project-name"><?= htmlspecialchars($project['name']) ?></div>
-                <div class="project-status"><?= htmlspecialchars($project['status'] ?? 'Active') ?></div>
-            </div>
-            <div class="progress-bar">
-                <div class="progress-fill" style="width: <?= min($projectUsage, 100) ?>%"></div>
-            </div>
-            <div class="project-stats">
-                <span>Used: <?= formatMoney($project['total_expenses']) ?></span>
-                <span>Budget: <?= formatMoney($project['budget']) ?></span>
-            </div>
-        </div>
-        <?php endforeach; ?>
-        <?php if (empty($projects)): ?>
-        <div class="project-card">
-            <div class="project-name" style="color: rgba(255,255,255,0.5);">No projects found</div>
-        </div>
-        <?php endif; ?>
-        
-        <!-- Transaction List -->
-        <div class="section-title">
-            <i data-feather="list" style="width: 16px; height: 16px;"></i>
-            Investor Transactions (<?= count($transactions) ?>)
-        </div>
-        <div class="transaction-list">
-            <?php foreach ($transactions as $tx): 
-                $isPositive = $tx['type'] === 'capital' || $tx['type'] === 'return';
-            ?>
-            <div class="transaction-item">
-                <div class="transaction-header">
-                    <div class="transaction-investor"><?= htmlspecialchars($tx['investor_name'] ?? 'Unknown') ?></div>
-                    <div class="transaction-type <?= $tx['type'] ?>"><?= ucfirst($tx['type']) ?></div>
-                </div>
-                <div class="transaction-details">
-                    <div class="transaction-date"><?= date('d M Y', strtotime($tx['transaction_date'])) ?></div>
-                    <div class="transaction-amount <?= $isPositive ? 'positive' : 'negative' ?>">
-                        <?= $isPositive ? '+' : '-' ?><?= formatMoney($tx['amount']) ?>
+            <div class="project-grid">
+                <?php foreach ($projects as $proj): ?>
+                <a href="?project_id=<?= $proj['id'] ?>" class="project-card">
+                    <div class="card-header">
+                        <span class="card-title"><?= htmlspecialchars($proj['name']) ?></span>
+                        <span class="status-badge"><?= htmlspecialchars($proj['status'] ?? 'Active') ?></span>
                     </div>
+                    <?php 
+                        $pBudget = $proj['budget'] ?? 0;
+                        $pUsed = $proj['total_expenses'] ?? 0;
+                        $pPercent = $pBudget > 0 ? ($pUsed / $pBudget * 100) : 0;
+                    ?>
+                    <div style="font-size: 0.8rem; margin-bottom: 0.5rem; display: flex; justify-content: space-between; opacity: 0.8;">
+                        <span>Budget Consumed</span>
+                        <span><?= number_format($pPercent, 1) ?>%</span>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.1); height: 6px; border-radius: 3px; overflow: hidden;">
+                        <div style="background: #6366f1; width: <?= min($pPercent, 100) ?>%; height: 100%;"></div>
+                    </div>
+                    <div style="margin-top: 0.8rem; font-size: 0.9rem; font-weight: 500; display: flex; justify-content: space-between;">
+                       <span>Used: <?= formatMoney($pUsed) ?></span>
+                       <span style="opacity: 0.7;">Budget: <?= formatMoney($pBudget) ?></span>
+                    </div>
+                </a>
+                <?php endforeach; ?>
+
+                <?php if (empty($projects)): ?>
+                <div style="text-align: center; padding: 3rem; opacity: 0.5;">
+                    <i data-feather="folder" style="width: 48px; height: 48px; margin-bottom: 1rem;"></i>
+                    <p>Belum ada project yang tersedia.</p>
                 </div>
-                <?php if (!empty($tx['description'])): ?>
-                <div class="transaction-date" style="margin-top: 0.25rem;"><?= htmlspecialchars($tx['description']) ?></div>
                 <?php endif; ?>
             </div>
-            <?php endforeach; ?>
-            <?php if (empty($transactions)): ?>
-            <div class="transaction-item">
-                <div class="transaction-investor" style="color: rgba(255,255,255,0.5);">No transactions found</div>
-            </div>
-            <?php endif; ?>
+            
+             <div class="section-title" style="margin: 2rem 0 1rem; opacity: 0.8; font-weight: 600;">Overview</div>
+             <div class="stats-summary" style="margin-bottom: 4rem;">
+                <div class="stat-box">
+                    <div class="stat-label">Total Capital</div>
+                    <div class="stat-value"><?= formatMoney($totalCapital) ?></div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Total Budget</div>
+                    <div class="stat-value"><?= formatMoney($totalBudget) ?></div>
+                </div>
+             </div>
         </div>
-    </div>
-    
+
+    <?php else: ?>
+        <!-- VIEW 2: PROJECT DETAILS (Expense Log) -->
+        <div class="header">
+            <div style="display: flex; align-items: center; justify-content: center; position: relative;">
+                <a href="investor-dashboard.php" style="position: absolute; left: 0; color: white; padding: 0.5rem;"><i data-feather="arrow-left"></i></a>
+                <div>
+                    <h1><?= htmlspecialchars($selectedProject['name']) ?></h1>
+                    <p>Detail Pengeluaran Project</p>
+                </div>
+            </div>
+        </div>
+
+        <div class="container detail-view">
+            
+            <!-- Financial Overview -->
+            <div class="stats-summary">
+                <div class="stat-box full">
+                    <div class="stat-label">Sisa Anggaran (Balance)</div>
+                    <div class="stat-value"><?= formatMoney($projectStats['remaining']) ?></div>
+                    <div style="font-size: 0.7rem; opacity: 0.7; margin-top: 5px;">
+                        dari Budget <?= formatMoney($projectStats['budget']) ?>
+                    </div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Terpakai</div>
+                    <div class="stat-value" style="color: #f87171;"><?= formatMoney($projectStats['expenses']) ?></div>
+                </div>
+                <div class="stat-box">
+                    <div class="stat-label">Progress</div>
+                    <div class="stat-value" style="color: #34d399;"><?= number_format($projectStats['usage_percent'], 1) ?>%</div>
+                </div>
+            </div>
+            
+            <!-- Expense List -->
+            <h3 style="margin-bottom: 1rem; font-size: 1rem; display: flex; align-items: center; gap: 0.5rem;">
+                <i data-feather="list" style="width: 16px;"></i> Riwayat Pengeluaran
+            </h3>
+
+            <div class="expenses-list">
+                <?php foreach ($projectExpenses as $exp): ?>
+                <div class="expense-item">
+                    <div class="expense-info">
+                        <h4><?= htmlspecialchars($exp['description'] ?: 'Pengeluaran') ?></h4>
+                        <?php if (!empty($exp['category_name'])): ?>
+                        <span style="font-size: 0.6rem; background: rgba(255,255,255,0.2); padding: 2px 6px; border-radius: 4px;">
+                            <?= htmlspecialchars($exp['category_name']) ?>
+                        </span>
+                        <?php endif; ?>
+                        <p><?= htmlspecialchars($exp['reference_no'] ?? '-') ?></p>
+                    </div>
+                    <div style="text-align: right;">
+                        <div class="expense-amount">- <?= formatMoney($exp['amount_idr'] ?? $exp['amount'] ?? 0) ?></div>
+                        <span class="expense-date"><?= date('d M Y', strtotime($exp['expense_date'])) ?></span>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+
+                <?php if (empty($projectExpenses)): ?>
+                <div style="text-align: center; padding: 2rem; background: rgba(255,255,255,0.05); border-radius: 12px;">
+                    <p style="opacity: 0.6;">Belum ada data pengeluaran untuk project ini.</p>
+                </div>
+                <?php endif; ?>
+            </div>
+
+        </div>
+    <?php endif; ?>
+
+    <!-- Navigation -->
     <div class="bottom-nav">
         <a href="dashboard.php" class="nav-item">
-            <i data-feather="home" style="width: 18px; height: 18px;"></i>
-            Dashboard
+            <i data-feather="home"></i>
+            <span>Home</span>
         </a>
         <a href="investor-dashboard.php" class="nav-item active">
-            <i data-feather="trending-up" style="width: 18px; height: 18px;"></i>
-            Investor
+            <i data-feather="briefcase"></i>
+            <span>Projects</span>
         </a>
         <a href="../../logout.php" class="nav-item">
-            <i data-feather="log-out" style="width: 18px; height: 18px;"></i>
-            Logout
+            <i data-feather="log-out"></i>
+            <span>Logout</span>
         </a>
     </div>
-    
+
     <script>
         feather.replace();
     </script>
