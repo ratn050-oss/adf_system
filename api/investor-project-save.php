@@ -116,6 +116,13 @@ try {
     $params = [];
     
     // Add required columns and their values
+    // Handle both 'name' and 'project_name' columns
+    if (in_array('name', $columns)) {
+        $insert_cols[] = 'name';
+        $insert_vals[] = '?';
+        $params[] = $project_name;
+    }
+    
     if (in_array('project_name', $columns)) {
         $insert_cols[] = 'project_name';
         $insert_vals[] = '?';
