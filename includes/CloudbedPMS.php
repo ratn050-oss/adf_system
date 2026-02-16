@@ -383,10 +383,14 @@ class CloudbedPMS {
      * Get statistics for dashboard
      */
     public function getSyncStats() {
+        $total_synced_result = $this->db->fetchOne("SELECT COUNT(*) as count FROM reservasi WHERE cloudbed_reservation_id IS NOT NULL");
+        $last_sync_result = $this->db->fetchOne("SELECT MAX(updated_at) as last_sync FROM reservasi WHERE cloudbed_reservation_id IS NOT NULL");
+        $pending_push_result = $this->db->fetchOne("SELECT COUNT(*) as count FROM reservasi WHERE cloudbed_reservation_id IS NULL");
+        
         $stats = [
-            'total_synced' => $this->db->fetchOne("SELECT COUNT(*) as count FROM reservasi WHERE cloudbed_reservation_id IS NOT NULL")['count'],
-            'last_sync' => $this->db->fetchOne("SELECT MAX(updated_at) as last_sync FROM reservasi WHERE cloudbed_reservation_id IS NOT NULL")['last_sync'],
-            'pending_push' => $this->db->fetchOne("SELECT COUNT(*) as count FROM reservasi WHERE cloudbed_reservation_id IS NULL")['count']
+            'total_synced' => $total_synced_result ? $total_synced_result['count'] : 0,
+            'last_sync' => $last_sync_result ? $last_sync_result['last_sync'] : null,
+            'pending_push' => $pending_push_result ? $pending_push_result['count'] : 0
         ];
         
         return $stats;
