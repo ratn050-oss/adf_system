@@ -527,6 +527,18 @@ require_once __DIR__ . '/includes/header.php';
                         <i class="bi bi-database"></i>
                         <span>Database</span>
                     </a>
+                    <a href="../setup-cloudbed-pms.php" class="quick-action-btn">
+                        <i class="bi bi-cloud-plus"></i>
+                        <span>Cloudbed PMS Setup</span>
+                    </a>
+                    <a href="../modules/settings/cloudbed-pms.php" class="quick-action-btn">
+                        <i class="bi bi-cloud-arrow-up"></i>
+                        <span>PMS Configuration</span>
+                    </a>
+                    <a href="../test-pms-connection.php" class="quick-action-btn">
+                        <i class="bi bi-cloud-check"></i>
+                        <span>Test PMS Connection</span>
+                    </a>
                 </div>
             </div>
             
