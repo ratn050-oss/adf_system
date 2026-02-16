@@ -4,7 +4,7 @@
  * Demonstrasi penggunaan fitur-fitur AI dalam sistem hotel
  */
 
-require_once 'includes/config.php';
+require_once 'config/config.php';
 require_once 'includes/AIHotelService.php';
 
 $aiService = new AIHotelService();

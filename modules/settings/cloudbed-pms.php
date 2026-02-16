@@ -4,7 +4,7 @@
  * Interface untuk mengatur integrasi dengan Cloudbed Property Management System
  */
 
-require_once '../includes/config.php';
+require_once '../../config/config.php';
 require_once '../includes/CloudbedPMS.php';
 
 // Check if user is logged in

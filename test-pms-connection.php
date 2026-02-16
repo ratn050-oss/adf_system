@@ -4,7 +4,7 @@
  * Test koneksi dan fungsi-fungsi integrasi Cloudbed PMS
  */
 
-require_once 'includes/config.php';
+require_once 'config/config.php';
 require_once 'includes/CloudbedPMS.php';
 
 // Handle AJAX requests

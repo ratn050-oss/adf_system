@@ -4,7 +4,7 @@
  * Script untuk setup database dan konfigurasi awal Cloudbed PMS
  */
 
-require_once 'includes/config.php';
+require_once 'config/config.php';
 
 // Check if user has admin access
 session_start();

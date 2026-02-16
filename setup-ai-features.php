@@ -4,7 +4,7 @@
  * Script untuk menginstall database tables yang diperlukan untuk fitur AI
  */
 
-require_once 'includes/config.php';
+require_once 'config/config.php';
 
 // Check if user has admin access
 session_start();

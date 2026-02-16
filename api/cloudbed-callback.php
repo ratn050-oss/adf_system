@@ -4,7 +4,7 @@
  * Handles the OAuth callback from Cloudbed and exchanges code for access token
  */
 
-require_once '../includes/config.php';
+require_once '../config/config.php';
 require_once '../includes/CloudbedHelper.php';
 
 session_start();

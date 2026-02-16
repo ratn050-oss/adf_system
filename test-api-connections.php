@@ -4,7 +4,7 @@
  * Test koneksi ke OpenAI dan Cloudbed API
  */
 
-require_once 'includes/config.php';
+require_once 'config/config.php';
 require_once 'includes/OpenAIHelper.php';
 require_once 'includes/CloudbedHelper.php';
 
