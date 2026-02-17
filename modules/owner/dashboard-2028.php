@@ -1,7 +1,12 @@
 <?php
 session_start();
+
+// Determine base path
+$isLocal = strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost') !== false || strpos($_SERVER['HTTP_HOST'] ?? '', '127.0.0.1') !== false;
+$basePath = $isLocal ? '/adf_system' : '';
+
 if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner', 'manager', 'developer'])) {
-    header('Location: /adf_system/login.php');
+    header('Location: ' . $basePath . '/login.php');
     exit;
 }
 $userName = $_SESSION['username'] ?? 'Owner';
