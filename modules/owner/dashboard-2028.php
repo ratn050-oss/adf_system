@@ -970,7 +970,6 @@ $isDev = ($role === 'developer');
         <!-- Page Title -->
         <div class="page-title">
             <h1>Financial Overview</h1>
-            <p id="currentDate">Loading...</p>
         </div>
         
         <!-- Business Selector -->
