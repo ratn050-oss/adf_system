@@ -146,7 +146,7 @@ try {
         }
     }
     
-    // CASH ACCOUNTS BALANCES (from master DB, filtered by business_id)
+    // CASH ACCOUNTS BALANCES - calculated dynamically from cash_book (same as system dashboard)
     $pettyCash = 0;
     $bankBalance = 0;
     $ownerCapital = 0;
@@ -158,27 +158,106 @@ try {
             $masterPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         }
         
+        // Function to calculate cash balance from cash_book transactions (like system dashboard)
+        $calcCashBalance = function($bizPdoConn, $accountIds, $month) {
+            if (empty($accountIds)) return ['received' => 0, 'used' => 0, 'balance' => 0];
+            $placeholders = implode(',', array_fill(0, count($accountIds), '?'));
+            $stmt = $bizPdoConn->prepare("
+                SELECT 
+                    COALESCE(SUM(CASE WHEN transaction_type = 'income' THEN amount ELSE 0 END), 0) as received,
+                    COALESCE(SUM(CASE WHEN transaction_type = 'expense' THEN amount ELSE 0 END), 0) as used,
+                    COALESCE(SUM(CASE WHEN transaction_type = 'income' THEN amount ELSE 0 END) - 
+                     SUM(CASE WHEN transaction_type = 'expense' THEN amount ELSE 0 END), 0) as balance
+                FROM cash_book 
+                WHERE cash_account_id IN ($placeholders)
+                AND DATE_FORMAT(transaction_date, '%Y-%m') = ?
+            ");
+            $params = array_merge($accountIds, [$month]);
+            $stmt->execute($params);
+            return $stmt->fetch(PDO::FETCH_ASSOC);
+        };
+        
         if ($bizId) {
-            $cashStmt = $masterPdo->prepare("SELECT id, account_name, account_type, current_balance FROM cash_accounts WHERE is_active = 1 AND business_id = ? ORDER BY account_type, account_name");
-            $cashStmt->execute([$bizId]);
+            // SINGLE BUSINESS - get account IDs by type
+            $getIds = function($type) use ($masterPdo, $bizId) {
+                $stmt = $masterPdo->prepare("SELECT id FROM cash_accounts WHERE business_id = ? AND account_type = ? AND is_active = 1");
+                $stmt->execute([$bizId, $type]);
+                return $stmt->fetchAll(PDO::FETCH_COLUMN);
+            };
+            
+            $capitalIds = $getIds('owner_capital');
+            $cashIds = $getIds('cash');
+            $bankIds = $getIds('bank');
+            
+            // Connect to the business DB for cash_book queries
+            if ($bizDb) {
+                $calcDbName = function_exists('getDbName') ? getDbName($bizDb) : $bizDb;
+            } else {
+                // Fallback: get database_name from businesses table
+                $bizStmt = $masterPdo->prepare("SELECT database_name FROM businesses WHERE id = ?");
+                $bizStmt->execute([$bizId]);
+                $bizRow = $bizStmt->fetch(PDO::FETCH_ASSOC);
+                $calcDbName = $bizRow ? (function_exists('getDbName') ? getDbName($bizRow['database_name']) : $bizRow['database_name']) : $masterDbName;
+            }
+            $calcPdo = new PDO('mysql:host=' . DB_HOST . ';dbname=' . $calcDbName, DB_USER, DB_PASS);
+            $calcPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+            
+            $capitalStats = $calcCashBalance($calcPdo, $capitalIds, $thisMonth);
+            $cashStats = $calcCashBalance($calcPdo, $cashIds, $thisMonth);
+            $bankStats = $calcCashBalance($calcPdo, $bankIds, $thisMonth);
+            
+            $ownerCapital = (float)($capitalStats['balance'] ?? 0);
+            $pettyCash = (float)($cashStats['balance'] ?? 0);
+            $bankBalance = (float)($bankStats['balance'] ?? 0);
+            
+            $cashAccounts = [
+                ['account_type' => 'cash', 'account_name' => 'Petty Cash', 'current_balance' => $pettyCash, 'received' => (float)($cashStats['received'] ?? 0), 'used' => (float)($cashStats['used'] ?? 0)],
+                ['account_type' => 'bank', 'account_name' => 'Bank', 'current_balance' => $bankBalance, 'received' => (float)($bankStats['received'] ?? 0), 'used' => (float)($bankStats['used'] ?? 0)],
+                ['account_type' => 'owner_capital', 'account_name' => 'Owner Capital', 'current_balance' => $ownerCapital, 'received' => (float)($capitalStats['received'] ?? 0), 'used' => (float)($capitalStats['used'] ?? 0)]
+            ];
         } else {
-            // All businesses - get all cash accounts
-            $cashStmt = $masterPdo->query("SELECT id, account_name, account_type, SUM(current_balance) as current_balance FROM cash_accounts WHERE is_active = 1 GROUP BY account_type ORDER BY account_type");
+            // ALL BUSINESSES - aggregate from all
+            $allBizList = $masterPdo->query("SELECT id, database_name FROM businesses WHERE is_active = 1")->fetchAll(PDO::FETCH_ASSOC);
+            
+            foreach ($allBizList as $b) {
+                try {
+                    $bDbName = function_exists('getDbName') ? getDbName($b['database_name']) : $b['database_name'];
+                    $bPdoCalc = new PDO('mysql:host=' . DB_HOST . ';dbname=' . $bDbName, DB_USER, DB_PASS);
+                    $bPdoCalc->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+                    
+                    // Get account IDs for this business
+                    $capIds = $masterPdo->prepare("SELECT id FROM cash_accounts WHERE business_id = ? AND account_type = 'owner_capital' AND is_active = 1");
+                    $capIds->execute([$b['id']]);
+                    $capitalStats = $calcCashBalance($bPdoCalc, $capIds->fetchAll(PDO::FETCH_COLUMN), $thisMonth);
+                    
+                    $cIds = $masterPdo->prepare("SELECT id FROM cash_accounts WHERE business_id = ? AND account_type = 'cash' AND is_active = 1");
+                    $cIds->execute([$b['id']]);
+                    $cashStats = $calcCashBalance($bPdoCalc, $cIds->fetchAll(PDO::FETCH_COLUMN), $thisMonth);
+                    
+                    $bIds = $masterPdo->prepare("SELECT id FROM cash_accounts WHERE business_id = ? AND account_type = 'bank' AND is_active = 1");
+                    $bIds->execute([$b['id']]);
+                    $bankStats = $calcCashBalance($bPdoCalc, $bIds->fetchAll(PDO::FETCH_COLUMN), $thisMonth);
+                    
+                    $ownerCapital += (float)($capitalStats['balance'] ?? 0);
+                    $pettyCash += (float)($cashStats['balance'] ?? 0);
+                    $bankBalance += (float)($bankStats['balance'] ?? 0);
+                } catch (Exception $e) {
+                    // Skip errored business
+                }
+            }
+            
+            $cashAccounts = [
+                ['account_type' => 'cash', 'account_name' => 'Petty Cash', 'current_balance' => $pettyCash],
+                ['account_type' => 'bank', 'account_name' => 'Bank', 'current_balance' => $bankBalance],
+                ['account_type' => 'owner_capital', 'account_name' => 'Owner Capital', 'current_balance' => $ownerCapital]
+            ];
         }
-        $cashAccounts = $cashStmt->fetchAll(PDO::FETCH_ASSOC);
     } catch (Exception $e) {
         // Skip cash accounts on error
     }
     
-    foreach ($cashAccounts as $acc) {
-        if ($acc['account_type'] === 'cash') {
-            $pettyCash += (float)$acc['current_balance'];
-        } elseif ($acc['account_type'] === 'bank') {
-            $bankBalance += (float)$acc['current_balance'];
-        } elseif ($acc['account_type'] === 'owner_capital') {
-            $ownerCapital += (float)$acc['current_balance'];
-        }
-    }
+    // Total operational cash = Petty Cash + Owner Capital balance
+    $totalCash = $pettyCash + $ownerCapital;
     
     echo json_encode([
         'success' => true,
@@ -189,6 +268,7 @@ try {
         'pettyCash' => $pettyCash,
         'bankBalance' => $bankBalance,
         'ownerCapital' => $ownerCapital,
+        'totalCash' => $totalCash,
         'cashAccounts' => $cashAccounts,
         'lastMonth' => [
             'income' => (float)$lastMonthIncome,
