@@ -1,6 +1,14 @@
 <?php
-// DEV MODE - No session check for development
-$userName = 'Dev Owner';
+// DEV MODE - Mock session for API testing
+session_start();
+if (!isset($_SESSION['username'])) {
+    // Create mock session for development
+    $_SESSION['username'] = 'DevOwner';
+    $_SESSION['user_id'] = 999;
+    $_SESSION['role'] = 'developer';
+    $_SESSION['business_access'] = 'all';
+}
+$userName = $_SESSION['username'] ?? 'Dev Owner';
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -652,6 +660,9 @@ $userName = 'Dev Owner';
                 const response = await fetch('../../api/owner-branches.php');
                 const data = await response.json();
                 
+                console.log('=== BRANCHES API Response ===');
+                console.log('Response:', data);
+                
                 if (data.success && data.branches && data.branches.length > 0) {
                     businessData = data.branches;
                     selector.innerHTML = '<option value="all">🏢 Semua Bisnis</option>';
@@ -680,7 +691,16 @@ $userName = 'Dev Owner';
                 const response = await fetch(`../../api/owner-stats.php?branch_id=${branchId}`);
                 const data = await response.json();
                 
+                console.log('=== STATS API Response ===');
+                console.log('Branch ID:', branchId);
+                console.log('Response:', data);
+                
                 if (data.success) {
+                    console.log('Today Income:', data.todayIncome);
+                    console.log('Today Expense:', data.todayExpense);
+                    console.log('Month Income:', data.monthIncome);
+                    console.log('Month Expense:', data.monthExpense);
+                    
                     // Today stats
                     document.getElementById('todayIncome').innerHTML = formatCurrency(data.todayIncome);
                     document.getElementById('todayExpense').innerHTML = formatCurrency(data.todayExpense);
@@ -720,10 +740,12 @@ $userName = 'Dev Owner';
                         expenseChangeEl.innerHTML = `${expenseGrowth >= 0 ? '↑' : '↓'} ${Math.abs(expenseGrowth)}% dari bulan lalu`;
                     }
                 } else {
-                    console.error('Failed to load stats:', data.message);
+                    console.error('Stats API failed:', data.message || 'Unknown error');
+                    alert('Error loading stats: ' + (data.message || 'Unknown error'));
                 }
             } catch (error) {
                 console.error('Error loading stats:', error);
+                alert('Network error loading stats: ' + error.message);
             }
         }
         

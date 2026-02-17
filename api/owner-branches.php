@@ -35,6 +35,11 @@ try {
     // Get all businesses from database
     $stmt = $pdo->query("SELECT id, business_name, address, phone FROM businesses ORDER BY id");
     $allBusinesses = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    // DEBUG: tampilkan hasil query mentah
+    if (isset($_GET['debug'])) {
+        echo json_encode(['debug_allBusinesses' => $allBusinesses]);
+        exit;
+    }
     $branches = [];
     // Mapping id ke business_type (hardcode jika belum ada di DB)
     $businessTypeMap = [
