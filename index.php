@@ -848,18 +848,48 @@ if ($trialStatus) {
     
     // Dynamic chart colors based on theme
     function getChartTextColor() {
-        const color = getComputedStyle(document.documentElement).getPropertyValue('--text-muted').trim();
-        return color || '#666';
+        const isLight = document.body.getAttribute('data-theme') === 'light';
+        // Light theme: dark text, Dark theme: light text
+        return isLight ? '#475569' : '#94a3b8';
     }
     
     function getLegendTextColor() {
-        const isDark = document.documentElement.getAttribute('data-theme') === 'dark' || 
-                       window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
-        // Gunakan warna soft, bukan hitam/putih pekat
-        return isDark ? 'rgba(255, 255, 255, 0.95)' : 'rgba(0, 0, 0, 0.75)';
+        const isLight = document.body.getAttribute('data-theme') === 'light';
+        // Light theme: dark text, Dark theme: light text
+        return isLight ? '#1e293b' : '#e2e8f0';
     }
     
     Chart.defaults.color = getChartTextColor();
+    
+    // Update chart colors when theme changes
+    function updateChartColors() {
+        Chart.defaults.color = getChartTextColor();
+        // Update all chart instances
+        Chart.instances.forEach(chart => {
+            if (chart.options.plugins && chart.options.plugins.legend) {
+                chart.options.plugins.legend.labels.color = getLegendTextColor();
+            }
+            if (chart.options.scales) {
+                if (chart.options.scales.x && chart.options.scales.x.ticks) {
+                    chart.options.scales.x.ticks.color = getChartTextColor();
+                }
+                if (chart.options.scales.y && chart.options.scales.y.ticks) {
+                    chart.options.scales.y.ticks.color = getChartTextColor();
+                }
+            }
+            chart.update();
+        });
+    }
+    
+    // Listen for theme changes
+    const themeObserver = new MutationObserver(function(mutations) {
+        mutations.forEach(function(mutation) {
+            if (mutation.attributeName === 'data-theme') {
+                updateChartColors();
+            }
+        });
+    });
+    themeObserver.observe(document.body, { attributes: true });
     
     // ============================================
     // PIE CHART - Division Income
