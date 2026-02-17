@@ -156,6 +156,10 @@ include '../../includes/header.php';
             <p style="color: var(--text-muted); font-size: 0.875rem;">Kelola Purchase Order pembelian</p>
         </div>
         <div style="display: flex; gap: 0.75rem; align-items: center;">
+            <a href="report-unpaid-po.php" class="btn" style="background: linear-gradient(135deg, #ef4444, #dc2626); color: white;">
+                <i data-feather="file-text" style="width: 16px; height: 16px;"></i>
+                Laporan Tagihan
+            </a>
             <a href="purchases.php" class="btn btn-success">
                 <i data-feather="check-circle" style="width: 16px; height: 16px;"></i>
                 Lihat Invoice (Sudah Bayar)
