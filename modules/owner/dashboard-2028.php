@@ -720,6 +720,10 @@ $isDev = ($_SESSION['role'] ?? '') === 'developer';
     </div>
     
     <script>
+        // Base path: /adf_system for local, empty for hosting
+        const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
+        const basePath = isLocal ? '/adf_system' : '';
+        
         // Format currency
         function formatRp(num) {
             if (num >= 1000000000) return 'Rp ' + (num / 1000000000).toFixed(1) + 'B';
@@ -796,7 +800,7 @@ $isDev = ($_SESSION['role'] ?? '') === 'developer';
             document.getElementById('currentDate').textContent = now.toLocaleDateString('en-US', options);
             
             try {
-                const response = await fetch('/adf_system/api/owner-stats-simple.php');
+                const response = await fetch(basePath + '/api/owner-stats-simple.php');
                 const data = await response.json();
                 
                 if (data.success) {
@@ -841,7 +845,7 @@ $isDev = ($_SESSION['role'] ?? '') === 'developer';
         // Load businesses
         async function loadBusinesses() {
             try {
-                const response = await fetch('/adf_system/api/owner-branches-simple.php');
+                const response = await fetch(basePath + '/api/owner-branches-simple.php');
                 const data = await response.json();
                 
                 if (data.success && data.branches) {
