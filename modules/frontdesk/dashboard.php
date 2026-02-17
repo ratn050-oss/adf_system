@@ -359,12 +359,13 @@ try {
         ? round(($stats['occupied_rooms'] / $stats['total_rooms']) * 100, 1) 
         : 0;
 
-    // 6. Today's Revenue
+    // 6. Today's Revenue - FROM CASH_BOOK (sudah dipotong OTA fee dll)
+    // Ini menampilkan jumlah yang sama dengan yang tercatat di Buku Kas
     $revenueResult = $db->fetchOne("
-        SELECT COALESCE(SUM(bp.amount), 0) as total
-        FROM booking_payments bp
-        JOIN bookings b ON bp.booking_id = b.id
-        WHERE DATE(bp.payment_date) = ?
+        SELECT COALESCE(SUM(amount), 0) as total
+        FROM cash_book
+        WHERE transaction_type = 'income'
+        AND transaction_date = ?
     ", [$today]);
     $stats['revenue_today'] = $revenueResult['total'] ?? 0;
 
@@ -382,16 +383,14 @@ try {
     ", [$today, $today]);
     $stats['expected_revenue'] = $expectedResult['total'] ?? 0;
     
-    // OTA Revenue Today - More robust check
-    // If 'ota' is missed, maybe it's just in the allowed sources but payment_method is anything
-    // But since we enforced 'ota' as payment_method in JS, it should work.
-    // However, if manual payment inserted 'edc', it won't be counted here.
-    // Let's broaden the search or just rely on 'ota'.
+    // OTA Revenue Today - Dari cash_book dengan payment_method OTA
+    // Menampilkan pendapatan OTA bersih setelah dipotong fee
     $otaRevenueResult = $db->fetchOne("
-        SELECT COALESCE(SUM(bp.amount), 0) as total
-        FROM booking_payments bp
-        WHERE DATE(bp.payment_date) = ?
-        AND (LOWER(bp.payment_method) = 'ota' OR LOWER(bp.payment_method) = 'agoda' OR LOWER(bp.payment_method) = 'booking')
+        SELECT COALESCE(SUM(amount), 0) as total
+        FROM cash_book
+        WHERE transaction_type = 'income'
+        AND transaction_date = ?
+        AND (LOWER(payment_method) = 'ota' OR LOWER(payment_method) = 'agoda' OR LOWER(payment_method) = 'booking')
     ", [$today]);
     $stats['ota_revenue_today'] = $otaRevenueResult['total'] ?? 0;
 
@@ -1694,7 +1693,7 @@ include '../../includes/header.php';
                     </div>
                     <div style="font-size: 0.6rem; color: #059669; font-weight: 500; margin-bottom: 0.2rem;">Actual Revenue</div>
                     <div style="font-size: 1rem; font-weight: 800; color: #047857;">Rp <?php echo number_format($stats['revenue_today'], 0, ',', '.'); ?></div>
-                    <div style="font-size: 0.55rem; color: var(--text-secondary); margin-top: 0.2rem;">Cash received today</div>
+                    <div style="font-size: 0.55rem; color: var(--text-secondary); margin-top: 0.2rem;">Sesuai Buku Kas (net)</div>
                 </div>
                 
                 <!-- OTA Revenue -->
@@ -1705,7 +1704,7 @@ include '../../includes/header.php';
                     </div>
                     <div style="font-size: 0.6rem; color: #db2777; font-weight: 500; margin-bottom: 0.2rem;">OTA Income</div>
                     <div style="font-size: 1rem; font-weight: 800; color: #be185d;">Rp <?php echo number_format($stats['ota_revenue_today'], 0, ',', '.'); ?></div>
-                    <div style="font-size: 0.55rem; color: var(--text-secondary); margin-top: 0.2rem;">Agoda, Booking, etc</div>
+                    <div style="font-size: 0.55rem; color: var(--text-secondary); margin-top: 0.2rem;">Net setelah fee OTA</div>
                 </div>
                 
                 <!-- Expected Revenue -->
