@@ -151,6 +151,8 @@ try {
     $bankBalance = 0;
     $ownerCapital = 0;
     $cashAccounts = [];
+    $debugAccountIds = [];
+    $calcDbName = '';
     
     try {
         if (!isset($masterPdo)) {
@@ -188,6 +190,13 @@ try {
             $capitalIds = $getIds('owner_capital');
             $cashIds = $getIds('cash');
             $bankIds = $getIds('bank');
+            
+            // Store for debug
+            $debugAccountIds = [
+                'owner_capital' => $capitalIds,
+                'cash' => $cashIds,
+                'bank' => $bankIds
+            ];
             
             // Connect to the business DB for cash_book queries
             if ($bizDb) {
@@ -253,7 +262,8 @@ try {
             ];
         }
     } catch (Exception $e) {
-        // Skip cash accounts on error
+        // Skip cash accounts on error but log it
+        $debugAccountIds['error'] = $e->getMessage();
     }
     
     // Total operational cash = Petty Cash + Owner Capital balance
@@ -278,7 +288,11 @@ try {
             'today' => $today,
             'thisMonth' => $thisMonth,
             'lastMonth' => $lastMonth,
-            'database' => $activeDbName
+            'database' => $activeDbName,
+            'calcDbName' => $calcDbName,
+            'bizId' => $bizId,
+            'bizDb' => $bizDb,
+            'accountIds' => $debugAccountIds
         ]
     ]);
     

@@ -832,6 +832,10 @@ $isDev = ($role === 'developer');
                 const response = await fetch(basePath + '/api/owner-stats-simple.php' + queryString);
                 const data = await response.json();
                 
+                // Debug: Log API response
+                console.log('API URL:', basePath + '/api/owner-stats-simple.php' + queryString);
+                console.log('API Response:', data);
+                
                 if (data.success) {
                     // Today stats
                     document.getElementById('todayIncome').textContent = formatRp(data.todayIncome);
