@@ -38,13 +38,18 @@ try {
     $bizDb = isset($_GET['db']) ? $_GET['db'] : null;
     $bizId = isset($_GET['biz_id']) ? (int)$_GET['biz_id'] : null;
     
+    $today = date('Y-m-d');
+    $thisMonth = date('Y-m');
+    $lastMonth = date('Y-m', strtotime('-1 month'));
+    
+    // Master DB connection for cash_accounts
+    $masterDbName = defined('MASTER_DB_NAME') ? MASTER_DB_NAME : DB_NAME;
+    
     if ($bizDb) {
-        // Map database name for production (local names differ from hosting)
+        // SINGLE BUSINESS MODE - query specific database
         $actualDbName = function_exists('getDbName') ? getDbName($bizDb) : $bizDb;
         
-        // Connect to specific business database
         $bizPdo = new PDO('mysql:host=' . DB_HOST . ';dbname=' . $actualDbName, DB_USER, DB_PASS);
-        $bizPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $bizPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $db = new class($bizPdo) {
             private $pdo;
@@ -61,77 +66,85 @@ try {
             }
         };
         $activeDbName = $actualDbName;
+        
+        // Exclude owner capital
+        $excludeOwnerCapital = '';
+        try {
+            $masterPdo = new PDO('mysql:host=' . DB_HOST . ';dbname=' . $masterDbName, DB_USER, DB_PASS);
+            $masterPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+            if ($bizId) {
+                $ocStmt = $masterPdo->prepare("SELECT id FROM cash_accounts WHERE account_type = 'owner_capital' AND business_id = ?");
+                $ocStmt->execute([$bizId]);
+            } else {
+                $ocStmt = $masterPdo->query("SELECT id FROM cash_accounts WHERE account_type = 'owner_capital'");
+            }
+            $ownerCapitalIds = $ocStmt->fetchAll(PDO::FETCH_COLUMN);
+            if (!empty($ownerCapitalIds)) {
+                $excludeOwnerCapital = " AND (cash_account_id IS NULL OR cash_account_id NOT IN (" . implode(',', $ownerCapitalIds) . "))";
+            }
+        } catch (Exception $e) {}
+        
+        // Query single business
+        $todayIncome = (float)($db->fetchOne("SELECT COALESCE(SUM(amount), 0) as total FROM cash_book WHERE transaction_type = 'income' AND transaction_date = ?" . $excludeOwnerCapital, [$today])['total'] ?? 0);
+        $todayExpense = (float)($db->fetchOne("SELECT COALESCE(SUM(amount), 0) as total FROM cash_book WHERE transaction_type = 'expense' AND transaction_date = ?", [$today])['total'] ?? 0);
+        $monthIncome = (float)($db->fetchOne("SELECT COALESCE(SUM(amount), 0) as total FROM cash_book WHERE transaction_type = 'income' AND DATE_FORMAT(transaction_date, '%Y-%m') = ?" . $excludeOwnerCapital, [$thisMonth])['total'] ?? 0);
+        $monthExpense = (float)($db->fetchOne("SELECT COALESCE(SUM(amount), 0) as total FROM cash_book WHERE transaction_type = 'expense' AND DATE_FORMAT(transaction_date, '%Y-%m') = ?", [$thisMonth])['total'] ?? 0);
+        $lastMonthIncome = (float)($db->fetchOne("SELECT COALESCE(SUM(amount), 0) as total FROM cash_book WHERE transaction_type = 'income' AND DATE_FORMAT(transaction_date, '%Y-%m') = ?" . $excludeOwnerCapital, [$lastMonth])['total'] ?? 0);
+        $lastMonthExpense = (float)($db->fetchOne("SELECT COALESCE(SUM(amount), 0) as total FROM cash_book WHERE transaction_type = 'expense' AND DATE_FORMAT(transaction_date, '%Y-%m') = ?", [$lastMonth])['total'] ?? 0);
+        
     } else {
-        $db = Database::getInstance();
-        $activeDbName = DB_NAME;
-    }
-    
-    $today = date('Y-m-d');
-    $thisMonth = date('Y-m');
-    $lastMonth = date('Y-m', strtotime('-1 month'));
-    
-    // Exclude Owner Capital from income calculations (same as system dashboard)
-    $excludeOwnerCapital = '';
-    try {
-        $masterDbName = defined('MASTER_DB_NAME') ? MASTER_DB_NAME : DB_NAME;
+        // ALL BUSINESSES MODE - aggregate from all business databases
+        $activeDbName = 'ALL';
+        $todayIncome = 0; $todayExpense = 0;
+        $monthIncome = 0; $monthExpense = 0;
+        $lastMonthIncome = 0; $lastMonthExpense = 0;
+        
+        // Get all businesses
         $masterPdo = new PDO('mysql:host=' . DB_HOST . ';dbname=' . $masterDbName, DB_USER, DB_PASS);
         $masterPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         
-        // Find owner capital account IDs for current business
-        $ocStmt = $masterPdo->query("SELECT id FROM cash_accounts WHERE account_type = 'owner_capital'");
-        $ownerCapitalIds = $ocStmt->fetchAll(PDO::FETCH_COLUMN);
+        $allBiz = $masterPdo->query("SELECT id, database_name FROM businesses WHERE is_active = 1")->fetchAll(PDO::FETCH_ASSOC);
         
-        if (!empty($ownerCapitalIds)) {
-            $excludeOwnerCapital = " AND (cash_account_id IS NULL OR cash_account_id NOT IN (" . implode(',', $ownerCapitalIds) . "))";
+        // Get all owner capital IDs
+        $allOcIds = $masterPdo->query("SELECT id FROM cash_accounts WHERE account_type = 'owner_capital'")->fetchAll(PDO::FETCH_COLUMN);
+        $excludeOC = '';
+        if (!empty($allOcIds)) {
+            $excludeOC = " AND (cash_account_id IS NULL OR cash_account_id NOT IN (" . implode(',', $allOcIds) . "))";
         }
-    } catch (Exception $e) {
-        // Continue without exclusion
+        
+        foreach ($allBiz as $biz) {
+            try {
+                $dbName = function_exists('getDbName') ? getDbName($biz['database_name']) : $biz['database_name'];
+                $bPdo = new PDO('mysql:host=' . DB_HOST . ';dbname=' . $dbName, DB_USER, DB_PASS);
+                $bPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+                
+                $r = $bPdo->query("SELECT 
+                    COALESCE(SUM(CASE WHEN transaction_type='income' AND transaction_date='$today' THEN amount ELSE 0 END),0) as ti,
+                    COALESCE(SUM(CASE WHEN transaction_type='expense' AND transaction_date='$today' THEN amount ELSE 0 END),0) as te,
+                    COALESCE(SUM(CASE WHEN transaction_type='income' AND DATE_FORMAT(transaction_date,'%Y-%m')='$thisMonth' THEN amount ELSE 0 END),0) as mi,
+                    COALESCE(SUM(CASE WHEN transaction_type='expense' AND DATE_FORMAT(transaction_date,'%Y-%m')='$thisMonth' THEN amount ELSE 0 END),0) as me,
+                    COALESCE(SUM(CASE WHEN transaction_type='income' AND DATE_FORMAT(transaction_date,'%Y-%m')='$lastMonth' THEN amount ELSE 0 END),0) as li,
+                    COALESCE(SUM(CASE WHEN transaction_type='expense' AND DATE_FORMAT(transaction_date,'%Y-%m')='$lastMonth' THEN amount ELSE 0 END),0) as le
+                    FROM cash_book WHERE 1=1" . $excludeOC)->fetch(PDO::FETCH_ASSOC);
+                
+                // Income uses excludeOC, but expense should NOT exclude. Re-query expense separately
+                $re = $bPdo->query("SELECT 
+                    COALESCE(SUM(CASE WHEN transaction_date='$today' THEN amount ELSE 0 END),0) as te,
+                    COALESCE(SUM(CASE WHEN DATE_FORMAT(transaction_date,'%Y-%m')='$thisMonth' THEN amount ELSE 0 END),0) as me,
+                    COALESCE(SUM(CASE WHEN DATE_FORMAT(transaction_date,'%Y-%m')='$lastMonth' THEN amount ELSE 0 END),0) as le
+                    FROM cash_book WHERE transaction_type='expense'")->fetch(PDO::FETCH_ASSOC);
+                
+                $todayIncome += (float)($r['ti'] ?? 0);
+                $todayExpense += (float)($re['te'] ?? 0);
+                $monthIncome += (float)($r['mi'] ?? 0);
+                $monthExpense += (float)($re['me'] ?? 0);
+                $lastMonthIncome += (float)($r['li'] ?? 0);
+                $lastMonthExpense += (float)($re['le'] ?? 0);
+            } catch (Exception $e) {
+                // Skip errored database
+            }
+        }
     }
-    
-    // TODAY's transactions
-    $todayIncomeResult = $db->fetchOne(
-        "SELECT COALESCE(SUM(amount), 0) as total FROM cash_book 
-         WHERE transaction_type = 'income' AND transaction_date = ?" . $excludeOwnerCapital,
-        [$today]
-    );
-    $todayIncome = $todayIncomeResult['total'] ?? 0;
-    
-    $todayExpenseResult = $db->fetchOne(
-        "SELECT COALESCE(SUM(amount), 0) as total FROM cash_book 
-         WHERE transaction_type = 'expense' AND transaction_date = ?",
-        [$today]
-    );
-    $todayExpense = $todayExpenseResult['total'] ?? 0;
-    
-    // THIS MONTH's transactions
-    $monthIncomeResult = $db->fetchOne(
-        "SELECT COALESCE(SUM(amount), 0) as total FROM cash_book 
-         WHERE transaction_type = 'income' AND DATE_FORMAT(transaction_date, '%Y-%m') = ?" . $excludeOwnerCapital,
-        [$thisMonth]
-    );
-    $monthIncome = $monthIncomeResult['total'] ?? 0;
-    
-    $monthExpenseResult = $db->fetchOne(
-        "SELECT COALESCE(SUM(amount), 0) as total FROM cash_book 
-         WHERE transaction_type = 'expense' AND DATE_FORMAT(transaction_date, '%Y-%m') = ?",
-        [$thisMonth]
-    );
-    $monthExpense = $monthExpenseResult['total'] ?? 0;
-    
-    // LAST MONTH's transactions (for comparison)
-    $lastMonthIncomeResult = $db->fetchOne(
-        "SELECT COALESCE(SUM(amount), 0) as total FROM cash_book 
-         WHERE transaction_type = 'income' AND DATE_FORMAT(transaction_date, '%Y-%m') = ?" . $excludeOwnerCapital,
-        [$lastMonth]
-    );
-    $lastMonthIncome = $lastMonthIncomeResult['total'] ?? 0;
-    
-    $lastMonthExpenseResult = $db->fetchOne(
-        "SELECT COALESCE(SUM(amount), 0) as total FROM cash_book 
-         WHERE transaction_type = 'expense' AND DATE_FORMAT(transaction_date, '%Y-%m') = ?",
-        [$lastMonth]
-    );
-    $lastMonthExpense = $lastMonthExpenseResult['total'] ?? 0;
     
     // CASH ACCOUNTS BALANCES (from master DB, filtered by business_id)
     $pettyCash = 0;
@@ -140,22 +153,21 @@ try {
     $cashAccounts = [];
     
     try {
-        $masterDbName = defined('MASTER_DB_NAME') ? MASTER_DB_NAME : DB_NAME;
-        $cashPdo = new PDO('mysql:host=' . DB_HOST . ';dbname=' . $masterDbName, DB_USER, DB_PASS);
-        $cashPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        if (!isset($masterPdo)) {
+            $masterPdo = new PDO('mysql:host=' . DB_HOST . ';dbname=' . $masterDbName, DB_USER, DB_PASS);
+            $masterPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        }
         
         if ($bizId) {
-            $cashStmt = $cashPdo->prepare("SELECT id, account_name, account_type, current_balance FROM cash_accounts WHERE is_active = 1 AND business_id = ? ORDER BY account_type, account_name");
+            $cashStmt = $masterPdo->prepare("SELECT id, account_name, account_type, current_balance FROM cash_accounts WHERE is_active = 1 AND business_id = ? ORDER BY account_type, account_name");
             $cashStmt->execute([$bizId]);
         } else {
-            $cashStmt = $cashPdo->query("SELECT id, account_name, account_type, current_balance FROM cash_accounts WHERE is_active = 1 ORDER BY account_type, account_name");
+            // All businesses - get all cash accounts
+            $cashStmt = $masterPdo->query("SELECT id, account_name, account_type, SUM(current_balance) as current_balance FROM cash_accounts WHERE is_active = 1 GROUP BY account_type ORDER BY account_type");
         }
         $cashAccounts = $cashStmt->fetchAll(PDO::FETCH_ASSOC);
     } catch (Exception $e) {
-        // Fallback: try from business DB
-        $cashAccounts = $db->fetchAll(
-            "SELECT id, account_name, account_type, current_balance FROM cash_accounts WHERE is_active = 1 ORDER BY account_type, account_name"
-        );
+        // Skip cash accounts on error
     }
     
     foreach ($cashAccounts as $acc) {

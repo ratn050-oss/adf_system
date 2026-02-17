@@ -908,9 +908,10 @@ $isDev = ($role === 'developer');
             loadStats();
         });
         
-        // Init
-        loadBusinesses();
-        loadStats();
+        // Init - load businesses first, then stats
+        loadBusinesses().then(() => {
+            loadStats();
+        });
         
         // Refresh every 30 seconds
         setInterval(loadStats, 30000);
