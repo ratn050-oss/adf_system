@@ -1,7 +1,7 @@
 <?php
 return [
    'business_id' => 'narayana-hotel',
-   'name' => 'Narayana Hotel Jepara',
+   'name' => 'Narayana Hotel Karimunjawa',
    'business_type' => 'hotel',
    'database' => 'adf_narayana_hotel',
    

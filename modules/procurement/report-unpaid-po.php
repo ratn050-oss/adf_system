@@ -2,6 +2,7 @@
 /**
  * Laporan PO Belum Dibayar (Unpaid Purchase Orders)
  * Untuk pengajuan pembayaran tagihan ke Owner
+ * Layout A4 Compact & Elegant
  */
 require_once '../../config/config.php';
 require_once '../../config/database.php';
@@ -25,7 +26,7 @@ $sort_by = isset($_GET['sort_by']) ? $_GET['sort_by'] : 'due_date';
 // Get suppliers for filter
 $suppliers = $db->fetchAll("SELECT * FROM suppliers WHERE is_active = 1 ORDER BY supplier_name");
 
-// Get unpaid POs - cek dari purchases_header (invoice) bukan PO header
+// Get unpaid POs
 $where = "ph.payment_status = 'unpaid' OR (ph.payment_status = 'partial' AND ph.paid_amount < ph.grand_total)";
 $params = [];
 
@@ -53,25 +54,12 @@ $order_by = match($sort_by) {
 
 $unpaidInvoices = $db->fetchAll("
     SELECT 
-        ph.id,
-        ph.invoice_number,
-        ph.po_id,
-        ph.invoice_date,
-        ph.due_date,
-        ph.total_amount,
-        ph.discount_amount,
-        ph.tax_amount,
-        ph.grand_total,
-        ph.paid_amount,
-        (ph.grand_total - COALESCE(ph.paid_amount, 0)) as remaining,
-        ph.payment_status,
-        ph.notes,
-        s.supplier_name,
-        s.contact_person,
-        s.phone,
-        s.bank_name,
-        s.bank_account_number,
-        s.bank_account_name,
+        ph.id, ph.invoice_number, ph.po_id, ph.invoice_date, ph.due_date,
+        ph.total_amount, ph.discount_amount, ph.tax_amount, ph.grand_total,
+        ph.paid_amount, (ph.grand_total - COALESCE(ph.paid_amount, 0)) as remaining,
+        ph.payment_status, ph.notes,
+        s.supplier_name, s.contact_person, s.phone,
+        s.bank_name, s.bank_account_number, s.bank_account_name,
         po.po_number,
         DATEDIFF(CURDATE(), COALESCE(ph.due_date, ph.invoice_date)) as days_overdue
     FROM purchases_header ph
@@ -94,20 +82,17 @@ foreach ($unpaidInvoices as $inv) {
     if ($inv['days_overdue'] > 0) $countOverdue++;
 }
 
-// Group by supplier for summary
+// Group by supplier
 $supplierSummary = [];
 foreach ($unpaidInvoices as $inv) {
     $sname = $inv['supplier_name'];
     if (!isset($supplierSummary[$sname])) {
-        $supplierSummary[$sname] = ['count' => 0, 'total' => 0];
+        $supplierSummary[$sname] = ['count' => 0, 'total' => 0, 'bank' => $inv['bank_name'], 'rekening' => $inv['bank_account_number'], 'atas_nama' => $inv['bank_account_name']];
     }
     $supplierSummary[$sname]['count']++;
     $supplierSummary[$sname]['total'] += $inv['remaining'];
 }
 arsort($supplierSummary);
-
-// Get business info for header
-$businessInfo = $db->fetchOne("SELECT * FROM business_settings WHERE id = 1");
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -115,603 +100,494 @@ $businessInfo = $db->fetchOne("SELECT * FROM business_settings WHERE id = 1");
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title><?= $pageTitle ?> - <?= BUSINESS_NAME ?></title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
     <style>
-        :root {
-            --primary: #4f46e5;
-            --danger: #dc2626;
-            --warning: #f59e0b;
-            --success: #10b981;
-        }
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         
         body { 
-            background: #f8fafc; 
-            font-family: 'Segoe UI', system-ui, sans-serif;
+            font-family: 'Segoe UI', Arial, sans-serif;
+            font-size: 9pt;
+            line-height: 1.3;
+            color: #1a1a1a;
+            background: #f0f0f0;
         }
         
-        .report-container {
-            max-width: 1200px;
-            margin: 0 auto;
-            padding: 20px;
-        }
-        
-        /* Print Header */
-        .print-header {
-            background: linear-gradient(135deg, #1e3a8a 0%, #3730a3 100%);
-            color: white;
-            padding: 30px;
-            border-radius: 16px;
-            margin-bottom: 24px;
-            position: relative;
-            overflow: hidden;
-        }
-        
-        .print-header::before {
-            content: '';
-            position: absolute;
-            top: 0; right: 0;
-            width: 300px; height: 300px;
-            background: rgba(255,255,255,0.05);
-            border-radius: 50%;
-            transform: translate(50%, -50%);
-        }
-        
-        .print-header h1 {
-            font-size: 1.75rem;
-            font-weight: 700;
-            margin: 0;
-        }
-        
-        .print-header .subtitle {
-            opacity: 0.9;
-            font-size: 0.95rem;
-            margin-top: 8px;
-        }
-        
-        .print-header .report-date {
-            position: absolute;
-            top: 30px; right: 30px;
-            text-align: right;
-            font-size: 0.85rem;
-        }
-        
-        /* Summary Cards */
-        .summary-cards {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 16px;
-            margin-bottom: 24px;
-        }
-        
-        .summary-card {
+        .page {
+            width: 210mm;
+            min-height: 297mm;
+            margin: 10px auto;
             background: white;
-            border-radius: 12px;
-            padding: 20px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-            border-left: 4px solid var(--primary);
+            padding: 12mm 15mm;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
         }
         
-        .summary-card.danger { border-left-color: var(--danger); }
-        .summary-card.warning { border-left-color: var(--warning); }
-        .summary-card.success { border-left-color: var(--success); }
+        /* Header */
+        .header {
+            border-bottom: 2px solid #1e3a8a;
+            padding-bottom: 10px;
+            margin-bottom: 12px;
+        }
         
-        .summary-card .label {
-            font-size: 0.75rem;
+        .header-top {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+        }
+        
+        .company-info h1 {
+            font-size: 14pt;
+            color: #1e3a8a;
+            font-weight: 700;
+            margin-bottom: 2px;
+        }
+        
+        .company-info p {
+            font-size: 8pt;
+            color: #666;
+        }
+        
+        .doc-info {
+            text-align: right;
+            font-size: 8pt;
+        }
+        
+        .doc-info .doc-number {
+            font-size: 10pt;
+            font-weight: 700;
+            color: #dc2626;
+        }
+        
+        .report-title {
+            text-align: center;
+            margin: 10px 0;
+            padding: 8px;
+            background: #1e3a8a;
+            color: white;
+            font-size: 11pt;
+            font-weight: 700;
+            letter-spacing: 1px;
+        }
+        
+        /* Summary */
+        .summary-row {
+            display: flex;
+            gap: 10px;
+            margin-bottom: 12px;
+        }
+        
+        .summary-box {
+            flex: 1;
+            padding: 8px 10px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+        }
+        
+        .summary-box.danger {
+            background: #fef2f2;
+            border-color: #fecaca;
+        }
+        
+        .summary-box .label {
+            font-size: 7pt;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
             color: #64748b;
-            margin-bottom: 8px;
+            margin-bottom: 2px;
         }
         
-        .summary-card .value {
-            font-size: 1.5rem;
+        .summary-box .value {
+            font-size: 11pt;
             font-weight: 700;
             color: #1e293b;
         }
         
-        .summary-card.danger .value { color: var(--danger); }
-        
-        /* Filter Section */
-        .filter-section {
-            background: white;
-            border-radius: 12px;
-            padding: 20px;
-            margin-bottom: 24px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+        .summary-box.danger .value {
+            color: #dc2626;
         }
         
         /* Table */
-        .invoice-table {
-            background: white;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-        }
-        
-        .invoice-table table {
+        table {
             width: 100%;
             border-collapse: collapse;
-            font-size: 0.875rem;
+            font-size: 8pt;
+            margin-bottom: 10px;
         }
         
-        .invoice-table th {
-            background: #f1f5f9;
-            padding: 14px 16px;
+        th {
+            background: #1e3a8a;
+            color: white;
+            padding: 6px 5px;
             text-align: left;
             font-weight: 600;
-            color: #475569;
-            border-bottom: 2px solid #e2e8f0;
-            white-space: nowrap;
+            font-size: 7.5pt;
         }
         
-        .invoice-table td {
-            padding: 14px 16px;
-            border-bottom: 1px solid #f1f5f9;
+        td {
+            padding: 5px;
+            border-bottom: 1px solid #e5e7eb;
             vertical-align: top;
         }
         
-        .invoice-table tr:hover {
-            background: #f8fafc;
+        tr:nth-child(even) { background: #f9fafb; }
+        
+        .text-right { text-align: right; }
+        .text-center { text-align: center; }
+        
+        .amount {
+            font-family: 'Consolas', monospace;
+            font-size: 8pt;
         }
         
-        .invoice-table .text-right { text-align: right; }
-        .invoice-table .text-center { text-align: center; }
-        
-        .amount { 
-            font-family: 'Consolas', monospace; 
-            font-weight: 600;
-        }
-        
-        .amount.large {
-            font-size: 1rem;
-            color: var(--danger);
-        }
-        
-        /* Status Badges */
-        .badge-overdue {
-            background: #fef2f2;
+        .amount-large {
+            font-weight: 700;
             color: #dc2626;
-            padding: 4px 10px;
-            border-radius: 20px;
-            font-size: 0.7rem;
-            font-weight: 600;
         }
         
-        .badge-due-soon {
-            background: #fffbeb;
-            color: #d97706;
-            padding: 4px 10px;
-            border-radius: 20px;
-            font-size: 0.7rem;
-            font-weight: 600;
-        }
-        
-        .badge-normal {
-            background: #f0fdf4;
-            color: #16a34a;
-            padding: 4px 10px;
-            border-radius: 20px;
-            font-size: 0.7rem;
-            font-weight: 600;
-        }
-        
-        /* Supplier Info */
-        .supplier-info {
-            font-size: 0.75rem;
-            color: #64748b;
-            margin-top: 4px;
-        }
-        
-        .bank-info {
-            background: #f8fafc;
-            padding: 8px 12px;
-            border-radius: 8px;
-            margin-top: 8px;
-            font-size: 0.75rem;
-        }
-        
-        /* Summary by Supplier */
-        .supplier-summary {
-            background: white;
-            border-radius: 12px;
-            padding: 20px;
-            margin-top: 24px;
-            box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-        }
-        
-        .supplier-summary h3 {
-            font-size: 1rem;
-            font-weight: 600;
-            margin-bottom: 16px;
-            color: #1e293b;
-        }
-        
-        .supplier-summary-item {
-            display: flex;
-            justify-content: space-between;
-            padding: 10px 0;
-            border-bottom: 1px solid #f1f5f9;
-        }
-        
-        /* Print Styles */
-        @media print {
-            body { background: white; }
-            .no-print { display: none !important; }
-            .report-container { max-width: 100%; padding: 0; }
-            .print-header { 
-                background: #1e3a8a !important; 
-                -webkit-print-color-adjust: exact;
-                print-color-adjust: exact;
-            }
-            .summary-card { 
-                break-inside: avoid;
-                border-left-width: 4px !important;
-            }
-            .invoice-table { box-shadow: none; }
-            .invoice-table th { 
-                background: #f1f5f9 !important;
-                -webkit-print-color-adjust: exact;
-            }
-            @page { margin: 1cm; }
-        }
-        
-        /* Action Buttons */
-        .action-buttons {
-            display: flex;
-            gap: 12px;
-            margin-bottom: 24px;
-        }
-        
-        .btn-action {
-            display: inline-flex;
-            align-items: center;
-            gap: 8px;
-            padding: 12px 24px;
+        /* Status badge */
+        .badge {
+            display: inline-block;
+            padding: 2px 6px;
             border-radius: 10px;
+            font-size: 6.5pt;
             font-weight: 600;
-            border: none;
-            cursor: pointer;
-            transition: all 0.2s;
         }
         
-        .btn-print {
-            background: linear-gradient(135deg, #3b82f6, #2563eb);
-            color: white;
-        }
-        
-        .btn-print:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(59,130,246,0.3);
-        }
-        
-        .btn-pdf {
-            background: linear-gradient(135deg, #ef4444, #dc2626);
-            color: white;
-        }
-        
-        .btn-pdf:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 8px 20px rgba(239,68,68,0.3);
-        }
-        
-        .btn-back {
-            background: #f1f5f9;
-            color: #475569;
-        }
-        
-        .btn-back:hover {
-            background: #e2e8f0;
-        }
+        .badge-danger { background: #fef2f2; color: #dc2626; }
+        .badge-warning { background: #fffbeb; color: #d97706; }
+        .badge-success { background: #f0fdf4; color: #16a34a; }
         
         /* Total Footer */
-        .total-footer {
-            background: linear-gradient(135deg, #fef2f2, #fee2e2);
-            padding: 20px;
-            border-radius: 0 0 12px 12px;
+        .total-section {
+            background: #fef2f2;
+            border: 2px solid #fecaca;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
         }
         
         .total-row {
             display: flex;
             justify-content: space-between;
-            padding: 8px 0;
+            padding: 3px 0;
+            font-size: 9pt;
         }
         
         .total-row.grand {
-            font-size: 1.25rem;
+            font-size: 12pt;
             font-weight: 700;
-            color: var(--danger);
-            border-top: 2px solid #fecaca;
-            padding-top: 16px;
-            margin-top: 8px;
+            color: #dc2626;
+            border-top: 1px solid #fecaca;
+            padding-top: 8px;
+            margin-top: 5px;
         }
         
-        /* Signature Section */
+        /* Supplier Summary */
+        .supplier-section {
+            margin-top: 12px;
+            page-break-inside: avoid;
+        }
+        
+        .supplier-section h3 {
+            font-size: 9pt;
+            color: #1e3a8a;
+            border-bottom: 1px solid #1e3a8a;
+            padding-bottom: 3px;
+            margin-bottom: 8px;
+        }
+        
+        .supplier-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 4px 0;
+            border-bottom: 1px dotted #e5e7eb;
+            font-size: 8pt;
+        }
+        
+        .supplier-item .bank-info {
+            font-size: 7pt;
+            color: #64748b;
+        }
+        
+        /* Signature */
         .signature-section {
-            margin-top: 40px;
-            display: grid;
-            grid-template-columns: 1fr 1fr 1fr;
-            gap: 30px;
-            text-align: center;
+            margin-top: 25px;
+            display: flex;
+            justify-content: space-between;
+            page-break-inside: avoid;
         }
         
         .signature-box {
-            padding: 20px;
+            width: 28%;
+            text-align: center;
         }
         
         .signature-box .title {
+            font-size: 8pt;
             font-weight: 600;
-            color: #475569;
-            margin-bottom: 60px;
+            margin-bottom: 45px;
         }
         
         .signature-box .line {
-            border-top: 1px solid #cbd5e1;
-            padding-top: 8px;
-            font-size: 0.875rem;
-            color: #64748b;
+            border-top: 1px solid #333;
+            padding-top: 3px;
+            font-size: 8pt;
         }
+        
+        /* Notes */
+        .notes {
+            font-size: 7pt;
+            color: #64748b;
+            margin-top: 15px;
+            padding: 8px;
+            background: #f8fafc;
+            border-radius: 4px;
+        }
+        
+        /* Print styles */
+        @media print {
+            body { background: white; }
+            .page { 
+                margin: 0; 
+                box-shadow: none; 
+                padding: 10mm 12mm;
+                width: 100%;
+            }
+            .no-print { display: none !important; }
+            @page { 
+                size: A4; 
+                margin: 5mm; 
+            }
+        }
+        
+        /* Filter bar (no print) */
+        .filter-bar {
+            width: 210mm;
+            margin: 10px auto;
+            background: white;
+            padding: 12px 15px;
+            border-radius: 8px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.1);
+            display: flex;
+            gap: 10px;
+            align-items: end;
+        }
+        
+        .filter-bar .form-group {
+            flex: 1;
+        }
+        
+        .filter-bar label {
+            display: block;
+            font-size: 8pt;
+            font-weight: 600;
+            margin-bottom: 4px;
+            color: #475569;
+        }
+        
+        .filter-bar select,
+        .filter-bar input {
+            width: 100%;
+            padding: 6px 8px;
+            border: 1px solid #d1d5db;
+            border-radius: 4px;
+            font-size: 9pt;
+        }
+        
+        .filter-bar button,
+        .filter-bar a {
+            padding: 8px 16px;
+            border: none;
+            border-radius: 4px;
+            font-size: 9pt;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+        }
+        
+        .btn-filter { background: #3b82f6; color: white; }
+        .btn-print { background: #1e3a8a; color: white; }
+        .btn-back { background: #e5e7eb; color: #374151; }
     </style>
 </head>
 <body>
-    <div class="report-container">
-        <!-- Action Buttons -->
-        <div class="action-buttons no-print">
-            <a href="purchase-orders.php" class="btn-action btn-back">
-                <i class="fas fa-arrow-left"></i> Kembali
-            </a>
-            <button onclick="window.print()" class="btn-action btn-print">
-                <i class="fas fa-print"></i> Print Laporan
-            </button>
-            <button onclick="savePDF()" class="btn-action btn-pdf">
-                <i class="fas fa-file-pdf"></i> Save PDF
-            </button>
-        </div>
-        
-        <!-- Print Header -->
-        <div class="print-header">
-            <div class="report-date">
-                <div>Dicetak: <?= date('d/m/Y H:i') ?></div>
-                <div>Periode: <?= date('d/m/Y', strtotime($date_from)) ?> - <?= date('d/m/Y', strtotime($date_to)) ?></div>
+    <!-- Filter Bar -->
+    <div class="filter-bar no-print">
+        <form method="GET" style="display: flex; gap: 10px; width: 100%; align-items: end;">
+            <div class="form-group">
+                <label>Supplier</label>
+                <select name="supplier_id">
+                    <option value="">Semua</option>
+                    <?php foreach ($suppliers as $s): ?>
+                        <option value="<?= $s['id'] ?>" <?= $supplier_id == $s['id'] ? 'selected' : '' ?>><?= htmlspecialchars($s['supplier_name']) ?></option>
+                    <?php endforeach; ?>
+                </select>
             </div>
-            <h1><i class="fas fa-file-invoice-dollar me-2"></i><?= BUSINESS_NAME ?></h1>
-            <div class="subtitle">
-                <strong>LAPORAN TAGIHAN BELUM DIBAYAR</strong><br>
-                Pengajuan Pembayaran ke Owner
+            <div class="form-group">
+                <label>Dari</label>
+                <input type="date" name="date_from" value="<?= $date_from ?>">
+            </div>
+            <div class="form-group">
+                <label>Sampai</label>
+                <input type="date" name="date_to" value="<?= $date_to ?>">
+            </div>
+            <div class="form-group">
+                <label>Urut</label>
+                <select name="sort_by">
+                    <option value="due_date" <?= $sort_by == 'due_date' ? 'selected' : '' ?>>Jatuh Tempo</option>
+                    <option value="oldest" <?= $sort_by == 'oldest' ? 'selected' : '' ?>>Terlama</option>
+                    <option value="newest" <?= $sort_by == 'newest' ? 'selected' : '' ?>>Terbaru</option>
+                    <option value="amount_desc" <?= $sort_by == 'amount_desc' ? 'selected' : '' ?>>Terbesar</option>
+                    <option value="supplier" <?= $sort_by == 'supplier' ? 'selected' : '' ?>>Supplier</option>
+                </select>
+            </div>
+            <button type="submit" class="btn-filter">Filter</button>
+            <button type="button" onclick="window.print()" class="btn-print">🖨️ Print</button>
+            <a href="purchase-orders.php" class="btn-back">← Kembali</a>
+        </form>
+    </div>
+    
+    <!-- Report Page -->
+    <div class="page">
+        <!-- Header -->
+        <div class="header">
+            <div class="header-top">
+                <div class="company-info">
+                    <h1>🏨 <?= BUSINESS_NAME ?></h1>
+                    <p>Karimunjawa, Jepara - Jawa Tengah</p>
+                </div>
+                <div class="doc-info">
+                    <div class="doc-number">REF: INV-<?= date('Ymd-His') ?></div>
+                    <div>Tanggal: <?= date('d F Y') ?></div>
+                    <div>Periode: <?= date('d/m/Y', strtotime($date_from)) ?> - <?= date('d/m/Y', strtotime($date_to)) ?></div>
+                </div>
             </div>
         </div>
         
-        <!-- Filter Section -->
-        <div class="filter-section no-print">
-            <form method="GET" class="row g-3 align-items-end">
-                <div class="col-md-3">
-                    <label class="form-label fw-semibold">Supplier</label>
-                    <select name="supplier_id" class="form-select">
-                        <option value="">Semua Supplier</option>
-                        <?php foreach ($suppliers as $s): ?>
-                            <option value="<?= $s['id'] ?>" <?= $supplier_id == $s['id'] ? 'selected' : '' ?>>
-                                <?= htmlspecialchars($s['supplier_name']) ?>
-                            </option>
-                        <?php endforeach; ?>
-                    </select>
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label fw-semibold">Dari Tanggal</label>
-                    <input type="date" name="date_from" value="<?= $date_from ?>" class="form-control">
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label fw-semibold">Sampai Tanggal</label>
-                    <input type="date" name="date_to" value="<?= $date_to ?>" class="form-control">
-                </div>
-                <div class="col-md-2">
-                    <label class="form-label fw-semibold">Urutkan</label>
-                    <select name="sort_by" class="form-select">
-                        <option value="due_date" <?= $sort_by == 'due_date' ? 'selected' : '' ?>>Jatuh Tempo</option>
-                        <option value="oldest" <?= $sort_by == 'oldest' ? 'selected' : '' ?>>Tanggal (Lama)</option>
-                        <option value="newest" <?= $sort_by == 'newest' ? 'selected' : '' ?>>Tanggal (Baru)</option>
-                        <option value="amount_desc" <?= $sort_by == 'amount_desc' ? 'selected' : '' ?>>Nominal (Besar)</option>
-                        <option value="supplier" <?= $sort_by == 'supplier' ? 'selected' : '' ?>>Supplier</option>
-                    </select>
-                </div>
-                <div class="col-md-3">
-                    <button type="submit" class="btn btn-primary w-100">
-                        <i class="fas fa-filter me-1"></i> Filter
-                    </button>
-                </div>
-            </form>
-        </div>
+        <div class="report-title">LAPORAN TAGIHAN BELUM DIBAYAR</div>
         
-        <!-- Summary Cards -->
-        <div class="summary-cards">
-            <div class="summary-card danger">
+        <!-- Summary -->
+        <div class="summary-row">
+            <div class="summary-box danger">
                 <div class="label">Total Tagihan</div>
                 <div class="value">Rp <?= number_format($totalRemaining, 0, ',', '.') ?></div>
             </div>
-            <div class="summary-card warning">
+            <div class="summary-box">
                 <div class="label">Jumlah Invoice</div>
-                <div class="value"><?= count($unpaidInvoices) ?> Invoice</div>
+                <div class="value"><?= count($unpaidInvoices) ?></div>
             </div>
-            <div class="summary-card">
+            <div class="summary-box">
                 <div class="label">Jumlah Supplier</div>
-                <div class="value"><?= count($supplierSummary) ?> Supplier</div>
+                <div class="value"><?= count($supplierSummary) ?></div>
             </div>
-            <div class="summary-card danger">
-                <div class="label">Sudah Jatuh Tempo</div>
-                <div class="value"><?= $countOverdue ?> Invoice</div>
+            <div class="summary-box danger">
+                <div class="label">Jatuh Tempo</div>
+                <div class="value"><?= $countOverdue ?></div>
             </div>
         </div>
         
-        <!-- Invoice Table -->
-        <div class="invoice-table">
-            <table>
-                <thead>
-                    <tr>
-                        <th style="width: 40px;">No</th>
-                        <th>No. Invoice / PO</th>
-                        <th>Supplier</th>
-                        <th>Tanggal</th>
-                        <th>Jatuh Tempo</th>
-                        <th class="text-right">Total Tagihan</th>
-                        <th class="text-right">Sudah Dibayar</th>
-                        <th class="text-right">Sisa Tagihan</th>
-                        <th class="text-center">Status</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php if (empty($unpaidInvoices)): ?>
+        <!-- Detail Table -->
+        <table>
+            <thead>
+                <tr>
+                    <th style="width:25px;">No</th>
+                    <th style="width:80px;">No. Invoice</th>
+                    <th>Supplier</th>
+                    <th style="width:60px;" class="text-center">Tgl Invoice</th>
+                    <th style="width:60px;" class="text-center">Jatuh Tempo</th>
+                    <th style="width:85px;" class="text-right">Total</th>
+                    <th style="width:85px;" class="text-right">Sisa</th>
+                    <th style="width:55px;" class="text-center">Status</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php if (empty($unpaidInvoices)): ?>
+                    <tr><td colspan="8" class="text-center" style="padding:20px;">Tidak ada tagihan belum dibayar</td></tr>
+                <?php else: ?>
+                    <?php $no = 1; foreach ($unpaidInvoices as $inv): ?>
                         <tr>
-                            <td colspan="9" class="text-center py-5 text-muted">
-                                <i class="fas fa-check-circle fa-3x mb-3 text-success"></i>
-                                <p class="mb-0">Tidak ada tagihan yang belum dibayar.</p>
+                            <td class="text-center"><?= $no++ ?></td>
+                            <td>
+                                <strong><?= htmlspecialchars($inv['invoice_number']) ?></strong>
+                                <?php if ($inv['po_number']): ?><br><span style="font-size:7pt;color:#666;">PO: <?= $inv['po_number'] ?></span><?php endif; ?>
+                            </td>
+                            <td><?= htmlspecialchars($inv['supplier_name']) ?></td>
+                            <td class="text-center"><?= date('d/m/y', strtotime($inv['invoice_date'])) ?></td>
+                            <td class="text-center"><?= $inv['due_date'] ? date('d/m/y', strtotime($inv['due_date'])) : '-' ?></td>
+                            <td class="text-right amount"><?= number_format($inv['grand_total'], 0, ',', '.') ?></td>
+                            <td class="text-right amount amount-large"><?= number_format($inv['remaining'], 0, ',', '.') ?></td>
+                            <td class="text-center">
+                                <?php if ($inv['days_overdue'] > 7): ?>
+                                    <span class="badge badge-danger"><?= $inv['days_overdue'] ?>hr</span>
+                                <?php elseif ($inv['days_overdue'] > 0): ?>
+                                    <span class="badge badge-warning"><?= $inv['days_overdue'] ?>hr</span>
+                                <?php else: ?>
+                                    <span class="badge badge-success">OK</span>
+                                <?php endif; ?>
                             </td>
                         </tr>
-                    <?php else: ?>
-                        <?php $no = 1; foreach ($unpaidInvoices as $inv): ?>
-                            <tr>
-                                <td class="text-center"><?= $no++ ?></td>
-                                <td>
-                                    <strong><?= htmlspecialchars($inv['invoice_number']) ?></strong>
-                                    <?php if ($inv['po_number']): ?>
-                                        <br><small class="text-muted">PO: <?= htmlspecialchars($inv['po_number']) ?></small>
-                                    <?php endif; ?>
-                                </td>
-                                <td>
-                                    <strong><?= htmlspecialchars($inv['supplier_name']) ?></strong>
-                                    <?php if ($inv['bank_account_number']): ?>
-                                        <div class="bank-info">
-                                            <i class="fas fa-university me-1"></i>
-                                            <?= htmlspecialchars($inv['bank_name']) ?>: 
-                                            <strong><?= htmlspecialchars($inv['bank_account_number']) ?></strong>
-                                            <br>a.n. <?= htmlspecialchars($inv['bank_account_name']) ?>
-                                        </div>
-                                    <?php endif; ?>
-                                </td>
-                                <td><?= date('d/m/Y', strtotime($inv['invoice_date'])) ?></td>
-                                <td>
-                                    <?php if ($inv['due_date']): ?>
-                                        <?= date('d/m/Y', strtotime($inv['due_date'])) ?>
-                                    <?php else: ?>
-                                        <span class="text-muted">-</span>
-                                    <?php endif; ?>
-                                </td>
-                                <td class="text-right amount">
-                                    Rp <?= number_format($inv['grand_total'], 0, ',', '.') ?>
-                                </td>
-                                <td class="text-right amount text-success">
-                                    <?php if ($inv['paid_amount'] > 0): ?>
-                                        Rp <?= number_format($inv['paid_amount'], 0, ',', '.') ?>
-                                    <?php else: ?>
-                                        -
-                                    <?php endif; ?>
-                                </td>
-                                <td class="text-right amount large">
-                                    Rp <?= number_format($inv['remaining'], 0, ',', '.') ?>
-                                </td>
-                                <td class="text-center">
-                                    <?php if ($inv['days_overdue'] > 7): ?>
-                                        <span class="badge-overdue">
-                                            <i class="fas fa-exclamation-triangle me-1"></i>
-                                            <?= $inv['days_overdue'] ?> hari
-                                        </span>
-                                    <?php elseif ($inv['days_overdue'] > 0): ?>
-                                        <span class="badge-due-soon">
-                                            Lewat <?= $inv['days_overdue'] ?> hari
-                                        </span>
-                                    <?php elseif ($inv['days_overdue'] >= -7): ?>
-                                        <span class="badge-due-soon">
-                                            <?= abs($inv['days_overdue']) ?> hari lagi
-                                        </span>
-                                    <?php else: ?>
-                                        <span class="badge-normal">
-                                            <?= abs($inv['days_overdue']) ?> hari lagi
-                                        </span>
-                                    <?php endif; ?>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
-                </tbody>
-            </table>
-            
-            <?php if (!empty($unpaidInvoices)): ?>
-                <div class="total-footer">
-                    <div class="total-row">
-                        <span>Total Tagihan (<?= count($unpaidInvoices) ?> invoice)</span>
-                        <span class="amount">Rp <?= number_format($totalUnpaid, 0, ',', '.') ?></span>
-                    </div>
-                    <?php if ($totalPaid > 0): ?>
-                        <div class="total-row">
-                            <span>Sudah Dibayar</span>
-                            <span class="amount text-success">- Rp <?= number_format($totalPaid, 0, ',', '.') ?></span>
-                        </div>
-                    <?php endif; ?>
-                    <div class="total-row grand">
-                        <span><i class="fas fa-coins me-2"></i>TOTAL YANG HARUS DIBAYAR</span>
-                        <span>Rp <?= number_format($totalRemaining, 0, ',', '.') ?></span>
-                    </div>
-                </div>
-            <?php endif; ?>
-        </div>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </tbody>
+        </table>
         
-        <!-- Summary by Supplier -->
+        <!-- Total Section -->
+        <?php if (!empty($unpaidInvoices)): ?>
+            <div class="total-section">
+                <div class="total-row">
+                    <span>Total Tagihan (<?= count($unpaidInvoices) ?> invoice)</span>
+                    <span class="amount">Rp <?= number_format($totalUnpaid, 0, ',', '.') ?></span>
+                </div>
+                <?php if ($totalPaid > 0): ?>
+                    <div class="total-row">
+                        <span>Sudah Dibayar</span>
+                        <span class="amount" style="color:#16a34a;">- Rp <?= number_format($totalPaid, 0, ',', '.') ?></span>
+                    </div>
+                <?php endif; ?>
+                <div class="total-row grand">
+                    <span>💰 TOTAL YANG HARUS DIBAYAR</span>
+                    <span>Rp <?= number_format($totalRemaining, 0, ',', '.') ?></span>
+                </div>
+            </div>
+        <?php endif; ?>
+        
+        <!-- Supplier Summary with Bank Info -->
         <?php if (!empty($supplierSummary)): ?>
-            <div class="supplier-summary">
-                <h3><i class="fas fa-building me-2"></i>Ringkasan per Supplier</h3>
+            <div class="supplier-section">
+                <h3>📋 Ringkasan per Supplier & Rekening Pembayaran</h3>
                 <?php foreach ($supplierSummary as $sname => $data): ?>
-                    <div class="supplier-summary-item">
-                        <span>
-                            <strong><?= htmlspecialchars($sname) ?></strong>
-                            <small class="text-muted">(<?= $data['count'] ?> invoice)</small>
-                        </span>
-                        <span class="amount" style="color: var(--danger);">
-                            Rp <?= number_format($data['total'], 0, ',', '.') ?>
-                        </span>
+                    <div class="supplier-item">
+                        <div>
+                            <strong><?= htmlspecialchars($sname) ?></strong> (<?= $data['count'] ?> inv)
+                            <?php if ($data['rekening']): ?>
+                                <div class="bank-info">🏦 <?= $data['bank'] ?>: <strong><?= $data['rekening'] ?></strong> a.n. <?= $data['atas_nama'] ?></div>
+                            <?php endif; ?>
+                        </div>
+                        <span class="amount amount-large">Rp <?= number_format($data['total'], 0, ',', '.') ?></span>
                     </div>
                 <?php endforeach; ?>
             </div>
         <?php endif; ?>
         
-        <!-- Signature Section (for print) -->
+        <!-- Signature -->
         <div class="signature-section">
             <div class="signature-box">
                 <div class="title">Dibuat Oleh</div>
                 <div class="line"><?= htmlspecialchars($currentUser['full_name'] ?? $currentUser['username']) ?></div>
             </div>
             <div class="signature-box">
-                <div class="title">Disetujui Oleh</div>
+                <div class="title">Disetujui</div>
                 <div class="line">Manager</div>
             </div>
             <div class="signature-box">
-                <div class="title">Diotorisasi Oleh</div>
+                <div class="title">Diotorisasi</div>
                 <div class="line">Owner</div>
             </div>
         </div>
         
         <!-- Notes -->
-        <div class="mt-4 p-3 bg-light rounded" style="font-size: 0.8rem; color: #64748b;">
-            <strong>Catatan:</strong>
-            <ul class="mb-0 mt-2">
-                <li>Dokumen ini dibuat sebagai lampiran pengajuan pembayaran tagihan kepada Owner.</li>
-                <li>Mohon segera melakukan pembayaran untuk tagihan yang sudah jatuh tempo.</li>
-                <li>Pembayaran dapat dilakukan ke rekening masing-masing supplier yang tertera.</li>
-            </ul>
+        <div class="notes">
+            <strong>Catatan:</strong> Dokumen ini sebagai pengajuan pembayaran tagihan kepada Owner. Mohon segera dilakukan pembayaran untuk tagihan yang sudah jatuh tempo.
         </div>
     </div>
-    
-    <script>
-        // Save as PDF using browser print
-        function savePDF() {
-            // Set document title for PDF filename
-            const originalTitle = document.title;
-            document.title = 'Laporan_Tagihan_Belum_Dibayar_<?= date('Ymd') ?>';
-            
-            window.print();
-            
-            // Restore title after print dialog
-            setTimeout(() => {
-                document.title = originalTitle;
-            }, 1000);
-        }
-    </script>
 </body>
 </html>
