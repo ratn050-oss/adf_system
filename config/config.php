@@ -154,6 +154,15 @@ require_once __DIR__ . '/../includes/business_helper.php';
 $activeBusinessId = getActiveBusinessId();
 $BUSINESS_CONFIG = getActiveBusinessConfig();
 
+// AUTO-FIX: Ensure numeric business_id is set from active_business_id
+if (isset($_SESSION['active_business_id']) && empty($_SESSION['business_id'])) {
+    $numericId = getNumericBusinessId($_SESSION['active_business_id']);
+    if ($numericId) {
+        $_SESSION['business_id'] = $numericId;
+        error_log("CONFIG: Auto-set business_id={$numericId} from active_business_id={$_SESSION['active_business_id']}");
+    }
+}
+
 define('ACTIVE_BUSINESS_ID', $activeBusinessId);
 define('BUSINESS_NAME', $BUSINESS_CONFIG['name']);
 define('BUSINESS_TYPE', $BUSINESS_CONFIG['business_type']);
