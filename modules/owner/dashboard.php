@@ -1,20 +1,7 @@
 <?php
-/**
- * SmartBiz Multi-Tenant Dashboard
- * Ultra-clean, Minimalist, Apple/Stripe style design
- */
-require_once '../../config/config.php';
-require_once '../../config/database.php';
-require_once '../../includes/auth.php';
-
-$auth = new Auth();
-$auth->requireLogin();
-
-$db = Database::getInstance();
-
-$userRole = $_SESSION['role'] ?? '';
-if (!in_array($userRole, ['admin', 'owner', 'manager', 'developer'])) {
-    header('Location: ' . BASE_URL . '/index.php');
+session_start();
+if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner', 'manager', 'developer'])) {
+    header('Location: /index.php');
     exit;
 }
 ?>
@@ -22,53 +9,45 @@ if (!in_array($userRole, ['admin', 'owner', 'manager', 'developer'])) {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>SmartBiz Dashboard</title>
-    <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Owner Dashboard - Business Intelligence & Monitoring</title>
     <style>
-        :root {
-            --bg-primary: #ffffff;
-            --bg-secondary: #fafafa;
-            --bg-tertiary: #f5f5f7;
-            --text-primary: #1d1d1f;
-            --text-secondary: #6e6e73;
-            --text-tertiary: #86868b;
-            --border-color: #e8e8ed;
-            --accent-blue: #0071e3;
-            --accent-green: #34c759;
-            --accent-red: #ff3b30;
-            --accent-orange: #ff9500;
-            --accent-purple: #af52de;
-            --shadow-sm: 0 1px 2px rgba(0,0,0,0.04);
-            --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
-            --shadow-lg: 0 8px 24px rgba(0,0,0,0.12);
-            --radius-sm: 8px;
-            --radius-md: 12px;
-            --radius-lg: 16px;
-            --radius-xl: 20px;
-        }
-        
+        /* Reset & Variables */
         * {
             margin: 0;
             padding: 0;
             box-sizing: border-box;
         }
         
-        body {
-            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-            background: var(--bg-secondary);
-            color: var(--text-primary);
-            min-height: 100vh;
-            -webkit-font-smoothing: antialiased;
-            -moz-osx-font-smoothing: grayscale;
+        :root {
+            --bg-primary: #ffffff;
+            --bg-secondary: #f8f9fa;
+            --bg-tertiary: #f1f3f5;
+            --text-primary: #1a1a1a;
+            --text-secondary: #6c757d;
+            --text-tertiary: #86868b;
+            --border-color: #e5e7eb;
+            --accent-blue: #0071e3;
+            --accent-green: #34c759;
+            --accent-red: #ff3b30;
+            --accent-orange: #ff9500;
+            --accent-purple: #af52de;
+            --shadow-sm: 0 1px 3px rgba(0,0,0,0.05);
+            --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+            --radius-sm: 6px;
+            --radius-md: 10px;
+            --radius-lg: 14px;
         }
         
-        /* Layout */
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background: var(--bg-secondary);
+            color: var(--text-primary);
+            line-height: 1.5;
+        }
+        
         .app-container {
             display: flex;
-            min-height: 100vh;
         }
         
         /* Sidebar */
@@ -1213,10 +1192,11 @@ if (!in_array($userRole, ['admin', 'owner', 'manager', 'developer'])) {
         function renderBusinessSelector() {
             const selector = document.getElementById('businessSelector');
             selector.innerHTML = '<option value="all">🏢 All Businesses</option>';
-            branches.forEach(branch => {
+            for (let i = 0; i < branches.length; i++) {
+                const branch = branches[i];
                 const icon = branch.business_type === 'hotel' ? '🏨' : '☕';
                 selector.innerHTML += `<option value="${branch.id}">${icon} ${branch.name}</option>`;
-            });
+            }
         }
         
         // Render business grid
@@ -1264,12 +1244,23 @@ if (!in_array($userRole, ['admin', 'owner', 'manager', 'developer'])) {
         
         // Show view
         function showView(viewName) {
-            document.querySelectorAll('.view-section').forEach(v => v.classList.remove('active'));
-            document.getElementById('view-' + viewName)?.classList.add('active');
-            
-            document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
-            event.target.closest('.nav-item')?.classList.add('active');
-            
+            document.querySelectorAll('.view-section').forEach(function(v){v.classList.remove('active');});
+            var viewEl = document.getElementById('view-' + viewName);
+            if (viewEl) viewEl.classList.add('active');
+
+            document.querySelectorAll('.nav-item').forEach(function(n){n.classList.remove('active');});
+            // Fix: event is not defined, use window.event fallback
+            var e = window.event;
+            if (e && e.target) {
+                var navItem = null;
+                try {
+                    if (typeof e.target.closest === 'function') {
+                        navItem = e.target.closest('.nav-item');
+                    }
+                } catch (err) {}
+                if (navItem) navItem.classList.add('active');
+            }
+
             if (viewName === 'frontdesk') {
                 loadFrontdeskData();
             }
@@ -1290,7 +1281,7 @@ if (!in_array($userRole, ['admin', 'owner', 'manager', 'developer'])) {
                 position: fixed;
                 left: 0;
                 top: 0;
-                width: 80vw;
+                width: 90vw;
                 max-width: 320px;
                 min-width: 0;
                 height: 100vh;
@@ -1304,7 +1295,7 @@ if (!in_array($userRole, ['admin', 'owner', 'manager', 'developer'])) {
             }
             .main-content {
                 margin-left: 0;
-                padding: 8vw 2vw 2vw 2vw;
+                padding: 4vw 2vw 2vw 2vw;
             }
             .grid-2, .grid-3, .grid-4 {
                 grid-template-columns: 1fr;
@@ -1313,40 +1304,56 @@ if (!in_array($userRole, ['admin', 'owner', 'manager', 'developer'])) {
                 grid-column: span 1;
             }
             .room-grid {
-                grid-template-columns: repeat(2, 1fr);
+                grid-template-columns: 1fr;
             }
             .business-grid {
                 grid-template-columns: 1fr;
             }
             .card, .stat-card, .ai-health-card {
-                padding: 16px 8px;
+                padding: 12px 4px;
             }
             .main-header h1 {
-                font-size: 20px;
-            }
-            .main-header p {
-                font-size: 12px;
-            }
-            .business-name {
-                font-size: 13px;
-            }
-            .business-type {
-                font-size: 11px;
-            }
-            .stat-value {
                 font-size: 18px;
             }
-            .stat-label {
+            .main-header p {
+                font-size: 11px;
+            }
+            .business-name {
+                font-size: 12px;
+            }
+            .business-type {
                 font-size: 10px;
             }
-            .header-btn {
-                width: 36px;
-                height: 36px;
+            .stat-value {
+                font-size: 16px;
             }
-            .brand-icon {
+            .stat-label {
+                font-size: 9px;
+            }
+            .header-btn {
                 width: 32px;
                 height: 32px;
             }
+            .brand-icon {
+                width: 28px;
+                height: 28px;
+            }
+        }
+        @media (max-width: 480px) {
+            .main-content {
+                padding: 2vw 1vw 1vw 1vw;
+            }
+            .ai-health-title {
+                font-size: 13px;
+            }
+            .ai-badge {
+                font-size: 8px;
+                padding: 2px 4px;
+            }
+            .health-score-value {
+                font-size: 12px;
+            }
+        }
         }
         @media (max-width: 480px) {
             .main-content {
