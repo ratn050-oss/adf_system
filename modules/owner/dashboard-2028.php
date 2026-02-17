@@ -1,4 +1,6 @@
 <?php
+// Use same session name as main app (config.php defines NARAYANA_SESSION)
+session_name('NARAYANA_SESSION');
 session_start();
 
 // Determine base path
