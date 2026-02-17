@@ -96,22 +96,20 @@ class CashbookHelper {
             FROM cash_accounts 
             WHERE business_id = ? 
             AND account_type = ?
-            AND is_active = 1 
-            ORDER BY is_default_account DESC
+            ORDER BY id ASC
             LIMIT 1
         ");
         $stmt->execute([$this->businessId, $accountType]);
         $account = $stmt->fetch(PDO::FETCH_ASSOC);
         
         if (!$account) {
-            error_log("CashbookHelper::getCashAccount: No {$accountType} account found, trying any active account");
-            // Fallback to any active account
+            error_log("CashbookHelper::getCashAccount: No {$accountType} account found, trying any account");
+            // Fallback to any account
             $stmt = $this->masterDb->prepare("
                 SELECT id, account_name, current_balance 
                 FROM cash_accounts 
                 WHERE business_id = ? 
-                AND is_active = 1 
-                ORDER BY is_default_account DESC
+                ORDER BY id ASC
                 LIMIT 1
             ");
             $stmt->execute([$this->businessId]);
@@ -139,8 +137,8 @@ class CashbookHelper {
             $stmt = $this->masterDb->prepare("
                 INSERT INTO cash_accounts (
                     business_id, account_name, account_type, currency, 
-                    current_balance, is_active, is_default_account, created_at
-                ) VALUES (?, ?, ?, 'IDR', 0, 1, 1, NOW())
+                    current_balance, created_at
+                ) VALUES (?, ?, ?, 'IDR', 0, NOW())
             ");
             $stmt->execute([$this->businessId, $accountName, $accountType]);
             
