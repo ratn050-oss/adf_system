@@ -360,12 +360,14 @@ try {
         : 0;
 
     // 6. Today's Revenue - FROM CASH_BOOK (sudah dipotong OTA fee dll)
-    // Ini menampilkan jumlah yang sama dengan yang tercatat di Buku Kas
+    // HANYA dari transaksi RESERVASI hotel, bukan modal owner atau kas manual
+    // Filter: description mengandung "Reservasi" atau "Reservation"
     $revenueResult = $db->fetchOne("
         SELECT COALESCE(SUM(amount), 0) as total
         FROM cash_book
         WHERE transaction_type = 'income'
         AND transaction_date = ?
+        AND (description LIKE '%Reservasi%' OR description LIKE '%Reservation%' OR description LIKE '%BK-%')
     ", [$today]);
     $stats['revenue_today'] = $revenueResult['total'] ?? 0;
 
@@ -384,13 +386,14 @@ try {
     $stats['expected_revenue'] = $expectedResult['total'] ?? 0;
     
     // OTA Revenue Today - Dari cash_book dengan payment_method OTA
-    // Menampilkan pendapatan OTA bersih setelah dipotong fee
+    // HANYA dari transaksi RESERVASI hotel
     $otaRevenueResult = $db->fetchOne("
         SELECT COALESCE(SUM(amount), 0) as total
         FROM cash_book
         WHERE transaction_type = 'income'
         AND transaction_date = ?
         AND (LOWER(payment_method) = 'ota' OR LOWER(payment_method) = 'agoda' OR LOWER(payment_method) = 'booking')
+        AND (description LIKE '%Reservasi%' OR description LIKE '%Reservation%' OR description LIKE '%BK-%')
     ", [$today]);
     $stats['ota_revenue_today'] = $otaRevenueResult['total'] ?? 0;
 
