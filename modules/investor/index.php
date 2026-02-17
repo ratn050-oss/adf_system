@@ -291,6 +291,15 @@ include $base_path . '/includes/header.php';
     box-shadow: 0 8px 20px rgba(16, 185, 129, 0.4);
 }
 
+.btn-danger {
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    color: white;
+}
+
+.btn-danger:hover {
+    box-shadow: 0 8px 20px rgba(239, 68, 68, 0.4);
+}
+
 .btn:active {
     transform: translateY(0);
 }
@@ -1005,6 +1014,16 @@ include $base_path . '/includes/header.php';
                 </svg>
                 Tambah Investor
             </button>
+            <button class="btn btn-danger" onclick="openResetModal()">
+                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path d="M3 6h18"/>
+                    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+                    <path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/>
+                    <line x1="10" y1="11" x2="10" y2="17"/>
+                    <line x1="14" y1="11" x2="14" y2="17"/>
+                </svg>
+                Reset Data
+            </button>
         </div>
     </div>
 
@@ -1230,6 +1249,49 @@ include $base_path . '/includes/header.php';
                 </tbody>
             </table>
         <?php endif; ?>
+    </div>
+</div>
+
+<!-- Modal: Reset Data Investor -->
+<div class="modal-overlay" id="resetDataModal">
+    <div class="modal-content" style="max-width: 500px;">
+        <div class="modal-header" style="background: linear-gradient(135deg, #ef4444, #dc2626);">
+            <h3 style="color: white;">⚠️ Reset Data Investor</h3>
+            <button class="modal-close" onclick="closeModal('resetDataModal')" style="color: white;">&times;</button>
+        </div>
+        <div class="modal-body">
+            <div style="text-align: center; padding: 1rem;">
+                <svg width="64" height="64" fill="none" stroke="#ef4444" stroke-width="2" viewBox="0 0 24 24" style="margin-bottom: 1rem;">
+                    <path d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"/>
+                </svg>
+                <h4 style="color: #dc2626; margin-bottom: 1rem;">Peringatan!</h4>
+                <p style="color: var(--text-secondary); margin-bottom: 1rem;">
+                    Tindakan ini akan <strong>menghapus SEMUA data investor</strong> termasuk:
+                </p>
+                <ul style="text-align: left; color: var(--text-secondary); padding-left: 2rem; margin-bottom: 1.5rem;">
+                    <li>Semua data investor</li>
+                    <li>Semua riwayat setoran</li>
+                    <li>Semua transaksi investor</li>
+                </ul>
+                <p style="color: #dc2626; font-weight: 600;">
+                    Data yang sudah dihapus TIDAK DAPAT dikembalikan!
+                </p>
+            </div>
+            <div class="form-group" style="margin-top: 1rem;">
+                <label>Ketik <strong style="color: #dc2626;">RESET</strong> untuk konfirmasi:</label>
+                <input type="text" id="resetConfirmInput" placeholder="Ketik RESET" style="text-transform: uppercase;">
+            </div>
+        </div>
+        <div class="modal-footer">
+            <button type="button" class="btn btn-secondary" onclick="closeModal('resetDataModal')">Batal</button>
+            <button type="button" class="btn btn-danger" onclick="executeResetData()" id="resetExecuteBtn" disabled>
+                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path d="M3 6h18"/>
+                    <path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/>
+                </svg>
+                Reset Semua Data
+            </button>
+        </div>
     </div>
 </div>
 
@@ -1604,6 +1666,56 @@ async function deleteProject(projectId, projectName) {
         }
     } catch (error) {
         alert('Error: ' + error.message);
+    }
+}
+
+// Reset Data Functions
+function openResetModal() {
+    document.getElementById('resetConfirmInput').value = '';
+    document.getElementById('resetExecuteBtn').disabled = true;
+    document.getElementById('resetDataModal').classList.add('active');
+}
+
+// Enable/disable reset button based on confirmation input
+document.getElementById('resetConfirmInput').addEventListener('input', function() {
+    const btn = document.getElementById('resetExecuteBtn');
+    btn.disabled = this.value.toUpperCase() !== 'RESET';
+});
+
+async function executeResetData() {
+    const confirmInput = document.getElementById('resetConfirmInput');
+    if (confirmInput.value.toUpperCase() !== 'RESET') {
+        alert('Harap ketik RESET untuk konfirmasi');
+        return;
+    }
+    
+    const btn = document.getElementById('resetExecuteBtn');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner"></span> Menghapus...';
+    
+    try {
+        const response = await fetch('<?= BASE_URL ?>/api/investor-reset.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: 'confirm=RESET'
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('✅ ' + result.message);
+            location.reload();
+        } else {
+            alert('❌ Error: ' + result.message);
+            btn.disabled = false;
+            btn.innerHTML = '<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/></svg> Reset Semua Data';
+        }
+    } catch (error) {
+        alert('❌ Error: ' + error.message);
+        btn.disabled = false;
+        btn.innerHTML = '<svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/></svg> Reset Semua Data';
     }
 }
 
