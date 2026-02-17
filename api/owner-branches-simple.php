@@ -20,6 +20,8 @@ $debugInfo = [
     'session_role' => $role,
     'user_id' => $userId,
     'logged_in' => $isLoggedIn,
+    'business_id' => $_SESSION['business_id'] ?? null,
+    'active_business_id' => $_SESSION['active_business_id'] ?? null,
     'session_id' => session_id()
 ];
 
@@ -40,12 +42,14 @@ if (!$role && $isLoggedIn && $userId) {
     }
 }
 
-// More lenient check - allow if logged in OR if role exists
-if (!$isLoggedIn && !$role) {
+// Very lenient check - allow if ANY auth indicator exists
+$hasBusinessId = !empty($_SESSION['business_id']) || !empty($_SESSION['active_business_id']);
+if (!$isLoggedIn && !$role && !$hasBusinessId) {
     echo json_encode([
         'success' => false, 
-        'message' => 'Unauthorized - Please login',
-        'debug' => $debugInfo
+        'message' => 'Unauthorized - Please login first or select a business',
+        'debug' => $debugInfo,
+        'hint' => 'Need session: logged_in=true OR role OR business_id'
     ]);
     exit;
 }

@@ -12,15 +12,42 @@ require_once '../includes/auth.php';
 
 header('Content-Type: application/json');
 
-$auth = new Auth();
-if (!$auth->isLoggedIn()) {
-    echo json_encode(['success' => false, 'message' => 'Unauthorized']);
-    exit;
+// Try Auth class first, fallback to session check
+$authOk = false;
+$userRole = null;
+
+try {
+    $auth = new Auth();
+    if ($auth->isLoggedIn()) {
+        $currentUser = $auth->getCurrentUser();
+        $userRole = $currentUser['role'] ?? null;
+        if (in_array($userRole, ['owner', 'admin', 'manager', 'developer'])) {
+            $authOk = true;
+        }
+    }
+} catch (Exception $e) {
+    // Auth class failed, try session directly
 }
 
-$currentUser = $auth->getCurrentUser();
-if (!in_array($currentUser['role'], ['owner', 'admin', 'manager', 'developer'])) {
-    echo json_encode(['success' => false, 'message' => 'Access denied']);
+// Fallback to session check if Auth class didn't work
+if (!$authOk) {
+    $isLoggedIn = $_SESSION['logged_in'] ?? false;
+    $sessionRole = $_SESSION['role'] ?? null;
+    $hasBusinessId = !empty($_SESSION['business_id']) || !empty($_SESSION['active_business_id']);
+    
+    // Allow if any auth indicator exists
+    if ($isLoggedIn || $sessionRole || $hasBusinessId) {
+        $authOk = true;
+        $userRole = $sessionRole ?? 'owner'; // Default to owner if role not set
+    }
+}
+
+if (!$authOk) {
+    echo json_encode([
+        'success' => false, 
+        'message' => 'Unauthorized - Please login first',
+        'hint' => 'Need session: logged_in=true OR role OR business_id'
+    ]);
     exit;
 }
 

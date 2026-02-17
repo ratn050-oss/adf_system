@@ -179,6 +179,12 @@
         <div class="section">
             <div class="section-title">🔍 Debug Tools</div>
             
+            <a href="https://adfsystem.online/fix-session.php" target="_blank" class="link-button" style="background: linear-gradient(135deg, #4ade80 0%, #16a34a 100%);">
+                <span class="link-icon">🔧</span>
+                <strong>FIX SESSION (KLIK INI DULU!)</strong>
+                <span class="link-desc">⚡ Perbaiki session untuk akses dashboard</span>
+            </a>
+            
             <a href="https://adfsystem.online/debug-dashboard-complete.php" target="_blank" class="link-button debug-link">
                 <span class="link-icon">🔬</span>
                 <strong>Complete Debug Script</strong>
@@ -231,12 +237,13 @@
         <div class="instructions">
             <div class="instructions-title">
                 <span>💡</span>
-                <span>Cara Testing:</span>
+                <span>Cara Testing (PENTING!):</span>
             </div>
             <ul>
-                <li><strong>Debug Script:</strong> Klik link "Complete Debug Script" untuk cek semua sistem</li>
-                <li><strong>Dashboard:</strong> Setelah buka dashboard, tekan <strong>F12</strong> → pilih tab <strong>Console</strong></li>
-                <li><strong>API Tests:</strong> Akan menampilkan JSON response, cek apakah success: true</li>
+                <li><strong>STEP 1:</strong> Klik <strong>"FIX SESSION"</strong> terlebih dahulu untuk set session yang benar</li>
+                <li><strong>STEP 2:</strong> Setelah session fixed, klik <strong>"Complete Debug Script"</strong> untuk verify</li>
+                <li><strong>STEP 3:</strong> Buka <strong>"Owner Dashboard"</strong>, tekan <strong>F12</strong> → tab <strong>Console</strong></li>
+                <li><strong>STEP 4:</strong> Test <strong>API Tests</strong> untuk lihat JSON responses</li>
                 <li><strong>Screenshot:</strong> Kirim screenshot Console dan Debug Script untuk analisis</li>
             </ul>
         </div>
@@ -245,8 +252,15 @@
         <div class="section">
             <div class="section-title">✅ Expected Results</div>
             <div style="background: #f8f9fa; padding: 15px; border-radius: 8px; font-size: 13px; color: #333;">
+                <strong>Setelah FIX SESSION harus menampilkan:</strong><br>
+                ✅ Session Fixed!<br>
+                ✅ logged_in: true<br>
+                ✅ role: developer<br>
+                ✅ business_id: 2<br>
+                <br>
                 <strong>Debug Script harus menampilkan:</strong><br>
                 ✅ Session is active<br>
+                ✅ Auth Check: PASSED<br>
                 ✅ Connected to MySQL<br>
                 ✅ Found 2 active businesses<br>
                 ✅ Cash accounts dengan balance<br>
