@@ -1,13 +1,11 @@
 <?php
-// DEV MODE - Mock session for API testing
 session_start();
-if (!isset($_SESSION['username'])) {
-    $_SESSION['username'] = 'DevOwner';
-    $_SESSION['user_id'] = 999;
-    $_SESSION['role'] = 'developer';
-    $_SESSION['business_access'] = 'all';
+if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner', 'manager', 'developer'])) {
+    header('Location: /login.php');
+    exit;
 }
-$userName = $_SESSION['username'] ?? 'Dev Owner';
+$userName = $_SESSION['username'] ?? 'Owner';
+$isDev = ($_SESSION['role'] ?? '') === 'developer';
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -583,7 +581,9 @@ $userName = $_SESSION['username'] ?? 'Dev Owner';
     </style>
 </head>
 <body>
+    <?php if ($isDev): ?>
     <div class="dev-badge">DEV</div>
+    <?php endif; ?>
     
     <div class="container">
         <!-- Header -->

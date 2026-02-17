@@ -101,7 +101,7 @@ if (isPost()) {
                     // Only owner, admin, developer can access owner dashboard
                     if (in_array($roleCode, ['owner', 'admin', 'developer'])) {
                         setFlash('success', 'Login Owner berhasil!');
-                        redirect(BASE_URL . '/modules/owner/dashboard.php');
+                        redirect(BASE_URL . '/modules/owner/dashboard-2028.php');
                     } else {
                         $error = 'Akses ditolak! Hanya Pemilik yang dapat mengakses Dasbor Pemilik.';
                         $auth->logout();
