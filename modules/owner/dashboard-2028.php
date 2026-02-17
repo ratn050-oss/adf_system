@@ -122,12 +122,15 @@ try {
         $stmt = $pdo->prepare($query);
         $stmt->execute($params);
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
-        
         $capitalStats['received'] = (float)($result['received'] ?? 0);
         $capitalStats['used'] = (float)($result['used'] ?? 0);
         $capitalStats['balance'] = (float)($result['balance'] ?? 0);
+    } else {
+        $capitalStats['received'] = 0;
+        $capitalStats['used'] = 0;
+        $capitalStats['balance'] = 0;
     }
-    
+
     // Query Petty Cash stats
     if (!empty($pettyCashAccounts)) {
         $placeholders = implode(',', array_fill(0, count($pettyCashAccounts), '?'));
@@ -145,10 +148,13 @@ try {
         $stmt = $pdo->prepare($query);
         $stmt->execute($params);
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
-        
         $pettyCashStats['received'] = (float)($result['received'] ?? 0);
         $pettyCashStats['used'] = (float)($result['used'] ?? 0);
         $pettyCashStats['balance'] = (float)($result['balance'] ?? 0);
+    } else {
+        $pettyCashStats['received'] = 0;
+        $pettyCashStats['used'] = 0;
+        $pettyCashStats['balance'] = 0;
     }
     
     // TOTAL KAS OPERASIONAL = Petty Cash balance + Modal Owner balance
@@ -167,6 +173,7 @@ try {
     
 } catch (Exception $e) {
     $error = $e->getMessage();
+    echo '<div style="background:#fee;color:#b91c1c;padding:16px 20px;margin:20px 0;border-radius:8px;font-size:15px;font-family:monospace;">ERROR: '.htmlspecialchars($error).'</div>';
 }
 
 // Format rupiah
