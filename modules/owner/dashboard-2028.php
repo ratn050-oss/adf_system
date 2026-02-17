@@ -756,7 +756,7 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
         <?php else: ?>
         
         <div class="db-info">
-            ✅ Connected: <?= $dbName ?> | <?= $stats['total_transactions'] ?> transaksi
+            ✅ Connected: <?= $businessDbName ?> | <?= $stats['total_transactions'] ?> transaksi
         </div>
         
         <!-- Hero with Pie Chart -->
@@ -775,37 +775,32 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
                         </div>
                     </div>
                     <div class="legend">
-                        <div class="legend-item">
-                            <div class="legend-dot income"></div>
-                            <div class="legend-text">
-                                <div class="legend-label">Income</div>
-                                <div class="legend-value"><?= rp($stats['month_income']) ?></div>
+                        <div class="hero">
+                            <div class="hero-content">
+                                <div class="hero-title">Financial Performance</div>
+                                <div class="hero-subtitle">Owner Dashboard</div>
+                                <div class="hero-date"><?= date('l, d F Y') ?></div>
+                                <div class="chart-modern-container">
+                                    <canvas id="pieChart" width="140" height="140"></canvas>
+                                    <div class="chart-modern-center">
+                                        <div class="chart-modern-value">+<?= number_format($netProfit/1000000, 1) ?>M</div>
+                                        <div class="chart-modern-label">NET BULAN</div>
+                                    </div>
+                                </div>
+                                <div class="legend-modern">
+                                    <div class="legend-modern-item">
+                                        <span class="legend-modern-dot income"></span>
+                                        <span class="legend-modern-label">Income</span>
+                                        <span class="legend-modern-value"><?= rp($stats['month_income']) ?></span>
+                                    </div>
+                                    <div class="legend-modern-item">
+                                        <span class="legend-modern-dot expense"></span>
+                                        <span class="legend-modern-label">Expense</span>
+                                        <span class="legend-modern-value"><?= rp($stats['month_expense']) ?></span>
+                                    </div>
+                                </div>
                             </div>
                         </div>
-                        <div class="legend-item">
-                            <div class="legend-dot expense"></div>
-                            <div class="legend-text">
-                                <div class="legend-label">Expense</div>
-                                <div class="legend-value"><?= rp($stats['month_expense']) ?></div>
-                            </div>
-                        </div>
-                    </div>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Stats Grid -->
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-label">📈 Today Income</div>
-                <div class="stat-value income"><?= rp($stats['today_income']) ?></div>
-                <div class="stat-sub">Revenue hari ini</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-label">📉 Today Expense</div>
-                <div class="stat-value expense"><?= rp($stats['today_expense']) ?></div>
-                <div class="stat-sub">Pengeluaran hari ini</div>
-            </div>
             <div class="stat-card">
                 <div class="stat-label">📈 Month Income</div>
                 <div class="stat-value income"><?= rp($stats['month_income']) ?></div>
@@ -888,86 +883,101 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
         </div>
         
         <!-- Recent Transactions -->
-        <div class="tx-card">
-            <div class="tx-title">Recent Transactions</div>
-            <?php if (empty($transactions)): ?>
-                <p style="color:var(--text-muted);font-size:13px;padding:20px 0;text-align:center;">Belum ada transaksi</p>
-            <?php else: ?>
-                <ul class="tx-list">
-                    <?php foreach ($transactions as $tx): ?>
-                    <li class="tx-item">
-                        <div>
-                            <div class="tx-desc"><?= htmlspecialchars($tx['description']) ?></div>
-                            <div class="tx-date"><?= date('d/m/Y H:i', strtotime($tx['transaction_date'])) ?></div>
-                        </div>
-                        <div class="tx-amount <?= $tx['transaction_type'] ?>">
-                            <?= $tx['transaction_type'] == 'income' ? '+' : '-' ?><?= rp($tx['amount']) ?>
-                        </div>
-                    </li>
-                    <?php endforeach; ?>
-                </ul>
-            <?php endif; ?>
-        </div>
-        
-        <?php endif; ?>
-    </div>
-    
-    <!-- Footer Navigation -->
-    <nav class="nav-bottom">
-        <a href="dashboard-2028.php" class="nav-item active">
-            <span class="nav-icon">📊</span>
-            Dashboard
-        </a>
-        <a href="<?= $basePath ?>/modules/investor/dashboard.php" class="nav-item">
-            <span class="nav-icon">💼</span>
-            Investor
-        </a>
-        <a href="<?= $basePath ?>/modules/project/dashboard.php" class="nav-item">
-            <span class="nav-icon">📋</span>
-            Projek
-        </a>
-        <a href="../frontdesk/dashboard.php" class="nav-item">
-            <span class="nav-icon">🏨</span>
-            Frontdesk
-        </a>
-    </nav>
-    
-    <!-- Pie Chart Script -->
-    <script>
-        const income = <?= $stats['month_income'] ?>;
-        const expense = <?= $stats['month_expense'] ?>;
-        const total = income + expense;
-        
-        const canvas = document.getElementById('pieChart');
+        <style>
+            .chart-modern-container {
+                position: relative;
+                width: 140px;
+                height: 140px;
+                margin: 0 auto 10px auto;
+                background: linear-gradient(135deg, #f8fafc 60%, #e0e7ef 100%);
+                border-radius: 24px;
+                box-shadow: 0 4px 24px 0 rgba(14,165,233,0.10), 0 1.5px 8px 0 rgba(0,0,0,0.04);
+                display: flex;
+                align-items: center;
+                justify-content: center;
+                border: 1.5px solid #e0e7ef;
+            }
+            .chart-modern-center {
+                position: absolute;
+                top: 50%;
+                left: 50%;
+                transform: translate(-50%, -50%);
+                text-align: center;
+                pointer-events: none;
+            }
+            .chart-modern-value {
+                font-size: 1.3rem;
+                font-weight: 800;
+                color: #0ea5e9;
+                letter-spacing: -1px;
+                text-shadow: 0 2px 8px #e0e7ef;
+            }
+            .chart-modern-label {
+                font-size: 0.85rem;
+                color: #64748b;
+                font-weight: 600;
+                margin-top: -2px;
+                letter-spacing: 0.5px;
+            }
+            .legend-modern {
+                display: flex;
+                justify-content: center;
+                gap: 16px;
+                margin-top: 8px;
+            }
+            .legend-modern-item {
+                display: flex;
+                align-items: center;
+                gap: 5px;
+            }
+            .legend-modern-dot {
+                width: 10px;
+                height: 10px;
+                border-radius: 50%;
+                display: inline-block;
+            }
+            .legend-modern-dot.income { background: linear-gradient(135deg, #0ea5e9 60%, #38bdf8 100%); background-color: #0ea5e9; }
+            .legend-modern-dot.expense { background: linear-gradient(135deg, #e11d48 60%, #f472b6 100%); background-color: #e11d48; }
+            .legend-modern-label { font-size: 0.90rem; color: #222; font-weight: 600; }
+            .legend-modern-value { font-size: 0.90rem; color: #64748b; font-weight: 500; }
+        </style>
         if (canvas) {
             const ctx = canvas.getContext('2d');
             const centerX = 90;
             const centerY = 90;
             const radius = 80;
-            
-            function drawPie() {
-                if (total === 0) {
-                    ctx.beginPath();
-                    ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
-                    ctx.fillStyle = 'rgba(255,255,255,0.2)';
-                    ctx.fill();
-                    return;
-                }
-                
-                const incomeAngle = (income / total) * 2 * Math.PI;
-                
-                // Income slice (green gradient)
-                const gradIncome = ctx.createLinearGradient(0, 0, 180, 180);
-                gradIncome.addColorStop(0, '#10b981');
-                gradIncome.addColorStop(1, '#34d399');
-                
-                ctx.beginPath();
-                ctx.moveTo(centerX, centerY);
-                ctx.arc(centerX, centerY, radius, -Math.PI/2, -Math.PI/2 + incomeAngle);
-                ctx.closePath();
-                ctx.fillStyle = gradIncome;
-                ctx.fill();
-                
+            <script>
+                // PIE CHART - Modern Digital Vibe
+                document.addEventListener('DOMContentLoaded', function() {
+                    var ctx = document.getElementById('pieChart').getContext('2d');
+                    var chart = new Chart(ctx, {
+                        type: 'doughnut',
+                        data: {
+                            labels: ['Income', 'Expense'],
+                            datasets: [{
+                                data: [<?= $stats['month_income'] ?>, <?= $stats['month_expense'] ?>],
+                                backgroundColor: [
+                                    '#0ea5e9', '#e11d48'
+                                ],
+                                borderWidth: 0,
+                                hoverOffset: 8,
+                                borderRadius: 16
+                            }]
+                        },
+                        options: {
+                            cutout: '78%',
+                            plugins: {
+                                legend: { display: false },
+                                tooltip: { enabled: true },
+                            },
+                            animation: {
+                                animateRotate: true,
+                                animateScale: true
+                            }
+                        }
+                    });
+                });
+            </script>
                 // Expense slice (pink gradient)
                 const gradExpense = ctx.createLinearGradient(0, 0, 180, 180);
                 gradExpense.addColorStop(0, '#f43f5e');
