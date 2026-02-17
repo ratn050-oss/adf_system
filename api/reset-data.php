@@ -145,8 +145,9 @@ try {
             break;
             
         case 'invoices':
-            // Reset invoices
-            $invoiceTables = ['invoices', 'invoice_items', 'invoice_payments'];
+            // Reset invoices / faktur penjualan
+            // Note: Actual tables are sales_invoices_header & sales_invoices_detail
+            $invoiceTables = ['sales_invoices_detail', 'sales_invoices_header', 'invoices', 'invoice_items', 'invoice_payments'];
             foreach ($invoiceTables as $table) {
                 if ($businessId && tableExists($conn, $table) && columnExists($conn, $table, 'business_id')) {
                     $result = safeDelete($conn, $table, 'business_id = :business_id', ['business_id' => $businessId]);
@@ -159,12 +160,13 @@ try {
                 }
                 if (tableExists($conn, $table)) $tables[] = $table;
             }
-            $message = "Data invoice berhasil direset. {$deletedCount} record dihapus.";
+            $message = "Data faktur penjualan berhasil direset. {$deletedCount} record dihapus.";
             break;
             
         case 'procurement':
             // Reset PO & Procurement
-            $poTables = ['purchase_orders', 'purchase_order_items', 'goods_receipts', 'goods_receipt_items'];
+            // Note: Actual tables are purchase_orders_header & purchase_orders_detail
+            $poTables = ['purchase_orders_detail', 'purchase_orders_header', 'po_images', 'purchase_orders', 'purchase_order_items', 'goods_receipts', 'goods_receipt_items'];
             foreach ($poTables as $table) {
                 if ($businessId && tableExists($conn, $table) && columnExists($conn, $table, 'business_id')) {
                     $result = safeDelete($conn, $table, 'business_id = :business_id', ['business_id' => $businessId]);
