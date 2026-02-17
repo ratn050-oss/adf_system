@@ -100,8 +100,12 @@ if (isPost()) {
                 if ($loginType === 'owner') {
                     // Only owner, admin, developer can access owner dashboard
                     if (in_array($roleCode, ['owner', 'admin', 'developer'])) {
+                        // Set session for owner dashboard
+                        $_SESSION['role'] = $roleCode;
+                        $_SESSION['active_business_id'] = 'narayana-hotel';
                         setFlash('success', 'Login Owner berhasil!');
-                        redirect(BASE_URL . '/modules/owner/dashboard-2028.php');
+                        header('Location: ' . BASE_URL . '/modules/owner/dashboard-2028.php');
+                        exit;
                     } else {
                         $error = 'Akses ditolak! Hanya Pemilik yang dapat mengakses Dasbor Pemilik.';
                         $auth->logout();
