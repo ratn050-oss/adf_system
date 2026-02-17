@@ -1700,7 +1700,7 @@ $isDev = ($role === 'developer');
                 }
             } catch (error) {
                 console.error('Fetch Error:', error);
-alert('Failed to load dashboard data. Please check console for details.');
+                alert('Failed to load dashboard data. Please check console for details.');
             }
         }
         
