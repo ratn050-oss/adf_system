@@ -59,6 +59,8 @@ try {
     $operationalBalance = 0;
     $todayCapitalReceived = 0;
     $monthCapitalReceived = 0;
+    $totalPettyCash = 0;
+    $totalModalOwner = 0;
     
     // Loop through each business database and aggregate
     foreach ($businesses as $business) {
@@ -148,13 +150,28 @@ try {
             }
             
             // GET OPERATIONAL BALANCE (Petty Cash current balance)
+            $businessPettyCashBalance = 0;
+            $businessModalOwnerBalance = 0;
             try {
                 $stmt = $mainPdo->prepare("SELECT COALESCE(SUM(current_balance), 0) as balance FROM cash_accounts WHERE business_id = ? AND account_type = 'cash'");
                 $stmt->execute([$business['id']]);
                 $balanceData = $stmt->fetch(PDO::FETCH_ASSOC);
                 if ($balanceData) {
-                    $operationalBalance += (float)$balanceData['balance'];
+                    $businessPettyCashBalance = (float)$balanceData['balance'];
+                    $operationalBalance += $businessPettyCashBalance;
                 }
+                
+                // Get Modal Owner balance
+                $stmt = $mainPdo->prepare("SELECT COALESCE(SUM(current_balance), 0) as balance FROM cash_accounts WHERE business_id = ? AND account_type = 'owner_capital'");
+                $stmt->execute([$business['id']]);
+                $modalData = $stmt->fetch(PDO::FETCH_ASSOC);
+                if ($modalData) {
+                    $businessModalOwnerBalance = (float)$modalData['balance'];
+                }
+                
+                // Accumulate totals
+                $totalPettyCash += $businessPettyCashBalance;
+                $totalModalOwner += $businessModalOwnerBalance;
             } catch (Exception $e) {
                 // Skip if master DB not available
             }
@@ -235,7 +252,17 @@ try {
             'expense_change' => round($expenseChange, 1),
             'capital_received' => $monthCapitalReceived // Cash from owner this month
         ],
+        'last_month' => [
+            'income' => $lastMonthIncome,
+            'expense' => $lastMonthExpense
+        ],
         'operational_balance' => $operationalBalance, // Daily operational cash (Petty Cash)
+        'petty_cash' => [
+            'balance' => $totalPettyCash
+        ],
+        'owner_capital' => [
+            'balance' => $totalModalOwner
+        ],
         'timestamp' => date('Y-m-d H:i:s')
     ]);
     
