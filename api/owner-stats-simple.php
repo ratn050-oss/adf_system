@@ -65,10 +65,28 @@ try {
     $thisMonth = date('Y-m');
     $lastMonth = date('Y-m', strtotime('-1 month'));
     
+    // Exclude Owner Capital from income calculations (same as system dashboard)
+    $excludeOwnerCapital = '';
+    try {
+        $masterDbName = defined('MASTER_DB_NAME') ? MASTER_DB_NAME : DB_NAME;
+        $masterPdo = new PDO('mysql:host=' . DB_HOST . ';dbname=' . $masterDbName, DB_USER, DB_PASS);
+        $masterPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        
+        // Find owner capital account IDs for current business
+        $ocStmt = $masterPdo->query("SELECT id FROM cash_accounts WHERE account_type = 'owner_capital'");
+        $ownerCapitalIds = $ocStmt->fetchAll(PDO::FETCH_COLUMN);
+        
+        if (!empty($ownerCapitalIds)) {
+            $excludeOwnerCapital = " AND (cash_account_id IS NULL OR cash_account_id NOT IN (" . implode(',', $ownerCapitalIds) . "))";
+        }
+    } catch (Exception $e) {
+        // Continue without exclusion
+    }
+    
     // TODAY's transactions
     $todayIncomeResult = $db->fetchOne(
         "SELECT COALESCE(SUM(amount), 0) as total FROM cash_book 
-         WHERE transaction_type = 'income' AND transaction_date = ?",
+         WHERE transaction_type = 'income' AND transaction_date = ?" . $excludeOwnerCapital,
         [$today]
     );
     $todayIncome = $todayIncomeResult['total'] ?? 0;
@@ -83,7 +101,7 @@ try {
     // THIS MONTH's transactions
     $monthIncomeResult = $db->fetchOne(
         "SELECT COALESCE(SUM(amount), 0) as total FROM cash_book 
-         WHERE transaction_type = 'income' AND DATE_FORMAT(transaction_date, '%Y-%m') = ?",
+         WHERE transaction_type = 'income' AND DATE_FORMAT(transaction_date, '%Y-%m') = ?" . $excludeOwnerCapital,
         [$thisMonth]
     );
     $monthIncome = $monthIncomeResult['total'] ?? 0;
@@ -98,7 +116,7 @@ try {
     // LAST MONTH's transactions (for comparison)
     $lastMonthIncomeResult = $db->fetchOne(
         "SELECT COALESCE(SUM(amount), 0) as total FROM cash_book 
-         WHERE transaction_type = 'income' AND DATE_FORMAT(transaction_date, '%Y-%m') = ?",
+         WHERE transaction_type = 'income' AND DATE_FORMAT(transaction_date, '%Y-%m') = ?" . $excludeOwnerCapital,
         [$lastMonth]
     );
     $lastMonthIncome = $lastMonthIncomeResult['total'] ?? 0;
