@@ -219,12 +219,17 @@ try {
         // ==========================================
         
         try {
+            // Log for debugging
+            error_log("CREATE-RESERVATION: Starting cashbook sync for payment #{$newPaymentId}, booking #{$bookingId}");
+            
             // Get room info for description
             $roomInfo = $db->fetchOne("SELECT room_number FROM rooms WHERE id = ?", [$roomId]);
             $roomNumber = $roomInfo['room_number'] ?? '';
             
             // Use CashbookHelper for reliable sync
             $cashbookHelper = new CashbookHelper($db, $_SESSION['business_id'] ?? 1, $_SESSION['user_id'] ?? 1);
+            
+            error_log("CREATE-RESERVATION: CashbookHelper initialized, calling syncPaymentToCashbook...");
             
             $syncResult = $cashbookHelper->syncPaymentToCashbook([
                 'payment_id' => $newPaymentId,
@@ -244,6 +249,8 @@ try {
             $cashbookMessage = $syncResult['message'];
             $cashAccountName = $syncResult['account_name'];
             
+            error_log("CREATE-RESERVATION: Sync result - success=" . ($cashbookInserted ? 'YES' : 'NO') . ", message={$cashbookMessage}");
+            
             if ($syncResult['ota_fee']) {
                 $otaFeePercent = $syncResult['ota_fee']['fee_percent'];
                 $otaFeeAmount = $syncResult['ota_fee']['fee_amount'];
@@ -253,7 +260,7 @@ try {
         } catch (\Throwable $cashbookError) {
             // Log error but don't fail the reservation
             $cashbookMessage = "Error mencatat ke buku kas: " . $cashbookError->getMessage();
-            error_log("Cashbook auto-insert error: " . $cashbookError->getMessage());
+            error_log("CREATE-RESERVATION: Cashbook auto-insert error: " . $cashbookError->getMessage() . " | File: " . $cashbookError->getFile() . " | Line: " . $cashbookError->getLine());
         }
     }
 
