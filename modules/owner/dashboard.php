@@ -1184,13 +1184,22 @@ if (!in_array($userRole, ['admin', 'owner', 'manager', 'developer'])) {
                 const response = await fetch('../../api/owner-branches.php');
                 const data = await response.json();
                 if (data.success && data.branches) {
-                    // Support both branch_name and name for compatibility
-                    branches = data.branches.map(b => ({
-                        id: b.id,
-                        name: b.branch_name || b.name || 'Unidentified',
-                        business_type: b.business_type || (b.branch_name && b.branch_name.toLowerCase().includes('hotel') ? 'hotel' : 'cafe'),
-                        ...b
-                    }));
+                    // Fallback mapping jika business_type tidak ada
+                    branches = data.branches.map(b => {
+                        let type = b.business_type;
+                        if (!type) {
+                            if (b.id == 1) type = 'hotel';
+                            else if (b.id == 2) type = 'cafe';
+                            else if ((b.branch_name||'').toLowerCase().includes('hotel')) type = 'hotel';
+                            else type = 'cafe';
+                        }
+                        return {
+                            id: b.id,
+                            name: b.branch_name || b.name || 'Unidentified',
+                            business_type: type,
+                            ...b
+                        };
+                    });
                     renderBusinessSelector();
                     renderBusinessGrid();
                     loadDashboardData();
