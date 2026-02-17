@@ -7,8 +7,18 @@ ini_set('display_errors', 1);
 
 echo "<h1>Cek Tabel per Bisnis</h1><pre>";
 
-$isProduction = (strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost') === false && 
-                strpos($_SERVER['HTTP_HOST'] ?? '', '127.0.0.1') === false);
+// Better environment detection - CLI vs Web
+$httpHost = $_SERVER['HTTP_HOST'] ?? '';
+$isProduction = !empty($httpHost) && 
+                strpos($httpHost, 'localhost') === false && 
+                strpos($httpHost, '127.0.0.1') === false;
+
+// For CLI, assume local
+if (php_sapi_name() === 'cli') {
+    $isProduction = false;
+}
+
+echo "Environment: " . ($isProduction ? "HOSTING" : "LOCAL") . "\n\n";
 
 if ($isProduction) {
     define('DB_HOST', 'localhost');

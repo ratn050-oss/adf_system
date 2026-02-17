@@ -26,45 +26,44 @@ $sort_by = isset($_GET['sort_by']) ? $_GET['sort_by'] : 'due_date';
 // Get suppliers for filter
 $suppliers = $db->fetchAll("SELECT * FROM suppliers WHERE is_active = 1 ORDER BY supplier_name");
 
-// Get unpaid POs
-$where = "ph.payment_status = 'unpaid' OR (ph.payment_status = 'partial' AND ph.paid_amount < ph.grand_total)";
+// Get unpaid POs from purchase_orders_header (status NOT completed or cancelled)
+$where = "poh.status NOT IN ('completed', 'cancelled')";
 $params = [];
 
 if ($supplier_id > 0) {
-    $where .= " AND ph.supplier_id = :supplier_id";
+    $where .= " AND poh.supplier_id = :supplier_id";
     $params['supplier_id'] = $supplier_id;
 }
 if ($date_from) {
-    $where .= " AND ph.invoice_date >= :date_from";
+    $where .= " AND poh.po_date >= :date_from";
     $params['date_from'] = $date_from;
 }
 if ($date_to) {
-    $where .= " AND ph.invoice_date <= :date_to";
+    $where .= " AND poh.po_date <= :date_to";
     $params['date_to'] = $date_to;
 }
 
 $order_by = match($sort_by) {
-    'amount_desc' => 'ph.grand_total DESC',
-    'amount_asc' => 'ph.grand_total ASC',
-    'oldest' => 'ph.invoice_date ASC',
-    'newest' => 'ph.invoice_date DESC',
-    'supplier' => 's.supplier_name ASC, ph.invoice_date ASC',
-    default => 'COALESCE(ph.due_date, ph.invoice_date) ASC'
+    'amount_desc' => 'poh.grand_total DESC',
+    'amount_asc' => 'poh.grand_total ASC',
+    'oldest' => 'poh.po_date ASC',
+    'newest' => 'poh.po_date DESC',
+    'supplier' => 's.supplier_name ASC, poh.po_date ASC',
+    default => 'poh.expected_delivery_date ASC, poh.po_date ASC'
 };
 
 $unpaidInvoices = $db->fetchAll("
     SELECT 
-        ph.id, ph.invoice_number, ph.po_id, ph.invoice_date, ph.due_date,
-        ph.total_amount, ph.discount_amount, ph.tax_amount, ph.grand_total,
-        ph.paid_amount, (ph.grand_total - COALESCE(ph.paid_amount, 0)) as remaining,
-        ph.payment_status, ph.notes,
+        poh.id, poh.po_number as invoice_number, poh.po_number, poh.po_date as invoice_date, 
+        poh.expected_delivery_date as due_date,
+        poh.total_amount, poh.discount_amount, poh.tax_amount, poh.grand_total,
+        0 as paid_amount, poh.grand_total as remaining,
+        poh.status as payment_status, poh.notes,
         s.supplier_name, s.contact_person, s.phone,
         s.bank_name, s.bank_account_number, s.bank_account_name,
-        po.po_number,
-        DATEDIFF(CURDATE(), COALESCE(ph.due_date, ph.invoice_date)) as days_overdue
-    FROM purchases_header ph
-    JOIN suppliers s ON ph.supplier_id = s.id
-    LEFT JOIN purchase_orders_header po ON ph.po_id = po.id
+        DATEDIFF(CURDATE(), COALESCE(poh.expected_delivery_date, poh.po_date)) as days_overdue
+    FROM purchase_orders_header poh
+    JOIN suppliers s ON poh.supplier_id = s.id
     WHERE {$where}
     ORDER BY {$order_by}
 ", $params);
@@ -463,7 +462,7 @@ arsort($supplierSummary);
             </div>
         </div>
         
-        <div class="report-title">LAPORAN TAGIHAN BELUM DIBAYAR</div>
+        <div class="report-title">LAPORAN PO BELUM SELESAI / BELUM DIBAYAR</div>
         
         <!-- Summary -->
         <div class="summary-row">
@@ -472,7 +471,7 @@ arsort($supplierSummary);
                 <div class="value">Rp <?= number_format($totalRemaining, 0, ',', '.') ?></div>
             </div>
             <div class="summary-box">
-                <div class="label">Jumlah Invoice</div>
+                <div class="label">Jumlah PO</div>
                 <div class="value"><?= count($unpaidInvoices) ?></div>
             </div>
             <div class="summary-box">
@@ -490,9 +489,9 @@ arsort($supplierSummary);
             <thead>
                 <tr>
                     <th style="width:25px;">No</th>
-                    <th style="width:80px;">No. Invoice</th>
+                    <th style="width:80px;">No. PO</th>
                     <th>Supplier</th>
-                    <th style="width:60px;" class="text-center">Tgl Invoice</th>
+                    <th style="width:60px;" class="text-center">Tgl PO</th>
                     <th style="width:60px;" class="text-center">Jatuh Tempo</th>
                     <th style="width:85px;" class="text-right">Total</th>
                     <th style="width:85px;" class="text-right">Sisa</th>
@@ -508,7 +507,7 @@ arsort($supplierSummary);
                             <td class="text-center"><?= $no++ ?></td>
                             <td>
                                 <strong><?= htmlspecialchars($inv['invoice_number']) ?></strong>
-                                <?php if ($inv['po_number']): ?><br><span style="font-size:7pt;color:#666;">PO: <?= $inv['po_number'] ?></span><?php endif; ?>
+                                <br><span style="font-size:7pt;color:#666;">Status: <?= ucfirst($inv['payment_status']) ?></span>
                             </td>
                             <td><?= htmlspecialchars($inv['supplier_name']) ?></td>
                             <td class="text-center"><?= date('d/m/y', strtotime($inv['invoice_date'])) ?></td>
@@ -534,7 +533,7 @@ arsort($supplierSummary);
         <?php if (!empty($unpaidInvoices)): ?>
             <div class="total-section">
                 <div class="total-row">
-                    <span>Total Tagihan (<?= count($unpaidInvoices) ?> invoice)</span>
+                    <span>Total PO (<?= count($unpaidInvoices) ?> PO)</span>
                     <span class="amount">Rp <?= number_format($totalUnpaid, 0, ',', '.') ?></span>
                 </div>
                 <?php if ($totalPaid > 0): ?>
@@ -557,7 +556,7 @@ arsort($supplierSummary);
                 <?php foreach ($supplierSummary as $sname => $data): ?>
                     <div class="supplier-item">
                         <div>
-                            <strong><?= htmlspecialchars($sname) ?></strong> (<?= $data['count'] ?> inv)
+                            <strong><?= htmlspecialchars($sname) ?></strong> (<?= $data['count'] ?> PO)
                             <?php if ($data['rekening']): ?>
                                 <div class="bank-info">🏦 <?= $data['bank'] ?>: <strong><?= $data['rekening'] ?></strong> a.n. <?= $data['atas_nama'] ?></div>
                             <?php endif; ?>
