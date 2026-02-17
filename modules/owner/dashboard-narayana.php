@@ -34,22 +34,22 @@ try {
     $thisMonth = date('Y-m');
     
     // Today Income
-    $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount), 0) as total FROM cash_book WHERE DATE(transaction_date) = ? AND type = 'income'");
+    $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount), 0) as total FROM cash_book WHERE DATE(transaction_date) = ? AND transaction_type = 'income'");
     $stmt->execute([$today]);
     $stats['today_income'] = (float)$stmt->fetchColumn();
     
     // Today Expense
-    $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount), 0) as total FROM cash_book WHERE DATE(transaction_date) = ? AND type = 'expense'");
+    $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount), 0) as total FROM cash_book WHERE DATE(transaction_date) = ? AND transaction_type = 'expense'");
     $stmt->execute([$today]);
     $stats['today_expense'] = (float)$stmt->fetchColumn();
     
     // Month Income
-    $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount), 0) as total FROM cash_book WHERE DATE_FORMAT(transaction_date, '%Y-%m') = ? AND type = 'income'");
+    $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount), 0) as total FROM cash_book WHERE DATE_FORMAT(transaction_date, '%Y-%m') = ? AND transaction_type = 'income'");
     $stmt->execute([$thisMonth]);
     $stats['month_income'] = (float)$stmt->fetchColumn();
     
     // Month Expense
-    $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount), 0) as total FROM cash_book WHERE DATE_FORMAT(transaction_date, '%Y-%m') = ? AND type = 'expense'");
+    $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount), 0) as total FROM cash_book WHERE DATE_FORMAT(transaction_date, '%Y-%m') = ? AND transaction_type = 'expense'");
     $stmt->execute([$thisMonth]);
     $stats['month_expense'] = (float)$stmt->fetchColumn();
     
@@ -58,7 +58,7 @@ try {
     $stats['total_transactions'] = (int)$stmt->fetchColumn();
     
     // Recent transactions
-    $stmt = $pdo->query("SELECT id, transaction_date, description, type, amount FROM cash_book ORDER BY transaction_date DESC, id DESC LIMIT 10");
+    $stmt = $pdo->query("SELECT id, transaction_date, description, transaction_type, amount FROM cash_book ORDER BY transaction_date DESC, id DESC LIMIT 10");
     $transactions = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
 } catch (Exception $e) {
@@ -258,8 +258,8 @@ function rp($num) {
                         <div class="tx-desc"><?= htmlspecialchars($tx['description']) ?></div>
                         <div class="tx-date"><?= date('d/m/Y H:i', strtotime($tx['transaction_date'])) ?></div>
                     </div>
-                    <div class="tx-amount <?= $tx['type'] ?>">
-                        <?= $tx['type'] == 'income' ? '+' : '-' ?><?= rp($tx['amount']) ?>
+                    <div class="tx-amount <?= $tx['transaction_type'] ?>">
+                        <?= $tx['transaction_type'] == 'income' ? '+' : '-' ?><?= rp($tx['amount']) ?>
                     </div>
                 </li>
                 <?php endforeach; ?>
