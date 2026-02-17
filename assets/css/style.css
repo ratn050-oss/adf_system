@@ -6,13 +6,14 @@
     --secondary-color: #8b5cf6;
     --accent-color: #ec4899;
     
-    /* Neutral Colors - Dark */
+    /* Neutral Colors - Dark (Elegant soft white-gray) */
     --bg-primary: #0f172a;
     --bg-secondary: #1e293b;
     --bg-tertiary: #334155;
-    --text-primary: #f8fafc;
-    --text-secondary: #cbd5e1;
-    --text-muted: #94a3b8;
+    --text-primary: #e2e8f0;
+    --text-secondary: #94a3b8;
+    --text-muted: #64748b;
+    --text-heading: #f1f5f9;
     
     /* Status Colors */
     --success: #10b981;
@@ -37,14 +38,15 @@
     --transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-/* Light Theme Variables */
+/* Light Theme Variables - Elegant Modern Gray */
 body[data-theme="light"] {
     --bg-primary: #ffffff;
     --bg-secondary: #f8fafc;
     --bg-tertiary: #e2e8f0;
-    --text-primary: #0f172a;
-    --text-secondary: #334155;
+    --text-primary: #1e293b;
+    --text-secondary: #475569;
     --text-muted: #64748b;
+    --text-heading: #0f172a;
     
     /* Adjust shadows for light theme */
     --shadow-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.03);
@@ -68,7 +70,7 @@ body[data-theme="light"] .sidebar-header {
 }
 
 body[data-theme="light"] .sidebar .logo {
-    color: #0f172a !important;
+    color: #1e293b !important;
     font-weight: 700;
 }
 
@@ -76,7 +78,7 @@ body[data-theme="light"] .sidebar,
 body[data-theme="light"] .sidebar p,
 body[data-theme="light"] .sidebar span,
 body[data-theme="light"] .sidebar div {
-    color: #334155 !important;
+    color: #475569 !important;
 }
 
 body[data-theme="light"] .sidebar .nav-link {
@@ -133,7 +135,7 @@ body[data-theme="light"] h3,
 body[data-theme="light"] h4,
 body[data-theme="light"] h5,
 body[data-theme="light"] h6 {
-    color: #0f172a !important;
+    color: #1e293b !important;
     font-weight: 700 !important;
 }
 
@@ -148,14 +150,14 @@ body[data-theme="light"] .card-title {
 }
 
 body[data-theme="light"] .form-label {
-    color: #334155 !important;
+    color: #475569 !important;
     font-weight: 600 !important;
 }
 
 body[data-theme="light"] .form-control {
     background: #f8fafc !important;
     border-color: #cbd5e1 !important;
-    color: #0f172a !important;
+    color: #1e293b !important;
 }
 
 body[data-theme="light"] .form-control:focus {
@@ -168,18 +170,18 @@ body[data-theme="light"] .btn {
 }
 
 body[data-theme="light"] .table {
-    color: #0f172a !important;
+    color: #1e293b !important;
 }
 
 body[data-theme="light"] .table th {
     background: #f8fafc !important;
-    color: #0f172a !important;
+    color: #1e293b !important;
     border-color: #e2e8f0 !important;
 }
 
 body[data-theme="light"] .table td {
     border-color: #e2e8f0 !important;
-    color: #334155 !important;
+    color: #475569 !important;
 }
 
 body[data-theme="light"] .table tr:hover {
@@ -191,7 +193,7 @@ body[data-theme="light"] span,
 body[data-theme="light"] div,
 body[data-theme="light"] li,
 body[data-theme="light"] a {
-    color: #334155 !important;
+    color: #475569 !important;
 }
 
 body[data-theme="light"] a {
@@ -202,15 +204,15 @@ body[data-theme="light"] a:hover {
     color: #4f46e5 !important;
 }
 
-/* Light Theme - Aggressive Text Color Override */
+/* Light Theme - Aggressive Text Color Override - Elegant Gray */
 body[data-theme="light"],
 body[data-theme="light"] * {
-    --text-primary: #0f172a !important;
-    --text-secondary: #334155 !important;
+    --text-primary: #1e293b !important;
+    --text-secondary: #475569 !important;
     --text-muted: #64748b !important;
 }
 
-/* Force all text elements dark in light theme */
+/* Force all text elements - Elegant gray in light theme */
 body[data-theme="light"] p,
 body[data-theme="light"] span,
 body[data-theme="light"] div,
@@ -221,7 +223,7 @@ body[data-theme="light"] label,
 body[data-theme="light"] .form-label,
 body[data-theme="light"] .text-muted,
 body[data-theme="light"] .text-secondary {
-    color: #334155 !important;
+    color: #475569 !important;
 }
 
 body[data-theme="light"] h1,
@@ -232,7 +234,7 @@ body[data-theme="light"] h5,
 body[data-theme="light"] h6,
 body[data-theme="light"] .card-title,
 body[data-theme="light"] .page-title {
-    color: #0f172a !important;
+    color: #1e293b !important;
 }
 
 body[data-theme="light"] a {
@@ -247,14 +249,14 @@ body[data-theme="light"] a:hover {
 body[data-theme="light"] .main-content,
 body[data-theme="light"] .content-wrapper {
     background: #ffffff !important;
-    color: #0f172a !important;
+    color: #1e293b !important;
 }
 
 /* Light Theme - Cards and Containers */
 body[data-theme="light"] .card,
 body[data-theme="light"] .container {
     background: #ffffff !important;
-    color: #0f172a !important;
+    color: #1e293b !important;
 }
 
 /* Light Theme - Form Elements */
@@ -262,7 +264,7 @@ body[data-theme="light"] input,
 body[data-theme="light"] textarea,
 body[data-theme="light"] select {
     background: #f8fafc !important;
-    color: #0f172a !important;
+    color: #1e293b !important;
     border-color: #cbd5e1 !important;
 }
 
@@ -279,13 +281,13 @@ body[data-theme="light"] .btn-primary {
 
 body[data-theme="light"] .btn-secondary {
     background: #e2e8f0 !important;
-    color: #0f172a !important;
+    color: #1e293b !important;
 }
 
 /* Light Theme - Tables */
 body[data-theme="light"] table {
     background: #ffffff !important;
-    color: #0f172a !important;
+    color: #1e293b !important;
 }
 
 body[data-theme="light"] table thead {
@@ -294,12 +296,12 @@ body[data-theme="light"] table thead {
 
 body[data-theme="light"] table th {
     background: #f8fafc !important;
-    color: #0f172a !important;
+    color: #1e293b !important;
     border-color: #e2e8f0 !important;
 }
 
 body[data-theme="light"] table td {
-    color: #334155 !important;
+    color: #475569 !important;
     border-color: #e2e8f0 !important;
 }
 
@@ -307,12 +309,12 @@ body[data-theme="light"] table td {
 body[data-theme="light"] .nav,
 body[data-theme="light"] ul,
 body[data-theme="light"] ol {
-    color: #334155 !important;
+    color: #475569 !important;
 }
 
 body[data-theme="light"] .nav-link,
 body[data-theme="light"] a.nav-link {
-    color: #334155 !important;
+    color: #475569 !important;
 }
 
 body[data-theme="light"] .nav-link:hover {
@@ -324,7 +326,7 @@ body[data-theme="light"] .section,
 body[data-theme="light"] .content,
 body[data-theme="light"] .page-content {
     background: #ffffff !important;
-    color: #0f172a !important;
+    color: #1e293b !important;
 }
 
 /* Light Theme - Cards and Containers */
@@ -390,7 +392,7 @@ body[data-theme="light"] .sidebar-header > div[style*="background: rgba(99, 102,
 /* Light Theme - Business Selector */
 body[data-theme="light"] select {
     background: #f1f5f9 !important;
-    color: #0f172a !important;
+    color: #1e293b !important;
     border-color: #cbd5e1 !important;
 }
 
@@ -1148,4 +1150,125 @@ textarea.form-control {
 
 .pulse {
     animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+/* ============================================
+   ELEGANT TEXT COLORS - Theme Adaptive
+   ============================================ */
+
+/* Dark Theme - Soft White/Gray instead of pure white */
+body:not([data-theme="light"]) {
+    color: var(--text-primary);
+}
+
+body:not([data-theme="light"]) h1,
+body:not([data-theme="light"]) h2,
+body:not([data-theme="light"]) h3,
+body:not([data-theme="light"]) h4,
+body:not([data-theme="light"]) h5,
+body:not([data-theme="light"]) h6 {
+    color: #f1f5f9;
+}
+
+body:not([data-theme="light"]) p,
+body:not([data-theme="light"]) span:not(.badge):not([class*="bg-"]),
+body:not([data-theme="light"]) div:not([class*="bg-"]),
+body:not([data-theme="light"]) li,
+body:not([data-theme="light"]) td,
+body:not([data-theme="light"]) th,
+body:not([data-theme="light"]) label {
+    color: #e2e8f0;
+}
+
+body:not([data-theme="light"]) .text-muted,
+body:not([data-theme="light"]) small,
+body:not([data-theme="light"]) .small {
+    color: #94a3b8 !important;
+}
+
+/* Override inline white color styles in Light Theme */
+body[data-theme="light"] [style*="color: white"],
+body[data-theme="light"] [style*="color:#fff"],
+body[data-theme="light"] [style*="color: #fff"],
+body[data-theme="light"] [style*="color:#ffffff"],
+body[data-theme="light"] [style*="color: #ffffff"],
+body[data-theme="light"] [style*="color: rgb(255, 255, 255)"] {
+    color: #1e293b !important;
+}
+
+/* Override inline black color styles in Dark Theme */
+body:not([data-theme="light"]) [style*="color: black"],
+body:not([data-theme="light"]) [style*="color:#000"],
+body:not([data-theme="light"]) [style*="color: #000"],
+body:not([data-theme="light"]) [style*="color:#000000"],
+body:not([data-theme="light"]) [style*="color: #000000"],
+body:not([data-theme="light"]) [style*="color: rgb(0, 0, 0)"] {
+    color: #e2e8f0 !important;
+}
+
+/* Exclude buttons and badges from color override */
+body[data-theme="light"] .btn,
+body[data-theme="light"] .badge,
+body[data-theme="light"] [class*="btn-"],
+body[data-theme="light"] [class*="bg-"] {
+    color: inherit;
+}
+
+/* Light theme specific overrides for common inline styled elements */
+body[data-theme="light"] [style*="color: var(--text-primary)"],
+body[data-theme="light"] [style*="color:var(--text-primary)"] {
+    color: #1e293b !important;
+}
+
+body[data-theme="light"] [style*="color: var(--text-secondary)"],
+body[data-theme="light"] [style*="color:var(--text-secondary)"] {
+    color: #475569 !important;
+}
+
+body[data-theme="light"] [style*="color: var(--text-muted)"],
+body[data-theme="light"] [style*="color:var(--text-muted)"] {
+    color: #64748b !important;
+}
+
+/* Modal text colors */
+body[data-theme="light"] .modal-content,
+body[data-theme="light"] .modal-body,
+body[data-theme="light"] .modal-header,
+body[data-theme="light"] .modal-footer {
+    color: #1e293b !important;
+    background: #ffffff !important;
+}
+
+body[data-theme="light"] .modal-title {
+    color: #1e293b !important;
+}
+
+/* Dropdown text colors */
+body[data-theme="light"] .dropdown-menu {
+    background: #ffffff !important;
+    color: #1e293b !important;
+}
+
+body[data-theme="light"] .dropdown-item {
+    color: #475569 !important;
+}
+
+body[data-theme="light"] .dropdown-item:hover {
+    background: #f1f5f9 !important;
+    color: #1e293b !important;
+}
+
+/* Toast/Alert text colors */
+body[data-theme="light"] .alert {
+    color: #1e293b !important;
+}
+
+/* Stat card values */
+body[data-theme="light"] .stat-value,
+body[data-theme="light"] .card-value {
+    color: #1e293b !important;
+}
+
+body[data-theme="light"] .stat-label,
+body[data-theme="light"] .card-label {
+    color: #64748b !important;
 }
