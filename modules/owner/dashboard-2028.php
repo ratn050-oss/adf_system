@@ -1323,7 +1323,9 @@ $isDev = ($role === 'developer');
         <!-- Business Selector -->
         <div class="business-selector">
             <select class="business-select" id="businessSelect">
-                <option value="">Select Business...</option>
+                <option value="">Loading businesses...</option>
+                <option value="adf_narayana_hotel" data-biz-id="1">Narayana Hotel</option>
+                <option value="adf_benscafe" data-biz-id="2">Ben's Cafe</option>
             </select>
         </div>
         
@@ -1948,14 +1950,28 @@ $isDev = ($role === 'developer');
         
         // Load businesses
         async function loadBusinesses() {
-            console.log('Loading businesses...');
+            console.log('=== LOADING BUSINESSES ===');
+            console.log('BasePath:', basePath);
+            console.log('API URL:', basePath + '/api/owner-branches-simple.php');
+            
             try {
                 const response = await fetch(basePath + '/api/owner-branches-simple.php');
                 console.log('Businesses API response status:', response.status);
-                const data = await response.json();
-                console.log('Businesses data:', data);
                 
-                if (data.success && data.branches) {
+                if (!response.ok) {
+                    console.error('HTTP error! status:', response.status);
+                    const text = await response.text();
+                    console.error('Response text:', text);
+                    throw new Error('HTTP error! status: ' + response.status);
+                }
+                
+                const data = await response.json();
+                console.log('Businesses API data:', data);
+                console.log('Success?', data.success);
+                console.log('Branches:', data.branches);
+                console.log('Debug info:', data.debug);
+                
+                if (data.success && data.branches && data.branches.length > 0) {
                     businessList = data.branches;
                     const select = document.getElementById('businessSelect');
                     select.innerHTML = '<option value="">All Businesses</option>';
@@ -1966,74 +1982,78 @@ $isDev = ($role === 'developer');
                         option.setAttribute('data-biz-id', biz.id);
                         option.textContent = biz.branch_name || biz.business_name;
                         select.appendChild(option);
+                        console.log('Added option:', biz.branch_name, 'DB:', biz.database_name, 'ID:', biz.id);
                     });
                     
-                    // Auto-select first if only one
-                    if (data.branches.length === 1) {
-                        select.value = data.branches[0].database_name || data.branches[0].id;
-                    }
-                    
-                    console.log('Businesses loaded successfully:', data.branches.length);
+                    console.log('✅ Businesses loaded from API:', data.branches.length);
                 } else {
-                    console.error('Businesses API failed:', data);
-                    // Fallback: Add hardcoded businesses
-                    addFallbackBusinesses();
+                    console.warn('⚠️ API failed or empty, keeping hardcoded businesses');
+                    // Use hardcoded businesses from HTML
+                    businessList = [
+                        { id: 1, database_name: 'adf_narayana_hotel', branch_name: 'Narayana Hotel' },
+                        { id: 2, database_name: 'adf_benscafe', branch_name: "Ben's Cafe" }
+                    ];
                 }
             } catch (error) {
-                console.error('Load businesses error:', error);
-                // Fallback: Add hardcoded businesses
-                addFallbackBusinesses();
+                console.error('❌ Load businesses error:', error);
+                console.error('Error message:', error.message);
+                console.error('Error stack:', error.stack);
+                // Fallback: use hardcoded businesses from HTML
+                businessList = [
+                    { id: 1, database_name: 'adf_narayana_hotel', branch_name: 'Narayana Hotel' },
+                    { id: 2, database_name: 'adf_benscafe', branch_name: "Ben's Cafe" }
+                ];
+                console.log('✅ Using fallback hardcoded businesses');
             }
-        }
-        
-        // Fallback function to add hardcoded businesses if API fails
-        function addFallbackBusinesses() {
-            console.warn('Using fallback businesses...');
-            businessList = [
-                { id: 1, database_name: 'adf_narayana_hotel', branch_name: 'Narayana Hotel' },
-                { id: 2, database_name: 'adf_benscafe', branch_name: "Ben's Cafe" }
-            ];
             
-            const select = document.getElementById('businessSelect');
-            select.innerHTML = '<option value="">All Businesses</option>';
-            
-            businessList.forEach(biz => {
-                const option = document.createElement('option');
-                option.value = biz.database_name;
-                option.setAttribute('data-biz-id', biz.id);
-                option.textContent = biz.branch_name;
-                select.appendChild(option);
-            });
-            
-            console.log('Fallback businesses added:', businessList.length);
+            console.log('Final businessList:', businessList);
+            console.log('=== BUSINESSES LOADED ===');
         }
         
         // Business change handler
         document.getElementById('businessSelect').addEventListener('change', function() {
+            console.log('=== BUSINESS CHANGED ===');
+            console.log('New selection:', this.value);
+            console.log('Selected option:', this.selectedOptions[0]);
             loadStats();
             loadTransactions();
             updateDashboardNav();
         });
         
         // Init - load businesses first, then stats and transactions
-        loadBusinesses().then(() => {
-            console.log('Businesses loaded, now loading stats and transactions...');
-            loadStats();
-            loadTransactions();
-            updateDashboardNav();
-        }).catch(err => {
-            console.error('Initialization error:', err);
-            alert('Dashboard initialization failed. Check console.');
-        });
+        console.log('=== DASHBOARD INITIALIZATION START ===');
+        console.log('Page URL:', window.location.href);
+        console.log('BasePath:', basePath);
+        
+        // Always load stats and transactions after a short delay, even if loadBusinesses fails
+        loadBusinesses()
+            .then(() => {
+                console.log('✅ Businesses loaded successfully');
+            })
+            .catch(err => {
+                console.error('⚠️ LoadBusinesses error (non-fatal):', err);
+            })
+            .finally(() => {
+                console.log('🚀 Loading initial stats and transactions...');
+                // Small delay to ensure DOM is ready
+                setTimeout(() => {
+                    loadStats();
+                    loadTransactions();
+                    updateDashboardNav();
+                    console.log('✅ Initial load complete');
+                }, 500);
+            });
         
         // Refresh every 30 seconds
         setInterval(() => {
+            console.log('♻️ Auto-refresh stats and transactions');
             loadStats();
             loadTransactions();
         }, 30000);
         
         // Log ready state
-        console.log('Dashboard script initialized.');
+        console.log('✅ Dashboard script initialized');
+        console.log('=== INITIALIZATION COMPLETE ===');
     </script>
 </body>
 </html>
