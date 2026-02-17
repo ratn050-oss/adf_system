@@ -1518,8 +1518,12 @@ $isDev = ($role === 'developer');
         const isLocal = location.hostname === 'localhost' || location.hostname === '127.0.0.1';
         const basePath = isLocal ? '/adf_system' : '';
         
+        console.log('Dashboard loaded. BasePath:', basePath);
+        console.log('Current URL:', window.location.href);
+        
         // Format currency - full numbers with thousand separators
         function formatRp(num) {
+            if (!num && num !== 0) return 'Rp 0';
             return 'Rp ' + Math.round(num).toLocaleString('id-ID');
         }
         
@@ -1692,9 +1696,11 @@ $isDev = ($role === 'developer');
                     generateAIHealth(data);
                 } else {
                     console.error('API Error:', data.message);
+                    alert('Error loading data: ' + (data.message || 'Unknown error'));
                 }
             } catch (error) {
                 console.error('Fetch Error:', error);
+alert('Failed to load dashboard data. Please check console for details.');
             }
         }
         
@@ -1746,10 +1752,11 @@ $isDev = ($role === 'developer');
                     }).join('');
                 } else {
                     document.getElementById('transactionsList').innerHTML = '<div style="text-align: center; padding: 20px; color: var(--text-secondary);">Unable to load transactions</div>';
+                    console.error('Transactions API Error:', data.message);
                 }
             } catch (error) {
                 console.error('Load transactions error:', error);
-                document.getElementById('transactionsList').innerHTML = '<div style="text-align: center; padding: 20px; color: var(--text-secondary);">Error loading transactions</div>';
+                document.getElementById('transactionsList').innerHTML = '<div style="text-align: center; padding: 20px; color: var(--text-secondary);">Error loading transactions. Check console for details.</div>';
             }
         }
         
@@ -1933,9 +1940,12 @@ $isDev = ($role === 'developer');
         
         // Load businesses
         async function loadBusinesses() {
+            console.log('Loading businesses...');
             try {
                 const response = await fetch(basePath + '/api/owner-branches-simple.php');
+                console.log('Businesses API response status:', response.status);
                 const data = await response.json();
+                console.log('Businesses data:', data);
                 
                 if (data.success && data.branches) {
                     businessList = data.branches;
@@ -1954,9 +1964,14 @@ $isDev = ($role === 'developer');
                     if (data.branches.length === 1) {
                         select.value = data.branches[0].database_name || data.branches[0].id;
                     }
+                    
+                    console.log('Businesses loaded successfully:', data.branches.length);
+                } else {
+                    console.error('Businesses API failed:', data);
                 }
             } catch (error) {
                 console.error('Load businesses error:', error);
+                alert('Failed to load businesses list. Please refresh the page.');
             }
         }
         
