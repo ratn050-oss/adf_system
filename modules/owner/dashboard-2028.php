@@ -1984,9 +1984,13 @@ alert('Failed to load dashboard data. Please check console for details.');
         
         // Init - load businesses first, then stats and transactions
         loadBusinesses().then(() => {
+            console.log('Businesses loaded, now loading stats and transactions...');
             loadStats();
             loadTransactions();
             updateDashboardNav();
+        }).catch(err => {
+            console.error('Initialization error:', err);
+            alert('Dashboard initialization failed. Check console.');
         });
         
         // Refresh every 30 seconds
@@ -1994,6 +1998,9 @@ alert('Failed to load dashboard data. Please check console for details.');
             loadStats();
             loadTransactions();
         }, 30000);
+        
+        // Log ready state
+        console.log('Dashboard script initialized.');
     </script>
 </body>
 </html>
