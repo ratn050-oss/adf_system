@@ -13,13 +13,16 @@ header('Content-Type: application/json');
 
 // Auth check - try session role first, fallback to logged_in user
 $role = $_SESSION['role'] ?? null;
-if (!$role && isset($_SESSION['logged_in']) && $_SESSION['logged_in']) {
+$userId = $_SESSION['user_id'] ?? null;
+$isLoggedIn = $_SESSION['logged_in'] ?? false;
+
+if (!$role && $isLoggedIn && $userId) {
     // User logged in but role not in session - try to fetch from DB
     try {
         $authDb = new PDO('mysql:host=' . DB_HOST . ';dbname=' . DB_NAME, DB_USER, DB_PASS);
         $authDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $roleStmt = $authDb->prepare("SELECT r.role_code FROM users u LEFT JOIN roles r ON u.role_id = r.id WHERE u.id = ?");
-        $roleStmt->execute([$_SESSION['user_id'] ?? 0]);
+        $roleStmt->execute([$userId]);
         $roleRow = $roleStmt->fetch(PDO::FETCH_ASSOC);
         if ($roleRow) {
             $role = $roleRow['role_code'];
@@ -28,8 +31,26 @@ if (!$role && isset($_SESSION['logged_in']) && $_SESSION['logged_in']) {
     } catch (Exception $e) {}
 }
 
-if (!$role || !in_array($role, ['owner', 'admin', 'manager', 'developer'])) {
-    echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+// More lenient check - allow if logged in OR if role exists
+if (!$isLoggedIn && !$role) {
+    echo json_encode([
+        'success' => false, 
+        'message' => 'Unauthorized - Please login',
+        'session_info' => [
+            'logged_in' => $isLoggedIn,
+            'role' => $role,
+            'user_id' => $userId
+        ]
+    ]);
+    exit;
+}
+
+// Check role permissions
+if ($role && !in_array($role, ['owner', 'admin', 'manager', 'developer', 'frontdesk', 'staff'])) {
+    echo json_encode([
+        'success' => false, 
+        'message' => 'Access denied - Invalid role: ' . $role
+    ]);
     exit;
 }
 
