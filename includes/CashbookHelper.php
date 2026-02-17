@@ -21,6 +21,10 @@ class CashbookHelper {
         $this->db = $db;
         $this->businessId = $businessId ?? ($_SESSION['business_id'] ?? 1);
         $this->userId = $userId ?? ($_SESSION['user_id'] ?? 1);
+        
+        // Log for debugging
+        error_log("CashbookHelper: Init with businessId={$this->businessId}, userId={$this->userId}");
+        
         $this->initMasterDb();
         $this->validateUserId();
     }
@@ -31,13 +35,18 @@ class CashbookHelper {
     private function initMasterDb() {
         $masterDbName = defined('MASTER_DB_NAME') ? MASTER_DB_NAME : 'adf_system';
         
+        // Log for debugging
+        error_log("CashbookHelper: Connecting to master DB: {$masterDbName}");
+        
         try {
             $this->masterDb = new PDO(
                 "mysql:host=" . DB_HOST . ";dbname=" . $masterDbName . ";charset=" . DB_CHARSET,
                 DB_USER, DB_PASS,
                 [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
             );
+            error_log("CashbookHelper: Master DB connected successfully");
         } catch (\Throwable $e) {
+            error_log("CashbookHelper: Master DB connection failed: " . $e->getMessage());
             // Fallback: Use current DB for single-DB hosting
             if (defined('DB_NAME')) {
                 try {
@@ -46,11 +55,14 @@ class CashbookHelper {
                         DB_USER, DB_PASS,
                         [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
                     );
+                    error_log("CashbookHelper: Fallback to DB_NAME: " . DB_NAME);
                 } catch (\Throwable $e2) {
                     $this->masterDb = $this->db->getConnection();
+                    error_log("CashbookHelper: Fallback to current DB connection");
                 }
             } else {
                 $this->masterDb = $this->db->getConnection();
+                error_log("CashbookHelper: Using current DB connection as master");
             }
         }
     }
@@ -76,6 +88,8 @@ class CashbookHelper {
     public function getCashAccount($paymentMethod = 'cash') {
         $accountType = ($paymentMethod === 'cash') ? 'cash' : 'bank';
         
+        error_log("CashbookHelper::getCashAccount: Looking for {$accountType} account for business_id={$this->businessId}");
+        
         // Try to get existing account
         $stmt = $this->masterDb->prepare("
             SELECT id, account_name, current_balance 
@@ -90,6 +104,7 @@ class CashbookHelper {
         $account = $stmt->fetch(PDO::FETCH_ASSOC);
         
         if (!$account) {
+            error_log("CashbookHelper::getCashAccount: No {$accountType} account found, trying any active account");
             // Fallback to any active account
             $stmt = $this->masterDb->prepare("
                 SELECT id, account_name, current_balance 
@@ -105,7 +120,10 @@ class CashbookHelper {
         
         // Create default account if none exists
         if (!$account) {
+            error_log("CashbookHelper::getCashAccount: No account found at all, creating default");
             $account = $this->createDefaultCashAccount($accountType);
+        } else {
+            error_log("CashbookHelper::getCashAccount: Found account ID={$account['id']}, name={$account['account_name']}");
         }
         
         return $account;
@@ -354,6 +372,8 @@ class CashbookHelper {
      * @return array Result with keys: success, transaction_id, account_name, message, ota_fee
      */
     public function syncPaymentToCashbook($paymentData) {
+        error_log("CashbookHelper::syncPaymentToCashbook: START - businessId={$this->businessId}, data=" . json_encode($paymentData));
+        
         $result = [
             'success' => false,
             'transaction_id' => null,
@@ -366,6 +386,7 @@ class CashbookHelper {
             // Validate required data
             if (empty($paymentData['amount']) || $paymentData['amount'] <= 0) {
                 $result['message'] = 'Amount harus lebih dari 0';
+                error_log("CashbookHelper::syncPaymentToCashbook: FAILED - Amount not valid");
                 return $result;
             }
             
@@ -373,6 +394,7 @@ class CashbookHelper {
             $account = $this->getCashAccount($paymentData['payment_method'] ?? 'cash');
             if (!$account) {
                 $result['message'] = 'Tidak dapat membuat/menemukan akun kas';
+                error_log("CashbookHelper::syncPaymentToCashbook: FAILED - Cannot get cash account");
                 return $result;
             }
             
@@ -506,11 +528,11 @@ class CashbookHelper {
             $result['message'] = "Tercatat di Buku Kas - {$account['account_name']}";
             
             // Log success
-            error_log("CashbookHelper: Successfully synced payment for {$bookingCode} - Rp " . number_format($amountToRecord));
+            error_log("CashbookHelper::syncPaymentToCashbook: SUCCESS - transactionId={$transactionId}, accountId={$account['id']}, accountName={$account['account_name']}, amount=" . number_format($amountToRecord) . ", bookingCode={$bookingCode}");
             
         } catch (\Throwable $e) {
             $result['message'] = "Error: " . $e->getMessage();
-            error_log("CashbookHelper: Sync error - " . $e->getMessage());
+            error_log("CashbookHelper::syncPaymentToCashbook: EXCEPTION - " . $e->getMessage() . " | Trace: " . $e->getTraceAsString());
         }
         
         return $result;

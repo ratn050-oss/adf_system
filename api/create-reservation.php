@@ -219,8 +219,12 @@ try {
         // ==========================================
         
         try {
-            // Log for debugging
+            // Log for debugging - include session info
             error_log("CREATE-RESERVATION: Starting cashbook sync for payment #{$newPaymentId}, booking #{$bookingId}");
+            error_log("CREATE-RESERVATION: SESSION business_id=" . ($_SESSION['business_id'] ?? 'NOT SET') . 
+                      ", active_business_id=" . ($_SESSION['active_business_id'] ?? 'NOT SET') . 
+                      ", user_id=" . ($_SESSION['user_id'] ?? 'NOT SET'));
+            error_log("CREATE-RESERVATION: DB_NAME=" . DB_NAME . ", ACTIVE_BUSINESS_ID=" . ACTIVE_BUSINESS_ID);
             
             // Get room info for description
             $roomInfo = $db->fetchOne("SELECT room_number FROM rooms WHERE id = ?", [$roomId]);

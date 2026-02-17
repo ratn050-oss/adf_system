@@ -60,22 +60,62 @@ function getActiveBusinessId() {
 
 /**
  * Set active business ID in session
- * @param string $businessId Business ID to set as active
+ * @param string $businessCode Business code/slug to set as active (e.g., 'narayana-hotel')
  * @return bool Success
  */
-function setActiveBusinessId($businessId) {
+function setActiveBusinessId($businessCode) {
     // Session should already be started by config.php
     // Just set the value if session is active
     if (session_status() === PHP_SESSION_ACTIVE) {
         // Validate business exists
-        $businessFile = __DIR__ . '/../config/businesses/' . $businessId . '.php';
+        $businessFile = __DIR__ . '/../config/businesses/' . $businessCode . '.php';
         if (file_exists($businessFile)) {
-            $_SESSION['active_business_id'] = $businessId;
+            $_SESSION['active_business_id'] = $businessCode;
+            
+            // Also set numeric business_id from master database
+            $numericId = getNumericBusinessId($businessCode);
+            if ($numericId) {
+                $_SESSION['business_id'] = $numericId;
+            }
+            
             return true;
         }
     }
     
     return false;
+}
+
+/**
+ * Get numeric business ID from master database
+ * Maps string business codes like 'narayana-hotel' to numeric IDs like 1
+ * @param string $businessCode Business code/slug (e.g., 'narayana-hotel', 'bens-cafe')
+ * @return int|null Numeric business ID or null if not found
+ */
+function getNumericBusinessId($businessCode) {
+    // Map string ID to business_code used in database
+    $codeMap = [
+        'narayana-hotel' => 'NARAYANAHOTEL',
+        'bens-cafe' => 'BENSCAFE'
+    ];
+    
+    $dbCode = isset($codeMap[$businessCode]) ? $codeMap[$businessCode] : strtoupper(str_replace('-', '', $businessCode));
+    
+    try {
+        $masterPdo = new PDO(
+            "mysql:host=" . DB_HOST . ";dbname=" . MASTER_DB_NAME . ";charset=" . DB_CHARSET,
+            DB_USER, DB_PASS,
+            [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+        );
+        
+        $stmt = $masterPdo->prepare("SELECT id FROM businesses WHERE business_code = ? LIMIT 1");
+        $stmt->execute([$dbCode]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        return $row ? (int)$row['id'] : null;
+    } catch (Throwable $e) {
+        error_log("getNumericBusinessId error: " . $e->getMessage());
+        return null;
+    }
 }
 
 /**

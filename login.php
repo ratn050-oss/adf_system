@@ -154,6 +154,13 @@ if (isPost()) {
                     }
                     
                     if ($hasAccess) {
+                        // Find the numeric business ID from the matched business
+                        foreach ($userBusinesses as $biz) {
+                            if ($biz['business_code'] === $forcedBizCode) {
+                                $_SESSION['business_id'] = (int)$biz['id']; // Set numeric business_id
+                                break;
+                            }
+                        }
                         setActiveBusinessId($forcedBusiness);
                         setFlash('success', 'Login berhasil!');
                         redirect(BASE_URL . '/index.php');
@@ -172,6 +179,7 @@ if (isPost()) {
                     ];
                     
                     $businessId = isset($codeToIdMap[$bizCode]) ? $codeToIdMap[$bizCode] : strtolower($bizCode);
+                    $_SESSION['business_id'] = (int)$userBusinesses[0]['id']; // Set numeric business_id
                     setActiveBusinessId($businessId);
                     
                     if (count($userBusinesses) === 1) {
