@@ -59,8 +59,15 @@ try {
 }
 
 // If already logged in, redirect to dashboard
-if ($auth->isLoggedIn()) {
-    redirect(BASE_URL . '/index.php');
+// But allow POST login_type=owner to re-login as owner
+if ($auth->isLoggedIn() && !isPost()) {
+    // If user role is owner/admin/developer, go to owner dashboard
+    $currentRole = $_SESSION['role'] ?? '';
+    if (in_array($currentRole, ['owner', 'admin', 'developer'])) {
+        redirect(BASE_URL . '/modules/owner/dashboard-2028.php');
+    } else {
+        redirect(BASE_URL . '/index.php');
+    }
 }
 
 // Handle login form submission
