@@ -1183,9 +1183,14 @@ if (!in_array($userRole, ['admin', 'owner', 'manager', 'developer'])) {
             try {
                 const response = await fetch('../../api/owner-branches.php');
                 const data = await response.json();
-                
                 if (data.success && data.branches) {
-                    branches = data.branches;
+                    // Support both branch_name and name for compatibility
+                    branches = data.branches.map(b => ({
+                        id: b.id,
+                        name: b.branch_name || b.name || 'Unidentified',
+                        business_type: b.business_type || (b.branch_name && b.branch_name.toLowerCase().includes('hotel') ? 'hotel' : 'cafe'),
+                        ...b
+                    }));
                     renderBusinessSelector();
                     renderBusinessGrid();
                     loadDashboardData();
@@ -1199,7 +1204,6 @@ if (!in_array($userRole, ['admin', 'owner', 'manager', 'developer'])) {
         function renderBusinessSelector() {
             const selector = document.getElementById('businessSelector');
             selector.innerHTML = '<option value="all">🏢 All Businesses</option>';
-            
             branches.forEach(branch => {
                 const icon = branch.business_type === 'hotel' ? '🏨' : '☕';
                 selector.innerHTML += `<option value="${branch.id}">${icon} ${branch.name}</option>`;
@@ -1216,8 +1220,8 @@ if (!in_array($userRole, ['admin', 'owner', 'manager', 'developer'])) {
                             ${branch.business_type === 'hotel' ? '🏨' : '☕'}
                         </div>
                         <div>
-                            <div class="business-name">${branch.name}</div>
-                            <div class="business-type">${branch.business_type.charAt(0).toUpperCase() + branch.business_type.slice(1)}</div>
+                            <div class="business-name">${branch.name || 'Unidentified'}</div>
+                            <div class="business-type">${branch.business_type ? branch.business_type.charAt(0).toUpperCase() + branch.business_type.slice(1) : '-'}</div>
                         </div>
                     </div>
                     <div class="business-stats">
@@ -1273,30 +1277,83 @@ if (!in_array($userRole, ['admin', 'owner', 'manager', 'developer'])) {
         
         // Load stats
         async function loadStats() {
-            try {
-                const url = currentBusiness === 'all' 
-                    ? '../../api/owner-stats.php'
-                    : `../../api/owner-stats.php?branch_id=${currentBusiness}`;
-                    
-                const response = await fetch(url);
-                const data = await response.json();
-                
-                if (data.success) {
-                    document.getElementById('totalRevenue').textContent = formatRupiah(data.month?.income || 0);
-                    document.getElementById('totalExpenses').textContent = formatRupiah(data.month?.expense || 0);
-                    document.getElementById('netProfit').textContent = formatRupiah((data.month?.income || 0) - (data.month?.expense || 0));
-                    document.getElementById('cashBalance').textContent = formatRupiah((data.petty_cash?.balance || 0) + (data.owner_capital?.balance || 0));
-                    
-                    // Update change indicators
-                    const incomeChange = data.month?.income_change || 0;
-                    document.getElementById('revenueChange').innerHTML = `
-                        <i data-feather="trending-${incomeChange >= 0 ? 'up' : 'down'}" style="width:14px;height:14px"></i>
-                        ${incomeChange >= 0 ? '+' : ''}${incomeChange}% vs last month
-                    `;
-                    document.getElementById('revenueChange').className = `stat-change ${incomeChange >= 0 ? 'positive' : 'negative'}`;
-                    
-                    // Update health metrics
-                    const income = data.month?.income || 1;
+            .sidebar {
+                position: fixed;
+                left: 0;
+                top: 0;
+                width: 80vw;
+                max-width: 320px;
+                min-width: 0;
+                height: 100vh;
+                z-index: 200;
+                transform: translateX(-100%);
+                transition: transform 0.3s cubic-bezier(.4,0,.2,1);
+                box-shadow: var(--shadow-lg);
+            }
+            .sidebar.open {
+                transform: translateX(0);
+            }
+            .main-content {
+                margin-left: 0;
+                padding: 8vw 2vw 2vw 2vw;
+            }
+            .grid-2, .grid-3, .grid-4 {
+                grid-template-columns: 1fr;
+            }
+            .comparison-card {
+                grid-column: span 1;
+            }
+            .room-grid {
+                grid-template-columns: repeat(2, 1fr);
+            }
+            .business-grid {
+                grid-template-columns: 1fr;
+            }
+            .card, .stat-card, .ai-health-card {
+                padding: 16px 8px;
+            }
+            .main-header h1 {
+                font-size: 20px;
+            }
+            .main-header p {
+                font-size: 12px;
+            }
+            .business-name {
+                font-size: 13px;
+            }
+            .business-type {
+                font-size: 11px;
+            }
+            .stat-value {
+                font-size: 18px;
+            }
+            .stat-label {
+                font-size: 10px;
+            }
+            .header-btn {
+                width: 36px;
+                height: 36px;
+            }
+            .brand-icon {
+                width: 32px;
+                height: 32px;
+            }
+        }
+        @media (max-width: 480px) {
+            .main-content {
+                padding: 4vw 1vw 1vw 1vw;
+            }
+            .ai-health-title {
+                font-size: 15px;
+            }
+            .ai-badge {
+                font-size: 9px;
+                padding: 2px 6px;
+            }
+            .health-score-value {
+                font-size: 16px;
+            }
+        }
                     const expense = data.month?.expense || 0;
                     const margin = Math.round(((income - expense) / income) * 100);
                     document.getElementById('profitMargin').textContent = margin + '%';
