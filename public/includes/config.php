@@ -21,8 +21,12 @@ setlocale(LC_TIME, 'id_ID.UTF-8');
 // ============================================
 // PATH CONFIGURATION
 // ============================================
-define('PUBLIC_PATH', __DIR__ . '/..');
-define('ROOT_PATH', dirname(PUBLIC_PATH));
+// Fix paths using realpath to handle Windows/Linux properly
+$publicPath = dirname(dirname(__FILE__)); // Go up 2 levels from includes/
+$rootPath = dirname($publicPath); // Go up 1 level from public/
+
+define('PUBLIC_PATH', $publicPath);
+define('ROOT_PATH', $rootPath);
 define('SYSTEM_PATH', ROOT_PATH);
 
 // Get hosted domain to load correct business config
@@ -33,6 +37,7 @@ $protocol = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off') ? 'https'
 $isLocalhost = (strpos($httpHost, 'localhost') !== false || strpos($httpHost, '127.0.0.1') !== false);
 
 if ($isLocalhost) {
+    // Support various port configurations (8081, etc)
     $hostUrl = $protocol . '://' . $httpHost . '/adf_system/public';
     $businessId = 'narayana-hotel'; // Default to narayana-hotel
 } else {
@@ -53,7 +58,11 @@ define('BUSINESS_ID', $businessId);
 // ============================================
 // LOAD BUSINESS CONFIGURATION
 // ============================================
-$businessConfig = require ROOT_PATH . '/config/businesses/' . BUSINESS_ID . '.php';
+$businessConfigPath = ROOT_PATH . DIRECTORY_SEPARATOR . 'config' . DIRECTORY_SEPARATOR . 'businesses' . DIRECTORY_SEPARATOR . BUSINESS_ID . '.php';
+if (!file_exists($businessConfigPath)) {
+    die("ERROR: Business config not found at: " . $businessConfigPath);
+}
+$businessConfig = require $businessConfigPath;
 define('BUSINESS_NAME', $businessConfig['name']);
 define('BUSINESS_TYPE', $businessConfig['business_type']);
 define('DB_NAME', $businessConfig['database']);
@@ -61,7 +70,6 @@ define('DB_NAME', $businessConfig['database']);
 // Get appropriate database name
 if ($isLocalhost) {
     // Local: adf_narayana_hotel
-    $dbName = str_replace('-', '', BUSINESS_ID);
     $dbName = match(BUSINESS_ID) {
         'narayana-hotel' => 'adf_narayana_hotel',
         'bens-cafe' => 'adf_benscafe',
@@ -71,6 +79,8 @@ if ($isLocalhost) {
     // Production
     $dbName = 'adfb2574_' . DB_NAME;
 }
+
+define('DB_NAME_FINAL', $dbName);
 
 // ============================================
 // DATABASE CONFIGURATION

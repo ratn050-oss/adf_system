@@ -18,8 +18,8 @@ class PublicDatabase {
     
     private function __construct() {
         try {
-            // Use localhost database name (based on business)
-            $dbName = DB_NAME;
+            // Use the final database name determined in config
+            $dbName = DB_NAME_FINAL;
             
             $dsn = "mysql:host=" . DB_HOST . ";dbname=" . $dbName . ";charset=" . DB_CHARSET;
             
