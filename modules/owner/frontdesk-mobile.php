@@ -92,15 +92,16 @@ try {
         $stmt->execute([$today]);
         $stats['checkouts'] = (int)$stmt->fetch(PDO::FETCH_ASSOC)['count'];
 
-        // Room counts
-        $stmt = $pdo->query("SELECT COUNT(*) FROM rooms WHERE status = 'available'");
-        $stats['available'] = (int)$stmt->fetchColumn();
-        
-        $stmt = $pdo->query("SELECT COUNT(*) FROM rooms WHERE status = 'occupied'");
-        $stats['occupied'] = (int)$stmt->fetchColumn();
-        
+        // Room counts - use same logic as frontdesk dashboard
         $stmt = $pdo->query("SELECT COUNT(*) FROM rooms");
         $stats['total_rooms'] = (int)$stmt->fetchColumn();
+        
+        // Current occupancy - count from bookings where status = 'checked_in' (same as frontdesk)
+        $stmt = $pdo->query("SELECT COUNT(DISTINCT room_id) FROM bookings WHERE status = 'checked_in'");
+        $stats['occupied'] = (int)$stmt->fetchColumn();
+        
+        // Available = total - occupied
+        $stats['available'] = $stats['total_rooms'] - $stats['occupied'];
 
         // Occupancy rate
         $stats['occupancy'] = $stats['total_rooms'] > 0 ? round(($stats['occupied'] / $stats['total_rooms']) * 100) : 0;
@@ -309,7 +310,7 @@ function rp($num) {
         }
         
         .pie-percent {
-            font-size: 22px;
+            font-size: 16px;
             font-weight: 800;
             color: var(--primary);
         }
@@ -655,7 +656,7 @@ function rp($num) {
         <!-- Header -->
         <div class="header">
             <div class="header-logo">
-                <img src="<?= $basePath ?>/uploads/logos/logo.png" alt="Logo" onerror="this.parentElement.style.display='none'">
+                <img src="<?= $basePath ?>/uploads/logos/narayana-hotel_logo.png" alt="Logo" onerror="this.parentElement.style.display='none'">
             </div>
             <div class="header-title">Frontdesk Monitor</div>
             <div class="header-subtitle">Narayana Hotel & Ayurveda</div>

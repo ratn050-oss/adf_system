@@ -905,7 +905,7 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
         <header class="header">
             <div class="brand">
                 <div class="brand-icon">
-                    <img src="<?= $basePath ?>/uploads/logos/logo.png" alt="Logo">
+                    <img src="<?= $basePath ?>/uploads/logos/narayana-hotel_logo.png" alt="Logo">
                 </div>
                 <div class="brand-text">
                     Narayana Hotel

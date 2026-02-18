@@ -584,7 +584,7 @@ $usagePercent = $totalBudget > 0 ? round(($totalExpenses / $totalBudget) * 100) 
         <!-- Header -->
         <div class="header">
             <div class="header-logo">
-                <img src="<?= $basePath ?>/uploads/logos/logo.png" alt="Logo" onerror="this.parentElement.style.display='none'">
+                <img src="<?= $basePath ?>/uploads/logos/narayana-hotel_logo.png" alt="Logo" onerror="this.parentElement.style.display='none'">
             </div>
             <div class="header-title">Projects & Investors</div>
             <div class="header-subtitle">Investment Overview</div>
