@@ -168,8 +168,8 @@ try {
     $stmt = $pdo->query("SELECT COUNT(*) FROM cash_book");
     $stats['total_transactions'] = (int)$stmt->fetchColumn();
     
-    // Recent transactions
-    $stmt = $pdo->query("SELECT id, transaction_date, description, transaction_type, amount FROM cash_book ORDER BY transaction_date DESC, id DESC LIMIT 10");
+    // Recent transactions - SAME AS CASHBOOK (include payment_method)
+    $stmt = $pdo->query("SELECT id, transaction_date, description, transaction_type, amount, payment_method FROM cash_book ORDER BY transaction_date DESC, id DESC LIMIT 10");
     $transactions = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
 } catch (Exception $e) {
@@ -742,6 +742,21 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
         .tx-amount.income { color: var(--success); }
         .tx-amount.expense { color: var(--danger); }
         
+        .tx-method {
+            display: inline-block;
+            font-size: 8px;
+            font-weight: 600;
+            padding: 2px 5px;
+            border-radius: 3px;
+            text-transform: uppercase;
+            margin-left: 4px;
+        }
+        .tx-method.cash { background: #dcfce7; color: #16a34a; }
+        .tx-method.transfer, .tx-method.tf { background: #dbeafe; color: #2563eb; }
+        .tx-method.qr { background: #fef3c7; color: #d97706; }
+        .tx-method.debit, .tx-method.edc { background: #f3e8ff; color: #9333ea; }
+        .tx-method.other { background: #f1f5f9; color: #64748b; }
+        
         /* Footer Nav */
         .nav-bottom {
             position: fixed;
@@ -1025,7 +1040,11 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
                 <li class="tx-item">
                     <div>
                         <div class="tx-desc"><?= htmlspecialchars($tx['description'] ?? '-') ?></div>
-                        <div class="tx-date"><?= date('d M Y', strtotime($tx['transaction_date'])) ?></div>
+                        <div class="tx-date"><?= date('d M Y', strtotime($tx['transaction_date'])) ?>
+                            <span class="tx-method <?= strtolower($tx['payment_method'] ?? 'cash') ?>">
+                                <?= strtoupper($tx['payment_method'] ?? 'CASH') ?>
+                            </span>
+                        </div>
                     </div>
                     <div class="tx-amount <?= $tx['transaction_type'] ?>">
                         <?= $tx['transaction_type'] === 'income' ? '+' : '-' ?><?= rp($tx['amount']) ?>
