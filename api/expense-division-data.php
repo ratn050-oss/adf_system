@@ -1,23 +1,26 @@
 <?php
 /**
  * API: Expense per Division data for pie chart
- * Used by owner dashboard-2028.php
+ * Used by owner dashboard-2028.php - Multi-business aware
  */
 define('APP_ACCESS', true);
 require_once __DIR__ . '/../config/config.php';
+require_once __DIR__ . '/../includes/business_helper.php';
 
 header('Content-Type: application/json');
 
 // Auth check
-session_start();
+if (session_status() !== PHP_SESSION_ACTIVE) session_start();
 $role = $_SESSION['role'] ?? null;
 if (!$role || !in_array($role, ['admin', 'owner', 'manager', 'developer'])) {
     echo json_encode(['success' => false, 'message' => 'Unauthorized']);
     exit;
 }
 
-$isProduction = (strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost') === false);
-$businessDbName = $isProduction ? 'adfb2574_narayana_hotel' : 'adf_narayana_hotel';
+// Get business DB - from param or active session
+$businessCode = isset($_GET['business']) ? $_GET['business'] : getActiveBusinessId();
+$bizConfig = getAvailableBusinesses()[$businessCode] ?? getActiveBusinessConfig();
+$businessDbName = getDbName($bizConfig['database'] ?? 'adf_narayana_hotel');
 
 $month = isset($_GET['month']) ? $_GET['month'] : date('Y-m');
 

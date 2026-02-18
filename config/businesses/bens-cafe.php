@@ -15,10 +15,8 @@ return [
         'reports',
         'divisions',
         'procurement',
-        'sales',
-        'investor',
-        'project'
-        // Module khusus: menu, orders, beverages (nanti ditambah)
+        'sales'
+        // No frontdesk, investor, project for cafe
     ],
     
     'theme' => [

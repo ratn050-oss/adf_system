@@ -2,9 +2,11 @@
 /**
  * OWNER DASHBOARD 2028
  * Data langsung dari PHP - Same logic as System Dashboard (index.php)
+ * Multi-business aware via business_helper.php
  */
 define('APP_ACCESS', true);
 require_once __DIR__ . '/../../config/config.php';
+require_once __DIR__ . '/../../includes/business_helper.php';
 
 $isProduction = (strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost') === false);
 $basePath = $isProduction ? '' : '/adf_system';
@@ -32,12 +34,30 @@ if (!$role || !in_array($role, ['admin', 'owner', 'manager', 'developer'])) {
 $userName = $_SESSION['username'] ?? 'Owner';
 $isDev = ($role === 'developer');
 
-// DATABASE CONFIG
+// BUSINESS SWITCHER - handle switch request
+if (isset($_GET['business']) && !empty($_GET['business'])) {
+    setActiveBusinessId($_GET['business']);
+    header('Location: ' . $basePath . '/modules/owner/dashboard-2028.php');
+    exit;
+}
+
+// Get all available businesses & active config
+$allBusinesses = getAvailableBusinesses();
+$activeBusinessId = getActiveBusinessId();
+$activeConfig = getActiveBusinessConfig();
+
+// DATABASE CONFIG - dynamic from business config
 $dbHost = DB_HOST;
 $dbUser = DB_USER;
 $dbPass = DB_PASS;
 $masterDbName = $isProduction ? 'adfb2574_adf' : 'adf_system';
-$businessDbName = $isProduction ? 'adfb2574_narayana_hotel' : 'adf_narayana_hotel';
+$businessDbName = getDbName($activeConfig['database'] ?? 'adf_narayana_hotel');
+$businessName = $activeConfig['name'] ?? 'Unknown Business';
+$businessType = $activeConfig['business_type'] ?? 'other';
+$businessIcon = $activeConfig['theme']['icon'] ?? '🏢';
+$enabledModules = $activeConfig['enabled_modules'] ?? [];
+$hasLogo = !empty($activeConfig['logo']);
+$logoFile = $activeBusinessId . '_logo.png';
 
 // Get stats - SAME LOGIC AS SYSTEM DASHBOARD (index.php)
 $stats = [
@@ -67,7 +87,13 @@ try {
     
     $today = date('Y-m-d');
     $thisMonth = date('Y-m');
-    $businessId = 1; // Narayana Hotel
+    
+    // Get numeric business ID from master DB
+    $businessId = null;
+    $stmt = $masterPdo->prepare("SELECT id FROM businesses WHERE database_name = ? LIMIT 1");
+    $stmt->execute([$activeConfig['database'] ?? '']);
+    $bizRow = $stmt->fetch(PDO::FETCH_ASSOC);
+    $businessId = $bizRow ? (int)$bizRow['id'] : 1;
     
     // Get owner_capital account IDs from master DB
     $stmt = $masterPdo->prepare("SELECT id FROM cash_accounts WHERE business_id = ? AND account_type = 'owner_capital'");
@@ -338,20 +364,20 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
             font-weight: 600;
         }
         
-        /* Info Card */
+        /* Info Card → Business Switcher */
         .info-card {
             background: var(--surface);
             border-radius: 16px;
-            padding: 16px;
+            padding: 14px 16px;
             margin-bottom: 16px;
-            display: flex;
-            align-items: center;
-            gap: 16px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.04);
         }
         .info-card.error {
             background-color: #fff1f2;
             color: var(--danger);
+            display: flex;
+            align-items: center;
+            gap: 16px;
         }
         .info-card-icon {
             font-size: 24px;
@@ -368,6 +394,79 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
             font-size: 16px;
             font-weight: 600;
             color: var(--text-primary);
+        }
+        
+        /* Business Switcher */
+        .biz-switcher {
+            display: flex;
+            gap: 8px;
+            overflow-x: auto;
+            scrollbar-width: none;
+            -ms-overflow-style: none;
+            padding: 2px 0;
+        }
+        .biz-switcher::-webkit-scrollbar { display: none; }
+        .biz-pill {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 14px;
+            border-radius: 12px;
+            background: var(--bg);
+            border: 1.5px solid var(--border);
+            text-decoration: none;
+            white-space: nowrap;
+            transition: all 0.2s;
+            flex-shrink: 0;
+            cursor: pointer;
+        }
+        .biz-pill:active { transform: scale(0.97); }
+        .biz-pill.active {
+            background: linear-gradient(135deg, var(--accent), var(--accent-light));
+            border-color: var(--accent);
+            box-shadow: 0 4px 12px rgba(99,102,241,0.25);
+        }
+        .biz-pill-icon {
+            width: 28px;
+            height: 28px;
+            border-radius: 8px;
+            overflow: hidden;
+            background: white;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            flex-shrink: 0;
+            font-size: 16px;
+        }
+        .biz-pill.active .biz-pill-icon {
+            box-shadow: 0 2px 6px rgba(0,0,0,0.15);
+        }
+        .biz-pill-icon img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        .biz-pill-text {
+            display: flex;
+            flex-direction: column;
+            line-height: 1.2;
+        }
+        .biz-pill-name {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text-primary);
+        }
+        .biz-pill.active .biz-pill-name {
+            color: white;
+        }
+        .biz-pill-type {
+            font-size: 9px;
+            color: var(--text-muted);
+            text-transform: capitalize;
+        }
+        .biz-pill.active .biz-pill-type {
+            color: rgba(255,255,255,0.7);
+        }
         }
         
         /* DB Info */
@@ -1084,10 +1183,14 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
         <header class="header">
             <div class="brand">
                 <div class="brand-icon">
-                    <img src="<?= $basePath ?>/uploads/logos/narayana-hotel_logo.png" alt="Logo">
+                    <?php if (file_exists(__DIR__ . '/../../uploads/logos/' . $logoFile)): ?>
+                        <img src="<?= $basePath ?>/uploads/logos/<?= $logoFile ?>" alt="Logo">
+                    <?php else: ?>
+                        <span style="font-size:22px;display:flex;align-items:center;justify-content:center;width:100%;height:100%"><?= $businessIcon ?></span>
+                    <?php endif; ?>
                 </div>
                 <div class="brand-text">
-                    Narayana Hotel
+                    <?= htmlspecialchars($businessName) ?>
                     <span class="brand-subtext">Owner Dashboard</span>
                 </div>
             </div>
@@ -1109,13 +1212,31 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
                 </div>
             </div>
         <?php else: ?>
+
+            <!-- Business Switcher -->
             <div class="info-card">
-                <div class="info-card-icon">✅</div>
-                <div class="info-card-content">
-                    <div class="info-card-title">Connected · <?= $businessDbName ?></div>
-                    <div class="info-card-value"><?= number_format($stats['total_transactions']) ?> Transactions recorded</div>
+                <div style="font-size:10px;color:var(--text-muted);margin-bottom:6px;font-weight:500;text-transform:uppercase;letter-spacing:0.5px;">Switch Business</div>
+                <div class="biz-switcher">
+                    <?php foreach ($allBusinesses as $bizId => $biz): 
+                        $isActive = ($bizId === $activeBusinessId);
+                        $bizLogoFile = $bizId . '_logo.png';
+                        $bizLogoExists = file_exists(__DIR__ . '/../../uploads/logos/' . $bizLogoFile);
+                    ?>
+                    <a href="<?= $basePath ?>/modules/owner/dashboard-2028.php?business=<?= urlencode($bizId) ?>" class="biz-pill <?= $isActive ? 'active' : '' ?>">
+                        <div class="biz-pill-icon">
+                            <?php if ($bizLogoExists): ?>
+                                <img src="<?= $basePath ?>/uploads/logos/<?= $bizLogoFile ?>" alt="">
+                            <?php else: ?>
+                                <?= $biz['theme']['icon'] ?? '🏢' ?>
+                            <?php endif; ?>
+                        </div>
+                        <div class="biz-pill-text">
+                            <span class="biz-pill-name"><?= htmlspecialchars($biz['name']) ?></span>
+                            <span class="biz-pill-type"><?= $biz['business_type'] ?? 'business' ?></span>
+                        </div>
+                    </a>
+                    <?php endforeach; ?>
                 </div>
-                <div style="font-size:11px;color:var(--text-muted);white-space:nowrap"><?= date('d M Y') ?></div>
             </div>
         
         <!-- Hero with Pie Chart -->
@@ -1332,14 +1453,18 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
             <span class="nav-icon" style="font-family: 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif;">&#127968;</span>
             <span>Home</span>
         </a>
+        <?php if (in_array('frontdesk', $enabledModules)): ?>
         <a href="<?= $basePath ?>/modules/owner/frontdesk-mobile.php" class="nav-item">
             <span class="nav-icon" style="font-family: 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif;">&#128197;</span>
             <span>Frontdesk</span>
         </a>
+        <?php endif; ?>
+        <?php if (in_array('project', $enabledModules) || in_array('investor', $enabledModules)): ?>
         <a href="<?= $basePath ?>/modules/owner/investor-monitor.php" class="nav-item">
             <span class="nav-icon" style="font-family: 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif;">&#128200;</span>
             <span>Projects</span>
         </a>
+        <?php endif; ?>
         <a href="<?= $basePath ?>/logout.php" class="nav-item">
             <span class="nav-icon" style="font-family: 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif;">&#128682;</span>
             <span>Logout</span>
@@ -1403,7 +1528,8 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
         // AJAX update for month change
         window.updateExpenseDivisionChart = function(month) {
             var basePath = '<?= $basePath ?>';
-            fetch(basePath + '/api/expense-division-data.php?month=' + month)
+            var activeBiz = '<?= $activeBusinessId ?>';
+            fetch(basePath + '/api/expense-division-data.php?month=' + month + '&business=' + activeBiz)
                 .then(function(r){ return r.json(); })
                 .then(function(data) {
                     if (data.success && data.divisions.length > 0) {
