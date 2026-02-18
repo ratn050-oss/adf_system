@@ -49,7 +49,7 @@ $nextMonth = date('Y-m-t', strtotime($currentMonth));
 
 // Get Kas Modal Owner account from MASTER DB
 $stmt = $masterDb->prepare(
-    "SELECT * FROM cash_accounts WHERE business_id = ? AND account_type = 'owner_capital' AND is_active = 1"
+    "SELECT * FROM cash_accounts WHERE business_id = ? AND account_type = 'owner_capital'"
 );
 $stmt->execute([$businessId]);
 $ownerCapitalAccount = $stmt->fetch();
@@ -116,7 +116,7 @@ $remainingCapital = $currentBalance;
 
 // Get Petty Cash account from MASTER DB
 $stmt = $masterDb->prepare(
-    "SELECT * FROM cash_accounts WHERE business_id = ? AND account_type = 'cash' AND is_active = 1"
+    "SELECT * FROM cash_accounts WHERE business_id = ? AND account_type = 'cash'"
 );
 $stmt->execute([$businessId]);
 $pettyCashAccount = $stmt->fetch();
