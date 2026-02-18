@@ -516,23 +516,39 @@ if (isset($_GET['biz'])) {
         .remember-me-wrapper {
             display: flex;
             align-items: center;
-            gap: 0.5rem;
+            gap: 0.6rem;
             margin-bottom: 1rem;
+            padding: 10px 14px;
+            background: rgba(99, 102, 241, 0.1);
+            border: 1px solid rgba(99, 102, 241, 0.2);
+            border-radius: 10px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .remember-me-wrapper:hover {
+            background: rgba(99, 102, 241, 0.15);
+            border-color: rgba(99, 102, 241, 0.35);
         }
         
         .remember-me-wrapper input[type="checkbox"] {
-            width: 16px;
-            height: 16px;
+            width: 18px;
+            height: 18px;
             cursor: pointer;
             accent-color: #818cf8;
         }
         
         .remember-me-wrapper label {
-            color: #cbd5e1;
-            font-size: 0.75rem;
+            color: #e2e8f0;
+            font-size: 0.82rem;
             cursor: pointer;
             margin-bottom: 0;
             user-select: none;
+            font-weight: 500;
+        }
+        
+        .remember-me-wrapper input[type="checkbox"]:checked + label {
+            color: #a5b4fc;
         }
         
         .demo-credentials {
@@ -682,9 +698,9 @@ if (isset($_GET['biz'])) {
                     </div>
                 </div>
                 
-                <div class="remember-me-wrapper">
-                    <input type="checkbox" name="remember_me" id="rememberMe">
-                    <label for="rememberMe">💾 Simpan Password</label>
+                <div class="remember-me-wrapper" onclick="document.getElementById('rememberMe').click();">
+                    <input type="checkbox" name="remember_me" id="rememberMe" onclick="event.stopPropagation();">
+                    <label for="rememberMe">💾 Simpan Password (Auto Login)</label>
                 </div>
                 
                 <div class="login-buttons">
@@ -736,6 +752,8 @@ if (isset($_GET['biz'])) {
         const usernameInput = document.querySelector('input[name="username"]');
         const passwordInput = document.querySelector('input[name="password"]');
         const rememberCheckbox = document.getElementById('rememberMe');
+        const rememberWrapper = document.querySelector('.remember-me-wrapper');
+        const rememberLabel = rememberWrapper.querySelector('label');
         
         // Load saved credentials
         const savedUsername = localStorage.getItem('saved_username');
@@ -746,7 +764,27 @@ if (isset($_GET['biz'])) {
             usernameInput.value = savedUsername;
             passwordInput.value = savedPassword;
             rememberCheckbox.checked = true;
+            // Show saved indicator
+            rememberWrapper.style.background = 'rgba(16, 185, 129, 0.15)';
+            rememberWrapper.style.borderColor = 'rgba(16, 185, 129, 0.35)';
+            rememberLabel.innerHTML = '✅ Password Tersimpan - Langsung Login!';
+            rememberLabel.style.color = '#34d399';
         }
+        
+        // Update label when checkbox changes
+        rememberCheckbox.addEventListener('change', function() {
+            if (this.checked) {
+                rememberLabel.innerHTML = '💾 Simpan Password (Auto Login)';
+                rememberLabel.style.color = '#a5b4fc';
+                rememberWrapper.style.background = 'rgba(99, 102, 241, 0.15)';
+                rememberWrapper.style.borderColor = 'rgba(99, 102, 241, 0.35)';
+            } else {
+                rememberLabel.innerHTML = '💾 Simpan Password (Auto Login)';
+                rememberLabel.style.color = '#e2e8f0';
+                rememberWrapper.style.background = 'rgba(99, 102, 241, 0.1)';
+                rememberWrapper.style.borderColor = 'rgba(99, 102, 241, 0.2)';
+            }
+        });
         
         // Save on form submit
         form.addEventListener('submit', function() {
