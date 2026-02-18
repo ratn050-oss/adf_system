@@ -131,7 +131,7 @@ try {
         $capitalStats['balance'] = 0;
     }
 
-    // Query Petty Cash stats
+    // Query Petty Cash stats (Only cash payment method - same as system dashboard)
     if (!empty($pettyCashAccounts)) {
         $placeholders = implode(',', array_fill(0, count($pettyCashAccounts), '?'));
         $query = "
@@ -143,6 +143,7 @@ try {
             FROM cash_book 
             WHERE cash_account_id IN ($placeholders)
             AND DATE_FORMAT(transaction_date, '%Y-%m') = ?
+            AND payment_method = 'cash'
         ";
         $params = array_merge($pettyCashAccounts, [$thisMonth]);
         $stmt = $pdo->prepare($query);
@@ -519,31 +520,31 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
         .operational-section {
             background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
             border: 1px solid #bae6fd;
-            border-radius: 20px;
-            padding: 20px;
-            margin-bottom: 20px;
+            border-radius: 12px;
+            padding: 12px;
+            margin-bottom: 12px;
         }
         
         .operational-title {
-            font-size: 14px;
+            font-size: 11px;
             font-weight: 600;
             color: #0369a1;
-            margin-bottom: 16px;
+            margin-bottom: 10px;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 6px;
         }
         
         .operational-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 12px;
+            gap: 8px;
         }
         
         .op-card {
             background: white;
-            border-radius: 14px;
-            padding: 14px;
+            border-radius: 10px;
+            padding: 10px;
             box-shadow: 0 2px 6px rgba(0,0,0,0.04);
             position: relative;
             overflow: hidden;
@@ -555,7 +556,7 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
             top: 0;
             left: 0;
             right: 0;
-            height: 3px;
+            height: 2px;
             background: linear-gradient(90deg, var(--gradient-start), var(--gradient-end));
         }
         
@@ -565,16 +566,16 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
         .op-card.total-kas { --gradient-start: #6366f1; --gradient-end: #818cf8; }
         
         .op-label {
-            font-size: 10px;
+            font-size: 9px;
             text-transform: uppercase;
             letter-spacing: 0.5px;
             font-weight: 600;
             color: var(--gradient-start);
-            margin-bottom: 6px;
+            margin-bottom: 4px;
         }
         
         .op-value {
-            font-size: 15px;
+            font-size: 13px;
             font-weight: 700;
             color: #1e293b;
         }
@@ -944,22 +945,22 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
         
         <!-- Operational Section - SAME DATA AS SYSTEM DASHBOARD -->
         <div class="operational-section">
-            <div class="operational-title">💰 Kas Operasional Harian - <?= date('F Y') ?></div>
+            <div class="operational-title">💰 Kas Operasional - <?= date('M Y') ?></div>
             <div class="operational-grid">
                 <div class="op-card modal-owner">
-                    <div class="op-label">💵 Modal Owner</div>
+                    <div class="op-label">Modal Owner</div>
                     <div class="op-value"><?= rp($capitalStats['balance']) ?></div>
                 </div>
                 <div class="op-card petty-cash">
-                    <div class="op-label">💰 Petty Cash</div>
+                    <div class="op-label">Petty Cash</div>
                     <div class="op-value"><?= rp($pettyCashStats['balance']) ?></div>
                 </div>
                 <div class="op-card digunakan">
-                    <div class="op-label">💸 Digunakan</div>
+                    <div class="op-label">Digunakan</div>
                     <div class="op-value"><?= rp($totalOperationalExpense) ?></div>
                 </div>
                 <div class="op-card total-kas">
-                    <div class="op-label">💎 Total Kas</div>
+                    <div class="op-label">Total Saldo</div>
                     <div class="op-value"><?= rp($totalOperationalCash) ?></div>
                 </div>
             </div>
