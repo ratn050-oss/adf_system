@@ -95,19 +95,30 @@ try {
     $bizRow = $stmt->fetch(PDO::FETCH_ASSOC);
     $businessId = $bizRow ? (int)$bizRow['id'] : 1;
     
+    // Check if cash_account_id column exists in this business's cash_book
+    $hasCashAccountId = false;
+    try {
+        $colCheck = $pdo->query("SHOW COLUMNS FROM cash_book LIKE 'cash_account_id'");
+        $hasCashAccountId = ($colCheck && $colCheck->rowCount() > 0);
+    } catch (Exception $e) { /* column doesn't exist */ }
+
     // Get owner_capital account IDs from master DB
-    $stmt = $masterPdo->prepare("SELECT id FROM cash_accounts WHERE business_id = ? AND account_type = 'owner_capital'");
-    $stmt->execute([$businessId]);
-    $capitalAccounts = $stmt->fetchAll(PDO::FETCH_COLUMN);
-    
-    // Get cash (Petty Cash) account IDs from master DB
-    $stmt = $masterPdo->prepare("SELECT id FROM cash_accounts WHERE business_id = ? AND account_type = 'cash'");
-    $stmt->execute([$businessId]);
-    $pettyCashAccounts = $stmt->fetchAll(PDO::FETCH_COLUMN);
+    $capitalAccounts = [];
+    $pettyCashAccounts = [];
+    if ($hasCashAccountId) {
+        $stmt = $masterPdo->prepare("SELECT id FROM cash_accounts WHERE business_id = ? AND account_type = 'owner_capital'");
+        $stmt->execute([$businessId]);
+        $capitalAccounts = $stmt->fetchAll(PDO::FETCH_COLUMN);
+        
+        // Get cash (Petty Cash) account IDs from master DB
+        $stmt = $masterPdo->prepare("SELECT id FROM cash_accounts WHERE business_id = ? AND account_type = 'cash'");
+        $stmt->execute([$businessId]);
+        $pettyCashAccounts = $stmt->fetchAll(PDO::FETCH_COLUMN);
+    }
     
     // Build exclude owner capital condition for income/expense totals
     $excludeOwnerCapital = '';
-    if (!empty($capitalAccounts)) {
+    if ($hasCashAccountId && !empty($capitalAccounts)) {
         $excludeOwnerCapital = " AND (cash_account_id IS NULL OR cash_account_id NOT IN (" . implode(',', $capitalAccounts) . "))";
     }
     
@@ -132,7 +143,7 @@ try {
     $stats['month_expense'] = (float)$stmt->fetchColumn();
     
     // Query Modal Owner stats (from cash_book with cash_account_id filter)
-    if (!empty($capitalAccounts)) {
+    if ($hasCashAccountId && !empty($capitalAccounts)) {
         $placeholders = implode(',', array_fill(0, count($capitalAccounts), '?'));
         $query = "
             SELECT 
@@ -158,7 +169,7 @@ try {
     }
 
     // Query Petty Cash stats (Only cash payment method - same as system dashboard)
-    if (!empty($pettyCashAccounts)) {
+    if ($hasCashAccountId && !empty($pettyCashAccounts)) {
         $placeholders = implode(',', array_fill(0, count($pettyCashAccounts), '?'));
         $query = "
             SELECT 
@@ -231,7 +242,6 @@ try {
     
 } catch (Exception $e) {
     $error = $e->getMessage();
-    echo '<div style="background:#fee;color:#b91c1c;padding:16px 20px;margin:20px 0;border-radius:8px;font-size:15px;font-family:monospace;">ERROR: '.htmlspecialchars($error).'</div>';
 }
 
 // Format rupiah
@@ -248,7 +258,7 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Owner Dashboard - Narayana Hotel</title>
+    <title>Owner Dashboard - <?= htmlspecialchars($businessName) ?></title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
@@ -1203,17 +1213,7 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
             </div>
         </header>
 
-        <?php if ($error): ?>
-            <div class="info-card error">
-                <div class="info-card-icon">❌</div>
-                <div class="info-card-content">
-                    <div class="info-card-title">Connection Error</div>
-                    <div class="info-card-value"><?= htmlspecialchars($error) ?></div>
-                </div>
-            </div>
-        <?php else: ?>
-
-            <!-- Business Switcher -->
+            <!-- Business Switcher (always visible) -->
             <div class="info-card">
                 <div style="font-size:10px;color:var(--text-muted);margin-bottom:6px;font-weight:500;text-transform:uppercase;letter-spacing:0.5px;">Switch Business</div>
                 <div class="biz-switcher">
@@ -1238,7 +1238,18 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
                     <?php endforeach; ?>
                 </div>
             </div>
+
+        <?php if ($error): ?>
+            <div class="info-card error">
+                <div class="info-card-icon">❌</div>
+                <div class="info-card-content">
+                    <div class="info-card-title">Connection Error</div>
+                    <div class="info-card-value"><?= htmlspecialchars($error) ?></div>
+                </div>
+            </div>
+        <?php endif; ?>
         
+        <?php if (!$error): ?>
         <!-- Hero with Pie Chart -->
         <div class="hero">
             <div class="hero-content">
@@ -1443,7 +1454,7 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
             </ul>
         </div>
 
-        <?php endif; // end else (no error) ?>
+        <?php endif; // end if (!$error) ?>
 
     </div><!-- end .container -->
 
