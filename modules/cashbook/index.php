@@ -724,7 +724,7 @@ echo getPrintCSS();
                 <th style="width: 10%;">Tanggal</th>
                 <th style="width: 6%;">Waktu</th>
                 <th style="width: 12%;">Divisi</th>
-                <th style="width: 12%;">Kategori</th>
+                <th style="width: 12%;">Kategori/Nama</th>
                 <th style="width: 6%;">Tipe</th>
                 <th style="width: 14%; text-align: right;">Jumlah</th>
                 <th style="width: 40%;">Deskripsi</th>
@@ -931,7 +931,7 @@ echo getPrintCSS();
                     <th style="width: 85px;">Tanggal</th>
                     <th style="width: 50px;">Waktu</th>
                     <th style="width: 100px;">Divisi</th>
-                    <th style="width: 110px;">Kategori</th>
+                    <th style="width: 110px;">Kategori/Nama</th>
                     <th style="width: 60px;">Tipe</th>
                     <th style="width: 70px;">Metode</th>
                     <th style="width: 100px; text-align: right;">Jumlah</th>

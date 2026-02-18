@@ -141,10 +141,10 @@ $yearlyExpense = ['total' => $yearlyExpenseResult[0]['total'] ?? 0];
 $totalBalance = ($yearlyIncome['total'] ?? 0) - ($yearlyExpense['total'] ?? 0);
 
 // ============================================
-// ALL TIME CASH (REAL MONEY - Operational Only)
+// ALL TIME CASH (REAL MONEY - Only Cash Payment Method)
 // ============================================
 $allTimeCashResult = $db->fetchOne(
-    "SELECT SUM(CASE WHEN transaction_type = 'income' THEN amount ELSE -amount END) as balance FROM cash_book WHERE 1=1" . $excludeOwnerCapital
+    "SELECT SUM(CASE WHEN transaction_type = 'income' THEN amount ELSE -amount END) as balance FROM cash_book WHERE payment_method = 'cash'" . $excludeOwnerCapital
 );
 $totalRealCash = $allTimeCashResult['balance'] ?? 0;
 
