@@ -175,8 +175,8 @@ if ($pettyCashAccount) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Monitor Kas Modal Owner - Narayana</title>
-    <link rel="stylesheet" href="../../assets/css/style.css">
+    <title>Monitor Daily Expenses - Narayana</title>
+    <!-- Note: Tidak pakai style.css global karena halaman ini punya style sendiri untuk light theme -->
     <script src="https://cdn.jsdelivr.net/npm/feather-icons/dist/feather.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <style>
@@ -191,6 +191,7 @@ if ($pettyCashAccount) {
             background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
             min-height: 100vh;
             padding: 1.5rem;
+            color: #1e293b; /* Default text color - dark */
         }
         
         .container {
