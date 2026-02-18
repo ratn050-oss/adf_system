@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /**
  * OWNER DASHBOARD 2028
  * Data langsung dari PHP - Same logic as System Dashboard (index.php)
@@ -742,7 +742,7 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
     <div class="container">
         <!-- Header -->
         <header class="header">
-            <div class="brand">🏨 Narayana Hotel</div>
+            <div class="brand">ðŸ¨ Narayana Hotel</div>
             <div class="user-badge">
                 <div class="avatar"><?= strtoupper(substr($userName, 0, 1)) ?></div>
                 <span><?= htmlspecialchars($userName) ?></span>
@@ -751,12 +751,12 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
         
         <?php if ($error): ?>
             <div class="db-info error">
-                ❌ Error: <?= htmlspecialchars($error) ?>
+                âŒ Error: <?= htmlspecialchars($error) ?>
             </div>
         <?php else: ?>
         
         <div class="db-info">
-            ✅ Connected: <?= $dbName ?> | <?= $stats['total_transactions'] ?> transaksi
+            âœ… Connected: <?= $dbName ?> | <?= $stats['total_transactions'] ?> transaksi
         </div>
         
         <!-- Hero with Pie Chart -->
@@ -797,22 +797,22 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
         <!-- Stats Grid -->
         <div class="stats-grid">
             <div class="stat-card">
-                <div class="stat-label">📈 Today Income</div>
+                <div class="stat-label">ðŸ“ˆ Today Income</div>
                 <div class="stat-value income"><?= rp($stats['today_income']) ?></div>
                 <div class="stat-sub">Revenue hari ini</div>
             </div>
             <div class="stat-card">
-                <div class="stat-label">📉 Today Expense</div>
+                <div class="stat-label">ðŸ“‰ Today Expense</div>
                 <div class="stat-value expense"><?= rp($stats['today_expense']) ?></div>
                 <div class="stat-sub">Pengeluaran hari ini</div>
             </div>
             <div class="stat-card">
-                <div class="stat-label">📈 Month Income</div>
+                <div class="stat-label">ðŸ“ˆ Month Income</div>
                 <div class="stat-value income"><?= rp($stats['month_income']) ?></div>
                 <div class="stat-sub">Total bulan ini</div>
             </div>
             <div class="stat-card">
-                <div class="stat-label">📉 Month Expense</div>
+                <div class="stat-label">ðŸ“‰ Month Expense</div>
                 <div class="stat-value expense"><?= rp($stats['month_expense']) ?></div>
                 <div class="stat-sub">Pengeluaran bulan ini</div>
             </div>
@@ -820,22 +820,22 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
         
         <!-- Operational Section - SAME DATA AS SYSTEM DASHBOARD -->
         <div class="operational-section">
-            <div class="operational-title">💰 Kas Operasional Harian - <?= date('F Y') ?></div>
+            <div class="operational-title">ðŸ’° Kas Operasional Harian - <?= date('F Y') ?></div>
             <div class="operational-grid">
                 <div class="op-card modal-owner">
-                    <div class="op-label">💵 Modal Owner</div>
+                    <div class="op-label">ðŸ’µ Modal Owner</div>
                     <div class="op-value"><?= rp($capitalStats['balance']) ?></div>
                 </div>
                 <div class="op-card petty-cash">
-                    <div class="op-label">💰 Petty Cash</div>
+                    <div class="op-label">ðŸ’° Petty Cash</div>
                     <div class="op-value"><?= rp($pettyCashStats['balance']) ?></div>
                 </div>
                 <div class="op-card digunakan">
-                    <div class="op-label">💸 Digunakan</div>
+                    <div class="op-label">ðŸ’¸ Digunakan</div>
                     <div class="op-value"><?= rp($totalOperationalExpense) ?></div>
                 </div>
                 <div class="op-card total-kas">
-                    <div class="op-label">💎 Total Kas</div>
+                    <div class="op-label">ðŸ’Ž Total Kas</div>
                     <div class="op-value"><?= rp($totalOperationalCash) ?></div>
                 </div>
             </div>
@@ -845,7 +845,7 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
         <div class="ai-card">
             <div class="ai-header">
                 <div class="ai-title-wrap">
-                    <span class="ai-badge">✨ AI</span>
+                    <span class="ai-badge">âœ¨ AI</span>
                     <span class="ai-title">Business Health</span>
                 </div>
                 <div class="ai-score">
@@ -856,13 +856,13 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
             <div class="ai-content">
                 <?php
                 if ($expenseRatio < 50) {
-                    echo "🟢 <strong>Excellent!</strong> Expense ratio " . number_format($expenseRatio, 1) . "% dari income. Keuangan sangat sehat dengan margin profit tinggi.";
+                    echo "ðŸŸ¢ <strong>Excellent!</strong> Expense ratio " . number_format($expenseRatio, 1) . "% dari income. Keuangan sangat sehat dengan margin profit tinggi.";
                 } elseif ($expenseRatio < 70) {
-                    echo "🟡 <strong>Good.</strong> Expense ratio " . number_format($expenseRatio, 1) . "% dari income. Pertahankan efisiensi operasional.";
+                    echo "ðŸŸ¡ <strong>Good.</strong> Expense ratio " . number_format($expenseRatio, 1) . "% dari income. Pertahankan efisiensi operasional.";
                 } elseif ($expenseRatio < 90) {
-                    echo "🟠 <strong>Warning.</strong> Expense ratio " . number_format($expenseRatio, 1) . "% dari income. Perlu optimasi pengeluaran untuk meningkatkan margin.";
+                    echo "ðŸŸ  <strong>Warning.</strong> Expense ratio " . number_format($expenseRatio, 1) . "% dari income. Perlu optimasi pengeluaran untuk meningkatkan margin.";
                 } else {
-                    echo "🔴 <strong>Critical!</strong> Expense ratio " . number_format($expenseRatio, 1) . "% dari income. Segera evaluasi pengeluaran dan strategi revenue.";
+                    echo "ðŸ”´ <strong>Critical!</strong> Expense ratio " . number_format($expenseRatio, 1) . "% dari income. Segera evaluasi pengeluaran dan strategi revenue.";
                 }
                 ?>
             </div>
@@ -915,19 +915,19 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
     <!-- Footer Navigation -->
     <nav class="nav-bottom">
         <a href="dashboard-2028.php" class="nav-item active">
-            <span class="nav-icon">📊</span>
+            <span class="nav-icon">ðŸ“Š</span>
             Dashboard
         </a>
         <a href="<?= $basePath ?>/modules/investor/dashboard.php" class="nav-item">
-            <span class="nav-icon">💼</span>
+            <span class="nav-icon">ðŸ’¼</span>
             Investor
         </a>
         <a href="<?= $basePath ?>/modules/project/dashboard.php" class="nav-item">
-            <span class="nav-icon">📋</span>
+            <span class="nav-icon">ðŸ“‹</span>
             Projek
         </a>
         <a href="../frontdesk/dashboard.php" class="nav-item">
-            <span class="nav-icon">🏨</span>
+            <span class="nav-icon">ðŸ¨</span>
             Frontdesk
         </a>
     </nav>
