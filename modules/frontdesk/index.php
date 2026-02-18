@@ -802,55 +802,54 @@ include '../../includes/header.php';
         <!-- Report Summary Cards -->
         <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1.5rem;">
             
-            <!-- Daily Cash Report Card - Redesigned -->
-            <div style="background: linear-gradient(145deg, #0f172a 0%, #1e293b 50%, #334155 100%); border-radius: 20px; padding: 1.5rem; color: white; box-shadow: 0 10px 40px rgba(0,0,0,0.3); position: relative; overflow: hidden;">
-                <!-- Decorative circles -->
-                <div style="position: absolute; top: -30px; right: -30px; width: 100px; height: 100px; background: rgba(16,185,129,0.15); border-radius: 50%;"></div>
-                <div style="position: absolute; bottom: -20px; left: -20px; width: 80px; height: 80px; background: rgba(99,102,241,0.15); border-radius: 50%;"></div>
+            <!-- Daily Cash Report Card - Premium Redesign -->
+            <div style="background: linear-gradient(135deg, #1a1f35 0%, #252d48 100%); border-radius: 24px; padding: 0; color: white; box-shadow: 0 20px 60px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1); position: relative; overflow: hidden; border: 1px solid rgba(255,255,255,0.08);">
+                <!-- Subtle gradient overlay -->
+                <div style="position: absolute; top: 0; left: 0; right: 0; bottom: 0; background: linear-gradient(180deg, rgba(255,255,255,0.03) 0%, transparent 50%); pointer-events: none;"></div>
                 
-                <!-- Header -->
-                <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.25rem; position: relative;">
-                    <div>
-                        <div style="font-size: 1rem; font-weight: 600; letter-spacing: 0.5px;">💰 Kas Harian</div>
-                        <div style="font-size: 0.75rem; opacity: 0.6; margin-top: 0.25rem;"><?php echo date('d M Y'); ?></div>
-                    </div>
-                    <div style="background: linear-gradient(135deg, #10b981, #059669); width: 42px; height: 42px; border-radius: 12px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 15px rgba(16,185,129,0.4);">
-                        <span style="font-size: 1.25rem;">📊</span>
-                    </div>
-                </div>
-                
-                <!-- Main Balance -->
-                <div style="background: rgba(255,255,255,0.08); border-radius: 14px; padding: 1rem; margin-bottom: 1rem; backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.1);">
-                    <div style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1px; opacity: 0.6; margin-bottom: 0.35rem;">Saldo Kas</div>
-                    <div style="font-size: 1.6rem; font-weight: 800; color: <?php echo $stats['cash_balance'] >= 0 ? '#10b981' : '#ef4444'; ?>;">
-                        Rp <?php echo number_format($stats['cash_balance'], 0, ',', '.'); ?>
-                    </div>
-                </div>
-                
-                <!-- 3-Column Grid: Income, Expense, Owner Transfer -->
-                <div style="display: grid; grid-template-columns: 1fr 1fr <?php echo $stats['owner_transfer_today'] > 0 ? '1fr' : ''; ?>; gap: 0.75rem;">
-                    <!-- Today's Income -->
-                    <div style="background: rgba(16,185,129,0.15); border-radius: 10px; padding: 0.75rem; border-left: 3px solid #10b981;">
-                        <div style="font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.7; margin-bottom: 0.25rem;">📈 Masuk</div>
-                        <div style="font-size: 1rem; font-weight: 700; color: #10b981;">
-                            +<?php echo number_format($stats['cash_income_today'], 0, ',', '.'); ?>
+                <!-- Content wrapper -->
+                <div style="position: relative; z-index: 1; padding: 1.5rem;">
+                    <!-- Header -->
+                    <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1.5rem;">
+                        <div>
+                            <div style="font-size: 0.7rem; text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.6; margin-bottom: 0.4rem; font-weight: 600;">💰 Laporan Kas</div>
+                            <div style="font-size: 0.85rem; opacity: 0.5;"><?php echo strftime('%d %B %Y', strtotime(date('Y-m-d'))); ?></div>
                         </div>
                     </div>
                     
-                    <!-- Today's Expense -->
-                    <div style="background: rgba(239,68,68,0.15); border-radius: 10px; padding: 0.75rem; border-left: 3px solid #ef4444;">
-                        <div style="font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.7; margin-bottom: 0.25rem;">📉 Keluar</div>
-                        <div style="font-size: 1rem; font-weight: 700; color: #ef4444;">
-                            -<?php echo number_format($stats['cash_expense_today'], 0, ',', '.'); ?>
+                    <!-- Main Saldo Card -->
+                    <div style="background: linear-gradient(135deg, rgba(16,185,129,0.2) 0%, rgba(16,185,129,0.05) 100%); border-radius: 16px; padding: 1.25rem; margin-bottom: 1.25rem; border: 1px solid rgba(16,185,129,0.3);">
+                        <div style="font-size: 0.65rem; text-transform: uppercase; letter-spacing: 1px; opacity: 0.7; margin-bottom: 0.5rem; color: #a1f3e1;">SALDO KAS</div>
+                        <div style="font-size: 2rem; font-weight: 900; color: #10b981; letter-spacing: -1px;">
+                            Rp <?php echo number_format($stats['cash_balance'], 0, ',', '.'); ?>
                         </div>
                     </div>
                     
-                    <!-- Owner Transfer Today (only show if > 0) -->
+                    <!-- Metrics Grid -->
+                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.85rem; margin-bottom: 0.5rem;">
+                        <!-- Today's Income -->
+                        <div style="background: rgba(16,185,129,0.12); border-radius: 12px; padding: 1rem; border-left: 3px solid #10b981;">
+                            <div style="font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.8px; opacity: 0.65; margin-bottom: 0.4rem; color: #a1f3e1;">📈 Pemasukan</div>
+                            <div style="font-size: 1.3rem; font-weight: 800; color: #10b981;">
+                                Rp <?php echo number_format($stats['cash_income_today'], 0, ',', '.'); ?>
+                            </div>
+                        </div>
+                        
+                        <!-- Today's Expense -->
+                        <div style="background: rgba(239,68,68,0.12); border-radius: 12px; padding: 1rem; border-left: 3px solid #f87171;">
+                            <div style="font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.8px; opacity: 0.65; margin-bottom: 0.4rem; color: #fca5a5;">📉 Pengeluaran</div>
+                            <div style="font-size: 1.3rem; font-weight: 800; color: #f87171;">
+                                Rp <?php echo number_format($stats['cash_expense_today'], 0, ',', '.'); ?>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Owner Transfer - Conditional Row -->
                     <?php if ($stats['owner_transfer_today'] > 0): ?>
-                    <div style="background: rgba(99,102,241,0.15); border-radius: 10px; padding: 0.75rem; border-left: 3px solid #6366f1;">
-                        <div style="font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.5px; opacity: 0.7; margin-bottom: 0.25rem;">👤 Owner</div>
-                        <div style="font-size: 1rem; font-weight: 700; color: #6366f1;">
-                            +<?php echo number_format($stats['owner_transfer_today'], 0, ',', '.'); ?>
+                    <div style="background: rgba(99,102,241,0.12); border-radius: 12px; padding: 1rem; border-left: 3px solid #818cf8;">
+                        <div style="font-size: 0.6rem; text-transform: uppercase; letter-spacing: 0.8px; opacity: 0.65; margin-bottom: 0.4rem; color: #c7d2fe;">👤 Transfer dari Owner</div>
+                        <div style="font-size: 1.3rem; font-weight: 800; color: #818cf8;">
+                            Rp <?php echo number_format($stats['owner_transfer_today'], 0, ',', '.'); ?>
                         </div>
                     </div>
                     <?php endif; ?>
