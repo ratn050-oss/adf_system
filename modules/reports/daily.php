@@ -155,6 +155,15 @@ try {
     );
     $filteredExpense = $dailyExpenseFiltered['total'] ?? 0;
     
+    // Saldo Cash = SAME as dashboard buku kas (ALL income - ALL expense from ALL transactions)
+    $allIncomeResult = $db->fetchOne(
+        "SELECT COALESCE(SUM(amount), 0) as total FROM cash_book WHERE transaction_type = 'income'"
+    );
+    $allExpenseResult = $db->fetchOne(
+        "SELECT COALESCE(SUM(amount), 0) as total FROM cash_book WHERE transaction_type = 'expense'"
+    );
+    $saldoCashDashboard = ($allIncomeResult['total'] ?? 0) - ($allExpenseResult['total'] ?? 0);
+    
 } catch (Exception $e) {
     error_log("Error fetching daily-filtered data: " . $e->getMessage());
 }
@@ -533,14 +542,13 @@ function closePDFPreview() {
     </div>
 
 <!-- Laporan Harian Summary -->
-<?php $saldoKas = $pettyCashBalance + $ownerCapitalBalance; ?>
 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 0.75rem; margin-bottom: 1.25rem;">
     
-    <!-- Saldo Kas -->
+    <!-- Saldo Cash (sama dengan dashboard buku kas) -->
     <div class="card" style="padding: 1rem 1.15rem; border-left: 4px solid #6366f1;">
-        <div style="font-size: 0.7rem; color: #6366f1; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.4rem;">Saldo Kas</div>
-        <div style="font-size: 1.5rem; font-weight: 800; color: <?php echo $saldoKas >= 0 ? '#4f46e5' : '#dc2626'; ?>;">
-            <?php echo formatCurrency($saldoKas); ?>
+        <div style="font-size: 0.7rem; color: #6366f1; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.4rem;">Saldo Cash</div>
+        <div style="font-size: 1.5rem; font-weight: 800; color: <?php echo $saldoCashDashboard >= 0 ? '#4f46e5' : '#dc2626'; ?>;">
+            <?php echo formatCurrency($saldoCashDashboard); ?>
         </div>
     </div>
     
