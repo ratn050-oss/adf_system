@@ -113,12 +113,102 @@ try {
     $stats['occupancy_rate'] = $stats['total_rooms'] > 0 ? 
         round(($stats['occupied'] / $stats['total_rooms']) * 100, 1) : 0;
 
+    // ============================================
+    // REPORT DATA - Daily, Monthly, Yearly
+    // ============================================
+    $thisMonth = date('Y-m');
+    $thisYear = date('Y');
+    
+    // DAILY REPORT - Today's bookings and revenue
+    $dailyBookings = $db->fetchOne("
+        SELECT COUNT(*) as total FROM bookings 
+        WHERE DATE(created_at) = ? AND status IN ('confirmed', 'checked_in', 'checked_out')
+    ", [$today]);
+    $stats['daily_bookings'] = $dailyBookings['total'] ?? 0;
+    
+    $dailyRevenue = $db->fetchOne("
+        SELECT COALESCE(SUM(paid_amount), 0) as revenue 
+        FROM bookings 
+        WHERE DATE(created_at) = ? AND status IN ('confirmed', 'checked_in', 'checked_out')
+    ", [$today]);
+    $stats['daily_revenue'] = $dailyRevenue['revenue'] ?? 0;
+    
+    $dailyCheckins = $db->fetchOne("
+        SELECT COUNT(*) as total FROM bookings 
+        WHERE DATE(check_in_date) = ? AND status IN ('confirmed', 'checked_in')
+    ", [$today]);
+    $stats['daily_checkins'] = $dailyCheckins['total'] ?? 0;
+    
+    $dailyCheckouts = $db->fetchOne("
+        SELECT COUNT(*) as total FROM bookings 
+        WHERE DATE(check_out_date) = ? AND status = 'checked_in'
+    ", [$today]);
+    $stats['daily_checkouts'] = $dailyCheckouts['total'] ?? 0;
+    
+    // MONTHLY REPORT - This month's bookings and revenue
+    $monthlyBookings = $db->fetchOne("
+        SELECT COUNT(*) as total FROM bookings 
+        WHERE DATE_FORMAT(created_at, '%Y-%m') = ? AND status IN ('confirmed', 'checked_in', 'checked_out')
+    ", [$thisMonth]);
+    $stats['monthly_bookings'] = $monthlyBookings['total'] ?? 0;
+    
+    $monthlyRevenue = $db->fetchOne("
+        SELECT COALESCE(SUM(paid_amount), 0) as revenue 
+        FROM bookings 
+        WHERE DATE_FORMAT(created_at, '%Y-%m') = ? AND status IN ('confirmed', 'checked_in', 'checked_out')
+    ", [$thisMonth]);
+    $stats['monthly_revenue'] = $monthlyRevenue['revenue'] ?? 0;
+    
+    $monthlyNights = $db->fetchOne("
+        SELECT COALESCE(SUM(DATEDIFF(check_out_date, check_in_date)), 0) as nights 
+        FROM bookings 
+        WHERE DATE_FORMAT(created_at, '%Y-%m') = ? AND status IN ('confirmed', 'checked_in', 'checked_out')
+    ", [$thisMonth]);
+    $stats['monthly_nights'] = $monthlyNights['nights'] ?? 0;
+    
+    // YEARLY REPORT - This year's bookings and revenue
+    $yearlyBookings = $db->fetchOne("
+        SELECT COUNT(*) as total FROM bookings 
+        WHERE YEAR(created_at) = ? AND status IN ('confirmed', 'checked_in', 'checked_out')
+    ", [$thisYear]);
+    $stats['yearly_bookings'] = $yearlyBookings['total'] ?? 0;
+    
+    $yearlyRevenue = $db->fetchOne("
+        SELECT COALESCE(SUM(paid_amount), 0) as revenue 
+        FROM bookings 
+        WHERE YEAR(created_at) = ? AND status IN ('confirmed', 'checked_in', 'checked_out')
+    ", [$thisYear]);
+    $stats['yearly_revenue'] = $yearlyRevenue['revenue'] ?? 0;
+    
+    $yearlyNights = $db->fetchOne("
+        SELECT COALESCE(SUM(DATEDIFF(check_out_date, check_in_date)), 0) as nights 
+        FROM bookings 
+        WHERE YEAR(created_at) = ? AND status IN ('confirmed', 'checked_in', 'checked_out')
+    ", [$thisYear]);
+    $stats['yearly_nights'] = $yearlyNights['nights'] ?? 0;
+    
+    // Recent bookings for daily list
+    $recentBookings = $db->fetchAll("
+        SELECT b.booking_code, g.guest_name, r.room_number, b.check_in_date, b.check_out_date, 
+               b.final_price, b.paid_amount, b.status, b.created_at
+        FROM bookings b
+        LEFT JOIN guests g ON b.guest_id = g.id
+        LEFT JOIN rooms r ON b.room_id = r.id
+        WHERE DATE(b.created_at) = ?
+        ORDER BY b.created_at DESC
+        LIMIT 10
+    ", [$today]);
+    $stats['recent_bookings'] = $recentBookings;
+
 } catch (Exception $e) {
     error_log("Front Desk Stats Error: " . $e->getMessage());
     $stats = [
         'checkins' => 0, 'checkouts' => 0, 'available' => 0, 
         'total_rooms' => 0, 'revenue_today' => 0, 'inhouse_revenue' => 0, 'occupied' => 0,
-        'occupancy_rate' => 0
+        'occupancy_rate' => 0, 'daily_bookings' => 0, 'daily_revenue' => 0,
+        'monthly_bookings' => 0, 'monthly_revenue' => 0, 'yearly_bookings' => 0,
+        'yearly_revenue' => 0, 'daily_checkins' => 0, 'daily_checkouts' => 0,
+        'monthly_nights' => 0, 'yearly_nights' => 0, 'recent_bookings' => []
     ];
 }
 
@@ -395,6 +485,14 @@ include '../../includes/header.php';
     line-height: 1.4;
 }
 
+/* Report Cards Responsive Container */
+.report-cards-grid {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .fd-container {
@@ -414,6 +512,11 @@ include '../../includes/header.php';
     .stats-grid {
         grid-template-columns: repeat(2, 1fr);
         gap: 1rem;
+    }
+    
+    .report-cards-grid,
+    #tab-laporan > div:first-child {
+        grid-template-columns: 1fr !important;
     }
 
     .stat-card {
@@ -631,29 +734,168 @@ include '../../includes/header.php';
 
     <!-- Tab 4: LAPORAN -->
     <div id="tab-laporan" class="tab-content">
-        <div class="fd-card">
-            <div class="fd-card-title">📊 Reports & Analytics</div>
-            <div class="quick-actions">
-                <button class="quick-btn" onclick="alert('Coming Soon: Occupancy Report')">
-                    📊 Occupancy
-                </button>
-                <button class="quick-btn" onclick="alert('Coming Soon: Revenue Report')">
-                    💰 Revenue
-                </button>
-                <button class="quick-btn" onclick="alert('Coming Soon: Guest Report')">
-                    👥 Guests
-                </button>
-                <button class="quick-btn" onclick="alert('Coming Soon: Daily Summary')">
-                    📈 Summary
-                </button>
+        <!-- Report Summary Cards -->
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 1.5rem;">
+            
+            <!-- Daily Report Card -->
+            <div style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); border-radius: 16px; padding: 1.25rem; color: white;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
+                    <div>
+                        <div style="font-size: 0.85rem; opacity: 0.9; margin-bottom: 0.25rem;">📅 Laporan Harian</div>
+                        <div style="font-size: 0.75rem; opacity: 0.7;"><?php echo date('d M Y'); ?></div>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.2); padding: 0.5rem; border-radius: 10px;">
+                        <span style="font-size: 1.5rem;">📊</span>
+                    </div>
+                </div>
+                <div style="font-size: 1.75rem; font-weight: 800; margin-bottom: 0.5rem;">
+                    Rp <?php echo number_format($stats['daily_revenue'], 0, ',', '.'); ?>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.2);">
+                    <div>
+                        <div style="font-size: 1.25rem; font-weight: 700;"><?php echo $stats['daily_bookings']; ?></div>
+                        <div style="font-size: 0.7rem; opacity: 0.8;">Reservasi</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 1.25rem; font-weight: 700;"><?php echo $stats['daily_checkins']; ?> / <?php echo $stats['daily_checkouts']; ?></div>
+                        <div style="font-size: 0.7rem; opacity: 0.8;">In / Out</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Monthly Report Card -->
+            <div style="background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); border-radius: 16px; padding: 1.25rem; color: white;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
+                    <div>
+                        <div style="font-size: 0.85rem; opacity: 0.9; margin-bottom: 0.25rem;">📆 Laporan Bulanan</div>
+                        <div style="font-size: 0.75rem; opacity: 0.7;"><?php echo date('F Y'); ?></div>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.2); padding: 0.5rem; border-radius: 10px;">
+                        <span style="font-size: 1.5rem;">📈</span>
+                    </div>
+                </div>
+                <div style="font-size: 1.75rem; font-weight: 800; margin-bottom: 0.5rem;">
+                    Rp <?php echo number_format($stats['monthly_revenue'], 0, ',', '.'); ?>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.2);">
+                    <div>
+                        <div style="font-size: 1.25rem; font-weight: 700;"><?php echo $stats['monthly_bookings']; ?></div>
+                        <div style="font-size: 0.7rem; opacity: 0.8;">Total Reservasi</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 1.25rem; font-weight: 700;"><?php echo $stats['monthly_nights']; ?></div>
+                        <div style="font-size: 0.7rem; opacity: 0.8;">Room Nights</div>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Yearly Report Card -->
+            <div style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); border-radius: 16px; padding: 1.25rem; color: white;">
+                <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
+                    <div>
+                        <div style="font-size: 0.85rem; opacity: 0.9; margin-bottom: 0.25rem;">📅 Laporan Tahunan</div>
+                        <div style="font-size: 0.75rem; opacity: 0.7;">Tahun <?php echo date('Y'); ?></div>
+                    </div>
+                    <div style="background: rgba(255,255,255,0.2); padding: 0.5rem; border-radius: 10px;">
+                        <span style="font-size: 1.5rem;">🏆</span>
+                    </div>
+                </div>
+                <div style="font-size: 1.75rem; font-weight: 800; margin-bottom: 0.5rem;">
+                    Rp <?php echo number_format($stats['yearly_revenue'], 0, ',', '.'); ?>
+                </div>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.2);">
+                    <div>
+                        <div style="font-size: 1.25rem; font-weight: 700;"><?php echo $stats['yearly_bookings']; ?></div>
+                        <div style="font-size: 0.7rem; opacity: 0.8;">Total Reservasi</div>
+                    </div>
+                    <div>
+                        <div style="font-size: 1.25rem; font-weight: 700;"><?php echo $stats['yearly_nights']; ?></div>
+                        <div style="font-size: 0.7rem; opacity: 0.8;">Room Nights</div>
+                    </div>
+                </div>
             </div>
         </div>
 
+        <!-- Today's Bookings Table -->
         <div class="fd-card">
-            <div class="fd-card-title">📈 Analytics Charts</div>
-            <p style="color: var(--text-secondary); text-align: center; padding: 2rem;">
-                Charts & detailed reports akan ditampilkan di sini
-            </p>
+            <div class="fd-card-title" style="display: flex; justify-content: space-between; align-items: center;">
+                <span>📋 Reservasi Hari Ini</span>
+                <span style="font-size: 0.8rem; color: var(--text-secondary);"><?php echo date('d M Y'); ?></span>
+            </div>
+            <?php if (!empty($stats['recent_bookings'])): ?>
+            <div style="overflow-x: auto;">
+                <table style="width: 100%; border-collapse: collapse; font-size: 0.85rem;">
+                    <thead>
+                        <tr style="background: var(--bg-tertiary); text-align: left;">
+                            <th style="padding: 0.75rem; font-weight: 600; color: var(--text-secondary);">Kode</th>
+                            <th style="padding: 0.75rem; font-weight: 600; color: var(--text-secondary);">Tamu</th>
+                            <th style="padding: 0.75rem; font-weight: 600; color: var(--text-secondary);">Kamar</th>
+                            <th style="padding: 0.75rem; font-weight: 600; color: var(--text-secondary);">Check-in</th>
+                            <th style="padding: 0.75rem; font-weight: 600; color: var(--text-secondary);">Check-out</th>
+                            <th style="padding: 0.75rem; font-weight: 600; color: var(--text-secondary); text-align: right;">Total</th>
+                            <th style="padding: 0.75rem; font-weight: 600; color: var(--text-secondary); text-align: right;">Dibayar</th>
+                            <th style="padding: 0.75rem; font-weight: 600; color: var(--text-secondary);">Status</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($stats['recent_bookings'] as $booking): ?>
+                        <tr style="border-bottom: 1px solid var(--glass-border);">
+                            <td style="padding: 0.75rem;">
+                                <code style="background: var(--bg-tertiary); padding: 0.2rem 0.4rem; border-radius: 4px; font-size: 0.75rem;">
+                                    <?php echo htmlspecialchars($booking['booking_code']); ?>
+                                </code>
+                            </td>
+                            <td style="padding: 0.75rem; font-weight: 500;"><?php echo htmlspecialchars($booking['guest_name'] ?? '-'); ?></td>
+                            <td style="padding: 0.75rem;">
+                                <span style="background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; padding: 0.2rem 0.5rem; border-radius: 6px; font-size: 0.75rem; font-weight: 600;">
+                                    <?php echo htmlspecialchars($booking['room_number'] ?? '-'); ?>
+                                </span>
+                            </td>
+                            <td style="padding: 0.75rem; font-size: 0.8rem;"><?php echo date('d/m/Y', strtotime($booking['check_in_date'])); ?></td>
+                            <td style="padding: 0.75rem; font-size: 0.8rem;"><?php echo date('d/m/Y', strtotime($booking['check_out_date'])); ?></td>
+                            <td style="padding: 0.75rem; text-align: right; font-weight: 600;">Rp <?php echo number_format($booking['final_price'], 0, ',', '.'); ?></td>
+                            <td style="padding: 0.75rem; text-align: right; color: #10b981; font-weight: 600;">Rp <?php echo number_format($booking['paid_amount'], 0, ',', '.'); ?></td>
+                            <td style="padding: 0.75rem;">
+                                <?php
+                                $statusColors = [
+                                    'confirmed' => '#10b981',
+                                    'checked_in' => '#6366f1',
+                                    'checked_out' => '#64748b',
+                                    'cancelled' => '#ef4444'
+                                ];
+                                $statusColor = $statusColors[$booking['status']] ?? '#64748b';
+                                ?>
+                                <span style="background: <?php echo $statusColor; ?>20; color: <?php echo $statusColor; ?>; padding: 0.25rem 0.5rem; border-radius: 6px; font-size: 0.7rem; font-weight: 600; text-transform: uppercase;">
+                                    <?php echo htmlspecialchars($booking['status']); ?>
+                                </span>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+            <?php else: ?>
+            <div style="text-align: center; padding: 2rem; color: var(--text-secondary);">
+                <div style="font-size: 2rem; margin-bottom: 0.5rem;">📭</div>
+                <p>Belum ada reservasi hari ini</p>
+            </div>
+            <?php endif; ?>
+        </div>
+
+        <!-- Quick Actions -->
+        <div class="fd-card">
+            <div class="fd-card-title">🔗 Laporan Lainnya</div>
+            <div class="quick-actions" style="display: flex; gap: 1rem; flex-wrap: wrap;">
+                <a href="laporan.php" class="quick-btn" style="text-decoration: none;">
+                    📊 Laporan Harian Detail
+                </a>
+                <a href="in-house.php" class="quick-btn" style="text-decoration: none;">
+                    🏨 Tamu In-House
+                </a>
+                <a href="calendar.php" class="quick-btn" style="text-decoration: none;">
+                    📅 Kalender Booking
+                </a>
+            </div>
         </div>
     </div>
 
