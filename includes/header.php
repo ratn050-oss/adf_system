@@ -262,6 +262,36 @@ if (isset($_SESSION['user_id'])) {
                     </li>
                     <?php endif; ?>
                     
+                    <!-- Bills / Tagihan Menu -->
+                    <?php if ($auth->hasPermission('cashbook')): ?>
+                    <li class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/bills/') !== false) ? 'open' : ''; ?>">
+                        <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo activeMenu('bills'); ?>">
+                            <i data-feather="credit-card" class="nav-icon"></i>
+                            <span>Tagihan</span>
+                        </a>
+                        <ul class="submenu">
+                            <li class="submenu-item">
+                                <a href="<?php echo BASE_URL; ?>/modules/bills/index.php" class="submenu-link <?php echo activeMenu('bills/index'); ?>">
+                                    <i data-feather="list" class="submenu-icon"></i>
+                                    <span>Daftar Tagihan</span>
+                                </a>
+                            </li>
+                            <li class="submenu-item">
+                                <a href="<?php echo BASE_URL; ?>/modules/bills/create.php" class="submenu-link <?php echo activeMenu('create.php'); ?>">
+                                    <i data-feather="plus-circle" class="submenu-icon"></i>
+                                    <span>Tambah Tagihan</span>
+                                </a>
+                            </li>
+                            <li class="submenu-item">
+                                <a href="<?php echo BASE_URL; ?>/modules/bills/templates.php" class="submenu-link <?php echo activeMenu('templates.php'); ?>">
+                                    <i data-feather="layers" class="submenu-icon"></i>
+                                    <span>Template Rutin</span>
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                    <?php endif; ?>
+                    
                     <!-- Procurement Dropdown Menu -->
                     <?php if ($auth->hasPermission('procurement') && isModuleEnabled('procurement')): ?>
                     <li class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/procurement/') !== false) ? 'open' : ''; ?>">
