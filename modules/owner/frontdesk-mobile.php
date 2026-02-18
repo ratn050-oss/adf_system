@@ -277,28 +277,30 @@ function rp($num) {
             margin-top: 8px;
         }
         
-        /* Occupancy Section with Pie Chart */
+        /* Occupancy Section with Pie Chart - 2028 Digital Luxury */
         .occupancy-section {
-            background: var(--card);
-            border-radius: 16px;
-            padding: 16px;
+            background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+            border-radius: 20px;
+            padding: 18px;
             margin-bottom: 16px;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.06);
+            box-shadow: 0 4px 20px rgba(99, 102, 241, 0.08), 0 1px 3px rgba(0,0,0,0.04);
             display: flex;
             align-items: center;
-            gap: 16px;
+            gap: 18px;
+            border: 1px solid rgba(99, 102, 241, 0.08);
         }
         
         .pie-chart-container {
             position: relative;
-            width: 100px;
-            height: 100px;
+            width: 110px;
+            height: 110px;
             flex-shrink: 0;
+            filter: drop-shadow(0 4px 12px rgba(99, 102, 241, 0.2));
         }
         
         .pie-chart-container canvas {
-            width: 100px;
-            height: 100px;
+            width: 110px;
+            height: 110px;
         }
         
         .pie-center-text {
@@ -307,18 +309,25 @@ function rp($num) {
             left: 50%;
             transform: translate(-50%, -50%);
             text-align: center;
+            line-height: 1.1;
         }
         
         .pie-percent {
-            font-size: 16px;
+            font-size: 18px;
             font-weight: 800;
-            color: var(--primary);
+            background: linear-gradient(135deg, #6366f1, #8b5cf6);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: -0.5px;
         }
         
         .pie-label {
-            font-size: 9px;
+            font-size: 7px;
             color: var(--text-muted);
             text-transform: uppercase;
+            letter-spacing: 1px;
+            font-weight: 600;
         }
         
         .occupancy-details {
@@ -670,13 +679,13 @@ function rp($num) {
         </div>
         <?php else: ?>
         
-        <!-- Occupancy with Pie Chart -->
+        <!-- Occupancy with Pie Chart - 2028 Digital Luxury -->
         <div class="occupancy-section">
             <div class="pie-chart-container">
-                <canvas id="occupancyPie" width="100" height="100"></canvas>
+                <canvas id="occupancyPie" width="110" height="110"></canvas>
                 <div class="pie-center-text">
                     <div class="pie-percent"><?= $stats['occupancy'] ?>%</div>
-                    <div class="pie-label">Occupancy</div>
+                    <div class="pie-label">Occ</div>
                 </div>
             </div>
             <div class="occupancy-details">
@@ -831,15 +840,32 @@ function rp($num) {
         var total = occupied + available + maintenance + cleaning;
         if (total === 0) { available = 1; total = 1; }
         
-        var cx = 50, cy = 50, r = 45, innerR = 30;
+        var cx = 55, cy = 55, r = 50, innerR = 32;
         var startAngle = -Math.PI / 2;
         
-        // Draw segments
+        // Modern gradient colors
+        var gradOccupied = ctx.createLinearGradient(0, 0, 110, 110);
+        gradOccupied.addColorStop(0, '#ef4444');
+        gradOccupied.addColorStop(1, '#f87171');
+        
+        var gradAvailable = ctx.createLinearGradient(0, 0, 110, 110);
+        gradAvailable.addColorStop(0, '#10b981');
+        gradAvailable.addColorStop(1, '#34d399');
+        
+        var gradMaint = ctx.createLinearGradient(0, 0, 110, 110);
+        gradMaint.addColorStop(0, '#f59e0b');
+        gradMaint.addColorStop(1, '#fbbf24');
+        
+        var gradClean = ctx.createLinearGradient(0, 0, 110, 110);
+        gradClean.addColorStop(0, '#3b82f6');
+        gradClean.addColorStop(1, '#60a5fa');
+        
+        // Draw segments with gradients
         var segments = [
-            { value: occupied, color: '#ef4444' },    // Occupied - red
-            { value: available, color: '#10b981' },   // Available - green
-            { value: maintenance, color: '#f59e0b' }, // Maintenance - yellow
-            { value: cleaning, color: '#3b82f6' }     // Cleaning - blue
+            { value: occupied, color: gradOccupied },
+            { value: available, color: gradAvailable },
+            { value: maintenance, color: gradMaint },
+            { value: cleaning, color: gradClean }
         ];
         
         var currentAngle = startAngle;
@@ -856,11 +882,21 @@ function rp($num) {
             }
         });
         
-        // Inner donut hole
+        // Inner donut hole with subtle gradient
+        var innerGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, innerR);
+        innerGrad.addColorStop(0, '#ffffff');
+        innerGrad.addColorStop(1, '#f8fafc');
         ctx.beginPath();
         ctx.arc(cx, cy, innerR, 0, 2 * Math.PI);
-        ctx.fillStyle = '#ffffff';
+        ctx.fillStyle = innerGrad;
         ctx.fill();
+        
+        // Subtle inner shadow ring
+        ctx.beginPath();
+        ctx.arc(cx, cy, innerR, 0, 2 * Math.PI);
+        ctx.strokeStyle = 'rgba(99, 102, 241, 0.1)';
+        ctx.lineWidth = 1;
+        ctx.stroke();
     });
     </script>
 </body>
