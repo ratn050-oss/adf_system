@@ -122,12 +122,15 @@ try {
         $stmt = $pdo->prepare($query);
         $stmt->execute($params);
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
-        
         $capitalStats['received'] = (float)($result['received'] ?? 0);
         $capitalStats['used'] = (float)($result['used'] ?? 0);
         $capitalStats['balance'] = (float)($result['balance'] ?? 0);
+    } else {
+        $capitalStats['received'] = 0;
+        $capitalStats['used'] = 0;
+        $capitalStats['balance'] = 0;
     }
-    
+
     // Query Petty Cash stats
     if (!empty($pettyCashAccounts)) {
         $placeholders = implode(',', array_fill(0, count($pettyCashAccounts), '?'));
@@ -145,10 +148,13 @@ try {
         $stmt = $pdo->prepare($query);
         $stmt->execute($params);
         $result = $stmt->fetch(PDO::FETCH_ASSOC);
-        
         $pettyCashStats['received'] = (float)($result['received'] ?? 0);
         $pettyCashStats['used'] = (float)($result['used'] ?? 0);
         $pettyCashStats['balance'] = (float)($result['balance'] ?? 0);
+    } else {
+        $pettyCashStats['received'] = 0;
+        $pettyCashStats['used'] = 0;
+        $pettyCashStats['balance'] = 0;
     }
     
     // TOTAL KAS OPERASIONAL = Petty Cash balance + Modal Owner balance
@@ -167,6 +173,7 @@ try {
     
 } catch (Exception $e) {
     $error = $e->getMessage();
+    echo '<div style="background:#fee;color:#b91c1c;padding:16px 20px;margin:20px 0;border-radius:8px;font-size:15px;font-family:monospace;">ERROR: '.htmlspecialchars($error).'</div>';
 }
 
 // Format rupiah
@@ -232,30 +239,92 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
             font-size: 18px;
             font-weight: 700;
             color: var(--accent);
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        .brand-icon {
+            font-size: 24px;
+        }
+        .brand-text {
+            display: flex;
+            flex-direction: column;
+            line-height: 1.2;
+        }
+        .brand-subtext {
+            font-size: 11px;
+            font-weight: 500;
+            color: var(--text-secondary);
         }
         
         .user-badge {
             display: flex;
             align-items: center;
             gap: 8px;
-            padding: 6px 12px;
+            padding: 6px;
             background: var(--surface);
             border: 1px solid var(--border);
             border-radius: 50px;
             font-size: 12px;
         }
+        .user-info {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding-right: 6px;
+        }
+        .dev-badge {
+            background-color: var(--danger);
+            color: white;
+            font-size: 9px;
+            font-weight: 700;
+            padding: 2px 6px;
+            border-radius: 20px;
+        }
         
         .avatar {
-            width: 24px;
-            height: 24px;
+            width: 28px;
+            height: 28px;
             background: linear-gradient(135deg, var(--accent), var(--accent-light));
             color: white;
             border-radius: 50%;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 10px;
+            font-size: 12px;
             font-weight: 600;
+        }
+        
+        /* Info Card */
+        .info-card {
+            background: var(--surface);
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 16px;
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+        }
+        .info-card.error {
+            background-color: #fff1f2;
+            color: var(--danger);
+        }
+        .info-card-icon {
+            font-size: 24px;
+        }
+        .info-card-content {
+            flex: 1;
+        }
+        .info-card-title {
+            font-size: 14px;
+            font-weight: 500;
+            color: var(--text-secondary);
+        }
+        .info-card-value {
+            font-size: 16px;
+            font-weight: 600;
+            color: var(--text-primary);
         }
         
         /* DB Info */
@@ -276,13 +345,13 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
         /* Hero Section with Pie Chart */
         .hero {
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            border-radius: 20px;
-            padding: 24px;
-            margin-bottom: 20px;
+            border-radius: 16px;
+            padding: 16px;
+            margin-bottom: 16px;
             color: white;
             position: relative;
             overflow: hidden;
-            box-shadow: 0 10px 30px rgba(102, 126, 234, 0.3);
+            box-shadow: 0 8px 24px rgba(102, 126, 234, 0.3);
         }
         
         .hero::before {
@@ -290,8 +359,8 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
             position: absolute;
             top: -50%;
             right: -30%;
-            width: 300px;
-            height: 300px;
+            width: 200px;
+            height: 200px;
             background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
             border-radius: 50%;
         }
@@ -302,19 +371,19 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
         }
         
         .hero-title {
-            font-size: 20px;
+            font-size: 16px;
             font-weight: 700;
-            margin-bottom: 4px;
+            margin-bottom: 2px;
         }
         
         .hero-subtitle {
-            font-size: 13px;
+            font-size: 11px;
             opacity: 0.9;
-            margin-bottom: 8px;
+            margin-bottom: 4px;
         }
         
         .hero-date {
-            font-size: 11px;
+            font-size: 10px;
             opacity: 0.7;
         }
         
@@ -323,14 +392,14 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
             display: flex;
             align-items: center;
             justify-content: center;
-            gap: 24px;
-            margin: 24px 0 0 0;
+            gap: 16px;
+            margin: 16px 0 0 0;
         }
         
         .pie-wrapper {
             position: relative;
-            width: 180px;
-            height: 180px;
+            width: 140px;
+            height: 140px;
         }
         
         #pieChart {
@@ -345,8 +414,8 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
             text-align: center;
             background: rgba(255,255,255,0.15);
             border-radius: 50%;
-            width: 90px;
-            height: 90px;
+            width: 70px;
+            height: 70px;
             display: flex;
             flex-direction: column;
             align-items: center;
@@ -354,31 +423,31 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
         }
         
         .pie-center-label {
-            font-size: 9px;
+            font-size: 8px;
             opacity: 0.8;
             text-transform: uppercase;
         }
         
         .pie-center-value {
-            font-size: 16px;
+            font-size: 14px;
             font-weight: 700;
         }
         
         .legend {
             display: flex;
             flex-direction: column;
-            gap: 14px;
+            gap: 10px;
         }
         
         .legend-item {
             display: flex;
             align-items: center;
-            gap: 10px;
+            gap: 8px;
         }
         
         .legend-dot {
-            width: 14px;
-            height: 14px;
+            width: 10px;
+            height: 10px;
             border-radius: 50%;
             box-shadow: 0 2px 4px rgba(0,0,0,0.2);
         }
@@ -392,14 +461,14 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
         }
         
         .legend-label {
-            font-size: 10px;
+            font-size: 9px;
             opacity: 0.7;
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
         
         .legend-value {
-            font-size: 15px;
+            font-size: 12px;
             font-weight: 600;
         }
         
@@ -407,14 +476,14 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
         .stats-grid {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 12px;
-            margin-bottom: 20px;
+            gap: 10px;
+            margin-bottom: 16px;
         }
         
         .stat-card {
             background: var(--surface);
-            border-radius: 16px;
-            padding: 16px;
+            border-radius: 12px;
+            padding: 12px;
             box-shadow: 0 2px 8px rgba(0,0,0,0.04);
             transition: transform 0.2s, box-shadow 0.2s;
         }
@@ -425,7 +494,7 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
         }
         
         .stat-label {
-            font-size: 11px;
+            font-size: 10px;
             color: var(--text-muted);
             text-transform: uppercase;
             letter-spacing: 0.5px;
@@ -703,6 +772,42 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
             margin-bottom: 2px;
         }
         
+        /* Hero Today Row */
+        .hero-today-row {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            background: rgba(255,255,255,0.12);
+            border-radius: 14px;
+            padding: 12px 16px;
+            margin-top: 20px;
+            gap: 8px;
+        }
+        .hero-today-item {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            flex: 1;
+        }
+        .hero-today-label {
+            font-size: 10px;
+            opacity: 0.7;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            margin-bottom: 4px;
+        }
+        .hero-today-value {
+            font-size: 13px;
+            font-weight: 700;
+        }
+        .hero-today-value.income { color: #34d399; }
+        .hero-today-value.expense { color: #fb7185; }
+        .hero-today-divider {
+            width: 1px;
+            height: 32px;
+            background: rgba(255,255,255,0.2);
+        }
+
         /* Dev Badge */
         .dev-badge {
             position: fixed;
@@ -742,100 +847,119 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
     <div class="container">
         <!-- Header -->
         <header class="header">
-            <div class="brand">ðŸ¨ Narayana Hotel</div>
+            <div class="brand">
+                <span class="brand-icon" style="font-family: 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif;">&#127976;</span>
+                <div class="brand-text">
+                    Narayana Hotel
+                    <span class="brand-subtext">Owner Dashboard</span>
+                </div>
+            </div>
             <div class="user-badge">
                 <div class="avatar"><?= strtoupper(substr($userName, 0, 1)) ?></div>
-                <span><?= htmlspecialchars($userName) ?></span>
+                <div class="user-info">
+                    <?= htmlspecialchars($userName) ?>
+                    <?php if($isDev): ?><span class="dev-badge">DEV</span><?php endif; ?>
+                </div>
             </div>
         </header>
-        
+
         <?php if ($error): ?>
-            <div class="db-info error">
-                âŒ Error: <?= htmlspecialchars($error) ?>
+            <div class="info-card error">
+                <div class="info-card-icon">❌</div>
+                <div class="info-card-content">
+                    <div class="info-card-title">Connection Error</div>
+                    <div class="info-card-value"><?= htmlspecialchars($error) ?></div>
+                </div>
             </div>
         <?php else: ?>
-        
-        <div class="db-info">
-            âœ… Connected: <?= $businessDbName ?> | <?= $stats['total_transactions'] ?> transaksi
-        </div>
+            <div class="info-card">
+                <div class="info-card-icon">✅</div>
+                <div class="info-card-content">
+                    <div class="info-card-title">Connected · <?= $businessDbName ?></div>
+                    <div class="info-card-value"><?= number_format($stats['total_transactions']) ?> Transactions recorded</div>
+                </div>
+                <div style="font-size:11px;color:var(--text-muted);white-space:nowrap"><?= date('d M Y') ?></div>
+            </div>
         
         <!-- Hero with Pie Chart -->
         <div class="hero">
             <div class="hero-content">
                 <div class="hero-title">Financial Performance</div>
-                <div class="hero-subtitle">Owner Dashboard</div>
-                <div class="hero-date"><?= date('l, d F Y') ?></div>
-                
+                <div class="hero-subtitle"><?= date('F Y') ?> &nbsp;·&nbsp; <?= date('d M Y') ?></div>
+
                 <div class="chart-container">
+                    <!-- Pie Chart -->
                     <div class="pie-wrapper">
-                        <canvas id="pieChart" width="180" height="180"></canvas>
+                        <canvas id="pieChart" width="140" height="140"></canvas>
                         <div class="pie-center">
-                            <div class="pie-center-label">Net Bulan</div>
+                            <div class="pie-center-label">NET BULAN</div>
                             <div class="pie-center-value"><?= $netProfit >= 0 ? '+' : '' ?><?= number_format($netProfit/1000000, 1) ?>M</div>
                         </div>
                     </div>
+                    <!-- Legend -->
                     <div class="legend">
                         <div class="legend-item">
-                            <div class="legend-dot income"></div>
+                            <span class="legend-dot income"></span>
                             <div class="legend-text">
-                                <div class="legend-label">Income</div>
-                                <div class="legend-value"><?= rp($stats['month_income']) ?></div>
+                                <span class="legend-label">Income</span>
+                                <span class="legend-value"><?= rp($stats['month_income']) ?></span>
                             </div>
                         </div>
                         <div class="legend-item">
-                            <div class="legend-dot expense"></div>
+                            <span class="legend-dot expense"></span>
                             <div class="legend-text">
-                                <div class="legend-label">Expense</div>
-                                <div class="legend-value"><?= rp($stats['month_expense']) ?></div>
+                                <span class="legend-label">Expense</span>
+                                <span class="legend-value"><?= rp($stats['month_expense']) ?></span>
+                            </div>
+                        </div>
+                        <div class="legend-item">
+                            <span class="legend-dot" style="background:linear-gradient(135deg,#a78bfa,#818cf8)"></span>
+                            <div class="legend-text">
+                                <span class="legend-label">Profit</span>
+                                <span class="legend-value" style="color:<?= $netProfit >= 0 ? '#34d399' : '#fb7185' ?>"><?= $netProfit >= 0 ? '+' : '' ?><?= rp($netProfit) ?></span>
                             </div>
                         </div>
                     </div>
                 </div>
-            </div>
-        </div>
-        
-        <!-- Stats Grid -->
-        <div class="stats-grid">
-            <div class="stat-card">
-                <div class="stat-label">ðŸ“ˆ Today Income</div>
-                <div class="stat-value income"><?= rp($stats['today_income']) ?></div>
-                <div class="stat-sub">Revenue hari ini</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-label">ðŸ“‰ Today Expense</div>
-                <div class="stat-value expense"><?= rp($stats['today_expense']) ?></div>
-                <div class="stat-sub">Pengeluaran hari ini</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-label">ðŸ“ˆ Month Income</div>
-                <div class="stat-value income"><?= rp($stats['month_income']) ?></div>
-                <div class="stat-sub">Total bulan ini</div>
-            </div>
-            <div class="stat-card">
-                <div class="stat-label">ðŸ“‰ Month Expense</div>
-                <div class="stat-value expense"><?= rp($stats['month_expense']) ?></div>
-                <div class="stat-sub">Pengeluaran bulan ini</div>
+
+                <!-- Today Quick Stats -->
+                <div class="hero-today-row">
+                    <div class="hero-today-item">
+                        <span class="hero-today-label">Hari Ini In</span>
+                        <span class="hero-today-value income"><?= rp($stats['today_income']) ?></span>
+                    </div>
+                    <div class="hero-today-divider"></div>
+                    <div class="hero-today-item">
+                        <span class="hero-today-label">Hari Ini Out</span>
+                        <span class="hero-today-value expense"><?= rp($stats['today_expense']) ?></span>
+                    </div>
+                    <div class="hero-today-divider"></div>
+                    <div class="hero-today-item">
+                        <span class="hero-today-label">Rasio Expense</span>
+                        <span class="hero-today-value" style="color:<?= $expenseRatio < 50 ? '#34d399' : ($expenseRatio < 75 ? '#fbbf24' : '#fb7185') ?>"><?= number_format($expenseRatio, 1) ?>%</span>
+                    </div>
+                </div>
             </div>
         </div>
         
         <!-- Operational Section - SAME DATA AS SYSTEM DASHBOARD -->
         <div class="operational-section">
-            <div class="operational-title">ðŸ’° Kas Operasional Harian - <?= date('F Y') ?></div>
+            <div class="operational-title">💰 Kas Operasional Harian - <?= date('F Y') ?></div>
             <div class="operational-grid">
                 <div class="op-card modal-owner">
-                    <div class="op-label">ðŸ’µ Modal Owner</div>
+                    <div class="op-label">💵 Modal Owner</div>
                     <div class="op-value"><?= rp($capitalStats['balance']) ?></div>
                 </div>
                 <div class="op-card petty-cash">
-                    <div class="op-label">ðŸ’° Petty Cash</div>
+                    <div class="op-label">💰 Petty Cash</div>
                     <div class="op-value"><?= rp($pettyCashStats['balance']) ?></div>
                 </div>
                 <div class="op-card digunakan">
-                    <div class="op-label">ðŸ’¸ Digunakan</div>
+                    <div class="op-label">💸 Digunakan</div>
                     <div class="op-value"><?= rp($totalOperationalExpense) ?></div>
                 </div>
                 <div class="op-card total-kas">
-                    <div class="op-label">ðŸ’Ž Total Kas</div>
+                    <div class="op-label">💎 Total Kas</div>
                     <div class="op-value"><?= rp($totalOperationalCash) ?></div>
                 </div>
             </div>
@@ -845,7 +969,7 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
         <div class="ai-card">
             <div class="ai-header">
                 <div class="ai-title-wrap">
-                    <span class="ai-badge">âœ¨ AI</span>
+                    <span class="ai-badge">✨ AI</span>
                     <span class="ai-title">Business Health</span>
                 </div>
                 <div class="ai-score">
@@ -856,13 +980,13 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
             <div class="ai-content">
                 <?php
                 if ($expenseRatio < 50) {
-                    echo "ðŸŸ¢ <strong>Excellent!</strong> Expense ratio " . number_format($expenseRatio, 1) . "% dari income. Keuangan sangat sehat dengan margin profit tinggi.";
+                    echo "🟢 <strong>Excellent!</strong> Expense ratio " . number_format($expenseRatio, 1) . "% dari income. Keuangan sangat sehat dengan margin profit tinggi.";
                 } elseif ($expenseRatio < 70) {
-                    echo "ðŸŸ¡ <strong>Good.</strong> Expense ratio " . number_format($expenseRatio, 1) . "% dari income. Pertahankan efisiensi operasional.";
+                    echo "🟡 <strong>Good.</strong> Expense ratio " . number_format($expenseRatio, 1) . "% dari income. Pertahankan efisiensi operasional.";
                 } elseif ($expenseRatio < 90) {
-                    echo "ðŸŸ  <strong>Warning.</strong> Expense ratio " . number_format($expenseRatio, 1) . "% dari income. Perlu optimasi pengeluaran untuk meningkatkan margin.";
+                    echo "🟠 <strong>Warning.</strong> Expense ratio " . number_format($expenseRatio, 1) . "% dari income. Perlu optimasi pengeluaran untuk meningkatkan margin.";
                 } else {
-                    echo "ðŸ”´ <strong>Critical!</strong> Expense ratio " . number_format($expenseRatio, 1) . "% dari income. Segera evaluasi pengeluaran dan strategi revenue.";
+                    echo "🔴 <strong>Critical!</strong> Expense ratio " . number_format($expenseRatio, 1) . "% dari income. Segera evaluasi pengeluaran dan strategi revenue.";
                 }
                 ?>
             </div>
@@ -889,106 +1013,99 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
         
         <!-- Recent Transactions -->
         <div class="tx-card">
-            <div class="tx-title">Recent Transactions</div>
-            <?php if (empty($transactions)): ?>
-                <p style="color:var(--text-muted);font-size:13px;padding:20px 0;text-align:center;">Belum ada transaksi</p>
-            <?php else: ?>
-                <ul class="tx-list">
-                    <?php foreach ($transactions as $tx): ?>
-                    <li class="tx-item">
-                        <div>
-                            <div class="tx-desc"><?= htmlspecialchars($tx['description']) ?></div>
-                            <div class="tx-date"><?= date('d/m/Y H:i', strtotime($tx['transaction_date'])) ?></div>
-                        </div>
-                        <div class="tx-amount <?= $tx['transaction_type'] ?>">
-                            <?= $tx['transaction_type'] == 'income' ? '+' : '-' ?><?= rp($tx['amount']) ?>
-                        </div>
-                    </li>
-                    <?php endforeach; ?>
-                </ul>
-            <?php endif; ?>
+            <div class="tx-title">⚡ Transaksi Terbaru</div>
+            <ul class="tx-list">
+                <?php foreach ($transactions as $tx): ?>
+                <li class="tx-item">
+                    <div>
+                        <div class="tx-desc"><?= htmlspecialchars($tx['description'] ?? '-') ?></div>
+                        <div class="tx-date"><?= date('d M Y', strtotime($tx['transaction_date'])) ?></div>
+                    </div>
+                    <div class="tx-amount <?= $tx['transaction_type'] ?>">
+                        <?= $tx['transaction_type'] === 'income' ? '+' : '-' ?><?= rp($tx['amount']) ?>
+                    </div>
+                </li>
+                <?php endforeach; ?>
+                <?php if (empty($transactions)): ?>
+                <li class="tx-item" style="justify-content:center;color:var(--text-muted)">Belum ada transaksi</li>
+                <?php endif; ?>
+            </ul>
         </div>
-        
-        <?php endif; ?>
-    </div>
-    
-    <!-- Footer Navigation -->
+
+        <?php endif; // end else (no error) ?>
+
+    </div><!-- end .container -->
+
+    <!-- Footer Nav -->
     <nav class="nav-bottom">
-        <a href="dashboard-2028.php" class="nav-item active">
-            <span class="nav-icon">ðŸ“Š</span>
-            Dashboard
+        <a href="<?= $basePath ?>/index.php" class="nav-item">
+            <span class="nav-icon" style="font-family: 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif;">&#127968;</span>
+            <span>Home</span>
         </a>
-        <a href="<?= $basePath ?>/modules/investor/dashboard.php" class="nav-item">
-            <span class="nav-icon">ðŸ’¼</span>
-            Investor
+        <a href="#" class="nav-item active">
+            <span class="nav-icon" style="font-family: 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif;">&#128202;</span>
+            <span>Overview</span>
         </a>
-        <a href="<?= $basePath ?>/modules/project/dashboard.php" class="nav-item">
-            <span class="nav-icon">ðŸ“‹</span>
-            Projek
+        <a href="<?= $basePath ?>/modules/cashbook/index.php" class="nav-item">
+            <span class="nav-icon" style="font-family: 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif;">&#128179;</span>
+            <span>Cashbook</span>
         </a>
-        <a href="../frontdesk/dashboard.php" class="nav-item">
-            <span class="nav-icon">ðŸ¨</span>
-            Frontdesk
+        <a href="<?= $basePath ?>/logout.php" class="nav-item">
+            <span class="nav-icon" style="font-family: 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif;">&#128682;</span>
+            <span>Logout</span>
         </a>
     </nav>
-    
-    <!-- Pie Chart Script -->
+
     <script>
-        const income = <?= $stats['month_income'] ?>;
-        const expense = <?= $stats['month_expense'] ?>;
-        const total = income + expense;
-        
-        const canvas = document.getElementById('pieChart');
-        if (canvas) {
-            const ctx = canvas.getContext('2d');
-            const centerX = 90;
-            const centerY = 90;
-            const radius = 80;
-            
-            function drawPie() {
-                if (total === 0) {
-                    ctx.beginPath();
-                    ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
-                    ctx.fillStyle = 'rgba(255,255,255,0.2)';
-                    ctx.fill();
-                    return;
-                }
-                
-                const incomeAngle = (income / total) * 2 * Math.PI;
-                
-                // Income slice (green gradient)
-                const gradIncome = ctx.createLinearGradient(0, 0, 180, 180);
-                gradIncome.addColorStop(0, '#10b981');
-                gradIncome.addColorStop(1, '#34d399');
-                
-                ctx.beginPath();
-                ctx.moveTo(centerX, centerY);
-                ctx.arc(centerX, centerY, radius, -Math.PI/2, -Math.PI/2 + incomeAngle);
-                ctx.closePath();
-                ctx.fillStyle = gradIncome;
-                ctx.fill();
-                
-                // Expense slice (pink gradient)
-                const gradExpense = ctx.createLinearGradient(0, 0, 180, 180);
-                gradExpense.addColorStop(0, '#f43f5e');
-                gradExpense.addColorStop(1, '#fb7185');
-                
-                ctx.beginPath();
-                ctx.moveTo(centerX, centerY);
-                ctx.arc(centerX, centerY, radius, -Math.PI/2 + incomeAngle, -Math.PI/2 + 2 * Math.PI);
-                ctx.closePath();
-                ctx.fillStyle = gradExpense;
-                ctx.fill();
-                
-                // Center circle (donut hole)
-                ctx.beginPath();
-                ctx.arc(centerX, centerY, 45, 0, 2 * Math.PI);
-                ctx.fillStyle = 'rgba(102, 126, 234, 0.3)';
-                ctx.fill();
-            }
-            
-            drawPie();
-        }
+    document.addEventListener('DOMContentLoaded', function() {
+        var canvas = document.getElementById('pieChart');
+        if (!canvas) return;
+        var ctx = canvas.getContext('2d');
+        var income = <?= (float)$stats['month_income'] ?>;
+        var expense = <?= (float)$stats['month_expense'] ?>;
+        var total = income + expense;
+        if (total === 0) { income = 1; expense = 1; total = 2; }
+
+        var cx = 70, cy = 70, r = 60, innerR = 35;
+        var startAngle = -Math.PI / 2;
+        var incomeAngle = (income / total) * 2 * Math.PI;
+        var expenseAngle = (expense / total) * 2 * Math.PI;
+
+        // Income arc (green)
+        var gIncome = ctx.createLinearGradient(0, 0, 140, 140);
+        gIncome.addColorStop(0, '#10b981');
+        gIncome.addColorStop(1, '#34d399');
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.arc(cx, cy, r, startAngle, startAngle + incomeAngle);
+        ctx.closePath();
+        ctx.fillStyle = gIncome;
+        ctx.fill();
+
+        // Expense arc (red)
+        var gExpense = ctx.createLinearGradient(140, 0, 0, 140);
+        gExpense.addColorStop(0, '#f43f5e');
+        gExpense.addColorStop(1, '#fb7185');
+        ctx.beginPath();
+        ctx.moveTo(cx, cy);
+        ctx.arc(cx, cy, r, startAngle + incomeAngle, startAngle + incomeAngle + expenseAngle);
+        ctx.closePath();
+        ctx.fillStyle = gExpense;
+        ctx.fill();
+
+        // Inner donut hole
+        ctx.beginPath();
+        ctx.arc(cx, cy, innerR, 0, 2 * Math.PI);
+        ctx.fillStyle = 'rgba(102,126,234,0.55)';
+        ctx.fill();
+
+        // Thin white border ring
+        ctx.beginPath();
+        ctx.arc(cx, cy, innerR, 0, 2 * Math.PI);
+        ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+    });
     </script>
 </body>
 </html>
