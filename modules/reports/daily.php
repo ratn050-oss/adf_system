@@ -115,6 +115,50 @@ try {
     error_log("Error fetching cash account balances: " . $e->getMessage());
 }
 
+// ============================================
+// DAILY-FILTERED: Owner Transfer for selected date range
+// ============================================
+$ownerTransferFiltered = 0;
+try {
+    if (!empty($modalOwnerAccounts ?? [])) {
+        $placeholders = implode(',', array_fill(0, count($modalOwnerAccounts), '?'));
+        $filterStart = isset($_GET['start_date']) ? $_GET['start_date'] : date('Y-m-d');
+        $filterEnd = isset($_GET['end_date']) ? $_GET['end_date'] : date('Y-m-d');
+        
+        $stmt = $db->getConnection()->prepare("
+            SELECT COALESCE(SUM(amount), 0) as total 
+            FROM cash_book 
+            WHERE transaction_type = 'income' 
+            AND transaction_date BETWEEN ? AND ?
+            AND cash_account_id IN ($placeholders)
+        ");
+        $stmt->execute(array_merge([$filterStart, $filterEnd], $modalOwnerAccounts));
+        $result = $stmt->fetch(PDO::FETCH_ASSOC);
+        $ownerTransferFiltered = $result['total'] ?? 0;
+    }
+    
+    // Daily-filtered income (excluding owner capital)
+    $filterStart = isset($_GET['start_date']) ? $_GET['start_date'] : date('Y-m-d');
+    $filterEnd = isset($_GET['end_date']) ? $_GET['end_date'] : date('Y-m-d');
+    
+    $dailyIncomeFiltered = $db->fetchOne(
+        "SELECT COALESCE(SUM(amount), 0) as total FROM cash_book 
+         WHERE transaction_type = 'income' AND transaction_date BETWEEN ? AND ?" . $excludeOwnerCapital,
+        [$filterStart, $filterEnd]
+    );
+    $filteredIncome = $dailyIncomeFiltered['total'] ?? 0;
+    
+    $dailyExpenseFiltered = $db->fetchOne(
+        "SELECT COALESCE(SUM(amount), 0) as total FROM cash_book 
+         WHERE transaction_type = 'expense' AND transaction_date BETWEEN ? AND ?",
+        [$filterStart, $filterEnd]
+    );
+    $filteredExpense = $dailyExpenseFiltered['total'] ?? 0;
+    
+} catch (Exception $e) {
+    error_log("Error fetching daily-filtered data: " . $e->getMessage());
+}
+
 $pageTitle = 'Laporan Harian';
 
 // Get filter parameters
@@ -488,64 +532,93 @@ function closePDFPreview() {
         </script>
     </div>
 
-<!-- Summary Cards - SIMPLIFIED VERSION -->
-<div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1.2rem; margin-bottom: 1.5rem;">
+<!-- ═══════════════════════════════════════════════════════════ -->
+<!-- LAPORAN HARIAN - Premium Summary Container -->
+<!-- ═══════════════════════════════════════════════════════════ -->
+<?php $saldoKas = $pettyCashBalance + $ownerCapitalBalance; ?>
+<div style="background: linear-gradient(145deg, #0f172a 0%, #1e293b 100%); border-radius: 20px; padding: 2rem; margin-bottom: 1.5rem; color: white; box-shadow: 0 25px 60px rgba(0,0,0,0.3); position: relative; overflow: hidden; border: 1px solid rgba(255,255,255,0.06);">
+    <!-- Subtle glow effects -->
+    <div style="position: absolute; top: -60px; right: -60px; width: 200px; height: 200px; background: radial-gradient(circle, rgba(16,185,129,0.12) 0%, transparent 70%); pointer-events: none;"></div>
+    <div style="position: absolute; bottom: -40px; left: -40px; width: 160px; height: 160px; background: radial-gradient(circle, rgba(99,102,241,0.08) 0%, transparent 70%); pointer-events: none;"></div>
     
-    <!-- 1. Modal dari Owner -->
-    <div class="card" style="padding: 1.25rem; border-left: 5px solid #f59e0b; background: linear-gradient(135deg, #fffbeb 0%, #fef3c7 100%);">
-        <div style="font-size: 0.813rem; color: #92400e; margin-bottom: 0.5rem; font-weight: 600;">
-            1️⃣ MODAL DARI OWNER
+    <!-- Header Row -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.75rem; position: relative;">
+        <div>
+            <div style="font-size: 1.15rem; font-weight: 700; letter-spacing: 0.3px;">Laporan Kas Harian</div>
+            <div style="font-size: 0.78rem; opacity: 0.45; margin-top: 0.3rem;">
+                <?php 
+                    if ($start_date === $end_date) {
+                        echo date('l, d F Y', strtotime($start_date));
+                    } else {
+                        echo date('d M', strtotime($start_date)) . ' — ' . date('d M Y', strtotime($end_date));
+                    }
+                ?>
+            </div>
         </div>
-        <div style="font-size: 2rem; font-weight: 900; color: #b45309;">
-            <?php echo formatCurrency($ownerCapitalIncome); ?>
+        <div style="font-size: 0.7rem; background: rgba(255,255,255,0.08); padding: 0.4rem 0.85rem; border-radius: 20px; letter-spacing: 0.5px; opacity: 0.6;">
+            <?php echo $grandTransactions; ?> transaksi
         </div>
-        <div style="font-size: 0.75rem; color: #78350f; margin-top: 8px;">Uang masuk dari Owner untuk operasional</div>
     </div>
     
-    <!-- 2. Uang Masuk Hotel (Petty Cash) -->
-    <div class="card" style="padding: 1.25rem; border-left: 5px solid #10b981; background: linear-gradient(135deg, #ecfdf5 0%, #d1fae5 100%);">
-        <div style="font-size: 0.813rem; color: #065f46; margin-bottom: 0.5rem; font-weight: 600;">
-            2️⃣ UANG MASUK HOTEL
+    <!-- Saldo Kas - Hero Display -->
+    <div style="background: linear-gradient(135deg, rgba(99,102,241,0.18) 0%, rgba(99,102,241,0.06) 100%); border-radius: 16px; padding: 1.4rem 1.5rem; margin-bottom: 1.5rem; border: 1px solid rgba(99,102,241,0.25); position: relative;">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <div style="font-size: 0.68rem; text-transform: uppercase; letter-spacing: 1.5px; opacity: 0.55; margin-bottom: 0.5rem; font-weight: 600;">Saldo Kas</div>
+                <div style="font-size: 2.4rem; font-weight: 900; letter-spacing: -1px; color: <?php echo $saldoKas >= 0 ? '#a5b4fc' : '#fca5a5'; ?>;">
+                    <?php echo formatCurrency($saldoKas); ?>
+                </div>
+            </div>
+            <div style="width: 52px; height: 52px; background: linear-gradient(135deg, #6366f1, #818cf8); border-radius: 14px; display: flex; align-items: center; justify-content: center; box-shadow: 0 8px 25px rgba(99,102,241,0.4);">
+                <span style="font-size: 1.5rem;">💰</span>
+            </div>
         </div>
-        <div style="font-size: 2rem; font-weight: 900; color: #059669;">
-            <?php echo formatCurrency($pettyCashIncome); ?>
-        </div>
-        <div style="font-size: 0.75rem; color: #047857; margin-top: 8px;">Pendapatan dari tamu (Petty Cash)</div>
     </div>
     
-    <!-- 3. Total Pengeluaran -->
-    <div class="card" style="padding: 1.25rem; border-left: 5px solid #ef4444; background: linear-gradient(135deg, #fef2f2 0%, #fecaca 100%);">
-        <div style="font-size: 0.813rem; color: #7f1d1d; margin-bottom: 0.5rem; font-weight: 600;">
-            3️⃣ TOTAL PENGELUARAN
+    <!-- 2 Metric Cards: Pemasukan & Pengeluaran -->
+    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; <?php echo $ownerTransferFiltered > 0 ? 'margin-bottom: 1rem;' : ''; ?>">
+        <!-- Pemasukan Hari Ini -->
+        <div style="background: rgba(16,185,129,0.1); border-radius: 14px; padding: 1.15rem 1.25rem; border: 1px solid rgba(16,185,129,0.2); transition: transform 0.2s;">
+            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.6rem;">
+                <div style="width: 8px; height: 8px; background: #10b981; border-radius: 50%; box-shadow: 0 0 8px rgba(16,185,129,0.6);"></div>
+                <div style="font-size: 0.68rem; text-transform: uppercase; letter-spacing: 1px; opacity: 0.6; font-weight: 600;">Pemasukan</div>
+            </div>
+            <div style="font-size: 1.65rem; font-weight: 800; color: #34d399; letter-spacing: -0.5px;">
+                <?php echo formatCurrency($filteredIncome); ?>
+            </div>
         </div>
-        <div style="font-size: 2rem; font-weight: 900; color: #dc2626;">
-            <?php echo formatCurrency($totalExpense); ?>
+        
+        <!-- Pengeluaran Hari Ini -->
+        <div style="background: rgba(239,68,68,0.1); border-radius: 14px; padding: 1.15rem 1.25rem; border: 1px solid rgba(239,68,68,0.2); transition: transform 0.2s;">
+            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.6rem;">
+                <div style="width: 8px; height: 8px; background: #ef4444; border-radius: 50%; box-shadow: 0 0 8px rgba(239,68,68,0.6);"></div>
+                <div style="font-size: 0.68rem; text-transform: uppercase; letter-spacing: 1px; opacity: 0.6; font-weight: 600;">Pengeluaran</div>
+            </div>
+            <div style="font-size: 1.65rem; font-weight: 800; color: #f87171; letter-spacing: -0.5px;">
+                <?php echo formatCurrency($filteredExpense); ?>
+            </div>
         </div>
-        <div style="font-size: 0.75rem; color: #991b1b; margin-top: 8px;">Semua expense operasional</div>
     </div>
     
-    <!-- 4. Saldo Akhir -->
-    <div class="card" style="padding: 1.25rem; border-left: 5px solid #6366f1; background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);">
-        <div style="font-size: 0.813rem; color: #3730a3; margin-bottom: 0.5rem; font-weight: 600;">
-            4️⃣ SALDO AKHIR
+    <!-- Transfer dari Owner - ONLY if > 0 for selected date -->
+    <?php if ($ownerTransferFiltered > 0): ?>
+    <div style="background: rgba(245,158,11,0.1); border-radius: 14px; padding: 1rem 1.25rem; border: 1px solid rgba(245,158,11,0.2);">
+        <div style="display: flex; justify-content: space-between; align-items: center;">
+            <div>
+                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.4rem;">
+                    <div style="width: 8px; height: 8px; background: #f59e0b; border-radius: 50%; box-shadow: 0 0 8px rgba(245,158,11,0.6);"></div>
+                    <div style="font-size: 0.68rem; text-transform: uppercase; letter-spacing: 1px; opacity: 0.6; font-weight: 600;">Transfer dari Owner</div>
+                </div>
+                <div style="font-size: 1.65rem; font-weight: 800; color: #fbbf24; letter-spacing: -0.5px;">
+                    <?php echo formatCurrency($ownerTransferFiltered); ?>
+                </div>
+            </div>
+            <div style="background: rgba(245,158,11,0.15); padding: 0.35rem 0.75rem; border-radius: 8px;">
+                <span style="font-size: 0.7rem; color: #fbbf24; font-weight: 600;">👤 Owner</span>
+            </div>
         </div>
-        <div style="font-size: 2rem; font-weight: 900; color: <?php echo ($pettyCashBalance + $ownerCapitalBalance) >= 0 ? '#6366f1' : '#dc2626'; ?>;">
-            <?php echo formatCurrency($pettyCashBalance + $ownerCapitalBalance); ?>
-        </div>
-        <div style="font-size: 0.75rem; color: #4338ca; margin-top: 8px;">Petty Cash (<?php echo formatCurrency($pettyCashBalance); ?>) + Modal Owner (<?php echo formatCurrency($ownerCapitalBalance); ?>)</div>
     </div>
-    
-    <!-- 5. Pendapatan Bersih Hotel -->
-    <div class="card" style="padding: 1.25rem; border-left: 5px solid #3b82f6; background: linear-gradient(135deg, #eff6ff 0%, #dbeafe 100%); box-shadow: 0 4px 12px rgba(59, 130, 246, 0.3);">
-        <div style="font-size: 0.813rem; color: #1e3a8a; margin-bottom: 0.5rem; font-weight: 700;">
-            5️⃣ PENDAPATAN BERSIH HOTEL
-        </div>
-        <div style="font-size: 2.2rem; font-weight: 900; color: #2563eb;">
-            <?php echo formatCurrency($hotelRevenue); ?>
-        </div>
-        <div style="font-size: 0.75rem; color: #1e40af; margin-top: 8px;">Revenue murni dari tamu (tidak termasuk modal owner)</div>
-    </div>
-    
+    <?php endif; ?>
 </div>
 
 <!-- Old Summary Cards - Hidden -->
