@@ -60,7 +60,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $transaction_time = $_POST['transaction_time'] ?? '';
     $transaction_type = $_POST['transaction_type'] ?? '';
     $division_id = (int)($_POST['division_id'] ?? 0);
-    $category_id = (int)($_POST['category_id'] ?? 0);
+    $category_name_input = trim($_POST['category_name'] ?? '');
     $amount = floatval($_POST['amount'] ?? 0);
     $description = $_POST['description'] ?? '';
     $payment_method = $_POST['payment_method'] ?? 'cash';
@@ -72,8 +72,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if (empty($transaction_time)) $errors[] = 'Waktu transaksi wajib diisi';
     if (empty($transaction_type)) $errors[] = 'Tipe transaksi wajib dipilih';
     if ($division_id <= 0) $errors[] = 'Divisi wajib dipilih';
-    if ($category_id <= 0) $errors[] = 'Kategori wajib dipilih';
+    if (empty($category_name_input)) $errors[] = 'Kategori/Nama wajib diisi';
     if ($amount <= 0) $errors[] = 'Jumlah harus lebih dari 0';
+    
+    // Find or create category by name
+    $category_id = 0;
+    if (!empty($category_name_input)) {
+        // Check if category exists
+        $existingCategory = $db->fetchOne(
+            "SELECT id FROM categories WHERE LOWER(category_name) = LOWER(:name) AND category_type = :type",
+            ['name' => $category_name_input, 'type' => $transaction_type]
+        );
+        
+        if ($existingCategory) {
+            $category_id = $existingCategory['id'];
+        } else {
+            // Create new category
+            $db->insert('categories', [
+                'category_name' => $category_name_input,
+                'category_type' => $transaction_type,
+                'division_id' => $division_id,
+                'is_active' => 1
+            ]);
+            $category_id = $db->getConnection()->lastInsertId();
+        }
+    }
     
     if (empty($errors)) {
         try {
@@ -261,7 +284,7 @@ include '../../includes/header.php';
             <!-- Tipe -->
             <div class="form-group">
                 <label class="form-label">Tipe Transaksi *</label>
-                <select name="transaction_type" class="form-control" required id="transaction_type" onchange="loadCategories()">
+                <select name="transaction_type" class="form-control" required id="transaction_type">
                     <option value="">Pilih Tipe</option>
                     <option value="income" <?php echo $transaction['transaction_type'] == 'income' ? 'selected' : ''; ?>>Pemasukan</option>
                     <option value="expense" <?php echo $transaction['transaction_type'] == 'expense' ? 'selected' : ''; ?>>Pengeluaran</option>
@@ -281,19 +304,19 @@ include '../../includes/header.php';
                 </select>
             </div>
 
-            <!-- Kategori -->
+            <!-- Kategori/Nama -->
             <div class="form-group">
-                <label class="form-label">Kategori *</label>
-                <select name="category_id" class="form-control" required id="category_id">
-                    <option value="">Pilih Kategori</option>
+                <label class="form-label">Kategori/Nama *</label>
+                <input type="text" name="category_name" id="category_name" class="form-control" 
+                       value="<?php echo htmlspecialchars($transaction['category_name']); ?>" 
+                       placeholder="Ketik kategori atau nama transaksi" 
+                       list="category_suggestions" required autocomplete="off">
+                <datalist id="category_suggestions">
                     <?php foreach ($categories as $cat): ?>
-                        <option value="<?php echo $cat['id']; ?>" 
-                                data-type="<?php echo $cat['transaction_type']; ?>"
-                                <?php echo $transaction['category_id'] == $cat['id'] ? 'selected' : ''; ?>>
-                            <?php echo $cat['category_name']; ?>
-                        </option>
+                        <option value="<?php echo htmlspecialchars($cat['category_name']); ?>" data-type="<?php echo $cat['category_type']; ?>">
                     <?php endforeach; ?>
-                </select>
+                </datalist>
+                <small style="color: var(--text-muted); display: block; margin-top: 0.25rem;">💡 Ketik manual atau pilih dari saran yang muncul</small>
             </div>
 
             <!-- Cash Account -->
@@ -363,36 +386,35 @@ include '../../includes/header.php';
 <script>
     feather.replace();
     
-    function loadCategories() {
+    // Store all categories for filtering
+    const allCategories = [
+        <?php foreach ($categories as $cat): ?>
+        { name: "<?php echo addslashes($cat['category_name']); ?>", type: "<?php echo $cat['category_type']; ?>" },
+        <?php endforeach; ?>
+    ];
+    
+    function updateCategorySuggestions() {
         const type = document.getElementById('transaction_type').value;
-        const categorySelect = document.getElementById('category_id');
-        const options = categorySelect.querySelectorAll('option');
+        const datalist = document.getElementById('category_suggestions');
         
-        options.forEach(option => {
-            if (option.value === '') {
-                option.style.display = 'block';
-                return;
-            }
-            
-            const optionType = option.getAttribute('data-type');
-            if (type === '' || optionType === type) {
-                option.style.display = 'block';
-            } else {
-                option.style.display = 'none';
+        // Clear existing options
+        datalist.innerHTML = '';
+        
+        // Add filtered options
+        allCategories.forEach(cat => {
+            if (type === '' || cat.type === type) {
+                const option = document.createElement('option');
+                option.value = cat.name;
+                datalist.appendChild(option);
             }
         });
-        
-        // Reset selection if current selection is hidden
-        if (categorySelect.value) {
-            const selectedOption = categorySelect.querySelector(`option[value="${categorySelect.value}"]`);
-            if (selectedOption && selectedOption.style.display === 'none') {
-                categorySelect.value = '';
-            }
-        }
     }
     
-    // Load on page load
-    loadCategories();
+    // Update suggestions when transaction type changes
+    document.getElementById('transaction_type').addEventListener('change', updateCategorySuggestions);
+    
+    // Initialize on page load
+    updateCategorySuggestions();
 </script>
 
 <?php include '../../includes/footer.php'; ?>
