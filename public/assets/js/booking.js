@@ -28,7 +28,7 @@ function searchAvailableRooms() {
     
     // Validate
     if (!checkIn || !checkOut) {
-        showNotification('Silakan pilih tanggal check-in dan check-out', 'error');
+        showNotification('Please select check-in and check-out dates', 'error');
         return;
     }
     
@@ -42,7 +42,7 @@ function searchAvailableRooms() {
     apiCall(`./api/get-available-rooms.php?check_in=${checkIn}&check_out=${checkOut}&guests=${guests}`)
         .then(response => {
             if (!response.success) {
-                showNotification(response.error || 'Pencarian gagal', 'error');
+                showNotification(response.error || 'Search failed', 'error');
                 return;
             }
             
@@ -51,7 +51,7 @@ function searchAvailableRooms() {
             
         }).catch(error => {
             console.error(error);
-            showNotification('Terjadi kesalahan saat mencari ketersediaan', 'error');
+            showNotification('Error searching for availability', 'error');
         }).finally(() => {
             searchBtn.disabled = false;
             loader.style.display = 'none';
@@ -89,10 +89,10 @@ function displayAvailableRooms(data) {
                 <div class="room-option-price">${formatCurrency(room.total_price)}</div>
             </div>
             <div class="room-option-description">
-                ${room.description || 'Kamar dengan fasilitas lengkap'}
+                ${room.description || 'Room with complete facilities'}
             </div>
             <div class="room-option-availability">
-                ✓ ${data.total_nights} malam @ ${formatCurrency(room.base_price)} per malam
+                ✓ ${data.total_nights} nights @ ${formatCurrency(room.base_price)} per night
             </div>
         `;
         
@@ -145,7 +145,7 @@ function updateBookingSummary(room, searchData) {
  */
 function proceedToPayment() {
     if (!selectedRoom || !searchResults) {
-        showNotification('Silakan pilih kamar terlebih dahulu', 'error');
+        showNotification('Please select a room first', 'error');
         return;
     }
     
@@ -157,17 +157,17 @@ function proceedToPayment() {
     
     // Validate
     if (!guestName) {
-        showNotification('Nama tamu harus diisi', 'error');
+        showNotification('Guest name is required', 'error');
         return;
     }
     
     if (!isValidEmail(guestEmail)) {
-        showNotification('Email tidak valid', 'error');
+        showNotification('Invalid email address', 'error');
         return;
     }
     
     if (!isValidPhone(guestPhone)) {
-        showNotification('Nomor telepon tidak valid', 'error');
+        showNotification('Invalid phone number', 'error');
         return;
     }
     
@@ -175,7 +175,7 @@ function proceedToPayment() {
     const btn = event.target;
     const originalText = btn.innerHTML;
     btn.disabled = true;
-    btn.innerHTML = '<i data-feather="loader" style="display: inline; margin-right: 0.5rem;"></i>Memproses...';
+    btn.innerHTML = '<i data-feather="loader" style="display: inline; margin-right: 0.5rem;"></i>Processing...';
     feather.replace();
     
     // Create booking
@@ -193,7 +193,7 @@ function proceedToPayment() {
     apiCall('./api/create-booking.php', 'POST', bookingData)
         .then(response => {
             if (!response.success) {
-                showNotification(response.error || 'Gagal membuat booking', 'error');
+                showNotification(response.error || 'Failed to create booking', 'error');
                 btn.disabled = false;
                 btn.innerHTML = originalText;
                 feather.replace();
@@ -208,7 +208,7 @@ function proceedToPayment() {
             
         }).catch(error => {
             console.error(error);
-            showNotification('Terjadi kesalahan saat membuat booking', 'error');
+            showNotification('Error creating booking', 'error');
             btn.disabled = false;
             btn.innerHTML = originalText;
             feather.replace();
@@ -222,7 +222,7 @@ function proceedToMidtransPayment(bookingData) {
     // This will be implemented with Midtrans SDK
     // For now, we'll show a success message
     
-    showNotification('Booking berhasil dibuat! Kode booking: ' + bookingData.booking_code, 'success');
+    showNotification('Booking successfully created! Booking code: ' + bookingData.booking_code, 'success');
     
     // In production, redirect to payment gateway
     // Example: window.location.href = './api/payment-process.php?booking_id=' + bookingData.booking_id;

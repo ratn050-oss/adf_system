@@ -39,9 +39,9 @@ try {
             <div class="hero-text">
                 <h1 class="hero-title">KARIMUNJAWA</h1>
                 <p class="hero-description">
-                    Temukan surga tropis di kepulauan eksotis Karimunjawa. 
-                    Pantai berpasir putih, air kristal, dan mewah menginap 
-                    yang tak terlupakan menanti Anda.
+                    Discover a tropical paradise in the exotic Karimunjawa archipelago. 
+                    White sand beaches, crystal clear waters, and unforgettable 
+                    luxury accommodation await you.
                 </p>
                 <a href="<?php echo baseUrl('booking.php'); ?>" class="btn-explore">
                     <span>EXPLORE</span>
@@ -72,19 +72,19 @@ try {
     <div class="container">
         <div class="about-grid">
             <div class="about-content">
-                <h2>Mengapa Narayana?</h2>
+                <h2>Why Choose Narayana?</h2>
                 <p>
-                    Narayana Karimunjawa adalah destinasi pilihan untuk liburan impian Anda. 
-                    Kami menawarkan kombinasi sempurna antara kemewahan, kenyamanan, dan 
-                    keindahan alam yang tak tertandingi.
+                    Narayana Karimunjawa is the ideal destination for your dream vacation. 
+                    We offer the perfect combination of luxury, comfort, and 
+                    unparalleled natural beauty.
                 </p>
                 <ul class="features-list">
-                    <li>🏖️ Pantai Private dengan Pasir Putih</li>
+                    <li>🏖️ Private Beach with White Sand</li>
                     <li>🌊 Water Sports & Snorkeling</li>
                     <li>🍽️ Fine Dining Restaurant</li>
                     <li>🧘 Spa & Wellness Center</li>
-                    <li>🎾 Fasilitas Olahraga Lengkap</li>
-                    <li>👥 Concierge 24/7</li>
+                    <li>🎾 Complete Sports Facilities</li>
+                    <li>👥 24/7 Concierge Service</li>
                 </ul>
             </div>
             <div class="about-image">
@@ -99,9 +99,9 @@ try {
 <!-- All Packages/Rooms Section -->
 <section class="section packages-section dark">
     <div class="container">
-        <h2 style="color: white; margin-bottom: 1rem; text-align: center;">Paket Menginap Kami</h2>
+        <h2 style="color: white; margin-bottom: 1rem; text-align: center;">Our Room Packages</h2>
         <p style="color: rgba(255, 255, 255, 0.8); text-align: center; margin-bottom: 3rem;">
-            Pilih paket yang sesuai dengan budget dan gaya liburan Anda
+            Choose a package that suits your budget and vacation style
         </p>
         
         <div class="packages-grid">
@@ -119,17 +119,17 @@ try {
                 <div class="package-img" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);"></div>
                 <div class="package-details">
                     <h3><?php echo htmlize($pkg['type_name']); ?></h3>
-                    <p><?php echo htmlize($pkg['description'] ?? 'Kamar dengan fasilitas mewah dan pemandangan menakjubkan'); ?></p>
+                    <p><?php echo htmlize($pkg['description'] ?? 'Room with luxury amenities and amazing views'); ?></p>
                     <div class="package-meta">
-                        <span>👥 Hingga <?php echo $pkg['max_occupancy']; ?> tamu</span>
+                        <span>👥 Up to <?php echo $pkg['max_occupancy']; ?> guests</span>
                     </div>
                     <div class="package-footer">
                         <div class="price" style="color: #6366f1; font-size: 1.5rem; font-weight: 700;">
                             <?php echo formatCurrency($pkg['base_price']); ?><br>
-                            <span style="font-size: 0.85rem; color: #94a3b8;">/malam</span>
+                            <span style="font-size: 0.85rem; color: #94a3b8;">/night</span>
                         </div>
                         <a href="<?php echo baseUrl('booking.php'); ?>" class="btn btn-small btn-primary">
-                            Pesan Sekarang
+                            Book Now
                         </a>
                     </div>
                 </div>
@@ -142,33 +142,33 @@ try {
 <!-- Testimonials Section -->
 <section class="section testimonials-section">
     <div class="container">
-        <h2 style="text-align: center; margin-bottom: 3rem;">Kata Tamu Kami</h2>
+        <h2 style="text-align: center; margin-bottom: 3rem;">What Our Guests Say</h2>
         
         <div class="testimonials-grid">
             <div class="testimonial-card">
                 <div class="stars">⭐⭐⭐⭐⭐</div>
-                <p>"Liburan paling sempurna yang pernah kami alami. Staff yang ramah, fasilitas lengkap, dan pemandangan yang menakjubkan!"</p>
+                <p>"The most perfect vacation we've ever experienced. Friendly staff, complete facilities, and amazing views!"</p>
                 <div class="testimonial-author">
-                    <strong>Budi Santoso</strong>
-                    <small>Jakarta</small>
+                    <strong>Michael Johnson</strong>
+                    <small>New York</small>
                 </div>
             </div>
             
             <div class="testimonial-card">
                 <div class="stars">⭐⭐⭐⭐⭐</div>
-                <p>"Harga sebanding dengan kualitas. Kamarnya nyaman, makanannya lezat, dan pelayanannya ramah. Akan datang lagi!"</p>
+                <p>"Price matches quality. Comfortable rooms, delicious food, and friendly service. Will definitely come back!"</p>
                 <div class="testimonial-author">
-                    <strong>Siti Nurhaliza</strong>
-                    <small>Bandung</small>
+                    <strong>Sarah Williams</strong>
+                    <small>Los Angeles</small>
                 </div>
             </div>
             
             <div class="testimonial-card">
                 <div class="stars">⭐⭐⭐⭐⭐</div>
-                <p>"Destinasi wajib kunjung untuk honeymoon. Susana romantis, private beach, dan sunset yang indah. Recommended!"</p>
+                <p>"Must-visit destination for honeymoon. Romantic atmosphere, private beach, and beautiful sunset. Highly recommended!"</p>
                 <div class="testimonial-author">
-                    <strong>Ahmad Wijaya</strong>
-                    <small>Surabaya</small>
+                    <strong>David Smith</strong>
+                    <small>London</small>
                 </div>
             </div>
         </div>
@@ -178,12 +178,12 @@ try {
 <!-- CTA Section -->
 <section class="section cta-section dark">
     <div class="container" style="text-align: center;">
-        <h2 style="color: white; margin-bottom: 1rem;">Siap untuk Petualangan?</h2>
+        <h2 style="color: white; margin-bottom: 1rem;">Ready for Your Next Adventure?</h2>
         <p style="color: rgba(255, 255, 255, 0.8); margin-bottom: 2rem; font-size: 1.1rem;">
-            Jangan tunda lagi, pesan kamar Anda sekarang dan nikmati diskon early bird hingga 20%
+            Don't wait, book your room now and enjoy early bird discount up to 20%
         </p>
         <a href="<?php echo baseUrl('booking.php'); ?>" class="btn-explore" style="display: inline-flex; align-items: center; gap: 0.5rem;">
-            PESAN SEKARANG
+            BOOK NOW
             <i data-feather="arrow-right"></i>
         </a>
     </div>

@@ -2,12 +2,12 @@
     <footer class="site-footer">
         <div class="footer-container">
             <div class="footer-section">
-                <h4>Tentang Narayana</h4>
+                <h4>About Narayana</h4>
                 <p><?php echo htmlize(getConfig('hotel_description')); ?></p>
             </div>
             
             <div class="footer-section">
-                <h4>Hubungi Kami</h4>
+                <h4>Contact Us</h4>
                 <p>
                     <i data-feather="phone" class="icon-small"></i>
                     <a href="tel:<?php echo htmlize(getConfig('phone')); ?>">
@@ -27,16 +27,16 @@
             </div>
             
             <div class="footer-section">
-                <h4>Layanan</h4>
+                <h4>Services</h4>
                 <ul>
-                    <li><a href="<?php echo baseUrl('rooms.php'); ?>">Lihat Kamar</a></li>
-                    <li><a href="<?php echo baseUrl('booking.php'); ?>">Pesan Sekarang</a></li>
+                    <li><a href="<?php echo baseUrl('rooms.php'); ?>">View Rooms</a></li>
+                    <li><a href="<?php echo baseUrl('booking.php'); ?>">Book Now</a></li>
                     <li><a href="<?php echo baseUrl('faqs.php'); ?>">FAQ</a></li>
                 </ul>
             </div>
             
             <div class="footer-section">
-                <h4>Ikuti Kami</h4>
+                <h4>Follow Us</h4>
                 <div class="social-links">
                     <a href="#" title="Instagram"><i data-feather="instagram"></i></a>
                     <a href="#" title="Facebook"><i data-feather="facebook"></i></a>

@@ -1,5 +1,5 @@
 <!DOCTYPE html>
-<html lang="id">
+<html lang="en">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -28,9 +28,9 @@
             </div>
             
             <ul class="navbar-menu">
-                <li><a href="<?php echo baseUrl(); ?>" class="nav-link">Beranda</a></li>
-                <li><a href="<?php echo baseUrl('rooms.php'); ?>" class="nav-link">Kamar & Harga</a></li>
-                <li><a href="<?php echo baseUrl('booking.php'); ?>" class="nav-link booking-btn">Pesan Sekarang</a></li>
+                <li><a href="<?php echo baseUrl(); ?>" class="nav-link">Home</a></li>
+                <li><a href="<?php echo baseUrl('rooms.php'); ?>" class="nav-link">Rooms & Rates</a></li>
+                <li><a href="<?php echo baseUrl('booking.php'); ?>" class="nav-link booking-btn">Book Now</a></li>
             </ul>
             
             <button class="mobile-menu-toggle">
@@ -42,9 +42,9 @@
     <!-- Mobile Menu -->
     <div class="mobile-menu" id="mobileMenu">
         <ul>
-            <li><a href="<?php echo baseUrl(); ?>">Beranda</a></li>
-            <li><a href="<?php echo baseUrl('rooms.php'); ?>">Kamar & Harga</a></li>
-            <li><a href="<?php echo baseUrl('booking.php'); ?>" class="btn-mobile-booking">Pesan Sekarang</a></li>
+            <li><a href="<?php echo baseUrl(); ?>">Home</a></li>
+            <li><a href="<?php echo baseUrl('rooms.php'); ?>">Rooms & Rates</a></li>
+            <li><a href="<?php echo baseUrl('booking.php'); ?>" class="btn-mobile-booking">Book Now</a></li>
         </ul>
     </div>
 </body>

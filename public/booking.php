@@ -8,7 +8,7 @@ define('PUBLIC_ACCESS', true);
 require_once './includes/config.php';
 require_once './includes/database.php';
 
-$pageTitle = 'Pesan Kamar - ' . BUSINESS_NAME;
+$pageTitle = 'Book a Room - ' . BUSINESS_NAME;
 $additionalCSS = ['css/booking.css'];
 $additionalJS = ['js/booking.js'];
 
@@ -25,14 +25,14 @@ $roomTypes = $db->fetchAll("
 
 <section class="section booking-page">
     <div class="container">
-        <h1 style="margin-bottom: 1rem;">Pesan Kamar</h1>
-        <p style="color: #64748b; margin-bottom: 2rem;">Proses booking aman dan mudah</p>
+        <h1 style="margin-bottom: 1rem;">Book a Room</h1>
+        <p style="color: #64748b; margin-bottom: 2rem;">Safe and easy booking process</p>
         
         <div class="booking-container">
             <!-- Left side: Search & Room Selection -->
             <div class="booking-column booking-search">
                 <div class="search-box card">
-                    <h3>1. Pilih Tanggal & Kamar</h3>
+                    <h3>1. Select Date & Room</h3>
                     
                     <div class="form-group">
                         <label>Check In*</label>
@@ -45,17 +45,17 @@ $roomTypes = $db->fetchAll("
                     </div>
                     
                     <div class="form-group">
-                        <label>Jumlah Tamu*</label>
+                        <label>Number of Guests*</label>
                         <select id="bookingGuests">
-                            <option value="1">1 Tamu</option>
-                            <option value="2" selected>2 Tamu</option>
-                            <option value="3">3 Tamu</option>
-                            <option value="4">4+ Tamu</option>
+                            <option value="1">1 Guest</option>
+                            <option value="2" selected>2 Guests</option>
+                            <option value="3">3 Guests</option>
+                            <option value="4">4+ Guests</option>
                         </select>
                     </div>
                     
                     <button class="btn btn-primary btn-block" onclick="searchAvailableRooms()">
-                        <span>Cari Ketersediaan</span>
+                        <span>Search Availability</span>
                         <span id="searchLoader" style="display: none; margin-left: 0.5rem;">
                             <i data-feather="loader"></i>
                         </span>
@@ -65,7 +65,7 @@ $roomTypes = $db->fetchAll("
                 <!-- Available Rooms List -->
                 <div id="availableRoomsList" style="display: none; margin-top: 2rem;">
                     <div class="card">
-                        <h3>Kamar Tersedia</h3>
+                        <h3>Available Rooms</h3>
                         <div id="roomsContainer"></div>
                     </div>
                 </div>
@@ -73,7 +73,7 @@ $roomTypes = $db->fetchAll("
                 <!-- No Rooms Message -->
                 <div id="noRoomsMessage" style="display: none; margin-top: 2rem;">
                     <div class="alert alert-warning">
-                        Maaf, tidak ada kamar tersedia untuk tanggal yang dipilih. Silakan coba tanggal lain.
+                        Sorry, no rooms available for the selected dates. Please try another date.
                     </div>
                 </div>
             </div>
@@ -81,11 +81,11 @@ $roomTypes = $db->fetchAll("
             <!-- Right side: Guest Info & Summary -->
             <div class="booking-column booking-form">
                 <div class="info-box card" id="bookingSummary" style="display: none;">
-                    <h3>2. Data Tamu</h3>
+                    <h3>2. Guest Details</h3>
                     
                     <div class="form-group">
-                        <label>Nama Lengkap*</label>
-                        <input type="text" id="guestName" placeholder="Contoh: Budi Santoso" required>
+                        <label>Full Name*</label>
+                        <input type="text" id="guestName" placeholder="Example: John Doe" required>
                     </div>
                     
                     <div class="form-group">
@@ -94,21 +94,21 @@ $roomTypes = $db->fetchAll("
                     </div>
                     
                     <div class="form-group">
-                        <label>Nomor Telepon*</label>
-                        <input type="text" id="guestPhone" placeholder="08123456789" required>
+                        <label>Phone Number*</label>
+                        <input type="text" id="guestPhone" placeholder="+62812345678" required>
                     </div>
                     
                     <div class="form-group">
-                        <label>Permintaan Khusus (Opsional)</label>
-                        <textarea id="guestRequest" placeholder="Contoh: Near window, High floor, dll" rows="4"></textarea>
+                        <label>Special Requests (Optional)</label>
+                        <textarea id="guestRequest" placeholder="Example: Near window, High floor, etc." rows="4"></textarea>
                     </div>
                     
                     <!-- Booking Summary -->
                     <div class="summary-box">
-                        <h4 style="margin-bottom: 1rem;">Ringkasan Pesanan</h4>
+                        <h4 style="margin-bottom: 1rem;">Order Summary</h4>
                         
                         <div class="summary-row">
-                            <span>Kamar:</span>
+                            <span>Room:</span>
                             <strong id="summaryRoom">-</strong>
                         </div>
                         
@@ -123,23 +123,23 @@ $roomTypes = $db->fetchAll("
                         </div>
                         
                         <div class="summary-row">
-                            <span>Malam:</span>
+                            <span>Nights:</span>
                             <strong id="summaryNights">0</strong>
                         </div>
                         
                         <div class="summary-row">
-                            <span>Harga per Malam:</span>
+                            <span>Price per Night:</span>
                             <strong id="summaryRoomPrice">Rp 0</strong>
                         </div>
                         
                         <div style="border-top: 2px solid #e2e8f0; padding-top: 1rem; margin-top: 1rem;" class="summary-row">
-                            <span style="font-weight: 600;">Total Harga:</span>
+                            <span style="font-weight: 600;">Total Price:</span>
                             <strong id="summaryTotalPrice" style="color: #6366f1; font-size: 1.3rem;">Rp 0</strong>
                         </div>
                     </div>
                     
                     <button class="btn btn-primary btn-block" onclick="proceedToPayment()" style="margin-top: 2rem;">
-                        Lanjutkan ke Pembayaran
+                        Proceed to Payment
                     </button>
                 </div>
                 
@@ -147,7 +147,7 @@ $roomTypes = $db->fetchAll("
                 <div class="card" id="selectRoomMessage">
                     <p style="text-align: center; color: #94a3b8; padding: 2rem 0;">
                         <i data-feather="arrow-left" style="display: block; margin: 0 auto 1rem;"></i>
-                        Pilih kamar dari daftar tersedia
+                        Select a room from the available list
                     </p>
                 </div>
             </div>
