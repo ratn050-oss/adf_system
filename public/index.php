@@ -1,7 +1,7 @@
 <?php
 /**
  * PUBLIC WEBSITE - Homepage
- * Beautiful hotel brochure with booking call-to-action
+ * Modern Luxury Resort Website (Style: Travel Destination Page)
  */
 
 define('PUBLIC_ACCESS', true);
@@ -11,193 +11,181 @@ require_once './includes/database.php';
 $pageTitle = 'Luxury Resort - ' . BUSINESS_NAME;
 $additionalCSS = ['css/homepage.css'];
 
-// Get hotel settings and featured rooms
+// Get hotel settings and featured packages
 $db = PublicDatabase::getInstance();
 try {
-    $featuredRooms = $db->fetchAll("
-        SELECT r.id, r.room_number, rt.type_name, rt.base_price, rt.description, rt.color_code
-        FROM rooms r
-        LEFT JOIN room_types rt ON r.room_type_id = rt.id
-        WHERE r.status = 'available'
-        ORDER BY rt.base_price DESC
-        LIMIT 6
+    // Get featured room types for packages
+    $packages = $db->fetchAll("
+        SELECT id, type_name as package_name, base_price, description
+        FROM room_types
+        ORDER BY base_price ASC
+        LIMIT 3
     ");
 } catch (Exception $e) {
-    $featuredRooms = [];
+    $packages = [];
 }
 
 ?>
 <?php include './includes/header.php'; ?>
 
-<!-- Hero Section -->
-<section class="hero hero-large">
-    <div class="hero-content">
-        <h1>Selamat Datang di Narayana</h1>
-        <p>Hotel Mewah di Kepulauan Karimunjawa<br>Pengalaman Menginap Tak Terlupakan Menanti Anda</p>
+<!-- Hero Section - Large Background -->
+<section class="hero-section">
+    <div class="hero-background" style="background: linear-gradient(135deg, rgba(30, 41, 59, 0.7), rgba(51, 65, 85, 0.7)), url('data:image/svg+xml,<svg xmlns=%22http://www.w3.org/2000/svg%22 viewBox=%220 0 1200 800%22><defs><linearGradient id=%22grad%22 x1=%220%25%22 y1=%220%25%22 x2=%22100%25%22 y2=%22100%25%22><stop offset=%220%25%22 style=%22stop-color:rgb(102,126,234);stop-opacity:1%22 /><stop offset=%22100%25%22 style=%22stop-color:rgb(118,75,162);stop-opacity:1%22 /></linearGradient></defs><rect width=%221200%22 height=%22800%22 fill=%22url(%23grad)%22/><circle cx=%22600%22 cy=%22400%22 r=%22300%22 fill=%22rgba(255,255,255,0.05)%22/></svg>'); background-size: cover; background-position: center;">
+    </div>
+    
+    <div class="hero-container">
+        <!-- Left Content -->
+        <div class="hero-content">
+            <div class="hero-text">
+                <h1 class="hero-title">KARIMUNJAWA</h1>
+                <p class="hero-description">
+                    Temukan surga tropis di kepulauan eksotis Karimunjawa. 
+                    Pantai berpasir putih, air kristal, dan mewah menginap 
+                    yang tak terlupakan menanti Anda.
+                </p>
+                <a href="<?php echo baseUrl('booking.php'); ?>" class="btn-explore">
+                    <span>EXPLORE</span>
+                    <i data-feather="arrow-right" style="margin-left: 0.5rem;"></i>
+                </a>
+            </div>
+        </div>
         
-        <div class="hero-search">
-            <div>
-                <label>Check In</label>
-                <input type="date" id="heroCheckIn" min="<?php echo date('Y-m-d'); ?>">
+        <!-- Right Featured Packages -->
+        <div class="hero-packages">
+            <?php foreach ($packages as $package): ?>
+            <div class="package-card">
+                <div class="package-image" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);"></div>
+                <div class="package-info">
+                    <h3><?php echo htmlize($package['package_name']); ?></h3>
+                    <p><?php echo htmlize(substr($package['description'] ?? '', 0, 60) . '...'); ?></p>
+                    <div class="package-price"><?php echo formatCurrency($package['base_price']); ?></div>
+                    <small>/malam</small>
+                </div>
             </div>
-            <div>
-                <label>Check Out</label>
-                <input type="date" id="heroCheckOut" min="<?php echo date('Y-m-d', strtotime('+1 day')); ?>">
-            </div>
-            <div>
-                <label>Tamu</label>
-                <select id="heroGuests">
-                    <option value="1">1 Tamu</option>
-                    <option value="2">2 Tamu</option>
-                    <option value="3">3 Tamu</option>
-                    <option value="4">4+ Tamu</option>
-                </select>
-            </div>
-            <button class="btn btn-primary" onclick="searchRooms()">Cek Ketersediaan</button>
+            <?php endforeach; ?>
         </div>
     </div>
 </section>
 
 <!-- About Section -->
-<section class="section">
+<section class="section about-section">
     <div class="container">
-        <div class="grid grid-2">
-            <div>
-                <h2>Tentang Narayana</h2>
+        <div class="about-grid">
+            <div class="about-content">
+                <h2>Mengapa Narayana?</h2>
                 <p>
-                    Narayana Karimunjawa adalah resort mewah yang dirancang khusus untuk memberikan 
-                    pengalaman menginap premium di tengah keindahan alam Kepulauan Karimunjawa.
+                    Narayana Karimunjawa adalah destinasi pilihan untuk liburan impian Anda. 
+                    Kami menawarkan kombinasi sempurna antara kemewahan, kenyamanan, dan 
+                    keindahan alam yang tak tertandingi.
                 </p>
-                <p>
-                    Dengan fasilitas kelas dunia, pelayanan terbaik, dan pemandangan laut yang spektakuler, 
-                    kami berkomitmen untuk membuat liburan Anda menjadi kenangan indah selamanya.
-                </p>
-                <div style="margin-top: 1.5rem;">
-                    <a href="<?php echo baseUrl('rooms.php'); ?>" class="btn btn-primary">Lihat Semua Kamar</a>
-                </div>
+                <ul class="features-list">
+                    <li>🏖️ Pantai Private dengan Pasir Putih</li>
+                    <li>🌊 Water Sports & Snorkeling</li>
+                    <li>🍽️ Fine Dining Restaurant</li>
+                    <li>🧘 Spa & Wellness Center</li>
+                    <li>🎾 Fasilitas Olahraga Lengkap</li>
+                    <li>👥 Concierge 24/7</li>
+                </ul>
             </div>
-            <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); border-radius: 0.5rem; min-height: 300px; display: flex; align-items: center; justify-content: center; color: white; text-align: center;">
-                <img src="<?php echo assetUrl('images/hero-placeholder.jpg'); ?>" alt="Narayana Hotel" style="width: 100%; height: 300px; object-fit: cover; border-radius: 0.5rem;">
+            <div class="about-image">
+                <div style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); min-height: 400px; border-radius: 1rem; display: flex; align-items: center; justify-content: center; color: white; font-size: 4rem;">
+                    🏝️
+                </div>
             </div>
         </div>
     </div>
 </section>
 
-<!-- Featured Rooms -->
-<section class="section dark">
+<!-- All Packages/Rooms Section -->
+<section class="section packages-section dark">
     <div class="container">
-        <h2 style="color: white; margin-bottom: 2rem; text-align: center;">Pilihan Kamar Premium</h2>
-        
-        <div class="grid grid-3">
-            <?php foreach ($featuredRooms as $room): ?>
-            <div class="card room-card">
-                <div class="card-image" style="background: <?php echo htmlize($room['color_code'] ?? '#667eea'); ?>; display: flex; align-items: center; justify-content: center; color: white; font-size: 3rem;">
-                    🏨
-                </div>
-                <div class="card-body">
-                    <h3 class="card-title"><?php echo htmlize($room['type_name']); ?></h3>
-                    <p class="card-text"><?php echo htmlize($room['description'] ?? 'Kamar dengan fasilitas lengkap dan kenyamanan maksimal'); ?></p>
-                    <div style="margin: 1rem 0;">
-                        <div class="card-price"><?php echo formatCurrency($room['base_price']); ?></div>
-                        <div style="font-size: 0.85rem; color: #999; margin-top: 0.25rem;">per malam</div>
-                    </div>
-                    <a href="<?php echo baseUrl('booking.php?room=' . $room['id']); ?>" class="btn btn-primary btn-block">Pesan Sekarang</a>
-                </div>
-            </div>
-            <?php endforeach; ?>
-        </div>
-    </div>
-</section>
-
-<!-- Amenities Section -->
-<section class="section">
-    <div class="container">
-        <h2 style="text-align: center; margin-bottom: 2rem;">Fasilitas Lengkap</h2>
-        
-        <div class="grid grid-4">
-            <?php
-            $amenities = [
-                ['icon' => '🏊', 'name' => 'Kolam Renang Infinity', 'desc' => 'Nikmati pemandangan laut sambil berenang'],
-                ['icon' => '🍽️', 'name' => 'Restoran & Bar', 'desc' => 'Menu internasional dan lokal berkualitas'],
-                ['icon' => '🧘', 'name' => 'Spa & Wellness', 'desc' => 'Perawatan tubuh dengan teknik tradisional'],
-                ['icon' => '🎾', 'name' => 'Water Sports', 'desc' => 'Aktivitas air seru untuk keluarga'],
-                ['icon' => '📶', 'name' => 'WiFi Gratis', 'desc' => 'Internet cepat di seluruh area resort'],
-                ['icon' => '🚗', 'name' => 'Parkir Gratis', 'desc' => 'Parkir aman untuk semua tamu'],
-                ['icon' => '🎕', 'name' => 'Concierge 24/7', 'desc' => 'Layanan tamu sepanjang waktu'],
-                ['icon' => '🏋️', 'name' => 'Fitness Center', 'desc' => 'Gym modern dengan peralatan terlengkap'],
-            ];
-            
-            foreach ($amenities as $amenity):
-            ?>
-            <div class="amenity-card">
-                <div class="amenity-icon"><?php echo $amenity['icon']; ?></div>
-                <h4><?php echo $amenity['name']; ?></h4>
-                <p><?php echo $amenity['desc']; ?></p>
-            </div>
-            <?php endforeach; ?>
-        </div>
-    </div>
-</section>
-
-<!-- Call to Action -->
-<section class="section dark">
-    <div class="container" style="text-align: center;">
-        <h2 style="color: white; margin-bottom: 1rem;">Siap untuk Liburan Impian Anda?</h2>
-        <p style="color: rgba(255, 255, 255, 0.8); margin-bottom: 2rem; font-size: 1.1rem;">
-            Pesan kamar Anda sekarang dan dapatkan penawaran spesial untuk early bird
+        <h2 style="color: white; margin-bottom: 1rem; text-align: center;">Paket Menginap Kami</h2>
+        <p style="color: rgba(255, 255, 255, 0.8); text-align: center; margin-bottom: 3rem;">
+            Pilih paket yang sesuai dengan budget dan gaya liburan Anda
         </p>
-        <a href="<?php echo baseUrl('booking.php'); ?>" class="btn btn-primary" style="font-size: 1.1rem; padding: 1rem 2rem;">
-            Mulai Booking Sekarang
-        </a>
+        
+        <div class="packages-grid">
+            <?php
+            // Get all room types
+            $allPackages = $db->fetchAll("
+                SELECT id, type_name, base_price, description, max_occupancy
+                FROM room_types
+                ORDER BY base_price ASC
+            ");
+            
+            foreach ($allPackages as $pkg):
+            ?>
+            <div class="package-full-card">
+                <div class="package-img" style="background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);"></div>
+                <div class="package-details">
+                    <h3><?php echo htmlize($pkg['type_name']); ?></h3>
+                    <p><?php echo htmlize($pkg['description'] ?? 'Kamar dengan fasilitas mewah dan pemandangan menakjubkan'); ?></p>
+                    <div class="package-meta">
+                        <span>👥 Hingga <?php echo $pkg['max_occupancy']; ?> tamu</span>
+                    </div>
+                    <div class="package-footer">
+                        <div class="price" style="color: #6366f1; font-size: 1.5rem; font-weight: 700;">
+                            <?php echo formatCurrency($pkg['base_price']); ?><br>
+                            <span style="font-size: 0.85rem; color: #94a3b8;">/malam</span>
+                        </div>
+                        <a href="<?php echo baseUrl('booking.php'); ?>" class="btn btn-small btn-primary">
+                            Pesan Sekarang
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <?php endforeach; ?>
+        </div>
     </div>
 </section>
 
-<!-- Contact Section -->
-<section class="section">
+<!-- Testimonials Section -->
+<section class="section testimonials-section">
     <div class="container">
-        <h2 style="text-align: center; margin-bottom: 2rem;">Hubungi Kami</h2>
+        <h2 style="text-align: center; margin-bottom: 3rem;">Kata Tamu Kami</h2>
         
-        <div class="grid grid-2">
-            <div>
-                <h3>Informasi Kontak</h3>
-                <p>
-                    <strong>Alamat:</strong><br>
-                    <?php echo htmlize(getConfig('address')); ?>
-                </p>
-                <p>
-                    <strong>Telepon:</strong><br>
-                    <a href="tel:<?php echo htmlize(getConfig('phone')); ?>">
-                        <?php echo htmlize(getConfig('phone')); ?>
-                    </a>
-                </p>
-                <p>
-                    <strong>Email:</strong><br>
-                    <a href="mailto:<?php echo htmlize(getConfig('email')); ?>">
-                        <?php echo htmlize(getConfig('email')); ?>
-                    </a>
-                </p>
-                <p>
-                    <strong>Jam Layanan:</strong><br>
-                    Senin - Minggu: 08:00 - 22:00 WIB
-                </p>
+        <div class="testimonials-grid">
+            <div class="testimonial-card">
+                <div class="stars">⭐⭐⭐⭐⭐</div>
+                <p>"Liburan paling sempurna yang pernah kami alami. Staff yang ramah, fasilitas lengkap, dan pemandangan yang menakjubkan!"</p>
+                <div class="testimonial-author">
+                    <strong>Budi Santoso</strong>
+                    <small>Jakarta</small>
+                </div>
             </div>
             
-            <div>
-                <h3>Kirim Pesan</h3>
-                <form class="contact-form" onsubmit="handleContactForm(event)">
-                    <div class="form-group">
-                        <input type="text" placeholder="Nama Anda" required>
-                    </div>
-                    <div class="form-group">
-                        <input type="email" placeholder="Email Anda" required>
-                    </div>
-                    <div class="form-group">
-                        <textarea placeholder="Pesan Anda" rows="4"></textarea>
-                    </div>
-                    <button type="submit" class="btn btn-primary btn-block">Kirim Pesan</button>
-                </form>
+            <div class="testimonial-card">
+                <div class="stars">⭐⭐⭐⭐⭐</div>
+                <p>"Harga sebanding dengan kualitas. Kamarnya nyaman, makanannya lezat, dan pelayanannya ramah. Akan datang lagi!"</p>
+                <div class="testimonial-author">
+                    <strong>Siti Nurhaliza</strong>
+                    <small>Bandung</small>
+                </div>
+            </div>
+            
+            <div class="testimonial-card">
+                <div class="stars">⭐⭐⭐⭐⭐</div>
+                <p>"Destinasi wajib kunjung untuk honeymoon. Susana romantis, private beach, dan sunset yang indah. Recommended!"</p>
+                <div class="testimonial-author">
+                    <strong>Ahmad Wijaya</strong>
+                    <small>Surabaya</small>
+                </div>
             </div>
         </div>
+    </div>
+</section>
+
+<!-- CTA Section -->
+<section class="section cta-section dark">
+    <div class="container" style="text-align: center;">
+        <h2 style="color: white; margin-bottom: 1rem;">Siap untuk Petualangan?</h2>
+        <p style="color: rgba(255, 255, 255, 0.8); margin-bottom: 2rem; font-size: 1.1rem;">
+            Jangan tunda lagi, pesan kamar Anda sekarang dan nikmati diskon early bird hingga 20%
+        </p>
+        <a href="<?php echo baseUrl('booking.php'); ?>" class="btn-explore" style="display: inline-flex; align-items: center; gap: 0.5rem;">
+            PESAN SEKARANG
+            <i data-feather="arrow-right"></i>
+        </a>
     </div>
 </section>
 
