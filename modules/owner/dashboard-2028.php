@@ -255,7 +255,18 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
             gap: 10px;
         }
         .brand-icon {
-            font-size: 24px;
+            width: 36px;
+            height: 36px;
+            border-radius: 8px;
+            overflow: hidden;
+            background: white;
+            padding: 4px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .brand-icon img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
         }
         .brand-text {
             display: flex;
@@ -893,7 +904,9 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
         <!-- Header -->
         <header class="header">
             <div class="brand">
-                <span class="brand-icon" style="font-family: 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif;">&#127976;</span>
+                <div class="brand-icon">
+                    <img src="<?= $basePath ?>/uploads/logos/logo.png" alt="Logo">
+                </div>
                 <div class="brand-text">
                     Narayana Hotel
                     <span class="brand-subtext">Owner Dashboard</span>

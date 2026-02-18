@@ -171,9 +171,25 @@ $usagePercent = $totalBudget > 0 ? round(($totalExpenses / $totalBudget) * 100) 
         }
         
         .header-title {
-            font-size: 20px;
+            font-size: 18px;
             font-weight: 700;
             margin-bottom: 4px;
+        }
+        
+        .header-logo {
+            width: 50px;
+            height: 50px;
+            border-radius: 12px;
+            margin: 0 auto 10px;
+            background: white;
+            padding: 6px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .header-logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
         }
         
         .header-subtitle {
@@ -567,7 +583,10 @@ $usagePercent = $totalBudget > 0 ? round(($totalExpenses / $totalBudget) * 100) 
     <div class="container">
         <!-- Header -->
         <div class="header">
-            <div class="header-title">📊 Projects & Investors</div>
+            <div class="header-logo">
+                <img src="<?= $basePath ?>/uploads/logos/logo.png" alt="Logo" onerror="this.parentElement.style.display='none'">
+            </div>
+            <div class="header-title">Projects & Investors</div>
             <div class="header-subtitle">Investment Overview</div>
         </div>
         

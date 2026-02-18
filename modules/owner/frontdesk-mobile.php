@@ -1,4 +1,4 @@
-<?php
+,<?php
 /**
  * FRONTDESK MOBILE DASHBOARD
  * Mobile-optimized view for owner monitoring
@@ -133,10 +133,12 @@ try {
 
         // In-house guests list
         $stmt = $pdo->query("
-            SELECT b.id, b.guest_name, b.guest_phone, b.check_in_date, b.check_out_date, 
-                   r.room_number, r.room_type, b.total_amount
+            SELECT b.id, g.guest_name, g.phone as guest_phone, b.check_in_date, b.check_out_date, 
+                   r.room_number, rt.type_name as room_type, b.final_price as total_amount
             FROM bookings b
+            LEFT JOIN guests g ON b.guest_id = g.id
             LEFT JOIN rooms r ON b.room_id = r.id
+            LEFT JOIN room_types rt ON r.room_type_id = rt.id
             WHERE b.status = 'checked_in'
             ORDER BY b.check_out_date ASC
             LIMIT 10
@@ -145,10 +147,12 @@ try {
 
         // Today's arrivals
         $stmt = $pdo->prepare("
-            SELECT b.id, b.guest_name, b.check_in_date, b.check_out_date, 
-                   r.room_number, r.room_type, b.status
+            SELECT b.id, g.guest_name, b.check_in_date, b.check_out_date, 
+                   r.room_number, rt.type_name as room_type, b.status
             FROM bookings b
+            LEFT JOIN guests g ON b.guest_id = g.id
             LEFT JOIN rooms r ON b.room_id = r.id
+            LEFT JOIN room_types rt ON r.room_type_id = rt.id
             WHERE DATE(b.check_in_date) = ? AND b.status IN ('confirmed', 'checked_in')
             ORDER BY b.check_in_date ASC
             LIMIT 5
@@ -158,10 +162,12 @@ try {
 
         // Today's departures
         $stmt = $pdo->prepare("
-            SELECT b.id, b.guest_name, b.check_out_date, 
-                   r.room_number, r.room_type, b.status
+            SELECT b.id, g.guest_name, b.check_out_date, 
+                   r.room_number, rt.type_name as room_type, b.status
             FROM bookings b
+            LEFT JOIN guests g ON b.guest_id = g.id
             LEFT JOIN rooms r ON b.room_id = r.id
+            LEFT JOIN room_types rt ON r.room_type_id = rt.id
             WHERE DATE(b.check_out_date) = ? AND b.status = 'checked_in'
             ORDER BY b.check_out_date ASC
             LIMIT 5
@@ -238,9 +244,25 @@ function rp($num) {
         }
         
         .header-title {
-            font-size: 20px;
+            font-size: 18px;
             font-weight: 700;
             margin-bottom: 4px;
+        }
+        
+        .header-logo {
+            width: 50px;
+            height: 50px;
+            border-radius: 12px;
+            margin: 0 auto 10px;
+            background: white;
+            padding: 6px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+        }
+        
+        .header-logo img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
         }
         
         .header-subtitle {
@@ -632,7 +654,10 @@ function rp($num) {
     <div class="container">
         <!-- Header -->
         <div class="header">
-            <div class="header-title">🏨 Frontdesk Monitor</div>
+            <div class="header-logo">
+                <img src="<?= $basePath ?>/uploads/logos/logo.png" alt="Logo" onerror="this.parentElement.style.display='none'">
+            </div>
+            <div class="header-title">Frontdesk Monitor</div>
             <div class="header-subtitle">Narayana Hotel & Ayurveda</div>
             <div class="header-date"><?= date('l, d F Y') ?></div>
         </div>
