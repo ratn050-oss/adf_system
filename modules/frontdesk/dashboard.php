@@ -397,12 +397,12 @@ try {
     ", [$today]);
     $stats['ota_revenue_today'] = $otaRevenueResult['total'] ?? 0;
 
-    // 9. In-House Revenue - Total paid from currently checked-in guests (from booking_payments)
+    // 9. In-House Revenue - Total paid from active bookings (confirmed + checked_in)
     $inHouseRevenueResult = $db->fetchOne("
         SELECT COALESCE(SUM(bp.amount), 0) as total
         FROM booking_payments bp
         JOIN bookings b ON bp.booking_id = b.id
-        WHERE b.status = 'checked_in'
+        WHERE b.status IN ('confirmed', 'checked_in')
     ");
     $stats['inhouse_revenue'] = $inHouseRevenueResult['total'] ?? 0;
 
@@ -1730,7 +1730,7 @@ include '../../includes/header.php';
                     </div>
                     <div style="font-size: 0.6rem; color: #6366f1; font-weight: 500; margin-bottom: 0.2rem;">In-House Revenue</div>
                     <div style="font-size: 1rem; font-weight: 800; color: #4f46e5;">Rp <?php echo number_format($stats['inhouse_revenue'], 0, ',', '.'); ?></div>
-                    <div style="font-size: 0.55rem; color: var(--text-secondary); margin-top: 0.2rem;">Tamu yang checked-in</div>
+                    <div style="font-size: 0.55rem; color: var(--text-secondary); margin-top: 0.2rem;">Reservasi aktif (paid)</div>
                 </div>
                 
                 <!-- Expected Revenue -->

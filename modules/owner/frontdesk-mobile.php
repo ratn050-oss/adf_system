@@ -120,13 +120,13 @@ try {
             $stats['today_revenue'] = 0;
         }
 
-        // In-House Revenue (total paid from checked-in guests)
+        // In-House Revenue (total paid from active bookings: confirmed + checked_in)
         try {
             $stmt = $pdo->query("
                 SELECT COALESCE(SUM(bp.amount), 0) as total
                 FROM booking_payments bp
                 JOIN bookings b ON bp.booking_id = b.id
-                WHERE b.status = 'checked_in'
+                WHERE b.status IN ('confirmed', 'checked_in')
             ");
             $stats['inhouse_revenue'] = (float)$stmt->fetchColumn();
         } catch (Exception $e) {

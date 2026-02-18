@@ -84,12 +84,12 @@ try {
     ", [$today]);
     $stats['revenue_today'] = $revenueResult['total'] ?? 0;
 
-    // In-House Revenue (total paid from currently checked-in guests)
+    // In-House Revenue (total paid from active bookings: confirmed + checked_in)
     $inHouseRevenueResult = $db->fetchOne("
         SELECT COALESCE(SUM(bp.amount), 0) as total
         FROM booking_payments bp
         JOIN bookings b ON bp.booking_id = b.id
-        WHERE b.status = 'checked_in'
+        WHERE b.status IN ('confirmed', 'checked_in')
     ");
     $stats['inhouse_revenue'] = $inHouseRevenueResult['total'] ?? 0;
 
