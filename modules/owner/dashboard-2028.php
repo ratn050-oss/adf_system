@@ -164,6 +164,27 @@ try {
     // TOTAL PENGELUARAN OPERASIONAL = Combined expense
     $totalOperationalExpense = $pettyCashStats['used'] + $capitalStats['used'];
     
+    // ============================================
+    // CHART DATA - Expense per Division (for pie chart)
+    // ============================================
+    $expenseDivisionData = [];
+    $stmt = $pdo->prepare("
+        SELECT 
+            d.division_name,
+            d.division_code,
+            COALESCE(SUM(cb.amount), 0) as total
+        FROM divisions d
+        LEFT JOIN cash_book cb ON d.id = cb.division_id 
+            AND cb.transaction_type = 'expense'
+            AND DATE_FORMAT(cb.transaction_date, '%Y-%m') = ?
+        WHERE d.is_active = 1
+        GROUP BY d.id, d.division_name, d.division_code
+        HAVING total > 0
+        ORDER BY total DESC
+    ");
+    $stmt->execute([$thisMonth]);
+    $expenseDivisionData = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
     // Total transactions
     $stmt = $pdo->query("SELECT COUNT(*) FROM cash_book");
     $stats['total_transactions'] = (int)$stmt->fetchColumn();
@@ -878,6 +899,89 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
             z-index: 1000;
         }
         
+        /* Expense Division Pie Chart */
+        .expense-division-card {
+            background: var(--surface);
+            border-radius: 14px;
+            margin-top: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.04);
+            overflow: hidden;
+        }
+        .expense-division-header {
+            padding: 12px 14px 10px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            gap: 8px;
+        }
+        .expense-division-title {
+            font-size: 12px;
+            font-weight: 600;
+            color: var(--text-primary);
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .expense-division-title .icon-circle {
+            width: 24px;
+            height: 24px;
+            border-radius: 50%;
+            background: linear-gradient(135deg, #fee2e2, #fecaca);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 12px;
+        }
+        .expense-month-input {
+            font-size: 11px;
+            padding: 4px 8px;
+            border: 1px solid var(--border);
+            border-radius: 8px;
+            background: var(--bg);
+            color: var(--text-primary);
+            outline: none;
+            height: 28px;
+        }
+        .expense-month-input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px rgba(99,102,241,0.1);
+        }
+        .expense-division-body {
+            position: relative;
+            height: 220px;
+            padding: 10px 14px 6px;
+        }
+        .expense-division-empty {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            color: var(--text-muted);
+            font-size: 12px;
+        }
+        .expense-division-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 6px 12px;
+            padding: 6px 14px 12px;
+            justify-content: center;
+        }
+        .edl-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 10px;
+            color: var(--text-secondary);
+        }
+        .edl-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+
         /* Mobile Optimizations */
         @media (max-width: 400px) {
             .chart-container {
@@ -891,6 +995,9 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
             }
             .operational-grid {
                 grid-template-columns: 1fr;
+            }
+            .expense-division-body {
+                height: 200px;
             }
         }
     </style>
@@ -1029,6 +1136,44 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
             <a href="<?= $basePath ?>/modules/owner/owner-capital-monitor.php" class="op-detail-btn">
                 📋 Detail Monitor (Owner Capital & Petty Cash)
             </a>
+
+            <!-- Pie Chart - Pengeluaran per Divisi -->
+            <div class="expense-division-card">
+                <div class="expense-division-header">
+                    <div class="expense-division-title">
+                        <span class="icon-circle">🥧</span>
+                        Pengeluaran per Divisi
+                    </div>
+                    <input type="month" id="expenseDivisionMonth" class="expense-month-input" value="<?= $thisMonth ?>" onchange="updateExpenseDivisionChart(this.value)">
+                </div>
+                <div class="expense-division-body">
+                    <?php if (empty($expenseDivisionData)): ?>
+                        <div class="expense-division-empty">
+                            <span style="font-size:28px;margin-bottom:6px;">📭</span>
+                            Belum ada data pengeluaran
+                        </div>
+                    <?php else: ?>
+                        <canvas id="expenseDivisionChart"></canvas>
+                    <?php endif; ?>
+                </div>
+                <?php if (!empty($expenseDivisionData)): ?>
+                <div class="expense-division-legend" id="expenseDivisionLegend">
+                    <?php 
+                    $divColors = [
+                        'rgba(239,68,68,0.85)', 'rgba(251,146,60,0.85)', 'rgba(245,158,11,0.85)',
+                        'rgba(234,179,8,0.85)', 'rgba(132,204,22,0.85)', 'rgba(34,197,94,0.85)',
+                        'rgba(20,184,166,0.85)', 'rgba(6,182,212,0.85)', 'rgba(59,130,246,0.85)',
+                        'rgba(99,102,241,0.85)', 'rgba(139,92,246,0.85)', 'rgba(168,85,247,0.85)'
+                    ];
+                    foreach ($expenseDivisionData as $i => $div): ?>
+                        <div class="edl-item">
+                            <span class="edl-dot" style="background:<?= $divColors[$i % count($divColors)] ?>"></span>
+                            <?= htmlspecialchars($div['division_name']) ?>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+                <?php endif; ?>
+            </div>
         </div>
         
         <!-- AI Health -->
@@ -1122,8 +1267,130 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
         </a>
     </nav>
 
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
     <script>
     document.addEventListener('DOMContentLoaded', function() {
+        // ============================================
+        // DOUGHNUT CHART - Expense per Division
+        // ============================================
+        var expDivCanvas = document.getElementById('expenseDivisionChart');
+        var expenseDivisionChart = null;
+        var divChartColors = [
+            'rgba(239,68,68,0.85)', 'rgba(251,146,60,0.85)', 'rgba(245,158,11,0.85)',
+            'rgba(234,179,8,0.85)', 'rgba(132,204,22,0.85)', 'rgba(34,197,94,0.85)',
+            'rgba(20,184,166,0.85)', 'rgba(6,182,212,0.85)', 'rgba(59,130,246,0.85)',
+            'rgba(99,102,241,0.85)', 'rgba(139,92,246,0.85)', 'rgba(168,85,247,0.85)'
+        ];
+
+        if (expDivCanvas) {
+            var expDivCtx = expDivCanvas.getContext('2d');
+            expenseDivisionChart = new Chart(expDivCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: [<?php foreach ($expenseDivisionData as $div): ?>'<?= addslashes($div['division_name']) ?>',<?php endforeach; ?>],
+                    datasets: [{
+                        data: [<?php foreach ($expenseDivisionData as $div): ?><?= $div['total'] ?>,<?php endforeach; ?>],
+                        backgroundColor: divChartColors.slice(0, <?= count($expenseDivisionData) ?>),
+                        borderWidth: 0,
+                        hoverOffset: 14
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    cutout: '58%',
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(15,23,42,0.92)',
+                            padding: 10,
+                            titleFont: { size: 11, weight: '600' },
+                            bodyFont: { size: 10 },
+                            cornerRadius: 8,
+                            callbacks: {
+                                label: function(ctx) {
+                                    var val = ctx.parsed || 0;
+                                    var total = ctx.dataset.data.reduce(function(a,b){return a+b;},0);
+                                    var pct = ((val/total)*100).toFixed(1);
+                                    return ctx.label + ': Rp ' + val.toLocaleString('id-ID') + ' (' + pct + '%)';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        // AJAX update for month change
+        window.updateExpenseDivisionChart = function(month) {
+            var basePath = '<?= $basePath ?>';
+            fetch(basePath + '/api/expense-division-data.php?month=' + month)
+                .then(function(r){ return r.json(); })
+                .then(function(data) {
+                    if (data.success && data.divisions.length > 0) {
+                        // Show canvas, hide empty
+                        var body = document.querySelector('.expense-division-body');
+                        body.innerHTML = '<canvas id="expenseDivisionChart"></canvas>';
+                        var newCtx = document.getElementById('expenseDivisionChart').getContext('2d');
+                        expenseDivisionChart = new Chart(newCtx, {
+                            type: 'doughnut',
+                            data: {
+                                labels: data.divisions,
+                                datasets: [{
+                                    data: data.amounts,
+                                    backgroundColor: divChartColors.slice(0, data.divisions.length),
+                                    borderWidth: 0,
+                                    hoverOffset: 14
+                                }]
+                            },
+                            options: {
+                                responsive: true,
+                                maintainAspectRatio: false,
+                                cutout: '58%',
+                                plugins: {
+                                    legend: { display: false },
+                                    tooltip: {
+                                        backgroundColor: 'rgba(15,23,42,0.92)',
+                                        padding: 10,
+                                        titleFont: { size: 11, weight: '600' },
+                                        bodyFont: { size: 10 },
+                                        cornerRadius: 8,
+                                        callbacks: {
+                                            label: function(ctx) {
+                                                var val = ctx.parsed || 0;
+                                                var total = ctx.dataset.data.reduce(function(a,b){return a+b;},0);
+                                                var pct = ((val/total)*100).toFixed(1);
+                                                return ctx.label + ': Rp ' + val.toLocaleString('id-ID') + ' (' + pct + '%)';
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        });
+                        // Update legend
+                        var legendEl = document.getElementById('expenseDivisionLegend');
+                        if (legendEl) {
+                            var html = '';
+                            data.divisions.forEach(function(name, i) {
+                                html += '<div class="edl-item"><span class="edl-dot" style="background:' + divChartColors[i % divChartColors.length] + '"></span>' + name + '</div>';
+                            });
+                            legendEl.innerHTML = html;
+                            legendEl.style.display = 'flex';
+                        }
+                    } else {
+                        // Show empty state
+                        var body = document.querySelector('.expense-division-body');
+                        body.innerHTML = '<div class="expense-division-empty"><span style="font-size:28px;margin-bottom:6px;">📭</span>Belum ada data pengeluaran</div>';
+                        var legendEl = document.getElementById('expenseDivisionLegend');
+                        if (legendEl) legendEl.style.display = 'none';
+                    }
+                })
+                .catch(function(err){ console.error('Error:', err); });
+        };
+
+        // ============================================
+        // ORIGINAL PIE CHART - Income vs Expense
+        // ============================================
         var canvas = document.getElementById('pieChart');
         if (!canvas) return;
         var ctx = canvas.getContext('2d');
