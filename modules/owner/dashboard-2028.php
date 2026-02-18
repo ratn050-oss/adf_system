@@ -580,6 +580,25 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
             color: #1e293b;
         }
         
+        .op-detail-btn {
+            display: block;
+            width: 100%;
+            margin-top: 10px;
+            padding: 8px 12px;
+            background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+            color: white;
+            text-decoration: none;
+            border-radius: 8px;
+            font-size: 10px;
+            font-weight: 600;
+            text-align: center;
+            transition: all 0.3s ease;
+        }
+        
+        .op-detail-btn:active {
+            transform: scale(0.98);
+        }
+        
         /* AI Health Section */
         .ai-card {
             background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
@@ -984,6 +1003,9 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
                     <div style="font-size: 8px; color: #4f46e5; margin-top: 2px;">Uang cash tersedia</div>
                 </div>
             </div>
+            <a href="<?= $basePath ?>/modules/owner/owner-capital-monitor.php" class="op-detail-btn">
+                📋 Detail Monitor (Modal Owner & Petty Cash)
+            </a>
         </div>
         
         <!-- AI Health -->

@@ -110,6 +110,46 @@ foreach ($allTransactions as $txn) {
 $currentBalance = $ownerCapitalAccount['current_balance'];
 $remainingCapital = $currentBalance;
 
+// =====================================================
+// PETTY CASH SECTION - Uang Cash dari Hotel/Tamu
+// =====================================================
+
+// Get Petty Cash account from MASTER DB
+$stmt = $masterDb->prepare(
+    "SELECT * FROM cash_accounts WHERE business_id = ? AND account_type = 'cash' AND is_active = 1"
+);
+$stmt->execute([$businessId]);
+$pettyCashAccount = $stmt->fetch();
+
+$pettyCashTransactions = [];
+$totalPettyCashReceived = 0;  // Total uang masuk dari tamu
+$totalPettyCashUsed = 0;      // Total digunakan untuk operasional
+$pettyCashBalance = 0;
+
+if ($pettyCashAccount) {
+    // Get ALL Petty Cash transactions in selected period from cash_book (only CASH payment_method)
+    $pettyCashStmt = $db->getConnection()->prepare(
+        "SELECT cb.id, cb.transaction_date, cb.description, cb.transaction_type, cb.amount, cb.payment_method
+         FROM cash_book cb 
+         WHERE cb.payment_method = 'cash'
+         AND DATE_FORMAT(cb.transaction_date, '%Y-%m') = ?
+         ORDER BY cb.transaction_date DESC, cb.id DESC"
+    );
+    $pettyCashStmt->execute([$selectedPeriod]);
+    $pettyCashTransactions = $pettyCashStmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Calculate totals
+    foreach ($pettyCashTransactions as $txn) {
+        if ($txn['transaction_type'] === 'income') {
+            $totalPettyCashReceived += $txn['amount'];
+        } else {
+            $totalPettyCashUsed += $txn['amount'];
+        }
+    }
+    
+    $pettyCashBalance = $pettyCashAccount['current_balance'];
+}
+
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -365,8 +405,8 @@ $remainingCapital = $currentBalance;
         
         <div class="page-header">
             <div>
-                <h1 class="page-title">💰 Monitor Kas Modal Owner</h1>
-                <p class="page-subtitle">Tracking pengeluaran modal bulan <?php echo date('F Y', strtotime($currentMonth)); ?></p>
+                <h1 class="page-title">💰 Monitor Daily Expenses</h1>
+                <p class="page-subtitle">Tracking Modal Owner & Petty Cash bulan <?php echo date('F Y', strtotime($currentMonth)); ?></p>
             </div>
             <div style="display: flex; gap: 1rem; align-items: center;">
                 <!-- Period Selector -->
@@ -388,7 +428,11 @@ $remainingCapital = $currentBalance;
             </div>
         </div>
         
-        <!-- Key Statistics -->
+        <!-- Key Statistics - MODAL OWNER -->
+        <h2 style="margin-bottom: 1.5rem; font-size: 1.5rem; font-weight: 700; color: #10b981; display: flex; align-items: center; gap: 0.75rem;">
+            💰 Modal Owner - Setoran Dari Owner
+        </h2>
+        
         <div class="grid-2">
             <!-- Total Uang Masuk dari Owner (NEW) -->
             <div class="card stat-card" style="border-left: 4px solid #10b981; background: linear-gradient(135deg, rgba(16,185,129,0.05) 0%, rgba(16,185,129,0.02) 100%);">
@@ -572,6 +616,144 @@ $remainingCapital = $currentBalance;
                 <div class="empty-state">
                     <i data-feather="inbox"></i>
                     <p>Belum ada transaksi modal pada periode ini</p>
+                </div>
+            <?php endif; ?>
+        </div>
+        
+        <!-- ======================================================== -->
+        <!-- PETTY CASH SECTION - Uang Cash dari Hotel/Tamu -->
+        <!-- ======================================================== -->
+        
+        <h2 style="margin-top: 2.5rem; margin-bottom: 1.5rem; font-size: 1.5rem; font-weight: 700; color: #f59e0b; display: flex; align-items: center; gap: 0.75rem;">
+            💵 Petty Cash - Uang Cash Dari Tamu
+        </h2>
+        
+        <!-- Petty Cash Statistics -->
+        <div class="grid-2">
+            <!-- Total Uang Masuk Cash dari Tamu -->
+            <div class="card stat-card" style="border-left: 4px solid #f59e0b; background: linear-gradient(135deg, rgba(245,158,11,0.05) 0%, rgba(245,158,11,0.02) 100%);">
+                <div class="stat-label" style="color: #f59e0b;">
+                    <i data-feather="trending-up" style="width: 16px; height: 16px;"></i>
+                    Total Uang Masuk Cash
+                </div>
+                <div class="stat-value" style="color: #f59e0b;">Rp <?php echo number_format($totalPettyCashReceived, 0, ',', '.'); ?></div>
+                <div class="stat-change" style="background: #fef3c7; color: #b45309;">
+                    💵 Pembayaran CASH dari tamu
+                </div>
+            </div>
+            
+            <!-- Petty Cash Used -->
+            <div class="card stat-card card-use">
+                <div class="stat-label">
+                    <i data-feather="arrow-up-circle" style="width: 16px; height: 16px;"></i>
+                    Petty Cash Digunakan
+                </div>
+                <div class="stat-value">Rp <?php echo number_format($totalPettyCashUsed, 0, ',', '.'); ?></div>
+                <div class="stat-change negative">
+                    📤 Pengeluaran cash
+                </div>
+            </div>
+            
+            <!-- Petty Cash Current Balance -->
+            <div class="card stat-card card-balance">
+                <div class="stat-label">
+                    <i data-feather="credit-card" style="width: 16px; height: 16px;"></i>
+                    Saldo Petty Cash Saat Ini
+                </div>
+                <div class="stat-value">Rp <?php echo number_format($pettyCashBalance, 0, ',', '.'); ?></div>
+                <div class="stat-change neutral">
+                    💳 Saldo aktual real-time
+                </div>
+            </div>
+            
+            <!-- Net Cash Flow -->
+            <div class="card stat-card" style="border-left: 4px solid #6366f1;">
+                <div class="stat-label" style="color: #6366f1;">
+                    <i data-feather="activity" style="width: 16px; height: 16px;"></i>
+                    Net Cash Flow Bulan Ini
+                </div>
+                <div class="stat-value" style="color: <?php echo ($totalPettyCashReceived - $totalPettyCashUsed) >= 0 ? '#10b981' : '#ef4444'; ?>;">
+                    Rp <?php echo number_format($totalPettyCashReceived - $totalPettyCashUsed, 0, ',', '.'); ?>
+                </div>
+                <div class="stat-change" style="background: #e0e7ff; color: #4338ca;">
+                    📊 Selisih uang masuk - keluar
+                </div>
+            </div>
+        </div>
+        
+        <!-- Petty Cash Transactions History -->
+        <div class="card card-full">
+            <div class="section-title">
+                <i data-feather="list" style="width: 20px; height: 20px; color: #f59e0b;"></i>
+                Riwayat Transaksi Petty Cash - <?php echo date('F Y', strtotime($currentMonth)); ?>
+            </div>
+            
+            <?php if (!empty($pettyCashTransactions)): ?>
+                <div style="margin-bottom: 1rem; padding: 1rem; background: #fffbeb; border-radius: 8px; display: flex; justify-content: space-between; align-items: center;">
+                    <div>
+                        <small style="color: #64748b; font-weight: 600;">Total Transaksi</small>
+                        <div style="font-size: 1.25rem; font-weight: 700; color: #1e293b;"><?php echo count($pettyCashTransactions); ?> transaksi</div>
+                    </div>
+                    <div>
+                        <small style="color: #10b981; font-weight: 600;">Uang Masuk</small>
+                        <div style="font-size: 1.25rem; font-weight: 700; color: #10b981;">Rp <?php echo number_format($totalPettyCashReceived, 0, ',', '.'); ?></div>
+                    </div>
+                    <div>
+                        <small style="color: #ef4444; font-weight: 600;">Uang Keluar</small>
+                        <div style="font-size: 1.25rem; font-weight: 700; color: #ef4444;">Rp <?php echo number_format($totalPettyCashUsed, 0, ',', '.'); ?></div>
+                    </div>
+                    <div>
+                        <small style="color: #6366f1; font-weight: 600;">Balance</small>
+                        <div style="font-size: 1.25rem; font-weight: 700; color: <?php echo ($totalPettyCashReceived - $totalPettyCashUsed) >= 0 ? '#10b981' : '#ef4444'; ?>;">
+                            Rp <?php echo number_format($totalPettyCashReceived - $totalPettyCashUsed, 0, ',', '.'); ?>
+                        </div>
+                    </div>
+                </div>
+                
+                <table class="transaction-table">
+                    <thead>
+                        <tr>
+                            <th>Tanggal</th>
+                            <th>Deskripsi</th>
+                            <th>Tipe</th>
+                            <th>Uang Masuk</th>
+                            <th>Uang Keluar</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($pettyCashTransactions as $txn): ?>
+                            <tr>
+                                <td style="white-space: nowrap;"><?php echo date('d M Y', strtotime($txn['transaction_date'])); ?></td>
+                                <td><?php echo htmlspecialchars($txn['description'] ?: '-'); ?></td>
+                                <td>
+                                    <?php if ($txn['transaction_type'] === 'income'): ?>
+                                        <span class="badge badge-injection">Pemasukan</span>
+                                    <?php else: ?>
+                                        <span class="badge badge-expense">Pengeluaran</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td style="text-align: right; font-weight: 600;">
+                                    <?php if ($txn['transaction_type'] === 'income'): ?>
+                                        <span style="color: #10b981;">Rp <?php echo number_format($txn['amount'], 0, ',', '.'); ?></span>
+                                    <?php else: ?>
+                                        <span style="color: #cbd5e1;">-</span>
+                                    <?php endif; ?>
+                                </td>
+                                <td style="text-align: right; font-weight: 600;">
+                                    <?php if ($txn['transaction_type'] === 'expense'): ?>
+                                        <span style="color: #ef4444;">Rp <?php echo number_format($txn['amount'], 0, ',', '.'); ?></span>
+                                    <?php else: ?>
+                                        <span style="color: #cbd5e1;">-</span>
+                                    <?php endif; ?>
+                                </td>
+                            </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            <?php else: ?>
+                <div class="empty-state">
+                    <i data-feather="inbox"></i>
+                    <p>Belum ada transaksi petty cash pada periode ini</p>
                 </div>
             <?php endif; ?>
         </div>
