@@ -527,48 +527,48 @@ if ($trialStatus) {
 </style>
 
 <!-- Secondary Stats - Compact -->
-<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.25rem;">
+<div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.75rem; margin-bottom: 1rem;">
     <!-- Today Income -->
     <div class="card fade-in">
-        <div style="padding: 0.875rem;">
-            <div style="font-size: 0.688rem; color: var(--text-muted); margin-bottom: 0.35rem; text-transform: uppercase; letter-spacing: 0.05em;">Hari Ini</div>
-            <div style="font-size: 1.125rem; font-weight: 800; color: var(--success); margin-bottom: 0.25rem;">
+        <div style="padding: 0.625rem 0.75rem;">
+            <div style="font-size: 0.625rem; color: var(--text-muted); margin-bottom: 0.2rem; text-transform: uppercase; letter-spacing: 0.05em;">Hari Ini</div>
+            <div style="font-size: 1rem; font-weight: 800; color: var(--success); margin-bottom: 0.15rem;">
                 <?php echo formatCurrency($todayIncome['total']); ?>
             </div>
-            <div style="font-size: 0.688rem; color: var(--success);">↑ Pemasukan</div>
+            <div style="font-size: 0.625rem; color: var(--success);">↑ Pemasukan</div>
         </div>
     </div>
     
     <!-- Today Expense -->
     <div class="card fade-in">
-        <div style="padding: 0.875rem;">
-            <div style="font-size: 0.688rem; color: var(--text-muted); margin-bottom: 0.35rem; text-transform: uppercase; letter-spacing: 0.05em;">Hari Ini</div>
-            <div style="font-size: 1.125rem; font-weight: 800; color: var(--danger); margin-bottom: 0.25rem;">
+        <div style="padding: 0.625rem 0.75rem;">
+            <div style="font-size: 0.625rem; color: var(--text-muted); margin-bottom: 0.2rem; text-transform: uppercase; letter-spacing: 0.05em;">Hari Ini</div>
+            <div style="font-size: 1rem; font-weight: 800; color: var(--danger); margin-bottom: 0.15rem;">
                 <?php echo formatCurrency($todayExpense['total']); ?>
             </div>
-            <div style="font-size: 0.688rem; color: var(--danger);">↓ Pengeluaran</div>
+            <div style="font-size: 0.625rem; color: var(--danger);">↓ Pengeluaran</div>
         </div>
     </div>
     
     <!-- Total Balance -->
     <div class="card fade-in">
-        <div style="padding: 0.875rem;">
-            <div style="font-size: 0.688rem; color: var(--text-muted); margin-bottom: 0.35rem; text-transform: uppercase; letter-spacing: 0.05em;">Saldo <?php echo $thisYear; ?></div>
-            <div style="font-size: 1.125rem; font-weight: 800; color: <?php echo $totalBalance >= 0 ? 'var(--success)' : 'var(--danger)'; ?>; margin-bottom: 0.25rem;">
+        <div style="padding: 0.625rem 0.75rem;">
+            <div style="font-size: 0.625rem; color: var(--text-muted); margin-bottom: 0.2rem; text-transform: uppercase; letter-spacing: 0.05em;">Saldo <?php echo $thisYear; ?></div>
+            <div style="font-size: 1rem; font-weight: 800; color: <?php echo $totalBalance >= 0 ? 'var(--success)' : 'var(--danger)'; ?>; margin-bottom: 0.15rem;">
                 <?php echo formatCurrency($totalBalance); ?>
             </div>
-            <div style="font-size: 0.688rem; color: var(--text-muted);">💰 Net Balance</div>
+            <div style="font-size: 0.625rem; color: var(--text-muted);">💰 Net Balance</div>
         </div>
     </div>
     
     <!-- Yearly Income -->
     <div class="card fade-in">
-        <div style="padding: 0.875rem;">
-            <div style="font-size: 0.688rem; color: var(--text-muted); margin-bottom: 0.35rem; text-transform: uppercase; letter-spacing: 0.05em;">Total <?php echo $thisYear; ?></div>
-            <div style="font-size: 1.125rem; font-weight: 800; color: var(--success); margin-bottom: 0.25rem;">
+        <div style="padding: 0.625rem 0.75rem;">
+            <div style="font-size: 0.625rem; color: var(--text-muted); margin-bottom: 0.2rem; text-transform: uppercase; letter-spacing: 0.05em;">Total <?php echo $thisYear; ?></div>
+            <div style="font-size: 1rem; font-weight: 800; color: var(--success); margin-bottom: 0.15rem;">
                 <?php echo formatCurrency($yearlyIncome['total']); ?>
             </div>
-            <div style="font-size: 0.688rem; color: var(--success);">📈 Pemasukan</div>
+            <div style="font-size: 0.625rem; color: var(--success);">📈 Pemasukan</div>
         </div>
     </div>
 </div>
