@@ -78,19 +78,32 @@ if ($isProduction) {
     }
 }
 
-// Get ALL transactions for this account in selected period with cross-DB join
-// Query from MASTER DB because cash_account_transactions is in master DB
+// Get ALL transactions for this account in selected period
+// Query from MASTER DB - NO cross-DB join to avoid permission issues in production
 $stmt = $masterDb->prepare(
-    "SELECT cat.*, 
-            cb.description as cash_book_desc
-     FROM cash_account_transactions cat
-     LEFT JOIN {$businessDbName}.cash_book cb ON cat.transaction_id = cb.id AND cat.transaction_type IN ('income', 'expense')
-     WHERE cat.cash_account_id = ?
-     AND cat.transaction_date >= ? AND cat.transaction_date <= ?
-     ORDER BY cat.transaction_date DESC, cat.id DESC"
+    "SELECT * FROM cash_account_transactions
+     WHERE cash_account_id = ?
+     AND transaction_date >= ? AND transaction_date <= ?
+     ORDER BY transaction_date DESC, id DESC"
 );
 $stmt->execute([$ownerCapitalAccount['id'], $currentMonth, $nextMonth]);
 $allTransactions = $stmt->fetchAll();
+
+// Get descriptions from cash_book using business DB connection (separate query)
+$transactionIds = array_filter(array_column($allTransactions, 'transaction_id'));
+$cashBookDescs = [];
+if (!empty($transactionIds)) {
+    $placeholders = implode(',', array_fill(0, count($transactionIds), '?'));
+    $descStmt = $db->getConnection()->prepare("SELECT id, description FROM cash_book WHERE id IN ($placeholders)");
+    $descStmt->execute($transactionIds);
+    $cashBookDescs = $descStmt->fetchAll(PDO::FETCH_KEY_PAIR);
+}
+
+// Merge descriptions into transactions
+foreach ($allTransactions as &$txn) {
+    $txn['cash_book_desc'] = $cashBookDescs[$txn['transaction_id']] ?? null;
+}
+unset($txn);
 
 // Calculate totals
 $totalCapitalInjected = 0;  // Total setoran dari owner (income/capital_injection)
