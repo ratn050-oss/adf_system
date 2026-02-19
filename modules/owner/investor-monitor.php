@@ -727,17 +727,6 @@ foreach ($projects as $proj) {
             color: #991b1b;
         }
         
-        /* Back Button */
-        .back-btn {
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            font-size: 12px;
-            color: var(--primary);
-            text-decoration: none;
-            margin-bottom: 12px;
-            font-weight: 500;
-        }
         
         /* Footer Nav */
         .nav-bottom {
@@ -1186,8 +1175,6 @@ foreach ($projects as $proj) {
         <?php elseif ($selectedProject): ?>
         
         <!-- Project Detail View -->
-        <a href="<?= $basePath ?>/modules/owner/investor-monitor.php" class="back-btn">← Back to Overview</a>
-        
         <div class="project-detail">
             <div class="project-header">
                 <div class="project-name"><?= htmlspecialchars($selectedProject['name'] ?? 'Project') ?></div>
