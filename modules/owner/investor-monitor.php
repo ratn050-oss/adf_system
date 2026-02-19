@@ -493,21 +493,26 @@ foreach ($projects as $proj) {
         
         /* Section Title */
         .section-title {
-            font-size: 13px;
-            font-weight: 700;
+            font-size: 15px;
+            font-weight: 800;
             color: var(--text);
-            margin-bottom: 12px;
+            margin-bottom: 16px;
+            margin-top: 8px;
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 10px;
+            letter-spacing: -0.02em;
+            padding-left: 4px;
         }
         
         .section-title .badge {
-            background: var(--primary);
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: white;
-            font-size: 10px;
-            padding: 2px 8px;
-            border-radius: 10px;
+            font-size: 11px;
+            padding: 4px 10px;
+            border-radius: 12px;
+            font-weight: 700;
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
         }
         
         /* List Card */
@@ -766,59 +771,96 @@ foreach ($projects as $proj) {
             margin-bottom: 2px;
         }
         
-        /* Chart Card - 2028 Elegant Digital Design */
+        /* Chart Card - 2028 Premium Elegant Digital Design */
         .chart-card {
-            background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
-            border-radius: 20px;
-            padding: 20px;
+            background: linear-gradient(180deg, #ffffff 0%, #f8fafc 50%, #f0f4ff 100%);
+            border-radius: 24px;
+            padding: 24px;
             box-shadow: 
-                0 8px 32px rgba(102, 126, 234, 0.12),
-                0 2px 8px rgba(0, 0, 0, 0.04),
-                inset 0 1px 0 rgba(255, 255, 255, 0.8);
-            border: 1px solid rgba(255, 255, 255, 0.8);
-            margin-bottom: 20px;
+                0 20px 60px rgba(102, 126, 234, 0.15),
+                0 8px 24px rgba(102, 126, 234, 0.08),
+                0 2px 8px rgba(0, 0, 0, 0.03),
+                inset 0 1px 0 rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(102, 126, 234, 0.12);
+            margin-bottom: 24px;
             position: relative;
             overflow: hidden;
+            backdrop-filter: blur(10px);
         }
         
         .chart-card::before {
             content: '';
             position: absolute;
-            top: -50%;
-            right: -50%;
-            width: 200px;
-            height: 200px;
-            background: radial-gradient(circle, rgba(102, 126, 234, 0.08) 0%, transparent 70%);
+            top: -40%;
+            right: -40%;
+            width: 280px;
+            height: 280px;
+            background: radial-gradient(circle, rgba(102, 126, 234, 0.15) 0%, transparent 70%);
             pointer-events: none;
+            animation: floatGradient 8s ease-in-out infinite;
+        }
+        
+        .chart-card::after {
+            content: '';
+            position: absolute;
+            bottom: -30%;
+            left: -30%;
+            width: 240px;
+            height: 240px;
+            background: radial-gradient(circle, rgba(118, 75, 162, 0.08) 0%, transparent 70%);
+            pointer-events: none;
+            animation: floatGradient 10s ease-in-out infinite reverse;
+        }
+        
+        @keyframes floatGradient {
+            0%, 100% { transform: translate(0, 0); }
+            50% { transform: translate(10px, -10px); }
         }
         
         .chart-wrapper {
             width: 100%;
-            max-width: 260px;
-            height: 260px;
-            margin: 0 auto 20px;
+            max-width: 300px;
+            height: 300px;
+            margin: 0 auto 28px;
             position: relative;
-            filter: drop-shadow(0 4px 12px rgba(102, 126, 234, 0.15));
+            z-index: 2;
+            filter: drop-shadow(0 12px 32px rgba(102, 126, 234, 0.2));
+            animation: scaleIn 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+        }
+        
+        @keyframes scaleIn {
+            from {
+                opacity: 0;
+                transform: scale(0.9) translateY(20px);
+            }
+            to {
+                opacity: 1;
+                transform: scale(1) translateY(0);
+            }
         }
         
         .chart-legend {
             display: flex;
             flex-direction: column;
-            gap: 10px;
+            gap: 12px;
+            position: relative;
+            z-index: 1;
         }
         
         .legend-item {
             display: flex;
             align-items: center;
-            gap: 12px;
-            padding: 12px;
-            background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(248, 250, 252, 0.8) 100%);
-            border-radius: 12px;
-            border: 1px solid rgba(102, 126, 234, 0.1);
-            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            gap: 14px;
+            padding: 14px 16px;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 250, 252, 0.85) 100%);
+            border-radius: 14px;
+            border: 1px solid rgba(102, 126, 234, 0.15);
+            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
             cursor: pointer;
             position: relative;
             overflow: hidden;
+            backdrop-filter: blur(8px);
+            user-select: none;
         }
         
         .legend-item::before {
@@ -828,35 +870,64 @@ foreach ($projects as $proj) {
             left: 0;
             width: 100%;
             height: 100%;
-            background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, transparent 100%);
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.08) 0%, rgba(118, 75, 162, 0.03) 100%);
             opacity: 0;
-            transition: opacity 0.3s ease;
+            transition: opacity 0.4s ease;
+            z-index: 0;
+        }
+        
+        .legend-item::after {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, rgba(255, 255, 255, 0.5) 0%, transparent 70%);
+            opacity: 0;
+            transition: opacity 0.4s ease;
+            pointer-events: none;
         }
         
         .legend-item:hover {
-            transform: translateY(-2px) scale(1.02);
+            transform: translateY(-4px) translateX(4px) scale(1.02);
             box-shadow: 
-                0 8px 24px rgba(102, 126, 234, 0.15),
-                0 2px 8px rgba(0, 0, 0, 0.08);
-            border-color: rgba(102, 126, 234, 0.3);
+                0 16px 40px rgba(102, 126, 234, 0.2),
+                0 8px 20px rgba(102, 126, 234, 0.1),
+                0 2px 8px rgba(0, 0, 0, 0.06);
+            border-color: rgba(102, 126, 234, 0.4);
         }
         
         .legend-item:hover::before {
             opacity: 1;
         }
         
+        .legend-item:hover::after {
+            opacity: 0.5;
+        }
+        
         .legend-item:active {
-            transform: translateY(0) scale(0.98);
+            transform: translateY(-2px) translateX(2px) scale(0.98);
         }
         
         .legend-color {
-            width: 14px;
-            height: 14px;
-            border-radius: 4px;
+            width: 16px;
+            height: 16px;
+            border-radius: 6px;
             flex-shrink: 0;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            box-shadow: 
+                0 4px 12px rgba(0, 0, 0, 0.2),
+                inset 0 1px 0 rgba(255, 255, 255, 0.4);
             position: relative;
             z-index: 1;
+            transition: all 0.3s ease;
+        }
+        
+        .legend-item:hover .legend-color {
+            transform: scale(1.15) rotate(5deg);
+            box-shadow: 
+                0 6px 16px rgba(0, 0, 0, 0.25),
+                inset 0 1px 0 rgba(255, 255, 255, 0.5);
         }
         
         .legend-info {
@@ -866,35 +937,40 @@ foreach ($projects as $proj) {
             align-items: center;
             position: relative;
             z-index: 1;
+            gap: 12px;
         }
         
         .legend-name {
-            font-size: 13px;
-            font-weight: 600;
+            font-size: 14px;
+            font-weight: 700;
             color: var(--text);
             letter-spacing: -0.02em;
+            text-transform: capitalize;
         }
         
         .legend-details {
             display: flex;
             flex-direction: column;
             align-items: flex-end;
-            gap: 3px;
+            gap: 4px;
+            margin-left: auto;
         }
         
         .legend-amount {
-            font-size: 12px;
-            font-weight: 700;
+            font-size: 13px;
+            font-weight: 800;
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             -webkit-background-clip: text;
             -webkit-text-fill-color: transparent;
             background-clip: text;
+            letter-spacing: -0.01em;
         }
         
         .legend-percent {
-            font-size: 10px;
+            font-size: 11px;
             color: var(--text-muted);
-            font-weight: 500;
+            font-weight: 600;
+            letter-spacing: -0.01em;
         }
         
         /* Division Detail Modal */
@@ -905,18 +981,26 @@ foreach ($projects as $proj) {
             left: 0;
             right: 0;
             bottom: 0;
-            background: rgba(0, 0, 0, 0.6);
-            backdrop-filter: blur(8px);
+            background: rgba(0, 0, 0, 0.7);
+            backdrop-filter: blur(12px);
             z-index: 9999;
             padding: 20px;
             overflow-y: auto;
-            animation: fadeIn 0.3s ease;
+            animation: fadeInModal 0.3s cubic-bezier(0.36, 0, 0.66, 1);
         }
         
-        @keyframes fadeIn {
-            from { opacity: 0; }
-            to { opacity: 1; }
+        @keyframes fadeInModal {
+            from {
+                opacity: 0;
+                backdrop-filter: blur(0);
+            }
+            to {
+                opacity: 1;
+                backdrop-filter: blur(12px);
+            }
         }
+        
+
         
         .division-detail-content {
             background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
@@ -1383,12 +1467,19 @@ foreach ($projects as $proj) {
         const divisionCtx = document.getElementById('divisionBreakdownChart');
         if (divisionCtx) {
             console.log('Division chart canvas found');
-            const divisionColors = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#14b8a6', '#f97316', '#6366f1'];
+            // Premium 2028 color palette with gradients
+            const divisionColors = [
+                '#667eea', // Primary purple
+                '#764ba2', // Dark purple
+                '#f093fb', // Pink
+                '#4facfe', // Blue
+                '#00f2fe', // Cyan
+                '#43e97b', // Green
+                '#fa709a', // Red
+                '#feca57'  // Yellow
+            ];
             const divisionLabels = <?= json_encode(array_keys($divisionBreakdown), JSON_UNESCAPED_UNICODE) ?>;
             const divisionData = <?= json_encode(array_values($divisionBreakdown)) ?>;
-            
-            console.log('Division labels:', divisionLabels);
-            console.log('Division data:', divisionData);
             
             try {
                 new Chart(divisionCtx, {
@@ -1398,10 +1489,10 @@ foreach ($projects as $proj) {
                         datasets: [{
                             data: divisionData,
                             backgroundColor: divisionColors.slice(0, divisionLabels.length),
-                            borderWidth: 4,
+                            borderWidth: 5,
                             borderColor: '#ffffff',
-                            hoverOffset: 10,
-                            hoverBorderWidth: 5,
+                            hoverOffset: 14,
+                            hoverBorderWidth: 6,
                             hoverBorderColor: '#667eea',
                         }]
                     },
@@ -1414,45 +1505,47 @@ foreach ($projects as $proj) {
                         },
                         tooltip: {
                             enabled: true,
-                            backgroundColor: 'rgba(0, 0, 0, 0.85)',
-                            padding: 16,
-                            cornerRadius: 12,
+                            backgroundColor: 'rgba(0, 0, 0, 0.9)',
+                            padding: 18,
+                            cornerRadius: 14,
                             titleFont: {
-                                size: 14,
+                                size: 15,
                                 weight: 'bold',
                                 family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
                             },
                             bodyFont: {
-                                size: 13,
+                                size: 14,
                                 family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
                             },
-                            titleMarginBottom: 10,
-                            bodySpacing: 6,
+                            titleMarginBottom: 12,
+                            bodySpacing: 8,
                             displayColors: true,
-                            boxWidth: 12,
-                            boxHeight: 12,
-                            boxPadding: 6,
+                            boxWidth: 14,
+                            boxHeight: 14,
+                            boxPadding: 8,
+                            borderColor: 'rgba(102, 126, 234, 0.3)',
+                            borderWidth: 1,
                             callbacks: {
                                 label: function(ctx) {
                                     const val = ctx.parsed;
                                     const total = ctx.dataset.data.reduce((a,b) => a+b, 0);
                                     const pct = ((val/total)*100).toFixed(1);
-                                    return ctx.label + ': Rp ' + val.toLocaleString('id-ID') + ' (' + pct + '%)';
+                                    return '💰 Rp ' + val.toLocaleString('id-ID') + ' (' + pct + '%)';
                                 },
                                 afterLabel: function(ctx) {
                                     const division = divisionLabels[ctx.dataIndex];
                                     const items = divisionDetailsData[division] || [];
-                                    return '\\nTotal ' + items.length + ' transaksi\\nKlik untuk detail';
+                                    return '\\n👆 ' + items.length + ' transaksi\\n🔍 Klik untuk detail';
                                 }
                             }
                         }
                     },
-                    cutout: '68%',
+                    cutout: '70%',
                     animation: {
                         animateRotate: true,
                         animateScale: true,
-                        duration: 1200,
-                        easing: 'easeInOutQuart'
+                        duration: 1800,
+                        easing: 'easeInOutCubic'
                     },
                     onClick: (event, activeElements) => {
                         if (activeElements.length > 0) {
