@@ -414,6 +414,214 @@ if ($pettyCashAccount) {
         .back-link:hover {
             text-decoration: underline;
         }
+        
+        /* ============================================
+           MOBILE RESPONSIVE - CLEAN, COMPACT, ELEGANT
+           ============================================ */
+        
+        @media (max-width: 768px) {
+            body {
+                padding: 1rem;
+                background: #f8fafc;
+            }
+            
+            .container {
+                max-width: 100%;
+                padding: 0;
+            }
+            
+            /* Header - Mobile Optimized */
+            .page-header {
+                flex-direction: column;
+                gap: 1rem;
+                padding: 1.25rem;
+                margin-bottom: 1.25rem;
+            }
+            
+            .page-title {
+                font-size: 1.35rem;
+                line-height: 1.3;
+            }
+            
+            .page-subtitle {
+                font-size: 0.85rem;
+            }
+            
+            .page-header > div:last-child {
+                width: 100%;
+                flex-direction: column;
+                gap: 0.75rem;
+            }
+            
+            #periodSelector,
+            .page-header button {
+                width: 100%;
+                padding: 0.85rem 1rem;
+                font-size: 0.9rem;
+            }
+            
+            /* Grid - Stack on Mobile */
+            .grid-2 {
+                grid-template-columns: 1fr;
+                gap: 1rem;
+                margin-bottom: 1.5rem;
+            }
+            
+            /* Cards - Compact Mobile */
+            .card {
+                padding: 1.15rem;
+                border-radius: 10px;
+                box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+            }
+            
+            .stat-card::before {
+                width: 70px;
+                height: 70px;
+            }
+            
+            .stat-label {
+                font-size: 0.75rem;
+                margin-bottom: 0.6rem;
+            }
+            
+            .stat-label i {
+                width: 14px !important;
+                height: 14px !important;
+            }
+            
+            .stat-value {
+                font-size: 1.5rem;
+                margin-bottom: 0.5rem;
+            }
+            
+            .stat-change {
+                font-size: 0.72rem;
+                padding: 0.35rem 0.6rem;
+            }
+            
+            /* Section Headings */
+            h2 {
+                font-size: 1.15rem !important;
+                margin-bottom: 1rem !important;
+                gap: 0.5rem !important;
+            }
+            
+            /* Tables - Horizontal Scroll */
+            .transaction-table-wrapper {
+                overflow-x: auto;
+                -webkit-overflow-scrolling: touch;
+                margin: 0 -1rem;
+                padding: 0 1rem;
+            }
+            
+            .transaction-table {
+                min-width: 600px;
+                font-size: 0.82rem;
+            }
+            
+            .transaction-table th,
+            .transaction-table td {
+                padding: 0.7rem 0.5rem;
+            }
+            
+            .transaction-table th {
+                font-size: 0.7rem;
+            }
+            
+            .transaction-table .transaction-date {
+                font-size: 0.7rem;
+            }
+            
+            .transaction-table .transaction-description {
+                font-size: 0.82rem;
+            }
+            
+            .transaction-table .transaction-amount {
+                font-size: 0.85rem;
+                white-space: nowrap;
+            }
+            
+            /* Charts - Mobile Height */
+            .chart-container {
+                height: 220px;
+                margin-top: 0.75rem;
+            }
+            
+            /* Back Link */
+            .back-link {
+                font-size: 0.85rem;
+                margin-bottom: 1rem;
+            }
+            
+            .back-link i {
+                width: 14px !important;
+                height: 14px !important;
+            }
+            
+            /* Empty State */
+            .empty-state {
+                padding: 2rem 1rem;
+                font-size: 0.85rem;
+            }
+            
+            .empty-state i {
+                width: 40px !important;
+                height: 40px !important;
+            }
+        }
+        
+        /* Extra Small Devices (< 480px) */
+        @media (max-width: 480px) {
+            body {
+                padding: 0.75rem;
+            }
+            
+            .page-header {
+                padding: 1rem;
+            }
+            
+            .page-title {
+                font-size: 1.2rem;
+            }
+            
+            .page-subtitle {
+                font-size: 0.8rem;
+            }
+            
+            .card {
+                padding: 1rem;
+            }
+            
+            .stat-value {
+                font-size: 1.35rem;
+            }
+            
+            h2 {
+                font-size: 1.05rem !important;
+            }
+            
+            .transaction-table {
+                min-width: 550px;
+                font-size: 0.78rem;
+            }
+            
+            .transaction-table th,
+            .transaction-table td {
+                padding: 0.6rem 0.4rem;
+            }
+        }
+        
+        /* Landscape Mobile Optimization */
+        @media (max-width: 900px) and (orientation: landscape) {
+            .grid-2 {
+                grid-template-columns: repeat(2, 1fr);
+                gap: 1rem;
+            }
+            
+            .chart-container {
+                height: 200px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -541,6 +749,7 @@ if ($pettyCashAccount) {
                     </div>
                 </div>
                 
+                <div class="transaction-table-wrapper">
                 <table class="transaction-table">
                     <thead>
                         <tr>
@@ -632,6 +841,7 @@ if ($pettyCashAccount) {
                         <?php endforeach; ?>
                     </tbody>
                 </table>
+                </div>
             <?php else: ?>
                 <div class="empty-state">
                     <i data-feather="inbox"></i>
@@ -730,6 +940,7 @@ if ($pettyCashAccount) {
                     </div>
                 </div>
                 
+                <div class="transaction-table-wrapper">
                 <table class="transaction-table">
                     <thead>
                         <tr>
@@ -770,6 +981,7 @@ if ($pettyCashAccount) {
                         <?php endforeach; ?>
                     </tbody>
                 </table>
+                </div>
             <?php else: ?>
                 <div class="empty-state">
                     <i data-feather="inbox"></i>
