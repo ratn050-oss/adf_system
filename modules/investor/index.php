@@ -221,8 +221,8 @@ include $base_path . '/includes/header.php';
 }
 
 .investor-page {
-    padding: 2rem;
-    max-width: 1600px;
+    padding: 1.25rem;
+    max-width: 1400px;
     margin: 0 auto;
     background: var(--bg-primary);
     min-height: 100vh;
@@ -232,38 +232,38 @@ include $base_path . '/includes/header.php';
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin-bottom: 3rem;
-    padding-bottom: 1.5rem;
+    margin-bottom: 1.5rem;
+    padding-bottom: 1rem;
     border-bottom: 2px solid rgba(99, 102, 241, 0.1);
 }
 
 .page-header h1 {
-    font-size: 2rem;
+    font-size: 1.6rem;
     font-weight: 700;
     background: linear-gradient(135deg, #6366f1, #8b5cf6);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     display: flex;
     align-items: center;
-    gap: 1rem;
+    gap: 0.75rem;
 }
 
 .header-actions {
     display: flex;
-    gap: 1rem;
+    gap: 0.75rem;
     flex-wrap: wrap;
 }
 
 .btn {
-    padding: 0.75rem 1.5rem;
-    border-radius: 10px;
-    font-size: 0.9rem;
+    padding: 0.65rem 1.25rem;
+    border-radius: 8px;
+    font-size: 0.85rem;
     font-weight: 600;
     cursor: pointer;
     border: none;
     display: inline-flex;
     align-items: center;
-    gap: 0.6rem;
+    gap: 0.5rem;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
 }
@@ -307,16 +307,16 @@ include $base_path . '/includes/header.php';
 /* Summary Cards */
 .summary-cards {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(240px, 1fr));
-    gap: 1.5rem;
-    margin-bottom: 3rem;
+    grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.75rem;
 }
 
 .summary-card {
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
-    border-radius: 14px;
-    padding: 1.75rem;
+    border-radius: 12px;
+    padding: 1.25rem;
     transition: all 0.3s ease;
     position: relative;
     overflow: hidden;
@@ -340,16 +340,16 @@ include $base_path . '/includes/header.php';
 }
 
 .summary-card .label {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     color: var(--text-muted);
-    margin-bottom: 0.75rem;
+    margin-bottom: 0.5rem;
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: 0.5px;
     font-weight: 600;
 }
 
 .summary-card .value {
-    font-size: 2rem;
+    font-size: 1.5rem;
     font-weight: 800;
     color: var(--text-primary);
     line-height: 1.2;
@@ -369,18 +369,18 @@ include $base_path . '/includes/header.php';
     display: flex;
     justify-content: space-between;
     align-items: center;
-    margin: 2.5rem 0 1.5rem 0;
-    padding-bottom: 1rem;
+    margin: 1.5rem 0 1rem 0;
+    padding-bottom: 0.75rem;
     border-bottom: 2px solid rgba(99, 102, 241, 0.1);
 }
 
 .section-title {
-    font-size: 1.3rem;
+    font-size: 1.1rem;
     font-weight: 700;
     color: var(--text-primary);
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: 0.5rem;
 }
 
 .section-title svg {
@@ -399,12 +399,12 @@ include $base_path . '/includes/header.php';
 .investor-card {
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
-    border-radius: 14px;
-    padding: 1.5rem;
+    border-radius: 10px;
+    padding: 1rem;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: 0.75rem;
     position: relative;
     overflow: hidden;
 }
@@ -433,26 +433,26 @@ include $base_path . '/includes/header.php';
 }
 
 .investor-card .name {
-    font-size: 1.1rem;
+    font-size: 0.95rem;
     font-weight: 700;
     color: var(--text-primary);
 }
 
 .investor-card .contact {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     color: var(--text-muted);
-    margin-top: 0.25rem;
+    margin-top: 0.2rem;
     word-break: break-word;
 }
 
 .investor-card .amount {
     text-align: right;
-    font-size: 1.25rem;
+    font-size: 1.1rem;
     font-weight: 700;
     color: #10b981;
     background: rgba(16, 185, 129, 0.1);
-    padding: 0.75rem 1rem;
-    border-radius: 8px;
+    padding: 0.6rem 0.8rem;
+    border-radius: 6px;
 }
 
 .investor-card .actions {
@@ -462,11 +462,11 @@ include $base_path . '/includes/header.php';
 }
 
 .investor-card .btn-sm {
-    padding: 0.5rem 0.9rem;
-    font-size: 0.75rem;
-    border-radius: 8px;
+    padding: 0.45rem 0.8rem;
+    font-size: 0.7rem;
+    border-radius: 6px;
     flex: 1;
-    min-width: 80px;
+    min-width: 70px;
     text-align: center;
     justify-content: center;
 }
@@ -542,20 +542,20 @@ include $base_path . '/includes/header.php';
 
 /* Charts Section */
 .charts-section {
-    margin-bottom: 3rem;
+    margin-bottom: 1.75rem;
 }
 
 .charts-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 1.5rem;
+    gap: 1rem;
 }
 
 .chart-card {
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
-    border-radius: 14px;
-    padding: 1.5rem;
+    border-radius: 10px;
+    padding: 1.25rem;
     position: relative;
     overflow: hidden;
 }
@@ -578,7 +578,7 @@ include $base_path . '/includes/header.php';
 }
 
 .chart-card h3 {
-    font-size: 1rem;
+    font-size: 0.95rem;
     font-weight: 700;
     color: var(--text-primary);
     margin: 0 0 .2rem 0;
@@ -588,9 +588,9 @@ include $base_path . '/includes/header.php';
 }
 
 .chart-card .chart-sub {
-    font-size: .8rem;
+    font-size: .7rem;
     color: var(--text-muted);
-    margin-bottom: 1rem;
+    margin-bottom: 0.8rem;
 }
 
 .chart-card canvas {
@@ -599,9 +599,9 @@ include $base_path . '/includes/header.php';
 
 .chart-empty {
     text-align: center;
-    padding: 2rem;
+    padding: 1.5rem;
     color: var(--text-muted);
-    font-size: .9rem;
+    font-size: .8rem;
 }
 
 @media (max-width: 900px) {
@@ -610,27 +610,27 @@ include $base_path . '/includes/header.php';
 
 /* Projects Section */
 .projects-section {
-    margin-bottom: 3rem;
+    margin-bottom: 1.75rem;
 }
 
 .projects-grid {
     display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-    gap: 1.5rem;
+    grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+    gap: 1rem;
 }
 
 .project-card {
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
-    border-radius: 14px;
-    padding: 1.5rem;
+    border-radius: 10px;
+    padding: 1.15rem;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
     display: flex;
     flex-direction: column;
-    gap: 1rem;
+    gap: 0.75rem;
     position: relative;
     cursor: pointer;
-    min-height: 250px;
+    min-height: 230px;
     overflow: visible;
 }
 
@@ -651,20 +651,20 @@ include $base_path . '/includes/header.php';
 }
 
 .project-card .project-name {
-    font-size: 1rem;
+    font-size: 0.95rem;
     font-weight: 700;
     color: var(--text-primary);
 }
 
 .project-card .project-code {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     color: var(--text-muted);
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.3px;
 }
 
 .project-card .project-amount {
-    font-size: 1.2rem;
+    font-size: 1.1rem;
     font-weight: 700;
     color: #f59e0b;
 }
@@ -672,9 +672,9 @@ include $base_path . '/includes/header.php';
 .project-card .project-meta {
     display: flex;
     justify-content: space-between;
-    padding: 1rem 0;
+    padding: 0.75rem 0;
     border-top: 1px solid var(--border-color);
-    font-size: 0.85rem;
+    font-size: 0.75rem;
     color: var(--text-muted);
 }
 
@@ -685,7 +685,7 @@ include $base_path . '/includes/header.php';
 }
 
 .project-card .meta-value {
-    font-size: 1.1rem;
+    font-size: 1rem;
     font-weight: 700;
     color: var(--text-primary);
 }
@@ -693,7 +693,7 @@ include $base_path . '/includes/header.php';
 .project-card .project-actions {
     display: flex;
     gap: 0.3rem;
-    margin-top: 0.75rem;
+    margin-top: 0.5rem;
     flex-wrap: wrap;
     width: 100%;
     z-index: 10;
@@ -701,8 +701,8 @@ include $base_path . '/includes/header.php';
 }
 
 .project-card .btn-sm {
-    padding: 0.45rem 0.7rem;
-    font-size: 0.72rem;
+    padding: 0.4rem 0.65rem;
+    font-size: 0.68rem;
     border-radius: 6px;
     flex: 1;
     text-align: center;
@@ -712,7 +712,7 @@ include $base_path . '/includes/header.php';
     gap: 0.2rem;
     white-space: nowrap;
     line-height: 1;
-    height: 30px;
+    height: 28px;
     cursor: pointer;
     transition: all 0.2s ease;
 }
@@ -720,13 +720,13 @@ include $base_path . '/includes/header.php';
 .add-project-card {
     background: linear-gradient(135deg, rgba(245, 158, 11, 0.05), rgba(236, 72, 153, 0.05));
     border: 2px dashed rgba(245, 158, 11, 0.3);
-    border-radius: 14px;
-    padding: 2rem;
+    border-radius: 10px;
+    padding: 1.5rem;
     display: flex;
     flex-direction: column;
     align-items: center;
     justify-content: center;
-    gap: 1rem;
+    gap: 0.75rem;
     text-align: center;
     transition: all 0.3s ease;
     cursor: pointer;
@@ -739,8 +739,8 @@ include $base_path . '/includes/header.php';
 }
 
 .add-project-card svg {
-    width: 48px;
-    height: 48px;
+    width: 40px;
+    height: 40px;
     stroke: #f59e0b;
     stroke-width: 2;
 }
@@ -754,9 +754,9 @@ include $base_path . '/includes/header.php';
 .history-section {
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
-    border-radius: 14px;
-    padding: 2rem;
-    margin-top: 3rem;
+    border-radius: 10px;
+    padding: 1.5rem;
+    margin-top: 1.75rem;
 }
 
 .history-table {
@@ -766,22 +766,22 @@ include $base_path . '/includes/header.php';
 
 .history-table th,
 .history-table td {
-    padding: 1rem;
+    padding: 0.75rem;
     text-align: left;
     border-bottom: 1px solid var(--border-color);
 }
 
 .history-table th {
-    font-size: 0.8rem;
+    font-size: 0.75rem;
     font-weight: 700;
     color: var(--text-muted);
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.3px;
     background: rgba(99, 102, 241, 0.05);
 }
 
 .history-table td {
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     color: var(--text-primary);
 }
 
@@ -801,19 +801,19 @@ include $base_path . '/includes/header.php';
 
 .empty-state {
     text-align: center;
-    padding: 3rem 2rem;
+    padding: 2.5rem 1.5rem;
     color: var(--text-muted);
 }
 
 .empty-state svg {
-    width: 64px;
-    height: 64px;
-    margin-bottom: 1rem;
+    width: 56px;
+    height: 56px;
+    margin-bottom: 0.75rem;
     opacity: 0.3;
 }
 
 .empty-state p {
-    font-size: 1rem;
+    font-size: 0.95rem;
     margin: 0;
 }
 
@@ -821,28 +821,28 @@ include $base_path . '/includes/header.php';
 .inflow-section {
     background: var(--bg-secondary);
     border: 1px solid var(--border-color);
-    border-radius: 14px;
-    padding: 2rem;
-    margin-bottom: 3rem;
+    border-radius: 12px;
+    padding: 1.5rem;
+    margin-bottom: 1.75rem;
 }
 
 .inflow-container {
     display: flex;
     flex-direction: column;
-    gap: 2rem;
+    gap: 1.25rem;
 }
 
 .inflow-summary {
     display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-    gap: 1.5rem;
+    grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+    gap: 1rem;
 }
 
 .inflow-card {
     background: var(--bg-primary);
     border: 1px solid var(--border-color);
-    border-radius: 12px;
-    padding: 1.5rem;
+    border-radius: 10px;
+    padding: 1rem;
     text-align: center;
     transition: all 0.3s ease;
     position: relative;
@@ -871,19 +871,19 @@ include $base_path . '/includes/header.php';
 }
 
 .inflow-label {
-    font-size: 0.75rem;
+    font-size: 0.65rem;
     color: var(--text-muted);
     text-transform: uppercase;
-    letter-spacing: 1px;
+    letter-spacing: 0.5px;
     font-weight: 600;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.4rem;
 }
 
 .inflow-value {
-    font-size: 1.75rem;
+    font-size: 1.3rem;
     font-weight: 700;
     color: #6366f1;
-    margin-bottom: 0.5rem;
+    margin-bottom: 0.3rem;
     word-break: break-word;
 }
 
@@ -892,7 +892,7 @@ include $base_path . '/includes/header.php';
 }
 
 .inflow-description {
-    font-size: 0.8rem;
+    font-size: 0.7rem;
     color: var(--text-muted);
 }
 
@@ -913,13 +913,13 @@ include $base_path . '/includes/header.php';
 }
 
 .inflow-table th {
-    padding: 1.2rem 1rem;
+    padding: 0.8rem 0.75rem;
     text-align: left;
-    font-size: 0.85rem;
+    font-size: 0.75rem;
     font-weight: 700;
     color: var(--text-secondary);
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.3px;
 }
 
 .inflow-table tbody tr {
@@ -932,8 +932,8 @@ include $base_path . '/includes/header.php';
 }
 
 .inflow-table td {
-    padding: 1rem;
-    font-size: 0.9rem;
+    padding: 0.75rem;
+    font-size: 0.85rem;
     color: var(--text-primary);
 }
 
@@ -958,9 +958,9 @@ include $base_path . '/includes/header.php';
 
 .percentage-bar {
     position: relative;
-    height: 28px;
+    height: 24px;
     background: var(--bg-primary);
-    border-radius: 8px;
+    border-radius: 6px;
     overflow: hidden;
     border: 1px solid var(--border-color);
     display: flex;
@@ -982,7 +982,7 @@ include $base_path . '/includes/header.php';
     position: relative;
     z-index: 1;
     font-weight: 700;
-    font-size: 0.85rem;
+    font-size: 0.75rem;
     color: var(--text-primary);
     text-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
 }
@@ -1032,9 +1032,9 @@ include $base_path . '/includes/header.php';
 
 .modal-content {
     background: var(--bg-secondary);
-    border-radius: 16px;
+    border-radius: 12px;
     width: 100%;
-    max-width: 520px;
+    max-width: 480px;
     max-height: 90vh;
     overflow-y: auto;
     animation: slideUp 0.3s cubic-bezier(0.4, 0, 0.2, 1);
@@ -1053,7 +1053,7 @@ include $base_path . '/includes/header.php';
 }
 
 .modal-header {
-    padding: 1.5rem;
+    padding: 1.25rem;
     border-bottom: 1px solid var(--border-color);
     display: flex;
     justify-content: space-between;
@@ -1061,7 +1061,7 @@ include $base_path . '/includes/header.php';
 }
 
 .modal-header h3 {
-    font-size: 1.25rem;
+    font-size: 1.1rem;
     font-weight: 700;
     color: var(--text-primary);
     margin: 0;
@@ -1070,17 +1070,17 @@ include $base_path . '/includes/header.php';
 .modal-close {
     background: none;
     border: none;
-    font-size: 1.75rem;
+    font-size: 1.5rem;
     color: var(--text-muted);
     cursor: pointer;
     transition: color 0.2s ease;
     padding: 0;
-    width: 32px;
-    height: 32px;
+    width: 28px;
+    height: 28px;
     display: flex;
     align-items: center;
     justify-content: center;
-    border-radius: 6px;
+    border-radius: 4px;
 }
 
 .modal-close:hover {
@@ -1089,29 +1089,29 @@ include $base_path . '/includes/header.php';
 }
 
 .modal-body {
-    padding: 2rem;
+    padding: 1.5rem;
 }
 
 .form-group {
-    margin-bottom: 1.5rem;
+    margin-bottom: 1.2rem;
 }
 
 .form-group label {
     display: block;
-    font-size: 0.9rem;
+    font-size: 0.85rem;
     font-weight: 600;
     color: var(--text-secondary);
-    margin-bottom: 0.6rem;
+    margin-bottom: 0.5rem;
 }
 
 .form-group input,
 .form-group select,
 .form-group textarea {
     width: 100%;
-    padding: 0.85rem 1rem;
+    padding: 0.75rem 0.9rem;
     border: 1.5px solid var(--border-color);
-    border-radius: 10px;
-    font-size: 0.95rem;
+    border-radius: 8px;
+    font-size: 0.9rem;
     background: var(--bg-primary);
     color: var(--text-primary);
     transition: all 0.2s ease;
@@ -1127,11 +1127,11 @@ include $base_path . '/includes/header.php';
 }
 
 .modal-footer {
-    padding: 1.5rem;
+    padding: 1.25rem;
     border-top: 1px solid var(--border-color);
     display: flex;
     justify-content: flex-end;
-    gap: 1rem;
+    gap: 0.75rem;
 }
 
 .btn-secondary {
