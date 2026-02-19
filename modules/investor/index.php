@@ -1207,6 +1207,9 @@ include $base_path . '/includes/header.php';
                     <button class="btn btn-sm btn-inv-edit" onclick="editInvestor(<?= $investor['id'] ?>)">
                         ✏️ Edit
                     </button>
+                    <button class="btn btn-sm btn-hapus" onclick="deleteInvestor(<?= $investor['id'] ?>, '<?= htmlspecialchars($investor['name'] ?? $investor['investor_name'] ?? '') ?>')">
+                        🗑️ Hapus
+                    </button>
                 </div>
             </div>
             <?php endforeach; ?>
@@ -1685,6 +1688,33 @@ async function saveInvestorEdit(event) {
             location.reload();
         } else {
             alert('❌ Error: ' + (result.message || 'Gagal menyimpan'));
+        }
+    } catch (error) {
+        alert('❌ Error: ' + error.message);
+    }
+}
+
+async function deleteInvestor(investorId, investorName) {
+    if (!confirm(`Apakah Anda yakin ingin menghapus investor "${investorName}"?\n\nSemua dana setoran dan transaksi investor akan IKUT TERHAPUS!\n\nAksi ini TIDAK DAPAT dibatalkan.`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch('<?= BASE_URL ?>/api/investor-delete.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: 'investor_id=' + encodeURIComponent(investorId)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('✅ ' + (result.message || 'Investor berhasil dihapus'));
+            location.reload();
+        } else {
+            alert('❌ Error: ' + (result.message || 'Gagal menghapus investor'));
         }
     } catch (error) {
         alert('❌ Error: ' + error.message);

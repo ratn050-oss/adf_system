@@ -31,9 +31,6 @@ if ($confirm !== 'RESET') {
     exit;
 }
 
-$db = null;
-$inTransaction = false;
-
 try {
     $db = Database::getInstance()->getConnection();
     
@@ -53,10 +50,6 @@ try {
         // Table might not exist
     }
     
-    // Start transaction
-    $db->beginTransaction();
-    $inTransaction = true;
-    
     // Delete investor transactions first (foreign key dependency)
     try {
         $db->exec("DELETE FROM investor_transactions");
@@ -66,7 +59,12 @@ try {
     }
     
     // Delete investors
-    $db->exec("DELETE FROM investors");
+    try {
+        $db->exec("DELETE FROM investors");
+    } catch (Exception $e) {
+        error_log("Reset: investors delete failed - " . $e->getMessage());
+        throw $e;
+    }
     
     // Reset auto increment
     try {
@@ -82,10 +80,6 @@ try {
         // Ignore if fails
         error_log("Reset: ALTER TABLE investor_transactions failed - " . $e->getMessage());
     }
-    
-    // Commit transaction
-    $db->commit();
-    $inTransaction = false;
     
     // Log the action
     $currentUser = $auth->getCurrentUser();
@@ -110,15 +104,6 @@ try {
     ]);
     
 } catch (Exception $e) {
-    // Rollback on error only if transaction is active
-    if ($inTransaction && isset($db)) {
-        try {
-            $db->rollBack();
-        } catch (Exception $rollbackError) {
-            error_log("INVESTOR RESET: Rollback failed - " . $rollbackError->getMessage());
-        }
-    }
-    
     error_log("INVESTOR RESET ERROR: " . $e->getMessage());
     
     echo json_encode([
