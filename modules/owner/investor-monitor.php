@@ -112,7 +112,73 @@ try {
             $selectedProject = $stmt->fetch(PDO::FETCH_ASSOC);
             
             if ($selectedProject) {
-                // Get project expenses
+                // Calculate grand expenses for selected project
+                $selectedProject['total_expenses'] = 0;
+                try {
+                    $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount),0) as total FROM project_expenses WHERE project_id = ?");
+                    $stmt->execute([$selectedProjectId]);
+                    $selectedProject['total_expenses'] = floatval($stmt->fetchColumn());
+                } catch (Exception $e) {}
+                
+                $selectedProject['total_gaji'] = 0;
+                try {
+                    $stmt = $pdo->prepare("SELECT COALESCE(SUM(total_salary),0) as total FROM project_salaries WHERE project_id = ?");
+                    $stmt->execute([$selectedProjectId]);
+                    $selectedProject['total_gaji'] = floatval($stmt->fetchColumn());
+                } catch (Exception $e) {}
+                
+                $selectedProject['total_divisi'] = 0;
+                try {
+                    $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount),0) as total FROM project_division_expenses WHERE project_id = ?");
+                    $stmt->execute([$selectedProjectId]);
+                    $selectedProject['total_divisi'] = floatval($stmt->fetchColumn());
+                } catch (Exception $e) {}
+                
+                $selectedProject['grand_expenses'] = $selectedProject['total_expenses'] + $selectedProject['total_gaji'] + $selectedProject['total_divisi'];
+                
+                // Get division breakdown for pie chart
+                $divisionBreakdown = [];
+                
+                // From project_expenses (if has division_name column)
+                try {
+                    $stmt = $pdo->query("DESCRIBE project_expenses");
+                    $columns = $stmt->fetchAll(PDO::FETCH_COLUMN);
+                    
+                    if (in_array('division_name', $columns)) {
+                        $stmt = $pdo->prepare("
+                            SELECT division_name, SUM(amount) as total 
+                            FROM project_expenses 
+                            WHERE project_id = ? 
+                              AND division_name IS NOT NULL 
+                              AND division_name != '' 
+                            GROUP BY division_name
+                        ");
+                        $stmt->execute([$selectedProjectId]);
+                        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                            $dn = $row['division_name'];
+                            if (!isset($divisionBreakdown[$dn])) $divisionBreakdown[$dn] = 0;
+                            $divisionBreakdown[$dn] += floatval($row['total']);
+                        }
+                    }
+                } catch (Exception $e) {}
+                
+                // From project_division_expenses
+                try {
+                    $stmt = $pdo->prepare("
+                        SELECT division_name, SUM(amount) as total 
+                        FROM project_division_expenses 
+                        WHERE project_id = ? 
+                        GROUP BY division_name
+                    ");
+                    $stmt->execute([$selectedProjectId]);
+                    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+                        $dn = $row['division_name'];
+                        if (!isset($divisionBreakdown[$dn])) $divisionBreakdown[$dn] = 0;
+                        $divisionBreakdown[$dn] += floatval($row['total']);
+                    }
+                } catch (Exception $e) {}
+                
+                // Get project expenses list
                 try {
                     $stmt = $pdo->prepare("
                         SELECT pe.*, pec.category_name 
@@ -646,6 +712,75 @@ foreach ($projects as $proj) {
             font-size: 20px;
             margin-bottom: 2px;
         }
+        
+        /* Chart Card */
+        .chart-card {
+            background: var(--card);
+            border-radius: 16px;
+            padding: 16px;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
+            margin-bottom: 16px;
+        }
+        
+        .chart-wrapper {
+            width: 100%;
+            max-width: 240px;
+            height: 240px;
+            margin: 0 auto 16px;
+        }
+        
+        .chart-legend {
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+        }
+        
+        .legend-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 8px;
+            background: var(--bg);
+            border-radius: 8px;
+        }
+        
+        .legend-color {
+            width: 12px;
+            height: 12px;
+            border-radius: 3px;
+            flex-shrink: 0;
+        }
+        
+        .legend-info {
+            flex: 1;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .legend-name {
+            font-size: 12px;
+            font-weight: 500;
+            color: var(--text);
+        }
+        
+        .legend-details {
+            display: flex;
+            flex-direction: column;
+            align-items: flex-end;
+            gap: 2px;
+        }
+        
+        .legend-amount {
+            font-size: 11px;
+            font-weight: 600;
+            color: var(--text);
+        }
+        
+        .legend-percent {
+            font-size: 9px;
+            color: var(--text-muted);
+        }
     </style>
 </head>
 <body>
@@ -682,11 +817,47 @@ foreach ($projects as $proj) {
                     <div class="project-stat-value"><?= rp($selectedProject['budget'] ?? 0) ?></div>
                 </div>
                 <div class="project-stat">
-                    <div class="project-stat-label">Used</div>
-                    <div class="project-stat-value"><?= rp($selectedProject['total_expenses'] ?? 0) ?></div>
+                    <div class="project-stat-label">Total Used</div>
+                    <div class="project-stat-value"><?= rp($selectedProject['grand_expenses'] ?? 0) ?></div>
                 </div>
             </div>
         </div>
+        
+        <?php if (!empty($divisionBreakdown)): ?>
+        <!-- Division Breakdown Chart -->
+        <div class="section-title">
+            📊 Expense by Division
+        </div>
+        
+        <div class="chart-card">
+            <div class="chart-wrapper">
+                <canvas id="divisionBreakdownChart"></canvas>
+            </div>
+            <div class="chart-legend">
+                <?php 
+                arsort($divisionBreakdown);
+                $totalDivision = array_sum($divisionBreakdown);
+                $colors = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#14b8a6', '#f97316', '#6366f1'];
+                $index = 0;
+                foreach ($divisionBreakdown as $divName => $divAmount): 
+                    $percentage = $totalDivision > 0 ? round(($divAmount / $totalDivision) * 100, 1) : 0;
+                    $color = $colors[$index % count($colors)];
+                    $index++;
+                ?>
+                <div class="legend-item">
+                    <div class="legend-color" style="background: <?= $color ?>"></div>
+                    <div class="legend-info">
+                        <div class="legend-name"><?= htmlspecialchars($divName) ?></div>
+                        <div class="legend-details">
+                            <span class="legend-amount"><?= rp($divAmount) ?></span>
+                            <span class="legend-percent"><?= $percentage ?>%</span>
+                        </div>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+        <?php endif; ?>
         
         <div class="section-title">
             📋 Recent Expenses
@@ -878,6 +1049,66 @@ foreach ($projects as $proj) {
                                 }
                             }
                         }
+                    }
+                }
+            });
+        }
+        <?php endif; ?>
+        
+        // Division Breakdown Pie Chart (for selected project)
+        <?php if (!empty($divisionBreakdown)): ?>
+        const divisionCtx = document.getElementById('divisionBreakdownChart');
+        if (divisionCtx) {
+            const divisionColors = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#14b8a6', '#f97316', '#6366f1'];
+            const divisionLabels = <?= json_encode(array_keys($divisionBreakdown)) ?>;
+            const divisionData = <?= json_encode(array_values($divisionBreakdown)) ?>;
+            
+            new Chart(divisionCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: divisionLabels,
+                    datasets: [{
+                        data: divisionData,
+                        backgroundColor: divisionColors.slice(0, divisionLabels.length),
+                        borderWidth: 3,
+                        borderColor: '#ffffff',
+                        hoverOffset: 6,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
+                            padding: 12,
+                            cornerRadius: 8,
+                            titleFont: {
+                                size: 13,
+                                weight: 'bold'
+                            },
+                            bodyFont: {
+                                size: 12
+                            },
+                            callbacks: {
+                                label: function(ctx) {
+                                    const val = ctx.parsed;
+                                    const total = ctx.dataset.data.reduce((a,b) => a+b, 0);
+                                    const pct = ((val/total)*100).toFixed(1);
+                                    return ctx.label + ': Rp ' + val.toLocaleString('id-ID') + ' (' + pct + '%)';
+                                }
+                            }
+                        }
+                    },
+                    cutout: '65%',
+                    animation: {
+                        animateRotate: true,
+                        animateScale: true,
+                        duration: 800,
+                        easing: 'easeInOutQuart'
                     }
                 }
             });
