@@ -149,6 +149,41 @@ try {
 
 $totalProjects = count($projects);
 
+// Get all bills
+try {
+    $bills = $db->query("
+        SELECT * FROM investor_bills
+        ORDER BY 
+            CASE 
+                WHEN status = 'unpaid' THEN 1
+                WHEN status = 'overdue' THEN 2
+                WHEN status = 'paid' THEN 3
+                ELSE 4
+            END,
+            due_date DESC
+        LIMIT 50
+    ")->fetchAll(PDO::FETCH_ASSOC);
+} catch (Exception $e) {
+    $bills = [];
+}
+
+// Calculate bill statistics
+$totalBills = count($bills);
+$totalUnpaid = 0;
+$totalPaid = 0;
+$unpaidAmount = 0;
+$paidAmount = 0;
+
+foreach ($bills as $bill) {
+    if ($bill['status'] === 'unpaid' || $bill['status'] === 'overdue') {
+        $totalUnpaid++;
+        $unpaidAmount += $bill['amount'];
+    } elseif ($bill['status'] === 'paid') {
+        $totalPaid++;
+        $paidAmount += $bill['amount'];
+    }
+}
+
 // Calculate totals
 $totalInvestors = count($investors);
 $totalCapital = 0;
@@ -588,64 +623,106 @@ include $base_path . '/includes/header.php';
 .charts-grid {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 1rem;
+    gap: 1.5rem;
 }
 
 .chart-card {
-    background: var(--bg-secondary);
-    border: 1px solid var(--border-color);
-    border-radius: 10px;
-    padding: 1.25rem;
+    background: linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 16px;
+    padding: 1.75rem;
     position: relative;
     overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.08);
+    transition: all 0.4s cubic-bezier(0.4, 0, 0.2, 1);
 }
 
-.chart-card::after {
+.chart-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 16px 48px rgba(0,0,0,0.12);
+    border-color: rgba(255,255,255,0.2);
+}
+
+.chart-card::before {
     content: '';
     position: absolute;
     top: 0;
     left: 0;
     right: 0;
-    height: 3px;
+    height: 4px;
+    z-index: 1;
 }
 
-.chart-card.chart-pie::after {
-    background: linear-gradient(90deg, #6366f1, #ec4899);
+.chart-card.chart-pie::before {
+    background: linear-gradient(90deg, #6366f1 0%, #ec4899 50%, #f59e0b 100%);
 }
 
-.chart-card.chart-bar::after {
-    background: linear-gradient(90deg, #10b981, #3b82f6);
+.chart-card.chart-bar::before {
+    background: linear-gradient(90deg, #10b981 0%, #3b82f6 50%, #8b5cf6 100%);
+}
+
+.chart-card::after {
+    content: '';
+    position: absolute;
+    top: -50%;
+    right: -50%;
+    width: 200%;
+    height: 200%;
+    background: radial-gradient(circle, rgba(99,102,241,0.03) 0%, transparent 70%);
+    pointer-events: none;
 }
 
 .chart-card h3 {
-    font-size: 0.95rem;
+    font-size: 1.1rem;
     font-weight: 700;
     color: var(--text-primary);
-    margin: 0 0 .2rem 0;
+    margin: 0 0 0.3rem 0;
     display: flex;
     align-items: center;
-    gap: .5rem;
+    gap: 0.6rem;
+    position: relative;
+    z-index: 2;
+    letter-spacing: -0.02em;
 }
 
 .chart-card .chart-sub {
-    font-size: .7rem;
+    font-size: 0.78rem;
     color: var(--text-muted);
-    margin-bottom: 0.8rem;
+    margin-bottom: 1.25rem;
+    position: relative;
+    z-index: 2;
+    line-height: 1.4;
+    font-weight: 500;
+    opacity: 0.85;
 }
 
 .chart-card canvas {
-    max-height: 300px;
+    max-height: 320px;
+    position: relative;
+    z-index: 2;
 }
 
 .chart-empty {
     text-align: center;
-    padding: 1.5rem;
+    padding: 3rem 1.5rem;
     color: var(--text-muted);
-    font-size: .8rem;
+    font-size: 0.85rem;
+    position: relative;
+    z-index: 2;
+    background: rgba(0,0,0,0.02);
+    border-radius: 12px;
+    border: 2px dashed rgba(0,0,0,0.08);
 }
 
 @media (max-width: 900px) {
-    .charts-grid { grid-template-columns: 1fr; }
+    .charts-grid { 
+        grid-template-columns: 1fr; 
+        gap: 1.25rem;
+    }
+    .chart-card {
+        padding: 1.5rem;
+    }
 }
 
 /* Projects Section */
@@ -788,6 +865,208 @@ include $base_path . '/includes/header.php';
 .add-project-card .text {
     font-weight: 600;
     color: var(--text-secondary);
+}
+
+/* Project Monitoring Table */
+.project-monitoring-table {
+    margin-top: 2rem;
+    background: linear-gradient(135deg, rgba(255,255,255,0.05), rgba(255,255,255,0.02));
+    backdrop-filter: blur(10px);
+    border: 1px solid rgba(255,255,255,0.1);
+    border-radius: 16px;
+    padding: 0;
+    overflow: hidden;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.08);
+}
+
+.project-monitoring-table .table-header {
+    padding: 1.5rem 1.75rem;
+    background: linear-gradient(135deg, rgba(99,102,241,0.08), rgba(236,72,153,0.05));
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+.project-monitoring-table .table-title {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 0.6rem;
+    letter-spacing: -0.02em;
+}
+
+.project-monitoring-table .table-title svg {
+    stroke: #6366f1;
+}
+
+.monitoring-table-wrapper {
+    overflow-x: auto;
+    max-width: 100%;
+}
+
+.monitoring-table {
+    width: 100%;
+    border-collapse: collapse;
+    background: transparent;
+}
+
+.monitoring-table thead tr {
+    background: linear-gradient(135deg, rgba(99,102,241,0.1), rgba(245,158,11,0.05));
+}
+
+.monitoring-table th {
+    padding: 1rem 1.25rem;
+    text-align: left;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 2px solid rgba(99,102,241,0.2);
+    white-space: nowrap;
+}
+
+.monitoring-table tbody tr {
+    transition: all 0.25s ease;
+    border-bottom: 1px solid rgba(255,255,255,0.06);
+}
+
+.monitoring-table tbody tr:hover {
+    background: linear-gradient(90deg, rgba(99,102,241,0.08), rgba(245,158,11,0.04));
+    transform: scale(1.005);
+}
+
+.monitoring-table td {
+    padding: 1.15rem 1.25rem;
+    font-size: 0.88rem;
+    color: var(--text-primary);
+    vertical-align: middle;
+}
+
+.monitoring-table .text-center {
+    text-align: center;
+}
+
+.monitoring-table .project-details {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.monitoring-table .project-name-table {
+    font-weight: 700;
+    font-size: 0.92rem;
+    color: var(--text-primary);
+    line-height: 1.3;
+}
+
+.monitoring-table .project-code-table {
+    font-size: 0.72rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+    font-weight: 600;
+}
+
+.monitoring-table .amount-cell {
+    font-weight: 700;
+    font-size: 0.9rem;
+    font-family: 'Segoe UI', system-ui, sans-serif;
+    white-space: nowrap;
+}
+
+.monitoring-table .text-warning {
+    color: #f59e0b;
+}
+
+.monitoring-table .text-success {
+    color: #10b981;
+}
+
+.monitoring-table .text-danger {
+    color: #ef4444;
+}
+
+.monitoring-table .badge-danger {
+    display: inline-block;
+    padding: 0.15rem 0.5rem;
+    font-size: 0.65rem;
+    font-weight: 700;
+    color: #fff;
+    background: linear-gradient(135deg, #ef4444, #dc2626);
+    border-radius: 12px;
+    margin-left: 0.4rem;
+    text-transform: uppercase;
+    letter-spacing: 0.3px;
+}
+
+.monitoring-table .progress-container {
+    width: 100%;
+    height: 8px;
+    background: rgba(0,0,0,0.1);
+    border-radius: 10px;
+    overflow: hidden;
+    margin-bottom: 0.3rem;
+    box-shadow: inset 0 1px 3px rgba(0,0,0,0.2);
+}
+
+.monitoring-table .progress-bar {
+    height: 100%;
+    border-radius: 10px;
+    transition: width 0.6s cubic-bezier(0.4, 0, 0.2, 1);
+    position: relative;
+    box-shadow: 0 0 10px rgba(255,255,255,0.3);
+}
+
+.monitoring-table .progress-bar.success {
+    background: linear-gradient(90deg, #10b981, #059669);
+}
+
+.monitoring-table .progress-bar.warning {
+    background: linear-gradient(90deg, #f59e0b, #d97706);
+}
+
+.monitoring-table .progress-bar.danger {
+    background: linear-gradient(90deg, #ef4444, #dc2626);
+}
+
+.monitoring-table .progress-text {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-align: center;
+}
+
+.monitoring-table .btn-icon-sm {
+    width: 36px;
+    height: 36px;
+    background: linear-gradient(135deg, rgba(99,102,241,0.15), rgba(236,72,153,0.1));
+    border: 1px solid rgba(99,102,241,0.2);
+    border-radius: 8px;
+    font-size: 1.1rem;
+    cursor: pointer;
+    transition: all 0.25s ease;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.monitoring-table .btn-icon-sm:hover {
+    background: linear-gradient(135deg, rgba(99,102,241,0.25), rgba(236,72,153,0.15));
+    border-color: rgba(99,102,241,0.4);
+    transform: translateY(-2px) scale(1.1);
+    box-shadow: 0 4px 12px rgba(99,102,241,0.3);
+}
+
+@media (max-width: 1024px) {
+    .monitoring-table {
+        font-size: 0.8rem;
+    }
+    .monitoring-table th,
+    .monitoring-table td {
+        padding: 0.85rem 1rem;
+    }
 }
 
 /* History Table */
@@ -1349,6 +1628,209 @@ include $base_path . '/includes/header.php';
     font-weight: 700;
     color: #10b981;
 }
+
+/* Bills Section */
+.bills-section {
+    margin-bottom: 2rem;
+}
+
+.bills-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1rem;
+    margin-bottom: 1.5rem;
+}
+
+.bill-stat-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    transition: all 0.3s;
+}
+
+.bill-stat-card:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.08);
+}
+
+.stat-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    font-size: 1.5rem;
+}
+
+.stat-info {
+    flex: 1;
+}
+
+.stat-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 0.3rem;
+}
+
+.stat-value {
+    font-size: 1.5rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    line-height: 1;
+}
+
+.stat-sub {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    margin-top: 0.2rem;
+}
+
+.bills-table-wrapper {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    overflow: hidden;
+}
+
+.bills-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.bills-table thead tr {
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.05), rgba(139, 92, 246, 0.05));
+}
+
+.bills-table th {
+    text-align: left;
+    padding: 0.8rem 1rem;
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.bills-table tbody tr {
+    border-bottom: 1px solid var(--border-color);
+    transition: background 0.2s;
+}
+
+.bills-table tbody tr:hover {
+    background: rgba(99, 102, 241, 0.03);
+}
+
+.bills-table tbody tr.overdue {
+    background: rgba(239, 68, 68, 0.03);
+}
+
+.bills-table td {
+    padding: 1rem;
+    font-size: 0.85rem;
+}
+
+.bill-title {
+    font-weight: 600;
+    color: var(--text-primary);
+    margin-bottom: 0.2rem;
+}
+
+.bill-desc {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+}
+
+.category-badge {
+    display: inline-block;
+    padding: 0.3rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: capitalize;
+}
+
+.category-land { background: #dbeafe; color: #1e40af; }
+.category-property { background: #e0e7ff; color: #4338ca; }
+.category-utility { background: #fef3c7; color: #92400e; }
+.category-tax { background: #fee2e2; color: #991b1b; }
+.category-service { background: #d1fae5; color: #065f46; }
+.category-legal { background: #e9d5ff; color: #6b21a8; }
+.category-other { background: #f3f4f6; color: #374151; }
+
+.status-badge {
+    display: inline-block;
+    padding: 0.3rem 0.75rem;
+    border-radius: 6px;
+    font-size: 0.7rem;
+    font-weight: 600;
+    text-transform: capitalize;
+}
+
+.status-success { background: #d1fae5; color: #065f46; }
+.status-warning { background: #fef3c7; color: #92400e; }
+.status-danger { background: #fee2e2; color: #991b1b; }
+.status-secondary { background: #f3f4f6; color: #6b7280; }
+
+.bill-actions {
+    display: flex;
+    gap: 0.4rem;
+    justify-content: center;
+}
+
+.btn-icon {
+    width: 32px;
+    height: 32px;
+    border-radius: 6px;
+    border: 1px solid var(--border-color);
+    background: white;
+    cursor: pointer;
+    transition: all 0.2s;
+    font-size: 0.85rem;
+}
+
+.btn-icon:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+}
+
+.btn-icon.btn-success {
+    background: #d1fae5;
+    border-color: #10b981;
+    color: #065f46;
+}
+
+.btn-icon.btn-success:hover {
+    background: #10b981;
+    color: white;
+}
+
+.btn-icon.btn-edit {
+    background: #fef3c7;
+    border-color: #f59e0b;
+}
+
+.btn-icon.btn-edit:hover {
+    background: #f59e0b;
+    color: white;
+}
+
+.btn-icon.btn-delete {
+    background: #fee2e2;
+    border-color: #ef4444;
+}
+
+.btn-icon.btn-delete:hover {
+    background: #ef4444;
+    color: white;
+}
 </style>
 
 <div class="investor-page">
@@ -1584,6 +2066,202 @@ include $base_path . '/includes/header.php';
                     </svg>
                     <div class="text">Add New Project</div>
                 </div>
+            <?php endif; ?>
+        </div>
+
+        <!-- Project Monitoring Table -->
+        <?php if (!empty($projects)): ?>
+        <div class="project-monitoring-table">
+            <div class="table-header">
+                <h3 class="table-title">
+                    <svg width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                        <path d="M9 12l2 2 4-4"/>
+                    </svg>
+                    Project Monitoring Overview
+                </h3>
+            </div>
+            <div class="monitoring-table-wrapper">
+                <table class="monitoring-table">
+                    <thead>
+                        <tr>
+                            <th width="5%">No</th>
+                            <th width="25%">Project Details</th>
+                            <th width="15%">Budget</th>
+                            <th width="15%">Expenses</th>
+                            <th width="15%">Remaining</th>
+                            <th width="15%">Progress</th>
+                            <th width="10%">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php 
+                        $no = 1;
+                        foreach ($projects as $project): 
+                            $budget = $project['budget_idr'] ?? 0;
+                            $expenses = $project['grand_expenses'] ?? $project['total_expenses'] ?? 0;
+                            $remaining = $budget - $expenses;
+                            $progress = $budget > 0 ? ($expenses / $budget * 100) : 0;
+                            $progress = min($progress, 100);
+                            $status = $project['status'] ?? 'ongoing';
+                        ?>
+                        <tr>
+                            <td class="text-center"><?= $no++ ?></td>
+                            <td>
+                                <div class="project-details">
+                                    <div class="project-name-table"><?= htmlspecialchars($project['project_name'] ?? 'N/A') ?></div>
+                                    <div class="project-code-table"><?= htmlspecialchars($project['project_code'] ?? 'PROJ-' . str_pad($project['id'], 4, '0', STR_PAD_LEFT)) ?></div>
+                                </div>
+                            </td>
+                            <td class="amount-cell">Rp <?= number_format($budget, 0, ',', '.') ?></td>
+                            <td class="amount-cell text-warning">Rp <?= number_format($expenses, 0, ',', '.') ?></td>
+                            <td class="amount-cell <?= $remaining >= 0 ? 'text-success' : 'text-danger' ?>">
+                                Rp <?= number_format(abs($remaining), 0, ',', '.') ?>
+                                <?php if ($remaining < 0): ?>
+                                    <span class="badge-danger">Over Budget</span>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <div class="progress-container">
+                                    <div class="progress-bar <?= $progress >= 90 ? 'danger' : ($progress >= 70 ? 'warning' : 'success') ?>" style="width: <?= $progress ?>%"></div>
+                                </div>
+                                <div class="progress-text"><?= number_format($progress, 1) ?>%</div>
+                            </td>
+                            <td class="text-center">
+                                <button class="btn-icon-sm" onclick="goToProjectLedger(<?= $project['id'] ?>)" title="Open Ledger">
+                                    📊
+                                </button>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        <?php endif; ?>
+    </div>
+
+    <!-- Bills Section -->
+    <div class="bills-section">
+        <div class="section-header">
+            <h2 class="section-title">
+                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path d="M9 2a1 1 0 0 0-1 1v1H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2V3a1 1 0 1 0-2 0v1H10V3a1 1 0 0 0-1-1z"/>
+                    <path d="M6 8h12"/>
+                    <path d="M8 12h2"/>
+                    <path d="M8 16h5"/>
+                </svg>
+                Bills & Payments
+            </h2>
+            <button class="btn btn-primary" onclick="openAddBillModal()">
+                <svg width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <line x1="12" y1="5" x2="12" y2="19"/>
+                    <line x1="5" y1="12" x2="19" y2="12"/>
+                </svg>
+                Add Bill
+            </button>
+        </div>
+
+        <div class="bills-summary">
+            <div class="bill-stat-card">
+                <div class="stat-icon" style="background: #fef3c7;">💰</div>
+                <div class="stat-info">
+                    <div class="stat-label">Total Bills</div>
+                    <div class="stat-value"><?= $totalBills ?></div>
+                </div>
+            </div>
+            <div class="bill-stat-card">
+                <div class="stat-icon" style="background: #fecaca;">⏰</div>
+                <div class="stat-info">
+                    <div class="stat-label">Unpaid</div>
+                    <div class="stat-value" style="color: #dc2626;"><?= $totalUnpaid ?></div>
+                    <div class="stat-sub">Rp <?= number_format($unpaidAmount, 0, ',', '.') ?></div>
+                </div>
+            </div>
+            <div class="bill-stat-card">
+                <div class="stat-icon" style="background: #d1fae5;">✅</div>
+                <div class="stat-info">
+                    <div class="stat-label">Paid</div>
+                    <div class="stat-value" style="color: #059669;"><?= $totalPaid ?></div>
+                    <div class="stat-sub">Rp <?= number_format($paidAmount, 0, ',', '.') ?></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="bills-table-wrapper">
+            <?php if (empty($bills)): ?>
+                <div class="empty-state">
+                    <svg width="64" height="64" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                        <path d="M9 2a1 1 0 0 0-1 1v1H6a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V6a2 2 0 0 0-2-2h-2V3a1 1 0 1 0-2 0v1H10V3a1 1 0 0 0-1-1z"/>
+                    </svg>
+                    <p>No bills recorded yet</p>
+                    <button class="btn btn-primary" onclick="openAddBillModal()">Add First Bill</button>
+                </div>
+            <?php else: ?>
+                <table class="bills-table">
+                    <thead>
+                        <tr>
+                            <th>Title & Description</th>
+                            <th>Category</th>
+                            <th style="text-align: right;">Amount</th>
+                            <th>Due Date</th>
+                            <th>Status</th>
+                            <th style="text-align: center;">Actions</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($bills as $bill): ?>
+                        <tr class="bill-row <?= $bill['status'] === 'overdue' ? 'overdue' : '' ?>">
+                            <td>
+                                <div class="bill-title"><?= htmlspecialchars($bill['title']) ?></div>
+                                <?php if ($bill['description']): ?>
+                                <div class="bill-desc"><?= htmlspecialchars(substr($bill['description'], 0, 60)) ?><?= strlen($bill['description']) > 60 ? '...' : '' ?></div>
+                                <?php endif; ?>
+                            </td>
+                            <td>
+                                <span class="category-badge category-<?= $bill['category'] ?>">
+                                    <?= ucfirst($bill['category']) ?>
+                                </span>
+                            </td>
+                            <td style="text-align: right; font-weight: 700; color: #333;">
+                                Rp <?= number_format($bill['amount'], 0, ',', '.') ?>
+                            </td>
+                            <td>
+                                <?= $bill['due_date'] ? date('d M Y', strtotime($bill['due_date'])) : '-' ?>
+                            </td>
+                            <td>
+                                <?php
+                                $statusColors = [
+                                    'unpaid' => 'warning',
+                                    'paid' => 'success',
+                                    'overdue' => 'danger',
+                                    'cancelled' => 'secondary'
+                                ];
+                                $statusColor = $statusColors[$bill['status']] ?? 'secondary';
+                                ?>
+                                <span class="status-badge status-<?= $statusColor ?>">
+                                    <?= ucfirst($bill['status']) ?>
+                                </span>
+                            </td>
+                            <td style="text-align: center;">
+                                <div class="bill-actions">
+                                    <?php if ($bill['status'] === 'unpaid' || $bill['status'] === 'overdue'): ?>
+                                    <button class="btn-icon btn-success" onclick="markAsPaid(<?= $bill['id'] ?>)" title="Mark as Paid">
+                                        ✓
+                                    </button>
+                                    <?php endif; ?>
+                                    <button class="btn-icon btn-edit" onclick="editBill(<?= $bill['id'] ?>)" title="Edit">
+                                        ✏️
+                                    </button>
+                                    <button class="btn-icon btn-delete" onclick="deleteBill(<?= $bill['id'] ?>, '<?= htmlspecialchars($bill['title'], ENT_QUOTES) ?>')" title="Delete">
+                                        🗑️
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
             <?php endif; ?>
         </div>
     </div>
@@ -1894,6 +2572,115 @@ include $base_path . '/includes/header.php';
     </div>
 </div>
 
+<!-- Modal: Add Bill -->
+<div class="modal-overlay" id="addBillModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Add New Bill</h3>
+            <button class="modal-close" onclick="closeModal('addBillModal')">&times;</button>
+        </div>
+        <form id="addBillForm" onsubmit="saveBill(event)">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Bill Title *</label>
+                    <input type="text" name="title" required placeholder="e.g., Land Payment Kavling A">
+                </div>
+                <div class="form-group">
+                    <label>Bill Number</label>
+                    <input type="text" name="bill_number" placeholder="e.g., INV-2025-001">
+                </div>
+                <div class="form-group">
+                    <label>Category *</label>
+                    <select name="category" required>
+                        <option value="land">Land</option>
+                        <option value="property">Property</option>
+                        <option value="utility">Utility</option>
+                        <option value="tax">Tax</option>
+                        <option value="service">Service</option>
+                        <option value="legal">Legal</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Amount (IDR) *</label>
+                    <input type="text" id="billAmount" name="amount" required placeholder="0" data-currency>
+                </div>
+                <div class="form-group">
+                    <label>Due Date</label>
+                    <input type="date" name="due_date">
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea name="description" rows="2" placeholder="Bill details..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Notes</label>
+                    <textarea name="notes" rows="2" placeholder="Additional notes..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('addBillModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Save Bill</button>
+            </div>
+        </form>
+    </div>
+</div>
+
+<!-- Modal: Edit Bill -->
+<div class="modal-overlay" id="editBillModal">
+    <div class="modal-content">
+        <div class="modal-header">
+            <h3>Edit Bill</h3>
+            <button class="modal-close" onclick="closeModal('editBillModal')">&times;</button>
+        </div>
+        <form id="editBillForm" onsubmit="updateBill(event)">
+            <input type="hidden" name="id" id="editBillId">
+            <div class="modal-body">
+                <div class="form-group">
+                    <label>Bill Title *</label>
+                    <input type="text" name="title" id="editBillTitle" required placeholder="e.g., Land Payment Kavling A">
+                </div>
+                <div class="form-group">
+                    <label>Bill Number</label>
+                    <input type="text" name="bill_number" id="editBillNumber" placeholder="e.g., INV-2025-001">
+                </div>
+                <div class="form-group">
+                    <label>Category *</label>
+                    <select name="category" id="editBillCategory" required>
+                        <option value="land">Land</option>
+                        <option value="property">Property</option>
+                        <option value="utility">Utility</option>
+                        <option value="tax">Tax</option>
+                        <option value="service">Service</option>
+                        <option value="legal">Legal</option>
+                        <option value="other">Other</option>
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Amount (IDR) *</label>
+                    <input type="text" id="editBillAmount" name="amount" required placeholder="0" data-currency>
+                </div>
+                <div class="form-group">
+                    <label>Due Date</label>
+                    <input type="date" name="due_date" id="editBillDueDate">
+                </div>
+                <div class="form-group">
+                    <label>Description</label>
+                    <textarea name="description" id="editBillDescription" rows="2" placeholder="Bill details..."></textarea>
+                </div>
+                <div class="form-group">
+                    <label>Notes</label>
+                    <textarea name="notes" id="editBillNotes" rows="2" placeholder="Additional notes..."></textarea>
+                </div>
+            </div>
+            <div class="modal-footer">
+                <button type="button" class="btn btn-secondary" onclick="closeModal('editBillModal')">Cancel</button>
+                <button type="submit" class="btn btn-primary">Update Bill</button>
+            </div>
+        </form>
+    </div>
+</div>
+
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script src="deposits-script.js"></script>
 <script>
@@ -1920,6 +2707,29 @@ document.addEventListener('DOMContentLoaded', function() {
     const depositAmountInput = document.getElementById('depositAmount');
     if (depositAmountInput) {
         depositAmountInput.addEventListener('input', function(e) {
+            const value = e.target.value;
+            const numericValue = value.replace(/\D/g, '');
+            if (numericValue) {
+                e.target.value = 'IDR ' + formatCurrency(numericValue);
+            }
+        });
+    }
+
+    // Add currency formatting to bill amount inputs
+    const billAmountInput = document.getElementById('billAmount');
+    if (billAmountInput) {
+        billAmountInput.addEventListener('input', function(e) {
+            const value = e.target.value;
+            const numericValue = value.replace(/\D/g, '');
+            if (numericValue) {
+                e.target.value = 'IDR ' + formatCurrency(numericValue);
+            }
+        });
+    }
+
+    const editBillAmountInput = document.getElementById('editBillAmount');
+    if (editBillAmountInput) {
+        editBillAmountInput.addEventListener('input', function(e) {
             const value = e.target.value;
             const numericValue = value.replace(/\D/g, '');
             if (numericValue) {
@@ -2335,6 +3145,150 @@ async function deleteProject(projectId, projectName) {
             location.reload(); // Refresh page to update project list
         } else {
             alert('❌ Error: ' + result.message);
+        }
+    } catch (error) {
+        alert('❌ Error: ' + error.message);
+    }
+}
+
+// ====== BILLS FUNCTIONS ======
+function openAddBillModal() {
+    document.getElementById('addBillForm').reset();
+    document.getElementById('addBillModal').classList.add('active');
+}
+
+async function saveBill(event) {
+    event.preventDefault();
+    
+    const form = event.target;
+    const formData = new FormData(form);
+    
+    try {
+        const response = await fetch('<?= BASE_URL ?>/api/bill-add.php', {
+            method: 'POST',
+            body: formData
+        });
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('✅ Bill added successfully');
+            closeModal('addBillModal');
+            location.reload();
+        } else {
+            alert('❌ Error: ' + (result.message || 'Failed to save bill'));
+        }
+    } catch (error) {
+        alert('❌ Error: ' + error.message);
+    }
+}
+
+async function editBill(billId) {
+    try {
+        const response = await fetch('<?= BASE_URL ?>/api/bill-get.php?id=' + encodeURIComponent(billId));
+        const result = await response.json();
+        
+        if (result.success && result.bill) {
+            const bill = result.bill;
+            
+            // Populate form fields
+            document.getElementById('editBillId').value = bill.id;
+            document.getElementById('editBillTitle').value = bill.title || '';
+            document.getElementById('editBillNumber').value = bill.bill_number || '';
+            document.getElementById('editBillCategory').value = bill.category || 'other';
+            document.getElementById('editBillAmount').value = formatCurrency(bill.amount);
+            document.getElementById('editBillDueDate').value = bill.due_date || '';
+            document.getElementById('editBillDescription').value = bill.description || '';
+            document.getElementById('editBillNotes').value = bill.notes || '';
+            
+            // Open modal
+            document.getElementById('editBillModal').classList.add('active');
+        } else {
+            alert('❌ Failed to load bill data: ' + (result.message || 'Unknown error'));
+        }
+    } catch (error) {
+        alert('❌ Error: ' + error.message);
+    }
+}
+
+async function updateBill(event) {
+    event.preventDefault();
+    
+    const billId = document.getElementById('editBillId').value;
+    if (!billId) {
+        alert('❌ Bill ID not found');
+        return;
+    }
+    
+    const form = event.target;
+    const formData = new FormData(form);
+    
+    try {
+        const response = await fetch('<?= BASE_URL ?>/api/bill-update.php', {
+            method: 'POST',
+            body: formData
+        });
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('✅ Bill updated successfully');
+            closeModal('editBillModal');
+            location.reload();
+        } else {
+            alert('❌ Error: ' + (result.message || 'Failed to update bill'));
+        }
+    } catch (error) {
+        alert('❌ Error: ' + error.message);
+    }
+}
+
+async function deleteBill(billId, billTitle) {
+    if (!confirm(`Are you sure you want to delete the bill "${billTitle}"?\n\nThis action CANNOT be undone.`)) {
+        return;
+    }
+    
+    try {
+        const response = await fetch('<?= BASE_URL ?>/api/bill-delete.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: 'id=' + encodeURIComponent(billId)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('✅ ' + (result.message || 'Bill deleted successfully'));
+            location.reload();
+        } else {
+            alert('❌ Error: ' + (result.message || 'Failed to delete bill'));
+        }
+    } catch (error) {
+        alert('❌ Error: ' + error.message);
+    }
+}
+
+async function markAsPaid(billId) {
+    if (!confirm('Mark this bill as paid?')) {
+        return;
+    }
+    
+    try {
+        const response = await fetch('<?= BASE_URL ?>/api/bill-mark-paid.php', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/x-www-form-urlencoded'
+            },
+            body: 'id=' + encodeURIComponent(billId)
+        });
+        
+        const result = await response.json();
+        
+        if (result.success) {
+            alert('✅ ' + (result.message || 'Bill marked as paid'));
+            location.reload();
+        } else {
+            alert('❌ Error: ' + (result.message || 'Failed to mark as paid'));
         }
     } catch (error) {
         alert('❌ Error: ' + error.message);
