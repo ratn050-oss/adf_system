@@ -121,6 +121,15 @@ function rpFull($num) {
 }
 
 $usagePercent = $totalBudget > 0 ? round(($totalExpenses / $totalBudget) * 100) : 0;
+
+// Prepare chart data - Expenses by Project
+$chartExpensesByProject = [];
+foreach ($projects as $proj) {
+    $projExpenses = $proj['total_expenses'] ?? 0;
+    if ($projExpenses > 0) {
+        $chartExpensesByProject[$proj['name'] ?? 'Project'] = $projExpenses;
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -128,6 +137,7 @@ $usagePercent = $totalBudget > 0 ? round(($totalExpenses / $totalBudget) * 100) 
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Projects & Investors - Owner</title>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         
@@ -263,6 +273,22 @@ $usagePercent = $totalBudget > 0 ? round(($totalExpenses / $totalBudget) * 100) 
             box-shadow: 0 2px 12px rgba(0,0,0,0.04);
         }
         
+        .progress-content {
+            display: flex;
+            gap: 16px;
+            align-items: center;
+        }
+        
+        .progress-left {
+            flex: 1;
+        }
+        
+        .progress-chart {
+            width: 120px;
+            height: 120px;
+            flex-shrink: 0;
+        }
+        
         .progress-header {
             display: flex;
             justify-content: space-between;
@@ -301,6 +327,18 @@ $usagePercent = $totalBudget > 0 ? round(($totalExpenses / $totalBudget) * 100) 
             margin-top: 8px;
             font-size: 10px;
             color: var(--text-muted);
+        }
+        
+        @media (max-width: 480px) {
+            .progress-content {
+                flex-direction: column;
+            }
+            .progress-chart {
+                width: 100%;
+                max-width: 200px;
+                height: 180px;
+                margin: 0 auto;
+            }
         }
         
         /* Section Title */
@@ -668,16 +706,25 @@ $usagePercent = $totalBudget > 0 ? round(($totalExpenses / $totalBudget) * 100) 
         
         <!-- Budget Usage Progress -->
         <div class="progress-section">
-            <div class="progress-header">
-                <span class="progress-title">Budget Usage</span>
-                <span class="progress-percent"><?= $usagePercent ?>%</span>
-            </div>
-            <div class="progress-bar">
-                <div class="progress-fill" style="width: <?= min($usagePercent, 100) ?>%"></div>
-            </div>
-            <div class="progress-labels">
-                <span>Used: <?= rp($totalExpenses) ?></span>
-                <span>Remaining: <?= rp($totalBudget - $totalExpenses) ?></span>
+            <div class="progress-content">
+                <div class="progress-left">
+                    <div class="progress-header">
+                        <span class="progress-title">Budget Usage</span>
+                        <span class="progress-percent"><?= $usagePercent ?>%</span>
+                    </div>
+                    <div class="progress-bar">
+                        <div class="progress-fill" style="width: <?= min($usagePercent, 100) ?>%"></div>
+                    </div>
+                    <div class="progress-labels">
+                        <span>Used: <?= rp($totalExpenses) ?></span>
+                        <span>Remaining: <?= rp($totalBudget - $totalExpenses) ?></span>
+                    </div>
+                </div>
+                <?php if (!empty($chartExpensesByProject)): ?>
+                <div class="progress-chart">
+                    <canvas id="expensePieChart"></canvas>
+                </div>
+                <?php endif; ?>
             </div>
         </div>
         
@@ -764,5 +811,47 @@ $usagePercent = $totalBudget > 0 ? round(($totalExpenses / $totalBudget) * 100) 
             <span>Logout</span>
         </a>
     </nav>
+
+    <script>
+        // Expense Pie Chart
+        <?php if (!empty($chartExpensesByProject)): ?>
+        const pieCtx = document.getElementById('expensePieChart');
+        if (pieCtx) {
+            const pieColors = ['#6366f1','#ec4899','#f59e0b','#10b981','#3b82f6','#8b5cf6','#ef4444','#14b8a6'];
+            new Chart(pieCtx, {
+                type: 'doughnut',
+                data: {
+                    labels: <?= json_encode(array_keys($chartExpensesByProject)) ?>,
+                    datasets: [{
+                        data: <?= json_encode(array_values($chartExpensesByProject)) ?>,
+                        backgroundColor: pieColors.slice(0, <?= count($chartExpensesByProject) ?>),
+                        borderWidth: 2,
+                        borderColor: '#ffffff',
+                        hoverOffset: 4,
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    plugins: {
+                        legend: {
+                            display: false
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(ctx) {
+                                    const val = ctx.parsed;
+                                    const total = ctx.dataset.data.reduce((a,b) => a+b, 0);
+                                    const pct = ((val/total)*100).toFixed(1);
+                                    return ctx.label + ': Rp ' + val.toLocaleString('id-ID') + ' (' + pct + '%)';
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+        <?php endif; ?>
+    </script>
 </body>
 </html>
