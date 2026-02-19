@@ -69,10 +69,41 @@ try {
         // Get all projects
         $stmt = $pdo->query("SELECT * FROM projects ORDER BY budget DESC");
         $projects = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        foreach ($projects as $proj) {
+        
+        // Calculate real expenses for each project (expenses + salaries + division costs)
+        foreach ($projects as &$proj) {
+            $pid = $proj['id'];
             $totalBudget += $proj['budget'] ?? 0;
-            $totalExpenses += $proj['total_expenses'] ?? 0;
+            
+            // Get project_expenses
+            $proj['total_expenses'] = 0;
+            try {
+                $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount),0) as total FROM project_expenses WHERE project_id = ?");
+                $stmt->execute([$pid]);
+                $proj['total_expenses'] = floatval($stmt->fetchColumn());
+            } catch (Exception $e) {}
+            
+            // Get project_salaries
+            $proj['total_gaji'] = 0;
+            try {
+                $stmt = $pdo->prepare("SELECT COALESCE(SUM(total_salary),0) as total FROM project_salaries WHERE project_id = ?");
+                $stmt->execute([$pid]);
+                $proj['total_gaji'] = floatval($stmt->fetchColumn());
+            } catch (Exception $e) {}
+            
+            // Get project_division_expenses
+            $proj['total_divisi'] = 0;
+            try {
+                $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount),0) as total FROM project_division_expenses WHERE project_id = ?");
+                $stmt->execute([$pid]);
+                $proj['total_divisi'] = floatval($stmt->fetchColumn());
+            } catch (Exception $e) {}
+            
+            // Calculate grand total
+            $proj['grand_expenses'] = $proj['total_expenses'] + $proj['total_gaji'] + $proj['total_divisi'];
+            $totalExpenses += $proj['grand_expenses'];
         }
+        unset($proj);
         
         // If a project is selected, get its details and expenses
         if ($selectedProjectId) {
@@ -122,10 +153,10 @@ function rpFull($num) {
 
 $usagePercent = $totalBudget > 0 ? round(($totalExpenses / $totalBudget) * 100) : 0;
 
-// Prepare chart data - Expenses by Project
+// Prepare chart data - Expenses by Project (using grand_expenses)
 $chartExpensesByProject = [];
 foreach ($projects as $proj) {
-    $projExpenses = $proj['total_expenses'] ?? 0;
+    $projExpenses = $proj['grand_expenses'] ?? 0;
     if ($projExpenses > 0) {
         $chartExpensesByProject[$proj['name'] ?? 'Project'] = $projExpenses;
     }
@@ -780,7 +811,7 @@ foreach ($projects as $proj) {
                         </div>
                     </div>
                     <div class="list-amount">
-                        <div class="list-value" style="color: var(--warning);"><?= rp($proj['total_expenses'] ?? 0) ?></div>
+                        <div class="list-value" style="color: var(--warning);"><?= rp($proj['grand_expenses'] ?? 0) ?></div>
                         <div class="list-label">Used</div>
                     </div>
                 </a>

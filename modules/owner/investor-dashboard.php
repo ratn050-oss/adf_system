@@ -27,6 +27,39 @@ try {
     
     // 1. Get List of Projects for the Selection Menu
     $projects = $pdo->query("SELECT * FROM projects ORDER BY budget DESC")->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Calculate grand_expenses for each project
+    foreach ($projects as &$proj) {
+        $pid = $proj['id'];
+        
+        // Get project_expenses
+        $proj['total_expenses'] = 0;
+        try {
+            $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount),0) as total FROM project_expenses WHERE project_id = ?");
+            $stmt->execute([$pid]);
+            $proj['total_expenses'] = floatval($stmt->fetchColumn());
+        } catch (Exception $e) {}
+        
+        // Get project_salaries
+        $proj['total_gaji'] = 0;
+        try {
+            $stmt = $pdo->prepare("SELECT COALESCE(SUM(total_salary),0) as total FROM project_salaries WHERE project_id = ?");
+            $stmt->execute([$pid]);
+            $proj['total_gaji'] = floatval($stmt->fetchColumn());
+        } catch (Exception $e) {}
+        
+        // Get project_division_expenses
+        $proj['total_divisi'] = 0;
+        try {
+            $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount),0) as total FROM project_division_expenses WHERE project_id = ?");
+            $stmt->execute([$pid]);
+            $proj['total_divisi'] = floatval($stmt->fetchColumn());
+        } catch (Exception $e) {}
+        
+        // Calculate grand total
+        $proj['grand_expenses'] = $proj['total_expenses'] + $proj['total_gaji'] + $proj['total_divisi'];
+    }
+    unset($proj);
 
     // 2. Handle Selected Project Logic
     $selectedProjectId = isset($_GET['project_id']) ? (int)$_GET['project_id'] : null;
@@ -65,15 +98,17 @@ try {
                 $projectExpenses = $stmtExp->fetchAll(PDO::FETCH_ASSOC);
             }
 
-            // Calculate Stats for this project
+            // Calculate Stats for this project (using grand_expenses)
             $totalBudget = $selectedProject['budget'] ?? 0;
-            $calcExpenses = 0;
-            foreach ($projectExpenses as $exp) {
-                $amount = $exp['amount_idr'] ?? $exp['amount'] ?? 0;
-                $calcExpenses += $amount;
+            
+            // Find the pre-calculated grand_expenses from projects array
+            $currentExpenses = 0;
+            foreach ($projects as $p) {
+                if ($p['id'] == $selectedProjectId) {
+                    $currentExpenses = $p['grand_expenses'];
+                    break;
+                }
             }
-            // Use calculated if > 0, otherwise use stored total
-            $currentExpenses = ($calcExpenses > 0) ? $calcExpenses : ($selectedProject['total_expenses'] ?? 0);
 
             $projectStats = [
                 'budget' => $totalBudget,
@@ -87,9 +122,14 @@ try {
         try {
             $totalCapital = $pdo->query("SELECT COALESCE(SUM(total_capital), 0) FROM investors")->fetchColumn();
             $totalBudget = $pdo->query("SELECT COALESCE(SUM(budget), 0) FROM projects")->fetchColumn();
-            $totalExpenses = $pdo->query("SELECT COALESCE(SUM(total_expenses), 0) FROM projects")->fetchColumn();
+            
+            // Calculate total expenses from grand_expenses
+            $totalExpenses = 0;
+            foreach ($projects as $p) {
+                $totalExpenses += $p['grand_expenses'];
+            }
         } catch (Exception $e) {
-            // Ignore if tables missings
+            // Ignore if tables missing
         }
     }
     
@@ -227,7 +267,7 @@ function formatMoney($amount) {
                     </div>
                     <?php 
                         $pBudget = $proj['budget'] ?? 0;
-                        $pUsed = $proj['total_expenses'] ?? 0;
+                        $pUsed = $proj['grand_expenses'] ?? 0;
                         $pPercent = $pBudget > 0 ? ($pUsed / $pBudget * 100) : 0;
                     ?>
                     <div style="font-size: 0.8rem; margin-bottom: 0.5rem; display: flex; justify-content: space-between; opacity: 0.8;">
