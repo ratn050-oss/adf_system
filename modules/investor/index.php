@@ -817,6 +817,195 @@ include $base_path . '/includes/header.php';
     margin: 0;
 }
 
+/* Investor Fund Inflow Section */
+.inflow-section {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 14px;
+    padding: 2rem;
+    margin-bottom: 3rem;
+}
+
+.inflow-container {
+    display: flex;
+    flex-direction: column;
+    gap: 2rem;
+}
+
+.inflow-summary {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+    gap: 1.5rem;
+}
+
+.inflow-card {
+    background: var(--bg-primary);
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+    padding: 1.5rem;
+    text-align: center;
+    transition: all 0.3s ease;
+    position: relative;
+    overflow: hidden;
+}
+
+.inflow-card::before {
+    content: '';
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    height: 3px;
+    background: linear-gradient(90deg, #6366f1, #8b5cf6);
+}
+
+.inflow-card:hover {
+    border-color: rgba(99, 102, 241, 0.3);
+    box-shadow: 0 8px 20px rgba(99, 102, 241, 0.1);
+    transform: translateY(-2px);
+}
+
+.inflow-card.highlight {
+    background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.1));
+    border-color: rgba(99, 102, 241, 0.3);
+}
+
+.inflow-label {
+    font-size: 0.75rem;
+    color: var(--text-muted);
+    text-transform: uppercase;
+    letter-spacing: 1px;
+    font-weight: 600;
+    margin-bottom: 0.5rem;
+}
+
+.inflow-value {
+    font-size: 1.75rem;
+    font-weight: 700;
+    color: #6366f1;
+    margin-bottom: 0.5rem;
+    word-break: break-word;
+}
+
+.inflow-value.color-success {
+    color: #10b981;
+}
+
+.inflow-description {
+    font-size: 0.8rem;
+    color: var(--text-muted);
+}
+
+.inflow-table-wrapper {
+    overflow-x: auto;
+    border: 1px solid var(--border-color);
+    border-radius: 12px;
+}
+
+.inflow-table {
+    width: 100%;
+    border-collapse: collapse;
+}
+
+.inflow-table thead {
+    background: linear-gradient(90deg, rgba(99, 102, 241, 0.08), rgba(139, 92, 246, 0.08));
+    border-bottom: 2px solid var(--border-color);
+}
+
+.inflow-table th {
+    padding: 1.2rem 1rem;
+    text-align: left;
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--text-secondary);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+}
+
+.inflow-table tbody tr {
+    border-bottom: 1px solid var(--border-color);
+    transition: background 0.2s ease;
+}
+
+.inflow-table tbody tr:hover {
+    background: rgba(99, 102, 241, 0.04);
+}
+
+.inflow-table td {
+    padding: 1rem;
+    font-size: 0.9rem;
+    color: var(--text-primary);
+}
+
+.investor-name-cell {
+    font-weight: 600;
+    color: #6366f1;
+}
+
+.contact-cell {
+    color: var(--text-muted);
+    font-size: 0.85rem;
+}
+
+.amount-cell {
+    font-weight: 700;
+    color: #10b981;
+}
+
+.percentage-cell {
+    padding: 1rem;
+}
+
+.percentage-bar {
+    position: relative;
+    height: 28px;
+    background: var(--bg-primary);
+    border-radius: 8px;
+    overflow: hidden;
+    border: 1px solid var(--border-color);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.percentage-fill {
+    position: absolute;
+    left: 0;
+    top: 0;
+    bottom: 0;
+    background: linear-gradient(90deg, #6366f1, #8b5cf6);
+    transition: width 0.3s ease;
+    border-radius: 8px;
+}
+
+.percentage-text {
+    position: relative;
+    z-index: 1;
+    font-weight: 700;
+    font-size: 0.85rem;
+    color: var(--text-primary);
+    text-shadow: 0 1px 3px rgba(0, 0, 0, 0.1);
+}
+
+@media (max-width: 768px) {
+    .inflow-summary {
+        grid-template-columns: 1fr;
+    }
+
+    .inflow-table {
+        font-size: 0.8rem;
+    }
+
+    .inflow-table td,
+    .inflow-table th {
+        padding: 0.75rem 0.5rem;
+    }
+
+    .percentage-bar {
+        height: 24px;
+    }
+}
+
 /* Modal Styling */
 .modal-overlay {
     position: fixed;
@@ -1075,6 +1264,69 @@ include $base_path . '/includes/header.php';
                 <?php else: ?>
                     <canvas id="barChart"></canvas>
                 <?php endif; ?>
+            </div>
+        </div>
+    </div>
+
+    <!-- Investor Fund Inflow Details -->
+    <div class="inflow-section">
+        <div class="section-header">
+            <h2 class="section-title">
+                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2zm0 18c-4.42 0-8-3.58-8-8s3.58-8 8-8 8 3.58 8 8-3.58 8-8 8zm3.5-9c.83 0 1.5-.67 1.5-1.5S16.33 8 15.5 8 14 8.67 14 9.5s.67 1.5 1.5 1.5zm-7 0c.83 0 1.5-.67 1.5-1.5S9.33 8 8.5 8 7 8.67 7 9.5 7.67 11 8.5 11zm3.5 6.5c2.33 0 4.31-1.46 5.11-3.5H6.89c.8 2.04 2.78 3.5 5.11 3.5z"/>
+                </svg>
+                Investor Fund Inflow Details
+            </h2>
+        </div>
+        <div class="inflow-container">
+            <div class="inflow-summary">
+                <div class="inflow-card">
+                    <div class="inflow-label">Total Investors</div>
+                    <div class="inflow-value"><?= $totalInvestors ?></div>
+                    <div class="inflow-description">Active contributors</div>
+                </div>
+                <div class="inflow-card highlight">
+                    <div class="inflow-label">Total Capital Received</div>
+                    <div class="inflow-value color-success">Rp <?= number_format($totalCapital, 0, ',', '.') ?></div>
+                    <div class="inflow-description">From all investor deposits</div>
+                </div>
+                <div class="inflow-card">
+                    <div class="inflow-label">Average per Investor</div>
+                    <div class="inflow-value">Rp <?= number_format($totalInvestors > 0 ? $totalCapital / $totalInvestors : 0, 0, ',', '.') ?></div>
+                    <div class="inflow-description">Capital distribution</div>
+                </div>
+            </div>
+
+            <div class="inflow-table-wrapper">
+                <table class="inflow-table">
+                    <thead>
+                        <tr>
+                            <th>Investor Name</th>
+                            <th>Contact</th>
+                            <th>Capital Contributed</th>
+                            <th>Percentage</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($investors as $investor): ?>
+                        <tr>
+                            <td class="investor-name-cell">
+                                <strong><?= htmlspecialchars($investor['name'] ?? $investor['investor_name'] ?? '-') ?></strong>
+                            </td>
+                            <td class="contact-cell"><?= htmlspecialchars($investor['contact'] ?? $investor['contact_phone'] ?? '-') ?></td>
+                            <td class="amount-cell">
+                                Rp <?= number_format($investor['total_capital'] ?? $investor['balance'] ?? 0, 0, ',', '.') ?>
+                            </td>
+                            <td class="percentage-cell">
+                                <div class="percentage-bar">
+                                    <div class="percentage-fill" style="width: <?= $totalCapital > 0 ? (($investor['total_capital'] ?? $investor['balance'] ?? 0) / $totalCapital * 100) : 0 ?>%"></div>
+                                    <span class="percentage-text"><?= $totalCapital > 0 ? number_format((($investor['total_capital'] ?? $investor['balance'] ?? 0) / $totalCapital * 100), 1) : 0 ?>%</span>
+                                </div>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
             </div>
         </div>
     </div>
