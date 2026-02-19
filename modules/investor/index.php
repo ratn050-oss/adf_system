@@ -1038,11 +1038,11 @@ include $base_path . '/includes/header.php';
             <div class="value">Rp <?= number_format($totalCapital, 0, ',', '.') ?></div>
         </div>
         <div class="summary-card">
-            <div class="label">🏗️ Projek Aktif</div>
+            <div class="label">🏗️ Active Projects</div>
             <div class="value"><?= $totalProjects ?></div>
         </div>
         <div class="summary-card">
-            <div class="label">💸 Total Pengeluaran</div>
+            <div class="label">💸 Total Expenses</div>
             <div class="value" style="color:#d97706">Rp <?= number_format($total_all_expenses, 0, ',', '.') ?></div>
         </div>
     </div>
@@ -1054,24 +1054,24 @@ include $base_path . '/includes/header.php';
                 <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
                     <path d="M18 20V10M12 20V4M6 20v-6"/>
                 </svg>
-                Grafik Pengeluaran
+                Expense Charts
             </h2>
         </div>
         <div class="charts-grid">
             <div class="chart-card chart-pie">
-                <h3>🍩 Pengeluaran per Kontraktor</h3>
-                <div class="chart-sub">Distribusi biaya berdasarkan kontraktor / divisi</div>
+                <h3>🍩 Expenses by Contractor</h3>
+                <div class="chart-sub">Cost distribution by contractor / division</div>
                 <?php if (empty($chart_contractor_pie)): ?>
-                    <div class="chart-empty">Belum ada data pengeluaran per kontraktor.<br>Pilih kontraktor saat catat pengeluaran di Buku Kas.</div>
+                    <div class="chart-empty">No contractor expense data yet.<br>Select contractor when recording expenses in Ledger.</div>
                 <?php else: ?>
                     <canvas id="pieChart"></canvas>
                 <?php endif; ?>
             </div>
             <div class="chart-card chart-bar">
-                <h3>📊 Budget vs Pengeluaran</h3>
-                <div class="chart-sub">Perbandingan budget dan realisasi per projek</div>
+                <h3>📊 Budget vs Expenses</h3>
+                <div class="chart-sub">Comparison of budget and actual expenses per project</div>
                 <?php if (empty($chart_budget_vs_expense)): ?>
-                    <div class="chart-empty">Belum ada data projek.</div>
+                    <div class="chart-empty">No project data available.</div>
                 <?php else: ?>
                     <canvas id="barChart"></canvas>
                 <?php endif; ?>
@@ -1137,13 +1137,13 @@ include $base_path . '/includes/header.php';
                     </div>
                     <div class="project-actions">
                         <button class="btn btn-sm btn-kas" onclick="event.stopPropagation(); goToProjectLedger(<?= $project['id'] ?>)">
-                            📒 Buku Kas
+                            📒 Ledger
                         </button>
                         <button class="btn btn-sm btn-edit" onclick="event.stopPropagation(); editProject(<?= $project['id'] ?>)">
                             ✏️ Edit
                         </button>
                         <button class="btn btn-sm btn-hapus" onclick="event.stopPropagation(); deleteProject(<?= $project['id'] ?>, '<?= htmlspecialchars($project['project_name'], ENT_QUOTES) ?>')">
-                            🗑️ Hapus
+                            🗑️ Delete
                         </button>
                     </div>
                 </div>
@@ -1180,7 +1180,7 @@ include $base_path . '/includes/header.php';
                     <path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/>
                     <circle cx="9" cy="7" r="4"/>
                 </svg>
-                <p>Belum ada data investor</p>
+                <p>No investor data yet</p>
             </div>
         <?php else: ?>
             <?php foreach ($investors as $investor): ?>
@@ -1199,7 +1199,7 @@ include $base_path . '/includes/header.php';
                 </div>
                 <div class="actions">
                     <button class="btn btn-sm btn-setoran" onclick="openDepositModal(<?= $investor['id'] ?>, '<?= htmlspecialchars($investor['name'] ?? $investor['investor_name'] ?? '') ?>')">
-                        ➕ Setoran
+                        ➕ Deposit
                     </button>
                     <button class="btn btn-sm btn-history" onclick="viewHistory(<?= $investor['id'] ?>)">
                         🕐 History
@@ -1208,7 +1208,7 @@ include $base_path . '/includes/header.php';
                         ✏️ Edit
                     </button>
                     <button class="btn btn-sm btn-hapus" onclick="deleteInvestor(<?= $investor['id'] ?>, '<?= htmlspecialchars($investor['name'] ?? $investor['investor_name'] ?? '') ?>')">
-                        🗑️ Hapus
+                        🗑️ Delete
                     </button>
                 </div>
             </div>
@@ -1223,21 +1223,21 @@ include $base_path . '/includes/header.php';
                 <circle cx="12" cy="12" r="10"/>
                 <polyline points="12,6 12,12 16,14"/>
             </svg>
-            Riwayat Setoran Terbaru
+            Recent Deposit History
         </h2>
         
         <?php if (empty($recentDeposits)): ?>
             <div class="empty-state">
-                <p>Belum ada riwayat setoran</p>
+                <p>No deposit history yet</p>
             </div>
         <?php else: ?>
             <table class="history-table">
                 <thead>
                     <tr>
-                        <th>Tanggal</th>
+                        <th>Date</th>
                         <th>Investor</th>
-                        <th>Keterangan</th>
-                        <th>Jumlah</th>
+                        <th>Description</th>
+                        <th>Amount</th>
                     </tr>
                 </thead>
                 <tbody>
