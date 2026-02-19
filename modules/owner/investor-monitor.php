@@ -136,8 +136,9 @@ try {
                 
                 $selectedProject['grand_expenses'] = $selectedProject['total_expenses'] + $selectedProject['total_gaji'] + $selectedProject['total_divisi'];
                 
-                // Get division breakdown for pie chart
+                // Get division breakdown for pie chart with detailed expenses
                 $divisionBreakdown = [];
+                $divisionDetails = [];
                 
                 // From project_expenses (if has division_name column)
                 try {
@@ -146,18 +147,29 @@ try {
                     
                     if (in_array('division_name', $columns)) {
                         $stmt = $pdo->prepare("
-                            SELECT division_name, SUM(amount) as total 
-                            FROM project_expenses 
+                            SELECT division_name, description, amount, expense_date, category_name
+                            FROM project_expenses pe
+                            LEFT JOIN project_expense_categories pec ON pe.expense_category_id = pec.id
                             WHERE project_id = ? 
                               AND division_name IS NOT NULL 
                               AND division_name != '' 
-                            GROUP BY division_name
+                            ORDER BY expense_date DESC
                         ");
                         $stmt->execute([$selectedProjectId]);
                         while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
                             $dn = $row['division_name'];
-                            if (!isset($divisionBreakdown[$dn])) $divisionBreakdown[$dn] = 0;
-                            $divisionBreakdown[$dn] += floatval($row['total']);
+                            if (!isset($divisionBreakdown[$dn])) {
+                                $divisionBreakdown[$dn] = 0;
+                                $divisionDetails[$dn] = [];
+                            }
+                            $divisionBreakdown[$dn] += floatval($row['amount']);
+                            $divisionDetails[$dn][] = [
+                                'description' => $row['description'],
+                                'amount' => floatval($row['amount']),
+                                'date' => $row['expense_date'],
+                                'category' => $row['category_name'] ?? '-',
+                                'type' => 'expense'
+                            ];
                         }
                     }
                 } catch (Exception $e) {}
@@ -165,16 +177,26 @@ try {
                 // From project_division_expenses
                 try {
                     $stmt = $pdo->prepare("
-                        SELECT division_name, SUM(amount) as total 
+                        SELECT division_name, description, amount, expense_date
                         FROM project_division_expenses 
                         WHERE project_id = ? 
-                        GROUP BY division_name
+                        ORDER BY expense_date DESC
                     ");
                     $stmt->execute([$selectedProjectId]);
                     while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
                         $dn = $row['division_name'];
-                        if (!isset($divisionBreakdown[$dn])) $divisionBreakdown[$dn] = 0;
-                        $divisionBreakdown[$dn] += floatval($row['total']);
+                        if (!isset($divisionBreakdown[$dn])) {
+                            $divisionBreakdown[$dn] = 0;
+                            $divisionDetails[$dn] = [];
+                        }
+                        $divisionBreakdown[$dn] += floatval($row['amount']);
+                        $divisionDetails[$dn][] = [
+                            'description' => $row['description'],
+                            'amount' => floatval($row['amount']),
+                            'date' => $row['expense_date'],
+                            'category' => 'Division Cost',
+                            'type' => 'division'
+                        ];
                     }
                 } catch (Exception $e) {}
                 
@@ -713,20 +735,39 @@ foreach ($projects as $proj) {
             margin-bottom: 2px;
         }
         
-        /* Chart Card */
+        /* Chart Card - 2028 Elegant Digital Design */
         .chart-card {
-            background: var(--card);
-            border-radius: 16px;
-            padding: 16px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
-            margin-bottom: 16px;
+            background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+            border-radius: 20px;
+            padding: 20px;
+            box-shadow: 
+                0 8px 32px rgba(102, 126, 234, 0.12),
+                0 2px 8px rgba(0, 0, 0, 0.04),
+                inset 0 1px 0 rgba(255, 255, 255, 0.8);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            margin-bottom: 20px;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .chart-card::before {
+            content: '';
+            position: absolute;
+            top: -50%;
+            right: -50%;
+            width: 200px;
+            height: 200px;
+            background: radial-gradient(circle, rgba(102, 126, 234, 0.08) 0%, transparent 70%);
+            pointer-events: none;
         }
         
         .chart-wrapper {
             width: 100%;
-            max-width: 240px;
-            height: 240px;
-            margin: 0 auto 16px;
+            max-width: 260px;
+            height: 260px;
+            margin: 0 auto 20px;
+            position: relative;
+            filter: drop-shadow(0 4px 12px rgba(102, 126, 234, 0.15));
         }
         
         .chart-legend {
@@ -738,17 +779,53 @@ foreach ($projects as $proj) {
         .legend-item {
             display: flex;
             align-items: center;
-            gap: 10px;
-            padding: 8px;
-            background: var(--bg);
-            border-radius: 8px;
+            gap: 12px;
+            padding: 12px;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(248, 250, 252, 0.8) 100%);
+            border-radius: 12px;
+            border: 1px solid rgba(102, 126, 234, 0.1);
+            transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+            cursor: pointer;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        .legend-item::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(135deg, rgba(102, 126, 234, 0.05) 0%, transparent 100%);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        
+        .legend-item:hover {
+            transform: translateY(-2px) scale(1.02);
+            box-shadow: 
+                0 8px 24px rgba(102, 126, 234, 0.15),
+                0 2px 8px rgba(0, 0, 0, 0.08);
+            border-color: rgba(102, 126, 234, 0.3);
+        }
+        
+        .legend-item:hover::before {
+            opacity: 1;
+        }
+        
+        .legend-item:active {
+            transform: translateY(0) scale(0.98);
         }
         
         .legend-color {
-            width: 12px;
-            height: 12px;
-            border-radius: 3px;
+            width: 14px;
+            height: 14px;
+            border-radius: 4px;
             flex-shrink: 0;
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+            position: relative;
+            z-index: 1;
         }
         
         .legend-info {
@@ -756,30 +833,222 @@ foreach ($projects as $proj) {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            position: relative;
+            z-index: 1;
         }
         
         .legend-name {
-            font-size: 12px;
-            font-weight: 500;
+            font-size: 13px;
+            font-weight: 600;
             color: var(--text);
+            letter-spacing: -0.02em;
         }
         
         .legend-details {
             display: flex;
             flex-direction: column;
             align-items: flex-end;
-            gap: 2px;
+            gap: 3px;
         }
         
         .legend-amount {
-            font-size: 11px;
-            font-weight: 600;
-            color: var(--text);
+            font-size: 12px;
+            font-weight: 700;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
         }
         
         .legend-percent {
-            font-size: 9px;
+            font-size: 10px;
             color: var(--text-muted);
+            font-weight: 500;
+        }
+        
+        /* Division Detail Modal */
+        .division-detail-modal {
+            display: none;
+            position: fixed;
+            top: 0;
+            left: 0;
+            right: 0;
+            bottom: 0;
+            background: rgba(0, 0, 0, 0.6);
+            backdrop-filter: blur(8px);
+            z-index: 9999;
+            padding: 20px;
+            overflow-y: auto;
+            animation: fadeIn 0.3s ease;
+        }
+        
+        @keyframes fadeIn {
+            from { opacity: 0; }
+            to { opacity: 1; }
+        }
+        
+        .division-detail-content {
+            background: linear-gradient(145deg, #ffffff 0%, #f8fafc 100%);
+            border-radius: 24px;
+            max-width: 480px;
+            margin: 40px auto;
+            box-shadow: 
+                0 24px 64px rgba(0, 0, 0, 0.2),
+                0 8px 24px rgba(102, 126, 234, 0.15),
+                inset 0 1px 0 rgba(255, 255, 255, 0.9);
+            border: 1px solid rgba(255, 255, 255, 0.8);
+            animation: slideUp 0.4s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+        
+        @keyframes slideUp {
+            from { 
+                opacity: 0;
+                transform: translateY(40px) scale(0.95);
+            }
+            to { 
+                opacity: 1;
+                transform: translateY(0) scale(1);
+            }
+        }
+        
+        .division-detail-header {
+            padding: 24px 24px 16px;
+            border-bottom: 1px solid rgba(102, 126, 234, 0.1);
+            position: relative;
+        }
+        
+        .division-detail-header::before {
+            content: '';
+            position: absolute;
+            top: 0;
+            left: 0;
+            right: 0;
+            height: 4px;
+            background: linear-gradient(90deg, #667eea 0%, #764ba2 100%);
+            border-radius: 24px 24px 0 0;
+        }
+        
+        .division-detail-title {
+            font-size: 18px;
+            font-weight: 700;
+            color: var(--text);
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .division-detail-total {
+            font-size: 24px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            -webkit-background-clip: text;
+            -webkit-text-fill-color: transparent;
+            background-clip: text;
+            letter-spacing: -0.03em;
+        }
+        
+        .division-detail-close {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            width: 32px;
+            height: 32px;
+            border-radius: 10px;
+            background: rgba(239, 68, 68, 0.1);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            color: #ef4444;
+            font-size: 20px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            cursor: pointer;
+            transition: all 0.2s ease;
+        }
+        
+        .division-detail-close:hover {
+            background: #ef4444;
+            color: white;
+            transform: rotate(90deg) scale(1.1);
+        }
+        
+        .division-detail-body {
+            padding: 20px 24px;
+            max-height: 60vh;
+            overflow-y: auto;
+        }
+        
+        .division-detail-item {
+            padding: 14px;
+            background: linear-gradient(135deg, rgba(255, 255, 255, 0.9) 0%, rgba(248, 250, 252, 0.8) 100%);
+            border-radius: 12px;
+            border: 1px solid rgba(102, 126, 234, 0.08);
+            margin-bottom: 10px;
+            transition: all 0.2s ease;
+        }
+        
+        .division-detail-item:hover {
+            border-color: rgba(102, 126, 234, 0.2);
+            transform: translateX(4px);
+            box-shadow: 0 4px 12px rgba(102, 126, 234, 0.1);
+        }
+        
+        .division-detail-row {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            gap: 12px;
+        }
+        
+        .division-detail-desc {
+            flex: 1;
+            font-size: 13px;
+            font-weight: 500;
+            color: var(--text);
+            margin-bottom: 6px;
+        }
+        
+        .division-detail-amount {
+            font-size: 14px;
+            font-weight: 700;
+            color: #ef4444;
+            white-space: nowrap;
+        }
+        
+        .division-detail-meta {
+            display: flex;
+            gap: 12px;
+            font-size: 11px;
+            color: var(--text-muted);
+            margin-top: 6px;
+        }
+        
+        .division-detail-date {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        .division-detail-category {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            padding: 3px 8px;
+            background: rgba(102, 126, 234, 0.1);
+            border-radius: 6px;
+            font-weight: 500;
+        }
+        
+        .division-detail-empty {
+            text-align: center;
+            padding: 40px 20px;
+            color: var(--text-muted);
+        }
+        
+        .division-detail-empty-icon {
+            font-size: 48px;
+            margin-bottom: 12px;
+            opacity: 0.3;
         }
     </style>
 </head>
@@ -844,17 +1113,37 @@ foreach ($projects as $proj) {
                     $color = $colors[$index % count($colors)];
                     $index++;
                 ?>
-                <div class="legend-item">
+                <div class="legend-item" onclick="showDivisionDetail('<?= htmlspecialchars($divName, ENT_QUOTES) ?>', '<?= $color ?>')">
                     <div class="legend-color" style="background: <?= $color ?>"></div>
                     <div class="legend-info">
                         <div class="legend-name"><?= htmlspecialchars($divName) ?></div>
                         <div class="legend-details">
-                            <span class="legend-amount"><?= rp($divAmount) ?></span>
+                            <span class="legend-amount"><?= rpFull($divAmount) ?></span>
                             <span class="legend-percent"><?= $percentage ?>%</span>
                         </div>
                     </div>
                 </div>
                 <?php endforeach; ?>
+            </div>
+        </div>
+        
+        <!-- Division Detail Modal -->
+        <div id="divisionDetailModal" class="division-detail-modal" onclick="if(event.target === this) closeDivisionDetail()">
+            <div class="division-detail-content">
+                <div class="division-detail-header">
+                    <div class="division-detail-close" onclick="closeDivisionDetail()">&times;</div>
+                    <div class="division-detail-title">
+                        <span id="divisionDetailIcon" style="font-size: 20px;">📊</span>
+                        <span id="divisionDetailName">Division</span>
+                    </div>
+                    <div class="division-detail-total" id="divisionDetailTotal">Rp 0</div>
+                </div>
+                <div class="division-detail-body" id="divisionDetailBody">
+                    <div class="division-detail-empty">
+                        <div class="division-detail-empty-icon">📋</div>
+                        <div>No expense data</div>
+                    </div>
+                </div>
             </div>
         </div>
         <?php endif; ?>
@@ -1055,13 +1344,24 @@ foreach ($projects as $proj) {
         }
         <?php endif; ?>
         
-        // Division Breakdown Pie Chart (for selected project)
+        // Division Breakdown Pie Chart (for selected project) - 2028 Elegant Style
         <?php if (!empty($divisionBreakdown)): ?>
+        // Store division details data
+        const divisionDetailsData = <?= json_encode($divisionDetails ?? []) ?>;
+        
         const divisionCtx = document.getElementById('divisionBreakdownChart');
         if (divisionCtx) {
             const divisionColors = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#14b8a6', '#f97316', '#6366f1'];
             const divisionLabels = <?= json_encode(array_keys($divisionBreakdown)) ?>;
             const divisionData = <?= json_encode(array_values($divisionBreakdown)) ?>;
+            
+            // Create gradient colors for modern look
+            const gradientColors = divisionColors.map(color => {
+                const gradient = divisionCtx.getContext('2d').createLinearGradient(0, 0, 0, 400);
+                gradient.addColorStop(0, color);
+                gradient.addColorStop(1, color + 'dd'); // Add transparency
+                return color;
+            });
             
             new Chart(divisionCtx, {
                 type: 'doughnut',
@@ -1070,9 +1370,11 @@ foreach ($projects as $proj) {
                     datasets: [{
                         data: divisionData,
                         backgroundColor: divisionColors.slice(0, divisionLabels.length),
-                        borderWidth: 3,
+                        borderWidth: 4,
                         borderColor: '#ffffff',
-                        hoverOffset: 6,
+                        hoverOffset: 10,
+                        hoverBorderWidth: 5,
+                        hoverBorderColor: '#667eea',
                     }]
                 },
                 options: {
@@ -1083,36 +1385,141 @@ foreach ($projects as $proj) {
                             display: false
                         },
                         tooltip: {
-                            backgroundColor: 'rgba(0, 0, 0, 0.8)',
-                            padding: 12,
-                            cornerRadius: 8,
+                            enabled: true,
+                            backgroundColor: 'rgba(0, 0, 0, 0.85)',
+                            padding: 16,
+                            cornerRadius: 12,
                             titleFont: {
-                                size: 13,
-                                weight: 'bold'
+                                size: 14,
+                                weight: 'bold',
+                                family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
                             },
                             bodyFont: {
-                                size: 12
+                                size: 13,
+                                family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
                             },
+                            titleMarginBottom: 10,
+                            bodySpacing: 6,
+                            displayColors: true,
+                            boxWidth: 12,
+                            boxHeight: 12,
+                            boxPadding: 6,
                             callbacks: {
                                 label: function(ctx) {
                                     const val = ctx.parsed;
                                     const total = ctx.dataset.data.reduce((a,b) => a+b, 0);
                                     const pct = ((val/total)*100).toFixed(1);
                                     return ctx.label + ': Rp ' + val.toLocaleString('id-ID') + ' (' + pct + '%)';
+                                },
+                                afterLabel: function(ctx) {
+                                    const division = divisionLabels[ctx.dataIndex];
+                                    const items = divisionDetailsData[division] || [];
+                                    return '\\nTotal ' + items.length + ' transaksi\\nKlik untuk detail';
                                 }
                             }
                         }
                     },
-                    cutout: '65%',
+                    cutout: '68%',
                     animation: {
                         animateRotate: true,
                         animateScale: true,
-                        duration: 800,
+                        duration: 1200,
                         easing: 'easeInOutQuart'
+                    },
+                    onClick: (event, activeElements) => {
+                        if (activeElements.length > 0) {
+                            const index = activeElements[0].index;
+                            const divisionName = divisionLabels[index];
+                            const color = divisionColors[index];
+                            showDivisionDetail(divisionName, color);
+                        }
+                    },
+                    onHover: (event, activeElements) => {
+                        event.native.target.style.cursor = activeElements.length > 0 ? 'pointer' : 'default';
                     }
                 }
             });
         }
+        
+        // Division Detail Functions
+        function showDivisionDetail(divisionName, color) {
+            const modal = document.getElementById('divisionDetailModal');
+            const nameEl = document.getElementById('divisionDetailName');
+            const totalEl = document.getElementById('divisionDetailTotal');
+            const bodyEl = document.getElementById('divisionDetailBody');
+            const iconEl = document.getElementById('divisionDetailIcon');
+            
+            // Set division name
+            nameEl.textContent = divisionName;
+            iconEl.style.color = color;
+            
+            // Get division details
+            const details = divisionDetailsData[divisionName] || [];
+            
+            if (details.length === 0) {
+                bodyEl.innerHTML = `
+                    <div class="division-detail-empty">
+                        <div class="division-detail-empty-icon">📋</div>
+                        <div>Tidak ada data transaksi</div>
+                    </div>
+                `;
+                totalEl.textContent = 'Rp 0';
+            } else {
+                // Calculate total
+                const total = details.reduce((sum, item) => sum + item.amount, 0);
+                totalEl.textContent = 'Rp ' + total.toLocaleString('id-ID');
+                
+                // Sort by date (newest first)
+                details.sort((a, b) => new Date(b.date) - new Date(a.date));
+                
+                // Render items
+                let html = '';
+                details.forEach(item => {
+                    const formattedDate = new Date(item.date).toLocaleDateString('id-ID', {
+                        day: 'numeric',
+                        month: 'short',
+                        year: 'numeric'
+                    });
+                    
+                    html += `
+                        <div class="division-detail-item">
+                            <div class="division-detail-row">
+                                <div class="division-detail-desc">${escapeHtml(item.description)}</div>
+                                <div class="division-detail-amount">-Rp ${item.amount.toLocaleString('id-ID')}</div>
+                            </div>
+                            <div class="division-detail-meta">
+                                <span class="division-detail-date">📅 ${formattedDate}</span>
+                                <span class="division-detail-category">🏷️ ${escapeHtml(item.category)}</span>
+                            </div>
+                        </div>
+                    `;
+                });
+                bodyEl.innerHTML = html;
+            }
+            
+            // Show modal
+            modal.style.display = 'block';
+            document.body.style.overflow = 'hidden';
+        }
+        
+        function closeDivisionDetail() {
+            const modal = document.getElementById('divisionDetailModal');
+            modal.style.display = 'none';
+            document.body.style.overflow = '';
+        }
+        
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text;
+            return div.innerHTML;
+        }
+        
+        // Close modal with Escape key
+        document.addEventListener('keydown', function(e) {
+            if (e.key === 'Escape') {
+                closeDivisionDetail();
+            }
+        });
         <?php endif; ?>
     </script>
 </body>
