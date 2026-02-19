@@ -75,13 +75,13 @@ try {
     $sql_cols[] = 'investor_id';
     $params[] = $investor_id;
 
-    // transaction_type or type
+    // transaction_type or type (ENUM: capital, expense, return)
     if (in_array('transaction_type', $columns)) {
         $sql_cols[] = 'transaction_type';
-        $params[] = 'D'; // D for deposit
+        $params[] = 'capital'; // capital for investor deposits
     } elseif (in_array('type', $columns)) {
         $sql_cols[] = 'type';
-        $params[] = 'D'; // D for deposit (shorter value to avoid truncation)
+        $params[] = 'capital'; // capital for investor deposits
     }
 
     // amount

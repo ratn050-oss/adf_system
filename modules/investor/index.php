@@ -30,7 +30,7 @@ $db = Database::getInstance()->getConnection();
 try {
     $investors = $db->query("
         SELECT i.*, 
-               COALESCE(SUM(CASE WHEN it.type = 'deposit' OR it.transaction_type = 'deposit' THEN it.amount ELSE 0 END), 0) as total_deposits,
+               COALESCE(SUM(CASE WHEN it.type = 'capital' OR it.transaction_type = 'capital' THEN it.amount ELSE 0 END), 0) as total_deposits,
                COALESCE(i.name, i.investor_name) as name,
                COALESCE(i.contact, i.contact_phone) as contact,
                COALESCE(i.total_capital, i.balance) as total_capital
@@ -63,7 +63,7 @@ try {
                COALESCE(i.name, i.investor_name) as investor_name
         FROM investor_transactions it
         JOIN investors i ON it.investor_id = i.id
-        WHERE it.type = 'deposit' OR it.transaction_type = 'deposit'
+        WHERE it.type = 'capital' OR it.transaction_type = 'capital'
         ORDER BY it.created_at DESC
         LIMIT 10
     ")->fetchAll(PDO::FETCH_ASSOC);
