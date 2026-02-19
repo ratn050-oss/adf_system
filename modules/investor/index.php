@@ -1570,11 +1570,7 @@ include $base_path . '/includes/header.php';
             Recent Deposit History
         </h2>
         
-        <?php if (empty($recentDeposits)): ?>
-            <div class="empty-state">
-                <p>No deposit history yet</p>
-            </div>
-        <?php else: ?><?php include "deposits-history.php"; ?><?php endif; ?>
+        <?php include "deposits-history.php"; ?>
     </div>
 </div>
 
@@ -2202,4 +2198,6 @@ document.querySelectorAll('.modal-overlay').forEach(modal => {
 </script>
 
 <?php include $base_path . '/includes/footer.php'; ?>
+
+
 
