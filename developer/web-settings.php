@@ -82,6 +82,15 @@ $isProduction = (strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost') === false &&
 $webDbName = $isProduction ? 'adfb2574_narayana_hotel' : 'adf_narayana_hotel';
 $webDbUser = $isProduction ? 'adfb2574_adfsystem' : 'root';
 $webDbPass = $isProduction ? '@Nnoc2025' : '';
+
+// Website public directory for auto-sync of uploaded images
+if ($isProduction) {
+    $websitePublicDir = '/home/adfb2574/public_html/narayanakarimunjawa.com';
+    $websiteUrl = 'https://narayanakarimunjawa.com';
+} else {
+    $websitePublicDir = dirname(dirname(__FILE__)) . '/../narayanakarimunjawa/public';
+    $websiteUrl = 'http://localhost:8081/narayanakarimunjawa/public/';
+}
 try {
     $webDb = new PDO(
         'mysql:host=localhost;dbname=' . $webDbName . ';charset=utf8mb4',
@@ -202,8 +211,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $stmt->execute([$relativePath, $relativePath]);
                     $webSettings['web_hero_background'] = $relativePath;
                     
-                    // Auto-sync to narayanakarimunjawa/public folder (website serves from public/)
-                    $websiteUploadDir = dirname(dirname(__FILE__)) . '/../narayanakarimunjawa/public/uploads/hero/';
+                    // Auto-sync to narayanakarimunjawa website folder
+                    $websiteUploadDir = $websitePublicDir . '/uploads/hero/';
                     if (!is_dir($websiteUploadDir)) {
                         mkdir($websiteUploadDir, 0755, true);
                     }
@@ -213,7 +222,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $oldBg = $currentValues['web_hero_background'] ?? '';
                     if ($oldBg) {
                         $oldFile1 = dirname(dirname(__FILE__)) . '/' . $oldBg;
-                        $oldFile2 = dirname(dirname(__FILE__)) . '/../narayanakarimunjawa/public/' . $oldBg;
+                        $oldFile2 = $websitePublicDir . '/' . $oldBg;
                         if (file_exists($oldFile1)) unlink($oldFile1);
                         if (file_exists($oldFile2)) @unlink($oldFile2);
                     }
@@ -227,7 +236,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($oldBg) {
                 // Delete from both locations
                 $file1 = dirname(dirname(__FILE__)) . '/' . $oldBg;
-                $file2 = dirname(dirname(__FILE__)) . '/../narayanakarimunjawa/public/' . $oldBg;
+                $file2 = $websitePublicDir . '/' . $oldBg;
                 if (file_exists($file1)) unlink($file1);
                 if (file_exists($file2)) @unlink($file2);
             }
@@ -329,7 +338,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Handle file uploads
             if (isset($_FILES['room_images']) && !empty($_FILES['room_images']['name'][0])) {
                 $uploadDir = dirname(dirname(__FILE__)) . '/uploads/rooms/' . $roomType . '/';
-                $websiteUploadDir = dirname(dirname(__FILE__)) . '/../narayanakarimunjawa/public/uploads/rooms/' . $roomType . '/';
+                $websiteUploadDir = $websitePublicDir . '/uploads/rooms/' . $roomType . '/';
                 
                 // Create directories if not exist
                 if (!is_dir($uploadDir)) {
@@ -367,7 +376,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 foreach ($_POST['delete_images'] as $imgPath) {
                     // Delete from both locations
                     $file1 = dirname(dirname(__FILE__)) . '/' . $imgPath;
-                    $file2 = dirname(dirname(__FILE__)) . '/../narayanakarimunjawa/public/' . $imgPath;
+                    $file2 = $websitePublicDir . '/' . $imgPath;
                     if (file_exists($file1)) unlink($file1);
                     if (file_exists($file2)) @unlink($file2);
                     
@@ -718,7 +727,7 @@ require_once __DIR__ . '/includes/header.php';
             <p class="text-muted mb-0">Configure the Narayana Karimunjawa booking website</p>
         </div>
         <div class="d-flex gap-2">
-            <a href="http://localhost:8081/narayanakarimunjawa/public/" target="_blank" class="website-link">
+            <a href="<?= $websiteUrl ?>" target="_blank" class="website-link">
                 <i class="bi bi-box-arrow-up-right"></i> Visit Website
             </a>
             <a href="index.php" class="btn btn-outline-secondary btn-sm">
