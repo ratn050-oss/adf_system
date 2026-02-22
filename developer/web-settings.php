@@ -29,6 +29,10 @@ $webSettings = [
     'web_description'       => 'Luxury beachfront resort in the heart of Karimunjawa Islands. Premium accommodations with stunning ocean views.',
     
     'web_favicon'            => '', // Path to favicon icon
+    'web_logo'               => '', // Path to logo image
+
+    // Destinations (JSON array of destination objects)
+    'web_destinations'       => '[]',
 
     // Hero Section
     'web_hero_accent'       => 'Welcome to Paradise',
@@ -138,6 +142,47 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     if ($action === 'save_general') {
         $redirectTab = 'general';
         $fields = ['web_enabled', 'web_site_name', 'web_tagline', 'web_description'];
+
+        // Handle logo upload
+        if (isset($_FILES['web_logo']) && $_FILES['web_logo']['error'] === UPLOAD_ERR_OK) {
+            $uploadDir = dirname(dirname(__FILE__)) . '/uploads/logo/';
+            if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
+            $fileInfo = pathinfo($_FILES['web_logo']['name']);
+            $allowedExts = ['png', 'svg', 'jpg', 'jpeg', 'webp', 'gif'];
+            if (in_array(strtolower($fileInfo['extension']), $allowedExts)) {
+                $newFileName = 'logo-' . time() . '.' . $fileInfo['extension'];
+                $uploadPath = $uploadDir . $newFileName;
+                if (move_uploaded_file($_FILES['web_logo']['tmp_name'], $uploadPath)) {
+                    $relativePath = 'uploads/logo/' . $newFileName;
+                    $stmt = $webDb->prepare("INSERT INTO settings (setting_key, setting_value, setting_type, description) VALUES ('web_logo', ?, 'text', 'Website Logo') ON DUPLICATE KEY UPDATE setting_value = ?");
+                    $stmt->execute([$relativePath, $relativePath]);
+                    $websiteLogoDir = $websitePublicDir . '/uploads/logo/';
+                    if (!is_dir($websiteLogoDir)) @mkdir($websiteLogoDir, 0755, true);
+                    @copy($uploadPath, $websiteLogoDir . $newFileName);
+                    $oldLogo = $webSettings['web_logo'] ?? '';
+                    if ($oldLogo) {
+                        $old1 = dirname(dirname(__FILE__)) . '/' . $oldLogo;
+                        $old2 = $websitePublicDir . '/' . $oldLogo;
+                        if (file_exists($old1)) @unlink($old1);
+                        if (file_exists($old2)) @unlink($old2);
+                    }
+                    $webSettings['web_logo'] = $relativePath;
+                }
+            }
+        }
+        // Handle remove logo
+        if (isset($_POST['remove_logo']) && $_POST['remove_logo'] === '1') {
+            $oldLogo = $webSettings['web_logo'] ?? '';
+            if ($oldLogo) {
+                $f1 = dirname(dirname(__FILE__)) . '/' . $oldLogo;
+                $f2 = $websitePublicDir . '/' . $oldLogo;
+                if (file_exists($f1)) @unlink($f1);
+                if (file_exists($f2)) @unlink($f2);
+            }
+            $stmt = $webDb->prepare("INSERT INTO settings (setting_key, setting_value) VALUES ('web_logo', '') ON DUPLICATE KEY UPDATE setting_value = ''");
+            $stmt->execute();
+            $webSettings['web_logo'] = '';
+        }
         foreach ($fields as $key) {
             if (isset($_POST[$key])) {
                 $val = trim($_POST[$key]);
@@ -467,6 +512,122 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
     
+    elseif ($action === 'save_destinations') {
+        $redirectTab = 'destinations';
+        
+        // Load existing destinations
+        $existingDest = json_decode($webSettings['web_destinations'] ?? '[]', true) ?: [];
+        
+        // Handle adding new destination
+        if (!empty($_POST['dest_title'])) {
+            $newDest = [
+                'id' => uniqid('dest_'),
+                'title' => trim($_POST['dest_title']),
+                'subtitle' => trim($_POST['dest_subtitle'] ?? ''),
+                'content' => trim($_POST['dest_content'] ?? ''),
+                'image' => '',
+                'order' => count($existingDest) + 1,
+                'active' => true,
+            ];
+            
+            // Handle image upload for new destination
+            if (isset($_FILES['dest_image']) && $_FILES['dest_image']['error'] === UPLOAD_ERR_OK) {
+                $uploadDir = dirname(dirname(__FILE__)) . '/uploads/destinations/';
+                if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
+                $fileInfo = pathinfo($_FILES['dest_image']['name']);
+                $allowedExts = ['jpg', 'jpeg', 'png', 'webp'];
+                if (in_array(strtolower($fileInfo['extension']), $allowedExts)) {
+                    $newFileName = 'dest-' . time() . '.' . $fileInfo['extension'];
+                    $uploadPath = $uploadDir . $newFileName;
+                    if (move_uploaded_file($_FILES['dest_image']['tmp_name'], $uploadPath)) {
+                        $newDest['image'] = 'uploads/destinations/' . $newFileName;
+                        $websiteDestDir = $websitePublicDir . '/uploads/destinations/';
+                        if (!is_dir($websiteDestDir)) @mkdir($websiteDestDir, 0755, true);
+                        @copy($uploadPath, $websiteDestDir . $newFileName);
+                    }
+                }
+            }
+            
+            $existingDest[] = $newDest;
+            $success = 'Destination "' . $newDest['title'] . '" added!';
+        }
+        
+        // Handle update existing destinations
+        if (isset($_POST['dest_update_id']) && is_array($_POST['dest_update_id'])) {
+            foreach ($_POST['dest_update_id'] as $idx => $destId) {
+                foreach ($existingDest as &$d) {
+                    if ($d['id'] === $destId) {
+                        $d['title'] = trim($_POST['dest_update_title'][$idx] ?? $d['title']);
+                        $d['subtitle'] = trim($_POST['dest_update_subtitle'][$idx] ?? $d['subtitle']);
+                        $d['content'] = trim($_POST['dest_update_content'][$idx] ?? $d['content']);
+                        $d['order'] = (int)($_POST['dest_update_order'][$idx] ?? $d['order']);
+                        $d['active'] = isset($_POST['dest_update_active']) && in_array($destId, $_POST['dest_update_active']);
+                        
+                        // Handle image upload for update
+                        $fileKey = 'dest_update_image_' . $destId;
+                        if (isset($_FILES[$fileKey]) && $_FILES[$fileKey]['error'] === UPLOAD_ERR_OK) {
+                            $uploadDir = dirname(dirname(__FILE__)) . '/uploads/destinations/';
+                            if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
+                            $fileInfo = pathinfo($_FILES[$fileKey]['name']);
+                            $allowedExts = ['jpg', 'jpeg', 'png', 'webp'];
+                            if (in_array(strtolower($fileInfo['extension']), $allowedExts)) {
+                                $newFileName = 'dest-' . time() . '-' . $idx . '.' . $fileInfo['extension'];
+                                $uploadPath = $uploadDir . $newFileName;
+                                if (move_uploaded_file($_FILES[$fileKey]['tmp_name'], $uploadPath)) {
+                                    // Delete old image
+                                    if (!empty($d['image'])) {
+                                        $old1 = dirname(dirname(__FILE__)) . '/' . $d['image'];
+                                        $old2 = $websitePublicDir . '/' . $d['image'];
+                                        if (file_exists($old1)) @unlink($old1);
+                                        if (file_exists($old2)) @unlink($old2);
+                                    }
+                                    $d['image'] = 'uploads/destinations/' . $newFileName;
+                                    $websiteDestDir = $websitePublicDir . '/uploads/destinations/';
+                                    if (!is_dir($websiteDestDir)) @mkdir($websiteDestDir, 0755, true);
+                                    @copy($uploadPath, $websiteDestDir . $newFileName);
+                                }
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+            unset($d);
+            if (!$success) $success = 'Destinations updated!';
+        }
+        
+        // Handle delete destinations
+        if (isset($_POST['delete_dest']) && is_array($_POST['delete_dest'])) {
+            foreach ($_POST['delete_dest'] as $destId) {
+                foreach ($existingDest as $dk => $d) {
+                    if ($d['id'] === $destId) {
+                        if (!empty($d['image'])) {
+                            $f1 = dirname(dirname(__FILE__)) . '/' . $d['image'];
+                            $f2 = $websitePublicDir . '/' . $d['image'];
+                            if (file_exists($f1)) @unlink($f1);
+                            if (file_exists($f2)) @unlink($f2);
+                        }
+                        unset($existingDest[$dk]);
+                        break;
+                    }
+                }
+            }
+            $existingDest = array_values($existingDest);
+            $success = 'Destination(s) deleted!';
+        }
+        
+        // Sort by order
+        usort($existingDest, function($a, $b) { return ($a['order'] ?? 0) - ($b['order'] ?? 0); });
+        
+        // Save to database
+        $destJson = json_encode($existingDest);
+        $stmt = $webDb->prepare("INSERT INTO settings (setting_key, setting_value, setting_type, description) 
+                    VALUES ('web_destinations', ?, 'text', 'Website Destinations') 
+                    ON DUPLICATE KEY UPDATE setting_value = ?");
+        $stmt->execute([$destJson, $destJson]);
+        $webSettings['web_destinations'] = $destJson;
+    }
+
     // POST-Redirect-GET: store message in session and redirect to preserve active tab
     if ($success || $error) {
         if ($success) $_SESSION['web_settings_success'] = $success;
@@ -878,6 +1039,7 @@ require_once __DIR__ . '/includes/header.php';
         <button class="settings-tab <?= $activeTab === 'seo' ? 'active' : '' ?>" data-tab="seo"><i class="bi bi-search me-1"></i>SEO</button>
         <button class="settings-tab <?= $activeTab === 'appearance' ? 'active' : '' ?>" data-tab="appearance"><i class="bi bi-palette me-1"></i>Appearance</button>
         <button class="settings-tab <?= $activeTab === 'booking' ? 'active' : '' ?>" data-tab="booking"><i class="bi bi-calendar-check me-1"></i>Booking</button>
+        <button class="settings-tab <?= $activeTab === 'destinations' ? 'active' : '' ?>" data-tab="destinations"><i class="bi bi-geo-alt me-1"></i>Destinations</button>
     </div>
     
     <!-- ============== GENERAL TAB ============== -->
@@ -949,6 +1111,28 @@ require_once __DIR__ . '/includes/header.php';
                         <?php endif; ?>
                         <input type="file" name="web_favicon" class="form-control" accept="image/x-icon,image/png,image/svg+xml,image/jpeg,image/webp">
                         <div class="form-text">Upload an icon for the browser tab. Recommended: 32×32px or 64×64px PNG/ICO file.</div>
+                    </div>
+
+                    <hr>
+
+                    <div class="mb-3">
+                        <label class="form-label"><i class="bi bi-image me-1"></i>Website Logo (Navbar)</label>
+                        <?php if (!empty($webSettings['web_logo'])): ?>
+                        <div class="mb-2 p-3 rounded" style="background: #f8f9fa; display: flex; align-items: center; gap: 16px;">
+                            <div style="width: 80px; height: 48px; border: 2px solid #dee2e6; border-radius: 8px; display: flex; align-items: center; justify-content: center; background: #2d2926;">
+                                <img src="../<?= htmlspecialchars($webSettings['web_logo']) ?>" style="max-width: 72px; max-height: 40px; object-fit: contain;" alt="Logo">
+                            </div>
+                            <div>
+                                <div style="font-size: 13px; color: #333; font-weight: 500;">Current Logo</div>
+                                <div style="font-size: 11px; color: #888;"><?= htmlspecialchars($webSettings['web_logo']) ?></div>
+                            </div>
+                            <label style="margin-left: auto; font-size: 12px; color: #dc3545; cursor: pointer;">
+                                <input type="checkbox" name="remove_logo" value="1" style="margin-right: 4px;">Remove
+                            </label>
+                        </div>
+                        <?php endif; ?>
+                        <input type="file" name="web_logo" class="form-control" accept="image/png,image/svg+xml,image/jpeg,image/webp,image/gif">
+                        <div class="form-text">Upload a logo to display before the hotel name in the navbar. Recommended: transparent PNG, max 150×50px.</div>
                     </div>
                     
                     <button type="submit" class="btn btn-primary w-100">
@@ -1401,6 +1585,109 @@ require_once __DIR__ . '/includes/header.php';
                         <i class="bi bi-check-lg me-1"></i>Save Booking Settings
                     </button>
                 </form>
+            </div>
+        </div>
+    </div>
+    
+    <!-- ============== DESTINATIONS TAB ============== -->
+    <?php $destinations = json_decode($webSettings['web_destinations'] ?? '[]', true) ?: []; ?>
+    <div class="tab-content <?= $activeTab === 'destinations' ? 'active' : '' ?>" id="tab-destinations">
+        <div class="settings-card">
+            <div class="settings-card-header">
+                <div class="icon" style="background: rgba(32,201,151,0.15); color: #20c997;">
+                    <i class="bi bi-geo-alt-fill"></i>
+                </div>
+                <div>
+                    <h5>Destinations & Blog</h5>
+                    <small>Manage Karimunjawa destination guides shown on the website</small>
+                </div>
+            </div>
+            <div class="settings-card-body">
+                <!-- Add New Destination -->
+                <div class="p-3 mb-4 rounded" style="background: #f0fdf4; border: 1px solid #bbf7d0;">
+                    <h6 class="mb-3"><i class="bi bi-plus-circle me-1"></i>Add New Destination</h6>
+                    <form method="POST" enctype="multipart/form-data">
+                        <input type="hidden" name="action" value="save_destinations">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Title</label>
+                                <input type="text" name="dest_title" class="form-control" placeholder="e.g. Pantai Ujung Gelam" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Subtitle</label>
+                                <input type="text" name="dest_subtitle" class="form-control" placeholder="e.g. The Most Beautiful Sunset Beach">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Content / Description</label>
+                            <textarea name="dest_content" class="form-control" rows="4" placeholder="Write a detailed description about this destination..."></textarea>
+                            <div class="form-text">Support HTML tags for formatting. Write engaging content about the destination.</div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Cover Image</label>
+                            <input type="file" name="dest_image" class="form-control" accept="image/jpeg,image/png,image/webp">
+                            <div class="form-text">Recommended: 800×500px landscape photo</div>
+                        </div>
+                        <button type="submit" class="btn btn-success">
+                            <i class="bi bi-plus-lg me-1"></i>Add Destination
+                        </button>
+                    </form>
+                </div>
+
+                <?php if (empty($destinations)): ?>
+                <div class="text-center p-4" style="color: #999;">
+                    <i class="bi bi-geo-alt" style="font-size: 48px; opacity: 0.3;"></i>
+                    <p class="mt-2">No destinations added yet. Add your first Karimunjawa destination guide above.</p>
+                </div>
+                <?php else: ?>
+                <!-- Existing Destinations -->
+                <h6 class="mb-3"><i class="bi bi-list-ul me-1"></i>Current Destinations (<?= count($destinations) ?>)</h6>
+                <form method="POST" enctype="multipart/form-data">
+                    <input type="hidden" name="action" value="save_destinations">
+                    <?php foreach ($destinations as $di => $dest): ?>
+                    <div class="p-3 mb-3 rounded" style="background: #f8f9fa; border: 1px solid #dee2e6;">
+                        <div class="d-flex align-items-start gap-3">
+                            <?php if (!empty($dest['image'])): ?>
+                            <div style="width: 120px; min-width: 120px; height: 80px; border-radius: 8px; overflow: hidden;">
+                                <img src="../<?= htmlspecialchars($dest['image']) ?>" style="width: 100%; height: 100%; object-fit: cover;" alt="">
+                            </div>
+                            <?php endif; ?>
+                            <div style="flex: 1;">
+                                <input type="hidden" name="dest_update_id[]" value="<?= htmlspecialchars($dest['id']) ?>">
+                                <div class="row mb-2">
+                                    <div class="col-md-5">
+                                        <input type="text" name="dest_update_title[]" class="form-control form-control-sm" value="<?= htmlspecialchars($dest['title']) ?>" placeholder="Title">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <input type="text" name="dest_update_subtitle[]" class="form-control form-control-sm" value="<?= htmlspecialchars($dest['subtitle'] ?? '') ?>" placeholder="Subtitle">
+                                    </div>
+                                    <div class="col-md-2">
+                                        <input type="number" name="dest_update_order[]" class="form-control form-control-sm" value="<?= (int)($dest['order'] ?? $di + 1) ?>" min="1" title="Display order">
+                                    </div>
+                                    <div class="col-md-1 d-flex align-items-center">
+                                        <label title="Active" style="cursor: pointer;">
+                                            <input type="checkbox" name="dest_update_active[]" value="<?= htmlspecialchars($dest['id']) ?>" <?= ($dest['active'] ?? true) ? 'checked' : '' ?>>
+                                            <i class="bi bi-eye ms-1"></i>
+                                        </label>
+                                    </div>
+                                </div>
+                                <textarea name="dest_update_content[]" class="form-control form-control-sm mb-2" rows="2" placeholder="Description"><?= htmlspecialchars($dest['content'] ?? '') ?></textarea>
+                                <div class="d-flex align-items-center gap-2">
+                                    <input type="file" name="dest_update_image_<?= htmlspecialchars($dest['id']) ?>" class="form-control form-control-sm" accept="image/jpeg,image/png,image/webp" style="max-width: 250px;">
+                                    <label style="font-size: 12px; color: #dc3545; cursor: pointer; white-space: nowrap;">
+                                        <input type="checkbox" name="delete_dest[]" value="<?= htmlspecialchars($dest['id']) ?>" style="margin-right: 3px;">
+                                        <i class="bi bi-trash"></i> Delete
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <?php endforeach; ?>
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-check-lg me-1"></i>Save All Destinations
+                    </button>
+                </form>
+                <?php endif; ?>
             </div>
         </div>
     </div>
