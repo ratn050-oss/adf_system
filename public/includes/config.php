@@ -58,25 +58,41 @@ define('BUSINESS_ID', $businessId);
 // ============================================
 // LOAD BUSINESS CONFIGURATION
 // ============================================
-$businessConfigPath = ROOT_PATH . DIRECTORY_SEPARATOR . 'config' . DIRECTORY_SEPARATOR . 'businesses' . DIRECTORY_SEPARATOR . BUSINESS_ID . '.php';
-if (!file_exists($businessConfigPath)) {
-    die("ERROR: Business config not found at: " . $businessConfigPath);
+// Try multiple paths (local dev vs hosting structure)
+$businessConfigPaths = [
+    ROOT_PATH . DIRECTORY_SEPARATOR . 'config' . DIRECTORY_SEPARATOR . 'businesses' . DIRECTORY_SEPARATOR . BUSINESS_ID . '.php',
+    ROOT_PATH . DIRECTORY_SEPARATOR . 'adf_system' . DIRECTORY_SEPARATOR . 'config' . DIRECTORY_SEPARATOR . 'businesses' . DIRECTORY_SEPARATOR . BUSINESS_ID . '.php',
+    ROOT_PATH . DIRECTORY_SEPARATOR . 'adf_sytem' . DIRECTORY_SEPARATOR . 'config' . DIRECTORY_SEPARATOR . 'businesses' . DIRECTORY_SEPARATOR . BUSINESS_ID . '.php',
+];
+
+$businessConfigPath = null;
+foreach ($businessConfigPaths as $path) {
+    if (file_exists($path)) {
+        $businessConfigPath = $path;
+        break;
+    }
 }
-$businessConfig = require $businessConfigPath;
-define('BUSINESS_NAME', $businessConfig['name']);
-define('BUSINESS_TYPE', $businessConfig['business_type']);
-define('DB_NAME', $businessConfig['database']);
+
+if ($businessConfigPath) {
+    $businessConfig = require $businessConfigPath;
+    define('BUSINESS_NAME', $businessConfig['name']);
+    define('BUSINESS_TYPE', $businessConfig['business_type']);
+    define('DB_NAME', $businessConfig['database']);
+} else {
+    // Fallback defaults for Narayana Hotel
+    define('BUSINESS_NAME', 'Narayana Karimunjawa');
+    define('BUSINESS_TYPE', 'hotel');
+    define('DB_NAME', 'narayana_hotel');
+}
 
 // Get appropriate database name
 if ($isLocalhost) {
-    // Local: adf_narayana_hotel
     $dbName = match(BUSINESS_ID) {
         'narayana-hotel' => 'adf_narayana_hotel',
         'bens-cafe' => 'adf_benscafe',
         default => 'adf_narayana_hotel'
     };
 } else {
-    // Production
     $dbName = 'adfb2574_' . DB_NAME;
 }
 
