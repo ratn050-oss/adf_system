@@ -47,3 +47,5 @@
             <li><a href="<?php echo baseUrl('booking.php'); ?>" class="btn-mobile-booking">Book Now</a></li>
         </ul>
     </div>
+</body>
+</html>

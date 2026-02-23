@@ -19,7 +19,7 @@ class PublicDatabase {
     private function __construct() {
         try {
             // Use the final database name determined in config
-            $dbName = defined('DB_NAME_FINAL') ? DB_NAME_FINAL : 'adfb2574_narayana_hotel';
+            $dbName = DB_NAME_FINAL;
             
             $dsn = "mysql:host=" . DB_HOST . ";dbname=" . $dbName . ";charset=" . DB_CHARSET;
             
@@ -35,8 +35,7 @@ class PublicDatabase {
             );
         } catch (PDOException $e) {
             error_log("Database connection failed: " . $e->getMessage());
-            // Don't die - let pages render without database
-            $this->connection = null;
+            die("Database connection error. Please try again later.");
         }
     }
     
@@ -45,7 +44,6 @@ class PublicDatabase {
     }
     
     public function query($sql, $params = []) {
-        if (!$this->connection) return null;
         try {
             $stmt = $this->connection->prepare($sql);
             $stmt->execute($params);
