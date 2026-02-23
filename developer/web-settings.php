@@ -5,6 +5,13 @@
  * Manage hero content, room descriptions, SEO, contact info, and website toggle
  */
 
+// Increase limits for image uploads
+@ini_set('upload_max_filesize', '50M');
+@ini_set('post_max_size', '60M');
+@ini_set('max_execution_time', '300');
+@ini_set('max_input_time', '300');
+@ini_set('memory_limit', '256M');
+
 require_once dirname(dirname(__FILE__)) . '/config/config.php';
 require_once dirname(dirname(__FILE__)) . '/config/database.php';
 require_once __DIR__ . '/includes/dev_auth.php';
@@ -125,6 +132,11 @@ foreach ($webSettings as $key => $default) {
 
 // Handle flash messages from redirect
 $activeTab = $_GET['tab'] ?? 'general';
+
+// Handle AJAX success redirect
+if (isset($_GET['msg']) && $_GET['msg'] === 'success') {
+    $success = 'Gallery updated successfully!';
+}
 if (isset($_SESSION['web_settings_success'])) {
     $success = $_SESSION['web_settings_success'];
     unset($_SESSION['web_settings_success']);
@@ -1788,22 +1800,33 @@ function removeBackground() {
 
 // ============ GALLERY UPLOAD LOADING & PREVIEW ============
 
-// Loading overlay
+// Loading overlay with progress
 const overlay = document.createElement('div');
 overlay.id = 'uploadOverlay';
 overlay.innerHTML = `
-    <div style="background:rgba(0,0,0,0.7);position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;">
+    <div style="background:rgba(0,0,0,0.8);position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;gap:16px;padding:20px;">
         <div style="width:50px;height:50px;border:4px solid rgba(255,255,255,0.3);border-top:4px solid #c8a45e;border-radius:50%;animation:spin 0.8s linear infinite;"></div>
         <div style="color:#fff;font-size:16px;font-weight:500;" id="uploadText">Uploading images...</div>
-        <div style="color:rgba(255,255,255,0.6);font-size:13px;">Please wait, do not close this page</div>
+        <div style="width:280px;height:6px;background:rgba(255,255,255,0.2);border-radius:3px;overflow:hidden;">
+            <div id="uploadProgress" style="height:100%;background:#c8a45e;width:0%;transition:width 0.3s;border-radius:3px;"></div>
+        </div>
+        <div style="color:rgba(255,255,255,0.6);font-size:13px;" id="uploadPercent">0%</div>
+        <div style="color:rgba(255,255,255,0.4);font-size:12px;">Jangan tutup halaman ini</div>
     </div>
 `;
 overlay.style.display = 'none';
 document.body.appendChild(overlay);
 
-// Spinner CSS
+// Spinner + preview CSS
 const spinStyle = document.createElement('style');
-spinStyle.textContent = `@keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}} .gallery-preview{display:flex;flex-wrap:wrap;gap:8px;} .gallery-preview img{width:80px;height:60px;object-fit:cover;border-radius:6px;border:2px solid #e0e0e0;}`;
+spinStyle.textContent = `
+    @keyframes spin{0%{transform:rotate(0)}100%{transform:rotate(360deg)}}
+    .gallery-preview{display:flex;flex-wrap:wrap;gap:8px;padding:10px;background:#f8f9fa;border-radius:8px;}
+    .gallery-preview img{width:80px;height:60px;object-fit:cover;border-radius:6px;border:2px solid #e0e0e0;}
+    .upload-result{padding:12px;border-radius:8px;margin-top:10px;font-size:14px;}
+    .upload-result.success{background:#d4edda;color:#155724;border:1px solid #c3e6cb;}
+    .upload-result.error{background:#f8d7da;color:#721c24;border:1px solid #f5c6cb;}
+`;
 document.head.appendChild(spinStyle);
 
 // File preview on select
@@ -1818,7 +1841,9 @@ document.querySelectorAll('.gallery-file-input').forEach(input => {
             label.innerHTML = '<i class="bi bi-images"></i> <strong>' + this.files.length + ' file</strong> dipilih:';
             preview.appendChild(label);
             
+            let totalSize = 0;
             Array.from(this.files).forEach(file => {
+                totalSize += file.size;
                 if (file.type.startsWith('image/')) {
                     const img = document.createElement('img');
                     img.src = URL.createObjectURL(file);
@@ -1826,30 +1851,108 @@ document.querySelectorAll('.gallery-file-input').forEach(input => {
                     preview.appendChild(img);
                 }
             });
+            const sizeLabel = document.createElement('div');
+            sizeLabel.style.cssText = 'width:100%;font-size:12px;color:#999;';
+            sizeLabel.textContent = 'Total: ' + (totalSize/1024/1024).toFixed(1) + 'MB';
+            preview.appendChild(sizeLabel);
         } else {
             preview.style.display = 'none';
         }
     });
 });
 
-// Show loading on gallery form submit
+// AJAX upload with progress
 document.querySelectorAll('.gallery-submit-btn').forEach(btn => {
     btn.closest('form').addEventListener('submit', function(e) {
-        const fileInput = this.querySelector('.gallery-file-input');
-        const hasFiles = fileInput && fileInput.files.length > 0;
-        const hasDelete = this.querySelectorAll('input[name="delete_images[]"]:checked').length > 0;
+        e.preventDefault();
         
-        if (hasFiles || hasDelete) {
-            overlay.style.display = 'block';
-            const text = document.getElementById('uploadText');
-            if (hasFiles) {
-                text.textContent = 'Uploading ' + fileInput.files.length + ' image(s)...';
-            } else {
-                text.textContent = 'Processing changes...';
-            }
-            btn.disabled = true;
-            btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Uploading...';
+        const form = this;
+        const fileInput = form.querySelector('.gallery-file-input');
+        const hasFiles = fileInput && fileInput.files.length > 0;
+        const hasDelete = form.querySelectorAll('input[name="delete_images[]"]:checked').length > 0;
+        const hasPrimary = form.querySelector('input[name="primary_image"]:checked');
+        
+        if (!hasFiles && !hasDelete && !hasPrimary) {
+            alert('Pilih file untuk upload, atau pilih gambar untuk dihapus.');
+            return;
         }
+        
+        // Show overlay
+        overlay.style.display = 'block';
+        const uploadText = document.getElementById('uploadText');
+        const uploadProgress = document.getElementById('uploadProgress');
+        const uploadPercent = document.getElementById('uploadPercent');
+        
+        if (hasFiles) {
+            uploadText.textContent = 'Uploading ' + fileInput.files.length + ' image(s)...';
+        } else {
+            uploadText.textContent = 'Processing...';
+        }
+        
+        btn.disabled = true;
+        btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Uploading...';
+        
+        // Send via AJAX
+        const formData = new FormData(form);
+        const xhr = new XMLHttpRequest();
+        
+        xhr.upload.addEventListener('progress', function(e) {
+            if (e.lengthComputable) {
+                const pct = Math.round((e.loaded / e.total) * 100);
+                uploadProgress.style.width = pct + '%';
+                uploadPercent.textContent = pct + '%';
+                if (pct >= 100) {
+                    uploadText.textContent = 'Processing on server...';
+                }
+            }
+        });
+        
+        xhr.addEventListener('load', function() {
+            overlay.style.display = 'none';
+            uploadProgress.style.width = '0%';
+            uploadPercent.textContent = '0%';
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Save Gallery';
+            
+            if (xhr.status === 200) {
+                // Reload page to gallery tab
+                window.location.href = window.location.pathname + '?tab=gallery&msg=success';
+            } else {
+                const result = document.createElement('div');
+                result.className = 'upload-result error';
+                result.innerHTML = '<i class="bi bi-x-circle me-1"></i>Upload gagal. Coba lagi.';
+                form.appendChild(result);
+                setTimeout(() => result.remove(), 5000);
+            }
+        });
+        
+        xhr.addEventListener('error', function() {
+            overlay.style.display = 'none';
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Save Gallery';
+            
+            const result = document.createElement('div');
+            result.className = 'upload-result error';
+            result.innerHTML = '<i class="bi bi-x-circle me-1"></i>Koneksi gagal. Periksa internet dan coba lagi.';
+            form.appendChild(result);
+            setTimeout(() => result.remove(), 5000);
+        });
+        
+        xhr.addEventListener('timeout', function() {
+            overlay.style.display = 'none';
+            btn.disabled = false;
+            btn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Save Gallery';
+            
+            const result = document.createElement('div');
+            result.className = 'upload-result error';
+            result.innerHTML = '<i class="bi bi-x-circle me-1"></i>Timeout. Coba upload lebih sedikit gambar.';
+            form.appendChild(result);
+            setTimeout(() => result.remove(), 5000);
+        });
+        
+        xhr.open('POST', window.location.pathname);
+        xhr.timeout = 300000; // 5 menit timeout
+        xhr.send(formData);
     });
 });
 </script>
