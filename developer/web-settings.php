@@ -5,9 +5,8 @@
  * Manage hero content, room descriptions, SEO, contact info, and website toggle
  */
 
-// Increase limits for image uploads
-@ini_set('upload_max_filesize', '50M');
-@ini_set('post_max_size', '60M');
+// Increase limits for image uploads (only runtime-settable directives)
+// NOTE: upload_max_filesize & post_max_size require .user.ini or php.ini
 @ini_set('max_execution_time', '300');
 @ini_set('max_input_time', '300');
 @ini_set('memory_limit', '256M');
@@ -146,8 +145,22 @@ if (isset($_SESSION['web_settings_error'])) {
     unset($_SESSION['web_settings_error']);
 }
 
+// Detect AJAX requests
+$isAjax = !empty($_SERVER['HTTP_X_REQUESTED_WITH']) && strtolower($_SERVER['HTTP_X_REQUESTED_WITH']) === 'xmlhttprequest';
+
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    // Detect if POST data was lost (post_max_size exceeded)
+    if (empty($_POST) && empty($_FILES) && isset($_SERVER['CONTENT_LENGTH']) && $_SERVER['CONTENT_LENGTH'] > 0) {
+        $maxSize = ini_get('post_max_size');
+        $error = "Upload gagal! Ukuran file melebihi batas server ({$maxSize}). Coba upload lebih sedikit gambar atau gambar yang lebih kecil.";
+        if ($isAjax) {
+            header('Content-Type: application/json');
+            echo json_encode(['success' => false, 'error' => $error]);
+            exit;
+        }
+    }
+    
     $action = $_POST['action'] ?? '';
     $redirectTab = 'general'; // default tab after save
     
@@ -640,6 +653,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $webSettings['web_destinations'] = $destJson;
     }
 
+    // For AJAX requests: return JSON response
+    if ($isAjax) {
+        header('Content-Type: application/json');
+        echo json_encode([
+            'success' => !empty($success),
+            'message' => $success ?: $error,
+            'tab' => $redirectTab
+        ]);
+        exit;
+    }
+    
     // POST-Redirect-GET: store message in session and redirect to preserve active tab
     if ($success || $error) {
         if ($success) $_SESSION['web_settings_success'] = $success;
@@ -1915,12 +1939,38 @@ document.querySelectorAll('.gallery-submit-btn').forEach(btn => {
             btn.innerHTML = '<i class="bi bi-check-lg me-1"></i>Save Gallery';
             
             if (xhr.status === 200) {
-                // Reload page to gallery tab
-                window.location.href = window.location.pathname + '?tab=gallery&msg=success';
+                try {
+                    const response = JSON.parse(xhr.responseText);
+                    if (response.success) {
+                        // Show inline success before reload
+                        const result = document.createElement('div');
+                        result.className = 'upload-result success';
+                        result.innerHTML = '<i class="bi bi-check-circle me-1"></i>' + (response.message || 'Gallery updated!');
+                        form.appendChild(result);
+                        // Reload to gallery tab after brief delay
+                        setTimeout(() => {
+                            window.location.href = window.location.pathname + '?tab=gallery';
+                        }, 800);
+                    } else {
+                        const result = document.createElement('div');
+                        result.className = 'upload-result error';
+                        result.innerHTML = '<i class="bi bi-x-circle me-1"></i>' + (response.message || response.error || 'Upload gagal.');
+                        form.appendChild(result);
+                        setTimeout(() => result.remove(), 8000);
+                    }
+                } catch (e) {
+                    // Non-JSON response (server error or redirect page HTML)
+                    console.error('Upload response parse error:', e, xhr.responseText.substring(0, 200));
+                    const result = document.createElement('div');
+                    result.className = 'upload-result error';
+                    result.innerHTML = '<i class="bi bi-x-circle me-1"></i>Server response tidak valid. Coba refresh halaman dan cek apakah gambar tersimpan.';
+                    form.appendChild(result);
+                    setTimeout(() => result.remove(), 8000);
+                }
             } else {
                 const result = document.createElement('div');
                 result.className = 'upload-result error';
-                result.innerHTML = '<i class="bi bi-x-circle me-1"></i>Upload gagal. Coba lagi.';
+                result.innerHTML = '<i class="bi bi-x-circle me-1"></i>Upload gagal (HTTP ' + xhr.status + '). Coba lagi.';
                 form.appendChild(result);
                 setTimeout(() => result.remove(), 5000);
             }
@@ -1951,6 +2001,7 @@ document.querySelectorAll('.gallery-submit-btn').forEach(btn => {
         });
         
         xhr.open('POST', window.location.pathname);
+        xhr.setRequestHeader('X-Requested-With', 'XMLHttpRequest');
         xhr.timeout = 300000; // 5 menit timeout
         xhr.send(formData);
     });
