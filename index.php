@@ -253,12 +253,69 @@ try {
     // TOTAL PENGELUARAN OPERASIONAL = Petty Cash expense + Modal Owner expense
     $totalOperationalExpense = $pettyCashStats['used'] + $capitalStats['used'];
     
+    // TOTAL UANG MASUK = Petty Cash received + Modal Owner received
+    $totalOperationalIncome = $pettyCashStats['received'] + $capitalStats['received'];
+    
+    // ============================================
+    // START KAS AWAL HARI INI
+    // Saldo sebelum hari ini (sisa uang kemarin)
+    // ============================================
+    $today = date('Y-m-d');
+    $startKasOwner = 0;
+    $startKasPetty = 0;
+    
+    // Modal Owner: all transactions before today
+    if ($hasCashAccountIdCol && !empty($capitalAccounts)) {
+        $placeholders = implode(',', array_fill(0, count($capitalAccounts), '?'));
+        $qStart = "SELECT 
+            COALESCE(SUM(CASE WHEN transaction_type='income' THEN amount ELSE 0 END),0) -
+            COALESCE(SUM(CASE WHEN transaction_type='expense' THEN amount ELSE 0 END),0) as bal
+            FROM cash_book WHERE cash_account_id IN ($placeholders) AND transaction_date < ?";
+        $pStart = array_merge($capitalAccounts, [$today]);
+        $rStart = $db->fetchOne($qStart, $pStart);
+        $startKasOwner = $rStart['bal'] ?? 0;
+    }
+    
+    // Petty Cash: all cash transactions before today
+    if ($hasCashAccountIdCol && !empty($pettyCashAccounts)) {
+        $placeholders = implode(',', array_fill(0, count($pettyCashAccounts), '?'));
+        $qStart = "SELECT 
+            COALESCE(SUM(CASE WHEN transaction_type='income' THEN amount ELSE 0 END),0) -
+            COALESCE(SUM(CASE WHEN transaction_type='expense' THEN amount ELSE 0 END),0) as bal
+            FROM cash_book WHERE cash_account_id IN ($placeholders) AND payment_method='cash' AND transaction_date < ?";
+        $pStart = array_merge($pettyCashAccounts, [$today]);
+        $rStart = $db->fetchOne($qStart, $pStart);
+        $startKasPetty = $rStart['bal'] ?? 0;
+    }
+    
+    $startKasHariIni = $startKasOwner + $startKasPetty;
+    
+    // Today's transactions
+    $todayIncome = 0;
+    $todayExpense = 0;
+    if ($hasCashAccountIdCol && (!empty($capitalAccounts) || !empty($pettyCashAccounts))) {
+        $allAccIds = array_merge($capitalAccounts, $pettyCashAccounts);
+        $placeholders = implode(',', array_fill(0, count($allAccIds), '?'));
+        $qToday = "SELECT 
+            COALESCE(SUM(CASE WHEN transaction_type='income' THEN amount ELSE 0 END),0) as inc,
+            COALESCE(SUM(CASE WHEN transaction_type='expense' THEN amount ELSE 0 END),0) as exp
+            FROM cash_book WHERE cash_account_id IN ($placeholders) AND transaction_date = ?";
+        $pToday = array_merge($allAccIds, [$today]);
+        $rToday = $db->fetchOne($qToday, $pToday);
+        $todayIncome = $rToday['inc'] ?? 0;
+        $todayExpense = $rToday['exp'] ?? 0;
+    }
+    
 } catch (Exception $e) {
     error_log("Error fetching operational cash stats: " . $e->getMessage());
     $capitalStats = ['received' => 0, 'used' => 0, 'balance' => 0];
     $pettyCashStats = ['received' => 0, 'used' => 0, 'balance' => 0];
     $totalOperationalCash = 0;
     $totalOperationalExpense = 0;
+    $totalOperationalIncome = 0;
+    $startKasHariIni = 0;
+    $todayIncome = 0;
+    $todayExpense = 0;
 }
 
 // ============================================
@@ -553,34 +610,47 @@ if ($trialStatus) {
             </a>
         </div>
         
-        <!-- KAS TERSEDIA (Gabungan Modal Owner + Petty Cash) -->
-        <div style="background: linear-gradient(135deg, rgba(59, 130, 246, 0.12) 0%, rgba(16, 185, 129, 0.06) 100%); padding: 0.6rem 0.75rem; border-radius: 8px; border: 1.5px solid rgba(59, 130, 246, 0.25);">
-            <div style="display: flex; align-items: center; gap: 0.5rem;">
+        <!-- START KAS + KAS TERSEDIA (Dark bar) -->
+        <div style="background: linear-gradient(135deg, #1e293b, #334155); padding: 0.5rem 0.75rem; border-radius: 8px 8px 0 0; display: flex; align-items: center; justify-content: space-between;">
+            <div>
+                <div style="font-size: 0.5rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">☀️ Start Kas Awal Hari Ini (<?php echo date('d M'); ?>)</div>
+                <div style="font-size: 1rem; font-weight: 800; color: #e2e8f0; margin-top: 0.1rem;"><?php echo formatCurrency($startKasHariIni); ?></div>
+                <div style="font-size: 0.45rem; color: #64748b; margin-top: 0.1rem;">Sisa saldo dari kemarin · otomatis reset tiap hari</div>
+            </div>
+            <div style="width: 1px; height: 36px; background: rgba(255,255,255,0.1);"></div>
+            <div style="text-align: right;">
+                <div style="font-size: 0.5rem; color: #60a5fa; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">🏦 Kas Tersedia Sekarang</div>
+                <div style="font-size: 1.15rem; font-weight: 900; color: #60a5fa; margin-top: 0.1rem;"><?php echo formatCurrency($totalOperationalCash); ?></div>
+                <div style="font-size: 0.45rem; color: #64748b; margin-top: 0.1rem;">Total saldo real-time</div>
+            </div>
+        </div>
+        
+        <!-- Detail breakdown: 4 columns -->
+        <div style="background: linear-gradient(135deg, rgba(59, 130, 246, 0.08), rgba(16, 185, 129, 0.04)); padding: 0.5rem 0.5rem; border-radius: 0 0 8px 8px; border: 1px solid rgba(59, 130, 246, 0.15); border-top: none;">
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.4rem;">
                 <!-- Modal Owner -->
-                <div style="min-width: 0;">
-                    <div style="font-size: 0.55rem; color: var(--success); font-weight: 600; text-transform: uppercase;">💵 Modal Owner</div>
-                    <div style="font-size: 0.85rem; font-weight: 700; color: var(--success);"><?php echo formatCurrency($capitalStats['balance']); ?></div>
+                <div style="background: rgba(16,185,129,0.08); padding: 0.4rem 0.5rem; border-radius: 6px; border-left: 2.5px solid var(--success);">
+                    <div style="font-size: 0.5rem; color: var(--success); font-weight: 600; text-transform: uppercase;">💵 Modal Owner</div>
+                    <div style="font-size: 0.8rem; font-weight: 700; color: var(--success); margin-top: 0.1rem;"><?php echo formatCurrency($capitalStats['balance']); ?></div>
+                    <div style="font-size: 0.42rem; color: var(--text-muted); margin-top: 0.1rem;">Sisa modal dari owner</div>
                 </div>
-                <div style="width: 1px; height: 28px; background: rgba(0,0,0,0.08);"></div>
                 <!-- Petty Cash -->
-                <div style="min-width: 0;">
-                    <div style="font-size: 0.55rem; color: var(--warning); font-weight: 600; text-transform: uppercase;">💰 Petty Cash</div>
-                    <div style="font-size: 0.85rem; font-weight: 700; color: var(--warning);"><?php echo formatCurrency($pettyCashStats['balance']); ?></div>
+                <div style="background: rgba(245,158,11,0.08); padding: 0.4rem 0.5rem; border-radius: 6px; border-left: 2.5px solid var(--warning);">
+                    <div style="font-size: 0.5rem; color: var(--warning); font-weight: 600; text-transform: uppercase;">💰 Petty Cash</div>
+                    <div style="font-size: 0.8rem; font-weight: 700; color: var(--warning); margin-top: 0.1rem;"><?php echo formatCurrency($pettyCashStats['balance']); ?></div>
+                    <div style="font-size: 0.42rem; color: var(--text-muted); margin-top: 0.1rem;">Uang cash dari tamu</div>
                 </div>
-                <div style="width: 1px; height: 28px; background: rgba(239,68,68,0.2); margin: 0 0.25rem;"></div>
-                <!-- Uang Keluar (center) -->
-                <div style="min-width: 0; text-align: center;">
-                    <div style="font-size: 0.55rem; color: var(--danger); font-weight: 600; text-transform: uppercase;">📤 Uang Keluar</div>
-                    <div style="font-size: 0.85rem; font-weight: 700; color: var(--danger);"><?php echo formatCurrency($totalOperationalExpense); ?></div>
+                <!-- Uang Masuk Bulan Ini -->
+                <div style="background: rgba(59,130,246,0.08); padding: 0.4rem 0.5rem; border-radius: 6px; border-left: 2.5px solid var(--info);">
+                    <div style="font-size: 0.5rem; color: var(--info); font-weight: 600; text-transform: uppercase;">📥 Uang Masuk</div>
+                    <div style="font-size: 0.8rem; font-weight: 700; color: var(--info); margin-top: 0.1rem;"><?php echo formatCurrency($totalOperationalIncome); ?></div>
+                    <div style="font-size: 0.42rem; color: var(--text-muted); margin-top: 0.1rem;">Total masuk bulan ini</div>
                 </div>
-                <div style="flex: 1;"></div>
-                <div style="width: 1px; height: 32px; background: rgba(59, 130, 246, 0.25);"></div>
-                <!-- KAS TERSEDIA Main (right) -->
-                <div style="text-align: center; min-width: 130px;">
-                    <div style="font-size: 0.6rem; color: var(--info); font-weight: 700; text-transform: uppercase; letter-spacing: 0.05em;">🏦 KAS TERSEDIA</div>
-                    <div style="font-size: 1.15rem; font-weight: 900; color: var(--info); margin-top: 0.15rem;">
-                        <?php echo formatCurrency($totalOperationalCash); ?>
-                    </div>
+                <!-- Uang Keluar Bulan Ini -->
+                <div style="background: rgba(239,68,68,0.08); padding: 0.4rem 0.5rem; border-radius: 6px; border-left: 2.5px solid var(--danger);">
+                    <div style="font-size: 0.5rem; color: var(--danger); font-weight: 600; text-transform: uppercase;">📤 Uang Keluar</div>
+                    <div style="font-size: 0.8rem; font-weight: 700; color: var(--danger); margin-top: 0.1rem;"><?php echo formatCurrency($totalOperationalExpense); ?></div>
+                    <div style="font-size: 0.42rem; color: var(--text-muted); margin-top: 0.1rem;">Total keluar bulan ini</div>
                 </div>
             </div>
         </div>
