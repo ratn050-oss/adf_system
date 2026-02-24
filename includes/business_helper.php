@@ -39,9 +39,18 @@ function getAvailableBusinesses() {
  */
 function getActiveBusinessId() {
     // Session should already be started by config.php
-    // Just check if business is set in session
+    // Check if business is set in session AND config file exists
     if (session_status() === PHP_SESSION_ACTIVE && isset($_SESSION['active_business_id'])) {
-        return $_SESSION['active_business_id'];
+        $bizId = $_SESSION['active_business_id'];
+        // Validate: sanitize and check config file exists
+        $bizId = preg_replace('/[^a-zA-Z0-9_-]/', '', $bizId);
+        $bizFile = __DIR__ . '/../config/businesses/' . $bizId . '.php';
+        if (file_exists($bizFile)) {
+            return $bizId;
+        }
+        // Invalid session value - clear it so we fall through to default
+        unset($_SESSION['active_business_id']);
+        error_log("business_helper: Invalid active_business_id '{$bizId}' in session, resetting.");
     }
     
     // Default to first available business (for backward compatibility)
@@ -136,6 +145,8 @@ function getActiveBusinessConfig() {
         'business_id' => $businessId,
         'name' => 'Unknown Business',
         'business_type' => 'general',
+        'database' => defined('DB_NAME') ? DB_NAME : 'adf_system',
+        'enabled_modules' => ['cashbook', 'auth', 'settings'],
         'theme' => [
             'color_primary' => '#4338ca',
             'color_secondary' => '#818cf8',

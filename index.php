@@ -27,8 +27,9 @@ $auth = new Auth();
 $auth->requireLogin();
 $db = Database::getInstance();
 
-// Load business configuration
-$businessConfig = require 'config/businesses/' . ACTIVE_BUSINESS_ID . '.php';
+// Load business configuration (already loaded in config.php, use safe fallback)
+$businessConfigFile = __DIR__ . '/config/businesses/' . ACTIVE_BUSINESS_ID . '.php';
+$businessConfig = file_exists($businessConfigFile) ? require $businessConfigFile : $BUSINESS_CONFIG;
 
 // Check trial status
 $currentUser = $auth->getCurrentUser();
