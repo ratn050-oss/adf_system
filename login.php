@@ -151,7 +151,8 @@ if (isPost()) {
                     // Map business_id to business_code
                     $idToCodeMap = [
                         'bens-cafe' => 'BENSCAFE',
-                        'narayana-hotel' => 'NARAYANAHOTEL'
+                        'narayana-hotel' => 'NARAYANAHOTEL',
+                        'demo' => 'DEMO'
                     ];
                     
                     $forcedBizCode = isset($idToCodeMap[$forcedBusiness]) ? $idToCodeMap[$forcedBusiness] : strtoupper(str_replace('-', '', $forcedBusiness));
@@ -186,7 +187,8 @@ if (isPost()) {
                     // Map business_code to business_id
                     $codeToIdMap = [
                         'BENSCAFE' => 'bens-cafe',
-                        'NARAYANAHOTEL' => 'narayana-hotel'
+                        'NARAYANAHOTEL' => 'narayana-hotel',
+                        'DEMO' => 'demo'
                     ];
                     
                     $businessId = isset($codeToIdMap[$bizCode]) ? $codeToIdMap[$bizCode] : strtolower($bizCode);
@@ -241,6 +243,12 @@ if (isset($_GET['biz'])) {
             'name' => 'Ben\'s Cafe',
             'subtitle' => 'Karimunjawa',
             'db_name' => 'adf_benscafe'
+        ],
+        'demo' => [
+            'icon' => '🏢',
+            'name' => 'Demo Business',
+            'subtitle' => 'Demo System',
+            'db_name' => 'adf_demo'
         ]
     ];
     

@@ -125,7 +125,8 @@ function getDbName($localDbName) {
     $dbMapping = [
         'adf_system' => 'adfb2574_adf',
         'adf_narayana_hotel' => 'adfb2574_narayana_hotel',
-        'adf_benscafe' => 'adfb2574_Adf_Bens'
+        'adf_benscafe' => 'adfb2574_Adf_Bens',
+        'adf_demo' => 'adfb2574_demo'
     ];
     
     if (isset($dbMapping[$localDbName])) {

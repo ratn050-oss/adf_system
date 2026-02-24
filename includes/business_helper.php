@@ -95,7 +95,8 @@ function getNumericBusinessId($businessCode) {
     // Map string ID to business_code used in database
     $codeMap = [
         'narayana-hotel' => 'NARAYANAHOTEL',
-        'bens-cafe' => 'BENSCAFE'
+        'bens-cafe' => 'BENSCAFE',
+        'demo' => 'DEMO'
     ];
     
     $dbCode = isset($codeMap[$businessCode]) ? $codeMap[$businessCode] : strtoupper(str_replace('-', '', $businessCode));
