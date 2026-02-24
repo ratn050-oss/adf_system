@@ -62,11 +62,34 @@ try {
     // Use the database_name from the business record
     $bizDbName = $business['database_name'];
     
-    // Verify the business database exists before connecting
+    // Verify the business database exists — auto-create if missing
     $dbCheck = $pdo->prepare("SELECT SCHEMA_NAME FROM INFORMATION_SCHEMA.SCHEMATA WHERE SCHEMA_NAME = ?");
     $dbCheck->execute([$bizDbName]);
     if ($dbCheck->rowCount() === 0) {
-        die("Database '{$bizDbName}' does not exist yet. Please create it in cPanel → MySQL Databases first, then grant user '" . DB_USER . "' full privileges.");
+        // Auto-create database using DatabaseManager (supports cPanel UAPI)
+        try {
+            require_once __DIR__ . '/includes/DatabaseManager.php';
+            $dbMgr = new DatabaseManager();
+            // Pass the actual name directly (already has hosting prefix)
+            $result = $dbMgr->createDatabase($bizDbName);
+            
+            // If DB was created, also run the business template
+            $templatePath = __DIR__ . '/database/business_template.sql';
+            if (file_exists($templatePath)) {
+                $dbPdoNew = new PDO("mysql:host=" . DB_HOST . ";dbname=" . $bizDbName, DB_USER, DB_PASS);
+                $dbPdoNew->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+                $sql = file_get_contents($templatePath);
+                $statements = array_filter(array_map('trim', explode(';', $sql)));
+                foreach ($statements as $statement) {
+                    if (!empty($statement) && strpos($statement, '--') !== 0) {
+                        $dbPdoNew->exec($statement);
+                    }
+                }
+            }
+        } catch (Exception $dbCreateErr) {
+            die("Database '{$bizDbName}' does not exist and auto-creation failed: " . $dbCreateErr->getMessage() . 
+                "<br><br>Please create it manually in cPanel → MySQL Databases, then grant user '" . DB_USER . "' ALL PRIVILEGES on it.");
+        }
     }
     
     // Connect to business database
