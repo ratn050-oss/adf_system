@@ -252,39 +252,49 @@ $displayCompanyName = ($companyNameSetting && $companyNameSetting['setting_value
 $pageTitle = BUSINESS_ICON . ' ' . $displayCompanyName . ' - Buku Kas Besar';
 $pageSubtitle = 'Pencatatan Transaksi Keuangan';
 
-// Filtering
-$filterDate = getGet('date', 'all'); // Changed default from today to 'all'
-$filterMonth = getGet('month', date('Y-m')); // Default to current month
-$filterType = getGet('type', 'all');
-$filterDivision = getGet('division', 'all');
-$filterPayment = getGet('payment', 'all');
+// Filtering - sanitize inputs (handle empty strings from form submission)
+$filterDate = trim(getGet('date', ''));
+$filterMonth = trim(getGet('month', ''));
+$filterType = trim(getGet('type', 'all'));
+$filterDivision = trim(getGet('division', 'all'));
+$filterPayment = trim(getGet('payment', 'all'));
+
+// Default month to current if no filters provided at all
+if (empty($filterDate) && empty($filterMonth) && !isset($_GET['date']) && !isset($_GET['type'])) {
+    $filterMonth = date('Y-m');
+}
+
+// Validate month format (YYYY-MM) - fix for browsers that don't support type="month"
+if (!empty($filterMonth) && !preg_match('/^\d{4}-\d{2}$/', $filterMonth)) {
+    $filterMonth = date('Y-m'); // fallback to current month
+}
 
 // Build query with filters
 $whereClauses = [];
 $params = [];
 
-// If date is specified and not 'all', filter by specific date
-if ($filterDate !== 'all' && !empty($filterDate)) {
+// If date is specified, filter by specific date
+if (!empty($filterDate)) {
     $whereClauses[] = "cb.transaction_date = :date";
     $params['date'] = $filterDate;
 } 
-// Otherwise, filter by month (default to current month)
-elseif (!empty($filterMonth) && $filterMonth !== 'all') {
+// Otherwise, filter by month
+elseif (!empty($filterMonth)) {
     $whereClauses[] = "DATE_FORMAT(cb.transaction_date, '%Y-%m') = :month";
     $params['month'] = $filterMonth;
 }
 
-if ($filterType !== 'all') {
+if (!empty($filterType) && $filterType !== 'all') {
     $whereClauses[] = "cb.transaction_type = :type";
     $params['type'] = $filterType;
 }
 
-if ($filterDivision !== 'all') {
+if (!empty($filterDivision) && $filterDivision !== 'all') {
     $whereClauses[] = "cb.division_id = :division";
     $params['division'] = $filterDivision;
 }
 
-if ($filterPayment !== 'all') {
+if (!empty($filterPayment) && $filterPayment !== 'all') {
     $whereClauses[] = "cb.payment_method = :payment";
     $params['payment'] = $filterPayment;
 }
@@ -292,21 +302,35 @@ if ($filterPayment !== 'all') {
 $whereSQL = count($whereClauses) > 0 ? 'WHERE ' . implode(' AND ', $whereClauses) : '';
 
 // Get transactions - Use LEFT JOIN to handle missing references
+// Check if transaction_time column exists (might differ on hosting)
+$hasTransactionTime = true;
+try {
+    $db->getConnection()->query("SELECT transaction_time FROM cash_book LIMIT 1");
+} catch (\Throwable $e) {
+    $hasTransactionTime = false;
+}
+$orderBy = $hasTransactionTime ? 'cb.transaction_date DESC, cb.transaction_time DESC' : 'cb.transaction_date DESC, cb.id DESC';
+
 $transactions = $db->fetchAll(
     "SELECT 
         cb.*,
-        d.division_name,
-        d.division_code,
-        c.category_name,
-        u.full_name as created_by_name
+        COALESCE(d.division_name, 'Unknown') as division_name,
+        COALESCE(d.division_code, '-') as division_code,
+        COALESCE(c.category_name, 'Unknown') as category_name,
+        COALESCE(u.full_name, 'System') as created_by_name
     FROM cash_book cb
     LEFT JOIN divisions d ON cb.division_id = d.id
     LEFT JOIN categories c ON cb.category_id = c.id
     LEFT JOIN users u ON cb.created_by = u.id
     {$whereSQL}
-    ORDER BY cb.transaction_date DESC, cb.transaction_time DESC",
+    ORDER BY {$orderBy}",
     $params
 );
+
+// Debug: if query returns empty but shouldn't, log it
+if (empty($transactions) && empty($whereClauses)) {
+    error_log('CASHBOOK DEBUG: No transactions found even without filter. DB=' . Database::getCurrentDatabase() . ' whereSQL=' . $whereSQL);
+}
 
 // Get divisions for filter
 $divisions = $db->fetchAll("SELECT * FROM divisions WHERE is_active = 1 ORDER BY division_name");
@@ -713,7 +737,7 @@ echo getPrintCSS();
 <!-- Print Version (Hidden in Screen) -->
 <div style="display: none;" id="printSection" class="print-content">
     <?php 
-    $periodText = !empty($filterMonth) ? date('F Y', strtotime($filterMonth . '-01')) : (($filterDate !== 'all') ? formatDate($filterDate) : 'Semua Periode');
+    $periodText = !empty($filterMonth) ? date('F Y', strtotime($filterMonth . '-01')) : (!empty($filterDate) ? formatDate($filterDate) : 'Semua Periode');
     echo printHeader($db, $displayCompanyName, BUSINESS_ICON, BUSINESS_TYPE, '📊 DAFTAR TRANSAKSI', 'Periode: ' . $periodText);
     ?>
     
@@ -866,21 +890,21 @@ echo getPrintCSS();
     </div>
     
     <!-- Filters -->
-    <form method="GET" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.75rem; margin-bottom: 1.5rem; padding: 1.25rem; background: var(--bg-secondary); border-radius: var(--radius-lg); border: 1px solid var(--bg-tertiary);">
+    <form method="GET" action="" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.75rem; margin-bottom: 1.5rem; padding: 1.25rem; background: var(--bg-secondary); border-radius: var(--radius-lg); border: 1px solid var(--bg-tertiary);">
         <div class="form-group" style="margin-bottom: 0;">
             <label class="form-label" style="font-size: 0.75rem; margin-bottom: 0.25rem;">Tanggal</label>
-            <input type="date" name="date" value="<?php echo $filterDate !== 'all' ? $filterDate : ''; ?>" class="form-control" style="height: 38px; font-size: 0.875rem;">
+            <input type="date" name="date" value="<?php echo htmlspecialchars($filterDate); ?>" class="form-control" style="height: 38px; font-size: 0.875rem;">
         </div>
         
         <div class="form-group" style="margin-bottom: 0;">
             <label class="form-label" style="font-size: 0.75rem; margin-bottom: 0.25rem;">Bulan</label>
-            <input type="month" name="month" value="<?php echo $filterMonth; ?>" class="form-control" style="height: 38px; font-size: 0.875rem;">
+            <input type="month" name="month" value="<?php echo htmlspecialchars($filterMonth); ?>" class="form-control" style="height: 38px; font-size: 0.875rem;" placeholder="YYYY-MM" pattern="\d{4}-\d{2}">
         </div>
         
         <div class="form-group" style="margin-bottom: 0;">
             <label class="form-label" style="font-size: 0.75rem; margin-bottom: 0.25rem;">Tipe</label>
             <select name="type" class="form-control" style="height: 38px; font-size: 0.875rem;">
-                <option value="all" <?php echo $filterType === 'all' ? 'selected' : ''; ?>>Semua</option>
+                <option value="all" <?php echo ($filterType === 'all' || empty($filterType)) ? 'selected' : ''; ?>>Semua</option>
                 <option value="income" <?php echo $filterType === 'income' ? 'selected' : ''; ?>>Pemasukan</option>
                 <option value="expense" <?php echo $filterType === 'expense' ? 'selected' : ''; ?>>Pengeluaran</option>
             </select>
@@ -901,7 +925,7 @@ echo getPrintCSS();
         <div class="form-group" style="margin-bottom: 0;">
             <label class="form-label" style="font-size: 0.75rem; margin-bottom: 0.25rem;">Jenis Pembayaran</label>
             <select name="payment" class="form-control" style="height: 38px; font-size: 0.875rem;">
-                <option value="all" <?php echo $filterPayment === 'all' ? 'selected' : ''; ?>>Semua</option>
+                <option value="all" <?php echo ($filterPayment === 'all' || empty($filterPayment)) ? 'selected' : ''; ?>>Semua</option>
                 <option value="cash" <?php echo $filterPayment === 'cash' ? 'selected' : ''; ?>>Cash</option>
                 <option value="debit" <?php echo $filterPayment === 'debit' ? 'selected' : ''; ?>>Debit</option>
                 <option value="transfer" <?php echo $filterPayment === 'transfer' ? 'selected' : ''; ?>>Transfer</option>
