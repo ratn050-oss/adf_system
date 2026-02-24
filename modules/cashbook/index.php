@@ -259,6 +259,17 @@ $filterType = trim(getGet('type', 'all'));
 $filterDivision = trim(getGet('division', 'all'));
 $filterPayment = trim(getGet('payment', 'all'));
 
+// SMART CONFLICT RESOLUTION: If both date and month are provided,
+// and date falls within the selected month, prioritize MONTH filter
+// (user likely just forgot to clear the date field)
+if (!empty($filterDate) && !empty($filterMonth)) {
+    if (substr($filterDate, 0, 7) === $filterMonth) {
+        // Date is within the selected month - use month filter
+        $filterDate = '';
+    }
+    // If date is from a different month, use date (user explicitly picked it)
+}
+
 // Default month to current if no filters provided at all
 if (empty($filterDate) && empty($filterMonth) && !isset($_GET['date']) && !isset($_GET['type'])) {
     $filterMonth = date('Y-m');
@@ -893,12 +904,12 @@ echo getPrintCSS();
     <form method="GET" action="" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.75rem; margin-bottom: 1.5rem; padding: 1.25rem; background: var(--bg-secondary); border-radius: var(--radius-lg); border: 1px solid var(--bg-tertiary);">
         <div class="form-group" style="margin-bottom: 0;">
             <label class="form-label" style="font-size: 0.75rem; margin-bottom: 0.25rem;">Tanggal</label>
-            <input type="date" name="date" value="<?php echo htmlspecialchars($filterDate); ?>" class="form-control" style="height: 38px; font-size: 0.875rem;">
+            <input type="date" id="filterDate" name="date" value="<?php echo htmlspecialchars($filterDate); ?>" class="form-control" style="height: 38px; font-size: 0.875rem;" onchange="if(this.value) document.getElementById('filterMonth').value=''">
         </div>
         
         <div class="form-group" style="margin-bottom: 0;">
             <label class="form-label" style="font-size: 0.75rem; margin-bottom: 0.25rem;">Bulan</label>
-            <input type="month" name="month" value="<?php echo htmlspecialchars($filterMonth); ?>" class="form-control" style="height: 38px; font-size: 0.875rem;" placeholder="YYYY-MM" pattern="\d{4}-\d{2}">
+            <input type="month" id="filterMonth" name="month" value="<?php echo htmlspecialchars($filterMonth); ?>" class="form-control" style="height: 38px; font-size: 0.875rem;" placeholder="YYYY-MM" pattern="\d{4}-\d{2}" onchange="if(this.value) document.getElementById('filterDate').value=''">
         </div>
         
         <div class="form-group" style="margin-bottom: 0;">
