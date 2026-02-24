@@ -21,6 +21,35 @@ $editId = $_GET['id'] ?? null;
 $error = '';
 $success = '';
 
+// Detect hosting environment
+$isProduction = (strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost') === false && 
+                 strpos($_SERVER['HTTP_HOST'] ?? '', '127.0.0.1') === false);
+
+// Auto-detect hosting DB prefix from DB_USER (e.g., 'adfb2574_adfsystem' -> 'adfb2574_')
+$dbPrefix = '';
+if ($isProduction && defined('DB_USER')) {
+    $parts = explode('_', DB_USER);
+    if (count($parts) >= 2) {
+        $dbPrefix = $parts[0] . '_';
+    }
+}
+
+// Auto-fix: Ensure businesses table has 'description' column
+try {
+    $colCheck = $pdo->query("SHOW COLUMNS FROM businesses LIKE 'description'");
+    if ($colCheck->rowCount() === 0) {
+        $pdo->exec("ALTER TABLE businesses ADD COLUMN description TEXT AFTER owner_id");
+    }
+} catch (Exception $e) {}
+
+// Auto-fix: Ensure businesses table has 'logo_url' column
+try {
+    $colCheck2 = $pdo->query("SHOW COLUMNS FROM businesses LIKE 'logo_url'");
+    if ($colCheck2->rowCount() === 0) {
+        $pdo->exec("ALTER TABLE businesses ADD COLUMN logo_url VARCHAR(255) AFTER description");
+    }
+} catch (Exception $e) {}
+
 // Business types
 $businessTypes = ['hotel', 'restaurant', 'retail', 'manufacture', 'tourism', 'other'];
 
@@ -69,31 +98,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     if ($check->fetchColumn() > 0) {
                         $error = 'Business code or database already exists';
                     } else {
-                        // Create database automatically
+                        // Create database automatically (handles hosting prefix + cPanel)
+                        $dbCreated = false;
+                        $actualDbName = $dbName;
+                        $dbError = '';
                         try {
                             $dbMgr = new DatabaseManager();
-                            $dbMgr->createBusinessDatabase($dbName);
+                            $actualDbName = $dbMgr->resolveDbName($dbName);
+                            $result = $dbMgr->createBusinessDatabase($dbName);
+                            $dbCreated = true;
+                            $actualDbName = $result['database'] ?? $actualDbName;
                         } catch (Exception $e) {
-                            // Database might already exist or creation failed
-                            // Continue anyway, we'll log the error
+                            $dbError = $e->getMessage();
+                            // Still continue to register the business
                         }
                         
-                        // Insert business
+                        // Store the actual DB name (with hosting prefix if applicable)
+                        $storedDbName = $actualDbName;
+                        
+                        // Insert business record
                         $stmt = $pdo->prepare("
                             INSERT INTO businesses (business_code, business_name, business_type, database_name, owner_id, description, is_active)
                             VALUES (?, ?, ?, ?, ?, ?, ?)
                         ");
-                        $stmt->execute([$businessCode, $businessName, $businessType, $dbName, $ownerId, $description, $isActive]);
+                        $stmt->execute([$businessCode, $businessName, $businessType, $storedDbName, $ownerId, $description, $isActive]);
                         $businessId = $pdo->lastInsertId();
                         
                         // Assign menus to business
-                        $menuStmt = $pdo->prepare("INSERT INTO business_menu_config (business_id, menu_id, is_enabled) VALUES (?, ?, 1)");
-                        foreach ($selectedMenus as $menuId) {
-                            $menuStmt->execute([$businessId, $menuId]);
+                        try {
+                            $menuStmt = $pdo->prepare("INSERT INTO business_menu_config (business_id, menu_id, is_enabled) VALUES (?, ?, 1)");
+                            foreach ($selectedMenus as $menuId) {
+                                $menuStmt->execute([$businessId, $menuId]);
+                            }
+                        } catch (Exception $e) {
+                            // business_menu_config might not exist yet, ignore
                         }
                         
-                        $auth->logAction('create_business', 'businesses', $businessId, null, ['name' => $businessName, 'database' => $dbName]);
-                        $_SESSION['success_message'] = "Business '{$businessName}' created with database '{$dbName}'!";
+                        $auth->logAction('create_business', 'businesses', $businessId, null, ['name' => $businessName, 'database' => $storedDbName]);
+                        
+                        if ($dbCreated) {
+                            $_SESSION['success_message'] = "Business '{$businessName}' created with database '{$storedDbName}'!";
+                        } else {
+                            $_SESSION['success_message'] = "Business '{$businessName}' registered! ⚠️ Database '{$storedDbName}' could not be auto-created. Please create it manually in cPanel → MySQL Databases, then run the template setup. Error: {$dbError}";
+                        }
                         header('Location: businesses.php');
                         exit;
                     }

@@ -121,14 +121,36 @@ function getDbName($localDbName) {
         return $localDbName;
     }
     
-    // Production database mapping
+    // Production database mapping (known databases)
     $dbMapping = [
         'adf_system' => 'adfb2574_adf',
         'adf_narayana_hotel' => 'adfb2574_narayana_hotel',
         'adf_benscafe' => 'adfb2574_Adf_Bens'
     ];
     
-    return $dbMapping[$localDbName] ?? $localDbName;
+    if (isset($dbMapping[$localDbName])) {
+        return $dbMapping[$localDbName];
+    }
+    
+    // Auto-generate for new/unknown databases on hosting
+    // Derive prefix from DB_USER (e.g., 'adfb2574_adfsystem' -> 'adfb2574_')
+    $prefix = '';
+    if (defined('DB_USER')) {
+        $parts = explode('_', DB_USER);
+        if (count($parts) >= 2) {
+            $prefix = $parts[0] . '_';
+        }
+    }
+    
+    if ($prefix && strpos($localDbName, $prefix) !== 0) {
+        // Strip 'adf_' prefix and add hosting prefix: adf_cafe -> adfb2574_cafe
+        if (strpos($localDbName, 'adf_') === 0) {
+            return $prefix . substr($localDbName, 4);
+        }
+        return $prefix . $localDbName;
+    }
+    
+    return $localDbName;
 }
 
 // Also make it available as constant for master DB
