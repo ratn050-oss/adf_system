@@ -497,11 +497,12 @@ echo getPrintCSS();
         background: white;
         margin: 0;
         padding: 0;
+        font-family: 'Segoe UI', Arial, sans-serif;
     }
     
     /* Hide non-print elements */
     .sidebar, .page-header, button, .btn, .table-actions, .table-header > div:last-child, 
-    form, a[href*="add"], a[href*="logs"], [onclick*="print"] {
+    form, a[href*="add"], a[href*="logs"], [onclick*="print"], .dashboard-grid, .table-container {
         display: none !important;
     }
     
@@ -517,163 +518,156 @@ echo getPrintCSS();
     .print-header {
         display: table;
         width: 100%;
-        margin-bottom: 2rem;
-        border-bottom: 3px solid #1e293b;
-        padding-bottom: 1.5rem;
+        margin-bottom: 1rem;
+        border-bottom: 2px solid #111827;
+        padding-bottom: 1rem;
     }
     
     .print-header-left {
         display: table-cell;
-        width: 15%;
+        width: 12%;
         vertical-align: middle;
         text-align: center;
     }
     
     .print-header-center {
         display: table-cell;
-        width: 70%;
+        width: 76%;
         vertical-align: middle;
         text-align: center;
-        padding: 0 2rem;
+        padding: 0 1rem;
     }
     
     .print-header-right {
         display: table-cell;
-        width: 15%;
+        width: 12%;
         vertical-align: middle;
-        text-align: center;
+        text-align: right;
     }
     
     .print-logo {
-        width: 80px;
-        height: 80px;
+        width: 70px;
+        height: 70px;
         object-fit: contain;
         margin: 0 auto;
     }
     
     .print-company-name {
-        font-size: 1.5rem;
+        font-size: 1.4rem;
         font-weight: 800;
-        color: #0f172a;
-        margin: 0.5rem 0 0.25rem 0;
-        letter-spacing: -0.5px;
+        color: #111827;
+        margin: 0 0 0.15rem 0;
+        letter-spacing: -0.3px;
     }
     
     .print-company-type {
-        font-size: 0.95rem;
-        color: #64748b;
+        font-size: 0.8rem;
+        color: #6b7280;
         margin: 0;
-        font-weight: 500;
+        font-weight: 400;
     }
     
     .print-title {
-        font-size: 1.25rem;
+        font-size: 1.1rem;
         font-weight: 700;
-        color: #0f172a;
-        margin: 1.5rem 0 0.5rem 0;
+        color: #111827;
+        margin: 0.75rem 0 0.3rem 0;
         text-align: center;
-        text-decoration: underline;
-        text-decoration-color: #6366f1;
-        text-underline-offset: 0.5rem;
+        text-transform: uppercase;
+        letter-spacing: 1px;
     }
     
     .print-period {
-        font-size: 0.9rem;
-        color: #475569;
+        font-size: 0.85rem;
+        color: #6b7280;
         text-align: center;
-        margin-bottom: 1.5rem;
+        margin-bottom: 0;
     }
     
     /* Summary cards for print */
     .print-summary {
-        display: grid;
-        grid-template-columns: 1fr 1fr 1fr;
-        gap: 1.5rem;
-        margin-bottom: 2rem;
+        display: flex;
+        gap: 0;
+        margin-bottom: 1rem;
         page-break-inside: avoid;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        overflow: hidden;
     }
     
     .print-summary-card {
-        padding: 1rem;
-        border: 2px solid #cbd5e1;
-        border-radius: 0.5rem;
-        background: #f8fafc;
+        flex: 1;
+        padding: 0.6rem 0.75rem;
         text-align: center;
+        border-right: 1px solid #d1d5db;
+    }
+    
+    .print-summary-card:last-child {
+        border-right: none;
     }
     
     .print-summary-label {
-        font-size: 0.85rem;
-        color: #64748b;
+        font-size: 0.7rem;
+        color: #6b7280;
         font-weight: 600;
-        margin-bottom: 0.5rem;
+        margin-bottom: 0.2rem;
         text-transform: uppercase;
         letter-spacing: 0.5px;
     }
     
     .print-summary-value {
-        font-size: 1.25rem;
+        font-size: 1.1rem;
         font-weight: 800;
-        color: #0f172a;
+        color: #111827;
     }
     
-    .print-summary-value.income {
-        color: #059669;
-    }
-    
-    .print-summary-value.expense {
-        color: #dc2626;
-    }
-    
-    .print-summary-value.balance {
-        color: #1e40af;
-    }
+    .print-summary-value.income { color: #059669; }
+    .print-summary-value.expense { color: #dc2626; }
+    .print-summary-value.balance { color: #111827; }
     
     /* Table styling */
     table {
         width: 100%;
         border-collapse: collapse;
-        margin-top: 1rem;
-        page-break-inside: avoid;
+        font-size: 0.8rem;
     }
     
     thead {
-        background: #1e293b;
+        background: #111827;
         color: white;
     }
     
     th {
-        padding: 0.75rem;
+        padding: 0.5rem 0.5rem;
         text-align: left;
-        font-weight: 700;
-        font-size: 0.85rem;
-        border: 1px solid #0f172a;
-        letter-spacing: 0.5px;
-    }
-    
-    th:last-child {
-        text-align: right;
+        font-weight: 600;
+        font-size: 0.7rem;
+        border: 1px solid #111827;
+        letter-spacing: 0.3px;
+        text-transform: uppercase;
     }
     
     td {
-        padding: 0.65rem 0.75rem;
-        border: 1px solid #cbd5e1;
-        font-size: 0.85rem;
-    }
-    
-    tbody tr:nth-child(odd) {
-        background: #f8fafc;
+        padding: 0.35rem 0.5rem;
+        border: 1px solid #e5e7eb;
+        font-size: 0.78rem;
+        line-height: 1.3;
     }
     
     tbody tr:nth-child(even) {
-        background: white;
+        background: #f9fafb;
+    }
+    
+    tfoot td {
+        border-color: #d1d5db;
     }
     
     .badge {
         display: inline-block;
-        padding: 0.3rem 0.6rem;
-        border-radius: 0.3rem;
-        font-size: 0.75rem;
-        font-weight: 600;
+        padding: 0.15rem 0.4rem;
+        border-radius: 3px;
+        font-size: 0.65rem;
+        font-weight: 700;
     }
     
     .badge.income {
@@ -686,60 +680,43 @@ echo getPrintCSS();
         color: #991b1b;
     }
     
-    td[style*="text-align: right"] {
-        text-align: right !important;
-        font-weight: 600;
-    }
-    
-    .date-cell::before {
-        content: attr(data-date);
-    }
-    
     /* Print footer */
     .print-footer {
-        margin-top: 2rem;
-        padding-top: 1.5rem;
-        border-top: 2px solid #cbd5e1;
+        margin-top: 1.5rem;
+        padding-top: 1rem;
+        border-top: 1px solid #d1d5db;
         display: flex;
         justify-content: space-around;
         text-align: center;
         page-break-inside: avoid;
     }
     
-    .print-footer-item {
-        flex: 1;
-    }
+    .print-footer-item { flex: 1; }
     
     .print-footer-label {
-        font-size: 0.8rem;
-        color: #64748b;
-        margin-bottom: 2rem;
+        font-size: 0.75rem;
+        color: #6b7280;
+        margin-bottom: 2.5rem;
     }
     
     .print-footer-line {
-        border-top: 1px solid #0f172a;
+        border-top: 1px solid #111827;
         height: 1px;
-        margin-bottom: 0.5rem;
+        margin-bottom: 0.3rem;
+        width: 70%;
+        margin-left: auto;
+        margin-right: auto;
     }
     
     .print-footer-text {
-        font-size: 0.85rem;
-        color: #0f172a;
+        font-size: 0.8rem;
+        color: #111827;
         font-weight: 600;
-    }
-    
-    .print-notes {
-        margin-top: 2rem;
-        padding: 1rem;
-        background: #f1f5f9;
-        border-left: 4px solid #6366f1;
-        font-size: 0.85rem;
-        color: #334155;
     }
     
     /* Page break */
     @page {
-        margin: 0.5in;
+        margin: 0.4in 0.5in;
         size: A4;
     }
 }
@@ -748,39 +725,131 @@ echo getPrintCSS();
 <!-- Print Version (Hidden in Screen) -->
 <div style="display: none;" id="printSection" class="print-content">
     <?php 
+    // Build dynamic period text
     $periodText = !empty($filterMonth) ? date('F Y', strtotime($filterMonth . '-01')) : (!empty($filterDate) ? formatDate($filterDate) : 'Semua Periode');
-    echo printHeader($db, $displayCompanyName, BUSINESS_ICON, BUSINESS_TYPE, '📊 DAFTAR TRANSAKSI', 'Periode: ' . $periodText);
+    
+    // Build dynamic title based on active filters
+    $printTitle = 'LAPORAN BUKU KAS BESAR';
+    $filterTags = [];
+    
+    // Payment method filter label
+    $paymentLabels = [
+        'cash' => 'Transaksi Cash',
+        'transfer' => 'Transaksi Transfer Bank',
+        'debit' => 'Transaksi Debit/Kartu',
+        'qr' => 'Transaksi QR Code',
+        'edc' => 'Transaksi EDC',
+        'other' => 'Transaksi Lainnya'
+    ];
+    if (!empty($filterPayment) && $filterPayment !== 'all') {
+        $printTitle = strtoupper($paymentLabels[$filterPayment] ?? 'Transaksi ' . ucfirst($filterPayment));
+        $filterTags[] = 'Pembayaran: ' . ucfirst($filterPayment);
+    }
+    
+    // Division filter label
+    if (!empty($filterDivision) && $filterDivision !== 'all') {
+        $divName = '';
+        foreach ($divisions as $d) {
+            if ($d['id'] == $filterDivision) { $divName = $d['division_name']; break; }
+        }
+        if ($divName) {
+            $printTitle = 'LAPORAN KAS DIVISI ' . strtoupper($divName);
+            $filterTags[] = 'Divisi: ' . $divName;
+        }
+    }
+    
+    // Type filter label
+    if (!empty($filterType) && $filterType !== 'all') {
+        $filterTags[] = 'Tipe: ' . ($filterType === 'income' ? 'Pemasukan' : 'Pengeluaran');
+    }
+    
+    // If both payment + division, combine
+    if (!empty($filterPayment) && $filterPayment !== 'all' && !empty($filterDivision) && $filterDivision !== 'all' && $divName) {
+        $printTitle = strtoupper(($paymentLabels[$filterPayment] ?? 'Transaksi ' . ucfirst($filterPayment)) . ' - Divisi ' . $divName);
+    }
+    
+    echo printHeader($db, $displayCompanyName, BUSINESS_ICON, BUSINESS_TYPE, $printTitle, 'Periode: ' . $periodText);
     ?>
+    
+    <?php if (!empty($filterTags)): ?>
+    <div style="text-align: center; margin-bottom: 0.75rem;">
+        <?php foreach ($filterTags as $tag): ?>
+        <span style="display: inline-block; padding: 0.2rem 0.6rem; background: #f1f5f9; border: 1px solid #cbd5e1; border-radius: 4px; font-size: 0.75rem; color: #475569; margin: 0 0.15rem;"><?php echo $tag; ?></span>
+        <?php endforeach; ?>
+    </div>
+    <?php endif; ?>
+    
+    <!-- Summary Totals -->
+    <div class="print-summary">
+        <div class="print-summary-card">
+            <div class="print-summary-label">Total Pemasukan</div>
+            <div class="print-summary-value income"><?php echo formatCurrency($totalIncome); ?></div>
+            <div style="font-size: 0.7rem; color: #94a3b8; margin-top: 0.2rem;"><?php $incomeCount = 0; foreach($transactions as $t) if($t['transaction_type']==='income') $incomeCount++; echo $incomeCount; ?> transaksi</div>
+        </div>
+        <div class="print-summary-card">
+            <div class="print-summary-label">Total Pengeluaran</div>
+            <div class="print-summary-value expense"><?php echo formatCurrency($totalExpense); ?></div>
+            <div style="font-size: 0.7rem; color: #94a3b8; margin-top: 0.2rem;"><?php echo count($transactions) - $incomeCount; ?> transaksi</div>
+        </div>
+        <div class="print-summary-card">
+            <div class="print-summary-label">Saldo / Selisih</div>
+            <div class="print-summary-value balance"><?php echo formatCurrency($balance); ?></div>
+            <div style="font-size: 0.7rem; color: #94a3b8; margin-top: 0.2rem;"><?php echo count($transactions); ?> total transaksi</div>
+        </div>
+    </div>
     
     <!-- Transactions Table -->
     <table>
         <thead>
             <tr>
-                <th style="width: 10%;">Tanggal</th>
-                <th style="width: 6%;">Waktu</th>
-                <th style="width: 12%;">Divisi</th>
-                <th style="width: 12%;">Kategori/Nama</th>
-                <th style="width: 6%;">Tipe</th>
-                <th style="width: 14%; text-align: right;">Jumlah</th>
-                <th style="width: 40%;">Deskripsi</th>
+                <th style="width: 5%;">No</th>
+                <th style="width: 9%;">Tanggal</th>
+                <th style="width: 5%;">Waktu</th>
+                <th style="width: 11%;">Divisi</th>
+                <th style="width: 11%;">Kategori</th>
+                <th style="width: 5%;">Tipe</th>
+                <th style="width: 6%;">Metode</th>
+                <th style="width: 13%; text-align: right;">Jumlah</th>
+                <th>Deskripsi</th>
             </tr>
         </thead>
         <tbody>
-            <?php foreach ($transactions as $trans): ?>
+            <?php $no = 1; foreach ($transactions as $trans): ?>
                 <tr>
+                    <td style="text-align: center; color: #94a3b8; font-size: 0.75rem;"><?php echo $no++; ?></td>
                     <td><?php echo date('d/m/Y', strtotime($trans['transaction_date'])); ?></td>
-                    <td><?php echo date('H:i', strtotime($trans['transaction_time'])); ?></td>
-                    <td><strong><?php echo $trans['division_name']; ?></strong><br><span style="color: #94a3b8; font-size: 0.75rem;"><?php echo $trans['division_code']; ?></span></td>
+                    <td><?php echo isset($trans['transaction_time']) ? date('H:i', strtotime($trans['transaction_time'])) : '-'; ?></td>
+                    <td><strong><?php echo $trans['division_name']; ?></strong></td>
                     <td><?php echo $trans['category_name']; ?></td>
                     <td><span class="badge <?php echo $trans['transaction_type']; ?>"><?php echo $trans['transaction_type'] === 'income' ? 'Masuk' : 'Keluar'; ?></span></td>
-                    <td style="text-align: right; color: <?php echo $trans['transaction_type'] === 'income' ? '#059669' : '#dc2626'; ?>;">
+                    <td style="text-align: center; font-size: 0.75rem; text-transform: uppercase;"><?php echo htmlspecialchars($trans['payment_method'] ?? '-'); ?></td>
+                    <td style="text-align: right; font-weight: 700; color: <?php echo $trans['transaction_type'] === 'income' ? '#059669' : '#dc2626'; ?>;">
                         <?php echo formatCurrency($trans['amount']); ?>
                     </td>
-                    <td><?php echo $trans['description'] ?: '-'; ?></td>
+                    <td style="font-size: 0.8rem;"><?php echo $trans['description'] ?: '-'; ?></td>
                 </tr>
             <?php endforeach; ?>
         </tbody>
+        <tfoot>
+            <tr style="background: #f1f5f9; font-weight: 700;">
+                <td colspan="7" style="text-align: right; padding: 0.6rem 0.75rem; border-top: 2px solid #1e293b;">TOTAL PEMASUKAN:</td>
+                <td style="text-align: right; color: #059669; padding: 0.6rem 0.75rem; border-top: 2px solid #1e293b; font-size: 0.95rem;"><?php echo formatCurrency($totalIncome); ?></td>
+                <td style="border-top: 2px solid #1e293b;"></td>
+            </tr>
+            <tr style="background: #f1f5f9; font-weight: 700;">
+                <td colspan="7" style="text-align: right; padding: 0.6rem 0.75rem;">TOTAL PENGELUARAN:</td>
+                <td style="text-align: right; color: #dc2626; padding: 0.6rem 0.75rem; font-size: 0.95rem;"><?php echo formatCurrency($totalExpense); ?></td>
+                <td></td>
+            </tr>
+            <tr style="background: #1e293b; color: white; font-weight: 800;">
+                <td colspan="7" style="text-align: right; padding: 0.75rem; font-size: 0.95rem;">SALDO:</td>
+                <td style="text-align: right; padding: 0.75rem; font-size: 1.1rem;"><?php echo formatCurrency($balance); ?></td>
+                <td></td>
+            </tr>
+        </tfoot>
     </table>
+    
+    <?php echo printFooter($currentUser['full_name'] ?? 'Admin'); ?>
 </div>
 
 <!-- Screen Display Section -->
