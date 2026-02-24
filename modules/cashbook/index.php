@@ -1169,9 +1169,67 @@ echo getPrintCSS();
     const isPrint = urlParams.has('print') || window.location.search.includes('print=1');
     
     if (isPrint) {
-        // Remove screen content and show print content
-        document.getElementById('screenSection').innerHTML = document.getElementById('printSection').innerHTML;
+        // Hide sidebar and page header
+        document.querySelectorAll('.sidebar, .page-header').forEach(el => el.style.display = 'none');
+        
+        // Full width main content
+        const mainContent = document.querySelector('.main-content');
+        if (mainContent) {
+            mainContent.style.marginLeft = '0';
+            mainContent.style.padding = '0';
+            mainContent.style.maxWidth = '100%';
+        }
+        
+        // Replace screen content with print content
+        const printHTML = document.getElementById('printSection').innerHTML;
+        document.getElementById('screenSection').innerHTML = '';
+        document.getElementById('screenSection').style.cssText = 'max-width: 900px; margin: 0 auto; padding: 2rem 1.5rem; background: white; font-family: Segoe UI, Arial, sans-serif;';
+        document.getElementById('screenSection').innerHTML = printHTML;
         document.getElementById('printSection').remove();
+        
+        // Inject print-preview styles
+        const printStyle = document.createElement('style');
+        printStyle.textContent = `
+            body { background: #f3f4f6 !important; }
+            .print-header {
+                display: table; width: 100%;
+                margin-bottom: 1rem; border-bottom: 2px solid #111827; padding-bottom: 1rem;
+            }
+            .print-header-left { display: table-cell; width: 12%; vertical-align: middle; text-align: center; }
+            .print-header-center { display: table-cell; width: 76%; vertical-align: middle; text-align: center; padding: 0 1rem; }
+            .print-header-right { display: table-cell; width: 12%; vertical-align: middle; text-align: right; }
+            .print-logo { width: 65px; height: 65px; object-fit: contain; }
+            .print-company-name { font-size: 1.4rem; font-weight: 800; color: #111827; margin: 0 0 0.1rem 0; }
+            .print-company-type { display: none; }
+            .print-title { font-size: 1rem; font-weight: 700; color: #111827; margin: 0.5rem 0 0.2rem 0; text-transform: uppercase; letter-spacing: 1px; }
+            .print-period { font-size: 0.85rem; color: #6b7280; margin: 0; }
+            .print-summary {
+                display: flex; gap: 0; margin-bottom: 1rem;
+                border: 1px solid #d1d5db; border-radius: 6px; overflow: hidden;
+            }
+            .print-summary-card { flex: 1; padding: 0.6rem 0.75rem; text-align: center; border-right: 1px solid #d1d5db; }
+            .print-summary-card:last-child { border-right: none; }
+            .print-summary-label { font-size: 0.7rem; color: #6b7280; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.15rem; }
+            .print-summary-value { font-size: 1.05rem; font-weight: 800; color: #111827; }
+            .print-summary-value.income { color: #059669; }
+            .print-summary-value.expense { color: #dc2626; }
+            .print-summary-value.balance { color: #111827; }
+            #screenSection table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+            #screenSection thead { background: #111827; color: white; }
+            #screenSection th { padding: 0.45rem 0.5rem; font-weight: 600; font-size: 0.7rem; border: 1px solid #111827; text-transform: uppercase; letter-spacing: 0.3px; text-align: left; }
+            #screenSection td { padding: 0.35rem 0.5rem; border: 1px solid #e5e7eb; font-size: 0.78rem; line-height: 1.3; }
+            #screenSection tbody tr:nth-child(even) { background: #f9fafb; }
+            #screenSection tfoot td { border-color: #d1d5db; }
+            #screenSection .badge { display: inline-block; padding: 0.15rem 0.4rem; border-radius: 3px; font-size: 0.65rem; font-weight: 700; }
+            #screenSection .badge.income { background: #d1fae5; color: #065f46; }
+            #screenSection .badge.expense { background: #fee2e2; color: #991b1b; }
+            .print-footer { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #d1d5db; display: flex; justify-content: space-around; text-align: center; }
+            .print-footer-item { flex: 1; }
+            .print-footer-label { font-size: 0.75rem; color: #6b7280; margin-bottom: 2.5rem; }
+            .print-footer-line { border-top: 1px solid #111827; width: 70%; margin: 0 auto 0.3rem auto; }
+            .print-footer-text { font-size: 0.8rem; color: #111827; font-weight: 600; }
+        `;
+        document.head.appendChild(printStyle);
         
         // Auto-trigger print dialog
         window.addEventListener('load', function() {
