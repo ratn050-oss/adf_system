@@ -610,18 +610,18 @@ if ($trialStatus) {
             </a>
         </div>
         
-        <!-- START KAS + KAS TERSEDIA (Dark bar) -->
-        <div style="background: linear-gradient(135deg, #1e293b, #334155); padding: 0.5rem 0.75rem; border-radius: 8px 8px 0 0; display: flex; align-items: center; justify-content: space-between;">
+        <!-- START KAS + KAS TERSEDIA -->
+        <div style="background: linear-gradient(135deg, rgba(251,191,36,0.12), rgba(245,158,11,0.06)); padding: 0.6rem 0.75rem; border-radius: 8px 8px 0 0; border: 1.5px solid rgba(251,191,36,0.25); border-bottom: none; display: flex; align-items: center; justify-content: space-between;">
             <div>
-                <div style="font-size: 0.5rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">☀️ Start Kas Awal Hari Ini (<?php echo date('d M'); ?>)</div>
-                <div style="font-size: 1rem; font-weight: 800; color: #e2e8f0; margin-top: 0.1rem;"><?php echo formatCurrency($startKasHariIni); ?></div>
-                <div style="font-size: 0.45rem; color: #64748b; margin-top: 0.1rem;">Sisa saldo dari kemarin · otomatis reset tiap hari</div>
+                <div style="font-size: 0.55rem; color: #92400e; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">☀️ Start Kas Awal Hari Ini (<?php echo date('d M'); ?>)</div>
+                <div style="font-size: 1.1rem; font-weight: 800; color: #92400e; margin-top: 0.15rem;"><?php echo formatCurrency($startKasHariIni); ?></div>
+                <div style="font-size: 0.48rem; color: #b45309; margin-top: 0.1rem;">Sisa saldo dari kemarin · otomatis reset tiap hari</div>
             </div>
-            <div style="width: 1px; height: 36px; background: rgba(255,255,255,0.1);"></div>
+            <div style="width: 1px; height: 38px; background: rgba(251,191,36,0.3);"></div>
             <div style="text-align: right;">
-                <div style="font-size: 0.5rem; color: #60a5fa; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">🏦 Kas Tersedia Sekarang</div>
-                <div style="font-size: 1.15rem; font-weight: 900; color: #60a5fa; margin-top: 0.1rem;"><?php echo formatCurrency($totalOperationalCash); ?></div>
-                <div style="font-size: 0.45rem; color: #64748b; margin-top: 0.1rem;">Total saldo real-time</div>
+                <div style="font-size: 0.55rem; color: #1e40af; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px;">🏦 Kas Tersedia Sekarang</div>
+                <div style="font-size: 1.2rem; font-weight: 900; color: #1e40af; margin-top: 0.15rem;"><?php echo formatCurrency($totalOperationalCash); ?></div>
+                <div style="font-size: 0.48rem; color: #3b82f6; margin-top: 0.1rem;">Total saldo real-time</div>
             </div>
         </div>
         
