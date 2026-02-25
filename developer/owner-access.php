@@ -53,6 +53,30 @@ try {
     ")->fetchAll(PDO::FETCH_ASSOC);
 } catch (Exception $e) {}
 
+// Ensure owner_footer_config table exists
+try {
+    $pdo->exec("CREATE TABLE IF NOT EXISTS owner_footer_config (
+        id INT AUTO_INCREMENT PRIMARY KEY,
+        user_id INT NOT NULL,
+        menu_key VARCHAR(50) NOT NULL,
+        menu_order INT DEFAULT 0,
+        is_enabled TINYINT(1) DEFAULT 1,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY unique_user_menu (user_id, menu_key)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
+} catch (Exception $e) {}
+
+// Available footer menu definitions
+$footerMenuDefs = [
+    'home' => ['label' => 'Home', 'icon' => 'bi-house-fill', 'desc' => 'Dashboard utama', 'always' => true],
+    'frontdesk' => ['label' => 'Frontdesk', 'icon' => 'bi-calendar3', 'desc' => 'Monitor kamar & booking'],
+    'projects' => ['label' => 'Projects', 'icon' => 'bi-graph-up', 'desc' => 'Monitor investor & proyek'],
+    'cashbook' => ['label' => 'Cashbook', 'icon' => 'bi-wallet2', 'desc' => 'Kas harian'],
+    'capital' => ['label' => 'Capital', 'icon' => 'bi-bank', 'desc' => 'Modal & investasi'],
+    'health' => ['label' => 'Health', 'icon' => 'bi-clipboard2-pulse', 'desc' => 'Laporan kesehatan bisnis'],
+    'logout' => ['label' => 'Logout', 'icon' => 'bi-box-arrow-right', 'desc' => 'Keluar', 'always' => true],
+];
+
 // Get current assignments for all users
 $assignments = [];
 try {
@@ -177,6 +201,52 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $error = 'Gagal menyimpan: ' . $e->getMessage();
         }
     }
+    
+    // Save footer menus for all users
+    if ($formAction === 'save_all_footer') {
+        $allFooter = $_POST['footer'] ?? [];
+        
+        try {
+            $pdo->beginTransaction();
+            
+            // Clear existing footer configs for all non-developer users
+            $ownerIds = array_column($owners, 'id');
+            if (empty($ownerIds)) {
+                $idRows = $pdo->query("SELECT u.id FROM users u JOIN roles r ON u.role_id = r.id WHERE r.role_code != 'developer' AND u.is_active = 1")->fetchAll(PDO::FETCH_COLUMN);
+                $ownerIds = $idRows;
+            }
+            if (!empty($ownerIds)) {
+                $placeholders = implode(',', array_fill(0, count($ownerIds), '?'));
+                $pdo->prepare("DELETE FROM owner_footer_config WHERE user_id IN ($placeholders)")->execute($ownerIds);
+            }
+            
+            // Insert new footer configs
+            $insertStmt = $pdo->prepare("INSERT INTO owner_footer_config (user_id, menu_key, menu_order, is_enabled) VALUES (?, ?, ?, 1)");
+            $totalMenus = 0;
+            foreach ($allFooter as $userId => $menuKeys) {
+                $order = 0;
+                foreach ($menuKeys as $key) {
+                    $insertStmt->execute([(int)$userId, $key, $order++]);
+                    $totalMenus++;
+                }
+            }
+            
+            $pdo->commit();
+            
+            $auth->logAction('bulk_update_footer_menus', 'owner_footer_config', null, null, [
+                'users' => count($allFooter),
+                'total_menus' => $totalMenus
+            ]);
+            
+            $_SESSION['success_message'] = "Footer menu berhasil diperbarui! ({$totalMenus} menu untuk " . count($allFooter) . " user)";
+            header("Location: owner-access.php");
+            exit;
+            
+        } catch (Exception $e) {
+            $pdo->rollBack();
+            $error = 'Gagal menyimpan footer: ' . $e->getMessage();
+        }
+    }
 }
 
 // Refresh assignments after save
@@ -187,6 +257,16 @@ try {
         $assignments[$row['user_id']][] = (int)$row['business_id'];
     }
 } catch (Exception $e) {}
+
+// Load footer configs for all users
+$footerConfigs = [];
+try {
+    $stmt = $pdo->query("SELECT user_id, menu_key FROM owner_footer_config WHERE is_enabled = 1 ORDER BY menu_order, id");
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $footerConfigs[$row['user_id']][] = $row['menu_key'];
+    }
+} catch (Exception $e) {}
+$defaultFooter = ['home', 'frontdesk', 'projects', 'logout'];
 
 require_once __DIR__ . '/includes/header.php';
 ?>
@@ -461,7 +541,10 @@ require_once __DIR__ . '/includes/header.php';
     <!-- Tab Navigation -->
     <div class="access-tabs">
         <button class="access-tab active" onclick="switchTab('cards')" id="tab-cards">
-            <i class="bi bi-grid-3x3-gap"></i> Per Owner
+            <i class="bi bi-grid-3x3-gap"></i> Akses Bisnis
+        </button>
+        <button class="access-tab" onclick="switchTab('footer')" id="tab-footer">
+            <i class="bi bi-phone"></i> Footer Menu
         </button>
         <button class="access-tab" onclick="switchTab('matrix')" id="tab-matrix">
             <i class="bi bi-table"></i> Matrix View
@@ -553,7 +636,86 @@ require_once __DIR__ . '/includes/header.php';
         </form>
     </div>
     
-    <!-- TAB 2: Matrix View -->
+    <!-- TAB 2: Footer Menu Config -->
+    <div id="view-footer" style="display:none;">
+        <form method="POST" action="" id="footerForm">
+            <input type="hidden" name="form_action" value="save_all_footer">
+            
+            <div class="alert alert-info mb-4">
+                <i class="bi bi-info-circle me-2"></i>
+                Centang menu yang akan muncul di <strong>footer navigation</strong> owner dashboard untuk setiap user.
+                Menu <strong>Home</strong> dan <strong>Logout</strong> akan selalu muncul.
+            </div>
+            
+            <div class="row g-4">
+                <?php foreach ($owners as $owner): ?>
+                <?php 
+                    $userFooter = $footerConfigs[$owner['id']] ?? $defaultFooter;
+                    $initials = strtoupper(substr($owner['full_name'], 0, 2));
+                ?>
+                <div class="col-lg-6 col-xl-4">
+                    <div class="owner-card">
+                        <div class="owner-header">
+                            <div class="owner-avatar"><?php echo $initials; ?></div>
+                            <div class="owner-info" style="flex:1;">
+                                <h6><?php echo htmlspecialchars($owner['full_name']); ?></h6>
+                                <small>@<?php echo htmlspecialchars($owner['username']); ?></small>
+                                <span class="badge <?php echo $owner['role_code'] === 'owner' ? 'bg-warning text-dark' : 'bg-secondary'; ?>" style="font-size:0.65rem; margin-left:4px;"><?php echo $owner['role_name']; ?></span>
+                            </div>
+                            <span class="access-count has-access"><?php echo count($userFooter); ?> menu</span>
+                        </div>
+                        <div class="owner-businesses">
+                            <div class="d-flex justify-content-between align-items-center mb-3">
+                                <small class="text-muted fw-semibold text-uppercase" style="letter-spacing:0.5px; font-size:0.7rem;">Footer Menu</small>
+                                <div>
+                                    <button type="button" class="btn btn-sm btn-outline-success py-0 px-2" style="font-size:0.7rem;" onclick="toggleAllFooter(<?php echo $owner['id']; ?>, true)">
+                                        <i class="bi bi-check-all"></i> Semua
+                                    </button>
+                                    <button type="button" class="btn btn-sm btn-outline-secondary py-0 px-2" style="font-size:0.7rem;" onclick="toggleAllFooter(<?php echo $owner['id']; ?>, false)">
+                                        <i class="bi bi-x-lg"></i> Reset
+                                    </button>
+                                </div>
+                            </div>
+                            
+                            <?php foreach ($footerMenuDefs as $key => $menu): ?>
+                            <?php 
+                                $isEnabled = in_array($key, $userFooter);
+                                $isAlways = isset($menu['always']);
+                            ?>
+                            <label class="biz-toggle <?php echo $isEnabled ? 'active' : ''; ?> <?php echo $isAlways ? 'always-on' : ''; ?>" 
+                                   data-footer-user="<?php echo $owner['id']; ?>">
+                                <input type="checkbox" 
+                                       name="footer[<?php echo $owner['id']; ?>][]" 
+                                       value="<?php echo $key; ?>"
+                                       <?php echo $isEnabled ? 'checked' : ''; ?>
+                                       <?php echo $isAlways ? 'checked onclick="return false;"' : ''; ?>
+                                       onchange="toggleFooterItem(this)">
+                                <div class="biz-check"></div>
+                                <div class="biz-icon" style="background:rgba(99,102,241,0.12); color:#6366f1;">
+                                    <i class="bi <?php echo $menu['icon']; ?>"></i>
+                                </div>
+                                <div class="biz-details">
+                                    <div class="biz-name"><?php echo $menu['label']; ?></div>
+                                    <div class="biz-type"><?php echo $menu['desc']; ?></div>
+                                </div>
+                            </label>
+                            <?php endforeach; ?>
+                        </div>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+            </div>
+            
+            <!-- Floating Save Button -->
+            <div class="save-float" id="saveFooterFloat">
+                <button type="submit" class="btn btn-primary btn-lg shadow-lg" style="border-radius:50px; padding: 12px 30px;">
+                    <i class="bi bi-check-lg me-2"></i>Simpan Footer Menu
+                </button>
+            </div>
+        </form>
+    </div>
+    
+    <!-- TAB 3: Matrix View -->
     <div id="view-matrix" style="display:none;">
         <div class="content-card">
             <div class="card-header-custom">
@@ -622,8 +784,10 @@ let hasChanges = false;
 function switchTab(tab) {
     document.getElementById('tab-cards').classList.toggle('active', tab === 'cards');
     document.getElementById('tab-matrix').classList.toggle('active', tab === 'matrix');
+    document.getElementById('tab-footer').classList.toggle('active', tab === 'footer');
     document.getElementById('view-cards').style.display = tab === 'cards' ? '' : 'none';
     document.getElementById('view-matrix').style.display = tab === 'matrix' ? '' : 'none';
+    document.getElementById('view-footer').style.display = tab === 'footer' ? '' : 'none';
 }
 
 function toggleBiz(checkbox) {
@@ -670,6 +834,35 @@ window.addEventListener('beforeunload', function(e) {
 document.getElementById('bulkForm')?.addEventListener('submit', function() {
     hasChanges = false;
 });
+document.getElementById('footerForm')?.addEventListener('submit', function() {
+    hasChanges = false;
+});
+
+function toggleFooterItem(checkbox) {
+    const label = checkbox.closest('.biz-toggle');
+    if (label.classList.contains('always-on')) return;
+    label.classList.toggle('active', checkbox.checked);
+    showFooterSave();
+}
+
+function toggleAllFooter(userId, checked) {
+    document.querySelectorAll(`[data-footer-user="${userId}"] input[type="checkbox"]`).forEach(cb => {
+        if (cb.closest('.always-on')) return;
+        cb.checked = checked;
+        cb.closest('.biz-toggle').classList.toggle('active', checked);
+    });
+    // Always keep always-on checked
+    document.querySelectorAll(`[data-footer-user="${userId}"].always-on input`).forEach(cb => {
+        cb.checked = true;
+        cb.closest('.biz-toggle').classList.add('active');
+    });
+    showFooterSave();
+}
+
+function showFooterSave() {
+    hasChanges = true;
+    document.getElementById('saveFooterFloat').classList.add('show');
+}
 </script>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>

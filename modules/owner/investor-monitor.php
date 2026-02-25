@@ -1386,24 +1386,11 @@ foreach ($projects as $proj) {
     </div>
     
     <!-- Footer Nav -->
-    <nav class="nav-bottom">
-        <a href="<?= $basePath ?>/modules/owner/dashboard-2028.php" class="nav-item">
-            <span class="nav-icon">🏠</span>
-            <span>Home</span>
-        </a>
-        <a href="<?= $basePath ?>/modules/owner/frontdesk-mobile.php" class="nav-item">
-            <span class="nav-icon">📋</span>
-            <span>Frontdesk</span>
-        </a>
-        <a href="<?= $basePath ?>/modules/owner/investor-monitor.php" class="nav-item active">
-            <span class="nav-icon">📈</span>
-            <span>Projects</span>
-        </a>
-        <a href="<?= $basePath ?>/logout.php" class="nav-item">
-            <span class="nav-icon">🚪</span>
-            <span>Logout</span>
-        </a>
-    </nav>
+    <?php
+    require_once __DIR__ . '/../../includes/owner_footer_nav.php';
+    $activeConfig = getActiveBusinessConfig();
+    renderOwnerFooterNav('projects', $basePath, $activeConfig['enabled_modules'] ?? []);
+    ?>
 
     <script>
         // Expense Pie Chart

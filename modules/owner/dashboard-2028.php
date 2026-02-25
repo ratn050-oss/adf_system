@@ -42,7 +42,11 @@ if (isset($_GET['business']) && !empty($_GET['business'])) {
 }
 
 // Get all available businesses & active config
-$allBusinesses = getAvailableBusinesses();
+require_once __DIR__ . '/../../includes/business_access.php';
+$allBusinesses = getUserAvailableBusinesses();
+if (empty($allBusinesses)) {
+    $allBusinesses = getAvailableBusinesses(); // fallback
+}
 $activeBusinessId = getActiveBusinessId();
 $activeConfig = getActiveBusinessConfig();
 
@@ -1459,28 +1463,10 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
     </div><!-- end .container -->
 
     <!-- Footer Nav -->
-    <nav class="nav-bottom">
-        <a href="<?= $basePath ?>/modules/owner/dashboard-2028.php" class="nav-item active">
-            <span class="nav-icon" style="font-family: 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif;">&#127968;</span>
-            <span>Home</span>
-        </a>
-        <?php if (in_array('frontdesk', $enabledModules)): ?>
-        <a href="<?= $basePath ?>/modules/owner/frontdesk-mobile.php" class="nav-item">
-            <span class="nav-icon" style="font-family: 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif;">&#128197;</span>
-            <span>Frontdesk</span>
-        </a>
-        <?php endif; ?>
-        <?php if (in_array('project', $enabledModules) || in_array('investor', $enabledModules)): ?>
-        <a href="<?= $basePath ?>/modules/owner/investor-monitor.php" class="nav-item">
-            <span class="nav-icon" style="font-family: 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif;">&#128200;</span>
-            <span>Projects</span>
-        </a>
-        <?php endif; ?>
-        <a href="<?= $basePath ?>/logout.php" class="nav-item">
-            <span class="nav-icon" style="font-family: 'Segoe UI Emoji', 'Apple Color Emoji', sans-serif;">&#128682;</span>
-            <span>Logout</span>
-        </a>
-    </nav>
+    <?php
+    require_once __DIR__ . '/../../includes/owner_footer_nav.php';
+    renderOwnerFooterNav('home', $basePath, $enabledModules);
+    ?>
 
     <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.7/dist/chart.umd.min.js"></script>
     <script>
