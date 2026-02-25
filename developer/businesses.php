@@ -70,11 +70,412 @@ try {
     $menus = $pdo->query("SELECT * FROM menu_items WHERE is_active = 1 ORDER BY menu_order")->fetchAll(PDO::FETCH_ASSOC);
 } catch (Exception $e) {}
 
+// cPanel URL for this hosting
+$cpanelUrl = 'https://guangmao.iixcp.rumahweb.net:2083';
+
 // Handle form submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $formAction = $_POST['form_action'] ?? '';
     
-    if ($formAction === 'create' || $formAction === 'update') {
+    // =============================================
+    // STEP 1: Register business (save to master DB only, NO database creation)
+    // =============================================
+    if ($formAction === 'register_business') {
+        $businessCode = strtoupper(trim($_POST['business_code'] ?? ''));
+        $businessName = trim($_POST['business_name'] ?? '');
+        $businessType = $_POST['business_type'] ?? 'other';
+        $ownerId = (int)($_POST['owner_id'] ?? 0);
+        $description = trim($_POST['description'] ?? '');
+        $selectedMenus = $_POST['menus'] ?? [];
+        
+        $dbName = 'adf_' . strtolower(preg_replace('/[^a-z0-9]/i', '_', $businessCode));
+        
+        if (empty($businessCode) || empty($businessName) || $ownerId === 0) {
+            $error = 'Please fill all required fields';
+        } else {
+            try {
+                $check = $pdo->prepare("SELECT COUNT(*) FROM businesses WHERE business_code = ? OR database_name = ?");
+                $check->execute([$businessCode, $dbName]);
+                if ($check->fetchColumn() > 0) {
+                    $error = 'Business code or database already exists';
+                } else {
+                    // Resolve actual DB name for hosting
+                    $actualDbName = $dbName;
+                    if ($isProduction) {
+                        $actualDbName = getDbName($dbName);
+                    }
+                    
+                    // Insert business record
+                    $stmt = $pdo->prepare("
+                        INSERT INTO businesses (business_code, business_name, business_type, database_name, owner_id, description, is_active)
+                        VALUES (?, ?, ?, ?, ?, ?, 0)
+                    ");
+                    $stmt->execute([$businessCode, $businessName, $businessType, $actualDbName, $ownerId, $description]);
+                    $businessId = $pdo->lastInsertId();
+                    
+                    // Create cash accounts in master
+                    try {
+                        $pdo->prepare("INSERT INTO cash_accounts (business_id, account_name, account_type, current_balance, is_default_account, description, is_active) VALUES (?, 'Petty Cash', 'cash', 0, 1, 'Uang cash dari tamu / operasional', 1)")->execute([$businessId]);
+                        $pdo->prepare("INSERT INTO cash_accounts (business_id, account_name, account_type, current_balance, is_default_account, description, is_active) VALUES (?, 'Bank', 'bank', 0, 0, 'Rekening bank utama bisnis', 1)")->execute([$businessId]);
+                        $pdo->prepare("INSERT INTO cash_accounts (business_id, account_name, account_type, current_balance, is_default_account, description, is_active) VALUES (?, 'Kas Modal Owner', 'owner_capital', 0, 0, 'Modal operasional dari owner', 1)")->execute([$businessId]);
+                    } catch (Exception $e) {}
+                    
+                    // Assign menus
+                    try {
+                        $menuStmt = $pdo->prepare("INSERT INTO business_menu_config (business_id, menu_id, is_enabled) VALUES (?, ?, 1)");
+                        foreach ($selectedMenus as $menuId) {
+                            $menuStmt->execute([$businessId, $menuId]);
+                        }
+                    } catch (Exception $e) {}
+                    
+                    $auth->logAction('create_business', 'businesses', $businessId, null, ['name' => $businessName, 'database' => $actualDbName]);
+                    
+                    // Redirect to setup wizard at step 2
+                    header('Location: businesses.php?action=setup&id=' . $businessId . '&step=2');
+                    exit;
+                }
+            } catch (PDOException $e) {
+                $error = 'Database error: ' . $e->getMessage();
+            }
+        }
+    }
+    
+    // =============================================
+    // STEP 3: Setup database tables & seed data
+    // =============================================
+    if ($formAction === 'setup_database') {
+        $setupBizId = (int)$_POST['business_id'];
+        $bizStmt = $pdo->prepare("SELECT * FROM businesses WHERE id = ?");
+        $bizStmt->execute([$setupBizId]);
+        $setupBiz = $bizStmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($setupBiz) {
+            $bizDbName = $setupBiz['database_name'];
+            $businessName = $setupBiz['business_name'];
+            $businessType = $setupBiz['business_type'];
+            $seedSuccess = false;
+            $setupError = '';
+            
+            try {
+                $bizPdo = new PDO("mysql:host=" . DB_HOST . ";dbname=" . $bizDbName, DB_USER, DB_PASS);
+                $bizPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+                
+                // Create all essential tables
+                $bizPdo->exec("CREATE TABLE IF NOT EXISTS divisions (
+                    id INT AUTO_INCREMENT PRIMARY KEY, branch_id VARCHAR(50), division_code VARCHAR(20), division_name VARCHAR(100) NOT NULL,
+                    description TEXT, division_type ENUM('income','expense','both') DEFAULT 'both', is_active TINYINT(1) DEFAULT 1,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                )");
+                $bizPdo->exec("CREATE TABLE IF NOT EXISTS categories (
+                    id INT AUTO_INCREMENT PRIMARY KEY, branch_id VARCHAR(50), division_id INT, category_name VARCHAR(100) NOT NULL,
+                    category_type ENUM('income','expense') DEFAULT 'income', description TEXT, is_active TINYINT(1) DEFAULT 1,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                )");
+                $bizPdo->exec("CREATE TABLE IF NOT EXISTS settings (
+                    id INT AUTO_INCREMENT PRIMARY KEY, setting_key VARCHAR(100) UNIQUE, setting_value TEXT,
+                    setting_type VARCHAR(20) DEFAULT 'string', description TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                )");
+                $bizPdo->exec("CREATE TABLE IF NOT EXISTS cash_book (
+                    id INT AUTO_INCREMENT PRIMARY KEY, branch_id VARCHAR(50), transaction_date DATE NOT NULL, transaction_time TIME,
+                    division_id INT, category_id INT, category_name VARCHAR(100), description TEXT,
+                    transaction_type ENUM('income','expense') NOT NULL, amount DECIMAL(15,2) NOT NULL DEFAULT 0,
+                    payment_method VARCHAR(30) DEFAULT 'cash', cash_account_id INT, notes TEXT,
+                    attachment VARCHAR(255), created_by INT, shift VARCHAR(20),
+                    source_type VARCHAR(30) DEFAULT 'manual', source_id INT NULL, reference_no VARCHAR(50) NULL,
+                    is_editable TINYINT(1) DEFAULT 1,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                )");
+                $bizPdo->exec("CREATE TABLE IF NOT EXISTS users (
+                    id INT AUTO_INCREMENT PRIMARY KEY, username VARCHAR(50) UNIQUE NOT NULL, password VARCHAR(255) NOT NULL,
+                    full_name VARCHAR(100), email VARCHAR(100), phone VARCHAR(20),
+                    role ENUM('owner','admin','manager','frontdesk','cashier','accountant','staff') DEFAULT 'staff',
+                    role_id INT, business_access TEXT, is_active TINYINT(1) DEFAULT 1,
+                    last_login DATETIME, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                )");
+                $bizPdo->exec("CREATE TABLE IF NOT EXISTS roles (
+                    id INT AUTO_INCREMENT PRIMARY KEY, role_name VARCHAR(50) NOT NULL, role_code VARCHAR(30),
+                    description TEXT, is_system_role TINYINT(1) DEFAULT 1, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )");
+                $bizPdo->exec("CREATE TABLE IF NOT EXISTS user_preferences (
+                    id INT AUTO_INCREMENT PRIMARY KEY, user_id INT, branch_id VARCHAR(50),
+                    theme VARCHAR(20) DEFAULT 'dark', language VARCHAR(5) DEFAULT 'id', sidebar_collapsed TINYINT(1) DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                )");
+                $bizPdo->exec("CREATE TABLE IF NOT EXISTS user_permissions (
+                    id INT AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL, permission VARCHAR(50) NOT NULL,
+                    can_view TINYINT(1) DEFAULT 1, can_create TINYINT(1) DEFAULT 0, can_edit TINYINT(1) DEFAULT 0, can_delete TINYINT(1) DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )");
+                $bizPdo->exec("CREATE TABLE IF NOT EXISTS audit_logs (
+                    id INT AUTO_INCREMENT PRIMARY KEY, user_id INT, action_type VARCHAR(50),
+                    table_name VARCHAR(50), record_id INT, old_values TEXT, new_values TEXT,
+                    ip_address VARCHAR(45), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )");
+                $bizPdo->exec("CREATE TABLE IF NOT EXISTS suppliers (
+                    id INT AUTO_INCREMENT PRIMARY KEY, supplier_name VARCHAR(100) NOT NULL, contact_person VARCHAR(100),
+                    phone VARCHAR(20), email VARCHAR(100), address TEXT, is_active TINYINT(1) DEFAULT 1,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                )");
+                $bizPdo->exec("CREATE TABLE IF NOT EXISTS purchase_orders_header (
+                    id INT AUTO_INCREMENT PRIMARY KEY, po_number VARCHAR(30) UNIQUE, supplier_id INT,
+                    po_date DATE NOT NULL, delivery_date DATE, status ENUM('draft','sent','received','cancelled') DEFAULT 'draft',
+                    total_amount DECIMAL(15,2) DEFAULT 0, notes TEXT, created_by INT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                )");
+                $bizPdo->exec("CREATE TABLE IF NOT EXISTS purchase_orders_detail (
+                    id INT AUTO_INCREMENT PRIMARY KEY, po_header_id INT, item_name VARCHAR(200),
+                    quantity DECIMAL(10,2) DEFAULT 1, unit VARCHAR(20), unit_price DECIMAL(15,2) DEFAULT 0,
+                    total_price DECIMAL(15,2) DEFAULT 0, notes TEXT
+                )");
+                $bizPdo->exec("CREATE TABLE IF NOT EXISTS sales_invoices_header (
+                    id INT AUTO_INCREMENT PRIMARY KEY, invoice_number VARCHAR(30) UNIQUE, customer_name VARCHAR(100),
+                    invoice_date DATE NOT NULL, due_date DATE, status ENUM('draft','sent','paid','cancelled') DEFAULT 'draft',
+                    total_amount DECIMAL(15,2) DEFAULT 0, notes TEXT, created_by INT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                )");
+                $bizPdo->exec("CREATE TABLE IF NOT EXISTS sales_invoices_detail (
+                    id INT AUTO_INCREMENT PRIMARY KEY, invoice_header_id INT, item_name VARCHAR(200),
+                    quantity DECIMAL(10,2) DEFAULT 1, unit VARCHAR(20), unit_price DECIMAL(15,2) DEFAULT 0,
+                    total_price DECIMAL(15,2) DEFAULT 0, notes TEXT
+                )");
+                $bizPdo->exec("CREATE TABLE IF NOT EXISTS bill_templates (
+                    id INT AUTO_INCREMENT PRIMARY KEY, template_name VARCHAR(100), description TEXT,
+                    amount DECIMAL(15,2) DEFAULT 0, frequency ENUM('monthly','weekly','yearly','once') DEFAULT 'monthly',
+                    is_active TINYINT(1) DEFAULT 1, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )");
+                $bizPdo->exec("CREATE TABLE IF NOT EXISTS bill_records (
+                    id INT AUTO_INCREMENT PRIMARY KEY, template_id INT, bill_date DATE, amount DECIMAL(15,2),
+                    status ENUM('pending','paid','overdue') DEFAULT 'pending', paid_date DATE, notes TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )");
+                $bizPdo->exec("CREATE TABLE IF NOT EXISTS transaction_attachments (
+                    id INT AUTO_INCREMENT PRIMARY KEY, transaction_id INT, transaction_type VARCHAR(20),
+                    file_name VARCHAR(255), file_path VARCHAR(500), file_type VARCHAR(50), file_size INT,
+                    uploaded_by INT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )");
+                $bizPdo->exec("CREATE TABLE IF NOT EXISTS rooms (
+                    id INT AUTO_INCREMENT PRIMARY KEY, room_number VARCHAR(20) NOT NULL,
+                    room_type_id INT, floor_number INT DEFAULT 1,
+                    status VARCHAR(20) DEFAULT 'available', current_guest_id INT NULL,
+                    notes TEXT, position_x INT DEFAULT 0, position_y INT DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                )");
+                $bizPdo->exec("CREATE TABLE IF NOT EXISTS room_types (
+                    id INT AUTO_INCREMENT PRIMARY KEY, type_name VARCHAR(100) NOT NULL,
+                    base_price DECIMAL(12,2) DEFAULT 0, max_occupancy INT DEFAULT 2,
+                    description TEXT, amenities TEXT, color_code VARCHAR(7) DEFAULT '#6366f1',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                )");
+                $bizPdo->exec("CREATE TABLE IF NOT EXISTS guests (
+                    id INT AUTO_INCREMENT PRIMARY KEY, guest_name VARCHAR(200) NOT NULL,
+                    id_card_type VARCHAR(20) DEFAULT 'ktp', id_card_number VARCHAR(50),
+                    phone VARCHAR(20), email VARCHAR(100), address TEXT,
+                    nationality VARCHAR(50) DEFAULT 'Indonesia',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                )");
+                $bizPdo->exec("CREATE TABLE IF NOT EXISTS bookings (
+                    id INT AUTO_INCREMENT PRIMARY KEY, booking_code VARCHAR(20) UNIQUE,
+                    guest_id INT, room_id INT,
+                    check_in_date DATE NOT NULL, check_out_date DATE NOT NULL,
+                    total_nights INT DEFAULT 1, adults INT DEFAULT 1, children INT DEFAULT 0,
+                    room_price DECIMAL(12,2) DEFAULT 0, total_price DECIMAL(12,2) DEFAULT 0,
+                    discount DECIMAL(12,2) DEFAULT 0, final_price DECIMAL(12,2) DEFAULT 0,
+                    paid_amount DECIMAL(12,2) DEFAULT 0,
+                    status VARCHAR(20) DEFAULT 'confirmed',
+                    payment_status VARCHAR(20) DEFAULT 'unpaid',
+                    booking_source VARCHAR(50) DEFAULT 'walk_in',
+                    special_request TEXT, notes TEXT, guest_count INT DEFAULT 1,
+                    actual_checkin_time DATETIME NULL, actual_checkout_time DATETIME NULL,
+                    created_by INT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                )");
+                $bizPdo->exec("CREATE TABLE IF NOT EXISTS booking_payments (
+                    id INT AUTO_INCREMENT PRIMARY KEY, booking_id INT NOT NULL,
+                    amount DECIMAL(12,2) NOT NULL, payment_method VARCHAR(50) DEFAULT 'cash',
+                    payment_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    reference_number VARCHAR(100), notes TEXT,
+                    processed_by INT, created_by INT,
+                    synced_to_cashbook TINYINT(1) DEFAULT 0, cashbook_id INT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )");
+                $bizPdo->exec("CREATE TABLE IF NOT EXISTS frontdesk_rooms (
+                    id INT AUTO_INCREMENT PRIMARY KEY, room_number VARCHAR(10), room_type VARCHAR(50),
+                    floor INT DEFAULT 1, price DECIMAL(15,2) DEFAULT 0, status VARCHAR(20) DEFAULT 'available',
+                    guest_name VARCHAR(100), check_in DATE, check_out DATE,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                )");
+                $bizPdo->exec("CREATE TABLE IF NOT EXISTS breakfast_menus (
+                    id INT AUTO_INCREMENT PRIMARY KEY, menu_name VARCHAR(100) NOT NULL,
+                    description TEXT, category VARCHAR(30) DEFAULT 'indonesian',
+                    price DECIMAL(10,2) DEFAULT 0.00,
+                    is_free TINYINT(1) DEFAULT 1, is_available TINYINT(1) DEFAULT 1,
+                    image_url VARCHAR(255) NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                )");
+                $bizPdo->exec("CREATE TABLE IF NOT EXISTS breakfast_orders (
+                    id INT AUTO_INCREMENT PRIMARY KEY, booking_id INT NULL,
+                    guest_name VARCHAR(100), room_number VARCHAR(20),
+                    total_pax INT DEFAULT 1, breakfast_time TIME,
+                    breakfast_date DATE, location VARCHAR(20) DEFAULT 'restaurant',
+                    menu_items TEXT, special_requests TEXT,
+                    total_price DECIMAL(10,2) DEFAULT 0.00,
+                    order_status VARCHAR(20) DEFAULT 'pending',
+                    created_by INT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                )");
+                $bizPdo->exec("CREATE TABLE IF NOT EXISTS breakfast_log (
+                    id INT AUTO_INCREMENT PRIMARY KEY, booking_id INT, guest_id INT,
+                    menu_id INT NULL, quantity INT DEFAULT 1, date DATE NOT NULL,
+                    status VARCHAR(20) DEFAULT 'taken', marked_by INT,
+                    marked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, notes VARCHAR(255)
+                )");
+                $bizPdo->exec("CREATE TABLE IF NOT EXISTS investors (
+                    id INT AUTO_INCREMENT PRIMARY KEY, investor_name VARCHAR(100) NOT NULL, phone VARCHAR(20),
+                    email VARCHAR(100), address TEXT, notes TEXT, is_active TINYINT(1) DEFAULT 1,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )");
+                $bizPdo->exec("CREATE TABLE IF NOT EXISTS investor_transactions (
+                    id INT AUTO_INCREMENT PRIMARY KEY, investor_id INT, transaction_type ENUM('investment','return','dividend'),
+                    amount DECIMAL(15,2), transaction_date DATE, notes TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )");
+                $bizPdo->exec("CREATE TABLE IF NOT EXISTS investor_balances (
+                    id INT AUTO_INCREMENT PRIMARY KEY, investor_id INT, balance DECIMAL(15,2) DEFAULT 0,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                )");
+                $bizPdo->exec("CREATE TABLE IF NOT EXISTS investor_bills (
+                    id INT AUTO_INCREMENT PRIMARY KEY, investor_id INT, bill_name VARCHAR(100),
+                    amount DECIMAL(15,2), due_date DATE, status ENUM('pending','paid','overdue') DEFAULT 'pending',
+                    paid_date DATE, notes TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )");
+                
+                $bizId = strtolower(str_replace(' ', '-', $businessName));
+                
+                $bizPdo->exec("INSERT IGNORE INTO roles (id, role_name, role_code, description, is_system_role) VALUES
+                    (1, 'Admin', 'admin', 'System administrator', 1),
+                    (2, 'Manager', 'manager', 'Business manager', 1),
+                    (3, 'Staff', 'staff', 'Regular staff', 1),
+                    (4, 'Developer', 'developer', 'System developer', 1),
+                    (5, 'Owner', 'owner', 'Business owner', 1)");
+                
+                $bizPdo->exec("INSERT IGNORE INTO divisions (id, branch_id, division_code, division_name, division_type) VALUES
+                    (1, '{$bizId}', 'KITCHEN', 'Kitchen', 'both'),
+                    (2, '{$bizId}', 'BAR', 'Bar', 'both'),
+                    (3, '{$bizId}', 'RESTO', 'Resto', 'both'),
+                    (4, '{$bizId}', 'HOUSEKEEPING', 'Housekeeping', 'expense'),
+                    (5, '{$bizId}', 'HOTEL', 'Hotel', 'income'),
+                    (6, '{$bizId}', 'GARDENER', 'Gardener', 'expense'),
+                    (7, '{$bizId}', 'OTHERS', 'Lain-lain', 'both'),
+                    (8, '{$bizId}', 'PC', 'Petty Cash', 'both')");
+                
+                $bizPdo->exec("INSERT IGNORE INTO categories (branch_id, division_id, category_name, category_type, description) VALUES
+                    ('{$bizId}', 1, 'Food Sales', 'income', 'Revenue from food sales'),
+                    ('{$bizId}', 1, 'Food Supplies', 'expense', 'Purchase of food ingredients'),
+                    ('{$bizId}', 2, 'Beverage Sales', 'income', 'Revenue from beverage sales'),
+                    ('{$bizId}', 2, 'Beverage Inventory', 'expense', 'Purchase of beverages'),
+                    ('{$bizId}', 3, 'Room Rental', 'income', 'Room rental income'),
+                    ('{$bizId}', 3, 'Staff Salary', 'expense', 'Employee salaries'),
+                    ('{$bizId}', 4, 'Housekeeping Service', 'income', 'Cleaning services'),
+                    ('{$bizId}', 4, 'Room Supplies', 'expense', 'Room cleaning supplies'),
+                    ('{$bizId}', 5, 'Hotel Income', 'income', 'Hotel revenue'),
+                    ('{$bizId}', 5, 'Hotel Expense', 'expense', 'Hotel operational expenses'),
+                    ('{$bizId}', 7, 'Other Income', 'income', 'Miscellaneous income'),
+                    ('{$bizId}', 7, 'Other Expense', 'expense', 'Miscellaneous expenses')");
+                
+                $bizPdo->exec("INSERT IGNORE INTO settings (setting_key, setting_value, setting_type, description) VALUES
+                    ('business_name', '{$businessName}', 'string', 'Business name'),
+                    ('business_type', '{$businessType}', 'string', 'Business type'),
+                    ('currency', 'IDR', 'string', 'Currency'),
+                    ('timezone', 'Asia/Jakarta', 'string', 'Timezone'),
+                    ('date_format', 'd/m/Y', 'string', 'Date format'),
+                    ('fiscal_year_start', '01', 'string', 'Fiscal year start month'),
+                    ('show_running_balance', '1', 'boolean', 'Show running balance'),
+                    ('show_daily_total', '1', 'boolean', 'Show daily total'),
+                    ('enable_shift', '1', 'boolean', 'Enable shift'),
+                    ('enable_approval', '0', 'boolean', 'Require approval'),
+                    ('min_kas_awal', '0', 'string', 'Minimum kas awal'),
+                    ('kas_awal_default', '0', 'string', 'Default kas awal'),
+                    ('print_receipt', '1', 'boolean', 'Enable print receipt'),
+                    ('demo_password', 'admin', 'string', 'Demo password')");
+                
+                if ($businessType === 'hotel') {
+                    $bizPdo->exec("INSERT IGNORE INTO room_types (id, type_name, base_price, max_occupancy, description, color_code) VALUES
+                        (1, 'Standard', 500000, 2, 'Standard room', '#6366f1'),
+                        (2, 'Deluxe', 750000, 2, 'Deluxe room', '#10b981'),
+                        (3, 'Suite', 1200000, 4, 'Suite room', '#f59e0b')");
+                }
+                
+                $seedSuccess = true;
+            } catch (Exception $seedErr) {
+                $setupError = $seedErr->getMessage();
+            }
+            
+            if ($seedSuccess) {
+                header('Location: businesses.php?action=setup&id=' . $setupBizId . '&step=4&db_ok=1');
+            } else {
+                header('Location: businesses.php?action=setup&id=' . $setupBizId . '&step=3&db_error=' . urlencode($setupError));
+            }
+            exit;
+        }
+    }
+    
+    // =============================================
+    // STEP 4: Generate config file
+    // =============================================
+    if ($formAction === 'generate_config') {
+        $configBizId = (int)$_POST['business_id'];
+        $bizStmt = $pdo->prepare("SELECT * FROM businesses WHERE id = ?");
+        $bizStmt->execute([$configBizId]);
+        $configBiz = $bizStmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($configBiz) {
+            $code = $configBiz['business_code'];
+            $slug = strtolower(str_replace('_', '-', $code));
+            $name = $configBiz['business_name'];
+            $type = $configBiz['business_type'];
+            $localDbName = 'adf_' . strtolower(preg_replace('/[^a-z0-9]/i', '_', $code));
+            
+            // Determine modules based on type
+            $modules = "        'cashbook',\n        'auth',\n        'settings',\n        'reports',\n        'divisions',\n        'procurement',\n        'sales',\n        'bills'";
+            if (in_array($type, ['hotel', 'tourism'])) {
+                $modules .= ",\n        'frontdesk',\n        'investor',\n        'project'";
+            }
+            
+            // Determine icon & colors based on type
+            $typeConfig = [
+                'hotel'      => ['icon' => '🏨', 'primary' => '#4338ca', 'secondary' => '#1e1b4b'],
+                'restaurant' => ['icon' => '🍽️', 'primary' => '#dc2626', 'secondary' => '#7f1d1d'],
+                'cafe'       => ['icon' => '☕', 'primary' => '#92400e', 'secondary' => '#78350f'],
+                'retail'     => ['icon' => '🏪', 'primary' => '#0d9488', 'secondary' => '#134e4a'],
+                'manufacture'=> ['icon' => '🏭', 'primary' => '#4f46e5', 'secondary' => '#312e81'],
+                'tourism'    => ['icon' => '🏝️', 'primary' => '#0891b2', 'secondary' => '#164e63'],
+                'other'      => ['icon' => '🏢', 'primary' => '#059669', 'secondary' => '#065f46'],
+            ];
+            $tc = $typeConfig[$type] ?? $typeConfig['other'];
+            
+            $configContent = "<?php\nreturn [\n    'business_id' => '{$slug}',\n    'name' => '{$name}',\n    'business_type' => '{$type}',\n    'database' => '{$localDbName}',\n\n    'logo' => '',\n\n    'enabled_modules' => [\n{$modules}\n    ],\n\n    'theme' => [\n        'color_primary' => '{$tc['primary']}',\n        'color_secondary' => '{$tc['secondary']}',\n        'icon' => '{$tc['icon']}'\n    ],\n\n    'cashbook_columns' => [],\n\n    'dashboard_widgets' => [\n        'show_daily_sales' => true,\n        'show_orders' => true,\n        'show_revenue' => true\n    ]\n];\n";
+            
+            $configPath = dirname(dirname(__FILE__)) . '/config/businesses/' . $slug . '.php';
+            
+            if (file_put_contents($configPath, $configContent)) {
+                // Activate the business
+                $pdo->prepare("UPDATE businesses SET is_active = 1 WHERE id = ?")->execute([$configBizId]);
+                header('Location: businesses.php?action=setup&id=' . $configBizId . '&step=5&config_ok=1');
+            } else {
+                header('Location: businesses.php?action=setup&id=' . $configBizId . '&step=4&config_error=1');
+            }
+            exit;
+        }
+    }
+    
+    // =============================================
+    // UPDATE (existing edit action)
+    // =============================================
+    if ($_POST['form_action'] === 'update') {
         $businessCode = strtoupper(trim($_POST['business_code'] ?? ''));
         $businessName = trim($_POST['business_name'] ?? '');
         $businessType = $_POST['business_type'] ?? 'other';
@@ -83,373 +484,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $isActive = isset($_POST['is_active']) ? 1 : 0;
         $selectedMenus = $_POST['menus'] ?? [];
         
-        // Generate database name
-        $dbName = 'adf_' . strtolower(preg_replace('/[^a-z0-9]/i', '_', $businessCode));
-        
-        // Validation
         if (empty($businessCode) || empty($businessName) || $ownerId === 0) {
             $error = 'Please fill all required fields';
         } else {
             try {
-                if ($formAction === 'create') {
-                    // Check duplicate
-                    $check = $pdo->prepare("SELECT COUNT(*) FROM businesses WHERE business_code = ? OR database_name = ?");
-                    $check->execute([$businessCode, $dbName]);
-                    if ($check->fetchColumn() > 0) {
-                        $error = 'Business code or database already exists';
-                    } else {
-                        // Create database automatically (handles hosting prefix + cPanel)
-                        $dbCreated = false;
-                        $actualDbName = $dbName;
-                        $dbError = '';
-                        try {
-                            $dbMgr = new DatabaseManager();
-                            $actualDbName = $dbMgr->resolveDbName($dbName);
-                            $result = $dbMgr->createBusinessDatabase($dbName);
-                            $dbCreated = true;
-                            $actualDbName = $result['database'] ?? $actualDbName;
-                        } catch (Exception $e) {
-                            $dbError = $e->getMessage();
-                            // Still continue to register the business
-                        }
-                        
-                        // Store the actual DB name (with hosting prefix if applicable)
-                        $storedDbName = $actualDbName;
-                        
-                        // Insert business record
-                        $stmt = $pdo->prepare("
-                            INSERT INTO businesses (business_code, business_name, business_type, database_name, owner_id, description, is_active)
-                            VALUES (?, ?, ?, ?, ?, ?, ?)
-                        ");
-                        $stmt->execute([$businessCode, $businessName, $businessType, $storedDbName, $ownerId, $description, $isActive]);
-                        $businessId = $pdo->lastInsertId();
-                        
-                        // =============================================
-                        // AUTO-SETUP: Create cash_accounts for new business
-                        // =============================================
-                        try {
-                            $pdo->prepare("INSERT INTO cash_accounts (business_id, account_name, account_type, current_balance, is_default_account, description, is_active) VALUES (?, 'Petty Cash', 'cash', 0, 1, 'Uang cash dari tamu / operasional', 1)")->execute([$businessId]);
-                            $pdo->prepare("INSERT INTO cash_accounts (business_id, account_name, account_type, current_balance, is_default_account, description, is_active) VALUES (?, 'Bank', 'bank', 0, 0, 'Rekening bank utama bisnis', 1)")->execute([$businessId]);
-                            $pdo->prepare("INSERT INTO cash_accounts (business_id, account_name, account_type, current_balance, is_default_account, description, is_active) VALUES (?, 'Kas Modal Owner', 'owner_capital', 0, 0, 'Modal operasional dari owner', 1)")->execute([$businessId]);
-                        } catch (Exception $e) {
-                            // cash_accounts table might not exist, skip
-                        }
-                        
-                        // =============================================
-                        // AUTO-SETUP: Seed business database with essential data
-                        // =============================================
-                        $seedSuccess = false;
-                        try {
-                            $bizDbName = $storedDbName;
-                            $bizPdo = new PDO("mysql:host=" . DB_HOST . ";dbname=" . $bizDbName, DB_USER, DB_PASS);
-                            $bizPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-                            
-                            // Create essential tables
-                            $bizPdo->exec("CREATE TABLE IF NOT EXISTS divisions (
-                                id INT AUTO_INCREMENT PRIMARY KEY, branch_id VARCHAR(50), division_code VARCHAR(20), division_name VARCHAR(100) NOT NULL,
-                                description TEXT, division_type ENUM('income','expense','both') DEFAULT 'both', is_active TINYINT(1) DEFAULT 1,
-                                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-                            )");
-                            $bizPdo->exec("CREATE TABLE IF NOT EXISTS categories (
-                                id INT AUTO_INCREMENT PRIMARY KEY, branch_id VARCHAR(50), division_id INT, category_name VARCHAR(100) NOT NULL,
-                                category_type ENUM('income','expense') DEFAULT 'income', description TEXT, is_active TINYINT(1) DEFAULT 1,
-                                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-                            )");
-                            $bizPdo->exec("CREATE TABLE IF NOT EXISTS settings (
-                                id INT AUTO_INCREMENT PRIMARY KEY, setting_key VARCHAR(100) UNIQUE, setting_value TEXT,
-                                setting_type VARCHAR(20) DEFAULT 'string', description TEXT,
-                                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-                            )");
-                            $bizPdo->exec("CREATE TABLE IF NOT EXISTS cash_book (
-                                id INT AUTO_INCREMENT PRIMARY KEY, branch_id VARCHAR(50), transaction_date DATE NOT NULL, transaction_time TIME,
-                                division_id INT, category_id INT, category_name VARCHAR(100), description TEXT,
-                                transaction_type ENUM('income','expense') NOT NULL, amount DECIMAL(15,2) NOT NULL DEFAULT 0,
-                                payment_method VARCHAR(30) DEFAULT 'cash', cash_account_id INT, notes TEXT,
-                                attachment VARCHAR(255), created_by INT, shift VARCHAR(20),
-                                source_type VARCHAR(30) DEFAULT 'manual', source_id INT NULL, reference_no VARCHAR(50) NULL,
-                                is_editable TINYINT(1) DEFAULT 1,
-                                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-                            )");
-                            $bizPdo->exec("CREATE TABLE IF NOT EXISTS users (
-                                id INT AUTO_INCREMENT PRIMARY KEY, username VARCHAR(50) UNIQUE NOT NULL, password VARCHAR(255) NOT NULL,
-                                full_name VARCHAR(100), email VARCHAR(100), phone VARCHAR(20),
-                                role ENUM('owner','admin','manager','frontdesk','cashier','accountant','staff') DEFAULT 'staff',
-                                role_id INT, business_access TEXT, is_active TINYINT(1) DEFAULT 1,
-                                last_login DATETIME, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-                            )");
-                            $bizPdo->exec("CREATE TABLE IF NOT EXISTS roles (
-                                id INT AUTO_INCREMENT PRIMARY KEY, role_name VARCHAR(50) NOT NULL, role_code VARCHAR(30),
-                                description TEXT, is_system_role TINYINT(1) DEFAULT 1, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                            )");
-                            $bizPdo->exec("CREATE TABLE IF NOT EXISTS user_preferences (
-                                id INT AUTO_INCREMENT PRIMARY KEY, user_id INT, branch_id VARCHAR(50),
-                                theme VARCHAR(20) DEFAULT 'dark', language VARCHAR(5) DEFAULT 'id', sidebar_collapsed TINYINT(1) DEFAULT 0,
-                                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-                            )");
-                            $bizPdo->exec("CREATE TABLE IF NOT EXISTS user_permissions (
-                                id INT AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL, permission VARCHAR(50) NOT NULL,
-                                can_view TINYINT(1) DEFAULT 1, can_create TINYINT(1) DEFAULT 0, can_edit TINYINT(1) DEFAULT 0, can_delete TINYINT(1) DEFAULT 0,
-                                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                            )");
-                            $bizPdo->exec("CREATE TABLE IF NOT EXISTS audit_logs (
-                                id INT AUTO_INCREMENT PRIMARY KEY, user_id INT, action_type VARCHAR(50),
-                                table_name VARCHAR(50), record_id INT, old_values TEXT, new_values TEXT,
-                                ip_address VARCHAR(45), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                            )");
-                            $bizPdo->exec("CREATE TABLE IF NOT EXISTS suppliers (
-                                id INT AUTO_INCREMENT PRIMARY KEY, supplier_name VARCHAR(100) NOT NULL, contact_person VARCHAR(100),
-                                phone VARCHAR(20), email VARCHAR(100), address TEXT, is_active TINYINT(1) DEFAULT 1,
-                                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-                            )");
-                            $bizPdo->exec("CREATE TABLE IF NOT EXISTS purchase_orders_header (
-                                id INT AUTO_INCREMENT PRIMARY KEY, po_number VARCHAR(30) UNIQUE, supplier_id INT,
-                                po_date DATE NOT NULL, delivery_date DATE, status ENUM('draft','sent','received','cancelled') DEFAULT 'draft',
-                                total_amount DECIMAL(15,2) DEFAULT 0, notes TEXT, created_by INT,
-                                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-                            )");
-                            $bizPdo->exec("CREATE TABLE IF NOT EXISTS purchase_orders_detail (
-                                id INT AUTO_INCREMENT PRIMARY KEY, po_header_id INT, item_name VARCHAR(200),
-                                quantity DECIMAL(10,2) DEFAULT 1, unit VARCHAR(20), unit_price DECIMAL(15,2) DEFAULT 0,
-                                total_price DECIMAL(15,2) DEFAULT 0, notes TEXT
-                            )");
-                            $bizPdo->exec("CREATE TABLE IF NOT EXISTS sales_invoices_header (
-                                id INT AUTO_INCREMENT PRIMARY KEY, invoice_number VARCHAR(30) UNIQUE, customer_name VARCHAR(100),
-                                invoice_date DATE NOT NULL, due_date DATE, status ENUM('draft','sent','paid','cancelled') DEFAULT 'draft',
-                                total_amount DECIMAL(15,2) DEFAULT 0, notes TEXT, created_by INT,
-                                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-                            )");
-                            $bizPdo->exec("CREATE TABLE IF NOT EXISTS sales_invoices_detail (
-                                id INT AUTO_INCREMENT PRIMARY KEY, invoice_header_id INT, item_name VARCHAR(200),
-                                quantity DECIMAL(10,2) DEFAULT 1, unit VARCHAR(20), unit_price DECIMAL(15,2) DEFAULT 0,
-                                total_price DECIMAL(15,2) DEFAULT 0, notes TEXT
-                            )");
-                            $bizPdo->exec("CREATE TABLE IF NOT EXISTS bill_templates (
-                                id INT AUTO_INCREMENT PRIMARY KEY, template_name VARCHAR(100), description TEXT,
-                                amount DECIMAL(15,2) DEFAULT 0, frequency ENUM('monthly','weekly','yearly','once') DEFAULT 'monthly',
-                                is_active TINYINT(1) DEFAULT 1, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                            )");
-                            $bizPdo->exec("CREATE TABLE IF NOT EXISTS bill_records (
-                                id INT AUTO_INCREMENT PRIMARY KEY, template_id INT, bill_date DATE, amount DECIMAL(15,2),
-                                status ENUM('pending','paid','overdue') DEFAULT 'pending', paid_date DATE, notes TEXT,
-                                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                            )");
-                            $bizPdo->exec("CREATE TABLE IF NOT EXISTS transaction_attachments (
-                                id INT AUTO_INCREMENT PRIMARY KEY, transaction_id INT, transaction_type VARCHAR(20),
-                                file_name VARCHAR(255), file_path VARCHAR(500), file_type VARCHAR(50), file_size INT,
-                                uploaded_by INT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                            )");
-                            // Frontdesk tables — column names match modules/frontdesk/*.php code
-                            $bizPdo->exec("CREATE TABLE IF NOT EXISTS rooms (
-                                id INT AUTO_INCREMENT PRIMARY KEY, room_number VARCHAR(20) NOT NULL,
-                                room_type_id INT, floor_number INT DEFAULT 1,
-                                status VARCHAR(20) DEFAULT 'available', current_guest_id INT NULL,
-                                notes TEXT, position_x INT DEFAULT 0, position_y INT DEFAULT 0,
-                                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-                            )");
-                            $bizPdo->exec("CREATE TABLE IF NOT EXISTS room_types (
-                                id INT AUTO_INCREMENT PRIMARY KEY, type_name VARCHAR(100) NOT NULL,
-                                base_price DECIMAL(12,2) DEFAULT 0, max_occupancy INT DEFAULT 2,
-                                description TEXT, amenities TEXT, color_code VARCHAR(7) DEFAULT '#6366f1',
-                                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-                            )");
-                            $bizPdo->exec("CREATE TABLE IF NOT EXISTS guests (
-                                id INT AUTO_INCREMENT PRIMARY KEY, guest_name VARCHAR(200) NOT NULL,
-                                id_card_type VARCHAR(20) DEFAULT 'ktp', id_card_number VARCHAR(50),
-                                phone VARCHAR(20), email VARCHAR(100), address TEXT,
-                                nationality VARCHAR(50) DEFAULT 'Indonesia',
-                                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-                            )");
-                            $bizPdo->exec("CREATE TABLE IF NOT EXISTS bookings (
-                                id INT AUTO_INCREMENT PRIMARY KEY, booking_code VARCHAR(20) UNIQUE,
-                                guest_id INT, room_id INT,
-                                check_in_date DATE NOT NULL, check_out_date DATE NOT NULL,
-                                total_nights INT DEFAULT 1, adults INT DEFAULT 1, children INT DEFAULT 0,
-                                room_price DECIMAL(12,2) DEFAULT 0, total_price DECIMAL(12,2) DEFAULT 0,
-                                discount DECIMAL(12,2) DEFAULT 0, final_price DECIMAL(12,2) DEFAULT 0,
-                                paid_amount DECIMAL(12,2) DEFAULT 0,
-                                status VARCHAR(20) DEFAULT 'confirmed',
-                                payment_status VARCHAR(20) DEFAULT 'unpaid',
-                                booking_source VARCHAR(50) DEFAULT 'walk_in',
-                                special_request TEXT, notes TEXT, guest_count INT DEFAULT 1,
-                                actual_checkin_time DATETIME NULL, actual_checkout_time DATETIME NULL,
-                                created_by INT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-                            )");
-                            $bizPdo->exec("CREATE TABLE IF NOT EXISTS booking_payments (
-                                id INT AUTO_INCREMENT PRIMARY KEY, booking_id INT NOT NULL,
-                                amount DECIMAL(12,2) NOT NULL, payment_method VARCHAR(50) DEFAULT 'cash',
-                                payment_date DATETIME DEFAULT CURRENT_TIMESTAMP,
-                                reference_number VARCHAR(100), notes TEXT,
-                                processed_by INT, created_by INT,
-                                synced_to_cashbook TINYINT(1) DEFAULT 0, cashbook_id INT NULL,
-                                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                            )");
-                            $bizPdo->exec("CREATE TABLE IF NOT EXISTS frontdesk_rooms (
-                                id INT AUTO_INCREMENT PRIMARY KEY, room_number VARCHAR(10), room_type VARCHAR(50),
-                                floor INT DEFAULT 1, price DECIMAL(15,2) DEFAULT 0, status VARCHAR(20) DEFAULT 'available',
-                                guest_name VARCHAR(100), check_in DATE, check_out DATE,
-                                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-                            )");
-                            $bizPdo->exec("CREATE TABLE IF NOT EXISTS breakfast_menus (
-                                id INT AUTO_INCREMENT PRIMARY KEY, menu_name VARCHAR(100) NOT NULL,
-                                description TEXT, category VARCHAR(30) DEFAULT 'indonesian',
-                                price DECIMAL(10,2) DEFAULT 0.00,
-                                is_free TINYINT(1) DEFAULT 1, is_available TINYINT(1) DEFAULT 1,
-                                image_url VARCHAR(255) NULL,
-                                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-                            )");
-                            $bizPdo->exec("CREATE TABLE IF NOT EXISTS breakfast_orders (
-                                id INT AUTO_INCREMENT PRIMARY KEY, booking_id INT NULL,
-                                guest_name VARCHAR(100), room_number VARCHAR(20),
-                                total_pax INT DEFAULT 1, breakfast_time TIME,
-                                breakfast_date DATE, location VARCHAR(20) DEFAULT 'restaurant',
-                                menu_items TEXT, special_requests TEXT,
-                                total_price DECIMAL(10,2) DEFAULT 0.00,
-                                order_status VARCHAR(20) DEFAULT 'pending',
-                                created_by INT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-                            )");
-                            $bizPdo->exec("CREATE TABLE IF NOT EXISTS breakfast_log (
-                                id INT AUTO_INCREMENT PRIMARY KEY, booking_id INT, guest_id INT,
-                                menu_id INT NULL, quantity INT DEFAULT 1, date DATE NOT NULL,
-                                status VARCHAR(20) DEFAULT 'taken', marked_by INT,
-                                marked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, notes VARCHAR(255)
-                            )");
-                            // Investor tables
-                            $bizPdo->exec("CREATE TABLE IF NOT EXISTS investors (
-                                id INT AUTO_INCREMENT PRIMARY KEY, investor_name VARCHAR(100) NOT NULL, phone VARCHAR(20),
-                                email VARCHAR(100), address TEXT, notes TEXT, is_active TINYINT(1) DEFAULT 1,
-                                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                            )");
-                            $bizPdo->exec("CREATE TABLE IF NOT EXISTS investor_transactions (
-                                id INT AUTO_INCREMENT PRIMARY KEY, investor_id INT, transaction_type ENUM('investment','return','dividend'),
-                                amount DECIMAL(15,2), transaction_date DATE, notes TEXT,
-                                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                            )");
-                            $bizPdo->exec("CREATE TABLE IF NOT EXISTS investor_balances (
-                                id INT AUTO_INCREMENT PRIMARY KEY, investor_id INT, balance DECIMAL(15,2) DEFAULT 0,
-                                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-                            )");
-                            $bizPdo->exec("CREATE TABLE IF NOT EXISTS investor_bills (
-                                id INT AUTO_INCREMENT PRIMARY KEY, investor_id INT, bill_name VARCHAR(100),
-                                amount DECIMAL(15,2), due_date DATE, status ENUM('pending','paid','overdue') DEFAULT 'pending',
-                                paid_date DATE, notes TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                            )");
-                            
-                            // Seed default data - using business_code as identifier
-                            $bizId = strtolower(str_replace(' ', '-', $businessName));
-                            
-                            // Seed roles
-                            $bizPdo->exec("INSERT IGNORE INTO roles (id, role_name, role_code, description, is_system_role) VALUES
-                                (1, 'Admin', 'admin', 'System administrator', 1),
-                                (2, 'Manager', 'manager', 'Business manager', 1),
-                                (3, 'Staff', 'staff', 'Regular staff', 1),
-                                (4, 'Developer', 'developer', 'System developer', 1),
-                                (5, 'Owner', 'owner', 'Business owner', 1)");
-                            
-                            // Seed divisions (generic for any business)
-                            $bizPdo->exec("INSERT IGNORE INTO divisions (id, branch_id, division_code, division_name, division_type) VALUES
-                                (1, '{$bizId}', 'KITCHEN', 'Kitchen', 'both'),
-                                (2, '{$bizId}', 'BAR', 'Bar', 'both'),
-                                (3, '{$bizId}', 'RESTO', 'Resto', 'both'),
-                                (4, '{$bizId}', 'HOUSEKEEPING', 'Housekeeping', 'expense'),
-                                (5, '{$bizId}', 'HOTEL', 'Hotel', 'income'),
-                                (6, '{$bizId}', 'GARDENER', 'Gardener', 'expense'),
-                                (7, '{$bizId}', 'OTHERS', 'Lain-lain', 'both'),
-                                (8, '{$bizId}', 'PC', 'Petty Cash', 'both')");
-                            
-                            // Seed basic categories
-                            $bizPdo->exec("INSERT IGNORE INTO categories (branch_id, division_id, category_name, category_type, description) VALUES
-                                ('{$bizId}', 1, 'Food Sales', 'income', 'Revenue from food sales'),
-                                ('{$bizId}', 1, 'Food Supplies', 'expense', 'Purchase of food ingredients'),
-                                ('{$bizId}', 2, 'Beverage Sales', 'income', 'Revenue from beverage sales'),
-                                ('{$bizId}', 2, 'Beverage Inventory', 'expense', 'Purchase of beverages'),
-                                ('{$bizId}', 3, 'Room Rental', 'income', 'Room rental income'),
-                                ('{$bizId}', 3, 'Staff Salary', 'expense', 'Employee salaries'),
-                                ('{$bizId}', 4, 'Housekeeping Service', 'income', 'Cleaning services'),
-                                ('{$bizId}', 4, 'Room Supplies', 'expense', 'Room cleaning supplies'),
-                                ('{$bizId}', 5, 'Hotel Income', 'income', 'Hotel revenue'),
-                                ('{$bizId}', 5, 'Hotel Expense', 'expense', 'Hotel operational expenses'),
-                                ('{$bizId}', 7, 'Other Income', 'income', 'Miscellaneous income'),
-                                ('{$bizId}', 7, 'Other Expense', 'expense', 'Miscellaneous expenses')");
-                            
-                            // Seed essential settings
-                            $bizPdo->exec("INSERT IGNORE INTO settings (setting_key, setting_value, setting_type, description) VALUES
-                                ('business_name', '{$businessName}', 'string', 'Business name'),
-                                ('business_type', '{$businessType}', 'string', 'Business type'),
-                                ('currency', 'IDR', 'string', 'Currency'),
-                                ('timezone', 'Asia/Jakarta', 'string', 'Timezone'),
-                                ('date_format', 'd/m/Y', 'string', 'Date format'),
-                                ('fiscal_year_start', '01', 'string', 'Fiscal year start month'),
-                                ('show_running_balance', '1', 'boolean', 'Show running balance'),
-                                ('show_daily_total', '1', 'boolean', 'Show daily total'),
-                                ('enable_shift', '1', 'boolean', 'Enable shift'),
-                                ('enable_approval', '0', 'boolean', 'Require approval'),
-                                ('min_kas_awal', '0', 'string', 'Minimum kas awal'),
-                                ('kas_awal_default', '0', 'string', 'Default kas awal'),
-                                ('print_receipt', '1', 'boolean', 'Enable print receipt'),
-                                ('demo_password', 'admin', 'string', 'Demo password')");
-                            
-                            // Seed room types for hotel
-                            if ($businessType === 'hotel') {
-                                $bizPdo->exec("INSERT IGNORE INTO room_types (id, type_name, base_price, max_occupancy, description, color_code) VALUES
-                                    (1, 'Standard', 500000, 2, 'Standard room', '#6366f1'),
-                                    (2, 'Deluxe', 750000, 2, 'Deluxe room', '#10b981'),
-                                    (3, 'Suite', 1200000, 4, 'Suite room', '#f59e0b')");
-                            }
-                            
-                            $seedSuccess = true;
-                        } catch (Exception $seedErr) {
-                            // DB seeding failed but business was created
-                            error_log("Business DB seed error: " . $seedErr->getMessage());
-                        }
-                        
-                        // Assign menus to business
-                        try {
-                            $menuStmt = $pdo->prepare("INSERT INTO business_menu_config (business_id, menu_id, is_enabled) VALUES (?, ?, 1)");
-                            foreach ($selectedMenus as $menuId) {
-                                $menuStmt->execute([$businessId, $menuId]);
-                            }
-                        } catch (Exception $e) {
-                            // business_menu_config might not exist yet, ignore
-                        }
-                        
-                        $auth->logAction('create_business', 'businesses', $businessId, null, ['name' => $businessName, 'database' => $storedDbName]);
-                        
-                        if ($dbCreated) {
-                            $seedMsg = $seedSuccess ? ' Database seeded with divisions, categories, settings & accounts!' : '';
-                            $_SESSION['success_message'] = "Business '{$businessName}' created with database '{$storedDbName}'!{$seedMsg}";
-                        } else {
-                            $_SESSION['success_message'] = "Business '{$businessName}' registered with cash accounts! ⚠️ Database '{$storedDbName}' could not be auto-created. Please create it manually in cPanel → MySQL Databases, then run quick-db-setup.php. Error: {$dbError}";
-                        }
-                        header('Location: businesses.php');
-                        exit;
-                    }
-                } else {
-                    // Update
-                    $updateId = (int)$_POST['business_id'];
-                    
-                    $stmt = $pdo->prepare("
-                        UPDATE businesses SET business_code = ?, business_name = ?, business_type = ?, owner_id = ?, description = ?, is_active = ?
-                        WHERE id = ?
-                    ");
-                    $stmt->execute([$businessCode, $businessName, $businessType, $ownerId, $description, $isActive, $updateId]);
-                    
-                    // Update menu assignments
-                    $pdo->prepare("DELETE FROM business_menu_config WHERE business_id = ?")->execute([$updateId]);
-                    $menuStmt = $pdo->prepare("INSERT INTO business_menu_config (business_id, menu_id, is_enabled) VALUES (?, ?, 1)");
-                    foreach ($selectedMenus as $menuId) {
-                        $menuStmt->execute([$updateId, $menuId]);
-                    }
-                    
-                    $auth->logAction('update_business', 'businesses', $updateId, null, ['name' => $businessName]);
-                    $_SESSION['success_message'] = 'Business updated successfully!';
-                    header('Location: businesses.php');
-                    exit;
+                $updateId = (int)$_POST['business_id'];
+                $stmt = $pdo->prepare("
+                    UPDATE businesses SET business_code = ?, business_name = ?, business_type = ?, owner_id = ?, description = ?, is_active = ?
+                    WHERE id = ?
+                ");
+                $stmt->execute([$businessCode, $businessName, $businessType, $ownerId, $description, $isActive, $updateId]);
+                
+                $pdo->prepare("DELETE FROM business_menu_config WHERE business_id = ?")->execute([$updateId]);
+                $menuStmt = $pdo->prepare("INSERT INTO business_menu_config (business_id, menu_id, is_enabled) VALUES (?, ?, 1)");
+                foreach ($selectedMenus as $menuId) {
+                    $menuStmt->execute([$updateId, $menuId]);
                 }
+                
+                $auth->logAction('update_business', 'businesses', $updateId, null, ['name' => $businessName]);
+                $_SESSION['success_message'] = 'Business updated successfully!';
+                header('Location: businesses.php');
+                exit;
             } catch (PDOException $e) {
                 $error = 'Database error: ' . $e->getMessage();
             }
@@ -460,19 +515,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 // Handle delete
 if ($action === 'delete' && $editId) {
     try {
-        // Get business info first
         $bizStmt = $pdo->prepare("SELECT * FROM businesses WHERE id = ?");
         $bizStmt->execute([$editId]);
         $bizToDelete = $bizStmt->fetch(PDO::FETCH_ASSOC);
         
         if ($bizToDelete) {
-            // Delete from adf_system (menu config will cascade)
             $pdo->prepare("DELETE FROM businesses WHERE id = ?")->execute([$editId]);
-            
-            // Optionally delete the business database (commented for safety)
-            // $dbMgr = new DatabaseManager();
-            // $dbMgr->deleteDatabase($bizToDelete['database_name'], true);
-            
+            // Also delete config file if exists
+            $delSlug = strtolower(str_replace('_', '-', $bizToDelete['business_code']));
+            $delConfigPath = dirname(dirname(__FILE__)) . '/config/businesses/' . $delSlug . '.php';
+            if (file_exists($delConfigPath)) {
+                @unlink($delConfigPath);
+            }
             $auth->logAction('delete_business', 'businesses', $editId, $bizToDelete);
             $_SESSION['success_message'] = 'Business deleted! Note: Database was NOT deleted for safety.';
         }
@@ -490,11 +544,36 @@ if ($action === 'edit' && $editId) {
     $stmt = $pdo->prepare("SELECT * FROM businesses WHERE id = ?");
     $stmt->execute([$editId]);
     $editBusiness = $stmt->fetch(PDO::FETCH_ASSOC);
-    
-    // Get assigned menus
     $menuStmt = $pdo->prepare("SELECT menu_id FROM business_menu_config WHERE business_id = ? AND is_enabled = 1");
     $menuStmt->execute([$editId]);
     $editMenus = $menuStmt->fetchAll(PDO::FETCH_COLUMN);
+}
+
+// Get business for setup wizard
+$setupBusiness = null;
+$setupStep = (int)($_GET['step'] ?? 2);
+if ($action === 'setup' && $editId) {
+    $stmt = $pdo->prepare("SELECT * FROM businesses WHERE id = ?");
+    $stmt->execute([$editId]);
+    $setupBusiness = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    // Check database connection for step detection
+    if ($setupBusiness) {
+        $setupDbName = $setupBusiness['database_name'];
+        $dbConnected = false;
+        $tableCount = 0;
+        $configSlug = strtolower(str_replace('_', '-', $setupBusiness['business_code']));
+        $configExists = file_exists(dirname(dirname(__FILE__)) . '/config/businesses/' . $configSlug . '.php');
+        
+        try {
+            $testPdo = new PDO("mysql:host=" . DB_HOST . ";dbname=" . $setupDbName, DB_USER, DB_PASS);
+            $testPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+            $dbConnected = true;
+            $tableCount = (int)$testPdo->query("SELECT COUNT(*) FROM information_schema.TABLES WHERE TABLE_SCHEMA = '{$setupDbName}'")->fetchColumn();
+        } catch (Exception $e) {
+            $dbConnected = false;
+        }
+    }
 }
 
 // Get all businesses
@@ -514,9 +593,298 @@ try {
 require_once __DIR__ . '/includes/header.php';
 ?>
 
+<style>
+.wizard-steps { display: flex; justify-content: center; gap: 0; margin-bottom: 2rem; position: relative; }
+.wizard-step { display: flex; align-items: center; gap: 8px; padding: 10px 18px; background: #1e1e2d; border-radius: 10px; color: #6c757d; font-size: 0.85rem; font-weight: 500; position: relative; transition: all 0.3s; }
+.wizard-step .step-num { width: 28px; height: 28px; border-radius: 50%; background: #2d2d3d; display: flex; align-items: center; justify-content: center; font-weight: 700; font-size: 0.8rem; }
+.wizard-step.active { background: linear-gradient(135deg, #6f42c1, #8b5cf6); color: #fff; box-shadow: 0 4px 15px rgba(111,66,193,.4); }
+.wizard-step.active .step-num { background: rgba(255,255,255,.2); }
+.wizard-step.done { background: #1a3a2a; color: #10b981; }
+.wizard-step.done .step-num { background: #10b981; color: #fff; }
+.wizard-connector { width: 40px; display: flex; align-items: center; justify-content: center; color: #3d3d4d; font-size: 1rem; }
+.setup-card { background: #1e1e2d; border-radius: 14px; padding: 2rem; border: 1px solid rgba(255,255,255,.06); }
+.setup-card h4 { color: #fff; margin-bottom: 0.5rem; }
+.setup-card .subtitle { color: #8b8b9e; font-size: 0.9rem; }
+.instruction-box { background: #151521; border: 1px solid rgba(111,66,193,.3); border-radius: 10px; padding: 1.5rem; margin: 1.5rem 0; }
+.instruction-box .step-label { color: #8b5cf6; font-weight: 600; font-size: 0.8rem; text-transform: uppercase; letter-spacing: 1px; margin-bottom: 0.5rem; }
+.instruction-box p { color: #c4c4d4; margin: 0.5rem 0; font-size: 0.9rem; }
+.instruction-box code { background: #2d2d3d; padding: 2px 8px; border-radius: 4px; color: #10b981; font-size: 0.85rem; }
+.btn-cpanel { background: linear-gradient(135deg, #ff6b35, #f7931e); border: none; color: #fff; padding: 12px 24px; border-radius: 10px; font-weight: 600; display: inline-flex; align-items: center; gap: 8px; text-decoration: none; transition: all 0.3s; }
+.btn-cpanel:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(255,107,53,.4); color: #fff; }
+.btn-setup { background: linear-gradient(135deg, #6f42c1, #8b5cf6); border: none; color: #fff; padding: 14px 32px; border-radius: 10px; font-weight: 600; font-size: 1rem; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; transition: all 0.3s; }
+.btn-setup:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(111,66,193,.4); color: #fff; }
+.btn-config { background: linear-gradient(135deg, #10b981, #059669); border: none; color: #fff; padding: 14px 32px; border-radius: 10px; font-weight: 600; font-size: 1rem; display: inline-flex; align-items: center; gap: 8px; cursor: pointer; transition: all 0.3s; }
+.btn-config:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(16,185,129,.4); color: #fff; }
+.status-badge { display: inline-flex; align-items: center; gap: 6px; padding: 4px 12px; border-radius: 20px; font-size: 0.8rem; font-weight: 600; }
+.status-badge.pending { background: rgba(245,158,11,.15); color: #f59e0b; }
+.status-badge.success { background: rgba(16,185,129,.15); color: #10b981; }
+.status-badge.error { background: rgba(239,68,68,.15); color: #ef4444; }
+.completion-card { text-align: center; padding: 3rem; }
+.completion-card .icon-big { font-size: 4rem; margin-bottom: 1rem; }
+.completion-card h3 { color: #10b981; }
+.biz-status-col { min-width: 120px; }
+</style>
+
 <div class="container-fluid py-4">
-    <?php if ($action === 'add' || $action === 'edit'): ?>
-    <!-- Add/Edit Form -->
+    <?php if ($action === 'setup' && $setupBusiness): ?>
+    <!-- ============================================= -->
+    <!-- SETUP WIZARD -->
+    <!-- ============================================= -->
+    <?php
+    $sDb = $setupBusiness['database_name'];
+    $sCode = $setupBusiness['business_code'];
+    $sName = $setupBusiness['business_name'];
+    $sSlug = strtolower(str_replace('_', '-', $sCode));
+    $hostingDbName = $sDb;
+    ?>
+    
+    <div class="row justify-content-center">
+        <div class="col-lg-10">
+            <!-- Wizard Header -->
+            <div class="d-flex justify-content-between align-items-center mb-3">
+                <h4 class="text-white mb-0"><i class="bi bi-rocket-takeoff me-2"></i>Setup: <?= htmlspecialchars($sName) ?></h4>
+                <a href="businesses.php" class="btn btn-sm btn-outline-secondary"><i class="bi bi-arrow-left me-1"></i>Back</a>
+            </div>
+            
+            <!-- Step Indicators -->
+            <div class="wizard-steps flex-wrap">
+                <div class="wizard-step <?= $setupStep >= 2 ? ($setupStep > 1 ? 'done' : 'active') : '' ?> <?= $setupStep == 1 ? 'active' : '' ?>">
+                    <span class="step-num"><?= $setupStep > 1 ? '<i class="bi bi-check"></i>' : '1' ?></span> Register
+                </div>
+                <div class="wizard-connector"><i class="bi bi-chevron-right"></i></div>
+                <div class="wizard-step <?= $setupStep == 2 ? 'active' : ($setupStep > 2 ? 'done' : '') ?>">
+                    <span class="step-num"><?= $setupStep > 2 ? '<i class="bi bi-check"></i>' : '2' ?></span> Buat Database
+                </div>
+                <div class="wizard-connector"><i class="bi bi-chevron-right"></i></div>
+                <div class="wizard-step <?= $setupStep == 3 ? 'active' : ($setupStep > 3 ? 'done' : '') ?>">
+                    <span class="step-num"><?= $setupStep > 3 ? '<i class="bi bi-check"></i>' : '3' ?></span> Setup Tables
+                </div>
+                <div class="wizard-connector"><i class="bi bi-chevron-right"></i></div>
+                <div class="wizard-step <?= $setupStep == 4 ? 'active' : ($setupStep > 4 ? 'done' : '') ?>">
+                    <span class="step-num"><?= $setupStep > 4 ? '<i class="bi bi-check"></i>' : '4' ?></span> Config File
+                </div>
+                <div class="wizard-connector"><i class="bi bi-chevron-right"></i></div>
+                <div class="wizard-step <?= $setupStep == 5 ? 'done' : '' ?>">
+                    <span class="step-num"><?= $setupStep == 5 ? '<i class="bi bi-check"></i>' : '5' ?></span> Selesai!
+                </div>
+            </div>
+            
+            <!-- ========== STEP 2: Create Database in cPanel ========== -->
+            <?php if ($setupStep == 2): ?>
+            <div class="setup-card">
+                <h4><i class="bi bi-database-add me-2"></i>Step 2: Buat Database di cPanel</h4>
+                <p class="subtitle">Database tidak bisa dibuat otomatis di shared hosting. Ikuti langkah berikut:</p>
+                
+                <div class="instruction-box">
+                    <div class="step-label">Langkah A — Buat Database</div>
+                    <p>1. Klik tombol di bawah untuk buka <strong>cPanel → MySQL Databases</strong></p>
+                    <p>2. Di bagian <strong>"Create New Database"</strong>, masukkan nama:</p>
+                    <p><code style="font-size:1.1rem; padding: 6px 14px;"><?= htmlspecialchars($hostingDbName) ?></code>
+                        <button onclick="copyText('<?= htmlspecialchars($hostingDbName) ?>')" class="btn btn-sm btn-outline-light ms-2" title="Copy">
+                            <i class="bi bi-clipboard"></i>
+                        </button>
+                    </p>
+                    <p class="text-warning" style="font-size:0.8rem;"><i class="bi bi-info-circle me-1"></i>cPanel akan otomatis menambahkan prefix <code><?= $dbPrefix ?></code>. Pastikan nama database setelah prefix sesuai.</p>
+                </div>
+                
+                <div class="instruction-box">
+                    <div class="step-label">Langkah B — Assign User ke Database</div>
+                    <p>1. Scroll ke bagian <strong>"Add User to Database"</strong></p>
+                    <p>2. Pilih User: <code><?= htmlspecialchars(DB_USER) ?></code></p>
+                    <p>3. Pilih Database: <code><?= htmlspecialchars($hostingDbName) ?></code></p>
+                    <p>4. Centang <strong>ALL PRIVILEGES</strong> → Klik <strong>"Make Changes"</strong></p>
+                </div>
+                
+                <div class="d-flex gap-3 mt-4 flex-wrap">
+                    <a href="<?= $cpanelUrl ?>/cpsess0000000000/frontend/jupiter/sql/index.html" 
+                       target="_blank" class="btn-cpanel">
+                        <i class="bi bi-box-arrow-up-right"></i> Buka cPanel MySQL
+                    </a>
+                    
+                    <a href="businesses.php?action=setup&id=<?= $setupBusiness['id'] ?>&step=3" class="btn-setup">
+                        <i class="bi bi-arrow-right-circle"></i> Sudah Selesai → Lanjut Step 3
+                    </a>
+                </div>
+                
+                <div class="mt-3">
+                    <small class="text-muted">
+                        <i class="bi bi-lightbulb me-1"></i>
+                        Jika sudah pernah buat database-nya, langsung klik "Lanjut Step 3".
+                    </small>
+                </div>
+            </div>
+            
+            <!-- ========== STEP 3: Setup Tables ========== -->
+            <?php elseif ($setupStep == 3): ?>
+            <div class="setup-card">
+                <h4><i class="bi bi-table me-2"></i>Step 3: Setup Tables & Data</h4>
+                <p class="subtitle">Buat semua tabel yang diperlukan dan isi data awal.</p>
+                
+                <?php if (isset($_GET['db_error'])): ?>
+                <div class="alert alert-danger mt-3">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    <strong>Gagal connect ke database!</strong> Pastikan database sudah dibuat di cPanel dan user sudah di-assign.
+                    <br><small class="text-light"><?= htmlspecialchars($_GET['db_error']) ?></small>
+                </div>
+                <a href="businesses.php?action=setup&id=<?= $setupBusiness['id'] ?>&step=2" class="btn btn-outline-warning mt-2">
+                    <i class="bi bi-arrow-left me-1"></i> Kembali ke Step 2
+                </a>
+                <?php else: ?>
+                
+                <div class="instruction-box">
+                    <div class="step-label">Info Database</div>
+                    <p>Database: <code><?= htmlspecialchars($hostingDbName) ?></code></p>
+                    <p>Status: 
+                        <?php if ($dbConnected): ?>
+                        <span class="status-badge success"><i class="bi bi-check-circle"></i> Connected (<?= $tableCount ?> tables)</span>
+                        <?php else: ?>
+                        <span class="status-badge error"><i class="bi bi-x-circle"></i> Tidak bisa connect</span>
+                        <?php endif; ?>
+                    </p>
+                    <?php if (!$dbConnected): ?>
+                    <p class="text-warning mt-2"><i class="bi bi-exclamation-triangle me-1"></i>Database belum ada atau user belum di-assign. 
+                        <a href="businesses.php?action=setup&id=<?= $setupBusiness['id'] ?>&step=2" class="text-info">Kembali ke Step 2</a>
+                    </p>
+                    <?php endif; ?>
+                </div>
+                
+                <div class="instruction-box">
+                    <div class="step-label">Yang Akan Dibuat</div>
+                    <p><i class="bi bi-check2 text-success me-1"></i> 25+ tabel (cash_book, rooms, bookings, suppliers, dll)</p>
+                    <p><i class="bi bi-check2 text-success me-1"></i> 5 roles (Admin, Manager, Staff, Developer, Owner)</p>
+                    <p><i class="bi bi-check2 text-success me-1"></i> 8 divisions default</p>
+                    <p><i class="bi bi-check2 text-success me-1"></i> 12 categories default</p>
+                    <p><i class="bi bi-check2 text-success me-1"></i> 14 settings default</p>
+                    <?php if ($setupBusiness['business_type'] === 'hotel'): ?>
+                    <p><i class="bi bi-check2 text-success me-1"></i> 3 room types (Standard, Deluxe, Suite)</p>
+                    <?php endif; ?>
+                </div>
+                
+                <div class="d-flex gap-3 mt-4">
+                    <form method="POST" style="display:inline;">
+                        <input type="hidden" name="form_action" value="setup_database">
+                        <input type="hidden" name="business_id" value="<?= $setupBusiness['id'] ?>">
+                        <button type="submit" class="btn-setup" <?= !$dbConnected ? 'disabled style="opacity:0.5;cursor:not-allowed;"' : '' ?>>
+                            <i class="bi bi-play-circle"></i> Setup Database Sekarang
+                        </button>
+                    </form>
+                </div>
+                <?php endif; ?>
+            </div>
+            
+            <!-- ========== STEP 4: Generate Config ========== -->
+            <?php elseif ($setupStep == 4): ?>
+            <div class="setup-card">
+                <h4><i class="bi bi-file-earmark-code me-2"></i>Step 4: Generate Config File</h4>
+                <p class="subtitle">Buat file konfigurasi supaya bisnis muncul di aplikasi.</p>
+                
+                <?php if (isset($_GET['db_ok'])): ?>
+                <div class="alert alert-success mt-3">
+                    <i class="bi bi-check-circle me-2"></i>
+                    <strong>Database berhasil di-setup!</strong> Semua tabel dan data awal sudah dibuat.
+                </div>
+                <?php endif; ?>
+                
+                <?php if (isset($_GET['config_error'])): ?>
+                <div class="alert alert-danger mt-3">
+                    <i class="bi bi-exclamation-triangle me-2"></i>
+                    <strong>Gagal membuat file config!</strong> Pastikan folder <code>config/businesses/</code> writable.
+                </div>
+                <?php endif; ?>
+                
+                <div class="instruction-box">
+                    <div class="step-label">Config yang akan dibuat</div>
+                    <p>File: <code>config/businesses/<?= htmlspecialchars($sSlug) ?>.php</code></p>
+                    <p>Business ID: <code><?= htmlspecialchars($sSlug) ?></code></p>
+                    <p>Database: <code><?= htmlspecialchars($sDb) ?></code></p>
+                    <p>Type: <code><?= htmlspecialchars($setupBusiness['business_type']) ?></code></p>
+                    <p>Status Config: 
+                        <?php if ($configExists): ?>
+                        <span class="status-badge success"><i class="bi bi-check-circle"></i> Sudah ada</span>
+                        <?php else: ?>
+                        <span class="status-badge pending"><i class="bi bi-clock"></i> Belum dibuat</span>
+                        <?php endif; ?>
+                    </p>
+                </div>
+                
+                <div class="d-flex gap-3 mt-4">
+                    <?php if (!$configExists): ?>
+                    <form method="POST" style="display:inline;">
+                        <input type="hidden" name="form_action" value="generate_config">
+                        <input type="hidden" name="business_id" value="<?= $setupBusiness['id'] ?>">
+                        <button type="submit" class="btn-config">
+                            <i class="bi bi-magic"></i> Generate Config & Activate
+                        </button>
+                    </form>
+                    <?php else: ?>
+                    <a href="businesses.php?action=setup&id=<?= $setupBusiness['id'] ?>&step=5&config_ok=1" class="btn-config">
+                        <i class="bi bi-arrow-right-circle"></i> Config sudah ada → Lanjut
+                    </a>
+                    <?php endif; ?>
+                </div>
+            </div>
+            
+            <!-- ========== STEP 5: Done! ========== -->
+            <?php elseif ($setupStep == 5): ?>
+            <div class="setup-card">
+                <div class="completion-card">
+                    <div class="icon-big">🎉</div>
+                    <h3>Bisnis Berhasil Dibuat!</h3>
+                    <p class="text-muted mb-4"><?= htmlspecialchars($sName) ?> siap digunakan.</p>
+                    
+                    <div class="row justify-content-center g-3 mb-4">
+                        <div class="col-auto">
+                            <div class="instruction-box text-center" style="padding: 1rem 2rem;">
+                                <small class="text-muted d-block">Database</small>
+                                <code><?= htmlspecialchars($sDb) ?></code>
+                                <br><span class="status-badge success mt-1"><i class="bi bi-check-circle"></i> OK</span>
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <div class="instruction-box text-center" style="padding: 1rem 2rem;">
+                                <small class="text-muted d-block">Config File</small>
+                                <code><?= htmlspecialchars($sSlug) ?>.php</code>
+                                <br><span class="status-badge success mt-1"><i class="bi bi-check-circle"></i> OK</span>
+                            </div>
+                        </div>
+                        <div class="col-auto">
+                            <div class="instruction-box text-center" style="padding: 1rem 2rem;">
+                                <small class="text-muted d-block">Status</small>
+                                <span style="color:#10b981; font-weight:600;">Active</span>
+                                <br><span class="status-badge success mt-1"><i class="bi bi-check-circle"></i> OK</span>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <?php
+                    $staffLoginUrl = (defined('BASE_URL') ? BASE_URL : '') . '/login.php?biz=' . $sSlug;
+                    ?>
+                    <div class="instruction-box">
+                        <div class="step-label">Staff Login Link</div>
+                        <p>
+                            <code style="font-size:0.9rem;"><?= htmlspecialchars($staffLoginUrl) ?></code>
+                            <button onclick="copyText('<?= htmlspecialchars($staffLoginUrl) ?>')" class="btn btn-sm btn-outline-light ms-2"><i class="bi bi-clipboard"></i></button>
+                        </p>
+                    </div>
+                    
+                    <div class="d-flex justify-content-center gap-3 mt-4">
+                        <a href="businesses.php" class="btn btn-lg btn-outline-light">
+                            <i class="bi bi-list me-1"></i> Kembali ke List
+                        </a>
+                        <a href="owner-access.php" class="btn btn-lg btn-outline-info">
+                            <i class="bi bi-eye me-1"></i> Setup Akses User
+                        </a>
+                    </div>
+                </div>
+            </div>
+            <?php endif; ?>
+        </div>
+    </div>
+    
+    <?php elseif ($action === 'add' || $action === 'edit'): ?>
+    <!-- ============================================= -->
+    <!-- ADD / EDIT FORM (Step 1 for add) -->
+    <!-- ============================================= -->
     <div class="row justify-content-center">
         <div class="col-lg-10">
             <div class="content-card">
@@ -538,14 +906,26 @@ require_once __DIR__ . '/includes/header.php';
                     <?php endif; ?>
                     
                     <?php if ($action === 'add'): ?>
+                    <!-- Step indicator for add -->
+                    <div class="wizard-steps flex-wrap mb-4">
+                        <div class="wizard-step active"><span class="step-num">1</span> Register</div>
+                        <div class="wizard-connector"><i class="bi bi-chevron-right"></i></div>
+                        <div class="wizard-step"><span class="step-num">2</span> Buat Database</div>
+                        <div class="wizard-connector"><i class="bi bi-chevron-right"></i></div>
+                        <div class="wizard-step"><span class="step-num">3</span> Setup Tables</div>
+                        <div class="wizard-connector"><i class="bi bi-chevron-right"></i></div>
+                        <div class="wizard-step"><span class="step-num">4</span> Config File</div>
+                        <div class="wizard-connector"><i class="bi bi-chevron-right"></i></div>
+                        <div class="wizard-step"><span class="step-num">5</span> Selesai!</div>
+                    </div>
                     <div class="alert alert-info">
                         <i class="bi bi-info-circle me-2"></i>
-                        <strong>Auto Database Creation:</strong> System will automatically create a new database named <code>adf_[business_code]</code> when you create the business.
+                        <strong>Step 1:</strong> Isi data bisnis di bawah. Setelah submit, Anda akan dipandu step-by-step untuk membuat database, setup tabel, dan generate config.
                     </div>
                     <?php endif; ?>
                     
                     <form method="POST" action="">
-                        <input type="hidden" name="form_action" value="<?php echo $action === 'add' ? 'create' : 'update'; ?>">
+                        <input type="hidden" name="form_action" value="<?php echo $action === 'add' ? 'register_business' : 'update'; ?>">
                         <?php if ($editBusiness): ?>
                         <input type="hidden" name="business_id" value="<?php echo $editBusiness['id']; ?>">
                         <?php endif; ?>
@@ -623,6 +1003,7 @@ require_once __DIR__ . '/includes/header.php';
                             </div>
                         </div>
                         
+                        <?php if ($action === 'edit'): ?>
                         <div class="mb-4">
                             <div class="form-check form-switch">
                                 <input class="form-check-input" type="checkbox" name="is_active" id="is_active"
@@ -630,10 +1011,11 @@ require_once __DIR__ . '/includes/header.php';
                                 <label class="form-check-label" for="is_active">Active Business</label>
                             </div>
                         </div>
+                        <?php endif; ?>
                         
                         <div class="d-flex gap-2">
                             <button type="submit" class="btn btn-primary">
-                                <i class="bi bi-check-lg me-1"></i><?php echo $action === 'add' ? 'Create Business & Database' : 'Update Business'; ?>
+                                <i class="bi bi-<?php echo $action === 'add' ? 'arrow-right-circle' : 'check-lg'; ?> me-1"></i><?php echo $action === 'add' ? 'Register & Lanjut ke Step 2 →' : 'Update Business'; ?>
                             </button>
                             <a href="businesses.php" class="btn btn-outline-secondary">Cancel</a>
                         </div>
@@ -700,11 +1082,18 @@ require_once __DIR__ . '/includes/header.php';
                         <td>
                             <span class="badge bg-secondary"><?php echo $biz['user_count']; ?> users</span>
                         </td>
-                        <td>
-                            <?php if ($biz['is_active']): ?>
-                            <span class="badge bg-success">Active</span>
-                            <?php else: ?>
+                        <td class="biz-status-col">
+                            <?php 
+                            $bizSlugCheck = strtolower(str_replace('_', '-', $biz['business_code']));
+                            $bizConfigExists = file_exists(dirname(dirname(__FILE__)) . '/config/businesses/' . $bizSlugCheck . '.php');
+                            if ($biz['is_active'] && $bizConfigExists): ?>
+                            <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Active</span>
+                            <?php elseif (!$biz['is_active'] && !$bizConfigExists): ?>
+                            <span class="badge bg-warning text-dark"><i class="bi bi-clock me-1"></i>Setup Needed</span>
+                            <?php elseif (!$biz['is_active']): ?>
                             <span class="badge bg-danger">Inactive</span>
+                            <?php else: ?>
+                            <span class="badge bg-info">Partial</span>
                             <?php endif; ?>
                         </td>
                         <td>
@@ -725,9 +1114,14 @@ require_once __DIR__ . '/includes/header.php';
                             </div>
                         </td>
                         <td>
+                            <?php if (!$biz['is_active'] || !$bizConfigExists): ?>
+                            <a href="?action=setup&id=<?php echo $biz['id']; ?>&step=2" class="btn btn-sm btn-warning" title="Continue Setup">
+                                <i class="bi bi-gear"></i> Setup
+                            </a>
+                            <?php endif; ?>
                             <a href="../developer-access.php?dev_access=<?php echo base64_encode($biz['database_name']); ?>" 
                                class="btn btn-sm btn-success" title="Open Business (Developer Access)" target="_blank">
-                                <i class="bi bi-box-arrow-up-right"></i> Open
+                                <i class="bi bi-box-arrow-up-right"></i>
                             </a>
                             <a href="?action=edit&id=<?php echo $biz['id']; ?>" class="btn btn-sm btn-outline-primary" title="Edit">
                                 <i class="bi bi-pencil"></i>
@@ -751,28 +1145,28 @@ require_once __DIR__ . '/includes/header.php';
 </div>
 
 <script>
+function copyText(text) {
+    navigator.clipboard.writeText(text).then(function() {
+        const btn = event.target.closest('button');
+        if (btn) {
+            const orig = btn.innerHTML;
+            btn.innerHTML = '<i class="bi bi-check2 text-success"></i>';
+            setTimeout(() => { btn.innerHTML = orig; }, 1500);
+        }
+    }).catch(function() {
+        // Fallback
+        const ta = document.createElement('textarea');
+        ta.value = text;
+        document.body.appendChild(ta);
+        ta.select();
+        document.execCommand('copy');
+        document.body.removeChild(ta);
+    });
+}
+
 function copyBizLoginLink(bizId) {
     const input = document.getElementById('bizLoginLink' + bizId);
-    input.select();
-    input.setSelectionRange(0, 99999); // For mobile devices
-    
-    // Copy to clipboard
-    navigator.clipboard.writeText(input.value).then(function() {
-        // Show success feedback
-        const btn = event.target.closest('button');
-        const originalHTML = btn.innerHTML;
-        btn.innerHTML = '<i class="bi bi-check2"></i>';
-        btn.classList.remove('btn-outline-secondary');
-        btn.classList.add('btn-success');
-        
-        setTimeout(function() {
-            btn.innerHTML = originalHTML;
-            btn.classList.remove('btn-success');
-            btn.classList.add('btn-outline-secondary');
-        }, 2000);
-    }).catch(function(err) {
-        alert('Failed to copy: ' + err);
-    });
+    copyText(input.value);
 }
 </script>
 
