@@ -1,0 +1,901 @@
+﻿-- activity_logs
+CREATE TABLE IF NOT EXISTS `activity_logs` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_id` int(11) NOT NULL,
+  `action` varchar(50) NOT NULL,
+  `description` text DEFAULT NULL,
+  `created_at` datetime NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_action` (`action`),
+  KEY `idx_created_at` (`created_at`),
+  CONSTRAINT `activity_logs_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- bill_records
+CREATE TABLE IF NOT EXISTS `bill_records` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `template_id` int(11) NOT NULL,
+  `bill_period` varchar(7) NOT NULL COMMENT 'YYYY-MM format',
+  `amount` decimal(15,2) NOT NULL DEFAULT 0.00,
+  `due_date` date NOT NULL,
+  `status` enum('pending','paid','overdue','cancelled') NOT NULL DEFAULT 'pending',
+  `paid_date` date DEFAULT NULL,
+  `paid_amount` decimal(15,2) DEFAULT NULL,
+  `payment_method` enum('cash','transfer','qr','debit','other') DEFAULT NULL,
+  `cashbook_id` int(11) DEFAULT NULL COMMENT 'Reference to cash_book.id after payment',
+  `proof_file` varchar(255) DEFAULT NULL COMMENT 'Upload bukti bayar',
+  `notes` text DEFAULT NULL,
+  `paid_by` int(11) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_bill_period` (`template_id`,`bill_period`),
+  KEY `idx_template` (`template_id`),
+  KEY `idx_period` (`bill_period`),
+  KEY `idx_status` (`status`),
+  KEY `idx_due_date` (`due_date`),
+  KEY `idx_cashbook` (`cashbook_id`),
+  CONSTRAINT `bill_records_ibfk_1` FOREIGN KEY (`template_id`) REFERENCES `bill_templates` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- bill_templates
+CREATE TABLE IF NOT EXISTS `bill_templates` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `bill_name` varchar(150) NOT NULL,
+  `bill_category` enum('electricity','tax','wifi','vehicle','po','receivable','other') NOT NULL DEFAULT 'other',
+  `vendor_name` varchar(150) DEFAULT NULL,
+  `vendor_contact` varchar(100) DEFAULT NULL,
+  `account_number` varchar(100) DEFAULT NULL COMMENT 'Meter/account/reference number',
+  `default_amount` decimal(15,2) NOT NULL DEFAULT 0.00,
+  `is_fixed_amount` tinyint(1) NOT NULL DEFAULT 0 COMMENT '1=fixed amount every month, 0=variable',
+  `recurrence` enum('monthly','quarterly','yearly','one-time') NOT NULL DEFAULT 'monthly',
+  `due_day` int(2) NOT NULL DEFAULT 1 COMMENT 'Day of month when bill is due (1-28)',
+  `reminder_days` int(3) NOT NULL DEFAULT 3 COMMENT 'Notify X days before due date',
+  `division_id` int(11) DEFAULT NULL,
+  `category_id` int(11) DEFAULT NULL,
+  `payment_method` enum('cash','transfer','qr','debit','other') DEFAULT 'transfer',
+  `notes` text DEFAULT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `created_by` int(11) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_category` (`bill_category`),
+  KEY `idx_active` (`is_active`),
+  KEY `idx_due_day` (`due_day`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- booking_payments
+CREATE TABLE IF NOT EXISTS `booking_payments` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `booking_id` int(11) NOT NULL,
+  `payment_date` datetime NOT NULL DEFAULT current_timestamp(),
+  `amount` decimal(12,2) NOT NULL,
+  `payment_method` varchar(50) DEFAULT 'cash',
+  `reference_number` varchar(100) DEFAULT NULL,
+  `notes` text DEFAULT NULL,
+  `processed_by` int(11) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `synced_to_cashbook` tinyint(1) NOT NULL DEFAULT 0,
+  `cashbook_id` int(11) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `processed_by` (`processed_by`),
+  KEY `idx_booking` (`booking_id`),
+  KEY `idx_date` (`payment_date`),
+  CONSTRAINT `booking_payments_ibfk_1` FOREIGN KEY (`booking_id`) REFERENCES `bookings` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `booking_payments_ibfk_2` FOREIGN KEY (`processed_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- bookings
+CREATE TABLE IF NOT EXISTS `bookings` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `booking_code` varchar(20) NOT NULL,
+  `guest_id` int(11) NOT NULL,
+  `room_id` int(11) NOT NULL,
+  `check_in_date` date NOT NULL,
+  `check_out_date` date NOT NULL,
+  `actual_check_in` datetime DEFAULT NULL,
+  `actual_check_out` datetime DEFAULT NULL,
+  `adults` int(11) NOT NULL DEFAULT 1,
+  `children` int(11) NOT NULL DEFAULT 0,
+  `room_price` decimal(12,2) NOT NULL,
+  `total_nights` int(11) NOT NULL,
+  `total_price` decimal(12,2) NOT NULL,
+  `discount` decimal(12,2) DEFAULT 0.00,
+  `final_price` decimal(12,2) NOT NULL,
+  `status` enum('pending','confirmed','checked_in','checked_out','cancelled') DEFAULT 'pending',
+  `payment_status` enum('unpaid','partial','paid') DEFAULT 'unpaid',
+  `paid_amount` decimal(12,2) DEFAULT 0.00,
+  `booking_source` enum('walk_in','phone','online','ota') DEFAULT 'walk_in',
+  `special_request` text DEFAULT NULL,
+  `notes` text DEFAULT NULL,
+  `created_by` int(11) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `booking_code` (`booking_code`),
+  KEY `guest_id` (`guest_id`),
+  KEY `room_id` (`room_id`),
+  KEY `created_by` (`created_by`),
+  KEY `idx_dates` (`check_in_date`,`check_out_date`),
+  KEY `idx_status` (`status`),
+  KEY `idx_booking_code` (`booking_code`),
+  CONSTRAINT `bookings_ibfk_1` FOREIGN KEY (`guest_id`) REFERENCES `guests` (`id`),
+  CONSTRAINT `bookings_ibfk_2` FOREIGN KEY (`room_id`) REFERENCES `rooms` (`id`),
+  CONSTRAINT `bookings_ibfk_3` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`) ON DELETE SET NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- breakfast_log
+CREATE TABLE IF NOT EXISTS `breakfast_log` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `booking_id` int(11) NOT NULL,
+  `guest_id` int(11) NOT NULL,
+  `menu_id` int(11) DEFAULT NULL,
+  `quantity` int(11) DEFAULT 1,
+  `date` date NOT NULL,
+  `status` enum('taken','not_taken','skipped') DEFAULT 'taken',
+  `marked_by` int(11) NOT NULL,
+  `marked_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `notes` varchar(255) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_breakfast` (`booking_id`,`date`),
+  KEY `guest_id` (`guest_id`),
+  KEY `marked_by` (`marked_by`),
+  CONSTRAINT `breakfast_log_ibfk_1` FOREIGN KEY (`booking_id`) REFERENCES `bookings` (`id`),
+  CONSTRAINT `breakfast_log_ibfk_2` FOREIGN KEY (`guest_id`) REFERENCES `guests` (`id`),
+  CONSTRAINT `breakfast_log_ibfk_3` FOREIGN KEY (`marked_by`) REFERENCES `users` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- breakfast_menus
+CREATE TABLE IF NOT EXISTS `breakfast_menus` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `menu_name` varchar(100) NOT NULL,
+  `description` text DEFAULT NULL,
+  `category` enum('western','indonesian','japanese','asian','drinks','beverages','extras') NOT NULL,
+  `price` decimal(10,2) DEFAULT 0.00,
+  `is_free` tinyint(1) DEFAULT 1 COMMENT 'TRUE = Free breakfast, FALSE = Extra/Paid',
+  `is_available` tinyint(1) DEFAULT 1,
+  `image_url` varchar(255) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_category` (`category`),
+  KEY `idx_available` (`is_available`),
+  KEY `idx_free` (`is_free`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- breakfast_orders
+CREATE TABLE IF NOT EXISTS `breakfast_orders` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `booking_id` int(11) DEFAULT NULL,
+  `guest_name` varchar(100) NOT NULL,
+  `room_number` varchar(20) DEFAULT NULL,
+  `total_pax` int(11) NOT NULL,
+  `breakfast_time` time NOT NULL,
+  `breakfast_date` date NOT NULL,
+  `location` enum('restaurant','room_service') DEFAULT 'restaurant',
+  `menu_items` text DEFAULT NULL COMMENT 'JSON array of menu items with quantities',
+  `special_requests` text DEFAULT NULL,
+  `total_price` decimal(10,2) DEFAULT 0.00,
+  `order_status` enum('pending','preparing','served','completed','cancelled') DEFAULT 'pending',
+  `created_by` int(11) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `created_by` (`created_by`),
+  KEY `idx_date` (`breakfast_date`),
+  KEY `idx_status` (`order_status`),
+  CONSTRAINT `breakfast_orders_ibfk_1` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- business_settings
+CREATE TABLE IF NOT EXISTS `business_settings` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `business_id` int(11) NOT NULL,
+  `whatsapp_number` varchar(20) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_business` (`business_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- businesses
+CREATE TABLE IF NOT EXISTS `businesses` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `business_name` varchar(255) NOT NULL,
+  `database_name` varchar(255) NOT NULL,
+  `owner_id` int(11) DEFAULT NULL,
+  `status` varchar(50) DEFAULT 'active',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- cash_account_transactions
+CREATE TABLE IF NOT EXISTS `cash_account_transactions` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `cash_account_id` int(11) NOT NULL,
+  `transaction_id` int(11) DEFAULT NULL,
+  `transaction_date` date NOT NULL,
+  `description` varchar(255) NOT NULL,
+  `debit` decimal(15,2) DEFAULT 0.00,
+  `credit` decimal(15,2) DEFAULT 0.00,
+  `transaction_type` enum('income','expense','transfer','opening_balance','capital_injection') NOT NULL,
+  `reference_number` varchar(50) DEFAULT NULL,
+  `created_by` int(11) DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `cash_account_id` (`cash_account_id`),
+  KEY `transaction_date` (`transaction_date`),
+  KEY `transaction_type` (`transaction_type`),
+  CONSTRAINT `cash_account_transactions_ibfk_1` FOREIGN KEY (`cash_account_id`) REFERENCES `cash_accounts` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- cash_balance
+CREATE TABLE IF NOT EXISTS `cash_balance` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `balance_date` date NOT NULL,
+  `opening_balance` decimal(15,2) DEFAULT 0.00,
+  `total_income` decimal(15,2) DEFAULT 0.00,
+  `total_expense` decimal(15,2) DEFAULT 0.00,
+  `closing_balance` decimal(15,2) DEFAULT 0.00,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `balance_date` (`balance_date`),
+  KEY `idx_date` (`balance_date`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- expense_categories
+CREATE TABLE IF NOT EXISTS `expense_categories` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(100) NOT NULL,
+  `description` text DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `name` (`name`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- frontdesk_rooms
+CREATE TABLE IF NOT EXISTS `frontdesk_rooms` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `room_number` varchar(10) NOT NULL,
+  `status` enum('available','occupied','maintenance') DEFAULT 'available',
+  `capacity` int(11) DEFAULT 1,
+  `price` decimal(10,2) DEFAULT 0.00,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `room_number` (`room_number`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- guests
+CREATE TABLE IF NOT EXISTS `guests` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `guest_name` varchar(200) NOT NULL,
+  `id_card_type` enum('ktp','passport','sim') DEFAULT 'ktp',
+  `id_card_number` varchar(50) NOT NULL,
+  `phone` varchar(20) DEFAULT NULL,
+  `email` varchar(100) DEFAULT NULL,
+  `address` text DEFAULT NULL,
+  `nationality` varchar(50) DEFAULT 'Indonesia',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_id_card` (`id_card_number`),
+  KEY `idx_phone` (`phone`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- investor_balances
+CREATE TABLE IF NOT EXISTS `investor_balances` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `investor_id` int(11) NOT NULL,
+  `total_capital_idr` decimal(15,2) DEFAULT 0.00,
+  `total_expenses_idr` decimal(15,2) DEFAULT 0.00,
+  `remaining_balance_idr` decimal(15,2) DEFAULT 0.00,
+  `last_updated` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_investor` (`investor_id`),
+  CONSTRAINT `investor_balances_ibfk_1` FOREIGN KEY (`investor_id`) REFERENCES `investors` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- investor_bills
+CREATE TABLE IF NOT EXISTS `investor_bills` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `bill_number` varchar(50) DEFAULT NULL COMMENT 'Optional reference number',
+  `title` varchar(255) NOT NULL COMMENT 'Bill title/name',
+  `description` text DEFAULT NULL COMMENT 'Detailed description',
+  `amount` decimal(15,2) NOT NULL DEFAULT 0.00 COMMENT 'Bill amount in IDR',
+  `category` enum('land','property','utility','tax','service','legal','other') DEFAULT 'other' COMMENT 'Bill category',
+  `due_date` date DEFAULT NULL COMMENT 'When payment is due',
+  `payment_date` date DEFAULT NULL COMMENT 'When actually paid',
+  `status` enum('unpaid','paid','overdue','cancelled') DEFAULT 'unpaid' COMMENT 'Payment status',
+  `payment_method` varchar(50) DEFAULT NULL COMMENT 'Cash/Transfer/etc',
+  `paid_by` varchar(100) DEFAULT NULL COMMENT 'Who made the payment',
+  `notes` text DEFAULT NULL COMMENT 'Additional notes',
+  `attachment` varchar(255) DEFAULT NULL COMMENT 'File path for invoice/receipt',
+  `created_by` int(11) DEFAULT NULL COMMENT 'User ID who created',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_status` (`status`),
+  KEY `idx_category` (`category`),
+  KEY `idx_due_date` (`due_date`),
+  KEY `idx_created_at` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci COMMENT='Simple manual bills recording for investor projects';
+
+-- investor_transactions
+CREATE TABLE IF NOT EXISTS `investor_transactions` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `investor_id` int(11) NOT NULL,
+  `type` enum('capital','expense','return') NOT NULL,
+  `amount` decimal(15,2) NOT NULL,
+  `description` text DEFAULT NULL,
+  `transaction_date` date DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `investor_id` (`investor_id`),
+  CONSTRAINT `investor_transactions_ibfk_1` FOREIGN KEY (`investor_id`) REFERENCES `investors` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- investors
+CREATE TABLE IF NOT EXISTS `investors` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(255) NOT NULL,
+  `contact` varchar(100) DEFAULT NULL,
+  `email` varchar(100) DEFAULT NULL,
+  `total_capital` decimal(15,2) DEFAULT 0.00,
+  `total_expenses` decimal(15,2) DEFAULT 0.00,
+  `remaining_balance` decimal(15,2) DEFAULT 0.00,
+  `notes` text DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- login_history
+CREATE TABLE IF NOT EXISTS `login_history` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `business_id` varchar(100) DEFAULT NULL,
+  `user_id` int(11) DEFAULT NULL,
+  `username` varchar(100) NOT NULL,
+  `full_name` varchar(255) DEFAULT NULL,
+  `role` varchar(50) DEFAULT NULL,
+  `status` enum('success','failed') DEFAULT 'success',
+  `ip_address` varchar(45) DEFAULT NULL,
+  `user_agent` varchar(500) DEFAULT NULL,
+  `login_time` timestamp NOT NULL DEFAULT current_timestamp(),
+  `logout_time` timestamp NULL DEFAULT NULL,
+  `session_duration` int(11) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_login_time` (`login_time`),
+  KEY `idx_business_id` (`business_id`),
+  KEY `idx_user_id` (`user_id`),
+  KEY `idx_status` (`status`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- monthly_archives
+CREATE TABLE IF NOT EXISTS `monthly_archives` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `business_id` int(11) NOT NULL,
+  `archive_month` varchar(7) NOT NULL COMMENT 'Format: YYYY-MM',
+  `total_income` decimal(15,2) NOT NULL DEFAULT 0.00,
+  `total_expense` decimal(15,2) NOT NULL DEFAULT 0.00,
+  `monthly_profit` decimal(15,2) NOT NULL DEFAULT 0.00,
+  `transaction_count` int(11) NOT NULL DEFAULT 0,
+  `final_balance` decimal(15,2) NOT NULL DEFAULT 0.00,
+  `minimum_operational` decimal(15,2) NOT NULL DEFAULT 0.00,
+  `excess_transferred` decimal(15,2) NOT NULL DEFAULT 0.00,
+  `closing_date` datetime NOT NULL,
+  `closed_by` int(11) NOT NULL,
+  `notes` text DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_business_month` (`business_id`,`archive_month`),
+  KEY `idx_business_month` (`business_id`,`archive_month`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- monthly_carry_forward
+CREATE TABLE IF NOT EXISTS `monthly_carry_forward` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `business_id` int(11) NOT NULL,
+  `month` varchar(7) NOT NULL COMMENT 'Format: YYYY-MM',
+  `carry_forward_balance` decimal(15,2) NOT NULL DEFAULT 0.00,
+  `petty_cash_balance` decimal(15,2) NOT NULL DEFAULT 0.00,
+  `owner_capital_balance` decimal(15,2) NOT NULL DEFAULT 0.00,
+  `notes` text DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_business_month` (`business_id`,`month`),
+  KEY `idx_business_month` (`business_id`,`month`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- occupancy_log
+CREATE TABLE IF NOT EXISTS `occupancy_log` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `room_id` int(11) NOT NULL,
+  `booking_id` int(11) DEFAULT NULL,
+  `old_status` varchar(50) DEFAULT NULL,
+  `new_status` varchar(50) DEFAULT NULL,
+  `changed_by` int(11) DEFAULT NULL,
+  `changed_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_room_id` (`room_id`),
+  KEY `idx_changed_at` (`changed_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- project_balances
+CREATE TABLE IF NOT EXISTS `project_balances` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `project_id` int(11) NOT NULL,
+  `total_expenses_usd` decimal(15,2) DEFAULT 0.00,
+  `total_expenses_idr` decimal(15,2) DEFAULT 0.00,
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `project_id` (`project_id`),
+  CONSTRAINT `project_balances_ibfk_1` FOREIGN KEY (`project_id`) REFERENCES `projects` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- project_contractors
+CREATE TABLE IF NOT EXISTS `project_contractors` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `project_id` int(11) NOT NULL,
+  `name` varchar(100) NOT NULL,
+  `bidang` varchar(100) DEFAULT '',
+  `pic_name` varchar(100) DEFAULT '',
+  `phone` varchar(20) DEFAULT '',
+  `status` enum('active','inactive') DEFAULT 'active',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- project_division_expenses
+CREATE TABLE IF NOT EXISTS `project_division_expenses` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `project_id` int(11) NOT NULL,
+  `division_name` varchar(100) NOT NULL,
+  `contractor_name` varchar(100) DEFAULT NULL,
+  `description` text DEFAULT NULL,
+  `amount` decimal(15,2) NOT NULL,
+  `expense_date` date DEFAULT NULL,
+  `receipt_file` varchar(255) DEFAULT NULL,
+  `status` enum('pending','approved','paid') DEFAULT 'pending',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `created_by` int(11) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- project_expenses
+CREATE TABLE IF NOT EXISTS `project_expenses` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `project_id` int(11) NOT NULL,
+  `category` varchar(100) NOT NULL COMMENT 'Kategori pengeluaran: Semen, Cat, Besi, dll',
+  `description` text DEFAULT NULL,
+  `amount_usd` decimal(15,2) NOT NULL DEFAULT 0.00,
+  `amount_idr` decimal(15,2) NOT NULL DEFAULT 0.00,
+  `exchange_rate` decimal(10,2) DEFAULT 15500.00,
+  `expense_date` date NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `project_id` (`project_id`),
+  KEY `category` (`category`),
+  KEY `expense_date` (`expense_date`),
+  CONSTRAINT `project_expenses_ibfk_1` FOREIGN KEY (`project_id`) REFERENCES `projects` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- project_salaries
+CREATE TABLE IF NOT EXISTS `project_salaries` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `project_id` int(11) NOT NULL,
+  `worker_id` int(11) NOT NULL,
+  `period_type` enum('weekly','monthly') DEFAULT 'weekly',
+  `period_label` varchar(50) DEFAULT NULL,
+  `daily_rate` decimal(15,2) DEFAULT 0.00,
+  `overtime_per_day` decimal(15,2) DEFAULT 0.00,
+  `other_per_day` decimal(15,2) DEFAULT 0.00,
+  `total_days` int(11) DEFAULT 0,
+  `total_salary` decimal(15,2) DEFAULT 0.00,
+  `status` enum('draft','submitted','approved','paid') DEFAULT 'draft',
+  `notes` text DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `created_by` int(11) DEFAULT NULL,
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- project_workers
+CREATE TABLE IF NOT EXISTS `project_workers` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `project_id` int(11) NOT NULL,
+  `name` varchar(100) NOT NULL,
+  `role` varchar(100) DEFAULT 'Tukang',
+  `daily_rate` decimal(15,2) DEFAULT 0.00,
+  `phone` varchar(20) DEFAULT NULL,
+  `status` enum('active','inactive') DEFAULT 'active',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- projects
+CREATE TABLE IF NOT EXISTS `projects` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `name` varchar(255) NOT NULL,
+  `description` text DEFAULT NULL,
+  `status` enum('active','completed','on_hold') DEFAULT 'active',
+  `start_date` date DEFAULT NULL,
+  `end_date` date DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- purchase_orders_detail
+CREATE TABLE IF NOT EXISTS `purchase_orders_detail` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `po_header_id` int(11) NOT NULL,
+  `line_number` int(11) NOT NULL,
+  `item_name` varchar(255) NOT NULL,
+  `item_description` text DEFAULT NULL,
+  `unit_of_measure` varchar(50) DEFAULT 'pcs',
+  `quantity` decimal(15,2) NOT NULL,
+  `unit_price` decimal(15,2) NOT NULL,
+  `subtotal` decimal(15,2) NOT NULL,
+  `division_id` int(11) NOT NULL COMMENT 'Cost Center',
+  `received_quantity` decimal(15,2) DEFAULT 0.00,
+  `notes` text DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_po_header` (`po_header_id`),
+  KEY `idx_division` (`division_id`),
+  CONSTRAINT `purchase_orders_detail_ibfk_1` FOREIGN KEY (`po_header_id`) REFERENCES `purchase_orders_header` (`id`) ON DELETE CASCADE,
+  CONSTRAINT `purchase_orders_detail_ibfk_2` FOREIGN KEY (`division_id`) REFERENCES `divisions` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- purchase_orders_header
+CREATE TABLE IF NOT EXISTS `purchase_orders_header` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `po_number` varchar(50) NOT NULL,
+  `supplier_id` int(11) NOT NULL,
+  `po_date` date NOT NULL,
+  `expected_delivery_date` date DEFAULT NULL,
+  `status` enum('draft','submitted','approved','rejected','partially_received','completed','cancelled') DEFAULT 'draft',
+  `total_amount` decimal(15,2) NOT NULL DEFAULT 0.00,
+  `discount_amount` decimal(15,2) DEFAULT 0.00,
+  `tax_amount` decimal(15,2) DEFAULT 0.00,
+  `grand_total` decimal(15,2) NOT NULL DEFAULT 0.00,
+  `notes` text DEFAULT NULL,
+  `approved_by` int(11) DEFAULT NULL,
+  `approved_at` timestamp NULL DEFAULT NULL,
+  `created_by` int(11) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `po_number` (`po_number`),
+  KEY `approved_by` (`approved_by`),
+  KEY `created_by` (`created_by`),
+  KEY `idx_po_date` (`po_date`),
+  KEY `idx_status` (`status`),
+  KEY `idx_supplier` (`supplier_id`),
+  CONSTRAINT `purchase_orders_header_ibfk_1` FOREIGN KEY (`supplier_id`) REFERENCES `suppliers` (`id`),
+  CONSTRAINT `purchase_orders_header_ibfk_2` FOREIGN KEY (`approved_by`) REFERENCES `users` (`id`) ON DELETE SET NULL,
+  CONSTRAINT `purchase_orders_header_ibfk_3` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- room_types
+CREATE TABLE IF NOT EXISTS `room_types` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `type_name` varchar(100) NOT NULL,
+  `description` text DEFAULT NULL,
+  `base_price` decimal(12,2) NOT NULL DEFAULT 0.00,
+  `max_occupancy` int(11) NOT NULL DEFAULT 2,
+  `amenities` text DEFAULT NULL,
+  `color_code` varchar(7) DEFAULT '#6366f1',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- rooms
+CREATE TABLE IF NOT EXISTS `rooms` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `room_number` varchar(20) NOT NULL,
+  `room_type_id` int(11) NOT NULL,
+  `floor_number` int(11) NOT NULL DEFAULT 1,
+  `status` enum('available','occupied','cleaning','maintenance','blocked') DEFAULT 'available',
+  `notes` text DEFAULT NULL,
+  `position_x` int(11) DEFAULT 0,
+  `position_y` int(11) DEFAULT 0,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `room_number` (`room_number`),
+  KEY `room_type_id` (`room_type_id`),
+  KEY `idx_status` (`status`),
+  KEY `idx_floor` (`floor_number`),
+  CONSTRAINT `rooms_ibfk_1` FOREIGN KEY (`room_type_id`) REFERENCES `room_types` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- sales_invoices_detail
+CREATE TABLE IF NOT EXISTS `sales_invoices_detail` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `invoice_header_id` int(11) NOT NULL,
+  `item_name` varchar(255) NOT NULL,
+  `item_description` text DEFAULT NULL,
+  `category` varchar(100) DEFAULT NULL COMMENT 'rental_motor, laundry, tour, rental_mobil, etc',
+  `quantity` decimal(10,2) NOT NULL DEFAULT 1.00,
+  `unit_price` decimal(15,2) NOT NULL,
+  `total_price` decimal(15,2) NOT NULL,
+  `notes` text DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `invoice_header_id` (`invoice_header_id`),
+  CONSTRAINT `sales_invoices_detail_ibfk_1` FOREIGN KEY (`invoice_header_id`) REFERENCES `sales_invoices_header` (`id`) ON DELETE CASCADE
+C:\xampp\php\php.exe : PHP Warning:  Undefined array key "Create Table" in 
+C:\xampp\htdocs\narayanakarimunjawa\adf_sytem\_dump_missing.php on line 32
+At line:1 char:1
++ C:\xampp\php\php.exe "c:\xampp\htdocs\narayanakarimunjawa\adf_sytem\_ ...
++ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+    + CategoryInfo          : NotSpecified: (PHP Warning:  U....php on line 32 
+   :String) [], RemoteException
+    + FullyQualifiedErrorId : NativeCommandError
+ 
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- sales_invoices_header
+CREATE TABLE IF NOT EXISTS `sales_invoices_header` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `invoice_number` varchar(50) NOT NULL,
+  `invoice_date` date NOT NULL,
+  `customer_name` varchar(255) NOT NULL,
+  `customer_phone` varchar(50) DEFAULT NULL,
+  `customer_email` varchar(255) DEFAULT NULL,
+  `customer_address` text DEFAULT NULL,
+  `division_id` int(11) NOT NULL,
+  `payment_method` enum('cash','debit','transfer','qr','ota','other') DEFAULT 'cash',
+  `payment_status` enum('unpaid','paid','partial') DEFAULT 'unpaid',
+  `subtotal` decimal(15,2) NOT NULL DEFAULT 0.00,
+  `discount_amount` decimal(15,2) DEFAULT 0.00,
+  `tax_amount` decimal(15,2) DEFAULT 0.00,
+PHP Warning:  Undefined array key "Create Table" in 
+C:\xampp\htdocs\narayanakarimunjawa\adf_sytem\_dump_missing.php on line 32
+  `total_amount` decimal(15,2) NOT NULL DEFAULT 0.00,
+  `paid_amount` decimal(15,2) DEFAULT 0.00,
+  `notes` text DEFAULT NULL,
+  `created_by` int(11) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `cash_book_id` int(11) DEFAULT NULL COMMENT 'Reference to cash_book entry',
+  `print_count` int(11) DEFAULT 0,
+  `last_printed_at` timestamp NULL DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `invoice_number` (`invoice_number`),
+  KEY `division_id` (`division_id`),
+  KEY `created_by` (`created_by`),
+  KEY `invoice_date` (`invoice_date`),
+  KEY `payment_status` (`payment_status`),
+  KEY `cash_book_id` (`cash_book_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
+
+-- transaction_attachments
+CREATE TABLE IF NOT EXISTS `transaction_attachments` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `transaction_type` varchar(50) NOT NULL COMMENT 'e.g., purchase_order, sales_invoice',
+  `transaction_id` int(11) NOT NULL,
+  `file_path` varchar(255) NOT NULL,
+  `file_name` varchar(255) NOT NULL,
+  `file_type` varchar(50) DEFAULT NULL,
+  `uploaded_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `uploaded_by` int(11) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_transaction` (`transaction_type`,`transaction_id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- user_permissions
+CREATE TABLE IF NOT EXISTS `user_permissions` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_id` int(11) NOT NULL,
+  `permission` varchar(50) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_user_permission` (`user_id`,`permission`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- user_preferences
+CREATE TABLE IF NOT EXISTS `user_preferences` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `user_id` int(11) NOT NULL,
+  `branch_id` varchar(50) NOT NULL,
+  `theme` varchar(50) DEFAULT 'dark',
+  `language` varchar(20) DEFAULT 'id',
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `unique_user_branch` (`user_id`,`branch_id`),
+  KEY `idx_user_id` (`user_id`),
+  CONSTRAINT `user_preferences_ibfk_1` FOREIGN KEY (`user_id`) REFERENCES `users` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+Warning: Undefined array key "Create Table" in C:\xampp\htdocs\narayanakarimunjawa\adf_sytem\_dump_missing.php on line 32
+-- view_daily_summary
+;
+
+
+Warning: Undefined array key "Create Table" in C:\xampp\htdocs\narayanakarimunjawa\adf_sytem\_dump_missing.php on line 32
+-- view_division_summary
+;
+
+
+
+-- =============================================
+-- EXISTING DEMO TABLE STRUCTURES (for column comparison)
+-- =============================================
+
+-- audit_logs (from adf_benscafe)
+CREATE TABLE IF NOT EXISTS `audit_logs` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `table_name` varchar(100) NOT NULL,
+  `record_id` int(11) NOT NULL,
+  `action` varchar(20) NOT NULL,
+  `old_data` text DEFAULT NULL,
+  `new_data` text DEFAULT NULL,
+  `user_id` int(11) NOT NULL,
+  `user_name` varchar(255) NOT NULL,
+  `ip_address` varchar(50) DEFAULT NULL,
+  `user_agent` text DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_table_record` (`table_name`,`record_id`),
+  KEY `idx_user` (`user_id`),
+  KEY `idx_action` (`action`),
+  KEY `idx_created` (`created_at`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- cash_accounts (from adf_benscafe)
+CREATE TABLE IF NOT EXISTS `cash_accounts` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `business_id` int(11) NOT NULL,
+  `account_name` varchar(100) NOT NULL,
+  `account_type` enum('cash','bank','e-wallet','owner_capital','credit_card') NOT NULL DEFAULT 'cash',
+  `current_balance` decimal(15,2) NOT NULL DEFAULT 0.00,
+  `is_default_account` tinyint(1) NOT NULL DEFAULT 0,
+  `description` text DEFAULT NULL,
+  `is_active` tinyint(1) NOT NULL DEFAULT 1,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `business_id` (`business_id`),
+  KEY `account_type` (`account_type`),
+  KEY `is_active` (`is_active`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- cash_book (from adf_benscafe)
+CREATE TABLE IF NOT EXISTS `cash_book` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `transaction_date` date NOT NULL,
+  `transaction_time` time NOT NULL,
+  `division_id` int(11) NOT NULL,
+  `category_id` int(11) NOT NULL,
+  `transaction_type` enum('income','expense') NOT NULL,
+  `amount` decimal(15,2) NOT NULL,
+  `description` text DEFAULT NULL,
+  `reference_no` varchar(50) DEFAULT NULL,
+  `receipt_number` varchar(50) DEFAULT NULL,
+  `payment_method` enum('cash','debit','transfer','qr','other') DEFAULT 'cash',
+  `source_type` varchar(50) DEFAULT 'manual',
+  `is_editable` tinyint(1) DEFAULT 1,
+  `created_by` int(11) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  `cash_account_id` int(11) DEFAULT NULL,
+  PRIMARY KEY (`id`),
+  KEY `idx_date` (`transaction_date`),
+  KEY `idx_division` (`division_id`),
+  KEY `idx_category` (`category_id`),
+  KEY `idx_type` (`transaction_type`),
+  KEY `idx_created_by` (`created_by`),
+  CONSTRAINT `cash_book_ibfk_1` FOREIGN KEY (`division_id`) REFERENCES `divisions` (`id`),
+  CONSTRAINT `cash_book_ibfk_2` FOREIGN KEY (`category_id`) REFERENCES `categories` (`id`),
+  CONSTRAINT `cash_book_ibfk_3` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- categories (from adf_benscafe)
+CREATE TABLE IF NOT EXISTS `categories` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `division_id` int(11) NOT NULL,
+  `category_name` varchar(100) NOT NULL,
+  `category_type` enum('income','expense') NOT NULL,
+  `description` text DEFAULT NULL,
+  `is_active` tinyint(1) DEFAULT 1,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  KEY `idx_division` (`division_id`),
+  KEY `idx_type` (`category_type`),
+  KEY `idx_active` (`is_active`),
+  CONSTRAINT `categories_ibfk_1` FOREIGN KEY (`division_id`) REFERENCES `divisions` (`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- divisions (from adf_benscafe)
+CREATE TABLE IF NOT EXISTS `divisions` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `division_code` varchar(20) NOT NULL,
+  `division_name` varchar(100) NOT NULL,
+  `description` text DEFAULT NULL,
+  `division_type` enum('income','expense','both') DEFAULT 'both',
+  `is_active` tinyint(1) DEFAULT 1,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `division_code` (`division_code`),
+  KEY `idx_code` (`division_code`),
+  KEY `idx_type` (`division_type`),
+  KEY `idx_active` (`is_active`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- roles (from adf_narayana_hotel)
+CREATE TABLE IF NOT EXISTS `roles` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `role_name` varchar(50) NOT NULL,
+  `role_code` varchar(20) NOT NULL,
+  `description` text DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `role_name` (`role_name`),
+  UNIQUE KEY `role_code` (`role_code`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- settings (from adf_benscafe)
+CREATE TABLE IF NOT EXISTS `settings` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `setting_key` varchar(100) NOT NULL,
+  `setting_value` longtext DEFAULT NULL,
+  `setting_type` varchar(50) DEFAULT 'string',
+  `description` text DEFAULT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `setting_key` (`setting_key`),
+  KEY `idx_key` (`setting_key`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- suppliers (from adf_benscafe)
+CREATE TABLE IF NOT EXISTS `suppliers` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `supplier_code` varchar(50) NOT NULL,
+  `supplier_name` varchar(255) NOT NULL,
+  `contact_person` varchar(255) DEFAULT NULL,
+  `phone` varchar(50) DEFAULT NULL,
+  `email` varchar(255) DEFAULT NULL,
+  `address` text DEFAULT NULL,
+  `tax_number` varchar(100) DEFAULT NULL,
+  `payment_terms` enum('cash','net_7','net_14','net_30','net_45','net_60') DEFAULT 'net_30',
+  `is_active` tinyint(1) DEFAULT 1,
+  `created_by` int(11) NOT NULL,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `supplier_code` (`supplier_code`),
+  KEY `created_by` (`created_by`),
+  CONSTRAINT `suppliers_ibfk_1` FOREIGN KEY (`created_by`) REFERENCES `users` (`id`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- users (from adf_benscafe)
+CREATE TABLE IF NOT EXISTS `users` (
+  `id` int(11) NOT NULL AUTO_INCREMENT,
+  `username` varchar(50) NOT NULL,
+  `password` varchar(255) NOT NULL,
+  `full_name` varchar(100) NOT NULL,
+  `email` varchar(100) DEFAULT NULL,
+  `role` enum('admin','manager','cashier','accountant','staff','owner') DEFAULT 'staff',
+  `business_access` varchar(255) DEFAULT 'all',
+  `phone` varchar(20) DEFAULT NULL,
+  `is_active` tinyint(1) DEFAULT 1,
+  `created_at` timestamp NOT NULL DEFAULT current_timestamp(),
+  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `username` (`username`),
+  KEY `idx_role` (`role`),
+  KEY `idx_active` (`is_active`)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
