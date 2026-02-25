@@ -315,6 +315,7 @@ function getBusinessView($module, $view) {
 /**
  * Get the numeric business ID for the currently active business.
  * Cached per-request so the DB is only queried once.
+ * Also ensures cash_accounts exist for this business (auto-creates if missing).
  * @return int Numeric business ID (defaults to 1 if lookup fails)
  */
 function getMasterBusinessId() {
@@ -324,14 +325,89 @@ function getMasterBusinessId() {
     // Try session first (set by setActiveBusinessId)
     if (isset($_SESSION['business_id']) && $_SESSION['business_id'] > 0) {
         $cachedId = (int)$_SESSION['business_id'];
-        return $cachedId;
+    } else {
+        // Query master DB via existing helper
+        $activeId = defined('ACTIVE_BUSINESS_ID') ? ACTIVE_BUSINESS_ID : 'narayana-hotel';
+        $id = getNumericBusinessId($activeId);
+        $cachedId = $id ?: 1;
     }
-
-    // Query master DB via existing helper
-    $activeId = defined('ACTIVE_BUSINESS_ID') ? ACTIVE_BUSINESS_ID : 'narayana-hotel';
-    $id = getNumericBusinessId($activeId);
-    $cachedId = $id ?: 1;
+    
+    // Auto-ensure cash accounts exist (once per session)
+    $sessionKey = '_cash_accounts_checked_' . $cachedId;
+    if (session_status() === PHP_SESSION_ACTIVE && empty($_SESSION[$sessionKey])) {
+        ensureCashAccountsExist($cachedId);
+        $_SESSION[$sessionKey] = true;
+    }
+    
     return $cachedId;
+}
+
+/**
+ * Ensure cash_accounts exist for a given business in the master database.
+ * Auto-creates Petty Cash, Bank, Kas Modal Owner if none exist.
+ * Also auto-fixes missing columns in cash_accounts table.
+ * @param int $businessId Numeric business ID
+ */
+function ensureCashAccountsExist($businessId) {
+    try {
+        $masterPdo = new PDO(
+            "mysql:host=" . DB_HOST . ";dbname=" . MASTER_DB_NAME . ";charset=" . DB_CHARSET,
+            DB_USER, DB_PASS,
+            [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+        );
+        
+        // First: ensure table has required columns
+        $cols = $masterPdo->query("SHOW COLUMNS FROM cash_accounts")->fetchAll(PDO::FETCH_COLUMN);
+        $addCols = [
+            'is_active' => "TINYINT(1) NOT NULL DEFAULT 1",
+            'description' => "TEXT NULL",
+            'is_default_account' => "TINYINT(1) NOT NULL DEFAULT 0",
+            'current_balance' => "DECIMAL(15,2) NOT NULL DEFAULT 0.00",
+            'created_at' => "TIMESTAMP DEFAULT CURRENT_TIMESTAMP",
+            'updated_at' => "TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+        ];
+        foreach ($addCols as $col => $def) {
+            if (!in_array($col, $cols)) {
+                try { $masterPdo->exec("ALTER TABLE cash_accounts ADD COLUMN `$col` $def"); }
+                catch (PDOException $e) {}
+            }
+        }
+        
+        // Check if this business has any cash accounts
+        $stmt = $masterPdo->prepare("SELECT COUNT(*) FROM cash_accounts WHERE business_id = ?");
+        $stmt->execute([$businessId]);
+        $count = (int)$stmt->fetchColumn();
+        
+        if ($count === 0) {
+            // Auto-create 3 default accounts
+            // Build INSERT dynamically based on available columns
+            $refreshedCols = $masterPdo->query("SHOW COLUMNS FROM cash_accounts")->fetchAll(PDO::FETCH_COLUMN);
+            
+            $defaults = [
+                ['Petty Cash', 'cash', 'Uang cash dari tamu / operasional', 1],
+                ['Bank', 'bank', 'Rekening bank utama bisnis', 0],
+                ['Kas Modal Owner', 'owner_capital', 'Modal operasional dari owner', 0],
+            ];
+            
+            foreach ($defaults as $acc) {
+                $data = ['business_id' => $businessId, 'account_name' => $acc[0], 'account_type' => $acc[1]];
+                if (in_array('description', $refreshedCols)) $data['description'] = $acc[2];
+                if (in_array('is_default_account', $refreshedCols)) $data['is_default_account'] = $acc[3];
+                if (in_array('current_balance', $refreshedCols)) $data['current_balance'] = 0;
+                if (in_array('is_active', $refreshedCols)) $data['is_active'] = 1;
+                
+                $fields = implode(', ', array_keys($data));
+                $placeholders = implode(', ', array_fill(0, count($data), '?'));
+                
+                $stmt = $masterPdo->prepare("INSERT INTO cash_accounts ($fields) VALUES ($placeholders)");
+                $stmt->execute(array_values($data));
+            }
+            
+            error_log("ensureCashAccountsExist: Auto-created 3 cash accounts for business_id=$businessId");
+        }
+    } catch (Throwable $e) {
+        error_log("ensureCashAccountsExist error: " . $e->getMessage());
+    }
 }
 
 /**
