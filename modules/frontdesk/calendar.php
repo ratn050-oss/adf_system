@@ -402,7 +402,7 @@ body[data-theme="light"] .grid-room-type-header {
 .calendar-grid {
     display: grid;
     gap: 0;
-    grid-template-columns: 100px repeat(<?php echo count($dates); ?>, 90px);
+    grid-template-columns: 130px repeat(<?php echo count($dates); ?>, 130px);
     width: fit-content;
     min-width: fit-content;
     max-width: none;
@@ -414,45 +414,47 @@ body[data-theme="light"] .grid-room-type-header {
 }
 
 .grid-header-room {
-    background: #e2e8f0; /* Match sidebar */
+    background: linear-gradient(135deg, #e2e8f0 0%, #f1f5f9 100%);
     border-right: 2px solid #94a3b8;
     backdrop-filter: none;
-    border-bottom: 0.5px solid var(--border-color);
-    padding: 0.1rem 0.08rem;
+    border-bottom: 1px solid #cbd5e1;
+    padding: 0.35rem 0.5rem;
     font-weight: 800;
     text-align: center;
     position: sticky;
     left: 0;
     z-index: 40;
     font-size: 0.7rem;
-    color: var(--text-primary);
-    box-shadow: 2px 0 5px rgba(0,0,0,0.1);
-    letter-spacing: 0.1px;
+    color: #475569;
+    box-shadow: 3px 0 8px rgba(0,0,0,0.08);
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: 26px;
+    min-height: 36px;
+    min-width: 130px;
 }
 
 /* Light theme - better header visibility */
 body[data-theme="light"] .grid-header-room {
-    background: #cbd5e1;
+    background: linear-gradient(135deg, #cbd5e1 0%, #e2e8f0 100%);
     font-weight: 900;
     border: 1px solid #94a3b8;
     color: #0f172a;
 }
 
 .grid-header-date {
-    background: linear-gradient(180deg, rgba(99, 102, 241, 0.15), rgba(99, 102, 241, 0.05));
+    background: linear-gradient(180deg, rgba(99, 102, 241, 0.1), rgba(99, 102, 241, 0.03));
     border-right: 0.5px solid var(--border-color);
-    border-bottom: 0.5px solid var(--border-color);
-    padding: 0.08rem 0.04rem;
+    border-bottom: 1px solid var(--border-color);
+    padding: 0.3rem 0.2rem;
     text-align: center;
     font-weight: 600;
-    font-size: 0.65rem;
+    font-size: 0.7rem;
     color: var(--text-primary);
     position: relative;
-    min-height: 26px;
+    min-height: 36px;
 }
 
 /* Light theme - visible borders */
@@ -489,17 +491,17 @@ body[data-theme="light"] .grid-date-cell.today {
     display: block;
     font-size: 0.65rem;
     text-transform: uppercase;
-    letter-spacing: 0.15px;
-    margin-bottom: 0.03rem;
+    letter-spacing: 0.5px;
+    margin-bottom: 0.1rem;
     color: var(--text-secondary);
     font-weight: 600;
 }
 
 .grid-header-date-num {
     display: block;
-    font-size: 0.8rem;
+    font-size: 0.9rem;
     font-weight: 900;
-    margin-bottom: 0.03rem;
+    margin-bottom: 0.05rem;
     line-height: 1;
     color: var(--text-primary);
 }
@@ -518,10 +520,10 @@ body[data-theme="light"] .grid-date-cell.today {
 
 /* Room Row */
 .grid-room-label {
-    background: #f1f5f9; /* Solid background for sidebar effect */
-    border-right: 2px solid #cbd5e1; /* Stronger border */
-    border-bottom: 1px solid #cbd5e1;
-    padding: 0.08rem 0.12rem;
+    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
+    border-right: 2px solid #cbd5e1;
+    border-bottom: 1px solid #e2e8f0;
+    padding: 0.4rem 0.5rem;
     font-weight: 800;
     color: var(--text-primary);
     position: sticky;
@@ -532,32 +534,41 @@ body[data-theme="light"] .grid-date-cell.today {
     justify-content: center;
     align-items: center;
     text-align: center;
-    gap: 0.02rem;
-    min-width: 100px;
+    gap: 0.15rem;
+    min-width: 130px;
     cursor: grab;
     font-size: 0.85rem;
-    min-height: 26px;
-    box-shadow: 2px 0 5px rgba(0,0,0,0.1); /* Shadow to separate sidebar */
+    min-height: 38px;
+    box-shadow: 3px 0 8px rgba(0,0,0,0.06);
     white-space: normal;
     word-break: break-word;
+    transition: background 0.2s ease;
+}
+
+.grid-room-label:hover {
+    background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
 }
 
 /* Light theme - better room label contrast */
 body[data-theme="light"] .grid-room-label {
-    background: #e2e8f0; /* Darker slate for better contrast in light mode */
+    background: linear-gradient(135deg, #e2e8f0 0%, #f1f5f9 100%);
     color: #1e293b;
     font-weight: 900;
     border-right: 2px solid #94a3b8;
     border-bottom: 1px solid #cbd5e1;
 }
 
+body[data-theme="light"] .grid-room-label:hover {
+    background: linear-gradient(135deg, #dbeafe 0%, #e0e7ff 100%);
+}
+
 .grid-room-type-header {
-    background: #f1f5f9;
-    border-right: 2px solid #cbd5e1;
-    border-bottom: 1px solid #cbd5e1;
-    padding: 0.2rem 0.25rem;
+    background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
+    border-right: 2px solid #a5b4fc;
+    border-bottom: 1px solid #c7d2fe;
+    padding: 0.4rem 0.5rem;
     font-weight: 800;
-    color: var(--text-primary);
+    color: #4338ca;
     position: sticky;
     left: 0;
     z-index: 30;
@@ -565,20 +576,21 @@ body[data-theme="light"] .grid-room-label {
     align-items: center;
     justify-content: center;
     text-align: center;
-    font-size: 0.75rem;
-    gap: 0.2rem;
-    min-width: 100px;
-    min-height: 26px;
-    box-shadow: 2px 0 5px rgba(0,0,0,0.1);
+    font-size: 0.78rem;
+    gap: 0.3rem;
+    min-width: 130px;
+    min-height: 34px;
+    box-shadow: 3px 0 8px rgba(0,0,0,0.06);
+    letter-spacing: 0.3px;
 }
 
 /* Light theme - better type header visibility */
 body[data-theme="light"] .grid-room-type-header {
-    background: #e2e8f0;
-    color: #1e293b;
+    background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
+    color: #4338ca;
     font-weight: 900;
-    border-right: 2px solid #94a3b8;
-    border-bottom: 1px solid #cbd5e1;
+    border-right: 2px solid #a5b4fc;
+    border-bottom: 1px solid #c7d2fe;
 }
 
 /* Ensure booking bar text stays white in light theme */
@@ -600,18 +612,19 @@ body .booking-bar > span {
 }
 
 .grid-room-number {
-    font-size: 0.75rem;
+    font-size: 0.9rem;
     color: var(--text-primary);
-    font-weight: 800;
+    font-weight: 900;
     line-height: 1;
-    letter-spacing: 0.1px;
+    letter-spacing: 0.5px;
 }
 
 .grid-room-type {
-    font-size: 0.75rem;
+    font-size: 0.68rem;
     color: var(--text-secondary);
     font-weight: 600;
     line-height: 1;
+    opacity: 0.8;
 }
 
 .grid-room-price {
@@ -622,8 +635,8 @@ body .booking-bar > span {
 .grid-date-cell {
     border-right: 0.5px solid var(--border-color);
     border-bottom: 0.5px solid var(--border-color);
-    padding: 0.05rem 0.03rem;
-    min-height: 32px;
+    padding: 0.1rem 0.05rem;
+    min-height: 38px;
     position: relative;
     background: transparent;
     cursor: pointer;
@@ -661,9 +674,9 @@ body[data-theme="light"] .grid-date-cell {
 /* Booking Bars - CLOUDBED STYLE (Noon to Noon) */
 .booking-bar-container {
     position: absolute;
-    top: 1px;
+    top: 2px;
     left: 1px;
-    height: 30px;
+    height: 34px;
     display: flex;
     align-items: center;
     justify-content: flex-start;
@@ -674,8 +687,8 @@ body[data-theme="light"] .grid-date-cell {
 
 .booking-bar {
     width: 100%;
-    height: 24px;
-    padding: 0 0.25rem;
+    height: 28px;
+    padding: 0 0.4rem;
     cursor: pointer;
     overflow: visible;
     display: flex;
@@ -683,13 +696,13 @@ body[data-theme="light"] .grid-date-cell {
     justify-content: center;
     text-align: center;
     transition: all 0.3s ease;
-    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.2), 0 2px 3px rgba(0, 0, 0, 0.15);
+    box-shadow: 0 3px 8px rgba(0, 0, 0, 0.18), 0 1px 3px rgba(0, 0, 0, 0.12);
     font-weight: 700;
-    font-size: 0.7rem;
+    font-size: 0.72rem;
     line-height: 1.2;
     position: relative;
     pointer-events: auto;
-    border-radius: 4px;
+    border-radius: 5px;
     white-space: nowrap;
     transform: skewX(-20deg);
     background: linear-gradient(135deg, #06b6d4, #22d3ee) !important;
@@ -1085,7 +1098,7 @@ body[data-theme="light"] .grid-date-cell {
 /* Responsive */
 @media (max-width: 768px) {
     .calendar-container {
-        padding: 0.75rem 0.25rem;
+        padding: 0.5rem 0.2rem;
     }
 
     .calendar-header {
@@ -1094,39 +1107,39 @@ body[data-theme="light"] .grid-date-cell {
     }
 
     .calendar-header h1 {
-        font-size: 1.75rem;
+        font-size: 1.5rem;
     }
 
     .grid-header-date {
-        padding: 0.55rem 0.25rem;
-        font-size: 0.72rem;
+        padding: 0.3rem 0.15rem;
+        font-size: 0.68rem;
     }
 
     .grid-header-date-num {
-        font-size: 1rem;
+        font-size: 0.85rem;
     }
 
     .grid-room-label {
-        padding: 0.6rem 0.35rem;
-        min-width: 80px;
+        padding: 0.35rem 0.3rem;
+        min-width: 100px;
+    }
+
+    .grid-room-type-header {
+        min-width: 100px;
     }
 
     .grid-date-cell {
-        min-height: 85px;
+        min-height: 36px;
     }
 
     .booking-bar {
-        height: 80px;
+        height: 26px;
         font-size: 0.65rem;
-    }
-
-    .booking-bar-guest {
-        font-size: 0.7rem;
     }
 
     .calendar-nav {
         flex-direction: column;
-        gap: 1rem;
+        gap: 0.5rem;
     }
 
     .form-row-3 {
@@ -1140,24 +1153,29 @@ body[data-theme="light"] .grid-date-cell {
 
 @media (max-width: 480px) {
     .calendar-wrapper {
-        padding: 0.5rem;
+        padding: 0.3rem;
     }
 
     .grid-room-label {
-        padding: 0.5rem;
-        font-size: 0.72rem;
-        min-width: 60px;
+        padding: 0.3rem;
+        font-size: 0.7rem;
+        min-width: 80px;
+    }
+
+    .grid-room-type-header {
+        min-width: 80px;
+        font-size: 0.7rem;
     }
 
     .grid-date-cell {
-        min-height: 75px;
-        padding: 0.25rem;
+        min-height: 34px;
+        padding: 0.1rem;
     }
 
     .booking-bar {
-        height: 70px;
+        height: 24px;
         font-size: 0.6rem;
-        padding: 0.2rem;
+        padding: 0.15rem;
         color: #ffffff !important;
     }
 
@@ -1169,17 +1187,13 @@ body[data-theme="light"] .grid-date-cell {
         grid-column: 1;
     }
 
-    .booking-bar-guest {
-        font-size: 0.65rem;
-    }
-
     .grid-header-date-num {
-        font-size: 0.9rem;
+        font-size: 0.8rem;
     }
 
     .legend {
         flex-direction: column;
-        gap: 1rem;
+        gap: 0.5rem;
     }
 }
 
@@ -1944,7 +1958,7 @@ body[data-theme="dark"] .stats-list li {
                     📂 <?php echo htmlspecialchars($typeName); ?>
                 </div>
                 <?php foreach ($dates as $date): ?>
-                <div style="background: rgba(99, 102, 241, 0.08); border-right: 2px solid rgba(99, 102, 241, 0.4); border-bottom: 1px solid rgba(255, 255, 255, 0.1); min-height: 30px; display: flex; align-items: center; justify-content: center; font-size: 0.8rem; font-weight: 800; color: rgba(99, 102, 241, 0.9);">
+                <div style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(99, 102, 241, 0.04)); border-right: 1px solid rgba(99, 102, 241, 0.2); border-bottom: 1px solid rgba(99, 102, 241, 0.15); min-height: 34px; display: flex; align-items: center; justify-content: center; font-size: 0.78rem; font-weight: 800; color: rgba(99, 102, 241, 0.85); letter-spacing: 0.3px;">
                     Rp<?php echo number_format($typePrice / 1000, 0, ',', '.'); ?>K
                 </div>
                 <?php endforeach; ?>
@@ -1991,8 +2005,8 @@ body[data-theme="dark"] .stats-list li {
                                 $totalNights = ceil(($checkoutDate - $checkinDate) / 86400);
                                 
                                 // Calculate width: start from 50% of check-in cell, end at 50% of check-out cell
-                                // Width = (nights × 90px) = full span from noon to noon (Matches CSS Grid Column Width)
-                                $barWidth = ($totalNights * 90); // 90px per day
+                                // Width = (nights × 130px) = full span from noon to noon (Matches CSS Grid Column Width)
+                                $barWidth = ($totalNights * 130); // 130px per day
                                 
                                 $statusClass = 'booking-' . str_replace('_', '-', $booking['status']);
                                 
