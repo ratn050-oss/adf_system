@@ -5,6 +5,20 @@
  */
 
 /**
+ * Derive slug from business_code (with known overrides for legacy businesses).
+ */
+function businessCodeToSlug($code) {
+    $knownSlugs = [
+        'BENSCAFE' => 'bens-cafe',
+        'NARAYANAHOTEL' => 'narayana-hotel',
+        'DEMO' => 'demo'
+    ];
+    if (isset($knownSlugs[$code])) return $knownSlugs[$code];
+    // Convert: EAT_MEET => eat-meet, EATMEET => eatmeet
+    return strtolower(str_replace('_', '-', $code));
+}
+
+/**
  * Auto-generate missing config files from businesses table in DB.
  * Called automatically so any business registered in the DB gets a config file.
  */
