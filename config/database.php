@@ -73,8 +73,9 @@ class Database {
         $masterNames = ['adf_system', 'adfb2574_adf'];
         $isMaster = in_array($dbName, $masterNames);
         
-        // Only run once per session per database
-        $sessionKey = '_schema_synced_' . md5($dbName);
+        // Only run once per session per database (version bump forces re-check)
+        $schemaVersion = 2; // Bump this when adding new columns
+        $sessionKey = '_schema_synced_v' . $schemaVersion . '_' . md5($dbName);
         if (session_status() === PHP_SESSION_ACTIVE && !empty($_SESSION[$sessionKey])) return;
         
         try {
@@ -128,6 +129,8 @@ class Database {
                     transaction_type ENUM('income','expense') NOT NULL, amount DECIMAL(15,2) NOT NULL DEFAULT 0,
                     payment_method VARCHAR(30) DEFAULT 'cash', cash_account_id INT, notes TEXT,
                     attachment VARCHAR(255), created_by INT, shift VARCHAR(20),
+                    source_type VARCHAR(30) DEFAULT 'manual', source_id INT NULL, reference_no VARCHAR(50) NULL,
+                    is_editable TINYINT(1) DEFAULT 1,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
                 )",
                 'users' => "CREATE TABLE IF NOT EXISTS users (
@@ -190,6 +193,11 @@ class Database {
                     'transaction_time' => "TIME NULL",
                     'notes' => "TEXT NULL",
                     'attachment' => "VARCHAR(255) NULL",
+                    'source_type' => "VARCHAR(30) DEFAULT 'manual'",
+                    'source_id' => "INT NULL",
+                    'reference_no' => "VARCHAR(50) NULL",
+                    'is_editable' => "TINYINT(1) DEFAULT 1",
+                    'category_name' => "VARCHAR(100) NULL",
                 ],
                 'divisions' => [
                     'branch_id' => "VARCHAR(50) NULL",

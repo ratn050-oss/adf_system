@@ -332,8 +332,8 @@ function getMasterBusinessId() {
         $cachedId = $id ?: 1;
     }
     
-    // Auto-ensure cash accounts exist (once per session)
-    $sessionKey = '_cash_accounts_checked_' . $cachedId;
+    // Auto-ensure cash accounts exist (once per session, version-tracked)
+    $sessionKey = '_cash_accounts_checked_v2_' . $cachedId;
     if (session_status() === PHP_SESSION_ACTIVE && empty($_SESSION[$sessionKey])) {
         ensureCashAccountsExist($cachedId);
         $_SESSION[$sessionKey] = true;
