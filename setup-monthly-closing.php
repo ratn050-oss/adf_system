@@ -97,8 +97,7 @@ try {
     echo "<h3>📊 Current System Status:</h3>";
     
     // Show current balances
-    $businessMapping = ['narayana-hotel' => 1, 'bens-cafe' => 2];
-    $businessId = $businessMapping[ACTIVE_BUSINESS_ID] ?? 1;
+    $businessId = getMasterBusinessId();
     
     $stmt = $masterDb->prepare("
         SELECT account_type, account_name, current_balance 

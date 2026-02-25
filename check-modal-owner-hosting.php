@@ -16,12 +16,8 @@ $thisMonth = '2026-02';
 
 echo "<h2>Modal Owner Debug - February 2026</h2>";
 
-// Get active business (from session or default to Narayana)
-$businessId = 1; // Narayana
-if (isset($_SESSION['active_business_id'])) {
-    $businessMapping = ['narayana-hotel' => 1, 'bens-cafe' => 2];
-    $businessId = $businessMapping[$_SESSION['active_business_id']] ?? 1;
-}
+// Get active business
+$businessId = getMasterBusinessId();
 
 echo "<p><strong>Checking business_id: $businessId</strong></p>";
 

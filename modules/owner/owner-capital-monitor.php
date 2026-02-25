@@ -32,15 +32,8 @@ if (!in_array($userRole, ['admin', 'owner', 'manager', 'developer'])) {
     exit;
 }
 
-// Get business ID from ACTIVE_BUSINESS_ID constant (string like 'narayana-hotel')
-// Then map to numeric business_id for database queries
-$businessMapping = [
-    'narayana-hotel' => 1,
-    'bens-cafe' => 2
-];
-
-$businessIdString = ACTIVE_BUSINESS_ID;
-$businessId = $businessMapping[$businessIdString] ?? 1;
+// Get business ID
+$businessId = getMasterBusinessId();
 
 // Get period filter from GET or default to current month
 $selectedPeriod = $_GET['period'] ?? date('Y-m');

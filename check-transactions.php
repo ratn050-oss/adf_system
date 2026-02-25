@@ -16,8 +16,7 @@ try {
     echo "<h3>Database: " . MASTER_DB_NAME . "</h3>";
     
     // Get business mapping
-    $businessMapping = ['narayana-hotel' => 1, 'bens-cafe' => 2];
-    $businessId = $businessMapping[ACTIVE_BUSINESS_ID] ?? 1;
+    $businessId = getMasterBusinessId();
     
     echo "Current Business: <strong>" . ACTIVE_BUSINESS_ID . "</strong> (ID: {$businessId})<br><br>";
     

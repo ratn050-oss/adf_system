@@ -35,10 +35,7 @@ try {
     // Get business DB instance
     $businessDb = Database::getInstance();
     
-    // Business ID mapping
-    $businessMapping = ['narayana-hotel' => 1, 'bens-cafe' => 2];
-    $businessIdString = ACTIVE_BUSINESS_ID;
-    $businessId = $businessMapping[$businessIdString] ?? 1;
+    $businessId = getMasterBusinessId();
     
     // Get selected date or default to today
     $selectedDate = $_GET['date'] ?? date('Y-m-d');

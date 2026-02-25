@@ -110,8 +110,7 @@ try {
     $masterDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     
     $businessIdentifier = ACTIVE_BUSINESS_ID;
-    $businessMapping = ['narayana-hotel' => 1, 'bens-cafe' => 2];
-    $businessId = $businessMapping[$businessIdentifier] ?? 1;
+    $businessId = getMasterBusinessId();
     
     $stmt = $masterDb->prepare("SELECT id, account_name, account_type FROM cash_accounts WHERE business_id = ? AND account_type = 'owner_capital'");
     $stmt->execute([$businessId]);

@@ -12,8 +12,7 @@ try {
     $masterDb = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
     $masterDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     
-    $businessMapping = ['narayana-hotel' => 1, 'bens-cafe' => 2];
-    $businessId = $businessMapping[ACTIVE_BUSINESS_ID] ?? 1;
+    $businessId = getMasterBusinessId();
     
 } catch (Exception $e) {
     die("Database Error: " . $e->getMessage());

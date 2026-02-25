@@ -32,8 +32,7 @@ $masterDb = new PDO(
 );
 
 // Get business ID
-$businessMapping = ['narayana-hotel' => 1, 'bens-cafe' => 2];
-$businessId = $businessMapping[ACTIVE_BUSINESS_ID] ?? 1;
+$businessId = getMasterBusinessId();
 
 // Handle Monthly Closing Process
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {

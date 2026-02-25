@@ -19,9 +19,7 @@ try {
     $masterDb = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
     $masterDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     
-    $businessIdentifier = ACTIVE_BUSINESS_ID;
-    $businessMapping = ['narayana-hotel' => 1, 'bens-cafe' => 2];
-    $businessId = $businessMapping[$businessIdentifier] ?? 1;
+    $businessId = getMasterBusinessId();
     
     $stmt = $masterDb->prepare("SELECT id FROM cash_accounts WHERE business_id = ? AND account_type = 'owner_capital'");
     $stmt->execute([$businessId]);

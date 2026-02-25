@@ -313,6 +313,28 @@ function getBusinessView($module, $view) {
 }
 
 /**
+ * Get the numeric business ID for the currently active business.
+ * Cached per-request so the DB is only queried once.
+ * @return int Numeric business ID (defaults to 1 if lookup fails)
+ */
+function getMasterBusinessId() {
+    static $cachedId = null;
+    if ($cachedId !== null) return $cachedId;
+
+    // Try session first (set by setActiveBusinessId)
+    if (isset($_SESSION['business_id']) && $_SESSION['business_id'] > 0) {
+        $cachedId = (int)$_SESSION['business_id'];
+        return $cachedId;
+    }
+
+    // Query master DB via existing helper
+    $activeId = defined('ACTIVE_BUSINESS_ID') ? ACTIVE_BUSINESS_ID : 'narayana-hotel';
+    $id = getNumericBusinessId($activeId);
+    $cachedId = $id ?: 1;
+    return $cachedId;
+}
+
+/**
  * Get cashbook columns for current business
  * @return array Business-specific cashbook columns
  */

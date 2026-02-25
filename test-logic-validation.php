@@ -14,8 +14,7 @@ echo "<hr>";
 
 // Get business mapping
 $businessIdentifier = ACTIVE_BUSINESS_ID;
-$businessMapping = ['narayana-hotel' => 1, 'bens-cafe' => 2];
-$businessDbId = $businessMapping[$businessIdentifier] ?? 1;
+$businessDbId = getMasterBusinessId();
 
 echo "<h3>📋 Test Configuration</h3>";
 echo "Active Business: <strong>{$businessIdentifier}</strong><br>";

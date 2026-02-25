@@ -26,47 +26,8 @@ try {
     $masterDb = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
     $masterDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     
-    // Get business ID from session or database
-    $businessId = null;
-    
-    // Try to get from selected_business_id in session (most reliable)
-    if (isset($_SESSION['selected_business_id'])) {
-        $stmt = $masterDb->prepare("SELECT id FROM businesses WHERE id = ?");
-        $stmt->execute([$_SESSION['selected_business_id']]);
-        $businessRecord = $stmt->fetch(PDO::FETCH_ASSOC);
-        if ($businessRecord) {
-            $businessId = $businessRecord['id'];
-        }
-    }
-    
-    // Fallback: try to get from ACTIVE_BUSINESS_ID constant (string identifier)
-    if (!$businessId && defined('ACTIVE_BUSINESS_ID')) {
-        // Mapping business identifier to database ID
-        $businessMapping = [
-            'narayana-hotel' => 1,
-            'bens-cafe' => 2
-        ];
-        $businessId = $businessMapping[ACTIVE_BUSINESS_ID] ?? null;
-        
-        // If hardcoded mapping fails, try to get from database by identifier
-        if (!$businessId) {
-            $stmt = $masterDb->prepare("SELECT id FROM businesses WHERE business_identifier = ? OR database_name LIKE ?");
-            $stmt->execute([ACTIVE_BUSINESS_ID, '%' . ACTIVE_BUSINESS_ID . '%']);
-            $businessRecord = $stmt->fetch(PDO::FETCH_ASSOC);
-            if ($businessRecord) {
-                $businessId = $businessRecord['id'];
-            }
-        }
-    }
-    
-    // Final fallback: get first active business
-    if (!$businessId) {
-        $stmt = $masterDb->query("SELECT id FROM businesses WHERE is_active = 1 ORDER BY id LIMIT 1");
-        $businessRecord = $stmt->fetch(PDO::FETCH_ASSOC);
-        if ($businessRecord) {
-            $businessId = $businessRecord['id'];
-        }
-    }
+    // Get business ID dynamically
+    $businessId = getMasterBusinessId();
     
     // Load cash accounts if we have a business ID
     if ($businessId) {
@@ -144,9 +105,7 @@ if (isPost()) {
                     $masterDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
                     
                     // Get business ID
-                    $businessIdentifier = ACTIVE_BUSINESS_ID;
-                    $businessMapping = ['narayana-hotel' => 1, 'bens-cafe' => 2];
-                    $businessId = $businessMapping[$businessIdentifier] ?? 1;
+                    $businessId = getMasterBusinessId();
                     
                     // ALWAYS get Petty Cash account first
                     $stmt = $masterDb->prepare("SELECT id, account_name, current_balance FROM cash_accounts WHERE business_id = ? AND account_type = 'cash' ORDER BY id LIMIT 1");

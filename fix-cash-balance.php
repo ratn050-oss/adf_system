@@ -16,8 +16,7 @@ try {
     $masterDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     
     $businessIdentifier = ACTIVE_BUSINESS_ID;
-    $businessMapping = ['narayana-hotel' => 1, 'bens-cafe' => 2];
-    $businessId = $businessMapping[$businessIdentifier] ?? 1;
+    $businessId = getMasterBusinessId();
     
     echo "<p><strong>Business:</strong> {$businessIdentifier} (ID: {$businessId})</p>";
     echo "<hr>";

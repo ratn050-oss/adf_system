@@ -101,10 +101,8 @@ try {
                 $masterDb = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
                 $masterDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
                 
-                // Get business database ID from identifier
-                $businessIdentifier = ACTIVE_BUSINESS_ID;
-                $businessMapping = ['narayana-hotel' => 1, 'bens-cafe' => 2];
-                $businessDbId = $businessMapping[$businessIdentifier] ?? 1;
+                // Get business database ID
+                $businessDbId = getMasterBusinessId();
                 
                 // Delete cash_account_transactions for this business
                 $stmt = $masterDb->prepare("DELETE FROM cash_account_transactions WHERE cash_account_id IN (SELECT id FROM cash_accounts WHERE business_id = ?)");

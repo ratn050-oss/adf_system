@@ -78,8 +78,7 @@ try {
             echo "<hr>";
             echo "<h3>Current Business: " . ACTIVE_BUSINESS_ID . "</h3>";
             
-            $businessMapping = ['narayana-hotel' => 1, 'bens-cafe' => 2];
-            $businessId = $businessMapping[ACTIVE_BUSINESS_ID] ?? 1;
+            $businessId = getMasterBusinessId();
             
             echo "Business ID: <strong>{$businessId}</strong><br><br>";
             

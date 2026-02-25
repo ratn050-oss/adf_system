@@ -29,10 +29,7 @@ try {
         [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]
     );
     
-    // Business ID mapping
-    $businessMapping = ['narayana-hotel' => 1, 'bens-cafe' => 2];
-    $businessIdString = ACTIVE_BUSINESS_ID;
-    $businessId = $businessMapping[$businessIdString] ?? 1;
+    $businessId = getMasterBusinessId();
     
     // Get petty cash account
     $stmt = $masterDb->prepare(
