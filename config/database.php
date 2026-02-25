@@ -74,7 +74,7 @@ class Database {
         $isMaster = in_array($dbName, $masterNames);
         
         // Only run once per session per database (version bump forces re-check)
-        $schemaVersion = 2; // Bump this when adding new columns
+        $schemaVersion = 3; // v3: comprehensive frontdesk tables audit
         $sessionKey = '_schema_synced_v' . $schemaVersion . '_' . md5($dbName);
         if (session_status() === PHP_SESSION_ACTIVE && !empty($_SESSION[$sessionKey])) return;
         
@@ -106,7 +106,10 @@ class Database {
             // Get existing tables
             $tables = $this->connection->query("SHOW TABLES")->fetchAll(PDO::FETCH_COLUMN);
             
-            // ---- Required tables (CREATE IF NOT EXISTS) ----
+            // ============================================================
+            // Required tables — CREATE IF NOT EXISTS
+            // Column names MUST match what the PHP code actually uses!
+            // ============================================================
             $requiredTables = [
                 'settings' => "CREATE TABLE IF NOT EXISTS settings (
                     id INT AUTO_INCREMENT PRIMARY KEY, setting_key VARCHAR(100) UNIQUE, setting_value TEXT,
@@ -144,41 +147,177 @@ class Database {
                     id INT AUTO_INCREMENT PRIMARY KEY, role_name VARCHAR(50) NOT NULL, role_code VARCHAR(30),
                     description TEXT, is_system_role TINYINT(1) DEFAULT 1, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )",
-                'rooms' => "CREATE TABLE IF NOT EXISTS rooms (
-                    id INT AUTO_INCREMENT PRIMARY KEY, room_number VARCHAR(10) NOT NULL, room_type_id INT,
-                    floor INT DEFAULT 1, status ENUM('available','occupied','maintenance','blocked') DEFAULT 'available',
-                    price_per_night DECIMAL(15,2) DEFAULT 0, description TEXT, is_active TINYINT(1) DEFAULT 1,
+                'user_preferences' => "CREATE TABLE IF NOT EXISTS user_preferences (
+                    id INT AUTO_INCREMENT PRIMARY KEY, user_id INT, branch_id VARCHAR(50),
+                    theme VARCHAR(20) DEFAULT 'dark', language VARCHAR(5) DEFAULT 'id', sidebar_collapsed TINYINT(1) DEFAULT 0,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
                 )",
-                'room_types' => "CREATE TABLE IF NOT EXISTS room_types (
-                    id INT AUTO_INCREMENT PRIMARY KEY, type_name VARCHAR(50) NOT NULL, base_price DECIMAL(15,2) DEFAULT 0,
-                    max_occupancy INT DEFAULT 2, description TEXT, amenities TEXT,
+                'user_permissions' => "CREATE TABLE IF NOT EXISTS user_permissions (
+                    id INT AUTO_INCREMENT PRIMARY KEY, user_id INT NOT NULL, permission VARCHAR(50) NOT NULL,
+                    can_view TINYINT(1) DEFAULT 1, can_create TINYINT(1) DEFAULT 0, can_edit TINYINT(1) DEFAULT 0, can_delete TINYINT(1) DEFAULT 0,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )",
-                'bookings' => "CREATE TABLE IF NOT EXISTS bookings (
-                    id INT AUTO_INCREMENT PRIMARY KEY, booking_code VARCHAR(20) UNIQUE, guest_name VARCHAR(100) NOT NULL,
-                    guest_phone VARCHAR(20), guest_email VARCHAR(100), room_id INT, room_type_id INT,
-                    check_in DATE NOT NULL, check_out DATE NOT NULL, nights INT DEFAULT 1,
-                    adults INT DEFAULT 1, children INT DEFAULT 0, rate_per_night DECIMAL(15,2) DEFAULT 0,
-                    total_amount DECIMAL(15,2) DEFAULT 0, paid_amount DECIMAL(15,2) DEFAULT 0,
-                    status ENUM('confirmed','checked_in','checked_out','cancelled','no_show') DEFAULT 'confirmed',
-                    source VARCHAR(50) DEFAULT 'walk-in', notes TEXT, created_by INT,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                'audit_logs' => "CREATE TABLE IF NOT EXISTS audit_logs (
+                    id INT AUTO_INCREMENT PRIMARY KEY, user_id INT, action_type VARCHAR(50),
+                    table_name VARCHAR(50), record_id INT, old_values TEXT, new_values TEXT,
+                    ip_address VARCHAR(45), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 )",
                 'suppliers' => "CREATE TABLE IF NOT EXISTS suppliers (
                     id INT AUTO_INCREMENT PRIMARY KEY, supplier_name VARCHAR(100) NOT NULL, contact_person VARCHAR(100),
                     phone VARCHAR(20), email VARCHAR(100), address TEXT, is_active TINYINT(1) DEFAULT 1,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
                 )",
+                'purchase_orders_header' => "CREATE TABLE IF NOT EXISTS purchase_orders_header (
+                    id INT AUTO_INCREMENT PRIMARY KEY, po_number VARCHAR(30) UNIQUE, supplier_id INT,
+                    po_date DATE NOT NULL, delivery_date DATE, status ENUM('draft','sent','received','cancelled') DEFAULT 'draft',
+                    total_amount DECIMAL(15,2) DEFAULT 0, notes TEXT, created_by INT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                )",
+                'purchase_orders_detail' => "CREATE TABLE IF NOT EXISTS purchase_orders_detail (
+                    id INT AUTO_INCREMENT PRIMARY KEY, po_header_id INT, item_name VARCHAR(200),
+                    quantity DECIMAL(10,2) DEFAULT 1, unit VARCHAR(20), unit_price DECIMAL(15,2) DEFAULT 0,
+                    total_price DECIMAL(15,2) DEFAULT 0, notes TEXT
+                )",
+                'sales_invoices_header' => "CREATE TABLE IF NOT EXISTS sales_invoices_header (
+                    id INT AUTO_INCREMENT PRIMARY KEY, invoice_number VARCHAR(30) UNIQUE, customer_name VARCHAR(100),
+                    invoice_date DATE NOT NULL, due_date DATE, status ENUM('draft','sent','paid','cancelled') DEFAULT 'draft',
+                    total_amount DECIMAL(15,2) DEFAULT 0, notes TEXT, created_by INT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                )",
+                'sales_invoices_detail' => "CREATE TABLE IF NOT EXISTS sales_invoices_detail (
+                    id INT AUTO_INCREMENT PRIMARY KEY, invoice_header_id INT, item_name VARCHAR(200),
+                    quantity DECIMAL(10,2) DEFAULT 1, unit VARCHAR(20), unit_price DECIMAL(15,2) DEFAULT 0,
+                    total_price DECIMAL(15,2) DEFAULT 0, notes TEXT
+                )",
+                'bill_templates' => "CREATE TABLE IF NOT EXISTS bill_templates (
+                    id INT AUTO_INCREMENT PRIMARY KEY, template_name VARCHAR(100), description TEXT,
+                    amount DECIMAL(15,2) DEFAULT 0, frequency ENUM('monthly','weekly','yearly','once') DEFAULT 'monthly',
+                    is_active TINYINT(1) DEFAULT 1, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )",
+                'bill_records' => "CREATE TABLE IF NOT EXISTS bill_records (
+                    id INT AUTO_INCREMENT PRIMARY KEY, template_id INT, bill_date DATE, amount DECIMAL(15,2),
+                    status ENUM('pending','paid','overdue') DEFAULT 'pending', paid_date DATE, notes TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )",
+                'transaction_attachments' => "CREATE TABLE IF NOT EXISTS transaction_attachments (
+                    id INT AUTO_INCREMENT PRIMARY KEY, transaction_id INT, transaction_type VARCHAR(20),
+                    file_name VARCHAR(255), file_path VARCHAR(500), file_type VARCHAR(50), file_size INT,
+                    uploaded_by INT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )",
+                // ========== FRONTDESK TABLES ==========
+                // Column names match what modules/frontdesk/*.php code actually uses
+                'room_types' => "CREATE TABLE IF NOT EXISTS room_types (
+                    id INT AUTO_INCREMENT PRIMARY KEY, type_name VARCHAR(100) NOT NULL,
+                    base_price DECIMAL(12,2) DEFAULT 0, max_occupancy INT DEFAULT 2,
+                    description TEXT, amenities TEXT, color_code VARCHAR(7) DEFAULT '#6366f1',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                )",
+                'rooms' => "CREATE TABLE IF NOT EXISTS rooms (
+                    id INT AUTO_INCREMENT PRIMARY KEY, room_number VARCHAR(20) NOT NULL,
+                    room_type_id INT, floor_number INT DEFAULT 1,
+                    status VARCHAR(20) DEFAULT 'available', current_guest_id INT NULL,
+                    notes TEXT, position_x INT DEFAULT 0, position_y INT DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                )",
+                'guests' => "CREATE TABLE IF NOT EXISTS guests (
+                    id INT AUTO_INCREMENT PRIMARY KEY, guest_name VARCHAR(200) NOT NULL,
+                    id_card_type VARCHAR(20) DEFAULT 'ktp', id_card_number VARCHAR(50),
+                    phone VARCHAR(20), email VARCHAR(100), address TEXT,
+                    nationality VARCHAR(50) DEFAULT 'Indonesia',
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                )",
+                'bookings' => "CREATE TABLE IF NOT EXISTS bookings (
+                    id INT AUTO_INCREMENT PRIMARY KEY, booking_code VARCHAR(20) UNIQUE,
+                    guest_id INT, room_id INT,
+                    check_in_date DATE NOT NULL, check_out_date DATE NOT NULL,
+                    total_nights INT DEFAULT 1, adults INT DEFAULT 1, children INT DEFAULT 0,
+                    room_price DECIMAL(12,2) DEFAULT 0, total_price DECIMAL(12,2) DEFAULT 0,
+                    discount DECIMAL(12,2) DEFAULT 0, final_price DECIMAL(12,2) DEFAULT 0,
+                    paid_amount DECIMAL(12,2) DEFAULT 0,
+                    status VARCHAR(20) DEFAULT 'confirmed',
+                    payment_status VARCHAR(20) DEFAULT 'unpaid',
+                    booking_source VARCHAR(50) DEFAULT 'walk_in',
+                    special_request TEXT, notes TEXT, guest_count INT DEFAULT 1,
+                    actual_checkin_time DATETIME NULL, actual_checkout_time DATETIME NULL,
+                    created_by INT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                )",
+                'booking_payments' => "CREATE TABLE IF NOT EXISTS booking_payments (
+                    id INT AUTO_INCREMENT PRIMARY KEY, booking_id INT NOT NULL,
+                    amount DECIMAL(12,2) NOT NULL, payment_method VARCHAR(50) DEFAULT 'cash',
+                    payment_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+                    reference_number VARCHAR(100), notes TEXT,
+                    processed_by INT, created_by INT,
+                    synced_to_cashbook TINYINT(1) DEFAULT 0, cashbook_id INT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )",
+                'breakfast_menus' => "CREATE TABLE IF NOT EXISTS breakfast_menus (
+                    id INT AUTO_INCREMENT PRIMARY KEY, menu_name VARCHAR(100) NOT NULL,
+                    description TEXT, category VARCHAR(30) DEFAULT 'indonesian',
+                    price DECIMAL(10,2) DEFAULT 0.00,
+                    is_free TINYINT(1) DEFAULT 1, is_available TINYINT(1) DEFAULT 1,
+                    image_url VARCHAR(255) NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                )",
+                'breakfast_orders' => "CREATE TABLE IF NOT EXISTS breakfast_orders (
+                    id INT AUTO_INCREMENT PRIMARY KEY, booking_id INT NULL,
+                    guest_name VARCHAR(100), room_number VARCHAR(20),
+                    total_pax INT DEFAULT 1, breakfast_time TIME,
+                    breakfast_date DATE, location VARCHAR(20) DEFAULT 'restaurant',
+                    menu_items TEXT, special_requests TEXT,
+                    total_price DECIMAL(10,2) DEFAULT 0.00,
+                    order_status VARCHAR(20) DEFAULT 'pending',
+                    created_by INT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                )",
+                'breakfast_log' => "CREATE TABLE IF NOT EXISTS breakfast_log (
+                    id INT AUTO_INCREMENT PRIMARY KEY, booking_id INT, guest_id INT,
+                    menu_id INT NULL, quantity INT DEFAULT 1, date DATE NOT NULL,
+                    status VARCHAR(20) DEFAULT 'taken', marked_by INT,
+                    marked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, notes VARCHAR(255)
+                )",
+                'frontdesk_rooms' => "CREATE TABLE IF NOT EXISTS frontdesk_rooms (
+                    id INT AUTO_INCREMENT PRIMARY KEY, room_number VARCHAR(10), room_type VARCHAR(50),
+                    floor INT DEFAULT 1, price DECIMAL(15,2) DEFAULT 0, status VARCHAR(20) DEFAULT 'available',
+                    guest_name VARCHAR(100), check_in DATE, check_out DATE,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                )",
+                // ========== INVESTOR TABLES ==========
+                'investors' => "CREATE TABLE IF NOT EXISTS investors (
+                    id INT AUTO_INCREMENT PRIMARY KEY, investor_name VARCHAR(100) NOT NULL, phone VARCHAR(20),
+                    email VARCHAR(100), address TEXT, notes TEXT, is_active TINYINT(1) DEFAULT 1,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )",
+                'investor_transactions' => "CREATE TABLE IF NOT EXISTS investor_transactions (
+                    id INT AUTO_INCREMENT PRIMARY KEY, investor_id INT, transaction_type ENUM('investment','return','dividend'),
+                    amount DECIMAL(15,2), transaction_date DATE, notes TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )",
+                'investor_balances' => "CREATE TABLE IF NOT EXISTS investor_balances (
+                    id INT AUTO_INCREMENT PRIMARY KEY, investor_id INT, balance DECIMAL(15,2) DEFAULT 0,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                )",
+                'investor_bills' => "CREATE TABLE IF NOT EXISTS investor_bills (
+                    id INT AUTO_INCREMENT PRIMARY KEY, investor_id INT, bill_name VARCHAR(100),
+                    amount DECIMAL(15,2), due_date DATE, status ENUM('pending','paid','overdue') DEFAULT 'pending',
+                    paid_date DATE, notes TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                )",
             ];
             
             foreach ($requiredTables as $tbl => $sql) {
                 if (!in_array($tbl, $tables)) {
-                    $this->connection->exec($sql);
+                    try { $this->connection->exec($sql); } catch (PDOException $e) {}
                 }
             }
             
-            // ---- Required columns on existing tables (ALTER TABLE ADD) ----
+            // ============================================================
+            // Required columns on EXISTING tables (ALTER TABLE ADD)
+            // Covers columns that may be missing from older databases
+            // ============================================================
             $requiredColumns = [
                 'settings' => [
                     'setting_type' => "VARCHAR(20) DEFAULT 'string'",
@@ -210,6 +349,87 @@ class Database {
                 'users' => [
                     'role_id' => "INT NULL",
                     'business_access' => "TEXT NULL",
+                ],
+                // ---- FRONTDESK table columns ----
+                'room_types' => [
+                    'color_code' => "VARCHAR(7) DEFAULT '#6366f1'",
+                    'updated_at' => "TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+                ],
+                'rooms' => [
+                    'floor_number' => "INT DEFAULT 1",
+                    'current_guest_id' => "INT NULL",
+                    'notes' => "TEXT NULL",
+                    'position_x' => "INT DEFAULT 0",
+                    'position_y' => "INT DEFAULT 0",
+                    'updated_at' => "TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+                ],
+                'guests' => [
+                    'guest_name' => "VARCHAR(200) NOT NULL DEFAULT ''",
+                    'id_card_type' => "VARCHAR(20) DEFAULT 'ktp'",
+                    'id_card_number' => "VARCHAR(50) NULL",
+                    'phone' => "VARCHAR(20) NULL",
+                    'email' => "VARCHAR(100) NULL",
+                    'address' => "TEXT NULL",
+                    'nationality' => "VARCHAR(50) DEFAULT 'Indonesia'",
+                    'updated_at' => "TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+                ],
+                'bookings' => [
+                    'booking_code' => "VARCHAR(20) NULL",
+                    'guest_id' => "INT NULL",
+                    'room_id' => "INT NULL",
+                    'check_in_date' => "DATE NULL",
+                    'check_out_date' => "DATE NULL",
+                    'total_nights' => "INT DEFAULT 1",
+                    'room_price' => "DECIMAL(12,2) DEFAULT 0",
+                    'total_price' => "DECIMAL(12,2) DEFAULT 0",
+                    'discount' => "DECIMAL(12,2) DEFAULT 0",
+                    'final_price' => "DECIMAL(12,2) DEFAULT 0",
+                    'paid_amount' => "DECIMAL(12,2) DEFAULT 0",
+                    'adults' => "INT DEFAULT 1",
+                    'children' => "INT DEFAULT 0",
+                    'payment_status' => "VARCHAR(20) DEFAULT 'unpaid'",
+                    'booking_source' => "VARCHAR(50) DEFAULT 'walk_in'",
+                    'special_request' => "TEXT NULL",
+                    'guest_count' => "INT DEFAULT 1",
+                    'actual_checkin_time' => "DATETIME NULL",
+                    'actual_checkout_time' => "DATETIME NULL",
+                    'notes' => "TEXT NULL",
+                    'created_by' => "INT NULL",
+                ],
+                'booking_payments' => [
+                    'booking_id' => "INT NOT NULL",
+                    'amount' => "DECIMAL(12,2) NOT NULL DEFAULT 0",
+                    'payment_method' => "VARCHAR(50) DEFAULT 'cash'",
+                    'payment_date' => "DATETIME NULL",
+                    'reference_number' => "VARCHAR(100) NULL",
+                    'notes' => "TEXT NULL",
+                    'processed_by' => "INT NULL",
+                    'created_by' => "INT NULL",
+                    'synced_to_cashbook' => "TINYINT(1) DEFAULT 0",
+                    'cashbook_id' => "INT NULL",
+                ],
+                'breakfast_menus' => [
+                    'category' => "VARCHAR(30) DEFAULT 'indonesian'",
+                    'price' => "DECIMAL(10,2) DEFAULT 0.00",
+                    'is_free' => "TINYINT(1) DEFAULT 1",
+                    'is_available' => "TINYINT(1) DEFAULT 1",
+                    'image_url' => "VARCHAR(255) NULL",
+                    'updated_at' => "TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+                ],
+                'breakfast_orders' => [
+                    'booking_id' => "INT NULL",
+                    'guest_name' => "VARCHAR(100) NULL",
+                    'room_number' => "VARCHAR(20) NULL",
+                    'total_pax' => "INT DEFAULT 1",
+                    'breakfast_time' => "TIME NULL",
+                    'breakfast_date' => "DATE NULL",
+                    'location' => "VARCHAR(20) DEFAULT 'restaurant'",
+                    'menu_items' => "TEXT NULL",
+                    'special_requests' => "TEXT NULL",
+                    'total_price' => "DECIMAL(10,2) DEFAULT 0.00",
+                    'order_status' => "VARCHAR(20) DEFAULT 'pending'",
+                    'created_by' => "INT NULL",
+                    'updated_at' => "TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
                 ],
             ];
             

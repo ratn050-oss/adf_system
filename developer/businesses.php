@@ -238,32 +238,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 file_name VARCHAR(255), file_path VARCHAR(500), file_type VARCHAR(50), file_size INT,
                                 uploaded_by INT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                             )");
-                            // Frontdesk tables
+                            // Frontdesk tables — column names match modules/frontdesk/*.php code
                             $bizPdo->exec("CREATE TABLE IF NOT EXISTS rooms (
-                                id INT AUTO_INCREMENT PRIMARY KEY, room_number VARCHAR(10) NOT NULL, room_type_id INT,
-                                floor INT DEFAULT 1, status ENUM('available','occupied','maintenance','blocked') DEFAULT 'available',
-                                price_per_night DECIMAL(15,2) DEFAULT 0, description TEXT, is_active TINYINT(1) DEFAULT 1,
+                                id INT AUTO_INCREMENT PRIMARY KEY, room_number VARCHAR(20) NOT NULL,
+                                room_type_id INT, floor_number INT DEFAULT 1,
+                                status VARCHAR(20) DEFAULT 'available', current_guest_id INT NULL,
+                                notes TEXT, position_x INT DEFAULT 0, position_y INT DEFAULT 0,
                                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
                             )");
                             $bizPdo->exec("CREATE TABLE IF NOT EXISTS room_types (
-                                id INT AUTO_INCREMENT PRIMARY KEY, type_name VARCHAR(50) NOT NULL, base_price DECIMAL(15,2) DEFAULT 0,
-                                max_occupancy INT DEFAULT 2, description TEXT, amenities TEXT,
-                                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                                id INT AUTO_INCREMENT PRIMARY KEY, type_name VARCHAR(100) NOT NULL,
+                                base_price DECIMAL(12,2) DEFAULT 0, max_occupancy INT DEFAULT 2,
+                                description TEXT, amenities TEXT, color_code VARCHAR(7) DEFAULT '#6366f1',
+                                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                            )");
+                            $bizPdo->exec("CREATE TABLE IF NOT EXISTS guests (
+                                id INT AUTO_INCREMENT PRIMARY KEY, guest_name VARCHAR(200) NOT NULL,
+                                id_card_type VARCHAR(20) DEFAULT 'ktp', id_card_number VARCHAR(50),
+                                phone VARCHAR(20), email VARCHAR(100), address TEXT,
+                                nationality VARCHAR(50) DEFAULT 'Indonesia',
+                                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
                             )");
                             $bizPdo->exec("CREATE TABLE IF NOT EXISTS bookings (
-                                id INT AUTO_INCREMENT PRIMARY KEY, booking_code VARCHAR(20) UNIQUE, guest_name VARCHAR(100) NOT NULL,
-                                guest_phone VARCHAR(20), guest_email VARCHAR(100), room_id INT, room_type_id INT,
-                                check_in DATE NOT NULL, check_out DATE NOT NULL, nights INT DEFAULT 1,
-                                adults INT DEFAULT 1, children INT DEFAULT 0, rate_per_night DECIMAL(15,2) DEFAULT 0,
-                                total_amount DECIMAL(15,2) DEFAULT 0, paid_amount DECIMAL(15,2) DEFAULT 0,
-                                status ENUM('confirmed','checked_in','checked_out','cancelled','no_show') DEFAULT 'confirmed',
-                                source VARCHAR(50) DEFAULT 'walk-in', notes TEXT, created_by INT,
-                                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                                id INT AUTO_INCREMENT PRIMARY KEY, booking_code VARCHAR(20) UNIQUE,
+                                guest_id INT, room_id INT,
+                                check_in_date DATE NOT NULL, check_out_date DATE NOT NULL,
+                                total_nights INT DEFAULT 1, adults INT DEFAULT 1, children INT DEFAULT 0,
+                                room_price DECIMAL(12,2) DEFAULT 0, total_price DECIMAL(12,2) DEFAULT 0,
+                                discount DECIMAL(12,2) DEFAULT 0, final_price DECIMAL(12,2) DEFAULT 0,
+                                paid_amount DECIMAL(12,2) DEFAULT 0,
+                                status VARCHAR(20) DEFAULT 'confirmed',
+                                payment_status VARCHAR(20) DEFAULT 'unpaid',
+                                booking_source VARCHAR(50) DEFAULT 'walk_in',
+                                special_request TEXT, notes TEXT, guest_count INT DEFAULT 1,
+                                actual_checkin_time DATETIME NULL, actual_checkout_time DATETIME NULL,
+                                created_by INT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
                             )");
                             $bizPdo->exec("CREATE TABLE IF NOT EXISTS booking_payments (
-                                id INT AUTO_INCREMENT PRIMARY KEY, booking_id INT NOT NULL, amount DECIMAL(15,2) NOT NULL,
-                                payment_method VARCHAR(30) DEFAULT 'cash', payment_date DATETIME, notes TEXT,
-                                created_by INT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                                id INT AUTO_INCREMENT PRIMARY KEY, booking_id INT NOT NULL,
+                                amount DECIMAL(12,2) NOT NULL, payment_method VARCHAR(50) DEFAULT 'cash',
+                                payment_date DATETIME DEFAULT CURRENT_TIMESTAMP,
+                                reference_number VARCHAR(100), notes TEXT,
+                                processed_by INT, created_by INT,
+                                synced_to_cashbook TINYINT(1) DEFAULT 0, cashbook_id INT NULL,
+                                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                             )");
                             $bizPdo->exec("CREATE TABLE IF NOT EXISTS frontdesk_rooms (
                                 id INT AUTO_INCREMENT PRIMARY KEY, room_number VARCHAR(10), room_type VARCHAR(50),
@@ -271,24 +292,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 guest_name VARCHAR(100), check_in DATE, check_out DATE,
                                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
                             )");
-                            $bizPdo->exec("CREATE TABLE IF NOT EXISTS guests (
-                                id INT AUTO_INCREMENT PRIMARY KEY, full_name VARCHAR(100) NOT NULL, phone VARCHAR(20),
-                                email VARCHAR(100), id_type VARCHAR(30), id_number VARCHAR(50), address TEXT, nationality VARCHAR(50),
-                                notes TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                            )");
                             $bizPdo->exec("CREATE TABLE IF NOT EXISTS breakfast_menus (
-                                id INT AUTO_INCREMENT PRIMARY KEY, menu_name VARCHAR(100), description TEXT,
-                                is_active TINYINT(1) DEFAULT 1, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                                id INT AUTO_INCREMENT PRIMARY KEY, menu_name VARCHAR(100) NOT NULL,
+                                description TEXT, category VARCHAR(30) DEFAULT 'indonesian',
+                                price DECIMAL(10,2) DEFAULT 0.00,
+                                is_free TINYINT(1) DEFAULT 1, is_available TINYINT(1) DEFAULT 1,
+                                image_url VARCHAR(255) NULL,
+                                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
                             )");
                             $bizPdo->exec("CREATE TABLE IF NOT EXISTS breakfast_orders (
-                                id INT AUTO_INCREMENT PRIMARY KEY, booking_id INT, guest_name VARCHAR(100),
-                                room_number VARCHAR(10), order_date DATE, menu_id INT, quantity INT DEFAULT 1,
-                                notes TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                                id INT AUTO_INCREMENT PRIMARY KEY, booking_id INT NULL,
+                                guest_name VARCHAR(100), room_number VARCHAR(20),
+                                total_pax INT DEFAULT 1, breakfast_time TIME,
+                                breakfast_date DATE, location VARCHAR(20) DEFAULT 'restaurant',
+                                menu_items TEXT, special_requests TEXT,
+                                total_price DECIMAL(10,2) DEFAULT 0.00,
+                                order_status VARCHAR(20) DEFAULT 'pending',
+                                created_by INT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
                             )");
                             $bizPdo->exec("CREATE TABLE IF NOT EXISTS breakfast_log (
-                                id INT AUTO_INCREMENT PRIMARY KEY, booking_id INT, room_number VARCHAR(10),
-                                guest_name VARCHAR(100), breakfast_date DATE, pax INT DEFAULT 1,
-                                notes TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                                id INT AUTO_INCREMENT PRIMARY KEY, booking_id INT, guest_id INT,
+                                menu_id INT NULL, quantity INT DEFAULT 1, date DATE NOT NULL,
+                                status VARCHAR(20) DEFAULT 'taken', marked_by INT,
+                                marked_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, notes VARCHAR(255)
                             )");
                             // Investor tables
                             $bizPdo->exec("CREATE TABLE IF NOT EXISTS investors (
@@ -367,10 +395,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             
                             // Seed room types for hotel
                             if ($businessType === 'hotel') {
-                                $bizPdo->exec("INSERT IGNORE INTO room_types (id, type_name, base_price, max_occupancy, description) VALUES
-                                    (1, 'Standard', 500000, 2, 'Standard room'),
-                                    (2, 'Deluxe', 750000, 2, 'Deluxe room'),
-                                    (3, 'Suite', 1200000, 4, 'Suite room')");
+                                $bizPdo->exec("INSERT IGNORE INTO room_types (id, type_name, base_price, max_occupancy, description, color_code) VALUES
+                                    (1, 'Standard', 500000, 2, 'Standard room', '#6366f1'),
+                                    (2, 'Deluxe', 750000, 2, 'Deluxe room', '#10b981'),
+                                    (3, 'Suite', 1200000, 4, 'Suite room', '#f59e0b')");
                             }
                             
                             $seedSuccess = true;
