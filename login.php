@@ -104,21 +104,43 @@ if (isPost()) {
                 $roleCode = $masterUser['role_code'];
                 
                 // Build dynamic business code <-> slug mappings from DB
-                $allBizRows = $masterPdo->query("SELECT id, business_code, database_name FROM businesses WHERE is_active = 1")->fetchAll(PDO::FETCH_ASSOC);
+                // Auto-add slug column if missing
+                try {
+                    $colCheck = $masterPdo->query("SHOW COLUMNS FROM businesses LIKE 'slug'")->fetchAll();
+                    if (empty($colCheck)) {
+                        $masterPdo->exec("ALTER TABLE businesses ADD COLUMN slug VARCHAR(100) AFTER business_code");
+                    }
+                } catch (Exception $e) {}
+                
+                $allBizRows = $masterPdo->query("SELECT id, business_code, slug, database_name FROM businesses WHERE is_active = 1")->fetchAll(PDO::FETCH_ASSOC);
                 $codeToSlugMap = []; // BENSCAFE => bens-cafe
                 $slugToCodeMap = []; // bens-cafe => BENSCAFE
+                $bizIdToSlugMap = []; // 4 => eat-meet
+                
+                // Known overrides first
+                $knownSlugs = ['BENSCAFE' => 'bens-cafe', 'NARAYANAHOTEL' => 'narayana-hotel', 'DEMO' => 'demo'];
+                
                 foreach ($allBizRows as $br) {
-                    $slug = strtolower(str_replace('_', '-', $br['business_code']));
+                    // Determine slug: use DB slug column if set, then known overrides, then derive
+                    if (!empty($br['slug'])) {
+                        $slug = $br['slug'];
+                    } elseif (isset($knownSlugs[$br['business_code']])) {
+                        $slug = $knownSlugs[$br['business_code']];
+                    } else {
+                        $slug = strtolower(str_replace('_', '-', $br['business_code']));
+                    }
+                    
+                    // Auto-populate slug in DB if empty
+                    if (empty($br['slug'])) {
+                        try {
+                            $masterPdo->prepare("UPDATE businesses SET slug = ? WHERE id = ?")->execute([$slug, $br['id']]);
+                        } catch (Exception $e) {}
+                    }
+                    
                     $codeToSlugMap[$br['business_code']] = $slug;
                     $slugToCodeMap[$slug] = $br['business_code'];
+                    $bizIdToSlugMap[$br['id']] = $slug;
                 }
-                // Keep known overrides
-                $codeToSlugMap['BENSCAFE'] = 'bens-cafe';
-                $codeToSlugMap['NARAYANAHOTEL'] = 'narayana-hotel';
-                $codeToSlugMap['DEMO'] = 'demo';
-                $slugToCodeMap['bens-cafe'] = 'BENSCAFE';
-                $slugToCodeMap['narayana-hotel'] = 'NARAYANAHOTEL';
-                $slugToCodeMap['demo'] = 'DEMO';
                 
                 // Check if owner login requested
                 if ($loginType === 'owner') {

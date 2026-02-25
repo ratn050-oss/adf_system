@@ -26,6 +26,14 @@ function autoSyncBusinessConfigs() {
             [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
         );
         
+        // Auto-add slug column if missing
+        try {
+            $cols = $pdo->query("SHOW COLUMNS FROM businesses LIKE 'slug'")->fetchAll();
+            if (empty($cols)) {
+                $pdo->exec("ALTER TABLE businesses ADD COLUMN slug VARCHAR(100) AFTER business_code");
+            }
+        } catch (Exception $e) {}
+        
         $rows = $pdo->query("SELECT * FROM businesses WHERE is_active = 1")->fetchAll(PDO::FETCH_ASSOC);
         
         $typeConfig = [
@@ -42,10 +50,15 @@ function autoSyncBusinessConfigs() {
         
         foreach ($rows as $biz) {
             $code = $biz['business_code'];
-            $slug = strtolower(str_replace('_', '-', $code));
-            // Known slug overrides
-            $knownSlugs = ['BENSCAFE' => 'bens-cafe', 'NARAYANAHOTEL' => 'narayana-hotel', 'DEMO' => 'demo'];
-            if (isset($knownSlugs[$code])) $slug = $knownSlugs[$code];
+            // Use slug column if available, otherwise derive with known overrides
+            $slug = !empty($biz['slug']) ? $biz['slug'] : businessCodeToSlug($code);
+            
+            // Auto-populate slug in DB if empty
+            if (empty($biz['slug'])) {
+                try {
+                    $pdo->prepare("UPDATE businesses SET slug = ? WHERE id = ?")->execute([$slug, $biz['id']]);
+                } catch (Exception $e) {}
+            }
             
             $configFile = $businessesPath . $slug . '.php';
             if (file_exists($configFile)) continue; // Already exists, skip
@@ -182,14 +195,17 @@ function setActiveBusinessId($businessCode) {
  * @return int|null Numeric business ID or null if not found
  */
 function getNumericBusinessId($businessCode) {
-    // Known slug -> code overrides
+    // Try slug column first (most reliable), then fallback to code lookup
+    // $businessCode here is actually the slug (e.g., 'bens-cafe', 'eat-meet')
+    $slugToLookup = $businessCode;
+    
+    // Known slug -> code overrides for legacy businesses
     $codeMap = [
         'narayana-hotel' => 'NARAYANAHOTEL',
         'bens-cafe' => 'BENSCAFE',
         'demo' => 'DEMO'
     ];
     
-    // Try known map first, then try both with and without hyphens/underscores
     $dbCode = isset($codeMap[$businessCode]) ? $codeMap[$businessCode] : strtoupper(str_replace('-', '_', $businessCode));
     
     try {
@@ -199,9 +215,22 @@ function getNumericBusinessId($businessCode) {
             [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
         );
         
-        $stmt = $masterPdo->prepare("SELECT id FROM businesses WHERE business_code = ? LIMIT 1");
-        $stmt->execute([$dbCode]);
-        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        // Try by slug first (most reliable)
+        try {
+            $stmt = $masterPdo->prepare("SELECT id FROM businesses WHERE slug = ? LIMIT 1");
+            $stmt->execute([$slugToLookup]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        } catch (Throwable $e) {
+            // slug column might not exist yet
+            $row = null;
+        }
+        
+        if (!$row) {
+            // Fallback: try by business_code
+            $stmt = $masterPdo->prepare("SELECT id FROM businesses WHERE business_code = ? LIMIT 1");
+            $stmt->execute([$dbCode]);
+            $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        }
         
         return $row ? (int)$row['id'] : null;
     } catch (Throwable $e) {

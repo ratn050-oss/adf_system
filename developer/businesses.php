@@ -105,12 +105,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $actualDbName = getDbName($dbName);
                     }
                     
-                    // Insert business record
+                    // Generate slug from business name (clean, URL-friendly)
+                    $slug = strtolower(trim(preg_replace('/[^a-z0-9]+/i', '-', $businessName), '-'));
+                    if (empty($slug)) {
+                        $slug = strtolower(str_replace('_', '-', $businessCode));
+                    }
+                    
+                    // Ensure slug column exists
+                    try {
+                        $colCheck = $pdo->query("SHOW COLUMNS FROM businesses LIKE 'slug'")->fetchAll();
+                        if (empty($colCheck)) {
+                            $pdo->exec("ALTER TABLE businesses ADD COLUMN slug VARCHAR(100) AFTER business_code");
+                        }
+                    } catch (Exception $e) {}
+                    
+                    // Insert business record with slug
                     $stmt = $pdo->prepare("
-                        INSERT INTO businesses (business_code, business_name, business_type, database_name, owner_id, description, is_active)
-                        VALUES (?, ?, ?, ?, ?, ?, 0)
+                        INSERT INTO businesses (business_code, slug, business_name, business_type, database_name, owner_id, description, is_active)
+                        VALUES (?, ?, ?, ?, ?, ?, ?, 0)
                     ");
-                    $stmt->execute([$businessCode, $businessName, $businessType, $actualDbName, $ownerId, $description]);
+                    $stmt->execute([$businessCode, $slug, $businessName, $businessType, $actualDbName, $ownerId, $description]);
                     $businessId = $pdo->lastInsertId();
                     
                     // Create cash accounts in master
@@ -131,7 +145,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $auth->logAction('create_business', 'businesses', $businessId, null, ['name' => $businessName, 'database' => $actualDbName]);
                     
                     // Auto-generate config file immediately (so system recognizes this business)
-                    $autoSlug = strtolower(str_replace('_', '-', $businessCode));
+                    $autoSlug = $slug; // Use the slug we generated above
                     $autoConfigPath = dirname(dirname(__FILE__)) . '/config/businesses/' . $autoSlug . '.php';
                     if (!file_exists($autoConfigPath)) {
                         $typeConf = [
@@ -454,7 +468,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             if ($seedSuccess) {
                 // Also generate config file and activate business (merge step 4 here)
                 $cfgCode = $setupBiz['business_code'];
-                $cfgSlug = strtolower(str_replace('_', '-', $cfgCode));
+                $cfgSlug = !empty($setupBiz['slug']) ? $setupBiz['slug'] : businessCodeToSlug($cfgCode);
                 $cfgPath = dirname(dirname(__FILE__)) . '/config/businesses/' . $cfgSlug . '.php';
                 
                 if (!file_exists($cfgPath)) {
@@ -519,7 +533,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         if ($configBiz) {
             $code = $configBiz['business_code'];
-            $slug = strtolower(str_replace('_', '-', $code));
+            $slug = !empty($configBiz['slug']) ? $configBiz['slug'] : businessCodeToSlug($code);
             $name = $configBiz['business_name'];
             $type = $configBiz['business_type'];
             $localDbName = 'adf_' . strtolower(preg_replace('/[^a-z0-9]/i', '_', $code));
@@ -607,7 +621,7 @@ if ($action === 'delete' && $editId) {
         if ($bizToDelete) {
             $pdo->prepare("DELETE FROM businesses WHERE id = ?")->execute([$editId]);
             // Also delete config file if exists
-            $delSlug = strtolower(str_replace('_', '-', $bizToDelete['business_code']));
+            $delSlug = !empty($bizToDelete['slug']) ? $bizToDelete['slug'] : businessCodeToSlug($bizToDelete['business_code']);
             $delConfigPath = dirname(dirname(__FILE__)) . '/config/businesses/' . $delSlug . '.php';
             if (file_exists($delConfigPath)) {
                 @unlink($delConfigPath);
@@ -647,7 +661,7 @@ if ($action === 'setup' && $editId) {
         $setupDbName = $setupBusiness['database_name'];
         $dbConnected = false;
         $tableCount = 0;
-        $configSlug = strtolower(str_replace('_', '-', $setupBusiness['business_code']));
+        $configSlug = !empty($setupBusiness['slug']) ? $setupBusiness['slug'] : businessCodeToSlug($setupBusiness['business_code']);
         $configExists = file_exists(dirname(dirname(__FILE__)) . '/config/businesses/' . $configSlug . '.php');
         
         try {
@@ -719,7 +733,7 @@ require_once __DIR__ . '/includes/header.php';
     $sDb = $setupBusiness['database_name'];
     $sCode = $setupBusiness['business_code'];
     $sName = $setupBusiness['business_name'];
-    $sSlug = strtolower(str_replace('_', '-', $sCode));
+    $sSlug = !empty($setupBusiness['slug']) ? $setupBusiness['slug'] : businessCodeToSlug($sCode);
     $hostingDbName = $sDb;
     $isDone = ($setupStep === 'done' || (isset($_GET['step']) && $_GET['step'] === 'done'));
     ?>
@@ -1119,7 +1133,7 @@ require_once __DIR__ . '/includes/header.php';
                         </td>
                         <td class="biz-status-col">
                             <?php 
-                            $bizSlugCheck = strtolower(str_replace('_', '-', $biz['business_code']));
+                            $bizSlugCheck = !empty($biz['slug']) ? $biz['slug'] : businessCodeToSlug($biz['business_code']);
                             $bizConfigExists = file_exists(dirname(dirname(__FILE__)) . '/config/businesses/' . $bizSlugCheck . '.php');
                             if ($biz['is_active'] && $bizConfigExists): ?>
                             <span class="badge bg-success"><i class="bi bi-check-circle me-1"></i>Active</span>
@@ -1133,12 +1147,7 @@ require_once __DIR__ . '/includes/header.php';
                         </td>
                         <td>
                             <?php 
-                            // Map business_code to URL slug
-                            $codeToSlug = [
-                                'BENSCAFE' => 'bens-cafe',
-                                'NARAYANAHOTEL' => 'narayana-hotel'
-                            ];
-                            $businessSlug = $codeToSlug[$biz['business_code']] ?? strtolower(str_replace('_', '-', $biz['business_code']));
+                            $businessSlug = !empty($biz['slug']) ? $biz['slug'] : businessCodeToSlug($biz['business_code']);
                             $staffLoginUrl = BASE_URL . '/login.php?biz=' . $businessSlug;
                             ?>
                             <div class="input-group input-group-sm" style="max-width: 350px;">
