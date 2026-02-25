@@ -45,6 +45,14 @@ if (isset($_GET['business']) && !empty($_GET['business'])) {
 require_once __DIR__ . '/../../includes/business_access.php';
 $allBusinesses = getUserAvailableBusinesses();
 $activeBusinessId = getActiveBusinessId();
+
+// If current active business is not in user's allowed list, auto-switch to first allowed
+if (!empty($allBusinesses) && !isset($allBusinesses[$activeBusinessId])) {
+    $firstAllowed = array_key_first($allBusinesses);
+    setActiveBusinessId($firstAllowed);
+    $activeBusinessId = $firstAllowed;
+}
+
 $activeConfig = getActiveBusinessConfig();
 
 // DATABASE CONFIG - dynamic from business config
