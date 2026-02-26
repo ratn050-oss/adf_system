@@ -23,9 +23,22 @@ $currentUser = $auth->getCurrentUser();
 // Auto-create tables if missing
 $check = $db->query("SHOW TABLES LIKE 'payroll_employees'");
 if ($check->rowCount() === 0) {
-    echo "Creating payroll tables...";
-    $sql = file_get_contents('../../database-payroll.sql');
-    $db->exec($sql);
+    $sqlFile = __DIR__ . '/../../database-payroll.sql';
+    if (file_exists($sqlFile)) {
+        $sql = file_get_contents($sqlFile);
+        // Split by semicolon and execute each statement
+        $statements = array_filter(array_map('trim', explode(';', $sql)));
+        $pdo = $db->getConnection();
+        foreach ($statements as $stmt) {
+            if (!empty($stmt) && stripos($stmt, 'CREATE TABLE') !== false) {
+                try {
+                    $pdo->exec($stmt);
+                } catch (PDOException $e) {
+                    // Table might already exist, continue
+                }
+            }
+        }
+    }
     header("Refresh:0");
     exit;
 }

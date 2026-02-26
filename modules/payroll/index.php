@@ -25,9 +25,18 @@ $pageSubtitle = 'Ringkasan aktivitas penggajian';
 try {
     $db->query("SELECT 1 FROM payroll_employees LIMIT 1");
 } catch (Exception $e) {
-    if (file_exists('../../database-payroll.sql')) {
-        $sql = file_get_contents('../../database-payroll.sql');
-        $db->exec($sql);
+    $sqlFile = __DIR__ . '/../../database-payroll.sql';
+    if (file_exists($sqlFile)) {
+        $sql = file_get_contents($sqlFile);
+        $statements = array_filter(array_map('trim', explode(';', $sql)));
+        $pdo = $db->getConnection();
+        foreach ($statements as $stmt) {
+            if (!empty($stmt) && stripos($stmt, 'CREATE TABLE') !== false) {
+                try {
+                    $pdo->exec($stmt);
+                } catch (PDOException $ex) {}
+            }
+        }
         setFlash('success', 'Database Payroll berhasil diinisialisasi.');
         header("Refresh:0");
         exit;
