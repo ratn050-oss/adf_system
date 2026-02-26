@@ -61,6 +61,12 @@ CREATE TABLE IF NOT EXISTS `payroll_slips` (
   -- Earnings
   `base_salary` DECIMAL(15,2) NOT NULL DEFAULT 0.00,
   
+  -- Work Hours Logic: Target = 200 hours/month
+  -- If work_hours >= 200: actual_base = base_salary (full salary)
+  -- If work_hours < 200: actual_base = (base_salary/200) * work_hours
+  `work_hours` DECIMAL(10,2) NOT NULL DEFAULT 200.00 COMMENT 'Monthly work hours (target: 200)',
+  `actual_base` DECIMAL(15,2) NOT NULL DEFAULT 0.00 COMMENT 'Calculated base after work hours',
+  
   -- Overtime Logic: (base_salary / 200) * overtime_hours
   `overtime_hours` DECIMAL(10,2) NOT NULL DEFAULT 0.00 COMMENT 'Custom logic: hours input',
   `overtime_rate` DECIMAL(15,2) NOT NULL DEFAULT 0.00 COMMENT 'Rate per hour = Base / 200',
