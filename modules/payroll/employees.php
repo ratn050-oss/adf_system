@@ -37,7 +37,7 @@ if ($check->rowCount() === 0) {
     exit;
 }
 
-$pageTitle = 'Data Karyawan';
+$pageTitle = 'Employee Data';
 
 // Handle Form Submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -65,14 +65,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $sql = "INSERT INTO payroll_employees (employee_code, full_name, position, department, phone, join_date, base_salary, bank_name, bank_account, created_by) 
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
                 $db->query($sql, [$employee_code, $full_name, $position, $department, $phone, $join_date, $base_salary, $bank_name, $bank_account, $_SESSION['user_id']]);
-                setFlash('success', 'Karyawan berhasil ditambahkan');
+                setFlash('success', 'Employee added successfully');
             } else {
                 $sql = "UPDATE payroll_employees SET full_name=?, position=?, department=?, phone=?, join_date=?, base_salary=?, bank_name=?, bank_account=? WHERE id=?";
                 $db->query($sql, [$full_name, $position, $department, $phone, $join_date, $base_salary, $bank_name, $bank_account, $id]);
-                setFlash('success', 'Data karyawan diperbarui');
+                setFlash('success', 'Employee data updated');
             }
         } catch (PDOException $e) {
-            setFlash('error', 'Gagal menyimpan data: ' . $e->getMessage());
+            setFlash('error', 'Failed to save: ' . $e->getMessage());
         }
         header('Location: employees.php');
         exit;
@@ -82,9 +82,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $id = $_POST['id'];
         try {
             $db->query("UPDATE payroll_employees SET is_active = 0 WHERE id = ?", [$id]);
-            setFlash('success', 'Karyawan dinonaktifkan');
+            setFlash('success', 'Employee deactivated');
         } catch (Exception $e) {
-            setFlash('error', 'Gagal menghapus: ' . $e->getMessage());
+            setFlash('error', 'Failed to delete: ' . $e->getMessage());
         }
         header('Location: employees.php');
         exit;
@@ -632,12 +632,12 @@ include '../../includes/header.php';
     <!-- Header -->
     <div class="emp-header fade-in-up">
         <div>
-            <h1>Data Karyawan</h1>
-            <p>Kelola database karyawan untuk penggajian</p>
+            <h1>Employee Data</h1>
+            <p>Manage employee database for payroll</p>
         </div>
         <button class="btn-add-emp" onclick="openModal('create')">
             <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-            Tambah Karyawan
+            Add Employee
         </button>
     </div>
 
@@ -648,7 +648,7 @@ include '../../includes/header.php';
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
             </div>
             <div>
-                <p class="emp-stat-label">Total Karyawan</p>
+                <p class="emp-stat-label">Total Employees</p>
                 <h3 class="emp-stat-value"><?php echo count($employees); ?></h3>
             </div>
         </div>
@@ -657,7 +657,7 @@ include '../../includes/header.php';
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
             </div>
             <div>
-                <p class="emp-stat-label">Total Gaji Pokok</p>
+                <p class="emp-stat-label">Total Base Salary</p>
                 <h3 class="emp-stat-value">Rp <?php echo number_format($totalBase, 0, ',', '.'); ?></h3>
             </div>
         </div>
@@ -666,10 +666,10 @@ include '../../includes/header.php';
     <!-- Table Card -->
     <div class="emp-table-card fade-in-up" style="animation-delay: 0.2s">
         <div class="emp-table-header">
-            <h3>Daftar Karyawan Aktif</h3>
+            <h3>Active Employees</h3>
             <div class="emp-search">
                 <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"></circle><line x1="21" y1="21" x2="16.65" y2="16.65"></line></svg>
-                <input type="text" id="searchInput" placeholder="Cari nama atau jabatan..." onkeyup="filterTable()">
+                <input type="text" id="searchInput" placeholder="Search name or position..." onkeyup="filterTable()">
             </div>
         </div>
         
@@ -678,19 +678,19 @@ include '../../includes/header.php';
             <div class="emp-empty-icon">
                 <svg width="28" height="28" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle></svg>
             </div>
-            <h4 style="margin: 0 0 0.5rem; color: var(--text-secondary);">Belum Ada Karyawan</h4>
-            <p style="margin: 0; color: var(--text-tertiary);">Mulai dengan menambahkan data karyawan pertama</p>
+            <h4 style="margin: 0 0 0.5rem; color: var(--text-secondary);">No Employees Yet</h4>
+            <p style="margin: 0; color: var(--text-tertiary);">Start by adding your first employee</p>
         </div>
         <?php else: ?>
         <table class="emp-table" id="employeeTable">
             <thead>
                 <tr>
-                    <th>Karyawan</th>
-                    <th>Jabatan</th>
-                    <th>Tanggal Masuk</th>
-                    <th>Gaji Pokok</th>
-                    <th>Rekening</th>
-                    <th style="text-align: center;">Aksi</th>
+                    <th>Employee</th>
+                    <th>Position</th>
+                    <th>Join Date</th>
+                    <th>Base Salary</th>
+                    <th>Bank Account</th>
+                    <th style="text-align: center;">Actions</th>
                 </tr>
             </thead>
             <tbody>
@@ -742,7 +742,7 @@ include '../../includes/header.php';
 <div class="emp-modal" id="employeeModal">
     <form method="POST" id="employeeForm">
         <div class="emp-modal-header">
-            <h3 id="modalTitle">Tambah Karyawan</h3>
+            <h3 id="modalTitle">Add Employee</h3>
             <button type="button" class="emp-modal-close" onclick="closeModal()">
                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="18" y1="6" x2="6" y2="18"></line><line x1="6" y1="6" x2="18" y2="18"></line></svg>
             </button>
@@ -753,18 +753,18 @@ include '../../includes/header.php';
             
             <div class="emp-form-row">
                 <div class="emp-form-group">
-                    <label class="emp-form-label required">Nama Lengkap</label>
+                    <label class="emp-form-label required">Full Name</label>
                     <input type="text" name="full_name" id="fullName" class="emp-form-input" required>
                 </div>
                 <div class="emp-form-group">
-                    <label class="emp-form-label">Kode Karyawan</label>
+                    <label class="emp-form-label">Employee Code</label>
                     <input type="text" name="employee_code" id="employeeCode" class="emp-form-input" placeholder="Auto" readonly style="background: var(--bg-secondary);">
                 </div>
             </div>
 
             <div class="emp-form-row">
                 <div class="emp-form-group">
-                    <label class="emp-form-label required">Jabatan</label>
+                    <label class="emp-form-label required">Position</label>
                     <input type="text" name="position" id="position" class="emp-form-input" required list="positions">
                     <datalist id="positions">
                         <option value="Manager"><option value="Supervisor"><option value="Chef"><option value="Cook Helper">
@@ -772,9 +772,9 @@ include '../../includes/header.php';
                     </datalist>
                 </div>
                 <div class="emp-form-group">
-                    <label class="emp-form-label">Departemen</label>
+                    <label class="emp-form-label">Department</label>
                     <select name="department" id="department" class="emp-form-input">
-                        <option value="">- Pilih -</option>
+                        <option value="">- Select -</option>
                         <option value="Kitchen">Kitchen</option>
                         <option value="Service">Service</option>
                         <option value="Front Office">Front Office</option>
@@ -786,39 +786,39 @@ include '../../includes/header.php';
 
             <div class="emp-form-row">
                 <div class="emp-form-group">
-                    <label class="emp-form-label required">Tanggal Masuk</label>
+                    <label class="emp-form-label required">Join Date</label>
                     <input type="date" name="join_date" id="joinDate" class="emp-form-input" required value="<?php echo date('Y-m-d'); ?>">
                 </div>
                 <div class="emp-form-group">
-                    <label class="emp-form-label">No. Telepon</label>
+                    <label class="emp-form-label">Phone Number</label>
                     <input type="text" name="phone" id="phone" class="emp-form-input">
                 </div>
             </div>
 
             <div class="emp-form-group">
-                <label class="emp-form-label required">Gaji Pokok</label>
+                <label class="emp-form-label required">Base Salary</label>
                 <div class="emp-salary-input">
                     <span class="emp-salary-prefix">Rp</span>
                     <input type="text" name="base_salary" id="baseSalary" required onkeyup="formatCurrency(this)">
                 </div>
-                <p class="emp-form-note">Dasar perhitungan lembur: Gaji Pokok ÷ 200 = Tarif per jam</p>
+                <p class="emp-form-note">Overtime calculation: Base Salary ÷ 200 = Rate per hour</p>
             </div>
 
             <div class="emp-form-row">
                 <div class="emp-form-group">
-                    <label class="emp-form-label">Nama Bank</label>
+                    <label class="emp-form-label">Bank Name</label>
                     <input type="text" name="bank_name" id="bankName" class="emp-form-input" list="banks">
                     <datalist id="banks"><option value="BCA"><option value="BRI"><option value="BNI"><option value="Mandiri"></datalist>
                 </div>
                 <div class="emp-form-group">
-                    <label class="emp-form-label">No. Rekening</label>
+                    <label class="emp-form-label">Account Number</label>
                     <input type="text" name="bank_account" id="bankAccount" class="emp-form-input">
                 </div>
             </div>
         </div>
         <div class="emp-modal-footer">
-            <button type="button" class="emp-btn-cancel" onclick="closeModal()">Batal</button>
-            <button type="submit" class="emp-btn-save">Simpan Data</button>
+            <button type="button" class="emp-btn-cancel" onclick="closeModal()">Cancel</button>
+            <button type="submit" class="emp-btn-save">Save Data</button>
         </div>
     </form>
 </div>
@@ -831,7 +831,7 @@ function openModal(mode) {
     setTimeout(() => modal.classList.add('show'), 10);
     
     if (mode === 'create') {
-        document.getElementById('modalTitle').innerText = 'Tambah Karyawan';
+        document.getElementById('modalTitle').innerText = 'Add Employee';
         document.getElementById('formAction').value = 'create';
         document.getElementById('employeeForm').reset();
         document.getElementById('joinDate').valueAsDate = new Date();
@@ -854,7 +854,7 @@ function formatCurrency(input) {
 
 function editEmployee(data) {
     openModal('edit');
-    document.getElementById('modalTitle').innerText = 'Edit Karyawan';
+    document.getElementById('modalTitle').innerText = 'Edit Employee';
     document.getElementById('formAction').value = 'edit';
     document.getElementById('employeeId').value = data.id;
     document.getElementById('employeeCode').value = data.employee_code;
@@ -870,7 +870,7 @@ function editEmployee(data) {
 }
 
 function deleteEmployee(id) {
-    if (confirm('Yakin ingin menonaktifkan karyawan ini?')) {
+    if (confirm('Are you sure you want to deactivate this employee?')) {
         const form = document.createElement('form');
         form.method = 'POST';
         form.innerHTML = '<input type="hidden" name="action" value="delete"><input type="hidden" name="id" value="'+id+'">';

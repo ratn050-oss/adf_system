@@ -15,13 +15,13 @@ if (!isModuleEnabled('payroll')) {
 }
 
 $db = Database::getInstance();
-$pageTitle = 'Proses Gaji';
+$pageTitle = 'Process Salary';
 
 $month = $_GET['month'] ?? date('n');
 $year = $_GET['year'] ?? date('Y');
 $months = [
-    1 => 'Januari', 2 => 'Februari', 3 => 'Maret', 4 => 'April', 5 => 'Mei', 6 => 'Juni',
-    7 => 'Juli', 8 => 'Agustus', 9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'
+    1 => 'January', 2 => 'February', 3 => 'March', 4 => 'April', 5 => 'May', 6 => 'June',
+    7 => 'July', 8 => 'August', 9 => 'September', 10 => 'October', 11 => 'November', 12 => 'December'
 ];
 
 $period = $db->fetchOne("SELECT * FROM payroll_periods WHERE period_month = ? AND period_year = ?", [$month, $year]);
@@ -39,11 +39,11 @@ if (!$period && isset($_POST['create_period'])) {
                       [$period['id'], $emp['id'], $emp['full_name'], $emp['position'], $emp['base_salary']]);
         }
         
-        setFlash('success', 'Periode gaji berhasil dibuat');
+        setFlash('success', 'Payroll period created successfully');
         header("Location: process.php?month=$month&year=$year");
         exit;
     } catch (PDOException $e) {
-        setFlash('error', 'Gagal membuat periode: ' . $e->getMessage());
+        setFlash('error', 'Failed to create period: ' . $e->getMessage());
     }
 }
 
@@ -121,7 +121,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_update'])) {
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_period'])) {
     $db->query("UPDATE payroll_periods SET status = 'submitted', submitted_at = NOW(), submitted_by = ? WHERE id = ?", 
               [$_SESSION['user_id'], $period['id']]);
-    setFlash('success', 'Gaji diajukan ke Owner');
+    setFlash('success', 'Payroll submitted to Owner for approval');
+    header("Location: process.php?month=$month&year=$year");
+    exit;
+}
+
+// Handle Approve Period (Owner) - Record to Cashbook
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['approve_period'])) {
+    try {
+        // Update period status
+        $db->query("UPDATE payroll_periods SET status = 'approved', approved_at = NOW(), approved_by = ? WHERE id = ?", 
+                  [$_SESSION['user_id'], $period['id']]);
+        
+        // Record to Cashbook as Expense (Payroll from Bank)
+        $periodLabel = $months[$period['period_month']] . ' ' . $period['period_year'];
+        $description = 'Payroll ' . $periodLabel . ' - Bank Transfer';
+        $amount = $period['total_net'];
+        
+        // Find or use default account (Bank)
+        $bankAccount = $db->fetchOne("SELECT id FROM cash_accounts WHERE (account_name LIKE '%Bank%' OR account_name LIKE '%BCA%' OR account_name LIKE '%BRI%') AND is_active = 1 LIMIT 1");
+        $accountId = $bankAccount ? $bankAccount['id'] : null;
+        
+        // Insert into cashbook_transactions
+        $db->query(
+            "INSERT INTO cashbook_transactions (transaction_date, transaction_type, account_id, category, description, amount, payment_method, reference_number, created_by) 
+             VALUES (CURDATE(), 'expense', ?, 'Payroll', ?, ?, 'transfer', ?, ?)",
+            [$accountId, $description, $amount, 'PAYROLL-' . $period['id'], $_SESSION['user_id']]
+        );
+        
+        setFlash('success', 'Payroll approved! Rp ' . number_format($amount, 0, ',', '.') . ' recorded to cashbook.');
+    } catch (Exception $e) {
+        setFlash('error', 'Error approving payroll: ' . $e->getMessage());
+    }
+    header("Location: process.php?month=$month&year=$year");
+    exit;
+}
+
+// Handle Mark as Paid
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['mark_paid'])) {
+    $db->query("UPDATE payroll_periods SET status = 'paid', paid_at = NOW() WHERE id = ?", [$period['id']]);
+    setFlash('success', 'Payroll marked as Paid');
     header("Location: process.php?month=$month&year=$year");
     exit;
 }
@@ -154,8 +193,8 @@ include '../../includes/header.php';
     <!-- Header & Filter -->
     <div class="header-container fade-in-up">
         <div class="header-content">
-            <h1 class="page-title">Proses Gaji</h1>
-            <p class="page-subtitle">Hitung gaji bulanan karyawan</p>
+            <h1 class="page-title">Process Salary</h1>
+            <p class="page-subtitle">Calculate monthly employee payroll</p>
         </div>
         <div class="header-actions">
             <form method="GET" class="d-flex gap-2">
@@ -177,40 +216,54 @@ include '../../includes/header.php';
     <?php if (!$period): ?>
         <div class="empty-state fade-in-up">
             <i data-feather="calendar" class="empty-icon"></i>
-            <h3>Periode Belum Dibuat</h3>
-            <p>Belum ada data gaji untuk periode <?php echo $months[$month] . ' ' . $year; ?></p>
+            <h3>No Period Created</h3>
+            <p>No payroll data for <?php echo $months[$month] . ' ' . $year; ?></p>
             <form method="POST">
                 <input type="hidden" name="create_period" value="1">
-                <button type="submit" class="btn btn-primary mt-3">Buat Periode Baru</button>
+                <button type="submit" class="btn btn-primary mt-3">Create New Period</button>
             </form>
         </div>
     <?php else: ?>
         
         <!-- Status Bar -->
         <div class="card mb-3 fade-in-up">
-            <div class="card-body d-flex justify-content-between align-items-center">
+            <div class="card-body d-flex justify-content-between align-items-center flex-wrap gap-3">
                 <div class="d-flex align-items-center gap-3">
-                    <span class="badge bg-<?php echo $period['status'] == 'draft' ? 'secondary' : ($period['status'] == 'submitted' ? 'warning' : 'success'); ?> px-3 py-2 text-uppercase">
+                    <span class="badge bg-<?php echo $period['status'] == 'draft' ? 'secondary' : ($period['status'] == 'submitted' ? 'warning' : ($period['status'] == 'approved' ? 'success' : 'primary')); ?> px-3 py-2 text-uppercase">
                         <?php echo $period['status']; ?>
                     </span>
                     <div>
-                        <small class="text-muted d-block">Total Gaji Bersih</small>
+                        <small class="text-muted d-block">Total Net Salary</small>
                         <h4 class="mb-0 text-success">Rp <?php echo number_format($period['total_net'], 0, ',', '.'); ?></h4>
                     </div>
                 </div>
                 
-                <div class="d-flex gap-2">
+                <div class="d-flex gap-2 flex-wrap">
                     <?php if($period['status'] == 'draft'): ?>
-                        <form method="POST" onsubmit="return confirm('Ajukan gaji ini ke Owner? Data tidak bisa diubah setelah diajukan.')">
+                        <form method="POST" onsubmit="return confirm('Submit this payroll to Owner? Data cannot be changed after submission.')">
                             <input type="hidden" name="submit_period" value="1">
+                            <button type="submit" class="btn btn-warning">
+                                <i data-feather="send"></i> Submit to Owner
+                            </button>
+                        </form>
+                    <?php elseif($period['status'] == 'submitted'): ?>
+                        <form method="POST" onsubmit="return confirm('Approve this payroll? Amount will be recorded to Cashbook as Payroll Expense.')">
+                            <input type="hidden" name="approve_period" value="1">
                             <button type="submit" class="btn btn-success">
-                                <i data-feather="send"></i> Ajukan ke Owner
+                                <i data-feather="check-circle"></i> Approve & Record to Cashbook
+                            </button>
+                        </form>
+                    <?php elseif($period['status'] == 'approved'): ?>
+                        <form method="POST" onsubmit="return confirm('Mark this payroll as Paid?')">
+                            <input type="hidden" name="mark_paid" value="1">
+                            <button type="submit" class="btn btn-primary">
+                                <i data-feather="check"></i> Mark as Paid
                             </button>
                         </form>
                     <?php endif; ?>
                     
                     <a href="print-submission.php?period_id=<?php echo $period['id']; ?>" target="_blank" class="btn btn-outline-secondary">
-                        <i data-feather="printer"></i> Cetak Laporan
+                        <i data-feather="printer"></i> Print Report
                     </a>
                 </div>
             </div>
@@ -223,15 +276,15 @@ include '../../includes/header.php';
                     <table class="table payroll-table mb-0">
                         <thead class="sticky-header">
                             <tr>
-                                <th class="sticky-col" style="min-width: 200px;">Karyawan</th>
-                                <th class="text-end" style="width: 120px;">Gaji Pokok</th>
-                                <th class="text-center" style="width: 80px;">Jam Lembur</th>
-                                <th class="text-end" style="width: 120px;">Nominal Lembur</th>
-                                <th class="text-end" style="width: 120px;">Insentif</th>
-                                <th class="text-end" style="width: 120px;">Tunjangan</th>
-                                <th class="text-end" style="width: 120px;">Bonus/Lain</th>
-                                <th class="text-end text-danger" style="width: 120px;">Potongan</th>
-                                <th class="text-end fw-bold" style="width: 140px;">Gaji Bersih</th>
+                                <th class="sticky-col" style="min-width: 200px;">Employee</th>
+                                <th class="text-end" style="width: 120px;">Base Salary</th>
+                                <th class="text-center" style="width: 80px;">OT Hours</th>
+                                <th class="text-end" style="width: 120px;">OT Amount</th>
+                                <th class="text-end" style="width: 120px;">Incentive</th>
+                                <th class="text-end" style="width: 120px;">Allowance</th>
+                                <th class="text-end" style="width: 120px;">Bonus/Other</th>
+                                <th class="text-end text-danger" style="width: 120px;">Deductions</th>
+                                <th class="text-end fw-bold" style="width: 140px;">Net Salary</th>
                                 <th class="text-center" style="width: 50px;">#</th>
                             </tr>
                         </thead>
@@ -315,17 +368,17 @@ include '../../includes/header.php';
     <div class="modal-dialog">
         <div class="modal-content">
             <div class="modal-header">
-                <h5 class="modal-title">Rincian Potongan: <span id="modalEmpName"></span></h5>
+                <h5 class="modal-title">Deduction Details: <span id="modalEmpName"></span></h5>
                 <button type="button" class="btn-close" onclick="closeDeductionModal()"></button>
             </div>
             <div class="modal-body">
                 <input type="hidden" id="modalSlipId">
                 <div class="form-group mb-2">
-                    <label>Kasbon / Pinjaman</label>
+                    <label>Loan / Cash Advance</label>
                     <input type="text" class="form-control currency-input modal-input" id="modalLoan">
                 </div>
                 <div class="form-group mb-2">
-                    <label>Absensi / Alpha</label>
+                    <label>Absence Deduction</label>
                     <input type="text" class="form-control currency-input modal-input" id="modalAbsence">
                 </div>
                 <div class="form-group mb-2">
@@ -333,12 +386,12 @@ include '../../includes/header.php';
                     <input type="text" class="form-control currency-input modal-input" id="modalBpjs">
                 </div>
                 <div class="form-group mb-2">
-                    <label>Lain-lain</label>
+                    <label>Other Deductions</label>
                     <input type="text" class="form-control currency-input modal-input" id="modalOther">
                 </div>
             </div>
             <div class="modal-footer">
-                <button type="button" class="btn btn-primary" onclick="saveDeduction()">Simpan</button>
+                <button type="button" class="btn btn-primary" onclick="saveDeduction()">Save</button>
             </div>
         </div>
     </div>

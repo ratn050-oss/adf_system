@@ -17,8 +17,8 @@ if (!isModuleEnabled('payroll')) {
 }
 
 $db = Database::getInstance();
-$pageTitle = 'Dashboard Gaji';
-$pageSubtitle = 'Ringkasan aktivitas penggajian';
+$pageTitle = 'Payroll Dashboard';
+$pageSubtitle = 'Payroll activity overview';
 
 // Auto-create Payroll Tables
 try {
@@ -34,7 +34,7 @@ try {
                 try { $pdo->exec($stmt); } catch (PDOException $ex) {}
             }
         }
-        setFlash('success', 'Database Payroll berhasil diinisialisasi.');
+        setFlash('success', 'Payroll database initialized successfully.');
         header("Refresh:0");
         exit;
     }
@@ -470,12 +470,12 @@ include '../../includes/header.php';
     <div class="payroll-hero fade-in-up">
         <div class="payroll-hero-content">
             <div>
-                <h1>Dashboard Gaji</h1>
-                <p>Kelola penggajian karyawan dengan mudah dan efisien</p>
+                <h1>Payroll Dashboard</h1>
+                <p>Manage employee payroll easily and efficiently</p>
             </div>
             <a href="process.php" class="btn-hero">
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><line x1="12" y1="5" x2="12" y2="19"></line><line x1="5" y1="12" x2="19" y2="12"></line></svg>
-                Proses Gaji Baru
+                Process New Payroll
             </a>
         </div>
     </div>
@@ -486,24 +486,24 @@ include '../../includes/header.php';
             <div class="pr-stat-icon">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
             </div>
-            <p class="pr-stat-label">Total Karyawan</p>
-            <h3 class="pr-stat-value"><?php echo $stats['employees']; ?> <small style="font-size: 0.75rem; font-weight: 400;">orang</small></h3>
+            <p class="pr-stat-label">Total Employees</p>
+            <h3 class="pr-stat-value"><?php echo $stats['employees']; ?> <small style="font-size: 0.75rem; font-weight: 400;">staff</small></h3>
         </div>
         
         <div class="pr-stat-card green">
             <div class="pr-stat-icon">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="1" y="4" width="22" height="16" rx="2" ry="2"></rect><line x1="1" y1="10" x2="23" y2="10"></line></svg>
             </div>
-            <p class="pr-stat-label">Pengeluaran Terakhir</p>
+            <p class="pr-stat-label">Last Payout</p>
             <h3 class="pr-stat-value"><?php echo $stats['last_period'] ? 'Rp ' . number_format($stats['last_period']['total_net'], 0, ',', '.') : '-'; ?></h3>
-            <p class="pr-stat-sub"><?php echo $stats['last_period']['period_label'] ?? 'Belum ada periode'; ?></p>
+            <p class="pr-stat-sub"><?php echo $stats['last_period']['period_label'] ?? 'No period yet'; ?></p>
         </div>
         
         <div class="pr-stat-card pink">
             <div class="pr-stat-icon">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polyline points="23 6 13.5 15.5 8.5 10.5 1 18"></polyline><polyline points="17 6 23 6 23 12"></polyline></svg>
             </div>
-            <p class="pr-stat-label">Total Tahun Ini</p>
+            <p class="pr-stat-label">Total This Year</p>
             <h3 class="pr-stat-value">Rp <?php echo number_format($stats['total_yearly'], 0, ',', '.'); ?></h3>
             <p class="pr-stat-sub"><?php echo date('Y'); ?></p>
         </div>
@@ -512,8 +512,8 @@ include '../../includes/header.php';
             <div class="pr-stat-icon">
                 <svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><polyline points="12 6 12 12 16 14"></polyline></svg>
             </div>
-            <p class="pr-stat-label">Menunggu Proses</p>
-            <h3 class="pr-stat-value"><?php echo $stats['pending_count']; ?> <small style="font-size: 0.75rem; font-weight: 400;">periode</small></h3>
+            <p class="pr-stat-label">Pending</p>
+            <h3 class="pr-stat-value"><?php echo $stats['pending_count']; ?> <small style="font-size: 0.75rem; font-weight: 400;">periods</small></h3>
         </div>
     </div>
 
@@ -524,8 +524,8 @@ include '../../includes/header.php';
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"></path><circle cx="9" cy="7" r="4"></circle><path d="M23 21v-2a4 4 0 0 0-3-3.87"></path><path d="M16 3.13a4 4 0 0 1 0 7.75"></path></svg>
             </div>
             <div class="pr-action-content">
-                <h3>Data Karyawan</h3>
-                <p>Kelola database karyawan, jabatan, gaji pokok, dan informasi rekening bank</p>
+                <h3>Employee Data</h3>
+                <p>Manage employee database, positions, base salaries, and bank account information</p>
             </div>
             <span class="pr-action-arrow">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
@@ -537,8 +537,8 @@ include '../../includes/header.php';
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="2" y="3" width="20" height="14" rx="2" ry="2"></rect><line x1="8" y1="21" x2="16" y2="21"></line><line x1="12" y1="17" x2="12" y2="21"></line></svg>
             </div>
             <div class="pr-action-content">
-                <h3>Proses Gaji</h3>
-                <p>Input jam lembur, bonus, potongan dan hitung gaji bulanan karyawan</p>
+                <h3>Process Salary</h3>
+                <p>Input overtime hours, bonuses, deductions and calculate monthly employee salaries</p>
             </div>
             <span class="pr-action-arrow">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
@@ -550,8 +550,8 @@ include '../../includes/header.php';
                 <svg width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="18" y1="20" x2="18" y2="10"></line><line x1="12" y1="20" x2="12" y2="4"></line><line x1="6" y1="20" x2="6" y2="14"></line></svg>
             </div>
             <div class="pr-action-content">
-                <h3>Laporan Gaji</h3>
-                <p>Rekapitulasi pengeluaran gaji bulanan dan tahunan dengan fitur cetak</p>
+                <h3>Payroll Reports</h3>
+                <p>Monthly and yearly payroll expense summary with print feature</p>
             </div>
             <span class="pr-action-arrow">
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"></polyline></svg>
@@ -562,8 +562,8 @@ include '../../includes/header.php';
     <!-- History -->
     <div class="pr-history-card fade-in-up" style="animation-delay: 0.3s">
         <div class="pr-history-header">
-            <h3>Riwayat Penggajian</h3>
-            <a href="reports.php" class="pr-btn-detail">Lihat Semua</a>
+            <h3>Payroll History</h3>
+            <a href="reports.php" class="pr-btn-detail">View All</a>
         </div>
         
         <?php if (empty($periods)): ?>
@@ -571,18 +571,18 @@ include '../../includes/header.php';
             <div class="pr-empty-icon">
                 <svg width="32" height="32" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
             </div>
-            <h4>Belum Ada Data</h4>
-            <p>Mulai dengan membuat periode gaji pertama</p>
+            <h4>No Data Yet</h4>
+            <p>Start by creating your first payroll period</p>
         </div>
         <?php else: ?>
         <table class="pr-history-table">
             <thead>
                 <tr>
-                    <th>Periode</th>
+                    <th>Period</th>
                     <th>Status</th>
-                    <th>Karyawan</th>
-                    <th style="text-align: right;">Total Gaji Bersih</th>
-                    <th style="text-align: right;">Aksi</th>
+                    <th>Employees</th>
+                    <th style="text-align: right;">Total Net Pay</th>
+                    <th style="text-align: right;">Action</th>
                 </tr>
             </thead>
             <tbody>
@@ -599,12 +599,12 @@ include '../../includes/header.php';
                     <td>
                         <span class="pr-status <?php echo $p['status']; ?>"><?php echo ucfirst($p['status']); ?></span>
                     </td>
-                    <td><?php echo $p['total_employees']; ?> orang</td>
+                    <td><?php echo $p['total_employees']; ?> people</td>
                     <td style="text-align: right;">
                         <span class="pr-amount">Rp <?php echo number_format($p['total_net'], 0, ',', '.'); ?></span>
                     </td>
                     <td style="text-align: right;">
-                        <a href="process.php?month=<?php echo $p['period_month']; ?>&year=<?php echo $p['period_year']; ?>" class="pr-btn-detail">Detail</a>
+                        <a href="process.php?month=<?php echo $p['period_month']; ?>&year=<?php echo $p['period_year']; ?>" class="pr-btn-detail">Details</a>
                     </td>
                 </tr>
                 <?php endforeach; ?>
