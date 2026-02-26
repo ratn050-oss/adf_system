@@ -29,16 +29,28 @@ if (!$slip) {
 
 $businessName = BUSINESS_NAME;
 
-// Get business logo
+// Get business logo from invoice_logo setting (PDF logo in Settings > Report Settings)
 $logoPath = null;
 $businessId = ACTIVE_BUSINESS_ID ?? '';
 
+// Priority 1: invoice_logo_[businessId] - from Report Settings
 if ($businessId) {
-    $logoResult = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = ?", ['invoice_logo_' . $businessId]);
+    $logoResult = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = :key", 
+        ['key' => 'invoice_logo_' . $businessId]);
     if ($logoResult && !empty($logoResult['setting_value'])) {
         $logoPath = $logoResult['setting_value'];
     }
 }
+
+// Priority 2: Global invoice_logo
+if (!$logoPath) {
+    $logoResult = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'invoice_logo'");
+    if ($logoResult && !empty($logoResult['setting_value'])) {
+        $logoPath = $logoResult['setting_value'];
+    }
+}
+
+// Priority 3: company_logo
 if (!$logoPath) {
     $logoResult = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'company_logo'");
     if ($logoResult && !empty($logoResult['setting_value'])) {
