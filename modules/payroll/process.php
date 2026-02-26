@@ -65,6 +65,21 @@ if ($period) {
         ORDER BY s.employee_name ASC", 
         [$period['id']]
     );
+    
+        // Ensure displayed period totals are in sync with payroll_slips sums
+        try {
+            $sums = $db->fetchOne("SELECT IFNULL(SUM(total_earnings),0) as gross, IFNULL(SUM(total_deductions),0) as ded, IFNULL(SUM(net_salary),0) as net, COUNT(id) as cnt FROM payroll_slips WHERE period_id = ?", [$period['id']]);
+            if ($sums) {
+                $period['total_gross'] = $sums['gross'];
+                $period['total_deductions'] = $sums['ded'];
+                $period['total_net'] = $sums['net'];
+                $period['total_employees'] = $sums['cnt'];
+                // Persist to payroll_periods to keep DB consistent
+                $db->query("UPDATE payroll_periods SET total_gross = ?, total_deductions = ?, total_net = ?, total_employees = ? WHERE id = ?", [$sums['gross'], $sums['ded'], $sums['net'], $sums['cnt'], $period['id']]);
+            }
+        } catch (Exception $e) {
+            // ignore sync errors; page can still render with existing period values
+        }
 }
 
 // Handle AJAX Update
