@@ -612,8 +612,8 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
                 Kas Operasional Harian
                 <span style="font-size: 0.75rem; color: #9ca3af; font-weight: 400; margin-left: 0.5rem;"><?php echo date('F Y'); ?></span>
             </h3>
-            <a href="modules/owner/owner-capital-monitor.php" style="padding: 0.4rem 0.85rem; background: #111827; color: white; border-radius: 6px; text-decoration: none; font-size: 0.8rem; font-weight: 500; transition: all 0.2s ease;" onmouseover="this.style.opacity='0.85'" onmouseout="this.style.opacity='1'">
-                Detail Monitor
+            <a href="modules/owner/owner-capital-monitor.php" style="padding: 0.55rem 1rem; background: linear-gradient(135deg, #0071e3 0%, #0055b8 100%); color: white; border-radius: 8px; text-decoration: none; font-size: 0.85rem; font-weight: 700; transition: all 0.3s ease; box-shadow: 0 2px 8px rgba(0, 113, 227, 0.3);" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(0, 113, 227, 0.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(0, 113, 227, 0.3)'">
+                📋 Detail Monitor
             </a>
         </div>
         
