@@ -341,9 +341,9 @@ class Auth {
         
         // Final fallback: role-based permissions
         $rolePermissions = [
-            'admin' => ['dashboard', 'cashbook', 'divisions', 'frontdesk', 'sales_invoice', 'procurement', 'users', 'reports', 'settings', 'investor', 'project'],
-            'manager' => ['dashboard', 'cashbook', 'divisions', 'frontdesk', 'sales_invoice', 'procurement', 'users', 'reports', 'settings', 'investor', 'project'],
-            'accountant' => ['dashboard', 'cashbook', 'reports', 'procurement', 'investor', 'project'],
+            'admin' => ['dashboard', 'cashbook', 'divisions', 'frontdesk', 'sales_invoice', 'procurement', 'users', 'reports', 'settings', 'investor', 'project', 'payroll'],
+            'manager' => ['dashboard', 'cashbook', 'divisions', 'frontdesk', 'sales_invoice', 'procurement', 'users', 'reports', 'settings', 'investor', 'project', 'payroll'],
+            'accountant' => ['dashboard', 'cashbook', 'reports', 'procurement', 'investor', 'project', 'payroll'],
             'staff' => ['dashboard', 'cashbook', 'investor', 'project']
         ];
         

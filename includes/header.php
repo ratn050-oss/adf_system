@@ -291,6 +291,42 @@ if (isset($_SESSION['user_id'])) {
                         </ul>
                     </li>
                     <?php endif; ?>
+
+                    <!-- Payroll / Gaji Menu -->
+                    <?php if ($auth->hasPermission('payroll') && isModuleEnabled('payroll')): ?>
+                    <li class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/payroll/') !== false) ? 'open' : ''; ?>">
+                        <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo activeMenu('payroll'); ?>">
+                            <i data-feather="dollar-sign" class="nav-icon"></i>
+                            <span>Gaji</span>
+                        </a>
+                        <ul class="submenu">
+                            <li class="submenu-item">
+                                <a href="<?php echo BASE_URL; ?>/modules/payroll/employees.php" class="submenu-link <?php echo activeMenu('employees.php'); ?>">
+                                    <i data-feather="users" class="submenu-icon"></i>
+                                    <span>Data Karyawan</span>
+                                </a>
+                            </li>
+                            <li class="submenu-item">
+                                <a href="<?php echo BASE_URL; ?>/modules/payroll/process.php" class="submenu-link <?php echo activeMenu('process.php'); ?>">
+                                    <i data-feather="monitor" class="submenu-icon"></i>
+                                    <span>Proses Gaji</span>
+                                </a>
+                            </li>
+                            <li class="submenu-item">
+                                <a href="<?php echo BASE_URL; ?>/modules/payroll/slips.php" class="submenu-link <?php echo activeMenu('slips.php'); ?>">
+                                    <i data-feather="file-text" class="submenu-icon"></i>
+                                    <span>Rincian Gaji</span>
+                                </a>
+                            </li>
+                            <li class="submenu-item">
+                                <a href="<?php echo BASE_URL; ?>/modules/payroll/reports.php" class="submenu-link <?php echo activeMenu('reports.php'); ?>">
+                                    <i data-feather="bar-chart" class="submenu-icon"></i>
+                                    <span>Laporan</span>
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                    <?php endif; ?>
                     
                     <!-- Procurement Dropdown Menu -->
                     <?php if ($auth->hasPermission('procurement') && isModuleEnabled('procurement')): ?>
