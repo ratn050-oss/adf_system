@@ -12,10 +12,10 @@ $auth->requireLogin();
 $db = Database::getInstance();
 $slip_id = $_GET['id'] ?? 0;
 
-// Get slip with employee bank details
+// Get slip with employee bank details and phone
 $slip = $db->fetchOne("
     SELECT s.*, p.period_label, p.period_month, p.period_year,
-           e.bank_name, e.bank_account, e.employee_code, e.department
+           e.bank_name, e.bank_account, e.employee_code, e.department, e.phone
     FROM payroll_slips s 
     JOIN payroll_periods p ON s.period_id = p.id 
     LEFT JOIN payroll_employees e ON s.employee_id = e.id
@@ -35,10 +35,11 @@ $businessId = ACTIVE_BUSINESS_ID ?? '';
 
 // Priority 1: invoice_logo_[businessId] - from Report Settings
 if ($businessId) {
-    $logoResult = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = :key", 
-        ['key' => 'invoice_logo_' . $businessId]);
+    $logoResult = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = ?", 
+        ['invoice_logo_' . $businessId]);
     if ($logoResult && !empty($logoResult['setting_value'])) {
-        $logoPath = $logoResult['setting_value'];
+        // invoice_logo is stored as filename only, need to add path
+        $logoPath = 'uploads/logos/' . $logoResult['setting_value'];
     }
 }
 
@@ -46,17 +47,44 @@ if ($businessId) {
 if (!$logoPath) {
     $logoResult = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'invoice_logo'");
     if ($logoResult && !empty($logoResult['setting_value'])) {
-        $logoPath = $logoResult['setting_value'];
+        $logoPath = 'uploads/logos/' . $logoResult['setting_value'];
     }
 }
 
-// Priority 3: company_logo
+// Priority 3: company_logo (this one usually has full path)
 if (!$logoPath) {
     $logoResult = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'company_logo'");
     if ($logoResult && !empty($logoResult['setting_value'])) {
         $logoPath = $logoResult['setting_value'];
     }
 }
+
+// Build full logo URL
+$logoUrl = '';
+if ($logoPath) {
+    // Check if path already contains http
+    if (strpos($logoPath, 'http') === 0) {
+        $logoUrl = $logoPath;
+    } else {
+        $logoUrl = BASE_URL . '/' . ltrim($logoPath, '/');
+    }
+}
+
+// Prepare WhatsApp number (remove leading 0, add 62)
+$waNumber = '';
+if (!empty($slip['phone'])) {
+    $phone = preg_replace('/[^0-9]/', '', $slip['phone']);
+    if (substr($phone, 0, 1) === '0') {
+        $phone = '62' . substr($phone, 1);
+    } elseif (substr($phone, 0, 2) !== '62') {
+        $phone = '62' . $phone;
+    }
+    $waNumber = $phone;
+}
+
+// WhatsApp message
+$waMessage = urlencode("Halo " . $slip['employee_name'] . ",\n\nBerikut slip gaji Anda untuk periode " . $periodText . ":\n\nTotal Gaji Bersih: Rp " . number_format($slip['net_salary'], 0, ',', '.') . "\n\nTerima kasih.");
+$waLink = $waNumber ? "https://wa.me/{$waNumber}?text={$waMessage}" : '';
 
 // Format period date
 $months = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
@@ -387,32 +415,91 @@ $periodText = $months[$slip['period_month']] . ' ' . $slip['period_year'];
             background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
             color: #fff;
             border: none;
-            padding: 12px 24px;
+            padding: 10px 18px;
             border-radius: 8px;
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 600;
             cursor: pointer;
             box-shadow: 0 4px 12px rgba(102,126,234,0.4);
+            z-index: 100;
         }
         
         .print-btn:hover {
             transform: translateY(-2px);
             box-shadow: 0 6px 16px rgba(102,126,234,0.5);
         }
+        
+        .btn-group {
+            position: fixed;
+            top: 20px;
+            right: 20px;
+            display: flex;
+            flex-direction: column;
+            gap: 8px;
+            z-index: 100;
+        }
+        
+        .btn-action {
+            padding: 10px 18px;
+            border-radius: 8px;
+            font-size: 11px;
+            font-weight: 600;
+            cursor: pointer;
+            border: none;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            text-decoration: none;
+            justify-content: center;
+            transition: all 0.2s;
+        }
+        
+        .btn-print {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(102,126,234,0.4);
+        }
+        
+        .btn-pdf {
+            background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(239,68,68,0.4);
+        }
+        
+        .btn-wa {
+            background: linear-gradient(135deg, #22c55e 0%, #16a34a 100%);
+            color: #fff;
+            box-shadow: 0 4px 12px rgba(34,197,94,0.4);
+        }
+        
+        .btn-action:hover {
+            transform: translateY(-2px);
+        }
     </style>
 </head>
 <body>
 
-<button class="print-btn no-print" onclick="window.print()">
-    🖨️ Cetak Slip Gaji
-</button>
+<div class="btn-group no-print">
+    <button class="btn-action btn-print" onclick="window.print()">
+        🖨️ Cetak Slip Gaji
+    </button>
+    <button class="btn-action btn-pdf" onclick="savePDF()">
+        📄 Save to PDF
+    </button>
+    <?php if ($waLink): ?>
+    <a href="<?php echo $waLink; ?>" target="_blank" class="btn-action btn-wa">
+        💬 Kirim via WhatsApp
+    </a>
+    <?php endif; ?>
+</div>
 
 <div class="slip-container">
     <!-- Header -->
     <div class="slip-header">
         <div class="slip-logo">
-            <?php if ($logoPath): ?>
-                <img src="<?php echo BASE_URL . '/' . ltrim($logoPath, '/'); ?>" alt="Logo">
+            <?php if ($logoUrl): ?>
+                <img src="<?php echo $logoUrl; ?>" alt="Logo" onerror="this.style.display='none';this.nextElementSibling.style.display='block';">
+                <span class="slip-logo-text" style="display:none;">💼</span>
             <?php else: ?>
                 <span class="slip-logo-text">💼</span>
             <?php endif; ?>
@@ -561,6 +648,21 @@ $periodText = $months[$slip['period_month']] . ' ' . $slip['period_year'];
         <?php echo htmlspecialchars($businessName); ?> &bull; <?php echo date('d/m/Y H:i'); ?>
     </div>
 </div>
+
+<script>
+function savePDF() {
+    // Hide buttons before printing
+    document.querySelector('.btn-group').style.display = 'none';
+    
+    // Use browser print to PDF functionality
+    window.print();
+    
+    // Show buttons again after a delay
+    setTimeout(function() {
+        document.querySelector('.btn-group').style.display = 'flex';
+    }, 1000);
+}
+</script>
 
 </body>
 </html>
