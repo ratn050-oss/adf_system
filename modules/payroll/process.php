@@ -1,5 +1,5 @@
 <?php
-// modules/payroll/process.php
+// modules/payroll/process.php - MODERN 2027 DESIGN
 define('APP_ACCESS', true);
 require_once '../../config/config.php';
 require_once '../../config/database.php';
@@ -9,7 +9,6 @@ require_once '../../includes/functions.php';
 $auth = new Auth();
 $auth->requireLogin();
 
-// Payroll requires module check
 if (!isModuleEnabled('payroll')) {
     header('Location: ' . BASE_URL . '/index.php');
     exit;
@@ -17,9 +16,7 @@ if (!isModuleEnabled('payroll')) {
 
 $db = Database::getInstance();
 $pageTitle = 'Proses Gaji';
-$pageSubtitle = 'Hitung gaji karyawan per periode';
 
-// 1. Check or Create Period
 $month = $_GET['month'] ?? date('n');
 $year = $_GET['year'] ?? date('Y');
 $months = [
@@ -27,7 +24,6 @@ $months = [
     7 => 'Juli', 8 => 'Agustus', 9 => 'September', 10 => 'Oktober', 11 => 'November', 12 => 'Desember'
 ];
 
-// Get or Create Draft Period
 $period = $db->fetchOne("SELECT * FROM payroll_periods WHERE period_month = ? AND period_year = ?", [$month, $year]);
 
 if (!$period && isset($_POST['create_period'])) {
@@ -37,7 +33,6 @@ if (!$period && isset($_POST['create_period'])) {
                   [$month, $year, $label, $_SESSION['user_id']]);
         $period = $db->fetchOne("SELECT * FROM payroll_periods WHERE period_month = ? AND period_year = ?", [$month, $year]);
         
-        // Auto-populate slips from active employees
         $employees = $db->fetchAll("SELECT * FROM payroll_employees WHERE is_active = 1");
         foreach ($employees as $emp) {
             $db->query("INSERT INTO payroll_slips (period_id, employee_id, employee_name, position, base_salary) VALUES (?, ?, ?, ?, ?)",
@@ -52,7 +47,6 @@ if (!$period && isset($_POST['create_period'])) {
     }
 }
 
-// 2. Load Slips for this Period
 $slips = [];
 if ($period) {
     $slips = $db->fetchAll("
@@ -65,12 +59,11 @@ if ($period) {
     );
 }
 
-// 3. Handle Update Slip (AJAX)
+// Handle AJAX Update
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_update'])) {
     header('Content-Type: application/json');
     $slip_id = $_POST['slip_id'];
     
-    // Components
     $base_salary = (float)$_POST['base_salary'];
     $overtime_hours = (float)$_POST['overtime_hours'];
     $incentive = (float)$_POST['incentive'];
@@ -78,18 +71,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_update'])) {
     $bonus = (float)$_POST['bonus'];
     $other = (float)$_POST['other_income'];
     
-    // Deductions
     $loan = (float)$_POST['deduction_loan'];
     $absence = (float)$_POST['deduction_absence'];
     $tax = (float)$_POST['deduction_tax'];
     $bpjs = (float)$_POST['deduction_bpjs'];
     $ded_other = (float)$_POST['deduction_other'];
     
-    // Calculate Overtime: (Base / 200) * Hours
     $overtime_rate = $base_salary / 200;
     $overtime_amount = $overtime_hours * $overtime_rate;
     
-    // Calculate Totals
     $total_earnings = $base_salary + $overtime_amount + $incentive + $allowance + $bonus + $other;
     $total_deductions = $loan + $absence + $tax + $bpjs + $ded_other;
     $net_salary = $total_earnings - $total_deductions;
@@ -110,13 +100,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_update'])) {
             $slip_id
         ]);
         
-        // Recalculate Period Totals
         $period_id = $period['id'];
         $db->query("UPDATE payroll_periods p
                     LEFT JOIN (
                         SELECT period_id, SUM(total_earnings) as gross, SUM(total_deductions) as ded, SUM(net_salary) as net, COUNT(id) as cnt 
-                        FROM payroll_slips 
-                        WHERE period_id = ?
+                        FROM payroll_slips WHERE period_id = ?
                     ) s ON p.id = s.period_id
                     SET p.total_gross = s.gross, p.total_deductions = s.ded, p.total_net = s.net, p.total_employees = s.cnt
                     WHERE p.id = ?", [$period_id, $period_id]);
@@ -129,7 +117,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_update'])) {
     exit;
 }
 
-// 4. Handle Finalize Submission
+// Handle Submit Period
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_period'])) {
     $db->query("UPDATE payroll_periods SET status = 'submitted', submitted_at = NOW(), submitted_by = ? WHERE id = ?", 
               [$_SESSION['user_id'], $period['id']]);
