@@ -158,7 +158,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             'other'      => ['icon' => '🏢', 'primary' => '#059669', 'secondary' => '#065f46', 'extra' => ''],
                         ];
                         $tc = $typeConf[$businessType] ?? $typeConf['other'];
-                        $mods = "'cashbook', 'auth', 'settings', 'reports', 'divisions', 'procurement', 'sales', 'bills'";
+                        $mods = "'cashbook', 'auth', 'settings', 'reports', 'divisions', 'procurement', 'sales', 'bills', 'payroll'";
                         if (!empty($tc['extra'])) $mods .= ', ' . $tc['extra'];
                         $cfgContent = "<?php\nreturn [\n    'business_id' => '{$autoSlug}',\n    'name' => '" . addslashes($businessName) . "',\n    'business_type' => '{$businessType}',\n    'database' => '{$dbName}',\n    'logo' => '',\n    'enabled_modules' => [{$mods}],\n    'theme' => [\n        'color_primary' => '{$tc['primary']}',\n        'color_secondary' => '{$tc['secondary']}',\n        'icon' => '{$tc['icon']}'\n    ],\n    'cashbook_columns' => [],\n    'dashboard_widgets' => ['show_daily_sales' => true, 'show_orders' => true, 'show_revenue' => true]\n];\n";
                         @file_put_contents($autoConfigPath, $cfgContent);

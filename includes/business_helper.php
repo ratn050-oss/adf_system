@@ -88,7 +88,7 @@ function autoSyncBusinessConfigs() {
             }
             
             $tc = $typeConfig[$type] ?? $typeConfig['other'];
-            $modules = "'cashbook', 'auth', 'settings', 'reports', 'divisions', 'procurement', 'sales', 'bills'";
+            $modules = "'cashbook', 'auth', 'settings', 'reports', 'divisions', 'procurement', 'sales', 'bills', 'payroll'";
             if (!empty($tc['extra_modules'])) {
                 $modules .= ', ' . $tc['extra_modules'];
             }

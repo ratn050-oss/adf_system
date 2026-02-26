@@ -16,7 +16,8 @@ return [
        'sales',
        'investor',
        'project',
-       'bills'
+       'bills',
+       'payroll'
    ],
    
    'theme' => [
