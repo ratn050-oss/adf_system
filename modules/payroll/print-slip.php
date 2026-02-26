@@ -82,13 +82,13 @@ if (!empty($slip['phone'])) {
     $waNumber = $phone;
 }
 
+// Format period date (must be before WhatsApp message)
+$months = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
+$periodText = $months[$slip['period_month']] . ' ' . $slip['period_year'];
+
 // WhatsApp message
 $waMessage = urlencode("Halo " . $slip['employee_name'] . ",\n\nBerikut slip gaji Anda untuk periode " . $periodText . ":\n\nTotal Gaji Bersih: Rp " . number_format($slip['net_salary'], 0, ',', '.') . "\n\nTerima kasih.");
 $waLink = $waNumber ? "https://wa.me/{$waNumber}?text={$waMessage}" : '';
-
-// Format period date
-$months = ['', 'Januari', 'Februari', 'Maret', 'April', 'Mei', 'Juni', 'Juli', 'Agustus', 'September', 'Oktober', 'November', 'Desember'];
-$periodText = $months[$slip['period_month']] . ' ' . $slip['period_year'];
 ?>
 <!DOCTYPE html>
 <html lang="id">
