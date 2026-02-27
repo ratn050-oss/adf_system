@@ -19,6 +19,18 @@ function getDBConnection() {
     $dbName = $isLocalhost ? 'adf_cqc' : 'adfb2574_cqc';
     
     try {
+        // First, connect without database to create it if needed
+        $pdo = new PDO(
+            "mysql:host=" . $dbHost,
+            $dbUser,
+            $dbPass,
+            [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+        );
+        
+        // Create database if not exists
+        $pdo->exec("CREATE DATABASE IF NOT EXISTS " . $dbName . " CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci");
+        
+        // Now connect to the specific database
         $pdo = new PDO(
             "mysql:host=" . $dbHost . ";dbname=" . $dbName,
             $dbUser,
