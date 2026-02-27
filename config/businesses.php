@@ -47,6 +47,13 @@ $BUSINESSES = [
         'database' => 'adf_karimunjawa',
         'type' => 'tourism',
         'active' => false
+    ],
+    [
+        'id' => 7,
+        'name' => 'CQC',
+        'database' => 'adf_cqc',
+        'type' => 'other',
+        'active' => true
     ]
 ];
 

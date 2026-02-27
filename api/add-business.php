@@ -83,11 +83,14 @@ try {
     $maxId = !empty($matches[1]) ? max($matches[1]) : 0;
     $nextId = $maxId + 1;
     
-    // Create new business array
+    // Create new business array - always store base name (adf_*) in config
+    // Mapping to actual database name (adfb2574_*) happens at connection time
+    $baseDbName = str_replace('adfb2574_', 'adf_', $actualDbName);
+    
     $newBusiness = "    [\n" .
                    "        'id' => {$nextId},\n" .
                    "        'name' => '" . addslashes($input['name']) . "',\n" .
-                   "        'database' => '{$actualDbName}',\n" .
+                   "        'database' => '{$baseDbName}',\n" .
                    "        'type' => '" . ($input['type'] ?? 'other') . "',\n" .
                    "        'active' => true\n" .
                    "    ]\n";

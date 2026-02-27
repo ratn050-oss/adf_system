@@ -37,11 +37,15 @@ class Database {
                     'adf_system' => 'adfb2574_adf',
                     'adf_narayana_hotel' => 'adfb2574_narayana_hotel',
                     'adf_benscafe' => 'adfb2574_Adf_Bens',
-                    'adf_demo' => 'adfb2574_demo'
+                    'adf_demo' => 'adfb2574_demo',
+                    'adf_cqc' => 'adfb2574_cqc'
                 ];
                 
                 if (isset($dbMapping[$dbName])) {
                     $dbName = $dbMapping[$dbName];
+                } else if (strpos($dbName, 'adf_') === 0) {
+                    // Auto-map any adf_* database to adfb2574_* format
+                    $dbName = 'adfb2574_' . str_replace('adf_', '', $dbName);
                 }
             }
 
