@@ -14,12 +14,13 @@ return [
         'procurement',
         'sales',
         'bills',
-        'payroll'
+        'payroll',
+        'cqc-projects'
     ],
     'theme' => [
-        'color_primary' => '#059669',
-        'color_secondary' => '#065f46',
-        'icon' => '🏢'
+        'color_primary' => '#0066CC',
+        'color_secondary' => '#004499',
+        'icon' => '☀️'
     ],
     'cashbook_columns' => [
     ],

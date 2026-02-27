@@ -2,17 +2,17 @@
 /**
  * CQC Projects - Detail & Expense Tracking
  */
+define('APP_ACCESS', true);
+require_once '../../config/config.php';
+require_once '../../config/database.php';
+require_once '../../includes/auth.php';
+require_once '../../includes/functions.php';
 
-session_start();
+$auth = new Auth();
+$auth->requireLogin();
 
-if (!isset($_SESSION['user_id'])) {
-    header('Location: ../../index.php');
-    exit;
-}
-
-if (($_SESSION['active_business_id'] ?? '') !== 'cqc') {
-    $_SESSION['redirect_after_switch'] = 'cqc';
-    header('Location: ../../index.php?action=switch_business&business=cqc');
+if (!isModuleEnabled('cqc-projects')) {
+    header('Location: ' . BASE_URL . '/index.php');
     exit;
 }
 

@@ -3,21 +3,17 @@
  * CQC Projects Dashboard
  * Dashboard untuk solar panel projects dengan grafik progress
  */
+define('APP_ACCESS', true);
+require_once '../../config/config.php';
+require_once '../../config/database.php';
+require_once '../../includes/auth.php';
+require_once '../../includes/functions.php';
 
-session_start();
+$auth = new Auth();
+$auth->requireLogin();
 
-// Check user is logged in
-if (!isset($_SESSION['user_id'])) {
-    header('Location: ../../index.php');
-    exit;
-}
-
-// Jika belum di CQC business, redirect ke sistem untuk switch business
-if (($_SESSION['active_business_id'] ?? '') !== 'cqc') {
-    // Kalau di session ada active_business_id tapi bukan CQC, user perlu switch
-    // Redirect ke business switcher
-    $_SESSION['redirect_after_switch'] = 'cqc';
-    header('Location: ../../index.php?action=switch_business&business=cqc');
+if (!isModuleEnabled('cqc-projects')) {
+    header('Location: ' . BASE_URL . '/index.php');
     exit;
 }
 

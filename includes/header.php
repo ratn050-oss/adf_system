@@ -394,8 +394,32 @@ if (isset($_SESSION['user_id'])) {
                     </li>
                     <?php endif; ?>
                     
+                    <!-- CQC Projects Menu (Solar Panel) -->
+                    <?php if (isModuleEnabled('cqc-projects')): ?>
+                    <li class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/cqc-projects/') !== false) ? 'open' : ''; ?>">
+                        <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo activeMenu('cqc-projects'); ?>">
+                            <i data-feather="sun" class="nav-icon"></i>
+                            <span>CQC Projects</span>
+                        </a>
+                        <ul class="submenu">
+                            <li class="submenu-item">
+                                <a href="<?php echo BASE_URL; ?>/modules/cqc-projects/dashboard.php" class="submenu-link <?php echo activeMenu('dashboard.php'); ?>">
+                                    <i data-feather="bar-chart-2" class="submenu-icon"></i>
+                                    <span>Dashboard</span>
+                                </a>
+                            </li>
+                            <li class="submenu-item">
+                                <a href="<?php echo BASE_URL; ?>/modules/cqc-projects/add.php" class="submenu-link <?php echo activeMenu('add.php'); ?>">
+                                    <i data-feather="plus-circle" class="submenu-icon"></i>
+                                    <span>Tambah Proyek</span>
+                                </a>
+                            </li>
+                        </ul>
+                    </li>
+                    <?php endif; ?>
+
                     <!-- Invest & Projek Menu -->
-                    <?php if ($auth->hasPermission('investor')): ?>
+                    <?php if ($auth->hasPermission('investor') && isModuleEnabled('investor')): ?>
                     <li class="nav-item">
                         <a href="<?php echo BASE_URL; ?>/modules/investor/" class="nav-link <?php echo activeMenu('investor'); ?>">
                             <i data-feather="briefcase" class="nav-icon"></i>
