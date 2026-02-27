@@ -43,22 +43,22 @@ $projectId = $project['id'];
 
 // Get expenses grouped by category
 $stmt = $pdo->query("
-    SELECT ec.id, ec.category_name, ec.icon, 
+    SELECT ec.id, ec.category_name, ec.category_icon, 
            COUNT(pe.id) as expense_count,
-           SUM(pe.amount_idr) as total_amount
+           SUM(pe.amount) as total_amount
     FROM cqc_expense_categories ec
-    LEFT JOIN cqc_project_expenses pe ON ec.id = pe.expense_category_id AND pe.project_id = $projectId
+    LEFT JOIN cqc_project_expenses pe ON ec.id = pe.category_id AND pe.project_id = $projectId
     WHERE ec.is_active = 1
     GROUP BY ec.id
-    ORDER BY ec.sort_order
+    ORDER BY ec.id
 ");
 $categories = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Get latest expenses
 $stmt = $pdo->prepare("
-    SELECT pe.*, ec.category_name, ec.icon
+    SELECT pe.*, ec.category_name, ec.category_icon
     FROM cqc_project_expenses pe
-    JOIN cqc_expense_categories ec ON pe.expense_category_id = ec.id
+    JOIN cqc_expense_categories ec ON pe.category_id = ec.id
     WHERE pe.project_id = ?
     ORDER BY pe.expense_date DESC
     LIMIT 10
@@ -71,30 +71,25 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
     try {
         $stmt = $pdo->prepare("
             INSERT INTO cqc_project_expenses 
-            (project_id, expense_category_id, expense_date, expense_time, amount_idr, description, payment_method, created_by)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+            (project_id, category_id, expense_date, amount, description, created_by)
+            VALUES (?, ?, ?, ?, ?, ?)
         ");
         
         $stmt->execute([
             $projectId,
             $_POST['category_id'],
             $_POST['expense_date'],
-            $_POST['expense_time'] ?? null,
             str_replace('.', '', $_POST['amount'] ?? 0),
             $_POST['description'] ?? '',
-            $_POST['payment_method'] ?? 'cash',
             $_SESSION['user_id']
         ]);
         
         // Update project spent amount
-        $result = $pdo->query("SELECT SUM(amount_idr) as total FROM cqc_project_expenses WHERE project_id = $projectId");
+        $result = $pdo->query("SELECT SUM(amount) as total FROM cqc_project_expenses WHERE project_id = $projectId");
         $total = $result->fetch()['total'] ?? 0;
         
         $pdo->prepare("UPDATE cqc_projects SET spent_idr = ? WHERE id = ?")
             ->execute([$total, $projectId]);
-        
-        $pdo->prepare("UPDATE cqc_project_balances SET total_expenses_idr = ?, remaining_budget_idr = ? WHERE project_id = ?")
-            ->execute([$total, $project['budget_idr'] - $total, $projectId]);
         
         header('Location: detail.php?id=' . $projectId . '&success=expense_added');
         exit;
@@ -625,7 +620,7 @@ $pageTitle = htmlspecialchars($project['project_name']);
                         <?php foreach ($categories as $cat): ?>
                             <div class="category-item" onclick="expandCategory(this)">
                                 <div class="category-left">
-                                    <div class="category-icon"><?php echo htmlspecialchars($cat['icon']); ?></div>
+                                    <div class="category-icon"><?php echo htmlspecialchars($cat['category_icon'] ?? '📦'); ?></div>
                                     <div class="category-info">
                                         <h4><?php echo htmlspecialchars($cat['category_name']); ?></h4>
                                         <p><?php echo $cat['expense_count']; ?> transaksi</p>
@@ -659,10 +654,10 @@ $pageTitle = htmlspecialchars($project['project_name']);
                             <tbody>
                                 <?php foreach ($expenses as $exp): ?>
                                     <tr>
-                                        <td><?php echo htmlspecialchars($exp['icon'] . ' ' . $exp['category_name']); ?></td>
+                                        <td><?php echo htmlspecialchars(($exp['category_icon'] ?? '') . ' ' . $exp['category_name']); ?></td>
                                         <td class="expense-date"><?php echo date('d M Y', strtotime($exp['expense_date'])); ?></td>
                                         <td><?php echo htmlspecialchars($exp['description'] ?? '-'); ?></td>
-                                        <td style="text-align: right; font-weight: 600; color: #0066CC;">Rp <?php echo number_format($exp['amount_idr'], 0); ?></td>
+                                        <td style="text-align: right; font-weight: 600; color: #0066CC;">Rp <?php echo number_format($exp['amount'], 0); ?></td>
                                     </tr>
                                 <?php endforeach; ?>
                             </tbody>
@@ -743,7 +738,7 @@ $pageTitle = htmlspecialchars($project['project_name']);
                     <select name="category_id" required>
                         <option value="">-- Pilih Kategori --</option>
                         <?php foreach ($categories as $cat): ?>
-                            <option value="<?php echo $cat['id']; ?>"><?php echo htmlspecialchars($cat['icon'] . ' ' . $cat['category_name']); ?></option>
+                            <option value="<?php echo $cat['id']; ?>"><?php echo htmlspecialchars(($cat['category_icon'] ?? '') . ' ' . $cat['category_name']); ?></option>
                         <?php endforeach; ?>
                     </select>
                 </div>
@@ -754,23 +749,8 @@ $pageTitle = htmlspecialchars($project['project_name']);
                 </div>
 
                 <div class="form-group">
-                    <label>Waktu (optional)</label>
-                    <input type="time" name="expense_time">
-                </div>
-
-                <div class="form-group">
                     <label>Jumlah (Rp)</label>
                     <input type="text" name="amount" placeholder="1000000" required>
-                </div>
-
-                <div class="form-group">
-                    <label>Metode Pembayaran</label>
-                    <select name="payment_method">
-                        <option value="cash">Cash</option>
-                        <option value="bank_transfer">Bank Transfer</option>
-                        <option value="check">Check</option>
-                        <option value="credit">Credit</option>
-                    </select>
                 </div>
 
                 <div class="form-group">
