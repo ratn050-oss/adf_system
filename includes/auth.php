@@ -267,7 +267,8 @@ class Auth {
             $idToCodeMap = [
                 'bens-cafe' => 'BENSCAFE',
                 'narayana-hotel' => 'NARAYANAHOTEL',
-                'demo' => 'DEMO'
+                'demo' => 'DEMO',
+                'cqc' => 'CQC'
             ];
             $businessCode = $idToCodeMap[$activeBusinessId] ?? strtoupper(str_replace('-', '', $activeBusinessId));
             
