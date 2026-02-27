@@ -104,11 +104,36 @@ try {
     
     file_put_contents($configFile, $content);
     
+    // 6. Auto-assign all menus to new business in master database
+    try {
+        // Connect to master database
+        $masterDb = $isProduction ? 'adfb2574_adf' : 'adf_system';
+        $masterPdo = new PDO("mysql:host=$dbHost;dbname=$masterDb", $dbUser, $dbPass);
+        $masterPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        
+        // Get all menu items
+        $menus = $masterPdo->query("SELECT id FROM menu_items WHERE is_active = 1")->fetchAll(PDO::FETCH_COLUMN);
+        
+        // Assign all menus to new business
+        $stmt = $masterPdo->prepare("INSERT INTO business_menu_config (business_id, menu_item_id) VALUES (?, ?)");
+        foreach ($menus as $menuId) {
+            try {
+                $stmt->execute([$nextId, $menuId]);
+            } catch (Exception $e) {
+                // Menu already assigned, skip
+            }
+        }
+        
+    } catch (Exception $e) {
+        // Master database operation failed, but don't fail the whole request
+        error_log("Warning: Could not auto-assign menus to business {$nextId}: " . $e->getMessage());
+    }
+    
     echo json_encode([
         'success' => true,
         'business_id' => $nextId,
         'database' => $actualDbName,
-        'message' => 'Business added successfully! Database created with basic schema.'
+        'message' => 'Business added successfully! Database created with schema and menus assigned.'
     ]);
     
 } catch (Exception $e) {
