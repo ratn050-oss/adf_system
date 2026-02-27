@@ -492,9 +492,9 @@ if ($trialStatus) {
                         <i data-feather="trending-up" style="width: 20px; height: 20px; color: white;"></i>
                     </div>
                     <div>
-                        <div style="font-size: 0.65rem; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.1em;">NARAYANA HOTEL</div>
+                        <div style="font-size: 0.65rem; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.1em;"><?php echo strtoupper(BUSINESS_NAME); ?></div>
                         <div style="font-size: 0.875rem;">Financial Performance Monitor</div>
-                        <div style="font-size: 0.688rem; color: var(--success); font-weight: 600; margin-top: 0.125rem;">💰 Hotel Revenue / Pemasukan Hotel</div>
+                        <div style="font-size: 0.688rem; color: var(--success); font-weight: 600; margin-top: 0.125rem;">💰 Revenue / Pemasukan</div>
                     </div>
                 </h3>
             </div>
