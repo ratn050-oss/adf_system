@@ -14,11 +14,30 @@ $auth = new Auth();
 $auth->requireLogin();
 $db = Database::getInstance();
 
-$pageTitle = 'Tambah Transaksi';
-$pageSubtitle = 'Input Transaksi Baru';
+// CQC Detection
+$isCQC = (strtolower(ACTIVE_BUSINESS_ID) === 'cqc');
+
+$pageTitle = $isCQC ? '☀️ Input Transaksi Proyek' : 'Tambah Transaksi';
+$pageSubtitle = $isCQC ? 'Catat pemasukan & pengeluaran proyek solar panel' : 'Input Transaksi Baru';
 
 // Get divisions and categories
 $divisions = $db->fetchAll("SELECT * FROM divisions WHERE is_active = 1 ORDER BY division_name");
+
+// CQC: Load projects and expense categories
+$cqcProjects = [];
+$cqcCategories = [];
+if ($isCQC) {
+    try {
+        require_once __DIR__ . '/../cqc-projects/db-helper.php';
+        $cqcPdo = getCQCDatabaseConnection();
+        $stmt = $cqcPdo->query("SELECT id, project_name, project_code, client_name, status, budget_idr, spent_idr FROM cqc_projects ORDER BY status != 'installation' ASC, project_name ASC");
+        $cqcProjects = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $stmt = $cqcPdo->query("SELECT id, category_name, category_icon FROM cqc_expense_categories WHERE is_active = 1 ORDER BY id");
+        $cqcCategories = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        error_log('CQC project load error: ' . $e->getMessage());
+    }
+}
 
 // Get cash accounts from MASTER database (cash_accounts table is in adf_system, not business DB)
 $cashAccounts = [];
@@ -229,6 +248,27 @@ if (isPost()) {
                         error_log("WARNING: cash_account_id is empty, skipping cash account transaction");
                     }
                     
+                    // CQC: Also save to cqc_project_expenses if expense + project selected
+                    if ($isCQC && !empty(getPost('cqc_project_id'))) {
+                        try {
+                            require_once __DIR__ . '/../cqc-projects/db-helper.php';
+                            $cqcPdo = getCQCDatabaseConnection();
+                            $cqcProjectId = intval(getPost('cqc_project_id'));
+                            $cqcCategoryId = !empty(getPost('cqc_category_id')) ? intval(getPost('cqc_category_id')) : null;
+                            
+                            if ($transactionType === 'expense') {
+                                $stmtExp = $cqcPdo->prepare("INSERT INTO cqc_project_expenses (project_id, category_id, description, amount, expense_date, notes, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                                $stmtExp->execute([$cqcProjectId, $cqcCategoryId, $categoryName, $amount, $transactionDate, $description, $_SESSION['user_id']]);
+                            }
+                            
+                            // Update spent_idr on the project
+                            $stmtUpd = $cqcPdo->prepare("UPDATE cqc_projects SET spent_idr = (SELECT COALESCE(SUM(amount),0) FROM cqc_project_expenses WHERE project_id = ?) WHERE id = ?");
+                            $stmtUpd->execute([$cqcProjectId, $cqcProjectId]);
+                        } catch (Exception $e) {
+                            error_log('CQC expense save error: ' . $e->getMessage());
+                        }
+                    }
+                    
                     $db->commit();
                     
                     // Success message with auto-switch notification
@@ -255,6 +295,32 @@ if (isPost()) {
 
 include '../../includes/header.php';
 ?>
+
+<?php if ($isCQC): ?>
+<style>
+:root, body, body[data-theme="light"], body[data-theme="dark"] {
+    --primary-color: #f0b429 !important;
+    --primary-dark: #d4960d !important;
+    --secondary-color: #0d1f3c !important;
+}
+.transaction-type-card:has(input[value="income"]:checked),
+.transaction-type-card:has(input[value="expense"]:checked),
+.payment-method-card:has(input[type="radio"]:checked) {
+    border-color: #0d1f3c !important;
+    box-shadow: 0 0 0 4px rgba(13,31,60,0.15), 0 8px 20px rgba(13,31,60,0.1) !important;
+}
+.transaction-type-card:has(input[value="income"]:checked) { border-color: #10b981 !important; box-shadow: 0 0 0 4px rgba(16,185,129,0.15) !important; }
+.transaction-type-card:has(input[value="expense"]:checked) { border-color: #ef4444 !important; box-shadow: 0 0 0 4px rgba(239,68,68,0.15) !important; }
+.btn-primary { background: linear-gradient(135deg, #0d1f3c, #1a3a5c) !important; color: #f0b429 !important; border: none !important; }
+.btn-primary:hover { background: linear-gradient(135deg, #122a4e, #1f4570) !important; }
+.cqc-project-option { display: flex; justify-content: space-between; }
+.cqc-form-header { background: linear-gradient(135deg, #0d1f3c, #1a3a5c) !important; border-bottom: 2px solid #f0b429 !important; }
+.cqc-form-header h3 { color: #f0b429 !important; }
+.cqc-form-header i { color: #f0b429 !important; }
+.cqc-select-project { border: 2px solid rgba(13,31,60,0.15) !important; font-weight: 600 !important; }
+.cqc-select-project:focus { border-color: #f0b429 !important; box-shadow: 0 0 0 3px rgba(240,180,41,0.2) !important; }
+</style>
+<?php endif; ?>
 
 <style>
 .payment-method-card {
@@ -384,9 +450,13 @@ include '../../includes/header.php';
 <form method="POST" id="transactionForm" onsubmit="return validateForm('transactionForm')">
     <!-- Main Form Container -->
     <div class="card" style="max-width: 920px; margin: 0 auto 0.75rem;">
-        <div style="padding: 0.875rem 1rem; border-bottom: 1px solid var(--bg-tertiary); background: linear-gradient(135deg, var(--primary-color)15, var(--bg-secondary));">
+        <div class="<?php echo $isCQC ? 'cqc-form-header' : ''; ?>" style="padding: 0.875rem 1rem; border-bottom: 1px solid var(--bg-tertiary); <?php echo !$isCQC ? 'background: linear-gradient(135deg, var(--primary-color)15, var(--bg-secondary));' : 'border-radius: 12px 12px 0 0;'; ?>">
             <h3 style="font-size: 1rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem; margin: 0;">
-                <i data-feather="plus-circle" style="width: 16px; height: 16px;"></i> Tambah Transaksi Baru
+                <?php if ($isCQC): ?>
+                    ☀️ Input Transaksi Proyek CQC
+                <?php else: ?>
+                    <i data-feather="plus-circle" style="width: 16px; height: 16px;"></i> Tambah Transaksi Baru
+                <?php endif; ?>
             </h3>
         </div>
         
@@ -404,6 +474,52 @@ include '../../includes/header.php';
                     <input type="time" name="transaction_time" class="form-control" style="height: 34px; font-size: 0.813rem;" value="<?php echo date('H:i'); ?>">
                 </div>
                 
+                <?php if ($isCQC): ?>
+                <!-- CQC: Project Selection -->
+                <div class="compact-form-group">
+                    <label class="form-label" style="font-size: 0.813rem; font-weight: 600; margin-bottom: 0.3rem; color: #0d1f3c;">☀️ Proyek <span style="color: var(--danger);">*</span></label>
+                    <select name="cqc_project_id" id="cqc_project_id" class="form-control cqc-select-project" style="height: 38px; font-size: 0.813rem;" required onchange="updateCQCProjectInfo(this)">
+                        <option value="">-- Pilih Proyek --</option>
+                        <?php foreach ($cqcProjects as $proj): 
+                            $statusLabels = ['planning'=>'📋 Planning','procurement'=>'🛒 Procurement','installation'=>'⚡ Instalasi','testing'=>'🔧 Testing','completed'=>'✅ Selesai','on_hold'=>'⏸️ Ditunda'];
+                            $statusLabel = $statusLabels[$proj['status']] ?? ucfirst($proj['status']);
+                            $remaining = floatval($proj['budget_idr']) - floatval($proj['spent_idr'] ?? 0);
+                        ?>
+                            <option value="<?php echo $proj['id']; ?>" 
+                                    data-budget="<?php echo $proj['budget_idr']; ?>" 
+                                    data-spent="<?php echo $proj['spent_idr'] ?? 0; ?>"
+                                    data-remaining="<?php echo $remaining; ?>"
+                                    data-client="<?php echo htmlspecialchars($proj['client_name'] ?? ''); ?>">
+                                <?php echo htmlspecialchars($proj['project_code'] . ' - ' . $proj['project_name']); ?> [<?php echo $statusLabel; ?>]
+                            </option>
+                        <?php endforeach; ?>
+                    </select>
+                    <div id="cqcProjectInfo" style="display: none; margin-top: 0.4rem; padding: 0.5rem 0.75rem; background: linear-gradient(135deg, rgba(13,31,60,0.05), rgba(240,180,41,0.08)); border-radius: 8px; border-left: 3px solid #f0b429;">
+                        <div style="display: flex; gap: 1rem; font-size: 0.7rem;">
+                            <span>💰 Budget: <strong id="cqcBudgetDisplay">-</strong></span>
+                            <span>📤 Terpakai: <strong id="cqcSpentDisplay" style="color: #ef4444;">-</strong></span>
+                            <span>💵 Sisa: <strong id="cqcRemainingDisplay" style="color: #10b981;">-</strong></span>
+                        </div>
+                    </div>
+                    <!-- Hidden division_id for cashbook compatibility -->
+                    <input type="hidden" name="division_id" value="<?php echo !empty($divisions) ? $divisions[0]['id'] : 1; ?>">
+                </div>
+                
+                <!-- CQC: Expense Category -->
+                <div class="compact-form-group">
+                    <label class="form-label" style="font-size: 0.813rem; font-weight: 600; margin-bottom: 0.3rem; color: #0d1f3c;">📦 Kategori Biaya <span style="color: var(--danger);">*</span></label>
+                    <select name="cqc_category_id" id="cqc_category_id" class="form-control" style="height: 34px; font-size: 0.813rem;" onchange="document.querySelector('[name=category_name]').value = this.options[this.selectedIndex].text">
+                        <option value="">-- Pilih Kategori --</option>
+                        <?php foreach ($cqcCategories as $cat): ?>
+                            <option value="<?php echo $cat['id']; ?>">
+                                <?php echo $cat['category_icon'] . ' ' . htmlspecialchars($cat['category_name']); ?>
+                            </option>
+                        <?php endforeach; ?>
+                        <option value="custom">✏️ Tulis Manual</option>
+                    </select>
+                    <input type="text" name="category_name" class="form-control" style="height: 34px; font-size: 0.813rem; margin-top: 0.3rem;" placeholder="Nama item / deskripsi biaya" required>
+                </div>
+                <?php else: ?>
                 <!-- Division -->
                 <div class="compact-form-group">
                     <label class="form-label" style="font-size: 0.813rem; font-weight: 600; margin-bottom: 0.3rem;">Divisi <span style="color: var(--danger);">*</span></label>
@@ -420,6 +536,7 @@ include '../../includes/header.php';
                     <label class="form-label" style="font-size: 0.813rem; font-weight: 600; margin-bottom: 0.3rem;">Kategori/Nama <span style="color: var(--danger);">*</span></label>
                     <input type="text" name="category_name" class="form-control" style="height: 34px; font-size: 0.813rem;" placeholder="Nama kategori atau nama item" required>
                 </div>
+                <?php endif; ?>
                 
                 <!-- Amount -->
                 <div class="compact-form-group">
@@ -571,6 +688,25 @@ include '../../includes/header.php';
 
 <script>
 feather.replace();
+
+<?php if ($isCQC): ?>
+// CQC Project Info Display
+function updateCQCProjectInfo(select) {
+    const opt = select.options[select.selectedIndex];
+    const info = document.getElementById('cqcProjectInfo');
+    if (!opt.value) { info.style.display = 'none'; return; }
+    
+    const budget = parseFloat(opt.dataset.budget || 0);
+    const spent = parseFloat(opt.dataset.spent || 0);
+    const remaining = parseFloat(opt.dataset.remaining || 0);
+    
+    document.getElementById('cqcBudgetDisplay').textContent = 'Rp ' + budget.toLocaleString('id-ID');
+    document.getElementById('cqcSpentDisplay').textContent = 'Rp ' + spent.toLocaleString('id-ID');
+    document.getElementById('cqcRemainingDisplay').textContent = 'Rp ' + remaining.toLocaleString('id-ID');
+    document.getElementById('cqcRemainingDisplay').style.color = remaining >= 0 ? '#10b981' : '#ef4444';
+    info.style.display = 'block';
+}
+<?php endif; ?>
 </script>
 
 <?php include '../../includes/footer.php'; ?>
