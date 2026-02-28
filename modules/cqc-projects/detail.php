@@ -230,32 +230,108 @@ include '../../includes/header.php';
         <?php endif; ?>
 
         <!-- Main Content -->
-        <div class="cqc-main-grid">
-            <!-- Left Column -->
+        <div class="cqc-main-grid" style="grid-template-columns: 1fr 1fr;">
+            <!-- Left Column: Status & Progress -->
+            <div class="cqc-card">
+                <h3>📊 Status & Progress</h3>
+                
+                <div class="cqc-status-bar">
+                    <span class="status-badge status-<?php echo $project['status']; ?>">
+                        <?php echo ucfirst(str_replace('_', ' ', $project['status'])); ?>
+                    </span>
+                </div>
+
+                <div class="cqc-progress-section">
+                    <strong style="color: #0d1f3c; font-size: 11px;">Progress Proyek</strong>
+                    <div class="cqc-progress-bar">
+                        <div class="cqc-progress-fill" style="width: <?php echo $project['progress_percentage']; ?>%"></div>
+                    </div>
+                    <div class="cqc-progress-text">
+                        <span><?php echo $project['progress_percentage']; ?>% Selesai</span>
+                        <span><?php echo 100 - $project['progress_percentage']; ?>% Tersisa</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Right Column: Pie Chart Kategori -->
+            <div class="cqc-card">
+                <h3>📊 Pengeluaran per Kategori</h3>
+                <?php 
+                // Prepare data for pie chart
+                $pieData = array_filter($categories, function($c) { return floatval($c['total_amount'] ?? 0) > 0; });
+                $pieLabels = array_map(function($c) { return $c['category_name']; }, $pieData);
+                $pieValues = array_map(function($c) { return floatval($c['total_amount']); }, $pieData);
+                $pieColors = ['#6366f1', '#f59e0b', '#10b981', '#ef4444', '#8b5cf6', '#06b6d4', '#ec4899', '#84cc16'];
+                ?>
+                <?php if (!empty($pieData)): ?>
+                <div style="display: flex; align-items: center; gap: 16px;">
+                    <div style="width: 120px; height: 120px; position: relative;">
+                        <canvas id="categoryPieChart"></canvas>
+                    </div>
+                    <div style="flex: 1;">
+                        <?php foreach (array_slice(array_values($pieData), 0, 5) as $idx => $cat): ?>
+                        <div style="display: flex; align-items: center; gap: 8px; margin-bottom: 5px;">
+                            <span style="width: 10px; height: 10px; border-radius: 50%; background: <?php echo $pieColors[$idx % count($pieColors)]; ?>;"></span>
+                            <span style="font-size: 10px; color: #374151; flex: 1;"><?php echo htmlspecialchars($cat['category_name']); ?></span>
+                            <span style="font-size: 10px; font-weight: 600; color: #0d1f3c;">Rp <?php echo number_format($cat['total_amount']/1000, 0); ?>k</span>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+                <?php else: ?>
+                <div style="text-align: center; padding: 30px 0; color: #94a3b8;">
+                    <div style="font-size: 40px; margin-bottom: 8px;">📊</div>
+                    <p style="font-size: 11px;">Belum ada data pengeluaran</p>
+                </div>
+                <?php endif; ?>
+            </div>
+        </div>
+        
+        <!-- Detail Proyek Row (moved below) -->
+        <div class="cqc-card" style="margin-bottom: 10px;">
+            <h3>ℹ️ Detail Proyek</h3>
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;">
+                <div class="cqc-info-block" style="border-bottom: none; margin: 0; padding: 0;">
+                    <div class="cqc-info-label">Kode Proyek</div>
+                    <div class="cqc-info-value"><?php echo htmlspecialchars($project['project_code']); ?></div>
+                </div>
+                <div class="cqc-info-block" style="border-bottom: none; margin: 0; padding: 0;">
+                    <div class="cqc-info-label">Klien</div>
+                    <div class="cqc-info-value"><?php echo htmlspecialchars($project['client_name'] ?? '-'); ?></div>
+                </div>
+                <div class="cqc-info-block" style="border-bottom: none; margin: 0; padding: 0;">
+                    <div class="cqc-info-label">Kapasitas</div>
+                    <div class="cqc-info-value"><?php echo htmlspecialchars($project['solar_capacity_kwp'] ?? '-'); ?> KWp</div>
+                </div>
+                <div class="cqc-info-block" style="border-bottom: none; margin: 0; padding: 0;">
+                    <div class="cqc-info-label">Jumlah Panel</div>
+                    <div class="cqc-info-value"><?php echo htmlspecialchars($project['panel_count'] ?? '-'); ?> Unit</div>
+                </div>
+                <div class="cqc-info-block" style="border-bottom: none; margin: 0; padding: 0;">
+                    <div class="cqc-info-label">Tipe Panel</div>
+                    <div class="cqc-info-value"><?php echo htmlspecialchars($project['panel_type'] ?? '-'); ?></div>
+                </div>
+                <div class="cqc-info-block" style="border-bottom: none; margin: 0; padding: 0;">
+                    <div class="cqc-info-label">Inverter</div>
+                    <div class="cqc-info-value"><?php echo htmlspecialchars($project['inverter_type'] ?? '-'); ?></div>
+                </div>
+                <div class="cqc-info-block" style="border-bottom: none; margin: 0; padding: 0;">
+                    <div class="cqc-info-label">Tanggal Mulai</div>
+                    <div class="cqc-info-value"><?php echo date('d M Y', strtotime($project['start_date'])); ?></div>
+                </div>
+                <div class="cqc-info-block" style="border-bottom: none; margin: 0; padding: 0;">
+                    <div class="cqc-info-label">Estimasi Selesai</div>
+                    <div class="cqc-info-value"><?php echo date('d M Y', strtotime($project['estimated_completion'] ?? $project['end_date'])); ?></div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Budget & Expenses Section -->
+        <div class="cqc-main-grid" style="grid-template-columns: 2fr 1fr;">
+            <!-- Left: Budget & Category List -->
             <div>
-                <!-- Project Overview -->
                 <div class="cqc-card">
-                    <h3>📊 Status & Progress</h3>
-                    
-                    <div class="cqc-status-bar">
-                        <span class="status-badge status-<?php echo $project['status']; ?>">
-                            <?php echo ucfirst(str_replace('_', ' ', $project['status'])); ?>
-                        </span>
-                    </div>
-
-                    <div class="cqc-progress-section">
-                        <strong style="color: #0d1f3c; font-size: 11px;">Progress Proyek</strong>
-                        <div class="cqc-progress-bar">
-                            <div class="cqc-progress-fill" style="width: <?php echo $project['progress_percentage']; ?>%"></div>
-                        </div>
-                        <div class="cqc-progress-text">
-                            <span><?php echo $project['progress_percentage']; ?>% Selesai</span>
-                            <span><?php echo 100 - $project['progress_percentage']; ?>% Tersisa</span>
-                        </div>
-                    </div>
-
-                    <!-- Budget Info -->
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-top: 12px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 8px;">
                         <h3 style="margin: 0;">💰 Budget & Pengeluaran</h3>
                         <div style="display: flex; gap: 6px;">
                             <a href="categories.php" style="background: #f1f5f9; color: #475569; padding: 4px 8px; border-radius: 4px; font-size: 10px; text-decoration: none; font-weight: 600;">⚙️ Kategori</a>
@@ -277,10 +353,7 @@ include '../../includes/header.php';
                         </div>
                     </div>
 
-                    <!-- Usage Percentage -->
-                    <?php 
-                        $usage = $project['budget_idr'] > 0 ? (($project['spent_idr'] ?? 0) / $project['budget_idr'] * 100) : 0;
-                    ?>
+                    <?php $usage = $project['budget_idr'] > 0 ? (($project['spent_idr'] ?? 0) / $project['budget_idr'] * 100) : 0; ?>
                     <div class="cqc-progress-section">
                         <strong style="color: #0d1f3c; font-size: 11px;">Penggunaan Budget</strong>
                         <div class="cqc-progress-bar">
@@ -293,9 +366,9 @@ include '../../includes/header.php';
                     </div>
                 </div>
 
-                <!-- Expenses by Category -->
+                <!-- Category List -->
                 <div class="cqc-card" style="margin-top: 8px;">
-                    <h3>📋 Pengeluaran per Kategori</h3>
+                    <h3>📋 Daftar per Kategori</h3>
                     <div>
                         <?php foreach ($categories as $cat): ?>
                             <div class="cqc-category-item">
@@ -315,62 +388,9 @@ include '../../includes/header.php';
                 </div>
             </div>
 
-            <!-- Right Column (Sidebar) -->
+            <!-- Right: Recent Expenses -->
             <div>
                 <div class="cqc-card">
-                    <h3>ℹ️ Detail Proyek</h3>
-
-                    <div class="cqc-info-block">
-                        <div class="cqc-info-label">Kode Proyek</div>
-                        <div class="cqc-info-value"><?php echo htmlspecialchars($project['project_code']); ?></div>
-                    </div>
-
-                    <div class="cqc-info-block">
-                        <div class="cqc-info-label">Klien</div>
-                        <div class="cqc-info-value"><?php echo htmlspecialchars($project['client_name'] ?? '-'); ?></div>
-                        <?php if ($project['client_phone']): ?>
-                            <div style="font-size: 10px; color: #94a3b8; margin-top: 2px;">☎️ <?php echo htmlspecialchars($project['client_phone']); ?></div>
-                        <?php endif; ?>
-                    </div>
-
-                    <div class="cqc-info-block">
-                        <div class="cqc-info-label">Kapasitas Panel</div>
-                        <div class="cqc-info-value"><?php echo htmlspecialchars($project['solar_capacity_kwp'] ?? '-'); ?> KWp</div>
-                    </div>
-
-                    <div class="cqc-info-block">
-                        <div class="cqc-info-label">Jumlah Panel</div>
-                        <div class="cqc-info-value"><?php echo htmlspecialchars($project['panel_count'] ?? '-'); ?> Unit</div>
-                    </div>
-
-                    <div class="cqc-info-block">
-                        <div class="cqc-info-label">Tipe Panel</div>
-                        <div class="cqc-info-value"><?php echo htmlspecialchars($project['panel_type'] ?? '-'); ?></div>
-                    </div>
-
-                    <div class="cqc-info-block">
-                        <div class="cqc-info-label">Inverter</div>
-                        <div class="cqc-info-value"><?php echo htmlspecialchars($project['inverter_type'] ?? '-'); ?></div>
-                    </div>
-
-                    <div class="cqc-info-block">
-                        <div class="cqc-info-label">Tanggal Mulai</div>
-                        <div class="cqc-info-value"><?php echo date('d M Y', strtotime($project['start_date'])); ?></div>
-                    </div>
-
-                    <div class="cqc-info-block">
-                        <div class="cqc-info-label">Estimasi Selesai</div>
-                        <div class="cqc-info-value"><?php echo date('d M Y', strtotime($project['estimated_completion'] ?? $project['end_date'])); ?></div>
-                    </div>
-
-                    <div class="cqc-info-block" style="border-bottom: none; margin-bottom: 0; padding-bottom: 0;">
-                        <div class="cqc-info-label">Dibuat</div>
-                        <div class="cqc-info-value"><?php echo date('d M Y H:i', strtotime($project['created_at'])); ?></div>
-                    </div>
-                </div>
-
-                <!-- Recent Expenses -->
-                <div class="cqc-card" style="margin-top: 8px;">
                     <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                         <h3 style="margin: 0;">📝 Pengeluaran Terbaru</h3>
                         <button style="background: #0d1f3c; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 11px;" onclick="openExpenseModal()">+ Tambah</button>
@@ -468,6 +488,49 @@ include '../../includes/header.php';
                 closeExpenseModal();
             }
         });
+    </script>
+    
+    <!-- Chart.js for Pie Chart -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.min.js"></script>
+    <script>
+    <?php if (!empty($pieData)): ?>
+    (function() {
+        const ctx = document.getElementById('categoryPieChart');
+        if (!ctx) return;
+        
+        new Chart(ctx.getContext('2d'), {
+            type: 'doughnut',
+            data: {
+                labels: <?php echo json_encode(array_values($pieLabels)); ?>,
+                datasets: [{
+                    data: <?php echo json_encode(array_values($pieValues)); ?>,
+                    backgroundColor: <?php echo json_encode(array_slice($pieColors, 0, count($pieData))); ?>,
+                    borderWidth: 0
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                cutout: '55%',
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: '#0d1f3c',
+                        bodyColor: '#fff',
+                        cornerRadius: 6,
+                        padding: 10,
+                        callbacks: {
+                            label: function(ctx) {
+                                return ctx.label + ': Rp ' + ctx.parsed.toLocaleString('id-ID');
+                            }
+                        }
+                    }
+                },
+                animation: { animateRotate: true, duration: 800 }
+            }
+        });
+    })();
+    <?php endif; ?>
     </script>
 
 <?php include '../../includes/footer.php'; ?>
