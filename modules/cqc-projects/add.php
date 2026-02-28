@@ -25,6 +25,92 @@ try {
     die("Database error: " . $e->getMessage());
 }
 
+// Check if editing existing project
+$isEdit = false;
+$project = [];
+$editId = isset($_GET['id']) ? (int)$_GET['id'] : 0;
+
+if ($editId > 0) {
+    $stmt = $pdo->prepare("SELECT * FROM cqc_projects WHERE id = ?");
+    $stmt->execute([$editId]);
+    $project = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($project) {
+        $isEdit = true;
+    } else {
+        header('Location: dashboard.php');
+        exit;
+    }
+}
+
+// Handle form submission
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $data = [
+        'project_name' => trim($_POST['project_name'] ?? ''),
+        'project_code' => trim($_POST['project_code'] ?? ''),
+        'location' => trim($_POST['location'] ?? ''),
+        'status' => $_POST['status'] ?? 'planning',
+        'description' => trim($_POST['description'] ?? ''),
+        'client_name' => trim($_POST['client_name'] ?? ''),
+        'client_phone' => trim($_POST['client_phone'] ?? ''),
+        'client_email' => trim($_POST['client_email'] ?? ''),
+        'solar_capacity_kwp' => floatval($_POST['solar_capacity_kwp'] ?? 0),
+        'panel_count' => intval($_POST['panel_count'] ?? 0),
+        'panel_type' => trim($_POST['panel_type'] ?? ''),
+        'inverter_type' => trim($_POST['inverter_type'] ?? ''),
+        'budget_idr' => floatval(str_replace(['.', ','], '', $_POST['budget_idr'] ?? '0')),
+        'progress_percentage' => intval($_POST['progress_percentage'] ?? 0),
+        'start_date' => $_POST['start_date'] ?? null,
+        'estimated_completion' => $_POST['estimated_completion'] ?? null,
+    ];
+
+    if (empty($data['project_name']) || empty($data['project_code'])) {
+        $error = 'Nama proyek dan kode proyek wajib diisi.';
+    } else {
+        try {
+            if ($isEdit) {
+                $sql = "UPDATE cqc_projects SET 
+                    project_name = ?, project_code = ?, location = ?, status = ?, 
+                    description = ?, client_name = ?, client_phone = ?, client_email = ?,
+                    solar_capacity_kwp = ?, panel_count = ?, panel_type = ?, inverter_type = ?,
+                    budget_idr = ?, progress_percentage = ?, start_date = ?, estimated_completion = ?,
+                    updated_at = NOW()
+                    WHERE id = ?";
+                $stmt = $pdo->prepare($sql);
+                $stmt->execute([
+                    $data['project_name'], $data['project_code'], $data['location'], $data['status'],
+                    $data['description'], $data['client_name'], $data['client_phone'], $data['client_email'],
+                    $data['solar_capacity_kwp'], $data['panel_count'], $data['panel_type'], $data['inverter_type'],
+                    $data['budget_idr'], $data['progress_percentage'], $data['start_date'], $data['estimated_completion'],
+                    $editId
+                ]);
+            } else {
+                $sql = "INSERT INTO cqc_projects (
+                    project_name, project_code, location, status, description,
+                    client_name, client_phone, client_email,
+                    solar_capacity_kwp, panel_count, panel_type, inverter_type,
+                    budget_idr, progress_percentage, start_date, estimated_completion,
+                    created_at, updated_at
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, NOW(), NOW())";
+                $stmt = $pdo->prepare($sql);
+                $stmt->execute([
+                    $data['project_name'], $data['project_code'], $data['location'], $data['status'],
+                    $data['description'], $data['client_name'], $data['client_phone'], $data['client_email'],
+                    $data['solar_capacity_kwp'], $data['panel_count'], $data['panel_type'], $data['inverter_type'],
+                    $data['budget_idr'], $data['progress_percentage'], $data['start_date'], $data['estimated_completion']
+                ]);
+                $editId = $pdo->lastInsertId();
+            }
+
+            header('Location: detail.php?id=' . $editId);
+            exit;
+        } catch (PDOException $e) {
+            $error = 'Gagal menyimpan: ' . $e->getMessage();
+        }
+    }
+    // Keep submitted data in form on error
+    $project = $data;
+}
+
 $pageTitle = $isEdit ? "Edit Proyek - CQC" : "Tambah Proyek Baru - CQC";
 $pageSubtitle = "Solar Panel Installation Projects";
 
