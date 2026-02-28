@@ -957,44 +957,57 @@ $username = $_SESSION['full_name'] ?? $_SESSION['username'] ?? 'Owner';
             });
         }
         
-        // Per-Project Pie Charts
+        // Per-Project Pie Charts (same as index.php)
+        <?php if (!empty($cqcProjects)): ?>
         <?php foreach ($cqcProjects as $idx => $proj): 
+            $progress = intval($proj['progress_percentage'] ?? 0);
             $budget = floatval($proj['budget_idr'] ?? 0);
             $spent = floatval($proj['spent_idr'] ?? 0);
-            $remaining = max(0, $budget - $spent);
         ?>
         (function() {
             const ctx = document.getElementById('ownerPie<?php echo $idx; ?>');
-            if (ctx) {
-                new Chart(ctx.getContext('2d'), {
-                    type: 'doughnut',
-                    data: {
-                        labels: ['Terpakai', 'Tersisa'],
-                        datasets: [{
-                            data: [<?php echo $spent; ?>, <?php echo $remaining; ?>],
-                            backgroundColor: ['#f0b429', '#e5e7eb'],
-                            borderWidth: 0,
-                            cutout: '70%'
-                        }]
-                    },
-                    options: {
-                        responsive: true,
-                        maintainAspectRatio: true,
-                        plugins: {
-                            legend: { display: false },
-                            tooltip: {
-                                callbacks: {
-                                    label: function(ctx) {
-                                        return ctx.label + ': Rp ' + ctx.parsed.toLocaleString('id-ID');
-                                    }
+            if (!ctx) {
+                console.error('Canvas ownerPie<?php echo $idx; ?> not found');
+                return;
+            }
+            console.log('Creating chart ownerPie<?php echo $idx; ?> with progress <?php echo $progress; ?>');
+            new Chart(ctx.getContext('2d'), {
+                type: 'doughnut',
+                data: {
+                    labels: ['Selesai', 'Tersisa'],
+                    datasets: [{
+                        data: [<?php echo $progress; ?>, <?php echo 100 - $progress; ?>],
+                        backgroundColor: [
+                            '<?php echo $progress >= 80 ? "#10b981" : ($progress >= 50 ? "#f0b429" : ($progress >= 25 ? "#3b82f6" : "#6b7280")); ?>',
+                            'rgba(229, 231, 235, 0.5)'
+                        ],
+                        borderWidth: 0
+                    }]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    cutout: '70%',
+                    plugins: {
+                        legend: { display: false },
+                        tooltip: {
+                            backgroundColor: 'rgba(13,31,60,0.95)',
+                            titleColor: '#f0b429',
+                            bodyColor: '#fff',
+                            cornerRadius: 8,
+                            callbacks: {
+                                label: function(ctx) {
+                                    return ctx.label + ': ' + ctx.parsed + '%';
                                 }
                             }
                         }
-                    }
-                });
-            }
+                    },
+                    animation: { animateRotate: true, duration: 1200 }
+                }
+            });
         })();
         <?php endforeach; ?>
+        <?php endif; ?>
     </script>
 </body>
 </html>
