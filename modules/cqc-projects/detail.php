@@ -286,61 +286,6 @@ include '../../includes/header.php';
                         </div>
                     </div>
                 </div>
-
-                <!-- Expenses by Category -->
-                <div class="cqc-card" style="margin-top: 8px;">
-                    <h3>📋 Pengeluaran per Kategori</h3>
-                    <div>
-                        <?php foreach ($categories as $cat): ?>
-                            <div class="cqc-category-item">
-                                <div class="cqc-category-left">
-                                    <div class="cqc-category-icon"><?php echo htmlspecialchars($cat['category_icon'] ?? '📦'); ?></div>
-                                    <div class="cqc-category-info">
-                                        <h4><?php echo htmlspecialchars($cat['category_name']); ?></h4>
-                                        <p><?php echo $cat['expense_count']; ?> transaksi</p>
-                                    </div>
-                                </div>
-                                <div class="cqc-category-amount">
-                                    <div class="amount">Rp <?php echo number_format($cat['total_amount'] ?? 0, 0); ?></div>
-                                </div>
-                            </div>
-                        <?php endforeach; ?>
-                    </div>
-                </div>
-
-                <!-- Recent Expenses -->
-                <div class="cqc-card" style="margin-top: 8px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                        <h3 style="margin: 0;">📝 Pengeluaran Terbaru</h3>
-                        <button style="background: #0d1f3c; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 11px;" onclick="openExpenseModal()">+ Tambah</button>
-                    </div>
-                    
-                    <?php if (!empty($expenses)): ?>
-                        <table class="cqc-expenses-table">
-                            <thead>
-                                <tr>
-                                    <th>Kategori</th>
-                                    <th>Tanggal</th>
-                                    <th>Deskripsi</th>
-                                    <th style="text-align: right;">Jumlah</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <?php foreach ($expenses as $exp): ?>
-                                    <tr>
-                                        <td><?php echo htmlspecialchars(($exp['category_icon'] ?? '') . ' ' . $exp['category_name']); ?></td>
-                                        <td style="color: #94a3b8; font-size: 10px;"><?php echo date('d M Y', strtotime($exp['expense_date'])); ?></td>
-                                        <td><?php echo htmlspecialchars($exp['description'] ?? '-'); ?></td>
-                                        <td style="text-align: right; font-weight: 600; color: #0d1f3c;">Rp <?php echo number_format($exp['amount'], 0); ?></td>
-                                    </tr>
-                                <?php endforeach; ?>
-                            </tbody>
-                        </table>
-                    <?php else: ?>
-                        <p style="text-align: center; color: #94a3b8; padding: 16px 0; font-size: 11px;">Belum ada pengeluaran yang dicatat.</p>
-                        <button style="width: 100%; background: #0d1f3c; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 11px;" onclick="openExpenseModal()">📝 Tambah Pengeluaran Pertama</button>
-                    <?php endif; ?>
-                </div>
             </div>
 
             <!-- Right Column (Sidebar) -->
@@ -391,10 +336,63 @@ include '../../includes/header.php';
                         <div class="cqc-info-value"><?php echo date('d M Y', strtotime($project['estimated_completion'] ?? $project['end_date'])); ?></div>
                     </div>
 
-                    <div class="cqc-info-block">
+                    <div class="cqc-info-block" style="border-bottom: none; margin-bottom: 0; padding-bottom: 0;">
                         <div class="cqc-info-label">Dibuat</div>
                         <div class="cqc-info-value"><?php echo date('d M Y H:i', strtotime($project['created_at'])); ?></div>
                     </div>
+                </div>
+
+                <!-- Expenses by Category -->
+                <div class="cqc-card" style="margin-top: 8px;">
+                    <h3>📋 Pengeluaran per Kategori</h3>
+                    <div>
+                        <?php foreach ($categories as $cat): ?>
+                            <div class="cqc-category-item">
+                                <div class="cqc-category-left">
+                                    <div class="cqc-category-icon"><?php echo htmlspecialchars($cat['category_icon'] ?? '📦'); ?></div>
+                                    <div class="cqc-category-info">
+                                        <h4><?php echo htmlspecialchars($cat['category_name']); ?></h4>
+                                        <p><?php echo $cat['expense_count']; ?> transaksi</p>
+                                    </div>
+                                </div>
+                                <div class="cqc-category-amount">
+                                    <div class="amount">Rp <?php echo number_format($cat['total_amount'] ?? 0, 0); ?></div>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
+
+                <!-- Recent Expenses -->
+                <div class="cqc-card" style="margin-top: 8px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
+                        <h3 style="margin: 0;">📝 Pengeluaran Terbaru</h3>
+                        <button style="background: #0d1f3c; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 11px;" onclick="openExpenseModal()">+ Tambah</button>
+                    </div>
+                    
+                    <?php if (!empty($expenses)): ?>
+                        <table class="cqc-expenses-table">
+                            <thead>
+                                <tr>
+                                    <th>Kategori</th>
+                                    <th>Tanggal</th>
+                                    <th style="text-align: right;">Jumlah</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($expenses as $exp): ?>
+                                    <tr>
+                                        <td><?php echo htmlspecialchars(($exp['category_icon'] ?? '') . ' ' . $exp['category_name']); ?></td>
+                                        <td style="color: #94a3b8; font-size: 10px;"><?php echo date('d M Y', strtotime($exp['expense_date'])); ?></td>
+                                        <td style="text-align: right; font-weight: 600; color: #0d1f3c;">Rp <?php echo number_format($exp['amount'], 0); ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    <?php else: ?>
+                        <p style="text-align: center; color: #94a3b8; padding: 12px 0; font-size: 11px;">Belum ada pengeluaran.</p>
+                        <button style="width: 100%; background: #0d1f3c; color: white; border: none; padding: 6px; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 11px;" onclick="openExpenseModal()">+ Tambah Pengeluaran</button>
+                    <?php endif; ?>
                 </div>
             </div>
         </div>
