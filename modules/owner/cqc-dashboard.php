@@ -861,55 +861,6 @@ $username = $_SESSION['full_name'] ?? $_SESSION['username'] ?? 'Owner';
                 <?php endif; ?>
             </div>
         </div>
-        
-        <!-- Recent Expenses Table -->
-        <div class="card">
-            <div class="card-header">
-                <div class="card-title">
-                    <i class="bi bi-receipt"></i>
-                    Pengeluaran Terbaru
-                </div>
-            </div>
-            <div class="card-body" style="padding: 0;">
-                <div class="table-wrapper">
-                    <table class="data-table">
-                        <thead>
-                            <tr>
-                                <th>Tanggal</th>
-                                <th>Proyek</th>
-                                <th>Deskripsi</th>
-                                <th>Kategori</th>
-                                <th style="text-align: right;">Jumlah</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <?php if (!empty($recentExpenses)): ?>
-                                <?php foreach ($recentExpenses as $exp): ?>
-                                <tr>
-                                    <td><?php echo date('d M Y', strtotime($exp['expense_date'])); ?></td>
-                                    <td>
-                                        <strong><?php echo htmlspecialchars($exp['project_code'] ?? ''); ?></strong><br>
-                                        <small style="color: var(--text-muted);"><?php echo htmlspecialchars($exp['project_name'] ?? ''); ?></small>
-                                    </td>
-                                    <td><?php echo htmlspecialchars($exp['description'] ?? '-'); ?></td>
-                                    <td><?php echo htmlspecialchars($exp['category'] ?? '-'); ?></td>
-                                    <td style="text-align: right;">
-                                        <span class="amount expense"><?php echo formatIDR($exp['amount'] ?? 0); ?></span>
-                                    </td>
-                                </tr>
-                                <?php endforeach; ?>
-                            <?php else: ?>
-                                <tr>
-                                    <td colspan="5" style="text-align: center; color: var(--text-muted); padding: 2rem;">
-                                        Belum ada pengeluaran tercatat
-                                    </td>
-                                </tr>
-                            <?php endif; ?>
-                        </tbody>
-                    </table>
-                </div>
-            </div>
-        </div>
     </div>
     
     <script>
@@ -1015,7 +966,7 @@ $username = $_SESSION['full_name'] ?? $_SESSION['username'] ?? 'Owner';
         (function() {
             const ctx = document.getElementById('ownerPie<?php echo $idx; ?>');
             if (ctx) {
-                new Chart(ctx, {
+                new Chart(ctx.getContext('2d'), {
                     type: 'doughnut',
                     data: {
                         labels: ['Terpakai', 'Tersisa'],
