@@ -3,6 +3,7 @@
  * OWNER DASHBOARD 2028
  * Data langsung dari PHP - Same logic as System Dashboard (index.php)
  * Multi-business aware via business_helper.php
+ * @version 2.1.0 - 2026-03-01 - Pie: Income=Green, Expense=Red, Profit=Yellow
  */
 define('APP_ACCESS', true);
 require_once __DIR__ . '/../../config/config.php';
