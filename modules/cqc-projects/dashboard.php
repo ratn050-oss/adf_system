@@ -115,22 +115,22 @@ include '../../includes/header.php';
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
 <style>
-        .cqc-container { max-width: 960px; margin: 0 auto; }
+        .cqc-container { max-width: 100%; }
 
         /* Header */
         .cqc-header {
-            background: linear-gradient(135deg, #2d3436 0%, #1e272e 100%);
-            padding: 10px 18px;
+            background: linear-gradient(135deg, #1a3a5c 0%, #0f2744 100%);
+            padding: 10px 16px;
             border-radius: 6px;
             margin-bottom: 10px;
             display: flex; justify-content: space-between; align-items: center;
         }
-        .cqc-header h1 { font-size: 13px; font-weight: 700; color: #ffc312; margin: 0 0 1px; }
-        .cqc-header p { font-size: 9px; margin: 0; color: #b2bec3; }
+        .cqc-header h1 { font-size: 14px; font-weight: 700; color: #fff; margin: 0 0 1px; }
+        .cqc-header p { font-size: 10px; margin: 0; color: rgba(255,255,255,0.55); }
         .cqc-header button {
-            background: #ffc312; color: #2d3436; border: none;
-            padding: 5px 12px; border-radius: 4px; font-weight: 700;
-            font-size: 10px; cursor: pointer;
+            background: #ffc312; color: #0f2744; border: none;
+            padding: 5px 14px; border-radius: 4px; font-weight: 700;
+            font-size: 11px; cursor: pointer;
         }
         .cqc-header button:hover { background: #f9ca24; }
 
@@ -144,13 +144,13 @@ include '../../includes/header.php';
         .cqc-stat-card.yellow { border-left-color: #ffc312; }
         .cqc-stat-card.green { border-left-color: #27ae60; }
         .cqc-stat-card.red { border-left-color: #e74c3c; }
-        .cqc-stat-icon { font-size: 14px; margin-bottom: 2px; }
-        .cqc-stat-label { font-size: 8px; color: #999; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 2px; }
-        .cqc-stat-value { font-size: 16px; font-weight: 800; color: #2d3436; }
+        .cqc-stat-icon { font-size: 15px; margin-bottom: 2px; }
+        .cqc-stat-label { font-size: 9px; color: #888; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; margin-bottom: 2px; }
+        .cqc-stat-value { font-size: 18px; font-weight: 800; color: #1a3a5c; }
         .cqc-stat-card.yellow .cqc-stat-value { color: #e67e22; }
         .cqc-stat-card.green .cqc-stat-value { color: #27ae60; }
         .cqc-stat-card.red .cqc-stat-value { color: #e74c3c; }
-        .cqc-stat-subtitle { font-size: 8px; color: #bbb; margin-top: 1px; }
+        .cqc-stat-subtitle { font-size: 9px; color: #bbb; margin-top: 1px; }
 
         /* Charts */
         .cqc-charts-section { display: grid; grid-template-columns: repeat(3,1fr); gap: 6px; margin-bottom: 10px; }
@@ -160,15 +160,15 @@ include '../../includes/header.php';
             border-top: 2px solid #ffc312;
         }
         .cqc-chart-title {
-            font-size: 9px; font-weight: 700; color: #555;
+            font-size: 10px; font-weight: 700; color: #1a3a5c;
             margin-bottom: 6px; text-transform: uppercase; letter-spacing: 0.4px;
             display: flex; align-items: center; gap: 4px;
         }
-        .cqc-chart-canvas { max-height: 150px; }
+        .cqc-chart-canvas { max-height: 155px; }
 
         /* Section title */
         .cqc-section-title {
-            font-size: 11px; font-weight: 700; color: #2d3436;
+            font-size: 12px; font-weight: 700; color: #1a3a5c;
             margin: 10px 0 6px; padding-bottom: 4px;
             border-bottom: 2px solid #ffc312;
             text-transform: uppercase; letter-spacing: 0.4px;
@@ -181,17 +181,17 @@ include '../../includes/header.php';
         }
         .cqc-projects-table table { width: 100%; border-collapse: collapse; }
         .cqc-projects-table th {
-            background: #2d3436; color: #ffc312;
-            padding: 6px 8px; text-align: left;
-            font-weight: 700; font-size: 8px; text-transform: uppercase; letter-spacing: 0.5px;
+            background: #1a3a5c; color: #ffc312;
+            padding: 7px 10px; text-align: left;
+            font-weight: 700; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px;
         }
         .cqc-projects-table td {
-            padding: 6px 8px; border-bottom: 1px solid #f0f0f0;
-            font-size: 11px; color: #333;
+            padding: 7px 10px; border-bottom: 1px solid #f0f0f0;
+            font-size: 12px; color: #333;
         }
         .cqc-projects-table tr:hover { background: #fffdf0; }
 
-        .status-badge { display: inline-block; padding: 2px 6px; border-radius: 3px; font-size: 9px; font-weight: 700; }
+        .status-badge { display: inline-block; padding: 3px 8px; border-radius: 3px; font-size: 10px; font-weight: 700; }
         .status-planning { background: #eef2ff; color: #4a6cf7; }
         .status-procurement { background: #fff8e1; color: #e67e22; }
         .status-installation { background: #e8f5e9; color: #27ae60; }
@@ -201,12 +201,12 @@ include '../../includes/header.php';
 
         .cqc-progress-bar { width: 100%; height: 3px; background: #eee; border-radius: 2px; overflow: hidden; margin-bottom: 1px; }
         .cqc-progress-fill { height: 100%; background: linear-gradient(90deg, #ffc312, #f9ca24); border-radius: 2px; }
-        .cqc-progress-text { font-size: 9px; color: #999; }
+        .cqc-progress-text { font-size: 10px; color: #888; }
 
-        .cqc-action-links { display: flex; gap: 3px; }
+        .cqc-action-links { display: flex; gap: 4px; }
         .cqc-action-links a {
-            padding: 2px 7px; background: #ffc312; color: #2d3436;
-            border-radius: 3px; text-decoration: none; font-size: 9px; font-weight: 700;
+            padding: 3px 8px; background: #ffc312; color: #0f2744;
+            border-radius: 3px; text-decoration: none; font-size: 10px; font-weight: 700;
         }
         .cqc-action-links a:hover { background: #f9ca24; }
 
