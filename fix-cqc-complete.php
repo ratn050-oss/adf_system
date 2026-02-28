@@ -9,8 +9,8 @@ ini_set('display_errors', 1);
 $isHosting = (strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost') === false);
 if ($isHosting) {
     $dbHost = 'localhost';
-    $dbUser = 'adfb2574_adfsystem';
-    $dbPass = '@Nnoc2025';
+    $dbUser = 'adfb2574_cqc';
+    $dbPass = '@Noc2025';
     $systemDb = 'adfb2574_adf';
 } else {
     $dbHost = 'localhost';

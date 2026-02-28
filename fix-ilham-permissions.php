@@ -13,8 +13,8 @@ echo "Date: " . date('Y-m-d H:i:s') . "\n\n";
 
 // Database credentials
 $host = 'localhost';
-$user = 'adfb2574_adfsystem';
-$pass = '@Nnoc2025';
+$user = 'adfb2574_cqc';
+$pass = '@Noc2025';
 $dbname = 'adfb2574_adf';
 
 $pdo = new PDO("mysql:host=$host;dbname=$dbname;charset=utf8mb4", $user, $pass);
