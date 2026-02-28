@@ -1937,17 +1937,27 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
             ctx.fill();
         }
 
-        // DEBUG: Check if this code is running - VERSION 2026-03-01-C
+        // DEBUG: Check if this code is running - VERSION 2026-03-01-D
         console.log('PIE CHART DEBUG: Income=' + income + ', Expense=' + expense);
-        console.log('PIE CHART COLORS: Income=#10b981 (GREEN), Expense=#ef4444 (RED)');
+        console.log('incomeAngle=' + incomeAngle + ', expenseAngle=' + expenseAngle);
 
-        // Draw EXPENSE first (red) - small slice
-        ctx.fillStyle = '#ef4444';
-        drawArc(startAngle + incomeAngle + gap/2, startAngle + incomeAngle + expenseAngle - gap/2, '#ef4444');
-
-        // Draw INCOME second (green) - large slice, will be on top
-        ctx.fillStyle = '#10b981';
-        drawArc(startAngle + gap/2, startAngle + incomeAngle - gap/2, '#10b981');
+        // TEST: Draw FULL circle in GREEN to verify color works
+        ctx.beginPath();
+        ctx.arc(cx, cy, r, 0, 2 * Math.PI);
+        ctx.arc(cx, cy, innerR, 2 * Math.PI, 0, true);
+        ctx.closePath();
+        ctx.fillStyle = '#10b981';  // GREEN
+        ctx.fill();
+        
+        // Draw small red slice for expense (if any)
+        if (expense > 0 && expenseAngle > 0.01) {
+            ctx.beginPath();
+            ctx.arc(cx, cy, r, startAngle + incomeAngle, startAngle + incomeAngle + expenseAngle);
+            ctx.arc(cx, cy, innerR, startAngle + incomeAngle + expenseAngle, startAngle + incomeAngle, true);
+            ctx.closePath();
+            ctx.fillStyle = '#ef4444';  // RED
+            ctx.fill();
+        }
 
         // Inner hole - dark glass
         ctx.beginPath();
