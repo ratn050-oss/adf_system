@@ -26,6 +26,18 @@ try {
     die("Database connection failed: " . $e->getMessage());
 }
 
+// Handle Start Project Action
+if (isset($_GET['action']) && $_GET['action'] === 'start' && isset($_GET['id'])) {
+    try {
+        $stmt = $pdo->prepare("UPDATE cqc_projects SET status = 'installation' WHERE id = ? AND status IN ('planning', 'on_hold')");
+        $stmt->execute([$_GET['id']]);
+        header('Location: dashboard.php?success=started');
+        exit;
+    } catch (Exception $e) {
+        // Ignore error, proceed to dashboard
+    }
+}
+
 // Get project statistics
 $stats = [];
 try {
@@ -399,6 +411,9 @@ include '../../includes/header.php';
                                     <div class="cqc-action-links">
                                         <a href="detail.php?id=<?php echo $proj['id']; ?>">Lihat</a>
                                         <a href="add.php?id=<?php echo $proj['id']; ?>">Edit</a>
+                                        <?php if ($proj['status'] === 'planning' || $proj['status'] === 'on_hold'): ?>
+                                        <a href="?action=start&id=<?php echo $proj['id']; ?>" onclick="return confirm('Start proyek ini?')" style="background: #10b981; color: white;">Start</a>
+                                        <?php endif; ?>
                                     </div>
                                 </td>
                             </tr>
