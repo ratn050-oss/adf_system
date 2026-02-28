@@ -5,13 +5,13 @@
  */
 
 // Auto-detect environment
-$isHosting = (strpos($_SERVER['DOCUMENT_ROOT'] ?? '', 'public_html') !== false);
+$isHosting = (strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost') === false);
 
 if ($isHosting) {
     $dbHost = 'localhost';
-    $dbUser = 'adfb2574_adf';
-    $dbPass = 'Narayana2025!';
-    $systemDb = 'adfb2574_system';
+    $dbUser = 'adfb2574_adfsystem';
+    $dbPass = '@Nnoc2025';
+    $systemDb = 'adfb2574_adf';
 } else {
     $dbHost = 'localhost';
     $dbUser = 'root';
