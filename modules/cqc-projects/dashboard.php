@@ -115,72 +115,70 @@ include '../../includes/header.php';
 
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/3.9.1/chart.min.js"></script>
 <style>
-        .cqc-container { max-width: 1400px; }
+        .cqc-container { max-width: 1100px; margin: 0 auto; }
 
-        /* Header - compact dark gray */
+        /* Header - slim elegant */
         .cqc-header {
-            background: linear-gradient(135deg, #2d3748 0%, #1a202c 100%);
-            color: #f7fafc;
-            padding: 16px 24px;
-            border-radius: 10px;
-            margin-bottom: 16px;
-            box-shadow: 0 2px 12px rgba(0,0,0,0.12);
+            background: linear-gradient(135deg, #2d3436 0%, #1e272e 100%);
+            color: #fff;
+            padding: 12px 20px;
+            border-radius: 8px;
+            margin-bottom: 12px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.15);
             display: flex;
             justify-content: space-between;
             align-items: center;
         }
-        .cqc-header h1 { font-size: 17px; margin-bottom: 2px; font-weight: 700; color: #f7fafc; }
-        .cqc-header p { opacity: 0.65; font-size: 12px; margin: 0; }
+        .cqc-header h1 { font-size: 14px; margin-bottom: 1px; font-weight: 700; color: #ffd32a; }
+        .cqc-header p { opacity: 0.5; font-size: 10px; margin: 0; color: #dfe6e9; }
         .cqc-header button {
-            background: #e2e8f0; color: #1a202c; border: none;
-            padding: 8px 18px; border-radius: 6px; font-weight: 600;
-            cursor: pointer; font-size: 12px; transition: all 0.2s;
+            background: #ffd32a; color: #2d3436; border: none;
+            padding: 6px 14px; border-radius: 5px; font-weight: 700;
+            cursor: pointer; font-size: 11px; transition: all 0.2s;
+            letter-spacing: 0.3px;
         }
-        .cqc-header button:hover { background: #cbd5e0; }
+        .cqc-header button:hover { background: #fdcb6e; }
 
-        /* Stats - compact */
+        /* Stats - tight compact */
         .cqc-stats-grid {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
-            gap: 12px;
-            margin-bottom: 16px;
+            gap: 8px;
+            margin-bottom: 12px;
         }
         .cqc-stat-card {
-            background: var(--bg-secondary, white);
-            padding: 14px 16px;
-            border-radius: 8px;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-            border-left: 3px solid #4a5568;
-            transition: all 0.2s ease;
+            background: #2d3436;
+            padding: 10px 12px;
+            border-radius: 6px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+            border-left: 3px solid #636e72;
         }
-        .cqc-stat-card:hover { box-shadow: 0 4px 12px rgba(0,0,0,0.1); transform: translateY(-2px); }
-        .cqc-stat-card.yellow { border-left-color: #d69e2e; }
-        .cqc-stat-card.green { border-left-color: #38a169; }
-        .cqc-stat-card.red { border-left-color: #e53e3e; }
+        .cqc-stat-card:hover { box-shadow: 0 3px 10px rgba(0,0,0,0.15); }
+        .cqc-stat-card.yellow { border-left-color: #ffd32a; }
+        .cqc-stat-card.green { border-left-color: #00b894; }
+        .cqc-stat-card.red { border-left-color: #d63031; }
 
-        .cqc-stat-icon { font-size: 20px; margin-bottom: 6px; }
-        .cqc-stat-label { font-size: 10px; color: var(--text-muted, #a0aec0); margin-bottom: 4px; text-transform: uppercase; font-weight: 700; letter-spacing: 0.5px; }
-        .cqc-stat-value { font-size: 22px; font-weight: 800; color: #2d3748; }
-        .cqc-stat-card.yellow .cqc-stat-value { color: #b7791f; }
-        .cqc-stat-card.green .cqc-stat-value { color: #276749; }
-        .cqc-stat-card.red .cqc-stat-value { color: #c53030; }
-        .cqc-stat-subtitle { font-size: 10px; color: var(--text-muted, #a0aec0); margin-top: 4px; }
+        .cqc-stat-icon { font-size: 16px; margin-bottom: 4px; }
+        .cqc-stat-label { font-size: 9px; color: #b2bec3; margin-bottom: 3px; text-transform: uppercase; font-weight: 700; letter-spacing: 0.6px; }
+        .cqc-stat-value { font-size: 18px; font-weight: 800; color: #dfe6e9; }
+        .cqc-stat-card.yellow .cqc-stat-value { color: #ffd32a; }
+        .cqc-stat-card.green .cqc-stat-value { color: #00b894; }
+        .cqc-stat-card.red .cqc-stat-value { color: #ff7675; }
+        .cqc-stat-subtitle { font-size: 9px; color: #636e72; margin-top: 2px; }
 
-        /* Charts - compact glassmorphism */
+        /* Charts - tight */
         .cqc-charts-section {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
-            gap: 12px;
-            margin-bottom: 16px;
+            gap: 8px;
+            margin-bottom: 12px;
         }
         .cqc-chart-card {
-            background: var(--bg-secondary, rgba(255,255,255,0.92));
-            backdrop-filter: blur(12px);
-            padding: 16px;
-            border-radius: 10px;
-            box-shadow: 0 1px 8px rgba(0,0,0,0.06);
-            border: 1px solid var(--bg-tertiary, rgba(0,0,0,0.06));
-            transition: all 0.3s ease;
+            background: #2d3436;
+            padding: 12px;
+            border-radius: 8px;
+            box-shadow: 0 1px 6px rgba(0,0,0,0.1);
+            border: 1px solid #3d3d3d;
             position: relative;
             overflow: hidden;
         }
@@ -189,7 +187,7 @@ include '../../includes/header.php';
             position: absolute;
             top: 0; left: 0; right: 0;
             height: 2px;
-            background: linear-gradient(90deg, #718096, #4a5568, #a0aec0);
+            background: linear-gradient(90deg, #ffd32a, #fdcb6e, #ffeaa7);
             background-size: 300% 100%;
             animation: cqcShimmer 4s ease infinite;
         }
@@ -197,63 +195,64 @@ include '../../includes/header.php';
             0%,100% { background-position: 0% 50%; }
             50% { background-position: 100% 50%; }
         }
-        .cqc-chart-card:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(0,0,0,0.1); }
+        .cqc-chart-card:hover { box-shadow: 0 4px 14px rgba(0,0,0,0.18); }
         .cqc-chart-title {
-            font-size: 11px; font-weight: 700; color: #4a5568;
-            margin-bottom: 12px; display: flex; align-items: center;
-            gap: 6px; letter-spacing: 0.5px; text-transform: uppercase;
+            font-size: 10px; font-weight: 700; color: #ffd32a;
+            margin-bottom: 8px; display: flex; align-items: center;
+            gap: 5px; letter-spacing: 0.5px; text-transform: uppercase;
         }
-        .cqc-chart-canvas { max-height: 200px; }
+        .cqc-chart-canvas { max-height: 170px; }
 
         /* Section title */
         .cqc-section-title {
-            font-size: 14px; font-weight: 700; color: #2d3748;
-            margin: 16px 0 12px; padding-bottom: 8px;
-            border-bottom: 2px solid #e2e8f0;
+            font-size: 12px; font-weight: 700; color: #2d3436;
+            margin: 12px 0 8px; padding-bottom: 6px;
+            border-bottom: 2px solid #ffd32a;
             text-transform: uppercase; letter-spacing: 0.5px;
         }
 
-        /* Table - compact */
+        /* Table - tight */
         .cqc-projects-table {
-            background: var(--bg-secondary, white);
-            border-radius: 8px; overflow: hidden;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+            background: #2d3436;
+            border-radius: 6px; overflow: hidden;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.1);
         }
         .cqc-projects-table table { width: 100%; border-collapse: collapse; }
         .cqc-projects-table th {
-            background: #2d3748; color: #e2e8f0;
-            padding: 10px 14px; text-align: left;
-            font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.3px;
+            background: #1e272e; color: #ffd32a;
+            padding: 8px 10px; text-align: left;
+            font-weight: 700; font-size: 9px; text-transform: uppercase; letter-spacing: 0.5px;
         }
         .cqc-projects-table td {
-            padding: 10px 14px;
-            border-bottom: 1px solid var(--bg-tertiary, #edf2f7);
-            font-size: 13px; color: var(--text-primary, #2d3748);
+            padding: 8px 10px;
+            border-bottom: 1px solid #3d3d3d;
+            font-size: 12px; color: #dfe6e9;
         }
-        .cqc-projects-table tr:hover { background: var(--bg-tertiary, #f7fafc); }
+        .cqc-projects-table tr:hover { background: #353b48; }
 
-        .status-badge { display: inline-block; padding: 4px 10px; border-radius: 4px; font-size: 11px; font-weight: 600; }
-        .status-planning { background: #ebf4ff; color: #2b6cb0; }
-        .status-procurement { background: #fefcbf; color: #975a16; }
-        .status-installation { background: #e6fffa; color: #285e61; }
-        .status-testing { background: #f0fff4; color: #276749; }
-        .status-completed { background: #c6f6d5; color: #22543d; }
-        .status-on_hold { background: #fed7d7; color: #9b2c2c; }
+        .status-badge { display: inline-block; padding: 3px 8px; border-radius: 3px; font-size: 10px; font-weight: 700; }
+        .status-planning { background: rgba(116,185,255,0.15); color: #74b9ff; }
+        .status-procurement { background: rgba(255,211,42,0.15); color: #ffd32a; }
+        .status-installation { background: rgba(0,184,148,0.15); color: #00b894; }
+        .status-testing { background: rgba(85,239,196,0.15); color: #55efc4; }
+        .status-completed { background: rgba(0,184,148,0.25); color: #00b894; }
+        .status-on_hold { background: rgba(214,48,49,0.15); color: #ff7675; }
 
-        .cqc-progress-bar { width: 100%; height: 6px; background: var(--bg-tertiary, #edf2f7); border-radius: 3px; overflow: hidden; margin-bottom: 3px; }
-        .cqc-progress-fill { height: 100%; background: linear-gradient(90deg, #4a5568, #718096); border-radius: 3px; }
-        .cqc-progress-text { font-size: 11px; color: var(--text-muted, #a0aec0); }
+        .cqc-progress-bar { width: 100%; height: 4px; background: #3d3d3d; border-radius: 2px; overflow: hidden; margin-bottom: 2px; }
+        .cqc-progress-fill { height: 100%; background: linear-gradient(90deg, #ffd32a, #fdcb6e); border-radius: 2px; }
+        .cqc-progress-text { font-size: 10px; color: #b2bec3; }
 
-        .cqc-action-links { display: flex; gap: 6px; }
+        .cqc-action-links { display: flex; gap: 4px; }
         .cqc-action-links a {
-            padding: 4px 10px; background: #4a5568; color: #f7fafc;
-            border-radius: 4px; text-decoration: none; font-size: 11px; font-weight: 500;
+            padding: 3px 8px; background: #ffd32a; color: #2d3436;
+            border-radius: 3px; text-decoration: none; font-size: 10px; font-weight: 700;
         }
-        .cqc-action-links a:hover { background: #2d3748; }
+        .cqc-action-links a:hover { background: #fdcb6e; }
 
-        .cqc-empty-state { text-align: center; padding: 40px 20px; color: var(--text-muted, #a0aec0); }
-        .cqc-empty-state-icon { font-size: 48px; margin-bottom: 12px; }
-        .cqc-empty-state h3 { color: #2d3748; margin-bottom: 6px; font-size: 16px; }
+        .cqc-empty-state { text-align: center; padding: 30px 16px; color: #b2bec3; }
+        .cqc-empty-state-icon { font-size: 36px; margin-bottom: 8px; }
+        .cqc-empty-state h3 { color: #dfe6e9; margin-bottom: 4px; font-size: 14px; }
+        .cqc-empty-state p { font-size: 12px; color: #636e72; }
 
         @media (max-width: 900px) {
             .cqc-stats-grid { grid-template-columns: repeat(2, 1fr); }
@@ -342,7 +341,7 @@ include '../../includes/header.php';
                                     <div class="cqc-progress-text"><?php echo $proj['progress_percentage']; ?>%</div>
                                 </td>
                                 <td>
-                                    <div style="font-size: 12px; color: var(--text-muted, #666);">
+                                    <div style="font-size: 11px; color: #b2bec3;">
                                         Rp <?php echo number_format($proj['spent_idr'] ?? 0, 0); ?> / 
                                         Rp <?php echo number_format($proj['budget_idr'] ?? 0, 0); ?>
                                     </div>
@@ -363,7 +362,7 @@ include '../../includes/header.php';
                 <div class="cqc-empty-state-icon">📭</div>
                 <h3>Tidak Ada Proyek Sedang Berjalan</h3>
                 <p>Mulai dengan membuat proyek baru untuk instalasi panel surya.</p>
-                <button style="background: #0066CC; color: white; border: none; padding: 10px 20px; border-radius: 6px; cursor: pointer; margin-top: 20px;" onclick="location.href='add.php'">
+                <button style="background: #ffd32a; color: #2d3436; border: none; padding: 8px 16px; border-radius: 5px; cursor: pointer; margin-top: 14px; font-weight: 700; font-size: 11px;" onclick="location.href='add.php'">
                     ➕ Buat Proyek Baru
                 </button>
             </div>
@@ -384,14 +383,14 @@ include '../../includes/header.php';
                 ctx.textAlign = 'center';
                 ctx.textBaseline = 'middle';
                 if (text) {
-                    ctx.font = 'bold 22px -apple-system, BlinkMacSystemFont, sans-serif';
-                    ctx.fillStyle = color || '#2d3748';
-                    ctx.fillText(text, cx, subtext ? cy - 8 : cy);
+                    ctx.font = 'bold 18px -apple-system, BlinkMacSystemFont, sans-serif';
+                    ctx.fillStyle = color || '#dfe6e9';
+                    ctx.fillText(text, cx, subtext ? cy - 7 : cy);
                 }
                 if (subtext) {
-                    ctx.font = '600 9px -apple-system, BlinkMacSystemFont, sans-serif';
-                    ctx.fillStyle = '#a0aec0';
-                    ctx.fillText(subtext, cx, cy + 14);
+                    ctx.font = '700 8px -apple-system, BlinkMacSystemFont, sans-serif';
+                    ctx.fillStyle = '#636e72';
+                    ctx.fillText(subtext, cx, cy + 12);
                 }
                 ctx.restore();
             }
@@ -400,17 +399,17 @@ include '../../includes/header.php';
 
         // === Shared tooltip style ===
         const cqcTooltip = {
-            backgroundColor: 'rgba(26, 32, 44, 0.95)',
-            titleColor: '#e2e8f0',
-            bodyColor: '#f7fafc',
-            borderColor: 'rgba(74, 85, 104, 0.4)',
+            backgroundColor: 'rgba(30, 39, 46, 0.95)',
+            titleColor: '#ffd32a',
+            bodyColor: '#dfe6e9',
+            borderColor: 'rgba(255,211,42,0.3)',
             borderWidth: 1,
-            cornerRadius: 8,
-            padding: 10,
-            titleFont: { size: 11, weight: '600' },
-            bodyFont: { size: 12, weight: '700' },
+            cornerRadius: 6,
+            padding: 8,
+            titleFont: { size: 10, weight: '700' },
+            bodyFont: { size: 11, weight: '600' },
             displayColors: true,
-            boxPadding: 4
+            boxPadding: 3
         };
 
         // === Gradient helper ===
@@ -440,11 +439,11 @@ include '../../includes/header.php';
                     labels: ['Planning', 'Procurement', 'Installation', 'Testing', 'Completed', 'On Hold'],
                     datasets: [{
                         data: sData,
-                        backgroundColor: ['#4a5568','#d69e2e','#718096','#38a169','#2d3748','#c53030'],
-                        hoverBackgroundColor: ['#718096','#ecc94b','#a0aec0','#48bb78','#4a5568','#fc8181'],
+                        backgroundColor: ['#636e72','#ffd32a','#b2bec3','#00b894','#2d3436','#d63031'],
+                        hoverBackgroundColor: ['#b2bec3','#ffeaa7','#dfe6e9','#55efc4','#636e72','#ff7675'],
                         borderWidth: 0,
                         spacing: 2,
-                        borderRadius: 4
+                        borderRadius: 3
                     }]
                 },
                 options: {
@@ -452,10 +451,10 @@ include '../../includes/header.php';
                     maintainAspectRatio: true,
                     cutout: '70%',
                     plugins: {
-                        centerText: { text: sTotal.toString(), subtext: 'PROYEK', color: '#2d3748' },
+                        centerText: { text: sTotal.toString(), subtext: 'PROYEK', color: '#dfe6e9' },
                         legend: {
                             position: 'bottom',
-                            labels: { usePointStyle: true, pointStyle: 'circle', padding: 10, font: { size: 10, weight: '600' }, color: '#718096' }
+                            labels: { usePointStyle: true, pointStyle: 'circle', padding: 8, font: { size: 9, weight: '600' }, color: '#b2bec3' }
                         },
                         tooltip: cqcTooltip
                     },
@@ -480,11 +479,11 @@ include '../../includes/header.php';
                             <?php echo $stats['remaining']; ?>
                         ],
                         backgroundColor: [
-                            cqcGrad(ctx2d, '#4a5568', '#2d3748'),
-                            cqcGrad(ctx2d, '#d69e2e', '#b7791f'),
-                            cqcGrad(ctx2d, '#38a169', '#276749')
+                            cqcGrad(ctx2d, '#636e72', '#2d3436'),
+                            cqcGrad(ctx2d, '#ffd32a', '#fdcb6e'),
+                            cqcGrad(ctx2d, '#00b894', '#00cec9')
                         ],
-                        borderRadius: 6,
+                        borderRadius: 4,
                         borderSkipped: false,
                         barPercentage: 0.55,
                         categoryPercentage: 0.7
@@ -504,13 +503,13 @@ include '../../includes/header.php';
                     scales: {
                         x: {
                             beginAtZero: true,
-                            grid: { color: 'rgba(0,0,0,0.04)', drawBorder: false },
+                            grid: { color: 'rgba(255,255,255,0.05)', drawBorder: false },
                             ticks: {
-                                color: '#a0aec0', font: { size: 10, weight: '500' },
+                                color: '#636e72', font: { size: 9, weight: '600' },
                                 callback: function(v) { return v >= 1e9 ? 'Rp '+(v/1e9).toFixed(1)+'B' : 'Rp '+(v/1e6).toFixed(0)+'M'; }
                             }
                         },
-                        y: { grid: { display: false }, ticks: { color: '#4a5568', font: { size: 11, weight: '600' } } }
+                        y: { grid: { display: false }, ticks: { color: '#dfe6e9', font: { size: 10, weight: '600' } } }
                     },
                     animation: { duration: 800, easing: 'easeOutQuart' }
                 }
@@ -529,12 +528,12 @@ include '../../includes/header.php';
                         data: [pVal, 100 - pVal],
                         backgroundColor: [
                             (function(){
-                                const g = progressCtx.getContext('2d').createLinearGradient(0,0,250,250);
-                                g.addColorStop(0, '#2d3748');
-                                g.addColorStop(1, '#4a5568');
+                                const g = progressCtx.getContext('2d').createLinearGradient(0,0,200,200);
+                                g.addColorStop(0, '#ffd32a');
+                                g.addColorStop(1, '#fdcb6e');
                                 return g;
                             })(),
-                            'rgba(160, 174, 192, 0.15)'
+                            'rgba(99, 110, 114, 0.2)'
                         ],
                         borderWidth: 0,
                         spacing: 2,
@@ -546,10 +545,10 @@ include '../../includes/header.php';
                     maintainAspectRatio: true,
                     cutout: '75%',
                     plugins: {
-                        centerText: { text: pVal + '%', subtext: 'PROGRESS', color: '#2d3748' },
+                        centerText: { text: pVal + '%', subtext: 'PROGRESS', color: '#ffd32a' },
                         legend: {
                             position: 'bottom',
-                            labels: { usePointStyle: true, pointStyle: 'circle', padding: 10, font: { size: 10, weight: '600' }, color: '#718096' }
+                            labels: { usePointStyle: true, pointStyle: 'circle', padding: 8, font: { size: 9, weight: '600' }, color: '#b2bec3' }
                         },
                         tooltip: {
                             ...cqcTooltip,
