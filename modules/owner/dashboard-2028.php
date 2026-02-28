@@ -826,7 +826,7 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            color: #1f2937;
+            color: #fbbf24;
             text-decoration: none;
         }
         
