@@ -110,99 +110,101 @@ include '../../includes/header.php';
 ?>
 
 <style>
-        /* CQC Detail Styles */
+        /* CQC Detail Styles - Compact & Clean */
         .cqc-detail-header {
-            background: linear-gradient(135deg, #0066CC 0%, #004499 100%);
-            color: white;
-            padding: 30px;
-            border-radius: 12px;
-            margin-bottom: 30px;
+            background: #fff;
+            padding: 10px 14px;
+            border-radius: 5px;
+            margin-bottom: 10px;
             display: flex;
             justify-content: space-between;
-            align-items: flex-start;
+            align-items: center;
+            border: 1px solid #e2e8f0;
+            border-left: 4px solid #f0b429;
         }
 
-        .cqc-detail-header h1 { font-size: 24px; margin-bottom: 10px; }
-        .cqc-project-meta { display: flex; gap: 20px; font-size: 14px; opacity: 0.9; }
+        .cqc-detail-header h1 { font-size: 14px; margin: 0 0 2px; color: #0d1f3c !important; font-weight: 700; }
+        .cqc-project-meta { display: flex; gap: 14px; font-size: 11px; color: #64748b; }
 
-        .cqc-detail-actions { display: flex; gap: 10px; }
+        .cqc-detail-actions { display: flex; gap: 6px; }
         .cqc-detail-actions a, .cqc-detail-actions button {
-            background: #FFD700; color: #0066CC; border: none; padding: 10px 20px;
-            border-radius: 6px; cursor: pointer; text-decoration: none; font-weight: 600; font-size: 13px;
+            background: #0d1f3c; color: #fff; border: none; padding: 5px 12px;
+            border-radius: 4px; cursor: pointer; text-decoration: none; font-weight: 600; font-size: 11px;
         }
-        .cqc-detail-actions a:hover, .cqc-detail-actions button:hover { background: #FFC700; }
+        .cqc-detail-actions a:hover, .cqc-detail-actions button:hover { background: #122a4e; }
 
-        .cqc-main-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 20px; margin-bottom: 30px; }
+        .cqc-main-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; margin-bottom: 12px; }
 
         .cqc-card {
-            background: var(--bg-secondary, white); border-radius: 12px; padding: 20px;
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.05);
+            background: #fff; border-radius: 5px; padding: 12px 14px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.06); border: 1px solid #e2e8f0;
         }
         .cqc-card h3 {
-            color: #0066CC; font-size: 18px; margin-bottom: 20px;
-            padding-bottom: 12px; border-bottom: 2px solid #FFD700;
+            color: #0d1f3c; font-size: 13px; margin-bottom: 10px;
+            padding-bottom: 6px; border-bottom: 2px solid #f0b429;
         }
 
-        .cqc-status-bar { display: flex; align-items: center; gap: 15px; margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--bg-tertiary, #eee); }
+        .cqc-status-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid #f1f5f9; }
 
-        .status-badge { padding: 8px 16px; border-radius: 20px; font-weight: 600; font-size: 13px; display: inline-block; }
-        .status-planning { background: #e3f2fd; color: #0066CC; }
-        .status-procurement { background: #fff3cd; color: #994500; }
-        .status-installation { background: #d1ecff; color: #0066CC; }
-        .status-testing { background: #c8e6c9; color: #2e7d32; }
-        .status-completed { background: #a5d6a7; color: #1b5e20; }
+        .status-badge { padding: 4px 10px; border-radius: 12px; font-weight: 600; font-size: 11px; display: inline-block; }
+        .status-planning { background: #e8f0fe; color: #0d1f3c; }
+        .status-procurement { background: #fef3cd; color: #8a6d00; }
+        .status-installation { background: #dbeafe; color: #0d1f3c; }
+        .status-testing { background: #d1fae5; color: #065f46; }
+        .status-completed { background: #a7f3d0; color: #064e3b; }
 
-        .cqc-progress-section { margin-bottom: 25px; }
-        .cqc-progress-bar { width: 100%; height: 12px; background: var(--bg-tertiary, #eee); border-radius: 6px; overflow: hidden; margin-bottom: 8px; }
-        .cqc-progress-fill { height: 100%; background: linear-gradient(90deg, #0066CC, #FFD700); transition: width 0.3s ease; }
-        .cqc-progress-text { display: flex; justify-content: space-between; font-size: 13px; color: var(--text-muted, #666); }
+        .cqc-progress-section { margin-bottom: 12px; }
+        .cqc-progress-bar { width: 100%; height: 8px; background: #f1f5f9; border-radius: 4px; overflow: hidden; margin-bottom: 4px; }
+        .cqc-progress-fill { height: 100%; background: linear-gradient(90deg, #0d1f3c, #f0b429); transition: width 0.3s ease; }
+        .cqc-progress-text { display: flex; justify-content: space-between; font-size: 11px; color: #64748b; }
 
-        .cqc-budget-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 15px; margin-bottom: 20px; }
-        .cqc-budget-item { border: 1px solid var(--bg-tertiary, #eee); border-radius: 8px; padding: 15px; text-align: center; }
-        .cqc-budget-label { font-size: 12px; color: var(--text-muted, #999); text-transform: uppercase; margin-bottom: 8px; }
-        .cqc-budget-value { font-size: 18px; font-weight: bold; color: #0066CC; }
-        .cqc-budget-item.warn .cqc-budget-value { color: #FFD700; }
+        .cqc-budget-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; margin-bottom: 10px; }
+        .cqc-budget-item { border: 1px solid #e2e8f0; border-radius: 5px; padding: 8px 10px; text-align: center; }
+        .cqc-budget-label { font-size: 10px; color: #94a3b8; text-transform: uppercase; margin-bottom: 4px; letter-spacing: 0.3px; }
+        .cqc-budget-value { font-size: 13px; font-weight: 700; color: #0d1f3c; }
+        .cqc-budget-item.warn .cqc-budget-value { color: #f0b429; }
 
-        .cqc-info-block { margin-bottom: 20px; padding-bottom: 20px; border-bottom: 1px solid var(--bg-tertiary, #eee); }
-        .cqc-info-label { font-size: 12px; color: var(--text-muted, #999); text-transform: uppercase; margin-bottom: 6px; font-weight: 600; }
-        .cqc-info-value { font-size: 14px; color: var(--text-primary, #333); font-weight: 500; }
+        .cqc-info-block { margin-bottom: 10px; padding-bottom: 10px; border-bottom: 1px solid #f1f5f9; }
+        .cqc-info-label { font-size: 10px; color: #94a3b8; text-transform: uppercase; margin-bottom: 3px; font-weight: 600; letter-spacing: 0.3px; }
+        .cqc-info-value { font-size: 12px; color: #334155; font-weight: 500; }
 
-        .cqc-category-item { display: flex; align-items: center; justify-content: space-between; padding: 12px; border-bottom: 1px solid var(--bg-tertiary, #eee); cursor: pointer; }
-        .cqc-category-item:hover { background: var(--bg-tertiary, #f9f9f9); }
-        .cqc-category-left { display: flex; align-items: center; gap: 12px; flex: 1; }
-        .cqc-category-icon { font-size: 24px; }
-        .cqc-category-info h4 { color: var(--text-primary, #333); font-size: 14px; margin-bottom: 3px; }
-        .cqc-category-info p { font-size: 12px; color: var(--text-muted, #999); }
-        .cqc-category-amount .amount { font-size: 14px; font-weight: bold; color: #0066CC; }
-        .cqc-category-amount .count { font-size: 12px; color: var(--text-muted, #999); }
+        .cqc-category-item { display: flex; align-items: center; justify-content: space-between; padding: 7px 4px; border-bottom: 1px solid #f1f5f9; cursor: pointer; }
+        .cqc-category-item:hover { background: #f8fafc; }
+        .cqc-category-left { display: flex; align-items: center; gap: 8px; flex: 1; }
+        .cqc-category-icon { font-size: 16px; }
+        .cqc-category-info h4 { color: #334155; font-size: 12px; margin-bottom: 1px; }
+        .cqc-category-info p { font-size: 10px; color: #94a3b8; }
+        .cqc-category-amount .amount { font-size: 12px; font-weight: 700; color: #0d1f3c; }
+        .cqc-category-amount .count { font-size: 10px; color: #94a3b8; }
 
-        .cqc-expenses-table { width: 100%; border-collapse: collapse; font-size: 13px; }
-        .cqc-expenses-table thead { background: var(--bg-tertiary, #f5f5f5); }
-        .cqc-expenses-table th { padding: 12px; text-align: left; color: var(--text-muted, #666); font-weight: 600; border-bottom: 2px solid var(--bg-tertiary, #e0e0e0); }
-        .cqc-expenses-table td { padding: 12px; border-bottom: 1px solid var(--bg-tertiary, #eee); }
+        .cqc-expenses-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+        .cqc-expenses-table thead { background: #0d1f3c; }
+        .cqc-expenses-table th { padding: 6px 8px; text-align: left; color: #fff; font-weight: 600; font-size: 10px; text-transform: uppercase; letter-spacing: 0.3px; }
+        .cqc-expenses-table td { padding: 6px 8px; border-bottom: 1px solid #f1f5f9; font-size: 11px; }
 
-        .cqc-modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 9999; padding: 20px; }
+        .cqc-modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4); z-index: 9999; padding: 20px; }
         .cqc-modal.active { display: flex; align-items: center; justify-content: center; }
-        .cqc-modal-content { background: var(--bg-secondary, white); border-radius: 12px; padding: 30px; max-width: 500px; width: 100%; box-shadow: 0 20px 60px rgba(0,0,0,0.3); }
-        .cqc-modal-header { font-size: 20px; font-weight: bold; color: #0066CC; margin-bottom: 20px; }
-        .cqc-form-group { margin-bottom: 15px; }
-        .cqc-form-group label { display: block; font-weight: 600; color: var(--text-primary, #333); margin-bottom: 6px; font-size: 14px; }
+        .cqc-modal-content { background: #fff; border-radius: 6px; padding: 16px 20px; max-width: 420px; width: 100%; box-shadow: 0 10px 40px rgba(0,0,0,0.2); }
+        .cqc-modal-header { font-size: 14px; font-weight: 700; color: #0d1f3c; margin-bottom: 12px; padding-bottom: 8px; border-bottom: 2px solid #f0b429; }
+        .cqc-form-group { margin-bottom: 10px; }
+        .cqc-form-group label { display: block; font-weight: 600; color: #334155; margin-bottom: 4px; font-size: 11px; }
         .cqc-form-group input, .cqc-form-group select, .cqc-form-group textarea {
-            width: 100%; padding: 10px; border: 1px solid var(--bg-tertiary, #ddd); border-radius: 6px;
-            font-family: inherit; font-size: 14px; background: var(--bg-primary, white); color: var(--text-primary, #333);
+            width: 100%; padding: 6px 8px; border: 1px solid #e2e8f0; border-radius: 4px;
+            font-family: inherit; font-size: 12px; background: #fff; color: #334155;
         }
-        .cqc-form-group input:focus, .cqc-form-group select:focus, .cqc-form-group textarea:focus { outline: none; border-color: #0066CC; box-shadow: 0 0 0 3px rgba(0,102,204,0.1); }
-        .cqc-modal-actions { display: flex; gap: 10px; margin-top: 25px; }
-        .cqc-modal-actions button { flex: 1; padding: 10px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; }
-        .cqc-btn-submit { background: linear-gradient(135deg, #0066CC 0%, #004499 100%); color: white; }
-        .cqc-btn-cancel { background: var(--bg-tertiary, #f0f0f0); color: var(--text-primary, #333); }
+        .cqc-form-group input:focus, .cqc-form-group select:focus, .cqc-form-group textarea:focus { outline: none; border-color: #f0b429; box-shadow: 0 0 0 2px rgba(240,180,41,0.15); }
+        .cqc-modal-actions { display: flex; gap: 8px; margin-top: 14px; }
+        .cqc-modal-actions button { flex: 1; padding: 7px; border: none; border-radius: 4px; font-weight: 600; cursor: pointer; font-size: 11px; }
+        .cqc-btn-submit { background: #0d1f3c; color: white; }
+        .cqc-btn-submit:hover { background: #122a4e; }
+        .cqc-btn-cancel { background: #f1f5f9; color: #334155; }
 
-        .cqc-alert { background: #d4edda; border: 1px solid #c3e6cb; color: #155724; padding: 12px; border-radius: 6px; margin-bottom: 20px; font-size: 13px; }
+        .cqc-alert { background: #d4edda; border: 1px solid #c3e6cb; color: #155724; padding: 8px 12px; border-radius: 4px; margin-bottom: 10px; font-size: 11px; }
 
         @media (max-width: 768px) {
             .cqc-main-grid { grid-template-columns: 1fr; }
             .cqc-budget-grid { grid-template-columns: 1fr; }
-            .cqc-detail-header { flex-direction: column; gap: 15px; }
+            .cqc-detail-header { flex-direction: column; gap: 8px; }
         }
 </style>
 
@@ -242,7 +244,7 @@ include '../../includes/header.php';
                     </div>
 
                     <div class="cqc-progress-section">
-                        <strong style="color: #0066CC;">Progress Proyek</strong>
+                        <strong style="color: #0d1f3c; font-size: 11px;">Progress Proyek</strong>
                         <div class="cqc-progress-bar">
                             <div class="cqc-progress-fill" style="width: <?php echo $project['progress_percentage']; ?>%"></div>
                         </div>
@@ -253,7 +255,7 @@ include '../../includes/header.php';
                     </div>
 
                     <!-- Budget Info -->
-                    <h3 style="margin-top: 25px;">💰 Budget & Pengeluaran</h3>
+                    <h3 style="margin-top: 12px;">💰 Budget & Pengeluaran</h3>
                     <div class="cqc-budget-grid">
                         <div class="cqc-budget-item">
                             <div class="cqc-budget-label">Budget Total</div>
@@ -274,9 +276,9 @@ include '../../includes/header.php';
                         $usage = $project['budget_idr'] > 0 ? (($project['spent_idr'] ?? 0) / $project['budget_idr'] * 100) : 0;
                     ?>
                     <div class="cqc-progress-section">
-                        <strong style="color: #0066CC;">Penggunaan Budget</strong>
+                        <strong style="color: #0d1f3c; font-size: 11px;">Penggunaan Budget</strong>
                         <div class="cqc-progress-bar">
-                            <div class="cqc-progress-fill" style="width: <?php echo min($usage, 100); ?>%; background: <?php echo $usage > 90 ? '#ff4444' : 'linear-gradient(90deg, #0066CC, #FFD700)'; ?>;"></div>
+                            <div class="cqc-progress-fill" style="width: <?php echo min($usage, 100); ?>%; background: <?php echo $usage > 90 ? '#ef4444' : 'linear-gradient(90deg, #0d1f3c, #f0b429)'; ?>;"></div>
                         </div>
                         <div class="cqc-progress-text">
                             <span><?php echo number_format($usage, 1); ?>% Digunakan</span>
@@ -286,7 +288,7 @@ include '../../includes/header.php';
                 </div>
 
                 <!-- Expenses by Category -->
-                <div class="cqc-card" style="margin-top: 20px;">
+                <div class="cqc-card" style="margin-top: 8px;">
                     <h3>📋 Pengeluaran per Kategori</h3>
                     <div>
                         <?php foreach ($categories as $cat): ?>
@@ -307,10 +309,10 @@ include '../../includes/header.php';
                 </div>
 
                 <!-- Recent Expenses -->
-                <div class="cqc-card" style="margin-top: 20px;">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <div class="cqc-card" style="margin-top: 8px;">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
                         <h3 style="margin: 0;">📝 Pengeluaran Terbaru</h3>
-                        <button style="background: #0066CC; color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: 600;" onclick="openExpenseModal()">+ Tambah</button>
+                        <button style="background: #0d1f3c; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 11px;" onclick="openExpenseModal()">+ Tambah</button>
                     </div>
                     
                     <?php if (!empty($expenses)): ?>
@@ -327,16 +329,16 @@ include '../../includes/header.php';
                                 <?php foreach ($expenses as $exp): ?>
                                     <tr>
                                         <td><?php echo htmlspecialchars(($exp['category_icon'] ?? '') . ' ' . $exp['category_name']); ?></td>
-                                        <td style="color: var(--text-muted, #999); font-size: 12px;"><?php echo date('d M Y', strtotime($exp['expense_date'])); ?></td>
+                                        <td style="color: #94a3b8; font-size: 10px;"><?php echo date('d M Y', strtotime($exp['expense_date'])); ?></td>
                                         <td><?php echo htmlspecialchars($exp['description'] ?? '-'); ?></td>
-                                        <td style="text-align: right; font-weight: 600; color: #0066CC;">Rp <?php echo number_format($exp['amount'], 0); ?></td>
+                                        <td style="text-align: right; font-weight: 600; color: #0d1f3c;">Rp <?php echo number_format($exp['amount'], 0); ?></td>
                                     </tr>
                                 <?php endforeach; ?>
                             </tbody>
                         </table>
                     <?php else: ?>
-                        <p style="text-align: center; color: var(--text-muted, #999); padding: 30px 0;">Belum ada pengeluaran yang dicatat.</p>
-                        <button style="width: 100%; background: #0066CC; color: white; border: none; padding: 12px; border-radius: 6px; cursor: pointer; font-weight: 600; margin-top: 20px;" onclick="openExpenseModal()">📝 Tambah Pengeluaran Pertama</button>
+                        <p style="text-align: center; color: #94a3b8; padding: 16px 0; font-size: 11px;">Belum ada pengeluaran yang dicatat.</p>
+                        <button style="width: 100%; background: #0d1f3c; color: white; border: none; padding: 8px; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 11px;" onclick="openExpenseModal()">📝 Tambah Pengeluaran Pertama</button>
                     <?php endif; ?>
                 </div>
             </div>
@@ -355,7 +357,7 @@ include '../../includes/header.php';
                         <div class="cqc-info-label">Klien</div>
                         <div class="cqc-info-value"><?php echo htmlspecialchars($project['client_name'] ?? '-'); ?></div>
                         <?php if ($project['client_phone']): ?>
-                            <div style="font-size: 12px; color: var(--text-muted, #999); margin-top: 4px;">☎️ <?php echo htmlspecialchars($project['client_phone']); ?></div>
+                            <div style="font-size: 10px; color: #94a3b8; margin-top: 2px;">☎️ <?php echo htmlspecialchars($project['client_phone']); ?></div>
                         <?php endif; ?>
                     </div>
 
@@ -371,12 +373,12 @@ include '../../includes/header.php';
 
                     <div class="cqc-info-block">
                         <div class="cqc-info-label">Tipe Panel</div>
-                        <div class="cqc-info-value" style="font-size: 13px;"><?php echo htmlspecialchars($project['panel_type'] ?? '-'); ?></div>
+                        <div class="cqc-info-value"><?php echo htmlspecialchars($project['panel_type'] ?? '-'); ?></div>
                     </div>
 
                     <div class="cqc-info-block">
                         <div class="cqc-info-label">Inverter</div>
-                        <div class="cqc-info-value" style="font-size: 13px;"><?php echo htmlspecialchars($project['inverter_type'] ?? '-'); ?></div>
+                        <div class="cqc-info-value"><?php echo htmlspecialchars($project['inverter_type'] ?? '-'); ?></div>
                     </div>
 
                     <div class="cqc-info-block">
