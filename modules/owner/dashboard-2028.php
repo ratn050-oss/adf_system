@@ -283,8 +283,9 @@ if ($isCQC) {
         }
         unset($proj);
         
-        // Get recent expenses per project (last 5 per project)
+        // Get recent expenses per project - try cqc_project_expenses first, then cash_book
         foreach ($cqcProjects as $proj) {
+            // Try from cqc_project_expenses
             $stmt = $cqcPdo->prepare("
                 SELECT description, amount, expense_date, category 
                 FROM cqc_project_expenses 
@@ -293,7 +294,29 @@ if ($isCQC) {
                 LIMIT 5
             ");
             $stmt->execute([$proj['id']]);
-            $cqcExpenses[$proj['id']] = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $expenses = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            // If no expenses in cqc_project_expenses, try cash_book with project reference
+            if (empty($expenses)) {
+                try {
+                    $stmt = $cqcPdo->prepare("
+                        SELECT cb.description, cb.amount, cb.transaction_date as expense_date, 
+                               COALESCE(c.category_name, 'Lainnya') as category
+                        FROM cash_book cb
+                        LEFT JOIN categories c ON cb.category_id = c.id
+                        WHERE cb.transaction_type = 'expense'
+                        AND (cb.description LIKE ? OR cb.description LIKE ?)
+                        ORDER BY cb.transaction_date DESC, cb.id DESC
+                        LIMIT 5
+                    ");
+                    $stmt->execute(['%' . $proj['project_code'] . '%', '%' . $proj['project_name'] . '%']);
+                    $expenses = $stmt->fetchAll(PDO::FETCH_ASSOC);
+                } catch (Exception $e) {
+                    // cash_book query failed, keep empty
+                }
+            }
+            
+            $cqcExpenses[$proj['id']] = $expenses;
         }
     } catch (Exception $e) {
         error_log('CQC project data error: ' . $e->getMessage());
