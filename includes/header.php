@@ -120,18 +120,27 @@ if (isset($_SESSION['user_id'])) {
                 ?>
                 <div style="display: flex; align-items: center; gap: 0.875rem;">
                     <?php if ($logoPath): ?>
+                        <?php if (ACTIVE_BUSINESS_ID === 'cqc'): ?>
+                        <!-- CQC: rectangular logo, no company name -->
+                        <div style="width: 100%; border-radius: var(--radius-md); background: #0f172a; padding: 6px 10px; display: flex; align-items: center; justify-content: center; border: 2px solid #1e293b;">
+                            <img src="<?php echo $logoPath; ?>" alt="CQC" style="width: 100%; max-height: 40px; border-radius: 4px; object-fit: contain;">
+                        </div>
+                        <?php else: ?>
                         <div style="width: 48px; height: 48px; border-radius: var(--radius-md); background: #0f172a; padding: 4px; display: flex; align-items: center; justify-content: center; border: 2px solid #1e293b;">
                             <img src="<?php echo $logoPath; ?>" alt="<?php echo htmlspecialchars($displayCompanyName); ?>" style="width: 100%; height: 100%; border-radius: 6px; object-fit: cover;">
                         </div>
+                        <?php endif; ?>
                     <?php else: ?>
                         <div style="width: 48px; height: 48px; border-radius: var(--radius-md); background: linear-gradient(135deg, <?php echo BUSINESS_COLOR; ?>, <?php echo BUSINESS_COLOR; ?>dd); display: flex; align-items: center; justify-content: center; border: 2px solid #1e293b;">
                             <span style="font-size: 1.5rem; font-weight: 800; color: white;"><?php echo BUSINESS_ICON; ?></span>
                         </div>
                     <?php endif; ?>
+                    <?php if (ACTIVE_BUSINESS_ID !== 'cqc'): ?>
                     <div style="flex: 1;">
                         <h1 class="logo" style="margin: 0; font-size: 1rem;"><?php echo htmlspecialchars($displayCompanyName); ?></h1>
                         <p style="color: var(--text-muted); font-size: 0.75rem; margin: 0; margin-top: 0.25rem;"><?php echo ucfirst(BUSINESS_TYPE); ?> System</p>
                     </div>
+                    <?php endif; ?>
                 </div>
                 
                 <!-- Business Switcher Dropdown (Only show if user has multiple business access) -->
