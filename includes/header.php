@@ -189,7 +189,7 @@ if (isset($_SESSION['user_id'])) {
                     <?php endif; ?>
                     
                     <!-- CQC Projects Menu (Solar Panel) -->
-                    <?php if (isModuleEnabled('cqc-projects')): ?>
+                    <?php if ($auth->hasPermission('cqc-projects')): ?>
                     <li class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/cqc-projects/') !== false) ? 'open' : ''; ?>">
                         <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo activeMenu('cqc-projects'); ?>">
                             <i data-feather="sun" class="nav-icon"></i>

@@ -66,10 +66,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Clear existing permissions for this user-business
                 $pdo->prepare("DELETE FROM user_menu_permissions WHERE user_id = ? AND business_id = ?")->execute([$assignUserId, $assignBusinessId]);
                 
-                // Add new permissions
-                $permStmt = $pdo->prepare("INSERT INTO user_menu_permissions (user_id, business_id, menu_id, can_view, can_create, can_edit, can_delete) VALUES (?, ?, ?, 1, 1, 1, 1)");
+                // Get menu_code mapping
+                $menuCodes = [];
+                $menuQuery = $pdo->query("SELECT id, menu_code FROM menu_items");
+                while ($row = $menuQuery->fetch(PDO::FETCH_ASSOC)) {
+                    $menuCodes[$row['id']] = $row['menu_code'];
+                }
+                
+                // Add new permissions with menu_code
+                $permStmt = $pdo->prepare("INSERT INTO user_menu_permissions (user_id, business_id, menu_id, menu_code, can_view, can_create, can_edit, can_delete) VALUES (?, ?, ?, ?, 1, 1, 1, 1)");
                 foreach ($selectedMenus as $menuId) {
-                    $permStmt->execute([$assignUserId, $assignBusinessId, $menuId]);
+                    $menuCode = $menuCodes[$menuId] ?? '';
+                    $permStmt->execute([$assignUserId, $assignBusinessId, $menuId, $menuCode]);
                 }
                 
                 $pdo->commit();
@@ -218,7 +226,14 @@ if ($userId && $businessId) {
     $permStmt = $pdo->prepare("SELECT * FROM user_menu_permissions WHERE user_id = ? AND business_id = ?");
     $permStmt->execute([$userId, $businessId]);
     while ($row = $permStmt->fetch(PDO::FETCH_ASSOC)) {
-        $userPermissions[$row['menu_id']] = $row;
+        // Index by menu_id if available
+        if ($row['menu_id']) {
+            $userPermissions[$row['menu_id']] = $row;
+        }
+        // Also index by menu_code for backwards compatibility (when menu_id is NULL)
+        if ($row['menu_code']) {
+            $userPermissions['code_' . $row['menu_code']] = $row;
+        }
     }
 }
 
@@ -306,7 +321,7 @@ require_once __DIR__ . '/includes/header.php';
                             </thead>
                             <tbody>
                                 <?php foreach ($businessMenus as $menu): ?>
-                                <?php $perm = $userPermissions[$menu['id']] ?? null; ?>
+                                <?php $perm = $userPermissions[$menu['id']] ?? $userPermissions['code_' . $menu['menu_code']] ?? null; ?>
                                 <tr>
                                     <td>
                                         <i class="<?php echo htmlspecialchars($menu['menu_icon']); ?> me-2"></i>
