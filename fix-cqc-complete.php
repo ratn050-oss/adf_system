@@ -6,22 +6,21 @@
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
+// Use system config
+define('APP_ACCESS', true);
+require_once __DIR__ . '/config/config.php';
+
+$dbHost = DB_HOST;
+$dbUser = DB_USER;
+$dbPass = DB_PASS;
+$systemDb = DB_NAME;
+
 $isHosting = (strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost') === false);
-if ($isHosting) {
-    $dbHost = 'localhost';
-    $dbUser = 'adfb2574_cqc';
-    $dbPass = '@Noc2025';
-    $systemDb = 'adfb2574_adf';
-} else {
-    $dbHost = 'localhost';
-    $dbUser = 'root';
-    $dbPass = '';
-    $systemDb = 'adf_system';
-}
 
 echo "<pre style='font-size:14px; line-height:1.8;'>\n";
 echo "=== FIX CQC COMPLETE ===\n";
 echo "Environment: " . ($isHosting ? 'HOSTING' : 'LOCAL') . "\n";
+echo "Using: $dbUser @ $systemDb\n";
 echo "Date: " . date('Y-m-d H:i:s') . "\n\n";
 
 try {
