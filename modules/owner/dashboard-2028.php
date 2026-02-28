@@ -266,6 +266,73 @@ if ($isCQC) {
         require_once __DIR__ . '/../cqc-projects/db-helper.php';
         $cqcPdo = getCQCDatabaseConnection();
         
+        // ====== GET CQC FINANCIAL STATS ======
+        $today = date('Y-m-d');
+        $thisMonth = date('Y-m');
+        
+        // Try to get income/expense from cash_book if exists
+        $hasCashBook = false;
+        try {
+            $tableCheck = $cqcPdo->query("SHOW TABLES LIKE 'cash_book'");
+            $hasCashBook = ($tableCheck && $tableCheck->rowCount() > 0);
+        } catch (Exception $e) {}
+        
+        if ($hasCashBook) {
+            // Get stats from cash_book
+            try {
+                $stmt = $cqcPdo->prepare("SELECT COALESCE(SUM(amount), 0) FROM cash_book WHERE DATE(transaction_date) = ? AND transaction_type = 'income'");
+                $stmt->execute([$today]);
+                $stats['today_income'] = (float)$stmt->fetchColumn();
+                
+                $stmt = $cqcPdo->prepare("SELECT COALESCE(SUM(amount), 0) FROM cash_book WHERE DATE(transaction_date) = ? AND transaction_type = 'expense'");
+                $stmt->execute([$today]);
+                $stats['today_expense'] = (float)$stmt->fetchColumn();
+                
+                $stmt = $cqcPdo->prepare("SELECT COALESCE(SUM(amount), 0) FROM cash_book WHERE DATE_FORMAT(transaction_date, '%Y-%m') = ? AND transaction_type = 'income'");
+                $stmt->execute([$thisMonth]);
+                $stats['month_income'] = (float)$stmt->fetchColumn();
+                
+                $stmt = $cqcPdo->prepare("SELECT COALESCE(SUM(amount), 0) FROM cash_book WHERE DATE_FORMAT(transaction_date, '%Y-%m') = ? AND transaction_type = 'expense'");
+                $stmt->execute([$thisMonth]);
+                $stats['month_expense'] = (float)$stmt->fetchColumn();
+            } catch (Exception $e) {
+                // cash_book query failed
+            }
+        }
+        
+        // Also add project expenses to stats
+        try {
+            // Today expense from cqc_project_expenses
+            $stmt = $cqcPdo->prepare("SELECT COALESCE(SUM(amount), 0) FROM cqc_project_expenses WHERE expense_date = ?");
+            $stmt->execute([$today]);
+            $projectExpenseToday = (float)$stmt->fetchColumn();
+            $stats['today_expense'] += $projectExpenseToday;
+            
+            // Month expense from cqc_project_expenses
+            $stmt = $cqcPdo->prepare("SELECT COALESCE(SUM(amount), 0) FROM cqc_project_expenses WHERE DATE_FORMAT(expense_date, '%Y-%m') = ?");
+            $stmt->execute([$thisMonth]);
+            $projectExpenseMonth = (float)$stmt->fetchColumn();
+            $stats['month_expense'] += $projectExpenseMonth;
+            
+            // Total budget as "income" (representing project values)
+            $stmt = $cqcPdo->query("SELECT COALESCE(SUM(budget_idr), 0) FROM cqc_projects WHERE status != 'completed'");
+            $totalBudget = (float)$stmt->fetchColumn();
+            if ($stats['month_income'] == 0) {
+                $stats['month_income'] = $totalBudget;
+            }
+        } catch (Exception $e) {
+            // amount_idr not found, try amount
+            try {
+                $stmt = $cqcPdo->prepare("SELECT COALESCE(SUM(amount), 0) FROM cqc_project_expenses WHERE expense_date = ?");
+                $stmt->execute([$today]);
+                $stats['today_expense'] += (float)$stmt->fetchColumn();
+                
+                $stmt = $cqcPdo->prepare("SELECT COALESCE(SUM(amount), 0) FROM cqc_project_expenses WHERE DATE_FORMAT(expense_date, '%Y-%m') = ?");
+                $stmt->execute([$thisMonth]);
+                $stats['month_expense'] += (float)$stmt->fetchColumn();
+            } catch (Exception $e2) {}
+        }
+        
         // Simple query - just get projects
         $stmt = $cqcPdo->query("
             SELECT id, project_name, project_code, status, 
