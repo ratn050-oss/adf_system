@@ -267,7 +267,8 @@ if ($isCQC) {
             SELECT p.id, p.project_name, p.project_code, p.status, 
                    p.progress_percentage, p.budget_idr, p.spent_idr,
                    p.client_name, p.location, p.solar_capacity_kwp,
-                   COALESCE(SUM(e.amount), 0) as actual_spent
+                   p.start_date, p.estimated_completion, p.end_date,
+                   COALESCE(SUM(e.amount_idr), 0) as actual_spent
             FROM cqc_projects p
             LEFT JOIN cqc_project_expenses e ON p.id = e.project_id
             GROUP BY p.id
@@ -287,7 +288,8 @@ if ($isCQC) {
         foreach ($cqcProjects as $proj) {
             // Try from cqc_project_expenses
             $stmt = $cqcPdo->prepare("
-                SELECT description, amount, expense_date, category 
+                SELECT description, amount_idr as amount, expense_date, 
+                       COALESCE((SELECT category_name FROM cqc_expense_categories ec WHERE ec.id = cqc_project_expenses.expense_category_id), 'Lainnya') as category 
                 FROM cqc_project_expenses 
                 WHERE project_id = ? 
                 ORDER BY expense_date DESC, id DESC 
@@ -1453,22 +1455,22 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
             $totalRemaining = $totalBudget - $totalSpent;
             $avgProgress = count($cqcProjects) > 0 ? round(array_sum(array_column($cqcProjects, 'progress_percentage')) / count($cqcProjects)) : 0;
             ?>
-            <div style="display: flex; gap: 12px; margin-bottom: 18px; padding: 14px 16px; background: linear-gradient(135deg, #fafafa 0%, #f5f5f5 100%); border-radius: 12px;">
-                <div style="flex: 1; text-align: center; padding: 6px 0; border-right: 1px solid #e5e7eb;">
-                    <div style="font-size: 20px; font-weight: 700; color: #374151; letter-spacing: -0.5px;"><?php echo count($cqcProjects); ?></div>
-                    <div style="font-size: 9px; color: #9ca3af; font-weight: 500; text-transform: uppercase; letter-spacing: 0.8px; margin-top: 2px;">Proyek</div>
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 20px;">
+                <div style="text-align: center; padding: 14px 10px; background: #fff; border-radius: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
+                    <div style="font-size: 24px; font-weight: 800; color: #111827;"><?php echo count($cqcProjects); ?></div>
+                    <div style="font-size: 10px; color: #9ca3af; font-weight: 500; margin-top: 4px;">Proyek</div>
                 </div>
-                <div style="flex: 2; text-align: center; padding: 6px 0; border-right: 1px solid #e5e7eb;">
-                    <div style="font-size: 12px; font-weight: 600; color: #374151; font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace; letter-spacing: -0.3px;">Rp <?php echo number_format($totalBudget, 0, ',', '.'); ?></div>
-                    <div style="font-size: 9px; color: #9ca3af; font-weight: 500; text-transform: uppercase; letter-spacing: 0.8px; margin-top: 2px;">Total Budget</div>
+                <div style="text-align: center; padding: 14px 10px; background: #fff; border-radius: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
+                    <div style="font-size: 13px; font-weight: 700; color: #374151; font-family: 'Inter', system-ui;">Rp <?php echo number_format($totalBudget, 0, ',', '.'); ?></div>
+                    <div style="font-size: 10px; color: #9ca3af; font-weight: 500; margin-top: 4px;">Total Budget</div>
                 </div>
-                <div style="flex: 2; text-align: center; padding: 6px 0; border-right: 1px solid #e5e7eb;">
-                    <div style="font-size: 12px; font-weight: 600; color: #f59e0b; font-family: 'SF Mono', Monaco, 'Cascadia Code', monospace; letter-spacing: -0.3px;">Rp <?php echo number_format($totalSpent, 0, ',', '.'); ?></div>
-                    <div style="font-size: 9px; color: #9ca3af; font-weight: 500; text-transform: uppercase; letter-spacing: 0.8px; margin-top: 2px;">Terpakai</div>
+                <div style="text-align: center; padding: 14px 10px; background: #fff; border-radius: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
+                    <div style="font-size: 13px; font-weight: 700; color: #f59e0b; font-family: 'Inter', system-ui;">Rp <?php echo number_format($totalSpent, 0, ',', '.'); ?></div>
+                    <div style="font-size: 10px; color: #9ca3af; font-weight: 500; margin-top: 4px;">Terpakai</div>
                 </div>
-                <div style="flex: 1; text-align: center; padding: 6px 0;">
-                    <div style="font-size: 20px; font-weight: 700; color: #10b981; letter-spacing: -0.5px;"><?php echo $avgProgress; ?>%</div>
-                    <div style="font-size: 9px; color: #9ca3af; font-weight: 500; text-transform: uppercase; letter-spacing: 0.8px; margin-top: 2px;">Progress</div>
+                <div style="text-align: center; padding: 14px 10px; background: #fff; border-radius: 14px; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
+                    <div style="font-size: 24px; font-weight: 800; color: #10b981;"><?php echo $avgProgress; ?>%</div>
+                    <div style="font-size: 10px; color: #9ca3af; font-weight: 500; margin-top: 4px;">Progress</div>
                 </div>
             </div>
             
@@ -1486,65 +1488,92 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
                     $statusColor = $statusColors[$proj['status']] ?? '#6b7280';
                     $expenses = $cqcExpenses[$proj['id']] ?? [];
                 ?>
-                <div class="cqc-project-card" onclick="toggleExpenseDetail(<?php echo $idx; ?>)" style="background: #fff; border-radius: 14px; padding: 16px; border: 1px solid #e8e8e8; cursor: pointer; transition: all 0.2s ease;" onmouseover="this.style.borderColor='#f59e0b'; this.style.boxShadow='0 6px 20px rgba(245,158,11,0.12)';" onmouseout="this.style.borderColor='#e8e8e8'; this.style.boxShadow='none';">
+                <?php 
+                    $kwp = floatval($proj['solar_capacity_kwp'] ?? 0);
+                    $startDate = $proj['start_date'] ?? null;
+                    $estCompletion = $proj['estimated_completion'] ?? null;
+                ?>
+                <div class="cqc-project-card" onclick="toggleExpenseDetail(<?php echo $idx; ?>)" style="background: #fff; border-radius: 16px; padding: 18px; border: none; box-shadow: 0 2px 12px rgba(0,0,0,0.06); cursor: pointer; transition: all 0.25s cubic-bezier(0.4,0,0.2,1);" onmouseover="this.style.transform='translateY(-3px)'; this.style.boxShadow='0 12px 32px rgba(245,158,11,0.15)';" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 12px rgba(0,0,0,0.06)';">
                     <!-- Header -->
-                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
+                    <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 14px;">
                         <div>
-                            <div style="font-size: 9px; color: #f59e0b; font-weight: 600; letter-spacing: 0.8px;"><?php echo htmlspecialchars($proj['project_code']); ?></div>
-                            <div style="font-size: 13px; font-weight: 600; color: #1f2937; margin-top: 2px; letter-spacing: -0.2px;"><?php echo htmlspecialchars($proj['project_name']); ?></div>
+                            <div style="font-size: 10px; color: #f59e0b; font-weight: 700; letter-spacing: 1px; font-family: system-ui;"><?php echo htmlspecialchars($proj['project_code']); ?></div>
+                            <div style="font-size: 14px; font-weight: 600; color: #111827; margin-top: 3px; line-height: 1.3;"><?php echo htmlspecialchars($proj['project_name']); ?></div>
                         </div>
-                        <span style="display:inline-block; padding:4px 10px; border-radius:16px; font-size:9px; font-weight:600; background: <?php echo $statusColor; ?>12; color: <?php echo $statusColor; ?>;"><?php echo $statusLabel; ?></span>
+                        <span style="display:inline-block; padding:5px 12px; border-radius:20px; font-size:10px; font-weight:600; background: <?php echo $statusColor; ?>15; color: <?php echo $statusColor; ?>; letter-spacing: 0.3px;"><?php echo $statusLabel; ?></span>
+                    </div>
+                    
+                    <!-- Project Info - KVA, Dates -->
+                    <div style="display: flex; gap: 8px; margin-bottom: 14px; flex-wrap: wrap;">
+                        <?php if ($kwp > 0): ?>
+                        <div style="display: inline-flex; align-items: center; gap: 4px; padding: 5px 10px; background: linear-gradient(135deg, #fef3c7, #fde68a); border-radius: 8px;">
+                            <span style="font-size: 12px;">⚡</span>
+                            <span style="font-size: 11px; font-weight: 600; color: #92400e;"><?php echo number_format($kwp, 1); ?> kWp</span>
+                        </div>
+                        <?php endif; ?>
+                        <?php if ($startDate): ?>
+                        <div style="display: inline-flex; align-items: center; gap: 4px; padding: 5px 10px; background: #f0fdf4; border-radius: 8px;">
+                            <span style="font-size: 10px;">🚀</span>
+                            <span style="font-size: 10px; font-weight: 500; color: #166534;"><?php echo date('d M Y', strtotime($startDate)); ?></span>
+                        </div>
+                        <?php endif; ?>
+                        <?php if ($estCompletion): ?>
+                        <div style="display: inline-flex; align-items: center; gap: 4px; padding: 5px 10px; background: #eff6ff; border-radius: 8px;">
+                            <span style="font-size: 10px;">🎯</span>
+                            <span style="font-size: 10px; font-weight: 500; color: #1e40af;"><?php echo date('d M Y', strtotime($estCompletion)); ?></span>
+                        </div>
+                        <?php endif; ?>
                     </div>
                     
                     <!-- Pie Chart - Compact -->
-                    <div style="position: relative; width: 110px; height: 110px; margin: 0 auto 12px; background: #fff; border-radius: 50%;">
+                    <div style="position: relative; width: 100px; height: 100px; margin: 0 auto 14px;">
                         <canvas id="cqcPie<?php echo $idx; ?>"></canvas>
                         <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;">
-                            <div style="font-size: 18px; font-weight: 700; color: #1f2937; line-height: 1; letter-spacing: -0.5px;"><?php echo $progress; ?>%</div>
-                            <div style="font-size: 8px; color: #9ca3af; text-transform: uppercase; letter-spacing: 0.5px; margin-top: 2px;">Progress</div>
+                            <div style="font-size: 20px; font-weight: 800; color: #111827; line-height: 1; letter-spacing: -1px;"><?php echo $progress; ?>%</div>
                         </div>
                     </div>
                     
-                    <!-- Financial Stats - Modern compact -->
-                    <div style="background: #f8f9fa; border-radius: 10px; padding: 10px;">
-                        <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #eee;">
-                            <span style="font-size: 10px; color: #6b7280;">💰 Budget</span>
-                            <span style="font-size: 10px; font-weight: 600; color: #374151; font-family: 'SF Mono', Monaco, monospace;">Rp <?php echo number_format($budget, 0, ',', '.'); ?></span>
+                    <!-- Financial Stats - Elegant minimal -->
+                    <div style="background: linear-gradient(135deg, #f9fafb, #f3f4f6); border-radius: 12px; padding: 12px;">
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 4px;">
+                            <span style="font-size: 11px; color: #6b7280; font-weight: 500;">Budget</span>
+                            <span style="font-size: 12px; font-weight: 700; color: #374151; font-family: 'Inter', system-ui, sans-serif;">Rp <?php echo number_format($budget, 0, ',', '.'); ?></span>
                         </div>
-                        <div style="display: flex; justify-content: space-between; padding: 6px 0; border-bottom: 1px solid #eee;">
-                            <span style="font-size: 10px; color: #6b7280;">📤 Terpakai</span>
-                            <span style="font-size: 10px; font-weight: 600; color: #f59e0b; font-family: 'SF Mono', Monaco, monospace;">Rp <?php echo number_format($spent, 0, ',', '.'); ?></span>
+                        <div style="height: 1px; background: linear-gradient(90deg, transparent, #e5e7eb, transparent); margin: 0 10px;"></div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 4px;">
+                            <span style="font-size: 11px; color: #6b7280; font-weight: 500;">Terpakai</span>
+                            <span style="font-size: 12px; font-weight: 700; color: #f59e0b; font-family: 'Inter', system-ui, sans-serif;">Rp <?php echo number_format($spent, 0, ',', '.'); ?></span>
                         </div>
-                        <div style="display: flex; justify-content: space-between; padding: 6px 0;">
-                            <span style="font-size: 10px; color: #6b7280;">💵 Sisa</span>
-                            <span style="font-size: 10px; font-weight: 600; color: <?php echo $remaining >= 0 ? '#10b981' : '#ef4444'; ?>; font-family: 'SF Mono', Monaco, monospace;">Rp <?php echo number_format($remaining, 0, ',', '.'); ?></span>
+                        <div style="height: 1px; background: linear-gradient(90deg, transparent, #e5e7eb, transparent); margin: 0 10px;"></div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 8px 4px;">
+                            <span style="font-size: 11px; color: #6b7280; font-weight: 500;">Sisa</span>
+                            <span style="font-size: 12px; font-weight: 700; color: <?php echo $remaining >= 0 ? '#10b981' : '#ef4444'; ?>; font-family: 'Inter', system-ui, sans-serif;">Rp <?php echo number_format($remaining, 0, ',', '.'); ?></span>
                         </div>
                     </div>
                     
                     <!-- Expense Detail (hidden by default) -->
-                    <div id="expenseDetail<?php echo $idx; ?>" style="display: none; margin-top: 12px; padding-top: 12px; border-top: 1px dashed #e5e7eb;">
-                        <div style="font-size: 9px; font-weight: 600; color: #6b7280; text-transform: uppercase; letter-spacing: 0.8px; margin-bottom: 8px;">📋 Pengeluaran Terbaru</div>
+                    <div id="expenseDetail<?php echo $idx; ?>" style="display: none; margin-top: 14px; padding-top: 14px; border-top: 1px solid #f0f0f0;">
+                        <div style="font-size: 10px; font-weight: 600; color: #4b5563; margin-bottom: 10px;">Pengeluaran Terbaru</div>
                         <?php if (empty($expenses)): ?>
-                        <div style="text-align: center; padding: 12px; color: #9ca3af; font-size: 10px;">
-                            <span style="font-size: 20px; display: block; margin-bottom: 4px;">📭</span>
-                            Belum ada pengeluaran
+                        <div style="text-align: center; padding: 16px; color: #9ca3af; font-size: 11px; background: #fafafa; border-radius: 10px;">
+                            Belum ada pengeluaran tercatat
                         </div>
                         <?php else: ?>
                         <?php foreach ($expenses as $exp): ?>
-                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 6px 8px; margin-bottom: 4px; background: #fff; border-radius: 6px; border: 1px solid #f0f0f0;">
-                            <div>
-                                <div style="font-size: 10px; font-weight: 500; color: #374151;"><?php echo htmlspecialchars($exp['description']); ?></div>
-                                <div style="font-size: 8px; color: #9ca3af; margin-top: 1px;"><?php echo date('d M Y', strtotime($exp['expense_date'])); ?></div>
+                        <div style="display: flex; justify-content: space-between; align-items: center; padding: 10px 12px; margin-bottom: 6px; background: #fff; border-radius: 10px; box-shadow: 0 1px 3px rgba(0,0,0,0.04);">
+                            <div style="flex: 1;">
+                                <div style="font-size: 11px; font-weight: 500; color: #1f2937;"><?php echo htmlspecialchars($exp['description'] ?? 'Pengeluaran'); ?></div>
+                                <div style="font-size: 10px; color: #9ca3af; margin-top: 3px;"><?php echo $exp['expense_date'] ? date('d M Y', strtotime($exp['expense_date'])) : '-'; ?></div>
                             </div>
-                            <div style="font-size: 10px; font-weight: 600; color: #ef4444; font-family: 'SF Mono', Monaco, monospace;">-Rp <?php echo number_format($exp['amount'], 0, ',', '.'); ?></div>
+                            <div style="font-size: 12px; font-weight: 700; color: #dc2626; font-family: 'Inter', system-ui, sans-serif;">-Rp <?php echo number_format(floatval($exp['amount'] ?? 0), 0, ',', '.'); ?></div>
                         </div>
                         <?php endforeach; ?>
                         <?php endif; ?>
                     </div>
                     
                     <!-- Click indicator -->
-                    <div style="text-align: center; margin-top: 10px;">
-                        <span id="clickHint<?php echo $idx; ?>" style="font-size: 8px; color: #b0b0b0; letter-spacing: 0.3px;">▼ Detail pengeluaran</span>
+                    <div style="text-align: center; margin-top: 12px;">
+                        <span id="clickHint<?php echo $idx; ?>" style="font-size: 9px; color: #c0c0c0; font-weight: 500;">tap untuk detail</span>
                     </div>
                 </div>
                 <?php endforeach; ?>
