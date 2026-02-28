@@ -762,6 +762,22 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
 </style>
 
 <?php if (!empty($cqcProjects)): ?>
+<!-- CQC Header with Detail Monitor Button -->
+<div class="card fade-in" style="margin-bottom: 1rem; background: linear-gradient(135deg, rgba(13, 31, 60, 0.02), rgba(240, 180, 41, 0.05)); border: 1px solid rgba(240, 180, 41, 0.2);">
+    <div style="padding: 1rem 1.25rem; display: flex; justify-content: space-between; align-items: center;">
+        <h3 style="font-size: 0.95rem; color: #0d1f3c; font-weight: 700; margin: 0; display: flex; align-items: center; gap: 0.75rem;">
+            <span style="width: 36px; height: 36px; background: linear-gradient(135deg, #f0b429, #d4960d); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-size: 1.1rem; box-shadow: 0 4px 12px rgba(240, 180, 41, 0.3);">☀️</span>
+            <div>
+                <div style="font-size: 0.65rem; color: #9ca3af; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em;">CQC ENJINIRING</div>
+                <div style="font-size: 0.95rem;">Project Monitoring Overview</div>
+            </div>
+        </h3>
+        <a href="modules/owner/cqc-dashboard.php" style="padding: 0.6rem 1.25rem; background: linear-gradient(135deg, #0d1f3c 0%, #1a3a5c 100%); color: #f0b429; border-radius: 10px; text-decoration: none; font-size: 0.85rem; font-weight: 700; transition: all 0.3s ease; box-shadow: 0 4px 12px rgba(13, 31, 60, 0.3); display: flex; align-items: center; gap: 0.5rem;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 6px 16px rgba(13, 31, 60, 0.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 4px 12px rgba(13, 31, 60, 0.3)'">
+            📋 Detail Monitor
+        </a>
+    </div>
+</div>
+
 <!-- Summary Cards -->
 <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 1rem; margin-bottom: 1.25rem;">
     <?php
