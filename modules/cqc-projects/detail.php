@@ -229,6 +229,45 @@ include '../../includes/header.php';
             </div>
         <?php endif; ?>
 
+        <!-- Detail Proyek Row (at top) -->
+        <div class="cqc-card" style="margin-bottom: 10px;">
+            <h3>ℹ️ Detail Proyek</h3>
+            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;">
+                <div class="cqc-info-block" style="border-bottom: none; margin: 0; padding: 0;">
+                    <div class="cqc-info-label">Kode Proyek</div>
+                    <div class="cqc-info-value"><?php echo htmlspecialchars($project['project_code']); ?></div>
+                </div>
+                <div class="cqc-info-block" style="border-bottom: none; margin: 0; padding: 0;">
+                    <div class="cqc-info-label">Klien</div>
+                    <div class="cqc-info-value"><?php echo htmlspecialchars($project['client_name'] ?? '-'); ?></div>
+                </div>
+                <div class="cqc-info-block" style="border-bottom: none; margin: 0; padding: 0;">
+                    <div class="cqc-info-label">Kapasitas</div>
+                    <div class="cqc-info-value"><?php echo htmlspecialchars($project['solar_capacity_kwp'] ?? '-'); ?> KWp</div>
+                </div>
+                <div class="cqc-info-block" style="border-bottom: none; margin: 0; padding: 0;">
+                    <div class="cqc-info-label">Jumlah Panel</div>
+                    <div class="cqc-info-value"><?php echo htmlspecialchars($project['panel_count'] ?? '-'); ?> Unit</div>
+                </div>
+                <div class="cqc-info-block" style="border-bottom: none; margin: 0; padding: 0;">
+                    <div class="cqc-info-label">Tipe Panel</div>
+                    <div class="cqc-info-value"><?php echo htmlspecialchars($project['panel_type'] ?? '-'); ?></div>
+                </div>
+                <div class="cqc-info-block" style="border-bottom: none; margin: 0; padding: 0;">
+                    <div class="cqc-info-label">Inverter</div>
+                    <div class="cqc-info-value"><?php echo htmlspecialchars($project['inverter_type'] ?? '-'); ?></div>
+                </div>
+                <div class="cqc-info-block" style="border-bottom: none; margin: 0; padding: 0;">
+                    <div class="cqc-info-label">Tanggal Mulai</div>
+                    <div class="cqc-info-value"><?php echo date('d M Y', strtotime($project['start_date'])); ?></div>
+                </div>
+                <div class="cqc-info-block" style="border-bottom: none; margin: 0; padding: 0;">
+                    <div class="cqc-info-label">Estimasi Selesai</div>
+                    <div class="cqc-info-value"><?php echo date('d M Y', strtotime($project['estimated_completion'] ?? $project['end_date'])); ?></div>
+                </div>
+            </div>
+        </div>
+
         <!-- Main Content -->
         <div class="cqc-main-grid" style="grid-template-columns: 1fr 1fr;">
             <!-- Left Column: Status & Progress -->
@@ -284,45 +323,6 @@ include '../../includes/header.php';
                     <p style="font-size: 11px;">Belum ada data pengeluaran</p>
                 </div>
                 <?php endif; ?>
-            </div>
-        </div>
-        
-        <!-- Detail Proyek Row (moved below) -->
-        <div class="cqc-card" style="margin-bottom: 10px;">
-            <h3>ℹ️ Detail Proyek</h3>
-            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px;">
-                <div class="cqc-info-block" style="border-bottom: none; margin: 0; padding: 0;">
-                    <div class="cqc-info-label">Kode Proyek</div>
-                    <div class="cqc-info-value"><?php echo htmlspecialchars($project['project_code']); ?></div>
-                </div>
-                <div class="cqc-info-block" style="border-bottom: none; margin: 0; padding: 0;">
-                    <div class="cqc-info-label">Klien</div>
-                    <div class="cqc-info-value"><?php echo htmlspecialchars($project['client_name'] ?? '-'); ?></div>
-                </div>
-                <div class="cqc-info-block" style="border-bottom: none; margin: 0; padding: 0;">
-                    <div class="cqc-info-label">Kapasitas</div>
-                    <div class="cqc-info-value"><?php echo htmlspecialchars($project['solar_capacity_kwp'] ?? '-'); ?> KWp</div>
-                </div>
-                <div class="cqc-info-block" style="border-bottom: none; margin: 0; padding: 0;">
-                    <div class="cqc-info-label">Jumlah Panel</div>
-                    <div class="cqc-info-value"><?php echo htmlspecialchars($project['panel_count'] ?? '-'); ?> Unit</div>
-                </div>
-                <div class="cqc-info-block" style="border-bottom: none; margin: 0; padding: 0;">
-                    <div class="cqc-info-label">Tipe Panel</div>
-                    <div class="cqc-info-value"><?php echo htmlspecialchars($project['panel_type'] ?? '-'); ?></div>
-                </div>
-                <div class="cqc-info-block" style="border-bottom: none; margin: 0; padding: 0;">
-                    <div class="cqc-info-label">Inverter</div>
-                    <div class="cqc-info-value"><?php echo htmlspecialchars($project['inverter_type'] ?? '-'); ?></div>
-                </div>
-                <div class="cqc-info-block" style="border-bottom: none; margin: 0; padding: 0;">
-                    <div class="cqc-info-label">Tanggal Mulai</div>
-                    <div class="cqc-info-value"><?php echo date('d M Y', strtotime($project['start_date'])); ?></div>
-                </div>
-                <div class="cqc-info-block" style="border-bottom: none; margin: 0; padding: 0;">
-                    <div class="cqc-info-label">Estimasi Selesai</div>
-                    <div class="cqc-info-value"><?php echo date('d M Y', strtotime($project['estimated_completion'] ?? $project['end_date'])); ?></div>
-                </div>
             </div>
         </div>
 
@@ -391,10 +391,7 @@ include '../../includes/header.php';
             <!-- Right: Recent Expenses -->
             <div>
                 <div class="cqc-card">
-                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px;">
-                        <h3 style="margin: 0;">📝 Pengeluaran Terbaru</h3>
-                        <button style="background: #0d1f3c; color: white; border: none; padding: 4px 10px; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 11px;" onclick="openExpenseModal()">+ Tambah</button>
-                    </div>
+                    <h3 style="margin-bottom: 10px;">📝 Pengeluaran Terbaru</h3>
                     
                     <?php if (!empty($expenses)): ?>
                         <table class="cqc-expenses-table">
@@ -417,7 +414,6 @@ include '../../includes/header.php';
                         </table>
                     <?php else: ?>
                         <p style="text-align: center; color: #94a3b8; padding: 12px 0; font-size: 11px;">Belum ada pengeluaran.</p>
-                        <button style="width: 100%; background: #0d1f3c; color: white; border: none; padding: 6px; border-radius: 4px; cursor: pointer; font-weight: 600; font-size: 11px;" onclick="openExpenseModal()">+ Tambah Pengeluaran</button>
                     <?php endif; ?>
                 </div>
             </div>
