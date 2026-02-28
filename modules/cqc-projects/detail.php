@@ -286,6 +286,27 @@ include '../../includes/header.php';
                         </div>
                     </div>
                 </div>
+
+                <!-- Expenses by Category -->
+                <div class="cqc-card" style="margin-top: 8px;">
+                    <h3>📋 Pengeluaran per Kategori</h3>
+                    <div>
+                        <?php foreach ($categories as $cat): ?>
+                            <div class="cqc-category-item">
+                                <div class="cqc-category-left">
+                                    <div class="cqc-category-icon"><?php echo htmlspecialchars($cat['category_icon'] ?? '📦'); ?></div>
+                                    <div class="cqc-category-info">
+                                        <h4><?php echo htmlspecialchars($cat['category_name']); ?></h4>
+                                        <p><?php echo $cat['expense_count']; ?> transaksi</p>
+                                    </div>
+                                </div>
+                                <div class="cqc-category-amount">
+                                    <div class="amount">Rp <?php echo number_format($cat['total_amount'] ?? 0, 0); ?></div>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
             </div>
 
             <!-- Right Column (Sidebar) -->
@@ -339,27 +360,6 @@ include '../../includes/header.php';
                     <div class="cqc-info-block" style="border-bottom: none; margin-bottom: 0; padding-bottom: 0;">
                         <div class="cqc-info-label">Dibuat</div>
                         <div class="cqc-info-value"><?php echo date('d M Y H:i', strtotime($project['created_at'])); ?></div>
-                    </div>
-                </div>
-
-                <!-- Expenses by Category -->
-                <div class="cqc-card" style="margin-top: 8px;">
-                    <h3>📋 Pengeluaran per Kategori</h3>
-                    <div>
-                        <?php foreach ($categories as $cat): ?>
-                            <div class="cqc-category-item">
-                                <div class="cqc-category-left">
-                                    <div class="cqc-category-icon"><?php echo htmlspecialchars($cat['category_icon'] ?? '📦'); ?></div>
-                                    <div class="cqc-category-info">
-                                        <h4><?php echo htmlspecialchars($cat['category_name']); ?></h4>
-                                        <p><?php echo $cat['expense_count']; ?> transaksi</p>
-                                    </div>
-                                </div>
-                                <div class="cqc-category-amount">
-                                    <div class="amount">Rp <?php echo number_format($cat['total_amount'] ?? 0, 0); ?></div>
-                                </div>
-                            </div>
-                        <?php endforeach; ?>
                     </div>
                 </div>
 
