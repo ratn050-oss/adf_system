@@ -515,6 +515,38 @@ if ($isCQC) {
             }
         }
         unset($proj);
+        
+        // For CQC: Override dailyData with project budget/expenses
+        // Get daily expenses from cqc_project_expenses
+        $cqcDailyExpenses = [];
+        $totalCqcBudget = array_sum(array_column($cqcProjects, 'budget_idr'));
+        $totalCqcSpent = array_sum(array_column($cqcProjects, 'spent_idr'));
+        
+        try {
+            $expStmt = $cqcPdo->prepare("
+                SELECT DATE(expense_date) as date, SUM(amount) as total
+                FROM cqc_project_expenses 
+                WHERE DATE_FORMAT(expense_date, '%Y-%m') = :month
+                GROUP BY DATE(expense_date)
+            ");
+            $expStmt->execute(['month' => $selectedMonth]);
+            while ($row = $expStmt->fetch(PDO::FETCH_ASSOC)) {
+                $cqcDailyExpenses[$row['date']] = floatval($row['total']);
+            }
+        } catch (Exception $e) {
+            error_log('CQC daily expense error: ' . $e->getMessage());
+        }
+        
+        // Override dailyData for CQC - Budget as "income" on first day, expenses distributed
+        $firstDay = true;
+        foreach ($dailyData as &$day) {
+            // Clear cash_book data (irrelevant for CQC)
+            $day['income'] = $firstDay ? $totalCqcBudget : 0;
+            $day['expense'] = isset($cqcDailyExpenses[$day['date']]) ? $cqcDailyExpenses[$day['date']] : 0;
+            $firstDay = false;
+        }
+        unset($day);
+        
     } catch (Exception $e) {
         error_log('CQC project data error: ' . $e->getMessage());
     }
