@@ -496,6 +496,14 @@ if ($isCQC) {
     try {
         require_once __DIR__ . '/modules/cqc-projects/db-helper.php';
         $cqcPdo = getCQCDatabaseConnection();
+        
+        // Get total budget and spent directly (same as dashboard-2028.php)
+        $totalsStmt = $cqcPdo->query("SELECT COALESCE(SUM(spent_idr), 0) as total_spent, COALESCE(SUM(budget_idr), 0) as total_budget FROM cqc_projects WHERE status != 'completed'");
+        $projTotals = $totalsStmt->fetch(PDO::FETCH_ASSOC);
+        $totalCqcBudget = (float)($projTotals['total_budget'] ?? 0);
+        $totalCqcSpent = (float)($projTotals['total_spent'] ?? 0);
+        
+        // Get project list
         $stmt = $cqcPdo->query("
             SELECT p.id, p.project_name, p.project_code, p.status, 
                    p.progress_percentage, p.budget_idr, p.spent_idr,
@@ -516,43 +524,13 @@ if ($isCQC) {
         }
         unset($proj);
         
-        // For CQC: Override dailyData with project budget/expenses
-        $totalCqcBudget = array_sum(array_column($cqcProjects, 'budget_idr'));
-        $totalCqcSpent = array_sum(array_column($cqcProjects, 'spent_idr'));
-        
-        // Get daily expenses from cqc_project_expenses (if any)
-        $cqcDailyExpenses = [];
-        $hasDetailedExpenses = false;
-        try {
-            $expStmt = $cqcPdo->prepare("
-                SELECT DATE(expense_date) as date, SUM(amount) as total
-                FROM cqc_project_expenses 
-                WHERE DATE_FORMAT(expense_date, '%Y-%m') = :month
-                GROUP BY DATE(expense_date)
-            ");
-            $expStmt->execute(['month' => $selectedMonth]);
-            while ($row = $expStmt->fetch(PDO::FETCH_ASSOC)) {
-                $cqcDailyExpenses[$row['date']] = floatval($row['total']);
-                $hasDetailedExpenses = true;
-            }
-        } catch (Exception $e) {
-            error_log('CQC daily expense error: ' . $e->getMessage());
-        }
-        
         // Override dailyData for CQC
-        // Budget appears on first day, expenses either distributed by date or total on today
-        $firstDay = true;
+        // Budget on first day, total spent on today
         $today = date('Y-m-d');
+        $firstDay = true;
         foreach ($dailyData as &$day) {
             $day['income'] = $firstDay ? $totalCqcBudget : 0;
-            
-            // If we have detailed expenses, use them; otherwise show total spent on today
-            if ($hasDetailedExpenses) {
-                $day['expense'] = isset($cqcDailyExpenses[$day['date']]) ? $cqcDailyExpenses[$day['date']] : 0;
-            } else {
-                // No detailed expenses - show total spent_idr on today's date
-                $day['expense'] = ($day['date'] == $today) ? $totalCqcSpent : 0;
-            }
+            $day['expense'] = ($day['date'] == $today) ? $totalCqcSpent : 0;
             $firstDay = false;
         }
         unset($day);
