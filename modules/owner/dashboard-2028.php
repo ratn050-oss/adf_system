@@ -773,11 +773,11 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
             color: #9ca3af;
         }
         
-        /* Legend - Glass Chips */
+        /* Legend - Minimal Compact */
         .legend {
             display: flex;
             flex-direction: column;
-            gap: 8px;
+            gap: 4px;
             flex: 1;
             min-width: 0;
         }
@@ -785,51 +785,47 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
         .legend-item {
             display: flex;
             align-items: center;
-            gap: 8px;
-            background: rgba(255,255,255,0.05);
-            border: 1px solid rgba(255,255,255,0.07);
-            border-radius: 10px;
-            padding: 6px 10px;
-            backdrop-filter: blur(4px);
-            -webkit-backdrop-filter: blur(4px);
-            transition: background 0.2s;
-        }
-        .legend-item:active {
-            background: rgba(255,255,255,0.1);
+            gap: 5px;
+            background: transparent;
+            border: none;
+            border-radius: 6px;
+            padding: 3px 6px;
         }
         
         .legend-dot {
-            width: 8px;
-            height: 8px;
+            width: 6px;
+            height: 6px;
             border-radius: 50%;
             flex-shrink: 0;
         }
         
-        .legend-dot.income { background: linear-gradient(135deg, #10b981, #34d399); box-shadow: 0 0 10px rgba(16,185,129,0.4); }
-        .legend-dot.expense { background: linear-gradient(135deg, #f59e0b, #fbbf24); box-shadow: 0 0 10px rgba(245,158,11,0.4); }
+        .legend-dot.income { background: #10b981; }
+        .legend-dot.expense { background: #f59e0b; }
         
         .legend-text {
             display: flex;
             flex-direction: column;
+            gap: 1px;
             min-width: 0;
         }
         
         .legend-label {
-            font-size: 9px;
-            color: #9ca3af;
+            font-size: 8px;
+            color: #6b7280;
             text-transform: uppercase;
-            letter-spacing: 0.8px;
+            letter-spacing: 0.5px;
             font-weight: 500;
         }
         
         .legend-value {
-            font-size: 13px;
-            font-weight: 700;
-            letter-spacing: -0.3px;
+            font-size: 11px;
+            font-weight: 600;
+            letter-spacing: -0.2px;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
-            color: #e5e7eb;
+            color: #d1d5db;
+            text-decoration: none;
         }
         
         /* Stats Grid */
@@ -1209,18 +1205,15 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
             margin-bottom: 2px;
         }
         
-        /* Hero Today Row - Glass Bar */
+        /* Hero Today Row - Minimal */
         .hero-today-row {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            background: rgba(255,255,255,0.06);
-            border: 1px solid rgba(255,255,255,0.08);
-            backdrop-filter: blur(6px);
-            -webkit-backdrop-filter: blur(6px);
-            border-radius: 14px;
-            padding: 10px 12px;
-            margin-top: 14px;
+            background: rgba(255,255,255,0.03);
+            border-radius: 10px;
+            padding: 8px 10px;
+            margin-top: 12px;
             gap: 4px;
         }
         .hero-today-item {
@@ -1230,24 +1223,25 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
             flex: 1;
         }
         .hero-today-label {
-            font-size: 8px;
-            opacity: 0.45;
+            font-size: 7px;
+            color: #6b7280;
             text-transform: uppercase;
-            letter-spacing: 0.6px;
-            margin-bottom: 3px;
+            letter-spacing: 0.4px;
+            margin-bottom: 2px;
             font-weight: 500;
         }
         .hero-today-value {
-            font-size: 12px;
-            font-weight: 700;
+            font-size: 11px;
+            font-weight: 600;
             letter-spacing: -0.2px;
+            color: #d1d5db;
         }
-        .hero-today-value.income { color: #34d399; text-shadow: 0 0 12px rgba(52,211,153,0.3); }
-        .hero-today-value.expense { color: #fb7185; text-shadow: 0 0 12px rgba(251,113,133,0.3); }
+        .hero-today-value.income { color: #10b981; }
+        .hero-today-value.expense { color: #f59e0b; }
         .hero-today-divider {
             width: 1px;
-            height: 28px;
-            background: linear-gradient(180deg, transparent, rgba(255,255,255,0.15), transparent);
+            height: 20px;
+            background: rgba(255,255,255,0.08);
         }
 
         /* Dev Badge */
@@ -1486,21 +1480,21 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
                             <span class="legend-dot income"></span>
                             <div class="legend-text">
                                 <span class="legend-label">Income</span>
-                                <span class="legend-value" style="color: #6ee7b7;"><?= rp($stats['month_income']) ?></span>
+                                <span class="legend-value"><?= rp($stats['month_income']) ?></span>
                             </div>
                         </div>
                         <div class="legend-item">
                             <span class="legend-dot expense"></span>
                             <div class="legend-text">
                                 <span class="legend-label">Expense</span>
-                                <span class="legend-value" style="color: #fbbf24;"><?= rp($stats['month_expense']) ?></span>
+                                <span class="legend-value"><?= rp($stats['month_expense']) ?></span>
                             </div>
                         </div>
                         <div class="legend-item">
-                            <span class="legend-dot" style="background:linear-gradient(135deg,#10b981,#6ee7b7);box-shadow:0 0 10px rgba(16,185,129,0.4)"></span>
+                            <span class="legend-dot" style="background:<?= $netProfit >= 0 ? '#10b981' : '#ef4444' ?>"></span>
                             <div class="legend-text">
                                 <span class="legend-label">Profit</span>
-                                <span class="legend-value" style="color:<?= $netProfit >= 0 ? '#6ee7b7' : '#fb7185' ?>"><?= $netProfit >= 0 ? '+' : '' ?><?= rp($netProfit) ?></span>
+                                <span class="legend-value"><?= $netProfit >= 0 ? '+' : '' ?><?= rp($netProfit) ?></span>
                             </div>
                         </div>
                     </div>
@@ -1520,7 +1514,7 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
                     <div class="hero-today-divider"></div>
                     <div class="hero-today-item">
                         <span class="hero-today-label">Expense Ratio</span>
-                        <span class="hero-today-value" style="color:<?= $expenseRatio < 50 ? '#34d399' : ($expenseRatio < 75 ? '#fbbf24' : '#fb7185') ?>;text-shadow:0 0 12px <?= $expenseRatio < 50 ? 'rgba(52,211,153,0.3)' : ($expenseRatio < 75 ? 'rgba(251,191,36,0.3)' : 'rgba(251,113,133,0.3)') ?>"><?= number_format($expenseRatio, 1) ?>%</span>
+                        <span class="hero-today-value"><?= number_format($expenseRatio, 1) ?>%</span>
                     </div>
                 </div>
             </div>
