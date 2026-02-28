@@ -1928,19 +1928,25 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
         ctx.stroke();
 
         // Draw donut arc helper
-        function drawArc(start, end, gradient) {
+        function drawArc(start, end, color) {
             ctx.beginPath();
             ctx.arc(cx, cy, r, start, end);
             ctx.arc(cx, cy, innerR, end, start, true);
             ctx.closePath();
-            ctx.fillStyle = gradient;
+            ctx.fillStyle = color;
             ctx.fill();
         }
 
-        // Income arc - SOLID GREEN (no gradient)
+        // DEBUG: Check if this code is running - VERSION 2026-03-01-B
+        console.log('PIE CHART DEBUG: Income=' + income + ', Expense=' + expense);
+        console.log('PIE CHART COLORS: Income=#10b981 (GREEN), Expense=#ef4444 (RED)');
+
+        // Income arc - SOLID GREEN
+        ctx.fillStyle = '#10b981';
         drawArc(startAngle + gap/2, startAngle + incomeAngle - gap/2, '#10b981');
 
-        // Expense arc - SOLID RED (no gradient)
+        // Expense arc - SOLID RED  
+        ctx.fillStyle = '#ef4444';
         drawArc(startAngle + incomeAngle + gap/2, startAngle + incomeAngle + expenseAngle - gap/2, '#ef4444');
 
         // Inner hole - dark glass
