@@ -517,11 +517,12 @@ if ($isCQC) {
         unset($proj);
         
         // For CQC: Override dailyData with project budget/expenses
-        // Get daily expenses from cqc_project_expenses
-        $cqcDailyExpenses = [];
         $totalCqcBudget = array_sum(array_column($cqcProjects, 'budget_idr'));
         $totalCqcSpent = array_sum(array_column($cqcProjects, 'spent_idr'));
         
+        // Get daily expenses from cqc_project_expenses (if any)
+        $cqcDailyExpenses = [];
+        $hasDetailedExpenses = false;
         try {
             $expStmt = $cqcPdo->prepare("
                 SELECT DATE(expense_date) as date, SUM(amount) as total
@@ -532,17 +533,26 @@ if ($isCQC) {
             $expStmt->execute(['month' => $selectedMonth]);
             while ($row = $expStmt->fetch(PDO::FETCH_ASSOC)) {
                 $cqcDailyExpenses[$row['date']] = floatval($row['total']);
+                $hasDetailedExpenses = true;
             }
         } catch (Exception $e) {
             error_log('CQC daily expense error: ' . $e->getMessage());
         }
         
-        // Override dailyData for CQC - Budget as "income" on first day, expenses distributed
+        // Override dailyData for CQC
+        // Budget appears on first day, expenses either distributed by date or total on today
         $firstDay = true;
+        $today = date('Y-m-d');
         foreach ($dailyData as &$day) {
-            // Clear cash_book data (irrelevant for CQC)
             $day['income'] = $firstDay ? $totalCqcBudget : 0;
-            $day['expense'] = isset($cqcDailyExpenses[$day['date']]) ? $cqcDailyExpenses[$day['date']] : 0;
+            
+            // If we have detailed expenses, use them; otherwise show total spent on today
+            if ($hasDetailedExpenses) {
+                $day['expense'] = isset($cqcDailyExpenses[$day['date']]) ? $cqcDailyExpenses[$day['date']] : 0;
+            } else {
+                // No detailed expenses - show total spent_idr on today's date
+                $day['expense'] = ($day['date'] == $today) ? $totalCqcSpent : 0;
+            }
             $firstDay = false;
         }
         unset($day);
