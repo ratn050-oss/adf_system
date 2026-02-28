@@ -1937,17 +1937,17 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
             ctx.fill();
         }
 
-        // DEBUG: Check if this code is running - VERSION 2026-03-01-B
+        // DEBUG: Check if this code is running - VERSION 2026-03-01-C
         console.log('PIE CHART DEBUG: Income=' + income + ', Expense=' + expense);
         console.log('PIE CHART COLORS: Income=#10b981 (GREEN), Expense=#ef4444 (RED)');
 
-        // Income arc - SOLID GREEN
-        ctx.fillStyle = '#10b981';
-        drawArc(startAngle + gap/2, startAngle + incomeAngle - gap/2, '#10b981');
-
-        // Expense arc - SOLID RED  
+        // Draw EXPENSE first (red) - small slice
         ctx.fillStyle = '#ef4444';
         drawArc(startAngle + incomeAngle + gap/2, startAngle + incomeAngle + expenseAngle - gap/2, '#ef4444');
+
+        // Draw INCOME second (green) - large slice, will be on top
+        ctx.fillStyle = '#10b981';
+        drawArc(startAngle + gap/2, startAngle + incomeAngle - gap/2, '#10b981');
 
         // Inner hole - dark glass
         ctx.beginPath();
