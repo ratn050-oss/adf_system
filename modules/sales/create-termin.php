@@ -16,6 +16,8 @@ require_once '../cqc-projects/db-helper.php';
 
 try {
     $pdo = getCQCDatabaseConnection();
+    // Ensure termin table exists
+    ensureCQCTerminTable($pdo);
 } catch (Exception $e) {
     die("Database connection failed: " . $e->getMessage());
 }
@@ -115,10 +117,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'created_by' => $currentUser['id']
         ]);
         
-        $_SESSION['success'] = "Faktur Termin $invoice_number berhasil dibuat!";
+        $_SESSION['success'] = "Invoice $invoice_number berhasil dibuat!";
         header('Location: index-cqc.php');
         exit;
         
+    } catch (PDOException $e) {
+        error_log("CQC Invoice Save Error: " . $e->getMessage());
+        $error = "Database error: " . $e->getMessage();
     } catch (Exception $e) {
         $error = $e->getMessage();
     }
@@ -132,7 +137,7 @@ if (isset($_GET['project_id']) && $_GET['project_id'] > 0) {
     $existingTermins = $stmt->fetchAll(PDO::FETCH_ASSOC);
 }
 
-$pageTitle = "Buat Faktur Termin";
+$pageTitle = "Buat Invoice";
 include '../../includes/header.php';
 ?>
 
@@ -272,7 +277,7 @@ include '../../includes/header.php';
 <div class="cqc-container">
     <div class="cqc-header">
         <div>
-            <h1>📄 Buat Faktur Termin</h1>
+            <h1>📄 Buat Invoice</h1>
             <p>Buat tagihan progress pembayaran proyek</p>
         </div>
         <a href="index-cqc.php" class="btn-back">
@@ -433,7 +438,7 @@ include '../../includes/header.php';
                 <button type="button" class="cqc-btn cqc-btn-secondary" onclick="location.href='index-cqc.php'">Batal</button>
                 <button type="submit" class="cqc-btn cqc-btn-primary">
                     <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="vertical-align: middle; margin-right: 6px;"><path d="M19 21H5a2 2 0 01-2-2V5a2 2 0 012-2h11l5 5v11a2 2 0 01-2 2z"/><polyline points="17,21 17,13 7,13 7,21"/><polyline points="7,3 7,8 15,8"/></svg>
-                    Simpan Faktur Termin
+                    Simpan Invoice
                 </button>
             </div>
         </div>

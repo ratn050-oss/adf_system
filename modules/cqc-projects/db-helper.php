@@ -26,6 +26,12 @@ function getCQCDatabaseConnection() {
             autoCreateCQCTables($pdo);
         }
         
+        // Ensure termin invoices table exists
+        $check = $pdo->query("SHOW TABLES LIKE 'cqc_termin_invoices'");
+        if ($check->rowCount() === 0) {
+            ensureCQCTerminTable($pdo);
+        }
+        
         return $pdo;
     } catch (Exception $e) {
         throw new Exception("Database connection failed: " . $e->getMessage());

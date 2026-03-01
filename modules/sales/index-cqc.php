@@ -17,6 +17,8 @@ require_once '../cqc-projects/db-helper.php';
 
 try {
     $pdo = getCQCDatabaseConnection();
+    // Ensure termin table exists
+    ensureCQCTerminTable($pdo);
 } catch (Exception $e) {
     die("Database connection failed: " . $e->getMessage());
 }
@@ -81,7 +83,7 @@ $stats = [
     }, $invoices))
 ];
 
-$pageTitle = "Faktur Termin CQC";
+$pageTitle = "Invoice CQC";
 include '../../includes/header.php';
 ?>
 
@@ -278,12 +280,12 @@ include '../../includes/header.php';
     <!-- Header -->
     <div class="cqc-header">
         <div>
-            <h1>📄 Faktur Termin</h1>
+            <h1>📄 Invoice</h1>
             <p>Kelola tagihan progress proyek kontraktor</p>
         </div>
         <a href="create-termin.php" class="btn-create">
             <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
-            Buat Faktur Termin
+            Buat Invoice
         </a>
     </div>
 
@@ -375,8 +377,8 @@ include '../../includes/header.php';
                         <td colspan="11">
                             <div class="cqc-empty">
                                 <div class="cqc-empty-icon">📋</div>
-                                <h3>Tidak ada faktur termin</h3>
-                                <p>Buat faktur termin pertama untuk memulai penagihan proyek.</p>
+                                <h3>Tidak ada invoice</h3>
+                                <p>Buat invoice pertama untuk memulai penagihan proyek.</p>
                             </div>
                         </td>
                     </tr>
