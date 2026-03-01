@@ -88,17 +88,34 @@ try {
         case 'accounting':
             // Get business ID first
             $businessDbId = getMasterBusinessId();
+            $tables = [];
             
-            // Reset cash_book table in business database (if exists)
-            if ($businessId && tableExists($conn, 'cash_book') && columnExists($conn, 'cash_book', 'business_id')) {
-                $result = safeDelete($conn, 'cash_book', 'business_id = :business_id', ['business_id' => $businessId]);
-            } else if (tableExists($conn, 'cash_book')) {
-                $result = safeDelete($conn, 'cash_book');
+            // Reset cash_book table in BUSINESS database
+            // This is the main cash_book used by modules/cashbook/index.php
+            if (tableExists($conn, 'cash_book')) {
+                // Check if business_id column exists
+                $hasBizIdCol = columnExists($conn, 'cash_book', 'business_id');
+                
+                if ($hasBizIdCol && $businessDbId) {
+                    $result = safeDelete($conn, 'cash_book', 'business_id = :business_id', ['business_id' => $businessDbId]);
+                } else {
+                    // No business_id column - delete ALL records from business DB cash_book
+                    $result = safeDelete($conn, 'cash_book');
+                }
+                $deletedCount = $result['deleted'];
+                if ($result['error']) $errors[] = $result['error'];
+                $tables[] = 'cash_book (business db: ' . $deletedCount . ' records)';
             } else {
-                $result = ['deleted' => 0, 'error' => null];
+                $deletedCount = 0;
+                $errors[] = 'Table cash_book not found in business database';
             }
-            $deletedCount = $result['deleted'];
-            if ($result['error']) $errors[] = $result['error'];
+            
+            // Also reset cash_balance table in business database if exists
+            if (tableExists($conn, 'cash_balance')) {
+                $result = safeDelete($conn, 'cash_balance');
+                $deletedCount += $result['deleted'];
+                $tables[] = 'cash_balance (business db)';
+            }
             
             // Also reset cash accounting tables in MASTER database
             try {
@@ -115,50 +132,63 @@ try {
                 
                 // Delete cash_book from MASTER database for this business (if table has business_id)
                 try {
-                    $chkCol = $masterDb->query("SHOW COLUMNS FROM cash_book LIKE 'business_id'");
-                    $hasBizCol = $chkCol && $chkCol->rowCount() > 0;
-                    
-                    if ($hasBizCol && $businessDbId) {
-                        $stmt = $masterDb->prepare("DELETE FROM cash_book WHERE business_id = ?");
-                        $stmt->execute([$businessDbId]);
-                        $deletedCashBook = $stmt->rowCount();
-                    } else {
-                        // No business_id column - delete all (only safe for single-business)
-                        $stmt = $masterDb->query("DELETE FROM cash_book");
-                        $deletedCashBook = $stmt->rowCount();
+                    $chkTable = $masterDb->query("SHOW TABLES LIKE 'cash_book'");
+                    if ($chkTable && $chkTable->rowCount() > 0) {
+                        $chkCol = $masterDb->query("SHOW COLUMNS FROM cash_book LIKE 'business_id'");
+                        $hasBizCol = $chkCol && $chkCol->rowCount() > 0;
+                        
+                        if ($hasBizCol && $businessDbId) {
+                            $stmt = $masterDb->prepare("DELETE FROM cash_book WHERE business_id = ?");
+                            $stmt->execute([$businessDbId]);
+                            $deletedCashBook = $stmt->rowCount();
+                        } else {
+                            // No business_id column - delete all (only safe for single-business)
+                            $stmt = $masterDb->query("DELETE FROM cash_book");
+                            $deletedCashBook = $stmt->rowCount();
+                        }
+                        $deletedCount += $deletedCashBook;
+                        $tables[] = 'cash_book (master db: ' . $deletedCashBook . ' records)';
                     }
-                    $deletedCount += $deletedCashBook;
-                    $tables[] = 'cash_book (master)';
                 } catch (Exception $e) {
                     // cash_book might not exist in master
+                    $errors[] = 'Master cash_book: ' . $e->getMessage();
                 }
                 
                 // Delete cash_account_transactions for this business
-                $stmt = $masterDb->prepare("DELETE FROM cash_account_transactions WHERE cash_account_id IN (SELECT id FROM cash_accounts WHERE business_id = ?)");
-                $stmt->execute([$businessDbId]);
-                $deletedTransactions = $stmt->rowCount();
-                $deletedCount += $deletedTransactions;
-                $tables[] = 'cash_account_transactions';
+                try {
+                    $stmt = $masterDb->prepare("DELETE FROM cash_account_transactions WHERE cash_account_id IN (SELECT id FROM cash_accounts WHERE business_id = ?)");
+                    $stmt->execute([$businessDbId]);
+                    $deletedTransactions = $stmt->rowCount();
+                    $deletedCount += $deletedTransactions;
+                    $tables[] = 'cash_account_transactions (' . $deletedTransactions . ' records)';
+                } catch (Exception $e) {
+                    $errors[] = 'cash_account_transactions: ' . $e->getMessage();
+                }
                 
                 // Reset current_balance to 0 for all accounts
-                $stmt = $masterDb->prepare("UPDATE cash_accounts SET current_balance = 0 WHERE business_id = ?");
-                $stmt->execute([$businessDbId]);
-                $updatedAccounts = $stmt->rowCount();
+                $updatedAccounts = 0;
+                try {
+                    $stmt = $masterDb->prepare("UPDATE cash_accounts SET current_balance = 0 WHERE business_id = ?");
+                    $stmt->execute([$businessDbId]);
+                    $updatedAccounts = $stmt->rowCount();
+                } catch (Exception $e) {
+                    $errors[] = 'cash_accounts reset: ' . $e->getMessage();
+                }
                 
-                // Also reset cash_balance table if exists
+                // Also reset cash_balance table in master if exists
                 try {
                     $chkTable = $masterDb->query("SHOW TABLES LIKE 'cash_balance'");
                     if ($chkTable && $chkTable->rowCount() > 0) {
                         $masterDb->query("DELETE FROM cash_balance");
-                        $tables[] = 'cash_balance';
+                        $tables[] = 'cash_balance (master db)';
                     }
                 } catch (Exception $e) {}
                 
-                $message = "Data accounting berhasil direset. {$deletedCount} transaksi dihapus, {$updatedAccounts} akun kas di-reset.";
+                $message = "Data accounting berhasil direset. {$deletedCount} transaksi dihapus, {$updatedAccounts} akun kas di-reset. Tables: " . implode(', ', $tables);
                 
             } catch (Exception $e) {
                 $errors[] = "Error reset cash accounts: " . $e->getMessage();
-                $message = "Data accounting berhasil direset. {$deletedCount} transaksi dihapus.";
+                $message = "Data accounting berhasil direset. {$deletedCount} transaksi dihapus. Tables: " . implode(', ', $tables);
             }
             
             break;
@@ -341,33 +371,59 @@ try {
         // CQC SPECIFIC RESET OPTIONS
         // ===============================================
         case 'cqc_cashbook':
-            // Reset CQC cash_book from MASTER database (CQC uses master DB, not separate business DB)
+            // Reset CQC cash_book from CQC DATABASE (adf_cqc)
+            // CQC has its own cash_book table in adf_cqc database
             try {
-                $masterDb = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
+                require_once __DIR__ . '/../modules/cqc-projects/db-helper.php';
+                $cqcPdo = getCQCDatabaseConnection();
+                
+                // Delete ALL from cash_book in CQC database
+                if (tableExists($cqcPdo, 'cash_book')) {
+                    $stmt = $cqcPdo->prepare("DELETE FROM cash_book");
+                    $stmt->execute();
+                    $deletedCashbook = $stmt->rowCount();
+                    $deletedCount += $deletedCashbook;
+                    $tables[] = 'cash_book (adf_cqc: ' . $deletedCashbook . ' records)';
+                }
+                
+                // Delete cash_balance if exists
+                if (tableExists($cqcPdo, 'cash_balance')) {
+                    $stmt = $cqcPdo->prepare("DELETE FROM cash_balance");
+                    $stmt->execute();
+                    $deletedCount += $stmt->rowCount();
+                    $tables[] = 'cash_balance';
+                }
+                
+                // Also reset from master database for CQC business
+                $masterDbName = defined('MASTER_DB_NAME') ? MASTER_DB_NAME : 'adf_system';
+                $isProduction = (strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost') === false && 
+                                strpos($_SERVER['HTTP_HOST'] ?? '', '127.0.0.1') === false);
+                if ($isProduction) {
+                    $masterDbName = 'adfb2574_adf';
+                }
+                
+                $masterDb = new PDO("mysql:host=" . DB_HOST . ";dbname=" . $masterDbName, DB_USER, DB_PASS);
                 $masterDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
                 
-                // Get CQC business ID from master
+                // Get CQC business ID from master (should be 7)
                 $businessDbId = getMasterBusinessId();
                 
-                // Delete cash_book entries for CQC business
-                $stmt = $masterDb->prepare("DELETE FROM cash_book WHERE business_id = ?");
-                $stmt->execute([$businessDbId]);
-                $deletedCashbook = $stmt->rowCount();
-                $deletedCount += $deletedCashbook;
-                $tables[] = 'cash_book';
-                
                 // Delete cash_account_transactions for CQC business
-                $stmt = $masterDb->prepare("DELETE FROM cash_account_transactions WHERE cash_account_id IN (SELECT id FROM cash_accounts WHERE business_id = ?)");
-                $stmt->execute([$businessDbId]);
-                $deletedTransactions = $stmt->rowCount();
-                $deletedCount += $deletedTransactions;
-                $tables[] = 'cash_account_transactions';
+                try {
+                    $stmt = $masterDb->prepare("DELETE FROM cash_account_transactions WHERE cash_account_id IN (SELECT id FROM cash_accounts WHERE business_id = ?)");
+                    $stmt->execute([$businessDbId]);
+                    $deletedTransactions = $stmt->rowCount();
+                    $deletedCount += $deletedTransactions;
+                    $tables[] = 'cash_account_transactions (' . $deletedTransactions . ')';
+                } catch (Exception $e) {}
                 
                 // Reset current_balance to 0 for all CQC accounts
-                $stmt = $masterDb->prepare("UPDATE cash_accounts SET current_balance = 0 WHERE business_id = ?");
-                $stmt->execute([$businessDbId]);
+                try {
+                    $stmt = $masterDb->prepare("UPDATE cash_accounts SET current_balance = 0 WHERE business_id = ?");
+                    $stmt->execute([$businessDbId]);
+                } catch (Exception $e) {}
                 
-                $message = "Data Buku Kas CQC berhasil direset. {$deletedCount} transaksi dihapus.";
+                $message = "Data Buku Kas CQC berhasil direset. {$deletedCount} transaksi dihapus. Tables: " . implode(', ', $tables);
                 
             } catch (Exception $e) {
                 $errors[] = "Error reset CQC cashbook: " . $e->getMessage();
