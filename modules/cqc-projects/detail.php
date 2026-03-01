@@ -54,14 +54,16 @@ $stmt = $pdo->query("
 ");
 $categories = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Get latest expenses
+// Get latest expenses (LEFT JOIN to show expenses even without category)
 $stmt = $pdo->prepare("
-    SELECT pe.*, ec.category_name, ec.category_icon
+    SELECT pe.*, 
+           COALESCE(ec.category_name, 'Lainnya') as category_name, 
+           COALESCE(ec.category_icon, '📦') as category_icon
     FROM cqc_project_expenses pe
-    JOIN cqc_expense_categories ec ON pe.category_id = ec.id
+    LEFT JOIN cqc_expense_categories ec ON pe.category_id = ec.id
     WHERE pe.project_id = ?
     ORDER BY pe.expense_date DESC
-    LIMIT 10
+    LIMIT 20
 ");
 $stmt->execute([$projectId]);
 $expenses = $stmt->fetchAll(PDO::FETCH_ASSOC);

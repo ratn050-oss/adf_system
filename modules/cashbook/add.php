@@ -263,8 +263,11 @@ if (isPost()) {
                             $cqcCategoryId = !empty(getPost('cqc_category_id')) ? intval(getPost('cqc_category_id')) : null;
                             
                             if ($transactionType === 'expense') {
+                                // Add source marker to notes to track it came from cashbook
+                                $syncNotes = '[SYNCED_FROM_CASHBOOK:' . $transactionId . '] ' . ($description ?: $categoryName);
                                 $stmtExp = $cqcPdo->prepare("INSERT INTO cqc_project_expenses (project_id, category_id, description, amount, expense_date, notes, created_by) VALUES (?, ?, ?, ?, ?, ?, ?)");
-                                $stmtExp->execute([$cqcProjectId, $cqcCategoryId, $categoryName, $amount, $transactionDate, $description, $_SESSION['user_id']]);
+                                $stmtExp->execute([$cqcProjectId, $cqcCategoryId, $categoryName, $amount, $transactionDate, $syncNotes, $_SESSION['user_id']]);
+                                error_log("CQC SYNC: Cashbook -> Project expense. Project ID: {$cqcProjectId}, Amount: {$amount}");
                                 
                                 // Update spent_idr on the project
                                 $stmtUpd = $cqcPdo->prepare("UPDATE cqc_projects SET spent_idr = (SELECT COALESCE(SUM(amount),0) FROM cqc_project_expenses WHERE project_id = ?) WHERE id = ?");
