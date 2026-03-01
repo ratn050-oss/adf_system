@@ -1047,15 +1047,15 @@ echo getPrintCSS();
     </div>
     
     <!-- Filters -->
-    <form method="GET" action="" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.75rem; margin-bottom: 1.5rem; padding: 1.25rem; background: var(--bg-secondary); border-radius: var(--radius-lg); border: 1px solid var(--bg-tertiary);">
+    <form method="GET" action="" autocomplete="off" style="display: grid; grid-template-columns: repeat(5, 1fr); gap: 0.75rem; margin-bottom: 1.5rem; padding: 1.25rem; background: var(--bg-secondary); border-radius: var(--radius-lg); border: 1px solid var(--bg-tertiary);">
         <div class="form-group" style="margin-bottom: 0;">
             <label class="form-label" style="font-size: 0.75rem; margin-bottom: 0.25rem;">Tanggal</label>
-            <input type="date" id="filterDate" name="date" value="<?php echo htmlspecialchars($filterDate); ?>" class="form-control" style="height: 38px; font-size: 0.875rem;" onchange="if(this.value) document.getElementById('filterMonth').value=''">
+            <input type="date" id="filterDate" name="date" value="<?php echo htmlspecialchars($filterDate); ?>" class="form-control" autocomplete="off" style="height: 38px; font-size: 0.875rem;" onchange="if(this.value) document.getElementById('filterMonth').value=''"<?php echo empty($filterDate) ? ' placeholder="Pilih tanggal"' : ''; ?>>
         </div>
         
         <div class="form-group" style="margin-bottom: 0;">
             <label class="form-label" style="font-size: 0.75rem; margin-bottom: 0.25rem;">Bulan</label>
-            <input type="month" id="filterMonth" name="month" value="<?php echo htmlspecialchars($filterMonth); ?>" class="form-control" style="height: 38px; font-size: 0.875rem;" placeholder="YYYY-MM" pattern="\d{4}-\d{2}" onchange="if(this.value) document.getElementById('filterDate').value=''">
+            <input type="month" id="filterMonth" name="month" value="<?php echo htmlspecialchars($filterMonth); ?>" class="form-control" autocomplete="off" style="height: 38px; font-size: 0.875rem;" placeholder="YYYY-MM" pattern="\d{4}-\d{2}" onchange="if(this.value) document.getElementById('filterDate').value=''">
         </div>
         
         <div class="form-group" style="margin-bottom: 0;">
@@ -1126,6 +1126,12 @@ echo getPrintCSS();
                         <td colspan="9" style="text-align: center; padding: 3rem; color: var(--text-muted);">
                             <i data-feather="inbox" style="width: 48px; height: 48px; margin-bottom: 1rem;"></i>
                             <div>Belum ada transaksi</div>
+                            <?php if (!empty($filterDate) || !empty($filterMonth)): ?>
+                            <div style="margin-top: 0.5rem; font-size: 0.8rem;">
+                                Filter aktif: <?php echo !empty($filterDate) ? "Tanggal: {$filterDate}" : "Bulan: {$filterMonth}"; ?>
+                                <br><a href="index.php" style="color: var(--primary-color);">Klik untuk reset filter</a>
+                            </div>
+                            <?php endif; ?>
                         </td>
                     </tr>
                 <?php else: ?>
