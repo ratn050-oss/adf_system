@@ -782,25 +782,25 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
 </style>
 
 <?php if (!empty($cqcProjects)): ?>
-<!-- CQC Project Monitoring - Compact Elegant 2026 -->
-<div class="fade-in" style="margin: 12px 0; padding: 16px; background: linear-gradient(180deg, #ffffff 0%, #fafbfc 100%); border-radius: 18px; box-shadow: 0 2px 20px rgba(0,0,0,0.04); border: 1px solid rgba(240, 180, 41, 0.12);">
+<!-- CQC Project Monitoring - Clean 2027 Style -->
+<div class="fade-in" style="margin: 12px 0; padding: 18px; background: #fff; border-radius: 12px; box-shadow: 0 1px 3px rgba(0,0,0,0.04); border: 1px solid #e2e8f0;">
     <!-- Header -->
-    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 14px;">
+    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 16px;">
         <div style="display: flex; align-items: center; gap: 10px;">
-            <div style="width: 36px; height: 36px; background: linear-gradient(135deg, #f59e0b 0%, #ea580c 100%); border-radius: 10px; display: flex; align-items: center; justify-content: center; box-shadow: 0 3px 10px rgba(245, 158, 11, 0.3);">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><path d="m12 1v2m0 18v2m4.22-18.36 1.42 1.42M4.93 19.07l1.41 1.42m12.73 0 1.41-1.42M4.93 4.93l1.42 1.42M1 12h2m18 0h2"/></svg>
+            <div style="width: 32px; height: 32px; background: #f8fafc; border-radius: 8px; display: flex; align-items: center; justify-content: center; border: 1px solid #e2e8f0;">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#0ea5e9" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="5"/><path d="m12 1v2m0 18v2m4.22-18.36 1.42 1.42M4.93 19.07l1.41 1.42m12.73 0 1.41-1.42M4.93 4.93l1.42 1.42M1 12h2m18 0h2"/></svg>
             </div>
             <div>
-                <div style="font-size: 8px; color: #f59e0b; font-weight: 800; text-transform: uppercase; letter-spacing: 1.5px;">CQC ENJINIRING</div>
-                <div style="font-size: 15px; font-weight: 800; color: #1f2937; letter-spacing: -0.3px; margin-top: 1px;">Pencapaian & Keuangan</div>
+                <div style="font-size: 9px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.8px;">CQC Enjiniring</div>
+                <div style="font-size: 14px; font-weight: 600; color: #1e293b; letter-spacing: -0.2px;">Pencapaian & Keuangan</div>
             </div>
         </div>
-        <a href="modules/cqc-projects/" style="padding: 6px 12px; background: linear-gradient(135deg, #f59e0b 0%, #ea580c 100%); color: white; border-radius: 8px; font-size: 11px; font-weight: 700; text-decoration: none; box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3); transition: all 0.2s;" onmouseover="this.style.transform='translateY(-1px)';" onmouseout="this.style.transform='translateY(0)';">
+        <a href="modules/cqc-projects/" style="padding: 6px 12px; background: #1e293b; color: white; border-radius: 6px; font-size: 11px; font-weight: 600; text-decoration: none; transition: all 0.15s;" onmouseover="this.style.background='#0f172a';" onmouseout="this.style.background='#1e293b';">
             Kelola →
         </a>
     </div>
     
-    <!-- Summary Stats - Compact -->
+    <!-- Summary Stats - Clean -->
     <?php
     $totalBudget = array_sum(array_column($cqcProjects, 'budget_idr'));
     $totalSpent = array_sum(array_column($cqcProjects, 'spent_idr'));
@@ -809,130 +809,109 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
     $budgetUsedPct = $totalBudget > 0 ? round(($totalSpent / $totalBudget) * 100) : 0;
     ?>
     <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 16px;">
-        <div style="text-align: center; padding: 12px 8px; background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); border-radius: 12px; box-shadow: 0 3px 12px rgba(99, 102, 241, 0.25);">
-            <div style="font-size: 22px; font-weight: 800; color: #fff; font-family: system-ui; line-height: 1;"><?php echo count($cqcProjects); ?></div>
-            <div style="font-size: 9px; color: rgba(255,255,255,0.85); font-weight: 700; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.4px;">Proyek</div>
+        <div style="text-align: center; padding: 12px 8px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
+            <div style="font-size: 20px; font-weight: 700; color: #1e293b; line-height: 1;"><?php echo count($cqcProjects); ?></div>
+            <div style="font-size: 10px; color: #64748b; font-weight: 600; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.3px;">Proyek</div>
         </div>
-        <div style="text-align: center; padding: 12px 8px; background: linear-gradient(135deg, #0ea5e9 0%, #0284c7 100%); border-radius: 12px; box-shadow: 0 3px 12px rgba(14, 165, 233, 0.25);">
-            <div style="font-size: 13px; font-weight: 800; color: #fff; font-family: system-ui;">Rp <?php echo number_format($totalBudget/1000000000, 2); ?>M</div>
-            <div style="font-size: 9px; color: rgba(255,255,255,0.85); font-weight: 700; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.4px;">Budget</div>
+        <div style="text-align: center; padding: 12px 8px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
+            <div style="font-size: 13px; font-weight: 700; color: #1e293b;">Rp <?php echo number_format($totalBudget/1000000000, 2); ?>M</div>
+            <div style="font-size: 10px; color: #64748b; font-weight: 600; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.3px;">Budget</div>
         </div>
-        <div style="text-align: center; padding: 12px 8px; background: linear-gradient(135deg, #f43f5e 0%, #e11d48 100%); border-radius: 12px; box-shadow: 0 3px 12px rgba(244, 63, 94, 0.25);">
-            <div style="font-size: 13px; font-weight: 800; color: #fff; font-family: system-ui;">Rp <?php echo number_format($totalSpent/1000000, 0); ?>jt</div>
-            <div style="font-size: 9px; color: rgba(255,255,255,0.85); font-weight: 700; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.4px;">Terpakai <?php echo $budgetUsedPct; ?>%</div>
+        <div style="text-align: center; padding: 12px 8px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
+            <div style="font-size: 13px; font-weight: 700; color: #ef4444;">Rp <?php echo number_format($totalSpent/1000000, 0); ?>jt</div>
+            <div style="font-size: 10px; color: #64748b; font-weight: 600; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.3px;">Terpakai <?php echo $budgetUsedPct; ?>%</div>
         </div>
-        <div style="text-align: center; padding: 12px 8px; background: linear-gradient(135deg, #10b981 0%, #059669 100%); border-radius: 12px; box-shadow: 0 3px 12px rgba(16, 185, 129, 0.25);">
-            <div style="font-size: 22px; font-weight: 800; color: #fff; font-family: system-ui; line-height: 1;"><?php echo $avgProgress; ?>%</div>
-            <div style="font-size: 9px; color: rgba(255,255,255,0.85); font-weight: 700; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.4px;">Progress</div>
+        <div style="text-align: center; padding: 12px 8px; background: #f8fafc; border-radius: 8px; border: 1px solid #e2e8f0;">
+            <div style="font-size: 20px; font-weight: 700; color: #10b981; line-height: 1;"><?php echo $avgProgress; ?>%</div>
+            <div style="font-size: 10px; color: #64748b; font-weight: 600; margin-top: 4px; text-transform: uppercase; letter-spacing: 0.3px;">Progress</div>
         </div>
     </div>
 
-    <!-- Project Cards Grid - Compact -->
-    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 14px; margin-bottom: 16px;">
+    <!-- Project Cards Grid - Clean -->
+    <div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(280px, 1fr)); gap: 12px; margin-bottom: 16px;">
         <?php foreach ($cqcProjects as $idx => $proj): 
             $budget = floatval($proj['budget_idr'] ?? 0);
             $spent = floatval($proj['spent_idr'] ?? 0);
             $remaining = $budget - $spent;
             $progress = intval($proj['progress_percentage'] ?? 0);
             $spentPct = $budget > 0 ? round(($spent / $budget) * 100, 1) : 0;
-            $statusLabels = ['planning'=>'Planning','procurement'=>'Procurement','installation'=>'Instalasi','testing'=>'Testing','completed'=>'Selesai','on_hold'=>'Ditunda'];
+            $statusLabels = ['planning'=>'Planning','procurement'=>'Procurement','installation'=>'Installation','testing'=>'Testing','completed'=>'Completed','on_hold'=>'On Hold'];
             $statusLabel = $statusLabels[$proj['status']] ?? ucfirst($proj['status']);
-            $statusColors = ['planning'=>'#6366f1','procurement'=>'#f59e0b','installation'=>'#3b82f6','testing'=>'#ec4899','completed'=>'#10b981','on_hold'=>'#6b7280'];
-            $statusColor = $statusColors[$proj['status']] ?? '#6b7280';
+            $statusColors = ['planning'=>['#f1f5f9','#475569'],'procurement'=>['#fef3c7','#92400e'],'installation'=>['#d1fae5','#065f46'],'testing'=>['#e0f2fe','#0369a1'],'completed'=>['#dcfce7','#166534'],'on_hold'=>['#fee2e2','#991b1b']];
+            $statusBg = $statusColors[$proj['status']][0] ?? '#f1f5f9';
+            $statusText = $statusColors[$proj['status']][1] ?? '#475569';
             $kwp = floatval($proj['solar_capacity_kwp'] ?? 0);
             $clientName = $proj['client_name'] ?? '';
-            $projectColorPalette = [
-                ['#10b981', '#34d399'],
-                ['#f59e0b', '#fbbf24'],
-                ['#3b82f6', '#60a5fa'],
-                ['#8b5cf6', '#a78bfa'],
-                ['#ec4899', '#f472b6'],
-                ['#06b6d4', '#22d3ee'],
-                ['#84cc16', '#a3e635'],
-                ['#f97316', '#fb923c'],
-            ];
-            $projColorIdx = $idx % count($projectColorPalette);
-            $projColor = $projectColorPalette[$projColorIdx][0];
-            $projColorLight = $projectColorPalette[$projColorIdx][1];
         ?>
-        <div class="cqc-project-card" style="background: #fff; border-radius: 14px; padding: 14px; border: 1px solid #e5e7eb; box-shadow: 0 2px 12px rgba(0,0,0,0.04); cursor: pointer; transition: all 0.25s; position: relative; overflow: hidden;" onmouseover="this.style.transform='translateY(-3px)'; this.style.boxShadow='0 8px 24px rgba(0,0,0,0.08)'; this.style.borderColor='<?php echo $projColor; ?>';" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 12px rgba(0,0,0,0.04)'; this.style.borderColor='#e5e7eb';">
-            
-            <!-- Accent Line -->
-            <div style="position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, <?php echo $projColor; ?>, <?php echo $projColorLight; ?>);"></div>
+        <div class="cqc-project-card" style="background: #fff; border-radius: 10px; padding: 14px; border: 1px solid #e2e8f0; box-shadow: 0 1px 3px rgba(0,0,0,0.04); cursor: pointer; transition: all 0.15s;" onmouseover="this.style.boxShadow='0 4px 12px rgba(0,0,0,0.08)'; this.style.borderColor='#cbd5e1';" onmouseout="this.style.boxShadow='0 1px 3px rgba(0,0,0,0.04)'; this.style.borderColor='#e2e8f0';">
             
             <!-- Header -->
-            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 10px;">
+            <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 12px;">
                 <div style="flex: 1; min-width: 0;">
-                    <div style="font-size: 9px; color: <?php echo $projColor; ?>; font-weight: 800; letter-spacing: 1.2px; font-family: system-ui; text-transform: uppercase;"><?php echo htmlspecialchars($proj['project_code']); ?></div>
-                    <div style="font-size: 13px; font-weight: 700; color: #111827; margin-top: 3px; line-height: 1.3;"><?php echo htmlspecialchars($proj['project_name']); ?></div>
+                    <div style="font-size: 10px; color: #64748b; font-weight: 600; letter-spacing: 0.5px;"><?php echo htmlspecialchars($proj['project_code']); ?></div>
+                    <div style="font-size: 13px; font-weight: 600; color: #1e293b; margin-top: 2px; line-height: 1.3;"><?php echo htmlspecialchars($proj['project_name']); ?></div>
                     <?php if ($clientName): ?>
-                    <div style="font-size: 10px; color: #6b7280; margin-top: 2px; display: flex; align-items: center; gap: 3px;">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
-                        <?php echo htmlspecialchars($clientName); ?>
-                    </div>
+                    <div style="font-size: 11px; color: #94a3b8; margin-top: 2px;"><?php echo htmlspecialchars($clientName); ?></div>
                     <?php endif; ?>
                 </div>
-                <span style="padding: 4px 8px; border-radius: 12px; font-size: 8px; font-weight: 700; background: <?php echo $statusColor; ?>15; color: <?php echo $statusColor; ?>; letter-spacing: 0.3px; text-transform: uppercase; white-space: nowrap;"><?php echo $statusLabel; ?></span>
+                <span style="padding: 4px 8px; border-radius: 5px; font-size: 10px; font-weight: 600; background: <?php echo $statusBg; ?>; color: <?php echo $statusText; ?>; white-space: nowrap;"><?php echo $statusLabel; ?></span>
             </div>
             
             <!-- Main Content: Progress + Financial -->
-            <div style="display: flex; gap: 14px; align-items: center; margin-bottom: 10px;">
+            <div style="display: flex; gap: 12px; align-items: center; margin-bottom: 10px;">
                 
-                <!-- Progress Donut -->
+                <!-- Progress Circle - Simple -->
                 <div style="flex-shrink: 0; text-align: center;">
-                    <div style="position: relative; width: 75px; height: 75px;">
-                        <canvas id="cqcPie<?php echo $idx; ?>" style="filter: drop-shadow(0 3px 8px <?php echo $projColor; ?>25);"></canvas>
+                    <div style="position: relative; width: 60px; height: 60px;">
+                        <canvas id="cqcPie<?php echo $idx; ?>"></canvas>
                         <div style="position: absolute; top: 50%; left: 50%; transform: translate(-50%, -50%); text-align: center;">
-                            <div style="font-size: 18px; font-weight: 800; color: <?php echo $projColor; ?>; line-height: 1; font-family: system-ui;"><?php echo $progress; ?>%</div>
-                            <div style="font-size: 7px; color: #9ca3af; text-transform: uppercase; font-weight: 700;">Progress</div>
+                            <div style="font-size: 14px; font-weight: 700; color: #1e293b; line-height: 1;"><?php echo $progress; ?>%</div>
                         </div>
                     </div>
                 </div>
                 
-                <!-- Financial -->
+                <!-- Financial - Clean -->
                 <div style="flex: 1; min-width: 0;">
-                    <!-- Budget Bar -->
-                    <div style="margin-bottom: 8px;">
+                    <!-- Budget -->
+                    <div style="margin-bottom: 6px;">
                         <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 3px;">
-                            <span style="font-size: 9px; color: #6b7280; font-weight: 700;">💰 Budget</span>
-                            <span style="font-size: 12px; font-weight: 800; color: #374151; font-family: system-ui;"><?php echo number_format($budget/1000000, 0); ?>jt</span>
+                            <span style="font-size: 10px; color: #64748b; font-weight: 500;">Budget</span>
+                            <span style="font-size: 12px; font-weight: 600; color: #1e293b;"><?php echo number_format($budget/1000000, 0); ?>jt</span>
                         </div>
-                        <div style="height: 5px; background: #e5e7eb; border-radius: 3px; overflow: hidden;">
-                            <div style="width: <?php echo min($spentPct, 100); ?>%; height: 100%; background: linear-gradient(90deg, <?php echo $spentPct > 90 ? '#ef4444' : $projColor; ?>, <?php echo $spentPct > 90 ? '#f87171' : $projColorLight; ?>); border-radius: 3px; transition: width 0.5s;"></div>
+                        <div style="height: 4px; background: #e2e8f0; border-radius: 2px; overflow: hidden;">
+                            <div style="width: <?php echo min($spentPct, 100); ?>%; height: 100%; background: <?php echo $spentPct > 90 ? '#ef4444' : '#0ea5e9'; ?>; border-radius: 2px;"></div>
                         </div>
                     </div>
                     
                     <!-- Spent & Sisa -->
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 6px;">
-                        <div style="background: #fef2f2; padding: 6px 8px; border-radius: 8px;">
-                            <div style="font-size: 7px; color: #9ca3af; text-transform: uppercase; font-weight: 700;">Terpakai</div>
-                            <div style="font-size: 12px; font-weight: 800; color: #ef4444; font-family: system-ui; margin-top: 1px;"><?php echo number_format($spent/1000000, 1); ?>jt</div>
+                    <div style="display: flex; gap: 12px; font-size: 11px;">
+                        <div>
+                            <span style="color: #94a3b8;">Terpakai:</span>
+                            <span style="color: #ef4444; font-weight: 600; margin-left: 2px;"><?php echo number_format($spent/1000000, 1); ?>jt</span>
                         </div>
-                        <div style="background: <?php echo $remaining >= 0 ? '#f0fdf4' : '#fef2f2'; ?>; padding: 6px 8px; border-radius: 8px;">
-                            <div style="font-size: 7px; color: #9ca3af; text-transform: uppercase; font-weight: 700;">Sisa</div>
-                            <div style="font-size: 12px; font-weight: 800; color: <?php echo $remaining >= 0 ? '#10b981' : '#ef4444'; ?>; font-family: system-ui; margin-top: 1px;"><?php echo number_format($remaining/1000000, 1); ?>jt</div>
+                        <div>
+                            <span style="color: #94a3b8;">Sisa:</span>
+                            <span style="color: <?php echo $remaining >= 0 ? '#10b981' : '#ef4444'; ?>; font-weight: 600; margin-left: 2px;"><?php echo number_format($remaining/1000000, 1); ?>jt</span>
                         </div>
                     </div>
                 </div>
             </div>
             
-            <!-- Tags + View Button Row -->
-            <div style="display: flex; align-items: center; justify-content: space-between; margin-top: 10px; padding-top: 8px; border-top: 1px solid #f3f4f6;">
+            <!-- Footer Row -->
+            <div style="display: flex; align-items: center; justify-content: space-between; padding-top: 10px; border-top: 1px solid #f1f5f9;">
                 <div style="display: flex; gap: 6px;">
                     <?php if ($kwp > 0): ?>
-                    <span style="padding: 4px 8px; background: linear-gradient(135deg, #fef3c7, #fde68a); border-radius: 6px; font-size: 9px; font-weight: 700; color: #92400e; display: flex; align-items: center; gap: 3px;">
-                        <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M13 2 3 14h9l-1 8 10-12h-9l1-8z"/></svg>
-                        <?php echo number_format($kwp, 1); ?> kWp
+                    <span style="padding: 3px 8px; background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 10px; font-weight: 500; color: #64748b;">
+                        ⚡ <?php echo number_format($kwp, 1); ?> kWp
                     </span>
                     <?php endif; ?>
                 </div>
                 
-                <!-- View Button - Light Style -->
+                <!-- View Button -->
                 <a href="modules/cqc-projects/detail.php?id=<?php echo $proj['id']; ?>" 
-                   style="display: flex; align-items: center; gap: 4px; padding: 6px 14px; background: <?php echo $projColor; ?>15; color: <?php echo $projColor; ?>; border-radius: 8px; text-decoration: none; font-size: 11px; font-weight: 700; transition: all 0.2s; border: 1px solid <?php echo $projColor; ?>25;"
-                   onmouseover="this.style.background='<?php echo $projColor; ?>25';"
-                   onmouseout="this.style.background='<?php echo $projColor; ?>15';">
-                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M15 12a3 3 0 1 1-6 0 3 3 0 0 1 6 0Z"/><path d="M2 12s3-7 10-7 10 7 10 7-3 7-10 7-10-7-10-7Z"/></svg>
+                   style="display: flex; align-items: center; gap: 4px; padding: 5px 12px; background: #fff; color: #475569; border-radius: 6px; text-decoration: none; font-size: 11px; font-weight: 600; border: 1px solid #e2e8f0; transition: all 0.15s;"
+                   onmouseover="this.style.background='#f8fafc'; this.style.borderColor='#cbd5e1';"
+                   onmouseout="this.style.background='#fff'; this.style.borderColor='#e2e8f0';">
                     View
                 </a>
             </div>
@@ -940,27 +919,27 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
         <?php endforeach; ?>
     </div>
 
-    <!-- Overall Charts - Compact -->
+    <!-- Overall Charts - Clean -->
     <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px;">
-        <div style="background: #fff; border-radius: 12px; padding: 14px; border: 1px solid #e5e7eb; box-shadow: 0 2px 8px rgba(0,0,0,0.03);">
-            <h3 style="font-size: 12px; font-weight: 700; color: #1f2937; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
-                <span style="width: 26px; height: 26px; background: linear-gradient(135deg, #6366f1, #4f46e5); border-radius: 7px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(99, 102, 241, 0.25);">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
+        <div style="background: #fff; border-radius: 10px; padding: 14px; border: 1px solid #e2e8f0;">
+            <h3 style="font-size: 12px; font-weight: 600; color: #1e293b; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                <span style="width: 24px; height: 24px; background: #f8fafc; border-radius: 6px; display: flex; align-items: center; justify-content: center; border: 1px solid #e2e8f0;">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2"><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>
                 </span>
                 Distribusi Budget
             </h3>
-            <div style="position: relative; height: 200px;">
+            <div style="position: relative; height: 180px;">
                 <canvas id="cqcBudgetPie"></canvas>
             </div>
         </div>
-        <div style="background: #fff; border-radius: 12px; padding: 14px; border: 1px solid #e5e7eb; box-shadow: 0 2px 8px rgba(0,0,0,0.03);">
-            <h3 style="font-size: 12px; font-weight: 700; color: #1f2937; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
-                <span style="width: 26px; height: 26px; background: linear-gradient(135deg, #10b981, #059669); border-radius: 7px; display: flex; align-items: center; justify-content: center; box-shadow: 0 2px 6px rgba(16, 185, 129, 0.25);">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2.5"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
+        <div style="background: #fff; border-radius: 10px; padding: 14px; border: 1px solid #e2e8f0;">
+            <h3 style="font-size: 12px; font-weight: 600; color: #1e293b; margin-bottom: 12px; display: flex; align-items: center; gap: 8px;">
+                <span style="width: 24px; height: 24px; background: #f8fafc; border-radius: 6px; display: flex; align-items: center; justify-content: center; border: 1px solid #e2e8f0;">
+                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="#64748b" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/></svg>
                 </span>
                 Budget vs Spent
             </h3>
-            <div style="position: relative; height: 200px;">
+            <div style="position: relative; height: 180px;">
                 <canvas id="cqcBudgetVsSpentChart"></canvas>
             </div>
         </div>
@@ -1948,63 +1927,45 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
     
     // Individual project doughnut charts with gradient
     <?php 
-    $projectColorsJS = [
-        ['#10b981', '#34d399'], // Emerald
-        ['#f59e0b', '#fbbf24'], // Amber
-        ['#3b82f6', '#60a5fa'], // Blue
-        ['#8b5cf6', '#a78bfa'], // Violet
-        ['#ec4899', '#f472b6'], // Pink
-        ['#06b6d4', '#22d3ee'], // Cyan
-        ['#84cc16', '#a3e635'], // Lime
-        ['#f97316', '#fb923c'], // Orange
-    ];
+    // Clean 2027 style - simple colors
     foreach ($cqcProjects as $idx => $proj): 
         $progress = intval($proj['progress_percentage'] ?? 0);
-        $colorIdx = $idx % count($projectColorsJS);
-        $color1 = $projectColorsJS[$colorIdx][0];
-        $color2 = $projectColorsJS[$colorIdx][1];
     ?>
     (function() {
         const ctx = document.getElementById('cqcPie<?php echo $idx; ?>');
         if (!ctx) return;
         
-        // Create elegant gradient - compact size
-        const chartCtx = ctx.getContext('2d');
-        const gradient = chartCtx.createLinearGradient(0, 0, 75, 75);
-        gradient.addColorStop(0, '<?php echo $color1; ?>');
-        gradient.addColorStop(1, '<?php echo $color2; ?>');
-        
-        new Chart(chartCtx, {
+        new Chart(ctx, {
             type: 'doughnut',
             data: {
                 labels: ['Progress', 'Remaining'],
                 datasets: [{
                     data: [<?php echo $progress; ?>, <?php echo 100 - $progress; ?>],
-                    backgroundColor: [gradient, '#f3f4f6'],
+                    backgroundColor: ['#0ea5e9', '#e2e8f0'],
                     borderWidth: 0,
-                    borderRadius: 8,
-                    hoverBackgroundColor: ['<?php echo $color1; ?>', '#e5e7eb'],
-                    hoverOffset: 6
+                    borderRadius: 4,
+                    hoverBackgroundColor: ['#0284c7', '#cbd5e1'],
+                    hoverOffset: 2
                 }]
             },
             options: {
                 responsive: true,
                 maintainAspectRatio: true,
-                cutout: '68%',
+                cutout: '70%',
                 rotation: -90,
                 circumference: 360,
                 plugins: { 
                     legend: { display: false }, 
                     tooltip: {
                         enabled: true,
-                        backgroundColor: 'rgba(17, 24, 39, 0.95)', 
-                        titleColor: '<?php echo $color2; ?>', 
-                        bodyColor: '#e5e7eb',
-                        cornerRadius: 12, 
-                        padding: 14,
+                        backgroundColor: '#1e293b', 
+                        titleColor: '#fff', 
+                        bodyColor: '#e2e8f0',
+                        cornerRadius: 6, 
+                        padding: 10,
                         displayColors: false,
-                        titleFont: { size: 13, weight: '700' },
-                        bodyFont: { size: 12 },
+                        titleFont: { size: 11, weight: '600' },
+                        bodyFont: { size: 11 },
                         callbacks: {
                             label: function(ctx) { return ctx.label + ': ' + ctx.parsed + '%'; }
                         }
@@ -2012,7 +1973,7 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
                 },
                 animation: { 
                     animateRotate: true, 
-                    duration: 1000,
+                    duration: 600,
                     easing: 'easeOutQuart'
                 }
             }
