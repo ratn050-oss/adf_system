@@ -207,8 +207,8 @@ include '../../includes/header.php';
         }
 
         .cqc-btn-primary {
-            background: linear-gradient(135deg, var(--cqc-primary) 0%, var(--cqc-primary-light) 100%);
-            color: var(--cqc-accent);
+            background: var(--cqc-accent);
+            color: var(--cqc-primary);
             font-weight: 700;
         }
 

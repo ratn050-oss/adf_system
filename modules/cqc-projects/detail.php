@@ -229,7 +229,7 @@ include '../../includes/header.php';
 
         .cqc-detail-actions { display: flex; gap: 6px; }
         .cqc-detail-actions a, .cqc-detail-actions button {
-            background: linear-gradient(135deg, #0d1f3c, #1a3a5c); color: #f0b429; border: none; padding: 5px 12px;
+            background: var(--cqc-accent, #f0b429); color: #0d1f3c; border: none; padding: 5px 12px;
             border-radius: 4px; cursor: pointer; text-decoration: none; font-weight: 700; font-size: 11px;
             box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1); transition: all 0.2s;
         }
@@ -280,8 +280,8 @@ include '../../includes/header.php';
         .cqc-category-amount .count { font-size: 10px; color: #94a3b8; }
 
         .cqc-expenses-table { width: 100%; border-collapse: collapse; font-size: 11px; }
-        .cqc-expenses-table thead { background: linear-gradient(135deg, #0d1f3c, #1a3a5c); }
-        .cqc-expenses-table th { padding: 6px 8px; text-align: left; color: #f0b429; font-weight: 700; font-size: 10px; text-transform: uppercase; letter-spacing: 0.3px; }
+        .cqc-expenses-table thead { background: #f8fafc; }
+        .cqc-expenses-table th { padding: 6px 8px; text-align: left; color: #0d1f3c; font-weight: 700; font-size: 10px; text-transform: uppercase; letter-spacing: 0.3px; border-bottom: 2px solid #f0b429; }
         .cqc-expenses-table td { padding: 6px 8px; border-bottom: 1px solid #f1f5f9; font-size: 11px; }
 
         .cqc-modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4); z-index: 9999; padding: 20px; }
@@ -297,7 +297,7 @@ include '../../includes/header.php';
         .cqc-form-group input:focus, .cqc-form-group select:focus, .cqc-form-group textarea:focus { outline: none; border-color: #f0b429; box-shadow: 0 0 0 2px rgba(240,180,41,0.15); }
         .cqc-modal-actions { display: flex; gap: 8px; margin-top: 14px; }
         .cqc-modal-actions button { flex: 1; padding: 7px; border: none; border-radius: 4px; font-weight: 600; cursor: pointer; font-size: 11px; }
-        .cqc-btn-submit { background: linear-gradient(135deg, #0d1f3c, #1a3a5c); color: #f0b429; font-weight: 700; }
+        .cqc-btn-submit { background: #f0b429; color: #0d1f3c; font-weight: 700; }
         .cqc-btn-submit:hover { transform: translateY(-1px); }
         .cqc-btn-cancel { background: #f1f5f9; color: #334155; }
 

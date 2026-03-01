@@ -120,7 +120,7 @@ include '../../includes/header.php';
     .cqc-form-group input:focus { outline: none; border-color: #f0b429; box-shadow: 0 0 0 2px rgba(240,180,41,0.15); }
     
     .cqc-btn { padding: 8px 16px; border: none; border-radius: 6px; font-weight: 700; cursor: pointer; font-size: 12px; transition: all 0.2s; }
-    .cqc-btn-primary { background: linear-gradient(135deg, #0d1f3c, #1a3a5c); color: #f0b429; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1); }
+    .cqc-btn-primary { background: var(--cqc-accent, #f0b429); color: #0d1f3c; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1); }
     .cqc-btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); }
     .cqc-btn-success { background: #10b981; color: white; }
     .cqc-btn-danger { background: #ef4444; color: white; font-size: 10px; padding: 4px 8px; }
@@ -132,8 +132,8 @@ include '../../includes/header.php';
     .cqc-icon-btn.selected { border-color: #f0b429; background: #fef3c7; }
     
     .cqc-table { width: 100%; border-collapse: collapse; }
-    .cqc-table thead { background: linear-gradient(135deg, #0d1f3c, #1a3a5c); }
-    .cqc-table th { padding: 10px 12px; text-align: left; color: #f0b429; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; }
+    .cqc-table thead { background: var(--cqc-bg, #f8fafc); }
+    .cqc-table th { padding: 10px 12px; text-align: left; color: #0d1f3c; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; border-bottom: 2px solid #f0b429; }
     .cqc-table td { padding: 12px 12px; border-bottom: 1px solid #f1f5f9; font-size: 13px; vertical-align: middle; }
     .cqc-table tbody tr:hover { background: #f9fafb; }
     

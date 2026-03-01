@@ -235,21 +235,22 @@ include '../../includes/header.php';
             font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
         }
 
-        /* Header - Elegant Navy + Gold */
+        /* Header - Clean White Design */
         .cqc-header {
-            background: linear-gradient(135deg, var(--cqc-primary) 0%, var(--cqc-primary-light) 100%);
+            background: #fff;
             padding: 16px 20px;
             border-radius: 12px;
             margin-bottom: 16px;
             display: flex; justify-content: space-between; align-items: center;
-            border: 1px solid rgba(255, 255, 255, 0.1);
-            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+            border: 1px solid var(--cqc-border);
+            border-left: 4px solid var(--cqc-accent);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
         }
         .cqc-header h1 { 
-            font-size: 18px; font-weight: 700; color: var(--cqc-accent); 
+            font-size: 18px; font-weight: 700; color: var(--cqc-primary); 
             margin: 0 0 4px; letter-spacing: -0.3px;
         }
-        .cqc-header p { font-size: 12px; margin: 0; color: rgba(255,255,255,0.7); font-weight: 500; }
+        .cqc-header p { font-size: 12px; margin: 0; color: var(--cqc-muted); font-weight: 500; }
         .cqc-header button {
             background: var(--cqc-accent); color: var(--cqc-primary); border: none;
             padding: 8px 16px; border-radius: 8px; font-weight: 700;
@@ -328,10 +329,10 @@ include '../../includes/header.php';
         }
         .cqc-projects-table table { width: 100%; border-collapse: collapse; }
         .cqc-projects-table th {
-            background: linear-gradient(135deg, var(--cqc-primary), var(--cqc-primary-light)); color: var(--cqc-accent);
+            background: var(--cqc-bg); color: var(--cqc-primary);
             padding: 10px 14px; text-align: left;
             font-weight: 700; font-size: 11px; text-transform: uppercase; 
-            letter-spacing: 0.4px; border-bottom: 1px solid var(--cqc-border);
+            letter-spacing: 0.4px; border-bottom: 2px solid var(--cqc-accent);
         }
         .cqc-projects-table td {
             padding: 12px 14px; border-bottom: 1px solid #f1f5f9;
@@ -378,7 +379,7 @@ include '../../includes/header.php';
         .cqc-empty-state h3 { color: var(--cqc-text); margin-bottom: 6px; font-size: 14px; font-weight: 600; }
         .cqc-empty-state p { font-size: 12px; color: var(--cqc-muted); }
         .cqc-empty-state button {
-            background: linear-gradient(135deg, var(--cqc-primary), var(--cqc-primary-light)); color: var(--cqc-accent); border: none;
+            background: var(--cqc-accent); color: var(--cqc-primary); border: none;
             padding: 10px 20px; border-radius: 8px; cursor: pointer; margin-top: 14px;
             font-weight: 700; font-size: 12px; transition: all 0.2s;
             box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
