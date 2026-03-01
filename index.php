@@ -534,6 +534,21 @@ if ($isCQC) {
     } catch (Exception $e) {
         error_log('CQC project data error: ' . $e->getMessage());
     }
+    
+    // CQC: Fetch recent 10 transactions from cashbook for dashboard
+    $masterDbName = DB_NAME;
+    $recentCashbook = $db->fetchAll(
+        "SELECT cb.*, 
+                COALESCE(c.category_name, 'Umum') as category_name,
+                COALESCE(d.division_name, '-') as division_name,
+                COALESCE(u.full_name, 'System') as created_by_name
+         FROM cash_book cb
+         LEFT JOIN categories c ON cb.category_id = c.id
+         LEFT JOIN divisions d ON cb.division_id = d.id
+         LEFT JOIN {$masterDbName}.users u ON cb.created_by = u.id
+         ORDER BY cb.transaction_date DESC, cb.transaction_time DESC, cb.id DESC
+         LIMIT 10"
+    );
 }
 
 include 'includes/header.php';
@@ -939,6 +954,92 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
                 <canvas id="cqcBudgetVsSpentChart"></canvas>
             </div>
         </div>
+    </div>
+
+    <!-- Recent Transactions from Buku Kas -->
+    <div style="background: #fff; border-radius: 10px; padding: 16px; border: 1px solid #e2e8f0; margin-top: 12px;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 14px;">
+            <h3 style="font-size: 13px; font-weight: 600; color: #1e293b; display: flex; align-items: center; gap: 8px; margin: 0;">
+                <span style="width: 28px; height: 28px; background: linear-gradient(135deg, #f0b429, #d4960d); border-radius: 7px; display: flex; align-items: center; justify-content: center; font-size: 14px;">📋</span>
+                10 Transaksi Terakhir
+            </h3>
+            <a href="modules/cashbook/" style="font-size: 11px; color: #f0b429; text-decoration: none; font-weight: 600; padding: 4px 10px; border: 1px solid #f0b429; border-radius: 6px; transition: all 0.15s;"
+               onmouseover="this.style.background='#f0b429'; this.style.color='#fff';" onmouseout="this.style.background='transparent'; this.style.color='#f0b429';">
+                Lihat Semua →
+            </a>
+        </div>
+        <?php if (!empty($recentCashbook)): ?>
+        <div style="overflow-x: auto;">
+            <table style="width: 100%; border-collapse: collapse; font-size: 12px;">
+                <thead>
+                    <tr style="background: #f8fafc; border-bottom: 2px solid #e2e8f0;">
+                        <th style="padding: 8px 10px; text-align: left; color: #64748b; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.3px;">Tanggal</th>
+                        <th style="padding: 8px 10px; text-align: left; color: #64748b; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.3px;">Keterangan</th>
+                        <th style="padding: 8px 10px; text-align: left; color: #64748b; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.3px;">Kategori</th>
+                        <th style="padding: 8px 10px; text-align: left; color: #64748b; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.3px;">Tipe</th>
+                        <th style="padding: 8px 10px; text-align: right; color: #64748b; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.3px;">Jumlah</th>
+                        <th style="padding: 8px 10px; text-align: left; color: #64748b; font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.3px;">Oleh</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($recentCashbook as $i => $tx): 
+                        $isIncome = $tx['transaction_type'] === 'income';
+                        $rowBg = $i % 2 === 0 ? '#fff' : '#fafbfc';
+                        // Clean description: remove [CQC_PROJECT:X] and [OPERATIONAL_OFFICE] tags for display
+                        $cleanDesc = preg_replace('/\[CQC_PROJECT:\d+\]\s*/', '', $tx['description'] ?? '');
+                        $cleanDesc = preg_replace('/\[OPERATIONAL_OFFICE\]\s*/', '', $cleanDesc);
+                        // Detect if project expense
+                        $isProject = preg_match('/\[CQC_PROJECT:(\d+)\]/', $tx['description'] ?? '', $projMatch);
+                        $sourceLabel = '';
+                        if ($isIncome && isset($tx['source_type'])) {
+                            if ($tx['source_type'] === 'owner_fund') $sourceLabel = 'Owner Fund';
+                            elseif ($tx['source_type'] === 'invoice_payment') $sourceLabel = 'Invoice';
+                        }
+                        if (!$isIncome && $isProject) $sourceLabel = 'Proyek';
+                        if (!$isIncome && !$isProject) $sourceLabel = 'Office';
+                    ?>
+                    <tr style="background: <?php echo $rowBg; ?>; border-bottom: 1px solid #f1f5f9; transition: background 0.1s;" onmouseover="this.style.background='#fffbeb'" onmouseout="this.style.background='<?php echo $rowBg; ?>'">
+                        <td style="padding: 9px 10px; white-space: nowrap;">
+                            <div style="font-weight: 500; color: #1e293b;"><?php echo date('d M Y', strtotime($tx['transaction_date'])); ?></div>
+                            <?php if (!empty($tx['transaction_time'])): ?>
+                            <div style="font-size: 10px; color: #94a3b8;"><?php echo date('H:i', strtotime($tx['transaction_time'])); ?></div>
+                            <?php endif; ?>
+                        </td>
+                        <td style="padding: 9px 10px; max-width: 250px;">
+                            <div style="color: #1e293b; font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;"><?php echo htmlspecialchars($cleanDesc ?: '-'); ?></div>
+                            <?php if ($sourceLabel): ?>
+                            <span style="font-size: 10px; padding: 1px 6px; border-radius: 3px; font-weight: 500;
+                                <?php if ($sourceLabel === 'Owner Fund'): ?>background: #fef3c7; color: #92400e;
+                                <?php elseif ($sourceLabel === 'Invoice'): ?>background: #d1fae5; color: #065f46;
+                                <?php elseif ($sourceLabel === 'Proyek'): ?>background: #e0e7ff; color: #3730a3;
+                                <?php else: ?>background: #f1f5f9; color: #475569;
+                                <?php endif; ?>">
+                                <?php echo $sourceLabel; ?>
+                            </span>
+                            <?php endif; ?>
+                        </td>
+                        <td style="padding: 9px 10px; color: #64748b;"><?php echo htmlspecialchars($tx['category_name']); ?></td>
+                        <td style="padding: 9px 10px;">
+                            <span style="display: inline-flex; align-items: center; gap: 4px; padding: 2px 8px; border-radius: 4px; font-size: 11px; font-weight: 600;
+                                <?php echo $isIncome ? 'background: #ecfdf5; color: #059669;' : 'background: #fef2f2; color: #dc2626;'; ?>">
+                                <?php echo $isIncome ? '↓ Masuk' : '↑ Keluar'; ?>
+                            </span>
+                        </td>
+                        <td style="padding: 9px 10px; text-align: right; font-weight: 600; font-family: 'JetBrains Mono', monospace; <?php echo $isIncome ? 'color: #059669;' : 'color: #dc2626;'; ?>">
+                            <?php echo ($isIncome ? '+' : '-') . ' Rp ' . number_format($tx['amount'], 0, ',', '.'); ?>
+                        </td>
+                        <td style="padding: 9px 10px; color: #64748b; font-size: 11px;"><?php echo htmlspecialchars($tx['created_by_name']); ?></td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+        <?php else: ?>
+        <div style="text-align: center; padding: 24px; color: #94a3b8;">
+            <div style="font-size: 28px; margin-bottom: 6px;">📭</div>
+            <div style="font-size: 12px;">Belum ada transaksi</div>
+        </div>
+        <?php endif; ?>
     </div>
 </div>
 <?php else: ?>
