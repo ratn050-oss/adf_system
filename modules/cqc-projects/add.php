@@ -120,22 +120,31 @@ include '../../includes/header.php';
 ?>
 
 <style>
+        /* CQC Form Styles - Navy + Gold Theme */
+        :root {
+            --cqc-primary: #0d1f3c;
+            --cqc-primary-light: #1a3a5c;
+            --cqc-accent: #f0b429;
+            --cqc-accent-dark: #d4960d;
+        }
         .cqc-form-card {
             background: var(--bg-secondary, white);
             border-radius: 12px;
             padding: 30px;
-            box-shadow: 0 8px 16px rgba(0, 0, 0, 0.1);
+            box-shadow: 0 8px 24px rgba(13, 31, 60, 0.12);
             margin-bottom: 20px;
+            border: 1px solid #e2e8f0;
         }
 
         .cqc-form-section { margin-bottom: 30px; }
 
         .cqc-form-section h3 {
-            color: #0066CC;
-            font-size: 18px;
+            color: var(--cqc-primary);
+            font-size: 16px;
+            font-weight: 700;
             margin-bottom: 20px;
             padding-bottom: 10px;
-            border-bottom: 2px solid #FFD700;
+            border-bottom: 3px solid var(--cqc-accent);
         }
 
         .cqc-form-grid {
@@ -171,8 +180,8 @@ include '../../includes/header.php';
         .cqc-form-group textarea:focus,
         .cqc-form-group select:focus {
             outline: none;
-            border-color: #0066CC;
-            box-shadow: 0 0 0 3px rgba(0, 102, 204, 0.1);
+            border-color: var(--cqc-accent);
+            box-shadow: 0 0 0 3px rgba(240, 180, 41, 0.15);
         }
 
         .cqc-form-group textarea { resize: vertical; min-height: 100px; }
@@ -198,13 +207,14 @@ include '../../includes/header.php';
         }
 
         .cqc-btn-primary {
-            background: linear-gradient(135deg, #0066CC 0%, #004499 100%);
-            color: white;
+            background: linear-gradient(135deg, var(--cqc-primary) 0%, var(--cqc-primary-light) 100%);
+            color: var(--cqc-accent);
+            font-weight: 700;
         }
 
         .cqc-btn-primary:hover {
             transform: translateY(-2px);
-            box-shadow: 0 4px 12px rgba(0, 102, 204, 0.3);
+            box-shadow: 0 4px 16px rgba(13, 31, 60, 0.3);
         }
 
         .cqc-btn-secondary { background: var(--bg-tertiary, #f0f0f0); color: var(--text-primary, #333); }

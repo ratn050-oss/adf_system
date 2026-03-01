@@ -119,9 +119,9 @@ include '../../includes/header.php';
     .cqc-form-group input { padding: 8px 10px; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 13px; }
     .cqc-form-group input:focus { outline: none; border-color: #f0b429; box-shadow: 0 0 0 2px rgba(240,180,41,0.15); }
     
-    .cqc-btn { padding: 8px 16px; border: none; border-radius: 6px; font-weight: 600; cursor: pointer; font-size: 12px; }
-    .cqc-btn-primary { background: #0d1f3c; color: white; }
-    .cqc-btn-primary:hover { background: #122a4e; }
+    .cqc-btn { padding: 8px 16px; border: none; border-radius: 6px; font-weight: 700; cursor: pointer; font-size: 12px; transition: all 0.2s; }
+    .cqc-btn-primary { background: linear-gradient(135deg, #0d1f3c, #1a3a5c); color: #f0b429; box-shadow: 0 2px 8px rgba(13, 31, 60, 0.2); }
+    .cqc-btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(13, 31, 60, 0.3); }
     .cqc-btn-success { background: #10b981; color: white; }
     .cqc-btn-danger { background: #ef4444; color: white; font-size: 10px; padding: 4px 8px; }
     .cqc-btn-secondary { background: #f1f5f9; color: #475569; font-size: 10px; padding: 4px 8px; }
@@ -132,8 +132,8 @@ include '../../includes/header.php';
     .cqc-icon-btn.selected { border-color: #f0b429; background: #fef3c7; }
     
     .cqc-table { width: 100%; border-collapse: collapse; }
-    .cqc-table thead { background: #0d1f3c; }
-    .cqc-table th { padding: 10px 12px; text-align: left; color: white; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; }
+    .cqc-table thead { background: linear-gradient(135deg, #0d1f3c, #1a3a5c); }
+    .cqc-table th { padding: 10px 12px; text-align: left; color: #f0b429; font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; }
     .cqc-table td { padding: 12px 12px; border-bottom: 1px solid #f1f5f9; font-size: 13px; vertical-align: middle; }
     .cqc-table tbody tr:hover { background: #f9fafb; }
     

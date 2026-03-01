@@ -229,10 +229,11 @@ include '../../includes/header.php';
 
         .cqc-detail-actions { display: flex; gap: 6px; }
         .cqc-detail-actions a, .cqc-detail-actions button {
-            background: #0d1f3c; color: #fff; border: none; padding: 5px 12px;
-            border-radius: 4px; cursor: pointer; text-decoration: none; font-weight: 600; font-size: 11px;
+            background: linear-gradient(135deg, #0d1f3c, #1a3a5c); color: #f0b429; border: none; padding: 5px 12px;
+            border-radius: 4px; cursor: pointer; text-decoration: none; font-weight: 700; font-size: 11px;
+            box-shadow: 0 2px 8px rgba(13, 31, 60, 0.2); transition: all 0.2s;
         }
-        .cqc-detail-actions a:hover, .cqc-detail-actions button:hover { background: #122a4e; }
+        .cqc-detail-actions a:hover, .cqc-detail-actions button:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(13, 31, 60, 0.3); }
 
         .cqc-main-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; margin-bottom: 12px; }
 
@@ -279,8 +280,8 @@ include '../../includes/header.php';
         .cqc-category-amount .count { font-size: 10px; color: #94a3b8; }
 
         .cqc-expenses-table { width: 100%; border-collapse: collapse; font-size: 11px; }
-        .cqc-expenses-table thead { background: #0d1f3c; }
-        .cqc-expenses-table th { padding: 6px 8px; text-align: left; color: #fff; font-weight: 600; font-size: 10px; text-transform: uppercase; letter-spacing: 0.3px; }
+        .cqc-expenses-table thead { background: linear-gradient(135deg, #0d1f3c, #1a3a5c); }
+        .cqc-expenses-table th { padding: 6px 8px; text-align: left; color: #f0b429; font-weight: 700; font-size: 10px; text-transform: uppercase; letter-spacing: 0.3px; }
         .cqc-expenses-table td { padding: 6px 8px; border-bottom: 1px solid #f1f5f9; font-size: 11px; }
 
         .cqc-modal { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.4); z-index: 9999; padding: 20px; }
@@ -296,8 +297,8 @@ include '../../includes/header.php';
         .cqc-form-group input:focus, .cqc-form-group select:focus, .cqc-form-group textarea:focus { outline: none; border-color: #f0b429; box-shadow: 0 0 0 2px rgba(240,180,41,0.15); }
         .cqc-modal-actions { display: flex; gap: 8px; margin-top: 14px; }
         .cqc-modal-actions button { flex: 1; padding: 7px; border: none; border-radius: 4px; font-weight: 600; cursor: pointer; font-size: 11px; }
-        .cqc-btn-submit { background: #0d1f3c; color: white; }
-        .cqc-btn-submit:hover { background: #122a4e; }
+        .cqc-btn-submit { background: linear-gradient(135deg, #0d1f3c, #1a3a5c); color: #f0b429; font-weight: 700; }
+        .cqc-btn-submit:hover { transform: translateY(-1px); }
         .cqc-btn-cancel { background: #f1f5f9; color: #334155; }
 
         .cqc-alert { background: #d4edda; border: 1px solid #c3e6cb; color: #155724; padding: 8px 12px; border-radius: 4px; margin-bottom: 10px; font-size: 11px; }
