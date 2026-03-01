@@ -310,11 +310,11 @@ if ($isCQC) {
             $totalProjectSpent = (float)($projTotals['total_spent'] ?? 0);
             $totalProjectBudget = (float)($projTotals['total_budget'] ?? 0);
             
-            // For CQC: Income = Total Budget, Expense = Total Spent
-            if ($stats['month_income'] == 0) {
-                $stats['month_income'] = $totalProjectBudget;
-            }
-            $stats['month_expense'] += $totalProjectSpent;
+            // CQC: Budget is NOT income. Income only from invoice payments.
+            // Budget is just RAB (cost estimate). Don't override month_income with budget.
+            // month_income stays from actual cash_book income entries (invoice payments).
+            // Only add project expenses if not already counted in cash_book
+            // (expenses from detail.php already sync to cash_book)
             
             // Also try from cqc_project_expenses table
             try {

@@ -524,16 +524,10 @@ if ($isCQC) {
         }
         unset($proj);
         
-        // Override dailyData for CQC
-        // Budget on first day, total spent on today
-        $today = date('Y-m-d');
-        $firstDay = true;
-        foreach ($dailyData as &$day) {
-            $day['income'] = $firstDay ? $totalCqcBudget : 0;
-            $day['expense'] = ($day['date'] == $today) ? $totalCqcSpent : 0;
-            $firstDay = false;
-        }
-        unset($day);
+        // CQC: Do NOT override dailyData with budget!
+        // Budget is just RAB (cost estimate), NOT income.
+        // Income only comes from actual invoice payments in cash_book.
+        // The dailyData from cash_book query above already has the correct data.
         
     } catch (Exception $e) {
         error_log('CQC project data error: ' . $e->getMessage());
@@ -639,7 +633,7 @@ if ($trialStatus) {
                 </div>
             </div>
             <div style="padding: 0.75rem; background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(16, 185, 129, 0.05)); border-radius: 8px; border-left: 4px solid var(--success);">
-                <div style="font-size: 0.75rem; color: var(--success); font-weight: 600; margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.05em;"><?php echo $isCQC ? 'Total Budget' : 'Total Pemasukan'; ?></div>
+                <div style="font-size: 0.75rem; color: var(--success); font-weight: 600; margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.05em;"><?php echo $isCQC ? 'Total Pemasukan Invoice' : 'Total Pemasukan'; ?></div>
                 <div id="totalIncome" style="font-size: 1.5rem; font-weight: 800; color: var(--success);">
                     <?php 
                     $totalIncome = array_sum(array_column($dailyData, 'income'));
@@ -648,7 +642,7 @@ if ($trialStatus) {
                 </div>
             </div>
             <div style="padding: 0.75rem; background: linear-gradient(135deg, rgba(239, 68, 68, 0.12), rgba(239, 68, 68, 0.05)); border-radius: 8px; border-left: 4px solid var(--danger);">
-                <div style="font-size: 0.75rem; color: var(--danger); font-weight: 600; margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.05em;"><?php echo $isCQC ? 'Total Terpakai' : 'Total Pengeluaran'; ?></div>
+                <div style="font-size: 0.75rem; color: var(--danger); font-weight: 600; margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.05em;"><?php echo $isCQC ? 'Total Pengeluaran' : 'Total Pengeluaran'; ?></div>
                 <div id="totalExpense" style="font-size: 1.5rem; font-weight: 800; color: var(--danger);">
                     <?php 
                     $totalExpense = array_sum(array_column($dailyData, 'expense'));
@@ -657,7 +651,7 @@ if ($trialStatus) {
                 </div>
             </div>
             <div style="padding: 0.75rem; background: linear-gradient(135deg, rgba(<?php echo $cPrimaryRgb; ?>, 0.12), rgba(<?php echo $cSecondaryRgb; ?>, 0.05)); border-radius: 8px; border-left: 4px solid var(--primary-color);">
-                <div style="font-size: 0.75rem; color: var(--primary-color); font-weight: 600; margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.05em;"><?php echo $isCQC ? 'Sisa Budget' : 'Net Balance'; ?></div>
+                <div style="font-size: 0.75rem; color: var(--primary-color); font-weight: 600; margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.05em;"><?php echo $isCQC ? 'Saldo Bersih' : 'Net Balance'; ?></div>
                 <div id="netBalance" style="font-size: 1.5rem; font-weight: 800; color: <?php echo ($totalIncome - $totalExpense) >= 0 ? 'var(--success)' : 'var(--danger)'; ?>;">
                     <?php echo formatCurrency($totalIncome - $totalExpense); ?>
                 </div>
