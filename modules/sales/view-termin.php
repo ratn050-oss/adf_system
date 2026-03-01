@@ -686,12 +686,94 @@ foreach ($possibleLogos as $logo) {
         }
 
         @media print {
-            body { background: #fff; }
-            .page { box-shadow: none; margin: 0; }
+            * { -webkit-print-color-adjust: exact !important; print-color-adjust: exact !important; color-adjust: exact !important; }
+            
+            html, body { 
+                width: 210mm; 
+                height: 297mm; 
+                margin: 0 !important; 
+                padding: 0 !important; 
+                background: #fff !important; 
+            }
+            
+            .page { 
+                width: 210mm !important; 
+                height: 297mm !important;
+                box-shadow: none !important; 
+                margin: 0 !important; 
+                padding: 0 !important;
+                position: relative !important;
+                page-break-after: avoid !important;
+                page-break-inside: avoid !important;
+            }
+            
             .print-controls { display: none !important; }
-            .footer { position: relative; }
+            
+            /* Preserve header styling */
+            .header {
+                background: linear-gradient(180deg, #fafbfc 0%, #fff 100%) !important;
+                border-bottom: 3px solid var(--navy) !important;
+                padding: 20px 25px 15px !important;
+            }
+            
+            .logo-box {
+                background: #fff !important;
+                border: 2px solid var(--gold) !important;
+                box-shadow: 0 2px 8px rgba(240,180,41,0.15) !important;
+            }
+            
+            /* Preserve table header */
+            .invoice-table th {
+                background: var(--navy) !important;
+                color: #fff !important;
+            }
+            
+            /* Preserve summary total */
+            .summary-total {
+                background: var(--navy) !important;
+            }
+            
+            .summary-total .label { color: rgba(255,255,255,0.8) !important; }
+            .summary-total .value { color: var(--gold) !important; }
+            
+            /* Preserve badges */
+            .term-badge {
+                background: linear-gradient(135deg, var(--gold), var(--gold-dark)) !important;
+                box-shadow: 0 2px 6px rgba(240,180,41,0.3) !important;
+            }
+            
+            .status-badge { background: var(--gray-200) !important; }
+            .status-paid { background: #d1fae5 !important; }
+            .status-sent { background: #dbeafe !important; }
+            .status-partial { background: #fef3c7 !important; }
+            .status-overdue { background: #fee2e2 !important; }
+            
+            /* Preserve boxes */
+            .party-box { 
+                background: linear-gradient(135deg, var(--gray-50) 0%, #fff 100%) !important;
+                border-left: 3px solid var(--gold) !important;
+            }
+            
+            .amount-words {
+                background: linear-gradient(135deg, rgba(240,180,41,0.08) 0%, rgba(240,180,41,0.03) 100%) !important;
+            }
+            
+            .bank-section {
+                background: linear-gradient(135deg, var(--gray-100) 0%, var(--gray-50) 100%) !important;
+            }
+            
+            .notes-section {
+                background: linear-gradient(135deg, #fffbeb 0%, #fff 100%) !important;
+            }
+            
+            .footer { 
+                position: absolute !important;
+                bottom: 0 !important;
+                background: linear-gradient(180deg, var(--gray-50) 0%, #fff 100%) !important;
+            }
+            
             @page { 
-                size: A4; 
+                size: A4 portrait; 
                 margin: 0; 
             }
         }
