@@ -103,7 +103,7 @@ $running_projects = [];
 try {
     $stmt = $pdo->query("
         SELECT id, project_name, client_name, status, progress_percentage, 
-               budget_idr, spent_idr, start_date, estimated_completion
+               budget_idr, spent_idr, start_date, estimated_completion, solar_capacity_kwp
         FROM cqc_projects
         WHERE status IN ('procurement', 'installation', 'testing')
         ORDER BY progress_percentage DESC
@@ -386,9 +386,161 @@ include '../../includes/header.php';
         }
         .cqc-empty-state button:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12); }
 
+        /* Project Cards - Grid with Donut Charts */
+        .cqc-project-cards {
+            display: grid;
+            grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+            gap: 16px;
+            margin-bottom: 20px;
+        }
+        .cqc-project-card {
+            background: #fff;
+            border-radius: 12px;
+            border: 1px solid var(--cqc-border);
+            box-shadow: 0 2px 8px rgba(0,0,0,0.06);
+            padding: 16px;
+            display: flex;
+            gap: 16px;
+            align-items: flex-start;
+            transition: all 0.2s;
+        }
+        .cqc-project-card:hover {
+            box-shadow: 0 4px 16px rgba(0,0,0,0.1);
+            border-color: var(--cqc-accent);
+        }
+        
+        /* Donut Chart Container */
+        .cqc-card-chart {
+            flex-shrink: 0;
+            width: 90px;
+            height: 90px;
+            position: relative;
+        }
+        .cqc-card-chart canvas {
+            width: 90px !important;
+            height: 90px !important;
+        }
+        .cqc-card-chart-center {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+        }
+        .cqc-card-chart-pct {
+            font-size: 18px;
+            font-weight: 800;
+            color: var(--cqc-primary);
+            line-height: 1;
+        }
+        .cqc-card-chart-label {
+            font-size: 8px;
+            color: var(--cqc-muted);
+            text-transform: uppercase;
+            font-weight: 600;
+        }
+        
+        /* Card Content */
+        .cqc-card-content {
+            flex: 1;
+            min-width: 0;
+        }
+        .cqc-card-header {
+            margin-bottom: 10px;
+        }
+        .cqc-card-title {
+            font-size: 14px;
+            font-weight: 700;
+            color: var(--cqc-primary);
+            margin: 0 0 4px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .cqc-card-client {
+            font-size: 11px;
+            color: var(--cqc-muted);
+            display: flex;
+            align-items: center;
+            gap: 4px;
+        }
+        
+        /* Budget Row */
+        .cqc-card-budget {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 10px;
+        }
+        .cqc-card-budget-item {
+            background: var(--cqc-bg);
+            padding: 8px 10px;
+            border-radius: 8px;
+        }
+        .cqc-card-budget-label {
+            font-size: 9px;
+            color: var(--cqc-muted);
+            text-transform: uppercase;
+            font-weight: 600;
+            margin-bottom: 2px;
+        }
+        .cqc-card-budget-value {
+            font-size: 12px;
+            font-weight: 700;
+        }
+        .cqc-card-budget-value.spent { color: var(--cqc-danger); }
+        .cqc-card-budget-value.remaining { color: var(--cqc-success); }
+        
+        /* kWp & Actions */
+        .cqc-card-footer {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding-top: 8px;
+            border-top: 1px solid var(--cqc-border);
+        }
+        .cqc-card-kwp {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            font-size: 13px;
+            font-weight: 700;
+            color: var(--cqc-accent-dark);
+        }
+        .cqc-card-kwp svg {
+            width: 16px;
+            height: 16px;
+            color: var(--cqc-accent);
+        }
+        .cqc-card-actions {
+            display: flex;
+            gap: 4px;
+        }
+        .cqc-card-actions a {
+            padding: 4px 8px;
+            background: #fff;
+            color: var(--cqc-text);
+            border-radius: 5px;
+            text-decoration: none;
+            font-size: 10px;
+            font-weight: 600;
+            border: 1px solid var(--cqc-border);
+            transition: all 0.15s;
+        }
+        .cqc-card-actions a:hover {
+            background: var(--cqc-bg);
+            border-color: var(--cqc-accent);
+        }
+        .cqc-card-actions a.btn-start {
+            background: var(--cqc-success);
+            color: #fff;
+            border-color: var(--cqc-success);
+        }
+
         @media (max-width: 768px) {
             .cqc-stats-grid { grid-template-columns: repeat(2,1fr); }
             .cqc-charts-section { grid-template-columns: 1fr; }
+            .cqc-project-cards { grid-template-columns: 1fr; }
         }
 </style>
 
@@ -444,53 +596,74 @@ include '../../includes/header.php';
         <div class="cqc-section-title">Proyek Sedang Berjalan</div>
         
         <?php if (!empty($running_projects)): ?>
-            <div class="cqc-projects-table">
-                <table>
-                    <thead>
-                        <tr>
-                            <th>Nama Proyek</th>
-                            <th>Klien</th>
-                            <th>Status</th>
-                            <th>Progress</th>
-                            <th>Budget</th>
-                            <th>Aksi</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($running_projects as $proj): ?>
-                            <tr>
-                                <td><strong><?php echo htmlspecialchars($proj['project_name']); ?></strong></td>
-                                <td><?php echo htmlspecialchars($proj['client_name'] ?? '-'); ?></td>
-                                <td>
-                                    <span class="status-badge status-<?php echo $proj['status']; ?>">
-                                        <?php echo ucfirst(str_replace('_', ' ', $proj['status'])); ?>
-                                    </span>
-                                </td>
-                                <td>
-                                    <div class="cqc-progress-bar">
-                                        <div class="cqc-progress-fill" style="width: <?php echo $proj['progress_percentage']; ?>%"></div>
-                                    </div>
-                                    <div class="cqc-progress-text"><?php echo $proj['progress_percentage']; ?>%</div>
-                                </td>
-                                <td>
-                                    <div style="font-size: 10px; color: #888;">
-                                        Rp <?php echo number_format($proj['spent_idr'] ?? 0, 0); ?> / 
-                                        Rp <?php echo number_format($proj['budget_idr'] ?? 0, 0); ?>
-                                    </div>
-                                </td>
-                                <td>
-                                    <div class="cqc-action-links">
-                                        <a href="detail.php?id=<?php echo $proj['id']; ?>">Lihat</a>
-                                        <a href="add.php?id=<?php echo $proj['id']; ?>">Edit</a>
-                                        <?php if ($proj['status'] === 'planning' || $proj['status'] === 'on_hold'): ?>
-                                        <a href="?action=start&id=<?php echo $proj['id']; ?>" class="btn-start" onclick="return confirm('Start proyek ini?')">Start</a>
-                                        <?php endif; ?>
-                                    </div>
-                                </td>
-                            </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
+            <div class="cqc-project-cards">
+                <?php foreach ($running_projects as $idx => $proj): 
+                    $spent = floatval($proj['spent_idr'] ?? 0);
+                    $budget = floatval($proj['budget_idr'] ?? 0);
+                    $remaining = max(0, $budget - $spent);
+                    $kwp = floatval($proj['solar_capacity_kwp'] ?? 0);
+                ?>
+                <div class="cqc-project-card">
+                    <!-- Donut Chart -->
+                    <div class="cqc-card-chart">
+                        <canvas id="projChart<?php echo $idx; ?>"></canvas>
+                        <div class="cqc-card-chart-center">
+                            <div class="cqc-card-chart-pct"><?php echo $proj['progress_percentage']; ?>%</div>
+                            <div class="cqc-card-chart-label">Progress</div>
+                        </div>
+                    </div>
+                    
+                    <!-- Content -->
+                    <div class="cqc-card-content">
+                        <div class="cqc-card-header">
+                            <h4 class="cqc-card-title"><?php echo htmlspecialchars($proj['project_name']); ?></h4>
+                            <div class="cqc-card-client">
+                                <span class="status-badge status-<?php echo $proj['status']; ?>" style="font-size: 9px; padding: 2px 6px;">
+                                    <?php echo ucfirst(str_replace('_', ' ', $proj['status'])); ?>
+                                </span>
+                                <?php if (!empty($proj['client_name'])): ?>
+                                <span style="color: #999;">•</span>
+                                <span><?php echo htmlspecialchars($proj['client_name']); ?></span>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                        
+                        <!-- Budget Info -->
+                        <div class="cqc-card-budget">
+                            <div class="cqc-card-budget-item">
+                                <div class="cqc-card-budget-label">Terpakai</div>
+                                <div class="cqc-card-budget-value spent">Rp <?php echo number_format($spent, 0, ',', '.'); ?></div>
+                            </div>
+                            <div class="cqc-card-budget-item">
+                                <div class="cqc-card-budget-label">Sisa</div>
+                                <div class="cqc-card-budget-value remaining">Rp <?php echo number_format($remaining, 0, ',', '.'); ?></div>
+                            </div>
+                        </div>
+                        
+                        <!-- kWp & Actions -->
+                        <div class="cqc-card-footer">
+                            <div class="cqc-card-kwp">
+                                <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                    <circle cx="12" cy="12" r="5"/>
+                                    <line x1="12" y1="1" x2="12" y2="3"/>
+                                    <line x1="12" y1="21" x2="12" y2="23"/>
+                                    <line x1="4.22" y1="4.22" x2="5.64" y2="5.64"/>
+                                    <line x1="18.36" y1="18.36" x2="19.78" y2="19.78"/>
+                                    <line x1="1" y1="12" x2="3" y2="12"/>
+                                    <line x1="21" y1="12" x2="23" y2="12"/>
+                                    <line x1="4.22" y1="19.78" x2="5.64" y2="18.36"/>
+                                    <line x1="18.36" y1="5.64" x2="19.78" y2="4.22"/>
+                                </svg>
+                                <?php echo $kwp > 0 ? number_format($kwp, 1) . ' kWp' : '-'; ?>
+                            </div>
+                            <div class="cqc-card-actions">
+                                <a href="detail.php?id=<?php echo $proj['id']; ?>">Detail</a>
+                                <a href="add.php?id=<?php echo $proj['id']; ?>">Edit</a>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <?php endforeach; ?>
             </div>
         <?php else: ?>
                     <div class="cqc-empty-state">
@@ -840,6 +1013,47 @@ include '../../includes/header.php';
                 }
             });
         }
+
+        // ── Project Card Charts ──
+        <?php foreach ($running_projects as $idx => $proj): ?>
+        (function() {
+            const canvas = document.getElementById('projChart<?php echo $idx; ?>');
+            if (canvas) {
+                const progress = <?php echo $proj['progress_percentage']; ?>;
+                const ctx = canvas.getContext('2d');
+                const gradient = ctx.createLinearGradient(0, 0, 90, 90);
+                gradient.addColorStop(0, '#f0b429');
+                gradient.addColorStop(1, '#d4960d');
+                
+                new Chart(canvas, {
+                    type: 'doughnut',
+                    data: {
+                        datasets: [{
+                            data: [progress, 100 - progress],
+                            backgroundColor: [gradient, 'rgba(0,0,0,0.06)'],
+                            borderWidth: 0,
+                            spacing: 1,
+                            borderRadius: 6
+                        }]
+                    },
+                    options: {
+                        responsive: false,
+                        maintainAspectRatio: false,
+                        cutout: '72%',
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: { enabled: false }
+                        },
+                        animation: {
+                            animateRotate: true,
+                            duration: 600 + (<?php echo $idx; ?> * 150),
+                            easing: 'easeOutQuart'
+                        }
+                    }
+                });
+            }
+        })();
+        <?php endforeach; ?>
     </script>
 
 <?php include '../../includes/footer.php'; ?>
