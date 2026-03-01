@@ -1304,28 +1304,18 @@ echo getPrintCSS();
 
 <!-- Summary Cards -->
 <div class="dashboard-grid" style="margin-bottom: 2rem;">
-    <?php if ($isCQC): ?>
-    <!-- CQC: Separate Owner Fund vs Real Income -->
+    <?php if ($isCQC): 
+        $saldoKasOperasional = $totalOwnerFund - $totalExpense;
+    ?>
+    <!-- CQC: Kas Operasional = Dana Owner - Pengeluaran (Invoice TIDAK masuk sini) -->
     <div class="card">
         <div class="card-header">
             <div>
-                <div class="card-title">Dana Owner (Operasional)</div>
+                <div class="card-title">Dana dari Owner</div>
                 <div class="card-value" style="color: #d97706;"><?php echo formatCurrency($totalOwnerFund); ?></div>
             </div>
             <div class="card-icon" style="background: linear-gradient(135deg, #fbbf24, #f59e0b);">
                 <i data-feather="download"></i>
-            </div>
-        </div>
-    </div>
-    
-    <div class="card">
-        <div class="card-header">
-            <div>
-                <div class="card-title">Pemasukan Invoice</div>
-                <div class="card-value text-success"><?php echo formatCurrency($totalRealIncome); ?></div>
-            </div>
-            <div class="card-icon income">
-                <i data-feather="arrow-down-circle"></i>
             </div>
         </div>
     </div>
@@ -1358,9 +1348,9 @@ echo getPrintCSS();
     <div class="card">
         <div class="card-header">
             <div>
-                <div class="card-title">Saldo</div>
-                <div class="card-value <?php echo $balance >= 0 ? 'text-success' : 'text-danger'; ?>">
-                    <?php echo formatCurrency($balance); ?>
+                <div class="card-title"><?php echo $isCQC ? 'Saldo Kas Operasional' : 'Saldo'; ?></div>
+                <div class="card-value <?php echo ($isCQC ? $saldoKasOperasional : $balance) >= 0 ? 'text-success' : 'text-danger'; ?>">
+                    <?php echo formatCurrency($isCQC ? $saldoKasOperasional : $balance); ?>
                 </div>
             </div>
             <div class="card-icon balance">
@@ -1371,36 +1361,28 @@ echo getPrintCSS();
 </div>
 
 <?php if ($isCQC): ?>
-<!-- CQC Daily Expenses -->
+<!-- CQC Kas Operasional -->
 <div class="cqc-daily-expenses">
     <div class="cqc-daily-header">
         <div class="cqc-daily-icon">💰</div>
         <div>
             <div class="cqc-daily-title">Kas Operasional CQC</div>
-            <div class="cqc-daily-subtitle">Dana owner untuk operasional harian, bukan pendapatan perusahaan</div>
+            <div class="cqc-daily-subtitle">Dana owner untuk operasional harian • Pengeluaran langsung memotong kas besar</div>
         </div>
     </div>
-    <div class="cqc-daily-grid">
+    <div class="cqc-daily-grid" style="grid-template-columns: repeat(3, 1fr);">
         <div class="cqc-daily-card owner">
             <div class="cqc-daily-label">
                 <i data-feather="download" style="width: 14px; height: 14px;"></i>
                 Dana dari Owner
             </div>
             <div class="cqc-daily-value">Rp <?php echo number_format($totalOwnerFund, 0, ',', '.'); ?></div>
-            <div class="cqc-daily-desc">Top up kas operasional (bukan pendapatan)</div>
-        </div>
-        <div class="cqc-daily-card" style="border-left: 4px solid #10b981;">
-            <div class="cqc-daily-label">
-                <i data-feather="file-text" style="width: 14px; height: 14px;"></i>
-                Pemasukan Invoice
-            </div>
-            <div class="cqc-daily-value" style="color: #10b981;">Rp <?php echo number_format($totalRealIncome, 0, ',', '.'); ?></div>
-            <div class="cqc-daily-desc">DP / Termin / Pelunasan (pendapatan)</div>
+            <div class="cqc-daily-desc">Top up kas operasional harian</div>
         </div>
         <div class="cqc-daily-card expense">
             <div class="cqc-daily-label">
                 <i data-feather="upload" style="width: 14px; height: 14px;"></i>
-                Total Pengeluaran
+                Pengeluaran Office
             </div>
             <div class="cqc-daily-value">Rp <?php echo number_format($totalExpense, 0, ',', '.'); ?></div>
             <div class="cqc-daily-desc">Biaya operasional & proyek</div>
@@ -1408,12 +1390,12 @@ echo getPrintCSS();
         <div class="cqc-daily-card balance">
             <div class="cqc-daily-label">
                 <i data-feather="credit-card" style="width: 14px; height: 14px;"></i>
-                Saldo Kas
+                Saldo Kas Operasional
             </div>
-            <div class="cqc-daily-value" style="color: <?php echo $balance >= 0 ? '#2563eb' : '#dc2626'; ?>;">
-                Rp <?php echo number_format($balance, 0, ',', '.'); ?>
+            <div class="cqc-daily-value" style="color: <?php echo $saldoKasOperasional >= 0 ? '#2563eb' : '#dc2626'; ?>;">
+                Rp <?php echo number_format($saldoKasOperasional, 0, ',', '.'); ?>
             </div>
-            <div class="cqc-daily-desc">Sisa kas saat ini</div>
+            <div class="cqc-daily-desc">Dana owner − pengeluaran</div>
         </div>
     </div>
 </div>
