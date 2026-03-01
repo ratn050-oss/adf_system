@@ -69,6 +69,17 @@ $expenses = $stmt->fetchAll(PDO::FETCH_ASSOC);
 // Handle add expense
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['action'] === 'add_expense') {
     try {
+        $expenseAmount = str_replace('.', '', $_POST['amount'] ?? 0);
+        $expenseDate = $_POST['expense_date'];
+        $expenseDesc = $_POST['description'] ?? '';
+        $categoryId = $_POST['category_id'];
+        
+        // Get category name for cashbook
+        $stmtCat = $pdo->prepare("SELECT category_name FROM cqc_expense_categories WHERE id = ?");
+        $stmtCat->execute([$categoryId]);
+        $catRow = $stmtCat->fetch();
+        $categoryName = $catRow['category_name'] ?? 'CQC Expense';
+        
         $stmt = $pdo->prepare("
             INSERT INTO cqc_project_expenses 
             (project_id, category_id, expense_date, amount, description, created_by)
@@ -77,10 +88,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         
         $stmt->execute([
             $projectId,
-            $_POST['category_id'],
-            $_POST['expense_date'],
-            str_replace('.', '', $_POST['amount'] ?? 0),
-            $_POST['description'] ?? '',
+            $categoryId,
+            $expenseDate,
+            $expenseAmount,
+            $expenseDesc,
             $_SESSION['user_id']
         ]);
         
@@ -90,6 +101,94 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action']) && $_POST['
         
         $pdo->prepare("UPDATE cqc_projects SET spent_idr = ? WHERE id = ?")
             ->execute([$total, $projectId]);
+        
+        // ============================================
+        // SYNC TO CASHBOOK (cash_book table in same CQC database)
+        // ============================================
+        try {
+            // Ensure tables exist
+            $pdo->exec("CREATE TABLE IF NOT EXISTS divisions (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                division_name VARCHAR(100) NOT NULL,
+                division_code VARCHAR(20),
+                is_active TINYINT(1) DEFAULT 1,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            
+            $pdo->exec("CREATE TABLE IF NOT EXISTS categories (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                category_name VARCHAR(100) NOT NULL,
+                category_type ENUM('income','expense') DEFAULT 'expense',
+                division_id INT DEFAULT 1,
+                is_active TINYINT(1) DEFAULT 1,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            
+            $pdo->exec("CREATE TABLE IF NOT EXISTS cash_book (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                transaction_date DATE NOT NULL,
+                transaction_time TIME NOT NULL,
+                division_id INT NOT NULL DEFAULT 1,
+                category_id INT NOT NULL DEFAULT 1,
+                transaction_type ENUM('income', 'expense') NOT NULL,
+                amount DECIMAL(15,2) NOT NULL,
+                description TEXT,
+                reference_no VARCHAR(50),
+                payment_method ENUM('cash','debit','transfer','qr','other') DEFAULT 'cash',
+                source_type VARCHAR(50) DEFAULT 'manual',
+                is_editable TINYINT(1) DEFAULT 1,
+                created_by INT NOT NULL DEFAULT 1,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                INDEX idx_date (transaction_date),
+                INDEX idx_type (transaction_type)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            
+            // Get or create CQC division
+            $stmtDiv = $pdo->query("SELECT id FROM divisions WHERE LOWER(division_name) LIKE '%cqc%' OR LOWER(division_name) LIKE '%proyek%' LIMIT 1");
+            $cqcDivision = $stmtDiv->fetch(PDO::FETCH_ASSOC);
+            if (!$cqcDivision) {
+                $pdo->exec("INSERT INTO divisions (division_name, division_code, is_active) VALUES ('CQC Projects', 'CQC', 1)");
+                $divisionId = $pdo->lastInsertId();
+            } else {
+                $divisionId = $cqcDivision['id'];
+            }
+            
+            // Get or create category
+            $stmtCatCheck = $pdo->prepare("SELECT id FROM categories WHERE LOWER(category_name) = LOWER(?) AND category_type = 'expense' LIMIT 1");
+            $stmtCatCheck->execute([$categoryName]);
+            $expenseCategory = $stmtCatCheck->fetch(PDO::FETCH_ASSOC);
+            if (!$expenseCategory) {
+                $pdo->exec("INSERT INTO categories (category_name, category_type, division_id, is_active) VALUES ('" . addslashes($categoryName) . "', 'expense', {$divisionId}, 1)");
+                $mainCategoryId = $pdo->lastInsertId();
+            } else {
+                $mainCategoryId = $expenseCategory['id'];
+            }
+            
+            // Build description with project reference
+            $fullDescription = '[CQC_PROJECT:' . $projectId . '] [' . $project['project_code'] . '] ' . $expenseDesc;
+            
+            // Insert to cash_book
+            $stmtCashbook = $pdo->prepare("
+                INSERT INTO cash_book 
+                (transaction_date, transaction_time, division_id, category_id, transaction_type, amount, description, payment_method, source_type, is_editable, created_by)
+                VALUES (?, ?, ?, ?, 'expense', ?, ?, 'cash', 'cqc_project', 1, ?)
+            ");
+            $stmtCashbook->execute([
+                $expenseDate,
+                date('H:i:s'),
+                $divisionId,
+                $mainCategoryId,
+                $expenseAmount,
+                $fullDescription,
+                $_SESSION['user_id']
+            ]);
+            
+            error_log("CQC expense synced to cash_book: Project {$project['project_code']}, Amount: {$expenseAmount}");
+        } catch (Exception $syncError) {
+            error_log("CQC cashbook sync error: " . $syncError->getMessage());
+            // Don't fail the main operation, just log the sync error
+        }
         
         header('Location: detail.php?id=' . $projectId . '&success=expense_added');
         exit;
