@@ -103,91 +103,92 @@ include '../../includes/header.php';
 <style>
 :root { --gold: #f0b429; --gold-dark: #d4960d; --navy: #0d1f3c; --navy-light: #1a3a5c; }
 
-.rpt { max-width: 900px; margin: 0 auto; }
+.rpt { max-width: 780px; margin: 0 auto; }
 
-/* Hero */
+/* Hero - More Compact */
 .rpt-hero {
     background: linear-gradient(135deg, var(--navy) 0%, var(--navy-light) 100%);
-    border-radius: 12px; padding: 20px 24px; margin-bottom: 14px; color: #fff;
-    position: relative; overflow: hidden;
+    border-radius: 10px; padding: 14px 18px; margin-bottom: 10px; color: #fff;
+    position: relative; overflow: hidden; border-left: 4px solid var(--gold);
 }
 .rpt-hero::before {
-    content: ''; position: absolute; top: -40%; right: -10%; width: 200px; height: 200px;
+    content: ''; position: absolute; top: -40%; right: -10%; width: 150px; height: 150px;
     background: radial-gradient(circle, rgba(240,180,41,0.12) 0%, transparent 70%); border-radius: 50%;
 }
 .rpt-hero-top { display: flex; justify-content: space-between; align-items: start; position: relative; z-index: 1; }
-.rpt-hero-tag { font-size: 10px; color: var(--gold); font-weight: 600; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 2px; }
-.rpt-hero h2 { font-size: 18px; font-weight: 700; margin: 0 0 4px 0; }
-.rpt-hero-sub { font-size: 12px; opacity: 0.75; }
-.rpt-hero-pills { display: flex; gap: 8px; margin-top: 10px; font-size: 11px; flex-wrap: wrap; }
-.rpt-pill { padding: 3px 10px; background: rgba(255,255,255,0.12); border-radius: 5px; }
-.rpt-pill-gold { background: rgba(240,180,41,0.2); color: var(--gold); }
+.rpt-hero-tag { font-size: 9px; color: var(--gold); font-weight: 600; letter-spacing: 1px; text-transform: uppercase; margin-bottom: 2px; }
+.rpt-hero h2 { font-size: 15px; font-weight: 700; margin: 0 0 3px 0; }
+.rpt-hero-sub { font-size: 11px; opacity: 0.75; }
+.rpt-hero-pills { display: flex; gap: 6px; margin-top: 8px; font-size: 10px; flex-wrap: wrap; }
+.rpt-pill { padding: 2px 8px; background: rgba(255,255,255,0.12); border-radius: 4px; }
+.rpt-pill-gold { background: rgba(240,180,41,0.25); color: var(--gold); }
 .rpt-badge {
-    padding: 5px 12px; border-radius: 6px; font-size: 11px; font-weight: 700;
+    padding: 4px 10px; border-radius: 5px; font-size: 10px; font-weight: 700;
     background: #059669; color: #fff; white-space: nowrap; height: fit-content;
 }
 
-/* 4 Cards */
-.rpt-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 10px; margin-bottom: 14px; }
+/* 4 Cards - Compact with Gold Border Top */
+.rpt-cards { display: grid; grid-template-columns: repeat(4, 1fr); gap: 8px; margin-bottom: 10px; }
 .rpt-card {
-    background: #fff; border-radius: 10px; padding: 14px 16px; border: 1px solid #e2e8f0;
-    text-align: center; transition: all 0.15s;
+    background: #fff; border-radius: 8px; padding: 10px 12px; border: 1px solid #e2e8f0;
+    text-align: center; transition: all 0.15s; border-top: 3px solid var(--gold);
 }
-.rpt-card:hover { box-shadow: 0 2px 10px rgba(0,0,0,0.06); transform: translateY(-1px); }
-.rpt-card-lbl { font-size: 10px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 4px; }
-.rpt-card-val { font-size: 16px; font-weight: 700; }
-.rpt-card-note { font-size: 9px; color: #94a3b8; margin-top: 3px; }
-.rpt-card.highlight { border: 2px solid; }
+.rpt-card:hover { box-shadow: 0 2px 8px rgba(0,0,0,0.05); }
+.rpt-card-lbl { font-size: 9px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 3px; }
+.rpt-card-val { font-size: 13px; font-weight: 700; }
+.rpt-card-note { font-size: 8px; color: #94a3b8; margin-top: 2px; }
+.rpt-card.highlight { border: 2px solid; border-top: 3px solid; }
 
-/* Profit Row */
+/* Profit Row - Compact */
 .rpt-profit {
     background: linear-gradient(135deg, var(--navy), var(--navy-light));
-    border-radius: 10px; padding: 16px 20px; color: #fff; margin-bottom: 14px;
-    display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 12px; align-items: center;
+    border-radius: 8px; padding: 12px 16px; color: #fff; margin-bottom: 10px;
+    display: grid; grid-template-columns: 1fr auto 1fr auto 1fr; gap: 10px; align-items: center;
+    border-top: 3px solid var(--gold);
 }
 .rpt-profit-item { text-align: center; }
-.rpt-profit-lbl { font-size: 10px; opacity: 0.6; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 2px; }
-.rpt-profit-val { font-size: 18px; font-weight: 700; }
-.rpt-profit-op { font-size: 20px; opacity: 0.4; text-align: center; }
+.rpt-profit-lbl { font-size: 9px; opacity: 0.6; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 1px; }
+.rpt-profit-val { font-size: 14px; font-weight: 700; }
+.rpt-profit-op { font-size: 16px; opacity: 0.4; text-align: center; }
 
-/* Sections */
+/* Sections - Compact */
 .rpt-sec {
-    background: #fff; border-radius: 10px; border: 1px solid #e2e8f0; margin-bottom: 12px; overflow: hidden;
+    background: #fff; border-radius: 8px; border: 1px solid #e2e8f0; margin-bottom: 10px; overflow: hidden;
 }
 .rpt-sec-hdr {
-    padding: 10px 16px; border-bottom: 1px solid #f1f5f9; display: flex; align-items: center; gap: 8px;
-    background: linear-gradient(90deg, #fffbeb, #fff);
+    padding: 8px 14px; border-bottom: 1px solid #f1f5f9; display: flex; align-items: center; gap: 6px;
+    background: linear-gradient(90deg, #fffbeb, #fff); border-left: 3px solid var(--gold);
 }
-.rpt-sec-ttl { font-size: 13px; font-weight: 700; color: var(--navy); }
-.rpt-sec-sub { font-size: 10px; color: #94a3b8; }
+.rpt-sec-ttl { font-size: 12px; font-weight: 700; color: var(--navy); }
+.rpt-sec-sub { font-size: 9px; color: #94a3b8; }
 .rpt-sec-body { padding: 0; }
 
-/* Table */
-.rpt-tbl { width: 100%; border-collapse: collapse; font-size: 11px; }
+/* Table - Compact */
+.rpt-tbl { width: 100%; border-collapse: collapse; font-size: 10px; }
 .rpt-tbl th {
-    padding: 8px 10px; text-align: left; background: #f8fafc; border-bottom: 2px solid #e2e8f0;
-    font-size: 10px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.3px;
+    padding: 6px 8px; text-align: left; background: #f8fafc; border-bottom: 2px solid #e2e8f0;
+    font-size: 9px; font-weight: 600; color: #64748b; text-transform: uppercase; letter-spacing: 0.2px;
 }
-.rpt-tbl td { padding: 7px 10px; border-bottom: 1px solid #f8fafc; }
+.rpt-tbl td { padding: 5px 8px; border-bottom: 1px solid #f8fafc; }
 .rpt-tbl tr:hover { background: #fffbeb; }
 .rpt-tbl .tot td { background: #f8fafc; font-weight: 700; border-top: 2px solid #e2e8f0; }
 
 /* Status badges */
-.st { padding: 2px 7px; border-radius: 4px; font-size: 9px; font-weight: 600; }
+.st { padding: 2px 6px; border-radius: 3px; font-size: 8px; font-weight: 600; }
 .st-paid { background: #dcfce7; color: #166534; }
 .st-partial { background: #fef3c7; color: #92400e; }
 .st-pending { background: #f1f5f9; color: #475569; }
 .st-overdue { background: #fee2e2; color: #991b1b; }
 
 /* Category bar */
-.cat-bar { width: 50px; height: 5px; background: #e2e8f0; border-radius: 3px; overflow: hidden; display: inline-block; vertical-align: middle; margin-right: 4px; }
-.cat-bar-fill { height: 100%; background: var(--gold); border-radius: 3px; }
+.cat-bar { width: 40px; height: 4px; background: #e2e8f0; border-radius: 2px; overflow: hidden; display: inline-block; vertical-align: middle; margin-right: 3px; }
+.cat-bar-fill { height: 100%; background: var(--gold); border-radius: 2px; }
 
-/* Buttons */
-.rpt-actions { display: flex; gap: 8px; justify-content: center; margin: 18px 0; flex-wrap: wrap; }
+/* Buttons - Compact */
+.rpt-actions { display: flex; gap: 6px; justify-content: center; margin: 14px 0; flex-wrap: wrap; }
 .rpt-btn {
-    display: inline-flex; align-items: center; gap: 5px; padding: 8px 18px;
-    border-radius: 8px; text-decoration: none; font-size: 12px; font-weight: 600;
+    display: inline-flex; align-items: center; gap: 4px; padding: 6px 14px;
+    border-radius: 6px; text-decoration: none; font-size: 11px; font-weight: 600;
     transition: all 0.15s; border: none; cursor: pointer;
 }
 .rpt-btn-gold { background: var(--gold); color: var(--navy); }
