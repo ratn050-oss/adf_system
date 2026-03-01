@@ -120,8 +120,8 @@ include '../../includes/header.php';
     .cqc-form-group input:focus { outline: none; border-color: #f0b429; box-shadow: 0 0 0 2px rgba(240,180,41,0.15); }
     
     .cqc-btn { padding: 8px 16px; border: none; border-radius: 6px; font-weight: 700; cursor: pointer; font-size: 12px; transition: all 0.2s; }
-    .cqc-btn-primary { background: linear-gradient(135deg, #0d1f3c, #1a3a5c); color: #f0b429; box-shadow: 0 2px 8px rgba(13, 31, 60, 0.2); }
-    .cqc-btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(13, 31, 60, 0.3); }
+    .cqc-btn-primary { background: linear-gradient(135deg, #0d1f3c, #1a3a5c); color: #f0b429; box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1); }
+    .cqc-btn-primary:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); }
     .cqc-btn-success { background: #10b981; color: white; }
     .cqc-btn-danger { background: #ef4444; color: white; font-size: 10px; padding: 4px 8px; }
     .cqc-btn-secondary { background: #f1f5f9; color: #475569; font-size: 10px; padding: 4px 8px; }

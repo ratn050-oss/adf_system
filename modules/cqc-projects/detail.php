@@ -231,9 +231,9 @@ include '../../includes/header.php';
         .cqc-detail-actions a, .cqc-detail-actions button {
             background: linear-gradient(135deg, #0d1f3c, #1a3a5c); color: #f0b429; border: none; padding: 5px 12px;
             border-radius: 4px; cursor: pointer; text-decoration: none; font-weight: 700; font-size: 11px;
-            box-shadow: 0 2px 8px rgba(13, 31, 60, 0.2); transition: all 0.2s;
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1); transition: all 0.2s;
         }
-        .cqc-detail-actions a:hover, .cqc-detail-actions button:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(13, 31, 60, 0.3); }
+        .cqc-detail-actions a:hover, .cqc-detail-actions button:hover { transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12); }
 
         .cqc-main-grid { display: grid; grid-template-columns: 2fr 1fr; gap: 10px; margin-bottom: 12px; }
 

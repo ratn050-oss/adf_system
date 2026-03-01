@@ -242,8 +242,8 @@ include '../../includes/header.php';
             border-radius: 12px;
             margin-bottom: 16px;
             display: flex; justify-content: space-between; align-items: center;
-            border: 2px solid rgba(240, 180, 41, 0.3);
-            box-shadow: 0 4px 20px rgba(13, 31, 60, 0.25);
+            border: 1px solid rgba(255, 255, 255, 0.1);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
         }
         .cqc-header h1 { 
             font-size: 18px; font-weight: 700; color: var(--cqc-accent); 
@@ -255,9 +255,9 @@ include '../../includes/header.php';
             padding: 8px 16px; border-radius: 8px; font-weight: 700;
             font-size: 12px; cursor: pointer; transition: all 0.2s;
             display: flex; align-items: center; gap: 6px;
-            box-shadow: 0 2px 8px rgba(240, 180, 41, 0.3);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
         }
-        .cqc-header button:hover { background: #ffc942; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(240, 180, 41, 0.4); }
+        .cqc-header button:hover { background: #ffc942; transform: translateY(-1px); box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15); }
 
         /* Stats - Clean Cards */
         .cqc-stats-grid { display: grid; grid-template-columns: repeat(4,1fr); gap: 12px; margin-bottom: 16px; }
@@ -315,7 +315,7 @@ include '../../includes/header.php';
             margin: 20px 0 10px; padding: 8px 12px;
             border-bottom: none;
             border-left: 4px solid var(--cqc-accent);
-            background: linear-gradient(90deg, rgba(240, 180, 41, 0.1), transparent);
+            background: rgba(248, 250, 252, 0.8);
             border-radius: 0 8px 8px 0;
             display: flex; align-items: center; gap: 8px;
         }
@@ -323,7 +323,7 @@ include '../../includes/header.php';
         /* Table - Modern Clean with Navy Header */
         .cqc-projects-table {
             background: #fff; border-radius: 10px; overflow: hidden;
-            box-shadow: 0 2px 8px rgba(13, 31, 60, 0.08);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.06);
             border: 1px solid var(--cqc-border);
         }
         .cqc-projects-table table { width: 100%; border-collapse: collapse; }
@@ -381,9 +381,9 @@ include '../../includes/header.php';
             background: linear-gradient(135deg, var(--cqc-primary), var(--cqc-primary-light)); color: var(--cqc-accent); border: none;
             padding: 10px 20px; border-radius: 8px; cursor: pointer; margin-top: 14px;
             font-weight: 700; font-size: 12px; transition: all 0.2s;
-            box-shadow: 0 2px 8px rgba(13, 31, 60, 0.2);
+            box-shadow: 0 2px 6px rgba(0, 0, 0, 0.1);
         }
-        .cqc-empty-state button:hover { transform: translateY(-2px); box-shadow: 0 4px 12px rgba(13, 31, 60, 0.3); }
+        .cqc-empty-state button:hover { transform: translateY(-2px); box-shadow: 0 4px 10px rgba(0, 0, 0, 0.12); }
 
         @media (max-width: 768px) {
             .cqc-stats-grid { grid-template-columns: repeat(2,1fr); }

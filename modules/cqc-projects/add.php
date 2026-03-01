@@ -131,7 +131,7 @@ include '../../includes/header.php';
             background: var(--bg-secondary, white);
             border-radius: 12px;
             padding: 30px;
-            box-shadow: 0 8px 24px rgba(13, 31, 60, 0.12);
+            box-shadow: 0 2px 8px rgba(0, 0, 0, 0.06);
             margin-bottom: 20px;
             border: 1px solid #e2e8f0;
         }
@@ -214,7 +214,7 @@ include '../../includes/header.php';
 
         .cqc-btn-primary:hover {
             transform: translateY(-2px);
-            box-shadow: 0 4px 16px rgba(13, 31, 60, 0.3);
+            box-shadow: 0 4px 12px rgba(0, 0, 0, 0.12);
         }
 
         .cqc-btn-secondary { background: var(--bg-tertiary, #f0f0f0); color: var(--text-primary, #333); }
