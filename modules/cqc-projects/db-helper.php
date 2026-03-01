@@ -108,6 +108,48 @@ function autoCreateCQCTables($pdo) {
         (9, 'Konsultasi & Desain', '📐', 'Biaya konsultan dan desain'),
         (10, 'Lain-lain', '📦', 'Pengeluaran lainnya')
     ");
+    
+    // Create CQC Termin Invoices table for contractor progress billing
+    $pdo->exec("
+        CREATE TABLE IF NOT EXISTS cqc_termin_invoices (
+            id INT AUTO_INCREMENT PRIMARY KEY,
+            invoice_number VARCHAR(50) UNIQUE NOT NULL,
+            project_id INT NOT NULL,
+            termin_number INT NOT NULL COMMENT 'Termin ke-1, ke-2, dst',
+            invoice_date DATE NOT NULL,
+            due_date DATE,
+            description VARCHAR(500),
+            
+            -- Amount calculation
+            contract_value DECIMAL(15,2) NOT NULL COMMENT 'Nilai kontrak total',
+            percentage DECIMAL(5,2) NOT NULL COMMENT 'Persentase termin',
+            base_amount DECIMAL(15,2) NOT NULL COMMENT 'Nilai sebelum PPN',
+            ppn_percentage DECIMAL(5,2) DEFAULT 11 COMMENT 'PPN %',
+            ppn_amount DECIMAL(15,2) DEFAULT 0,
+            pph_percentage DECIMAL(5,2) DEFAULT 0 COMMENT 'PPh %',
+            pph_amount DECIMAL(15,2) DEFAULT 0,
+            retention_percentage DECIMAL(5,2) DEFAULT 0 COMMENT 'Retensi %',
+            retention_amount DECIMAL(15,2) DEFAULT 0,
+            total_amount DECIMAL(15,2) NOT NULL COMMENT 'Total tagihan',
+            
+            -- Payment
+            payment_status ENUM('draft','sent','paid','partial','overdue') DEFAULT 'draft',
+            paid_amount DECIMAL(15,2) DEFAULT 0,
+            payment_date DATE,
+            payment_method VARCHAR(50),
+            payment_notes TEXT,
+            
+            notes TEXT,
+            created_by INT NOT NULL DEFAULT 1,
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            
+            INDEX idx_project (project_id),
+            INDEX idx_status (payment_status),
+            INDEX idx_date (invoice_date),
+            FOREIGN KEY (project_id) REFERENCES cqc_projects(id) ON DELETE CASCADE
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+    ");
 }
 
 function isLocalhost() {
@@ -116,4 +158,52 @@ function isLocalhost() {
 
 function getCQCDatabaseName() {
     return isLocalhost() ? 'adf_cqc' : 'adfb2574_cqc';
+}
+
+/**
+ * Ensure CQC Termin Invoices table exists (for migrations)
+ */
+function ensureCQCTerminTable($pdo) {
+    $check = $pdo->query("SHOW TABLES LIKE 'cqc_termin_invoices'");
+    if ($check->rowCount() === 0) {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS cqc_termin_invoices (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                invoice_number VARCHAR(50) UNIQUE NOT NULL,
+                project_id INT NOT NULL,
+                termin_number INT NOT NULL COMMENT 'Termin ke-1, ke-2, dst',
+                invoice_date DATE NOT NULL,
+                due_date DATE,
+                description VARCHAR(500),
+                
+                contract_value DECIMAL(15,2) NOT NULL,
+                percentage DECIMAL(5,2) NOT NULL,
+                base_amount DECIMAL(15,2) NOT NULL,
+                ppn_percentage DECIMAL(5,2) DEFAULT 11,
+                ppn_amount DECIMAL(15,2) DEFAULT 0,
+                pph_percentage DECIMAL(5,2) DEFAULT 0,
+                pph_amount DECIMAL(15,2) DEFAULT 0,
+                retention_percentage DECIMAL(5,2) DEFAULT 0,
+                retention_amount DECIMAL(15,2) DEFAULT 0,
+                total_amount DECIMAL(15,2) NOT NULL,
+                
+                payment_status ENUM('draft','sent','paid','partial','overdue') DEFAULT 'draft',
+                paid_amount DECIMAL(15,2) DEFAULT 0,
+                payment_date DATE,
+                payment_method VARCHAR(50),
+                payment_notes TEXT,
+                
+                notes TEXT,
+                created_by INT NOT NULL DEFAULT 1,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                
+                INDEX idx_project (project_id),
+                INDEX idx_status (payment_status),
+                INDEX idx_date (invoice_date),
+                FOREIGN KEY (project_id) REFERENCES cqc_projects(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        ");
+    }
+    return true;
 }
