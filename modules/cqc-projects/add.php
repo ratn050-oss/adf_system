@@ -303,27 +303,12 @@ include '../../includes/header.php';
 
                 <!-- Solar Panel Specifications -->
                 <div class="cqc-form-section">
-                    <h3>☀️ Spesifikasi Panel Surya</h3>
+                    <h3>☀️ Kapasitas Sistem</h3>
                     <div class="cqc-form-grid">
                         <div class="cqc-form-group">
                             <label>Kapasitas (KWp)</label>
                             <input type="number" name="solar_capacity_kwp" step="0.1" value="<?php echo htmlspecialchars($project['solar_capacity_kwp'] ?? ''); ?>" placeholder="3.5">
                             <p class="cqc-hint">Kilowatt Peak</p>
-                        </div>
-
-                        <div class="cqc-form-group">
-                            <label>Jumlah Panel</label>
-                            <input type="number" name="panel_count" step="1" value="<?php echo htmlspecialchars($project['panel_count'] ?? ''); ?>" placeholder="10">
-                        </div>
-
-                        <div class="cqc-form-group">
-                            <label>Tipe Panel</label>
-                            <input type="text" name="panel_type" value="<?php echo htmlspecialchars($project['panel_type'] ?? ''); ?>" placeholder="Contoh: Polycrystalline 350W">
-                        </div>
-
-                        <div class="cqc-form-group">
-                            <label>Tipe Inverter</label>
-                            <input type="text" name="inverter_type" value="<?php echo htmlspecialchars($project['inverter_type'] ?? ''); ?>" placeholder="Contoh: Hybrid 10KW">
                         </div>
                     </div>
                 </div>

@@ -348,18 +348,6 @@ include '../../includes/header.php';
                     <div class="cqc-info-value"><?php echo htmlspecialchars($project['solar_capacity_kwp'] ?? '-'); ?> KWp</div>
                 </div>
                 <div class="cqc-info-block" style="border-bottom: none; margin: 0; padding: 0;">
-                    <div class="cqc-info-label">Jumlah Panel</div>
-                    <div class="cqc-info-value"><?php echo htmlspecialchars($project['panel_count'] ?? '-'); ?> Unit</div>
-                </div>
-                <div class="cqc-info-block" style="border-bottom: none; margin: 0; padding: 0;">
-                    <div class="cqc-info-label">Tipe Panel</div>
-                    <div class="cqc-info-value"><?php echo htmlspecialchars($project['panel_type'] ?? '-'); ?></div>
-                </div>
-                <div class="cqc-info-block" style="border-bottom: none; margin: 0; padding: 0;">
-                    <div class="cqc-info-label">Inverter</div>
-                    <div class="cqc-info-value"><?php echo htmlspecialchars($project['inverter_type'] ?? '-'); ?></div>
-                </div>
-                <div class="cqc-info-block" style="border-bottom: none; margin: 0; padding: 0;">
                     <div class="cqc-info-label">Tanggal Mulai</div>
                     <div class="cqc-info-value"><?php echo date('d M Y', strtotime($project['start_date'])); ?></div>
                 </div>
