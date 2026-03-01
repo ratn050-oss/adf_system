@@ -101,8 +101,14 @@ if (isPost()) {
             
             // CQC: Embed project reference in description for list page lookup
             if ($isCQC && !empty(getPost('cqc_project_id'))) {
-                $cqcProjId = intval(getPost('cqc_project_id'));
-                $description = '[CQC_PROJECT:' . $cqcProjId . '] ' . $description;
+                $cqcProjVal = getPost('cqc_project_id');
+                if ($cqcProjVal === 'operational') {
+                    // Operational Office - non-project expense
+                    $description = '[OPERATIONAL_OFFICE] ' . $description;
+                } else {
+                    $cqcProjId = intval($cqcProjVal);
+                    $description = '[CQC_PROJECT:' . $cqcProjId . '] ' . $description;
+                }
             }
 
             $data = [
@@ -255,11 +261,13 @@ if (isPost()) {
                     }
                     
                     // CQC: Also save to cqc_project_expenses if project selected (expense only)
-                    if ($isCQC && !empty(getPost('cqc_project_id'))) {
+                    // Skip if "operational" - that's for office expenses, not project expenses
+                    $cqcProjectVal = getPost('cqc_project_id');
+                    if ($isCQC && !empty($cqcProjectVal) && $cqcProjectVal !== 'operational') {
                         try {
                             require_once __DIR__ . '/../cqc-projects/db-helper.php';
                             $cqcPdo = getCQCDatabaseConnection();
-                            $cqcProjectId = intval(getPost('cqc_project_id'));
+                            $cqcProjectId = intval($cqcProjectVal);
                             $cqcCategoryId = !empty(getPost('cqc_category_id')) ? intval(getPost('cqc_category_id')) : null;
                             
                             if ($transactionType === 'expense') {
@@ -517,6 +525,7 @@ include '../../includes/header.php';
                     <label class="form-label" style="font-size: 0.813rem; font-weight: 600; margin-bottom: 0.3rem; color: #0d1f3c;">☀️ Proyek <span style="color: var(--danger);">*</span></label>
                     <select name="cqc_project_id" id="cqc_project_id" class="form-control cqc-select-project" style="height: 38px; font-size: 0.813rem;" required onchange="updateCQCProjectInfo(this)">
                         <option value="">-- Pilih Proyek --</option>
+                        <option value="operational" data-budget="0" data-spent="0" data-remaining="0" data-client="Office" style="background: #f0f9ff; font-weight: 600;">🏢 Operasional Office (Non-Proyek)</option>
                         <?php foreach ($cqcProjects as $proj): 
                             $statusLabels = ['planning'=>'📋 Planning','procurement'=>'🛒 Procurement','installation'=>'⚡ Instalasi','testing'=>'🔧 Testing','completed'=>'✅ Selesai','on_hold'=>'⏸️ Ditunda'];
                             $statusLabel = $statusLabels[$proj['status']] ?? ucfirst($proj['status']);
@@ -715,6 +724,20 @@ function updateCQCProjectInfo(select) {
     const opt = select.options[select.selectedIndex];
     const info = document.getElementById('cqcProjectInfo');
     if (!opt.value) { info.style.display = 'none'; return; }
+    
+    // Handle Operational Office selection
+    if (opt.value === 'operational') {
+        info.innerHTML = '<div style="display: flex; gap: 1rem; font-size: 0.75rem; color: #0d1f3c;"><span>🏢 <strong>Biaya Operasional Kantor</strong> - Pengeluaran ini tidak terkait dengan proyek tertentu</span></div>';
+        info.style.display = 'block';
+        info.style.background = 'linear-gradient(135deg, rgba(59,130,246,0.08), rgba(59,130,246,0.03))';
+        info.style.borderLeftColor = '#3b82f6';
+        return;
+    }
+    
+    // Reset styling for regular projects
+    info.style.background = 'linear-gradient(135deg, rgba(13,31,60,0.05), rgba(240,180,41,0.08))';
+    info.style.borderLeftColor = '#f0b429';
+    info.innerHTML = '<div style="display: flex; gap: 1rem; font-size: 0.7rem;"><span>💰 Budget: <strong id="cqcBudgetDisplay">-</strong></span><span>📤 Terpakai: <strong id="cqcSpentDisplay" style="color: #ef4444;">-</strong></span><span>💵 Sisa: <strong id="cqcRemainingDisplay" style="color: #10b981;">-</strong></span></div>';
     
     const budget = parseFloat(opt.dataset.budget || 0);
     const spent = parseFloat(opt.dataset.spent || 0);

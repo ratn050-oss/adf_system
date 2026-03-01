@@ -408,6 +408,7 @@ echo getPrintCSS();
 .cb-badge.expense { background: rgba(239, 68, 68, 0.15); color: #dc2626; }
 .cb-ref-tag { background: rgba(13, 31, 60, 0.12) !important; color: #0d1f3c !important; }
 .cqc-project-tag { display: inline-flex; align-items: center; gap: 0.25rem; background: linear-gradient(135deg, rgba(13,31,60,0.08), rgba(240,180,41,0.12)); color: #0d1f3c; padding: 0.2rem 0.5rem; border-radius: 6px; font-size: 0.7rem; font-weight: 700; border-left: 3px solid #f0b429; }
+.cqc-office-tag { display: inline-flex; align-items: center; gap: 0.25rem; background: linear-gradient(135deg, rgba(59,130,246,0.1), rgba(59,130,246,0.05)); color: #1d4ed8; padding: 0.2rem 0.5rem; border-radius: 6px; font-size: 0.7rem; font-weight: 700; border-left: 3px solid #3b82f6; }
 .cqc-desc-detail { font-size: 0.72rem; color: #6b7280; line-height: 1.4; margin-top: 0.2rem; }
 .cqc-desc-detail span { display: inline-flex; align-items: center; gap: 0.2rem; margin-right: 0.5rem; }
 .cqc-payment-info { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-top: 0.3rem; }
@@ -1181,14 +1182,17 @@ echo getPrintCSS();
                             <td style="font-size: 0.8rem;">
                                 <?php if ($isCQC): ?>
                                     <?php 
+                                    // Check for Operational Office first
+                                    $descForParse = $trans['description'] ?? '';
+                                    $isOperational = strpos($descForParse, '[OPERATIONAL_OFFICE]') !== false;
+                                    
                                     // Parse [CQC_PROJECT:id] from description
                                     $cqcProjMatch = null;
-                                    $descForParse = $trans['description'] ?? '';
-                                    if (preg_match('/\[CQC_PROJECT:(\d+)\]/', $descForParse, $pidMatch)) {
+                                    if (!$isOperational && preg_match('/\[CQC_PROJECT:(\d+)\]/', $descForParse, $pidMatch)) {
                                         $cqcProjMatch = $cqcProjectMap[intval($pidMatch[1])] ?? null;
                                     }
                                     // Fallback: try expense mapping
-                                    if (!$cqcProjMatch) {
+                                    if (!$isOperational && !$cqcProjMatch) {
                                         $lookupKey = ($trans['category_name'] ?? '') . '|' . number_format($trans['amount'], 2, '.', '') . '|' . $trans['transaction_date'];
                                         if (isset($cqcExpenseProjectMap[$lookupKey])) {
                                             $expMatch = $cqcExpenseProjectMap[$lookupKey];
@@ -1196,7 +1200,10 @@ echo getPrintCSS();
                                         }
                                     }
                                     ?>
-                                    <?php if ($cqcProjMatch): ?>
+                                    <?php if ($isOperational): ?>
+                                    <span class="cqc-office-tag">🏢 Office</span>
+                                    <div style="font-size: 0.7rem; color: #475569; margin-top: 0.15rem;">Operasional Kantor</div>
+                                    <?php elseif ($cqcProjMatch): ?>
                                     <span class="cqc-project-tag">☀️ <?php echo htmlspecialchars($cqcProjMatch['project_code']); ?></span>
                                     <div style="font-size: 0.7rem; color: #475569; margin-top: 0.15rem;"><?php echo htmlspecialchars($cqcProjMatch['project_name']); ?></div>
                                     <?php else: ?>
@@ -1242,9 +1249,10 @@ echo getPrintCSS();
                                 <?php endif; ?>
                                 <?php 
                                     $descDisplay = $trans['description'] ?: '-';
-                                    // Strip CQC project tag from display
+                                    // Strip CQC project tag and operational tag from display
                                     if ($isCQC) {
                                         $descDisplay = trim(preg_replace('/\[CQC_PROJECT:\d+\]\s*/', '', $descDisplay));
+                                        $descDisplay = trim(preg_replace('/\[OPERATIONAL_OFFICE\]\s*/', '', $descDisplay));
                                         if (empty($descDisplay)) $descDisplay = '-';
                                     }
                                     echo $descDisplay;
