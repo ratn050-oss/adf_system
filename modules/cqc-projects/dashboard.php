@@ -38,6 +38,18 @@ if (isset($_GET['action']) && $_GET['action'] === 'start' && isset($_GET['id']))
     }
 }
 
+// Handle Finish/Complete Project Action
+if (isset($_GET['action']) && $_GET['action'] === 'finish' && isset($_GET['id'])) {
+    try {
+        $stmt = $pdo->prepare("UPDATE cqc_projects SET status = 'completed', progress_percentage = 100, actual_completion = CURDATE() WHERE id = ? AND status NOT IN ('completed', 'planning')");
+        $stmt->execute([$_GET['id']]);
+        header('Location: report.php?id=' . intval($_GET['id']) . '&just_completed=1');
+        exit;
+    } catch (Exception $e) {
+        // Ignore error, proceed to dashboard
+    }
+}
+
 // Get project statistics
 $stats = [];
 try {
@@ -659,6 +671,9 @@ include '../../includes/header.php';
                             <div class="cqc-card-actions">
                                 <a href="detail.php?id=<?php echo $proj['id']; ?>">Detail</a>
                                 <a href="add.php?id=<?php echo $proj['id']; ?>">Edit</a>
+                                <a href="?action=finish&id=<?php echo $proj['id']; ?>" 
+                                   style="background: #059669; color: #fff; border-color: #059669;"
+                                   onclick="return confirm('Selesaikan proyek <?php echo htmlspecialchars($proj['project_name']); ?>?\n\nStatus akan diubah ke COMPLETED dan progress 100%.\nAnda akan diarahkan ke laporan proyek.')">✓ Finish</a>
                             </div>
                         </div>
                     </div>
@@ -721,6 +736,11 @@ include '../../includes/header.php';
                                         <a href="add.php?id=<?php echo $proj['id']; ?>">Edit</a>
                                         <?php if ($proj['status'] === 'planning' || $proj['status'] === 'on_hold'): ?>
                                         <a href="?action=start&id=<?php echo $proj['id']; ?>" class="btn-start" onclick="return confirm('Start proyek ini?')">Start</a>
+                                        <?php elseif ($proj['status'] !== 'completed'): ?>
+                                        <a href="?action=finish&id=<?php echo $proj['id']; ?>" style="color: #059669; font-weight: 700;" onclick="return confirm('Selesaikan proyek ini?')">✓ Finish</a>
+                                        <?php endif; ?>
+                                        <?php if ($proj['status'] === 'completed'): ?>
+                                        <a href="report.php?id=<?php echo $proj['id']; ?>" style="color: #2563eb; font-weight: 600;">📊 Laporan</a>
                                         <?php endif; ?>
                                     </div>
                                 </td>

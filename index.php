@@ -919,12 +919,30 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
                 </div>
                 
                 <!-- View Button -->
-                <a href="modules/cqc-projects/detail.php?id=<?php echo $proj['id']; ?>" 
-                   style="display: flex; align-items: center; gap: 4px; padding: 5px 12px; background: #fff; color: #475569; border-radius: 6px; text-decoration: none; font-size: 11px; font-weight: 600; border: 1px solid #e2e8f0; transition: all 0.15s;"
-                   onmouseover="this.style.background='#f8fafc'; this.style.borderColor='#cbd5e1';"
-                   onmouseout="this.style.background='#fff'; this.style.borderColor='#e2e8f0';">
-                    View
-                </a>
+                <div style="display: flex; gap: 6px;">
+                    <a href="modules/cqc-projects/detail.php?id=<?php echo $proj['id']; ?>" 
+                       style="display: flex; align-items: center; gap: 4px; padding: 5px 12px; background: #fff; color: #475569; border-radius: 6px; text-decoration: none; font-size: 11px; font-weight: 600; border: 1px solid #e2e8f0; transition: all 0.15s;"
+                       onmouseover="this.style.background='#f8fafc'; this.style.borderColor='#cbd5e1';"
+                       onmouseout="this.style.background='#fff'; this.style.borderColor='#e2e8f0';">
+                        View
+                    </a>
+                    <?php if ($proj['status'] !== 'completed' && $proj['status'] !== 'planning'): ?>
+                    <a href="modules/cqc-projects/dashboard.php?action=finish&id=<?php echo $proj['id']; ?>" 
+                       style="display: flex; align-items: center; gap: 4px; padding: 5px 12px; background: #059669; color: #fff; border-radius: 6px; text-decoration: none; font-size: 11px; font-weight: 600; border: 1px solid #059669; transition: all 0.15s;"
+                       onmouseover="this.style.background='#047857';"
+                       onmouseout="this.style.background='#059669';"
+                       onclick="return confirm('Selesaikan proyek <?php echo htmlspecialchars($proj['project_name']); ?>?')">
+                        ✓ Finish
+                    </a>
+                    <?php elseif ($proj['status'] === 'completed'): ?>
+                    <a href="modules/cqc-projects/report.php?id=<?php echo $proj['id']; ?>" 
+                       style="display: flex; align-items: center; gap: 4px; padding: 5px 12px; background: #2563eb; color: #fff; border-radius: 6px; text-decoration: none; font-size: 11px; font-weight: 600; border: 1px solid #2563eb; transition: all 0.15s;"
+                       onmouseover="this.style.background='#1d4ed8';"
+                       onmouseout="this.style.background='#2563eb';">
+                        📊 Report
+                    </a>
+                    <?php endif; ?>
+                </div>
             </div>
         </div>
         <?php endforeach; ?>
