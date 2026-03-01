@@ -470,6 +470,34 @@ include '../../includes/header.php';
         </div>
         
         <div style="padding: 0.875rem; display: grid; grid-template-columns: 1fr 1fr; gap: 0.625rem 0.875rem;">
+            <!-- Transaction Type - FIRST (Full Width) -->
+            <div style="grid-column: span 2; margin-bottom: 0.5rem;">
+                <label class="form-label" style="font-size: 0.813rem; font-weight: 600; margin-bottom: 0.5rem; display: block;">Tipe Transaksi <span style="color: var(--danger);">*</span></label>
+                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; max-width: 400px;">
+                    <label class="transaction-type-card" style="padding: 0.75rem;">
+                        <input type="radio" name="transaction_type" value="income" required>
+                        <div style="display: flex; flex-direction: column; align-items: center; gap: 0.3rem; text-align: center;">
+                            <i data-feather="trending-up" style="width: 22px; height: 22px; color: var(--success); stroke-width: 2.5;"></i>
+                            <div>
+                                <div style="font-weight: 700; font-size: 0.875rem; color: var(--text-primary);">UANG MASUK</div>
+                                <div style="font-size: 0.75rem; color: var(--text-muted);">Pemasukan</div>
+                            </div>
+                        </div>
+                    </label>
+                    
+                    <label class="transaction-type-card" style="padding: 0.75rem;">
+                        <input type="radio" name="transaction_type" value="expense" required checked>
+                        <div style="display: flex; flex-direction: column; align-items: center; gap: 0.3rem; text-align: center;">
+                            <i data-feather="trending-down" style="width: 22px; height: 22px; color: var(--danger); stroke-width: 2.5;"></i>
+                            <div>
+                                <div style="font-weight: 700; font-size: 0.875rem; color: var(--text-primary);">UANG KELUAR</div>
+                                <div style="font-size: 0.75rem; color: var(--text-muted);">Pengeluaran</div>
+                            </div>
+                        </div>
+                    </label>
+                </div>
+            </div>
+            
             <!-- Column 1 -->
             <div>
                 <!-- Date & Time -->
@@ -569,34 +597,6 @@ include '../../includes/header.php';
             
             <!-- Column 2 -->
             <div>
-                <!-- Transaction Type -->
-                <div class="compact-form-group" style="margin-bottom: 0.5rem;">
-                    <label class="form-label" style="font-size: 0.813rem; font-weight: 600; margin-bottom: 0.3rem;">Tipe Transaksi <span style="color: var(--danger);">*</span></label>
-                    <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.5rem;">
-                        <label class="transaction-type-card" style="padding: 0.625rem;">
-                            <input type="radio" name="transaction_type" value="income" required checked>
-                            <div style="display: flex; flex-direction: column; align-items: center; gap: 0.3rem; text-align: center;">
-                                <i data-feather="trending-up" style="width: 18px; height: 18px; color: var(--success); stroke-width: 2.5;"></i>
-                                <div>
-                                    <div style="font-weight: 700; font-size: 0.813rem; color: var(--text-primary);">UANG MASUK</div>
-                                    <div style="font-size: 0.75rem; color: var(--text-muted);">Pemasukan</div>
-                                </div>
-                            </div>
-                        </label>
-                        
-                        <label class="transaction-type-card" style="padding: 0.625rem;">
-                            <input type="radio" name="transaction_type" value="expense" required>
-                            <div style="display: flex; flex-direction: column; align-items: center; gap: 0.3rem; text-align: center;">
-                                <i data-feather="trending-down" style="width: 18px; height: 18px; color: var(--danger); stroke-width: 2.5;"></i>
-                                <div>
-                                    <div style="font-weight: 700; font-size: 0.813rem; color: var(--text-primary);">UANG KELUAR</div>
-                                    <div style="font-size: 0.75rem; color: var(--text-muted);">Pengeluaran</div>
-                                </div>
-                            </div>
-                        </label>
-                    </div>
-                </div>
-                
                 <!-- Cash Account Selection -->
                 <div class="compact-form-group">
                     <label class="form-label" style="font-size: 0.813rem; font-weight: 600; margin-bottom: 0.3rem; display: flex; align-items: center; justify-content: space-between;">
