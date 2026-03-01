@@ -298,6 +298,95 @@ try {
             $message = "Data logs berhasil direset. {$deletedCount} log dihapus.";
             break;
             
+        // ===============================================
+        // CQC SPECIFIC RESET OPTIONS
+        // ===============================================
+        case 'cqc_cashbook':
+            // Reset CQC cash_book only (business database)
+            $result = safeDelete($conn, 'cash_book');
+            $deletedCount = $result['deleted'];
+            if ($result['error']) $errors[] = $result['error'];
+            $tables[] = 'cash_book';
+            
+            // Also reset cash_account_transactions in MASTER database for CQC
+            try {
+                $masterDb = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
+                $masterDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+                
+                // Get CQC business ID from master
+                $businessDbId = getMasterBusinessId();
+                
+                // Delete cash_account_transactions for CQC business
+                $stmt = $masterDb->prepare("DELETE FROM cash_account_transactions WHERE cash_account_id IN (SELECT id FROM cash_accounts WHERE business_id = ?)");
+                $stmt->execute([$businessDbId]);
+                $deletedTransactions = $stmt->rowCount();
+                $deletedCount += $deletedTransactions;
+                
+                // Reset current_balance to 0 for all CQC accounts
+                $stmt = $masterDb->prepare("UPDATE cash_accounts SET current_balance = 0 WHERE business_id = ?");
+                $stmt->execute([$businessDbId]);
+                
+                $message = "Data Buku Kas CQC berhasil direset. {$deletedCount} transaksi dihapus.";
+                
+            } catch (Exception $e) {
+                $errors[] = "Error reset cash accounts: " . $e->getMessage();
+                $message = "Data Buku Kas CQC berhasil direset. {$deletedCount} transaksi dihapus.";
+            }
+            break;
+            
+        case 'cqc_projects':
+            // Reset CQC projects and all related data
+            try {
+                // Get CQC database connection
+                require_once __DIR__ . '/../modules/cqc-projects/db-helper.php';
+                $cqcPdo = getCQCDatabaseConnection();
+                
+                // Delete expenses first (foreign key)
+                $stmt = $cqcPdo->prepare("DELETE FROM cqc_project_expenses");
+                $stmt->execute();
+                $deletedCount += $stmt->rowCount();
+                $tables[] = 'cqc_project_expenses';
+                
+                // Delete projects
+                $stmt = $cqcPdo->prepare("DELETE FROM cqc_projects");
+                $stmt->execute();
+                $deletedCount += $stmt->rowCount();
+                $tables[] = 'cqc_projects';
+                
+                $message = "Data Proyek CQC berhasil direset. {$deletedCount} record dihapus.";
+                
+            } catch (Exception $e) {
+                $errors[] = "Error reset CQC projects: " . $e->getMessage();
+                $message = "Error: " . $e->getMessage();
+            }
+            break;
+            
+        case 'cqc_expenses':
+            // Reset only CQC project expenses (keep projects)
+            try {
+                // Get CQC database connection
+                require_once __DIR__ . '/../modules/cqc-projects/db-helper.php';
+                $cqcPdo = getCQCDatabaseConnection();
+                
+                // Delete all expenses
+                $stmt = $cqcPdo->prepare("DELETE FROM cqc_project_expenses");
+                $stmt->execute();
+                $deletedCount = $stmt->rowCount();
+                $tables[] = 'cqc_project_expenses';
+                
+                // Reset spent_idr to 0 for all projects
+                $stmt = $cqcPdo->prepare("UPDATE cqc_projects SET spent_idr = 0");
+                $stmt->execute();
+                $updatedProjects = $stmt->rowCount();
+                
+                $message = "Data Pengeluaran Proyek CQC berhasil direset. {$deletedCount} expense dihapus, {$updatedProjects} proyek di-update.";
+                
+            } catch (Exception $e) {
+                $errors[] = "Error reset CQC expenses: " . $e->getMessage();
+                $message = "Error: " . $e->getMessage();
+            }
+            break;
+            
         default:
             http_response_code(400);
             echo json_encode(['success' => false, 'message' => 'Tipe reset tidak valid: ' . $resetType]);

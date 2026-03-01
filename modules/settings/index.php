@@ -34,10 +34,109 @@ $db = Database::getInstance();
 $currentUser = $auth->getCurrentUser();
 $pageTitle = 'Pengaturan';
 
+// CQC Detection
+$isCQC = (strtolower(ACTIVE_BUSINESS_ID) === 'cqc');
+
 include '../../includes/header.php';
 ?>
 
-<!-- Settings Menu -->
+<?php if ($isCQC): ?>
+<!-- CQC SETTINGS MENU - Only 4 options -->
+<style>
+.cqc-settings-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+    gap: 1rem;
+}
+.cqc-settings-card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 12px;
+    text-decoration: none;
+    transition: all 0.3s;
+    cursor: pointer;
+}
+.cqc-settings-card:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 20px rgba(0,0,0,0.08);
+    border-color: #f0b429;
+}
+.cqc-settings-icon {
+    width: 48px;
+    height: 48px;
+    border-radius: 10px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 0.875rem;
+}
+</style>
+<div class="cqc-settings-grid">
+    
+    <!-- Pengaturan Perusahaan -->
+    <a href="company.php" class="cqc-settings-card">
+        <div style="padding: 1.25rem;">
+            <div class="cqc-settings-icon" style="background: linear-gradient(135deg, rgba(240, 180, 41, 0.2), rgba(240, 180, 41, 0.05));">
+                <i data-feather="building" style="width: 24px; height: 24px; color: #f0b429;"></i>
+            </div>
+            <h3 style="font-size: 1rem; font-weight: 700; color: #0d1f3c; margin-bottom: 0.4rem;">
+                Pengaturan Perusahaan
+            </h3>
+            <p style="font-size: 0.813rem; color: #6b7280; margin: 0;">
+                Edit nama, logo, alamat, kontak CQC untuk laporan dan tampilan
+            </p>
+        </div>
+    </a>
+    
+    <!-- Ganti Password -->
+    <a href="change-password.php" class="cqc-settings-card">
+        <div style="padding: 1.25rem;">
+            <div class="cqc-settings-icon" style="background: linear-gradient(135deg, rgba(13, 31, 60, 0.15), rgba(13, 31, 60, 0.05));">
+                <i data-feather="lock" style="width: 24px; height: 24px; color: #0d1f3c;"></i>
+            </div>
+            <h3 style="font-size: 1rem; font-weight: 700; color: #0d1f3c; margin-bottom: 0.4rem;">
+                Ganti Password
+            </h3>
+            <p style="font-size: 0.813rem; color: #6b7280; margin: 0;">
+                Ubah password akun Anda dengan verifikasi password lama
+            </p>
+        </div>
+    </a>
+    
+    <!-- Pengaturan Laporan PDF -->
+    <a href="report-settings.php" class="cqc-settings-card">
+        <div style="padding: 1.25rem;">
+            <div class="cqc-settings-icon" style="background: linear-gradient(135deg, rgba(59, 130, 246, 0.15), rgba(59, 130, 246, 0.05));">
+                <i data-feather="file-text" style="width: 24px; height: 24px; color: #3b82f6;"></i>
+            </div>
+            <h3 style="font-size: 1rem; font-weight: 700; color: #0d1f3c; margin-bottom: 0.4rem;">
+                Pengaturan Laporan PDF
+            </h3>
+            <p style="font-size: 0.813rem; color: #6b7280; margin: 0;">
+                Konfigurasi header laporan: logo, nama, alamat yang tampil di PDF
+            </p>
+        </div>
+    </a>
+    
+    <!-- Backup & Reset Data -->
+    <a href="reset.php" class="cqc-settings-card">
+        <div style="padding: 1.25rem;">
+            <div class="cqc-settings-icon" style="background: linear-gradient(135deg, rgba(239, 68, 68, 0.15), rgba(239, 68, 68, 0.05));">
+                <i data-feather="database" style="width: 24px; height: 24px; color: #ef4444;"></i>
+            </div>
+            <h3 style="font-size: 1rem; font-weight: 700; color: #0d1f3c; margin-bottom: 0.4rem;">
+                Reset Data
+            </h3>
+            <p style="font-size: 0.813rem; color: #6b7280; margin: 0;">
+                Backup database, reset data buku kas CQC atau data proyek
+            </p>
+        </div>
+    </a>
+    
+</div>
+
+<?php else: ?>
+<!-- REGULAR SETTINGS MENU - All options -->
 <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(280px, 1fr)); gap: 1rem;">
     
     <!-- Company Settings -->
@@ -176,6 +275,7 @@ include '../../includes/header.php';
     </a>
     
 </div>
+<?php endif; ?>
 
 <!-- System Info -->
 <div class="card" style="margin-top: 1.5rem; padding: 1.25rem; background: linear-gradient(135deg, rgba(99, 102, 241, 0.1), rgba(139, 92, 246, 0.05));">

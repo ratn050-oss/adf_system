@@ -17,6 +17,9 @@ $db = Database::getInstance();
 $currentUser = $auth->getCurrentUser();
 $pageTitle = 'Backup & Reset Data';
 
+// CQC Detection
+$isCQC = (strtolower(ACTIVE_BUSINESS_ID) === 'cqc');
+
 include '../../includes/header.php';
 ?>
 
@@ -217,6 +220,58 @@ include '../../includes/header.php';
         </p>
         
         <div class="checkbox-group">
+            <?php if ($isCQC): ?>
+            <!-- CQC SPECIFIC RESET OPTIONS -->
+            <label class="checkbox-label">
+                <input type="checkbox" name="reset_type" value="cqc_cashbook">
+                <div>
+                    <div style="font-weight: 600; font-size: 0.875rem; color: var(--text-primary);">
+                        📒 Data Buku Kas CQC
+                    </div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">
+                        Hapus semua transaksi kas masuk & keluar di buku kas CQC
+                    </div>
+                </div>
+            </label>
+            
+            <label class="checkbox-label">
+                <input type="checkbox" name="reset_type" value="cqc_projects">
+                <div>
+                    <div style="font-weight: 600; font-size: 0.875rem; color: var(--text-primary);">
+                        ☀️ Data Proyek CQC
+                    </div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">
+                        Hapus semua data proyek solar panel (proyek, expenses, categories)
+                    </div>
+                </div>
+            </label>
+            
+            <label class="checkbox-label">
+                <input type="checkbox" name="reset_type" value="cqc_expenses">
+                <div>
+                    <div style="font-weight: 600; font-size: 0.875rem; color: var(--text-primary);">
+                        💸 Data Pengeluaran Proyek
+                    </div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">
+                        Hapus semua expense proyek (tidak menghapus proyek itu sendiri)
+                    </div>
+                </div>
+            </label>
+            
+            <label class="checkbox-label">
+                <input type="checkbox" name="reset_type" value="logs">
+                <div>
+                    <div style="font-weight: 600; font-size: 0.875rem; color: var(--text-primary);">
+                        📋 Data Activity Logs
+                    </div>
+                    <div style="font-size: 0.75rem; color: var(--text-muted);">
+                        Hapus semua log aktivitas sistem
+                    </div>
+                </div>
+            </label>
+            
+            <?php else: ?>
+            <!-- REGULAR RESET OPTIONS -->
             <label class="checkbox-label">
                 <input type="checkbox" name="reset_type" value="accounting">
                 <div>
@@ -360,6 +415,7 @@ include '../../includes/header.php';
                     </div>
                 </div>
             </label>
+            <?php endif; ?>
         </div>
         
         <div class="warning-box">
@@ -539,6 +595,10 @@ include '../../includes/header.php';
                 case 'logs': return 'Data Activity Logs';
                 case 'menu': return 'Data Menu Items';
                 case 'orders': return 'Data Orders';
+                // CQC Specific
+                case 'cqc_cashbook': return 'Data Buku Kas CQC';
+                case 'cqc_projects': return 'Data Proyek CQC';
+                case 'cqc_expenses': return 'Data Pengeluaran Proyek';
                 default: return `Data ${t}`;
             }
         });
