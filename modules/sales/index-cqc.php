@@ -283,10 +283,15 @@ include '../../includes/header.php';
             <h1>📄 Invoice</h1>
             <p>Kelola tagihan progress proyek kontraktor</p>
         </div>
-        <a href="create-termin.php" class="btn-create">
-            <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
-            Buat Invoice
-        </a>
+        <div style="display: flex; gap: 10px;">
+            <a href="invoice-settings.php" class="btn-settings" style="background: #f1f5f9; color: #475569; padding: 10px 18px; border-radius: 8px; text-decoration: none; font-size: 13px; font-weight: 600; display: inline-flex; align-items: center; gap: 6px; transition: all 0.2s;">
+                ⚙️ PDF Settings
+            </a>
+            <a href="create-termin.php" class="btn-create">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+                Buat Invoice
+            </a>
+        </div>
     </div>
 
     <!-- Stats Grid -->
