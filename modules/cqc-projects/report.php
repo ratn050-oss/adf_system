@@ -103,7 +103,7 @@ include '../../includes/header.php';
 <style>
 :root { --gold: #f0b429; --gold-light: #fef3c7; --gold-dark: #d4960d; --navy: #0d1f3c; }
 
-.rpt { max-width: 680px; margin: 0 auto; padding: 0 8px; }
+.rpt { max-width: 100%; margin: 0; padding: 0 12px; }
 
 /* Hero - Clean Light with Gold Gradient */
 .rpt-hero {
