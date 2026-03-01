@@ -400,9 +400,17 @@ try {
 // Calculate totals
 $totalIncome = 0;
 $totalExpense = 0;
+$totalOwnerFund = 0; // CQC: Owner top-up (NOT income)
+$totalRealIncome = 0; // CQC: Real income from invoice payments
 foreach ($transactions as $trans) {
     if ($trans['transaction_type'] === 'income') {
         $totalIncome += $trans['amount'];
+        // CQC: Separate owner fund from real income
+        if ($isCQC && isset($trans['source_type']) && $trans['source_type'] === 'owner_fund') {
+            $totalOwnerFund += $trans['amount'];
+        } else {
+            $totalRealIncome += $trans['amount'];
+        }
     } else {
         $totalExpense += $trans['amount'];
     }
@@ -1296,6 +1304,32 @@ echo getPrintCSS();
 
 <!-- Summary Cards -->
 <div class="dashboard-grid" style="margin-bottom: 2rem;">
+    <?php if ($isCQC): ?>
+    <!-- CQC: Separate Owner Fund vs Real Income -->
+    <div class="card">
+        <div class="card-header">
+            <div>
+                <div class="card-title">Dana Owner (Operasional)</div>
+                <div class="card-value" style="color: #d97706;"><?php echo formatCurrency($totalOwnerFund); ?></div>
+            </div>
+            <div class="card-icon" style="background: linear-gradient(135deg, #fbbf24, #f59e0b);">
+                <i data-feather="download"></i>
+            </div>
+        </div>
+    </div>
+    
+    <div class="card">
+        <div class="card-header">
+            <div>
+                <div class="card-title">Pemasukan Invoice</div>
+                <div class="card-value text-success"><?php echo formatCurrency($totalRealIncome); ?></div>
+            </div>
+            <div class="card-icon income">
+                <i data-feather="arrow-down-circle"></i>
+            </div>
+        </div>
+    </div>
+    <?php else: ?>
     <div class="card">
         <div class="card-header">
             <div>
@@ -1307,6 +1341,7 @@ echo getPrintCSS();
             </div>
         </div>
     </div>
+    <?php endif; ?>
     
     <div class="card">
         <div class="card-header">
@@ -1341,18 +1376,26 @@ echo getPrintCSS();
     <div class="cqc-daily-header">
         <div class="cqc-daily-icon">💰</div>
         <div>
-            <div class="cqc-daily-title">Daily Expenses</div>
-            <div class="cqc-daily-subtitle">Uang dari owner bukan income perusahaan, pengeluaran langsung mengurangi kas</div>
+            <div class="cqc-daily-title">Kas Operasional CQC</div>
+            <div class="cqc-daily-subtitle">Dana owner untuk operasional harian, bukan pendapatan perusahaan</div>
         </div>
     </div>
     <div class="cqc-daily-grid">
         <div class="cqc-daily-card owner">
             <div class="cqc-daily-label">
                 <i data-feather="download" style="width: 14px; height: 14px;"></i>
-                Total Saldo Owner
+                Dana dari Owner
             </div>
-            <div class="cqc-daily-value">Rp <?php echo number_format($totalIncome, 0, ',', '.'); ?></div>
-            <div class="cqc-daily-desc">Modal dari owner (bukan pendapatan)</div>
+            <div class="cqc-daily-value">Rp <?php echo number_format($totalOwnerFund, 0, ',', '.'); ?></div>
+            <div class="cqc-daily-desc">Top up kas operasional (bukan pendapatan)</div>
+        </div>
+        <div class="cqc-daily-card" style="border-left: 4px solid #10b981;">
+            <div class="cqc-daily-label">
+                <i data-feather="file-text" style="width: 14px; height: 14px;"></i>
+                Pemasukan Invoice
+            </div>
+            <div class="cqc-daily-value" style="color: #10b981;">Rp <?php echo number_format($totalRealIncome, 0, ',', '.'); ?></div>
+            <div class="cqc-daily-desc">DP / Termin / Pelunasan (pendapatan)</div>
         </div>
         <div class="cqc-daily-card expense">
             <div class="cqc-daily-label">
@@ -1365,7 +1408,7 @@ echo getPrintCSS();
         <div class="cqc-daily-card balance">
             <div class="cqc-daily-label">
                 <i data-feather="credit-card" style="width: 14px; height: 14px;"></i>
-                Saldo Akhir
+                Saldo Kas
             </div>
             <div class="cqc-daily-value" style="color: <?php echo $balance >= 0 ? '#2563eb' : '#dc2626'; ?>;">
                 Rp <?php echo number_format($balance, 0, ',', '.'); ?>

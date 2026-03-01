@@ -111,6 +111,19 @@ if (isPost()) {
                 }
             }
 
+            // CQC: Determine source_type for income
+            // Owner top-up = 'owner_fund' (NOT company income)
+            // Invoice payment = 'invoice_payment' (REAL income)
+            $sourceType = 'manual';
+            if ($isCQC && $transactionType === 'income') {
+                $cqcIncomeType = getPost('cqc_income_type') ?? '';
+                if ($cqcIncomeType === 'topup_owner') {
+                    $sourceType = 'owner_fund';
+                } elseif (in_array($cqcIncomeType, ['dp', 'termin', 'pelunasan', 'retensi'])) {
+                    $sourceType = 'invoice_payment';
+                }
+            }
+
             $data = [
                 'transaction_date' => $transactionDate,
                 'transaction_time' => $transactionTime ?: date('H:i:s'),
@@ -122,7 +135,7 @@ if (isPost()) {
                 'payment_method' => $paymentMethod,
                 'cash_account_id' => $cashAccountId,
                 'created_by' => $_SESSION['user_id'],
-                'source_type' => 'manual',
+                'source_type' => $sourceType,
                 'is_editable' => 1
             ];
             
@@ -557,16 +570,18 @@ include '../../includes/header.php';
                 </div>
                 <!-- CQC: Income Type -->
                 <div class="compact-form-group" id="cqcIncomeSection" style="display: none;">
-                    <label class="form-label" style="font-size: 0.813rem; font-weight: 600; margin-bottom: 0.3rem; color: #0d1f3c;">💰 Jenis Pemasukan <span style="color: var(--danger);">*</span></label>
+                    <label class="form-label" style="font-size: 0.813rem; font-weight: 600; margin-bottom: 0.3rem; color: #0d1f3c;">💰 Jenis Uang Masuk <span style="color: var(--danger);">*</span></label>
                     <select name="cqc_income_type" id="cqc_income_type" class="form-control" style="height: 34px; font-size: 0.813rem;" onchange="updateCQCIncomeCategory(this)">
                         <option value="">-- Pilih Jenis --</option>
-                        <option value="dp">💵 DP Masuk</option>
-                        <option value="termin">📄 Pembayaran Termin</option>
-                        <option value="pelunasan">✅ Pelunasan</option>
+                        <option value="topup_owner" style="background: #fef3c7; font-weight: 600;">🏦 Top Up Kas dari Owner (Operasional)</option>
+                        <option value="dp">💵 DP Masuk (Invoice)</option>
+                        <option value="termin">📄 Pembayaran Termin (Invoice)</option>
+                        <option value="pelunasan">✅ Pelunasan (Invoice)</option>
                         <option value="retensi">🔒 Retensi / Garansi</option>
                         <option value="manual">✏️ Tulis Manual</option>
                     </select>
-                    <input type="text" name="cqc_income_desc" id="cqc_income_desc" class="form-control" style="height: 34px; font-size: 0.813rem; margin-top: 0.3rem;" placeholder="Keterangan pemasukan" readonly>
+                    <input type="text" name="cqc_income_desc" id="cqc_income_desc" class="form-control" style="height: 34px; font-size: 0.813rem; margin-top: 0.3rem;" placeholder="Keterangan" readonly>
+                    <div id="cqcIncomeNote" style="display: none; margin-top: 0.3rem; padding: 6px 10px; border-radius: 6px; font-size: 0.7rem;"></div>
                 </div>
                 <?php else: ?>
                 <!-- Division -->
@@ -774,20 +789,40 @@ function updateCQCIncomeCategory(select) {
     const projName = projOpt && projOpt.value ? projOpt.textContent.trim().split(' [')[0] : '';
     const descInput = document.getElementById('cqc_income_desc');
     const catInput = document.querySelector('[name=category_name]');
+    const noteDiv = document.getElementById('cqcIncomeNote');
     
     const labels = {
+        'topup_owner': 'Top Up Kas Owner',
         'dp': 'DP Masuk',
         'termin': 'Pembayaran Termin',
         'pelunasan': 'Pelunasan',
         'retensi': 'Retensi / Garansi'
     };
     
+    // Show/hide note
+    if (type === 'topup_owner') {
+        noteDiv.style.display = 'block';
+        noteDiv.style.background = '#fef3c7';
+        noteDiv.style.color = '#92400e';
+        noteDiv.innerHTML = '⚠️ <strong>Ini BUKAN pendapatan perusahaan.</strong> Dana dari owner untuk operasional harian. Tidak masuk ke laporan income.';
+    } else if (['dp', 'termin', 'pelunasan'].includes(type)) {
+        noteDiv.style.display = 'block';
+        noteDiv.style.background = '#dcfce7';
+        noteDiv.style.color = '#166534';
+        noteDiv.innerHTML = '✅ Ini adalah <strong>pendapatan dari invoice</strong>. Masuk ke laporan income.';
+    } else {
+        noteDiv.style.display = 'none';
+    }
+    
     if (type === 'manual') {
         descInput.removeAttribute('readonly');
-        descInput.placeholder = 'Tulis keterangan pemasukan...';
+        descInput.placeholder = 'Tulis keterangan...';
         descInput.value = '';
         descInput.focus();
-        // category_name will be set on form submit
+    } else if (type === 'topup_owner') {
+        descInput.setAttribute('readonly', 'readonly');
+        descInput.value = 'Top Up Kas dari Owner - Operasional Harian';
+        catInput.value = 'Top Up Kas Owner';
     } else if (type && labels[type]) {
         descInput.setAttribute('readonly', 'readonly');
         const desc = projName ? labels[type] + ' - ' + projName : labels[type];
@@ -797,6 +832,7 @@ function updateCQCIncomeCategory(select) {
         descInput.setAttribute('readonly', 'readonly');
         descInput.value = '';
         catInput.value = '';
+        noteDiv.style.display = 'none';
     }
 }
 

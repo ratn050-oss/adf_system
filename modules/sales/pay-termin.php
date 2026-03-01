@@ -89,7 +89,7 @@ try {
     $stmtCashbook = $pdo->prepare("
         INSERT INTO cash_book 
         (transaction_date, transaction_time, division_id, category_id, transaction_type, amount, description, payment_method, source_type, is_editable, created_by)
-        VALUES (CURDATE(), CURTIME(), ?, ?, 'income', ?, ?, ?, 0, ?)
+        VALUES (CURDATE(), CURTIME(), ?, ?, 'income', ?, ?, ?, 'invoice_payment', 0, ?)
     ");
     $stmtCashbook->execute([
         $divisionId,
