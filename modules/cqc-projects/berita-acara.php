@@ -49,7 +49,7 @@ $totalPaid = array_sum(array_column($invoices, 'paid_amount'));
 $contractValue = !empty($invoices) ? floatval($invoices[0]['contract_value']) : floatval($project['budget_idr']);
 $outstandingBalance = $contractValue - $totalPaid;
 
-// Company info
+// Company info — load from business_settings + PDF settings (invoice_logo)
 $db = Database::getInstance();
 $companyName = 'CQC Enjiniring';
 $companyTagline = 'Solar Panel Installation Contractor';
@@ -59,6 +59,7 @@ $companyPhone = '-';
 $companyEmail = '-';
 $companyNPWP = '-';
 $companyLogo = '';
+$companyLogoUrl = '';
 
 try {
     $settings = $db->fetchAll("SELECT setting_key, setting_value FROM business_settings WHERE business_id = 7");
@@ -76,13 +77,44 @@ try {
     }
 } catch (Exception $e) {}
 
-// Fallback from config
+// Priority: Get logo from PDF/Invoice settings (Settings > Report Settings)
+$businessId = defined('ACTIVE_BUSINESS_ID') ? ACTIVE_BUSINESS_ID : 'cqc';
+try {
+    // Priority 1: invoice_logo_[businessId] from settings table
+    $logoResult = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = ?", 
+        ['invoice_logo_' . $businessId]);
+    if ($logoResult && !empty($logoResult['setting_value'])) {
+        $companyLogoUrl = BASE_URL . '/uploads/logos/' . $logoResult['setting_value'];
+    }
+    // Priority 2: Global invoice_logo
+    if (!$companyLogoUrl) {
+        $logoResult = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'invoice_logo'");
+        if ($logoResult && !empty($logoResult['setting_value'])) {
+            $companyLogoUrl = BASE_URL . '/uploads/logos/' . $logoResult['setting_value'];
+        }
+    }
+    // Priority 3: company_logo
+    if (!$companyLogoUrl) {
+        $logoResult = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'company_logo'");
+        if ($logoResult && !empty($logoResult['setting_value'])) {
+            $logoVal = $logoResult['setting_value'];
+            $companyLogoUrl = (strpos($logoVal, 'http') === 0) ? $logoVal : BASE_URL . '/' . ltrim($logoVal, '/');
+        }
+    }
+} catch (Exception $e) {}
+
+// Fallback: logo from business_settings or config
+if (!$companyLogoUrl && $companyLogo) {
+    $companyLogoUrl = (strpos($companyLogo, 'http') === 0) ? $companyLogo : BASE_URL . '/' . ltrim($companyLogo, '/');
+}
+
+// Fallback from config file
 $configPath = defined('ROOT_PATH') ? ROOT_PATH : dirname(dirname(__DIR__));
 $configFile = $configPath . '/config/businesses/cqc.php';
 if (file_exists($configFile)) {
     $cqcConfig = include $configFile;
     if ($companyName === 'CQC Enjiniring' && isset($cqcConfig['name'])) $companyName = $cqcConfig['name'];
-    if (empty($companyLogo) && isset($cqcConfig['logo'])) $companyLogo = $cqcConfig['logo'];
+    if (empty($companyLogoUrl) && isset($cqcConfig['logo'])) $companyLogoUrl = BASE_URL . '/' . ltrim($cqcConfig['logo'], '/');
     if (empty($companyAddress) && isset($cqcConfig['address'])) $companyAddress = $cqcConfig['address'];
     if (empty($companyCity) && isset($cqcConfig['city'])) $companyCity = $cqcConfig['city'];
 }
@@ -390,8 +422,8 @@ if ($lang === 'en') {
     <div class="ba-header">
         <div class="ba-company">
             <div class="ba-logo">
-                <?php if ($companyLogo): ?>
-                <img src="<?php echo BASE_URL . '/' . $companyLogo; ?>" alt="Logo">
+                <?php if ($companyLogoUrl): ?>
+                <img src="<?php echo $companyLogoUrl; ?>" alt="Logo">
                 <?php else: ?>
                 CQC
                 <?php endif; ?>
