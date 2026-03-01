@@ -50,8 +50,8 @@ try {
     
     // Load cash accounts if we have a business ID
     if ($businessId) {
-        // Show all account types
-        $stmt = $masterDb->prepare("SELECT id, account_name, account_type FROM cash_accounts WHERE business_id = ? AND is_active = 1 ORDER BY account_type = 'cash' DESC, account_type = 'bank' DESC, account_name");
+        // Show cash and bank accounts only (exclude owner_capital - not for direct selection)
+        $stmt = $masterDb->prepare("SELECT id, account_name, account_type FROM cash_accounts WHERE business_id = ? AND is_active = 1 AND account_type IN ('cash', 'bank', 'e-wallet', 'credit_card') ORDER BY account_type = 'cash' DESC, account_type = 'bank' DESC, account_name");
         $stmt->execute([$businessId]);
         $cashAccounts = $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
@@ -153,32 +153,16 @@ if (isPost()) {
                             $data['cash_account_id'] = $cashAccountId;
                             error_log("SMART LOGIC - Using Petty Cash (sufficient balance)");
                         } else {
-                            // Petty Cash tidak cukup, switch ke Modal Owner
-                            error_log("SMART LOGIC TRIGGERED - Petty Cash insufficient, switching to Modal Owner");
+                            // Petty Cash tidak cukup - tetap pakai Petty Cash, saldo bisa minus
+                            error_log("SMART LOGIC - Petty Cash insufficient, but still using it (will go negative)");
+                            $cashAccountId = $pettyCashAccount['id'];
+                            $data['cash_account_id'] = $cashAccountId;
                             
-                            // Find Modal Owner account
-                            $stmt = $masterDb->prepare("SELECT id, account_name, current_balance FROM cash_accounts WHERE business_id = ? AND account_type = 'owner_capital' ORDER BY id LIMIT 1");
-                            $stmt->execute([$businessId]);
-                            $modalOwnerAccount = $stmt->fetch(PDO::FETCH_ASSOC);
-                            
-                            if ($modalOwnerAccount) {
-                                error_log("MODAL OWNER FOUND - ID: {$modalOwnerAccount['id']}, Balance: {$modalOwnerAccount['current_balance']}");
-                                
-                                // Auto-switch to Modal Owner (allow going negative if needed)
-                                $cashAccountId = $modalOwnerAccount['id'];
-                                $data['cash_account_id'] = $cashAccountId;
-                                $autoSwitched = true;
-                                
-                                // Add notification to description
-                                $originalDesc = $description ?: '';
-                                $autoNote = '[AUTO: Petty Cash habis (Saldo: ' . number_format($pettyCashAccount['current_balance']) . '), potong dari Modal Owner]';
-                                $data['description'] = trim($originalDesc . ' ' . $autoNote);
-                                $description = $data['description'];
-                                
-                                error_log("AUTO-SWITCHED to Modal Owner ID: {$cashAccountId}");
-                            } else {
-                                error_log("MODAL OWNER NOT FOUND - Using original account selection");
-                            }
+                            // Add warning to description
+                            $originalDesc = $description ?: '';
+                            $autoNote = '[WARNING: Petty Cash kurang (Saldo: ' . number_format($pettyCashAccount['current_balance']) . ')]';
+                            $data['description'] = trim($originalDesc . ' ' . $autoNote);
+                            $description = $data['description'];
                         }
                     } else {
                         error_log("PETTY CASH NOT FOUND - Using original account selection");
@@ -214,8 +198,14 @@ if (isPost()) {
                             // Determine transaction type for cash_account_transactions
                             $accountTransactionType = $transactionType; // Default: 'income' or 'expense'
                             
-                            // If this is owner_capital account and income = capital injection
-                            if ($account && $account['account_type'] === 'owner_capital' && $transactionType === 'income') {
+                            // CQC Special Logic: If Petty Cash and income = owner sending operational funds
+                            // This is NOT company income, it's capital/operational fund injection
+                            if ($isCQC && $account && $account['account_type'] === 'cash' && $transactionType === 'income') {
+                                $accountTransactionType = 'capital_injection';
+                                error_log("CQC LOGIC - Petty Cash income = operational fund injection (not company income)");
+                            }
+                            // If this is owner_capital account and income = capital injection (legacy support)
+                            elseif ($account && $account['account_type'] === 'owner_capital' && $transactionType === 'income') {
                                 $accountTransactionType = 'capital_injection';
                             }
                             
@@ -620,7 +610,7 @@ include '../../includes/header.php';
                             <option value="" disabled style="color: #dc2626;">⚠️ Tidak ada akun kas tersedia. Hubungi admin!</option>
                         <?php else: ?>
                             <?php 
-                            $accTypeIcons = ['cash'=>'💵','bank'=>'🏦','e-wallet'=>'📱','owner_capital'=>'👤','credit_card'=>'💳'];
+                            $accTypeIcons = ['cash'=>'💵','bank'=>'🏦','e-wallet'=>'📱','credit_card'=>'💳'];
                             foreach ($cashAccounts as $acc): 
                                 $icon = $accTypeIcons[$acc['account_type']] ?? '💰';
                             ?>
