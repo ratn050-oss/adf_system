@@ -1811,36 +1811,36 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
             <div class="kas-harian-header">
                 <div class="kas-harian-title">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
-                    Kas Harian
+                    Owner Cash
                 </div>
                 <div class="kas-harian-date"><?= date('M Y') ?></div>
             </div>
             
             <div class="kas-summary-row">
                 <div class="kas-summary-box">
-                    <div class="kas-summary-label">Saldo Kas</div>
+                    <div class="kas-summary-label">Balance</div>
                     <div class="kas-summary-value saldo"><?= number_format($kasAvailable, 0, ',', '.') ?></div>
                 </div>
                 <div class="kas-summary-box">
-                    <div class="kas-summary-label">Masuk</div>
+                    <div class="kas-summary-label">Income</div>
                     <div class="kas-summary-value masuk"><?= number_format($monthMasuk, 0, ',', '.') ?></div>
                 </div>
                 <div class="kas-summary-box">
-                    <div class="kas-summary-label">Keluar</div>
+                    <div class="kas-summary-label">Expense</div>
                     <div class="kas-summary-value keluar"><?= number_format($monthKeluar, 0, ',', '.') ?></div>
                 </div>
             </div>
             
             <div class="kas-table-wrapper">
                 <?php if (empty($todayKas)): ?>
-                <div class="kas-empty">Belum ada transaksi bulan ini</div>
+                <div class="kas-empty">No transactions this month</div>
                 <?php else: ?>
                 <table class="kas-table">
                     <thead>
                         <tr>
-                            <th>Jam</th>
-                            <th>Keterangan</th>
-                            <th class="text-right">Jumlah</th>
+                            <th>Time</th>
+                            <th>Description</th>
+                            <th class="text-right">Amount</th>
                         </tr>
                     </thead>
                     <tbody>
