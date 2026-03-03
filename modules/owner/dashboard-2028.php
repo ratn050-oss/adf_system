@@ -1717,7 +1717,7 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
         // Only count owner_capital + petty_cash accounts
         $todayKas = [];
         $startKasHariIni = 0;
-        $monthMasuk = 0;
+        $ownerTransferThisMonth = 0;
         $monthKeluar = 0;
         $kasAvailable = 0;
         $guestCashIncome = 0;
@@ -1748,9 +1748,10 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
                 
                 $today = date('Y-m-d');
                 $thisMonth = date('Y-m');
+                $firstDayOfMonth = date('Y-m-01');
                 $placeholders = implode(',', array_fill(0, count($allAccounts), '?'));
                 
-                // Get start kas (all balance before today) - filtered by accounts
+                // Get start kas = Saldo akhir bulan lalu (sebelum bulan ini)
                 $sqlSaldo = "
                     SELECT 
                         COALESCE(SUM(CASE WHEN transaction_type='income' THEN amount ELSE 0 END),0) -
@@ -1759,22 +1760,32 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
                     WHERE cash_account_id IN ($placeholders) AND transaction_date < ?
                 ";
                 $stmtSaldo = $kasDb->prepare($sqlSaldo);
-                $stmtSaldo->execute(array_merge($allAccounts, [$today]));
+                $stmtSaldo->execute(array_merge($allAccounts, [$firstDayOfMonth]));
                 $startKasHariIni = (float)($stmtSaldo->fetchColumn() ?: 0);
                 
-                // Get this month's totals (income & expense) - filtered by accounts
-                $sqlMonth = "
-                    SELECT 
-                        COALESCE(SUM(CASE WHEN transaction_type='income' THEN amount ELSE 0 END),0) as masuk,
-                        COALESCE(SUM(CASE WHEN transaction_type='expense' THEN amount ELSE 0 END),0) as keluar
+                // Get Owner Transfer THIS MONTH only (income to capital + petty accounts this month)
+                $sqlOwnerTransfer = "
+                    SELECT COALESCE(SUM(amount), 0) as total
                     FROM cash_book 
-                    WHERE cash_account_id IN ($placeholders) AND DATE_FORMAT(transaction_date, '%Y-%m') = ?
+                    WHERE cash_account_id IN ($placeholders) 
+                    AND transaction_type = 'income'
+                    AND DATE_FORMAT(transaction_date, '%Y-%m') = ?
+                ";
+                $stmtOwnerTransfer = $kasDb->prepare($sqlOwnerTransfer);
+                $stmtOwnerTransfer->execute(array_merge($allAccounts, [$thisMonth]));
+                $ownerTransferThisMonth = (float)($stmtOwnerTransfer->fetchColumn() ?: 0);
+                
+                // Get this month's expense - filtered by accounts
+                $sqlMonth = "
+                    SELECT COALESCE(SUM(amount), 0) as keluar
+                    FROM cash_book 
+                    WHERE cash_account_id IN ($placeholders) 
+                    AND transaction_type = 'expense'
+                    AND DATE_FORMAT(transaction_date, '%Y-%m') = ?
                 ";
                 $stmtMonth = $kasDb->prepare($sqlMonth);
                 $stmtMonth->execute(array_merge($allAccounts, [$thisMonth]));
-                $monthRow = $stmtMonth->fetch(PDO::FETCH_ASSOC);
-                $monthMasuk = (float)($monthRow['masuk'] ?? 0);
-                $monthKeluar = (float)($monthRow['keluar'] ?? 0);
+                $monthKeluar = (float)($stmtMonth->fetchColumn() ?: 0);
                 
                 // Calculate kas available (all time balance) - filtered by accounts
                 $sqlAll = "
@@ -1847,12 +1858,12 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
             
             <div class="kas-summary-row">
                 <div class="kas-summary-box">
-                    <div class="kas-summary-label">Balance</div>
-                    <div class="kas-summary-value saldo"><?= number_format($kasAvailable + $guestCashIncome, 0, ',', '.') ?></div>
+                    <div class="kas-summary-label">Owner Transfer</div>
+                    <div class="kas-summary-value saldo"><?= number_format($ownerTransferThisMonth, 0, ',', '.') ?></div>
                 </div>
                 <div class="kas-summary-box">
                     <div class="kas-summary-label">Owner + Guest</div>
-                    <div class="kas-summary-value masuk"><?= number_format($monthMasuk + $guestCashIncome, 0, ',', '.') ?></div>
+                    <div class="kas-summary-value masuk"><?= number_format($ownerTransferThisMonth + $guestCashIncome, 0, ',', '.') ?></div>
                 </div>
                 <div class="kas-summary-box">
                     <div class="kas-summary-label">Expense</div>

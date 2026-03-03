@@ -86,7 +86,9 @@ if (!$invoice) {
 }
 
 // Get business settings from master database based on active business
-$businessId = $_SESSION['business_id'] ?? 1;
+// Use getMasterBusinessId() which is the preferred way
+require_once '../../includes/business_helper.php';
+$businessId = getMasterBusinessId();
 
 // Default company info
 $companyName = 'My Business';
@@ -122,10 +124,17 @@ try {
     
     // Fallback: try businesses table
     if ($companyName === 'My Business') {
-        $biz = $db->fetchOne("SELECT business_name FROM businesses WHERE id = ?", [$businessId]);
-        if ($biz) $companyName = $biz['business_name'];
+        $biz = $db->fetchOne("SELECT business_name, logo FROM businesses WHERE id = ?", [$businessId]);
+        if ($biz) {
+            $companyName = $biz['business_name'];
+            if (!$companyLogo && !empty($biz['logo'])) {
+                $companyLogo = $biz['logo'];
+            }
+        }
     }
-} catch (Exception $e) {}
+} catch (Exception $e) {
+    error_log("Invoice settings error: " . $e->getMessage());
+}
 
 // Full address
 $fullAddress = $companyAddress;
@@ -155,11 +164,17 @@ function formatInvDateGen($date) {
     return date('F j, Y', strtotime($date));
 }
 
-// Logo path check
+// Logo path check - search multiple locations
 $configPath = defined('ROOT_PATH') ? ROOT_PATH : dirname(dirname(__DIR__));
 $logoPath = '';
 $logoExists = false;
-$possibleLogos = [$companyLogo, 'logos/' . $companyLogo, 'logos/cqc_logo.png', 'cqc_logo.png'];
+$possibleLogos = [
+    $companyLogo, 
+    'logos/' . $companyLogo, 
+    'logos/' . strtolower(str_replace(' ', '_', $companyName)) . '_logo.png',
+    'logos/' . strtolower(str_replace(' ', '_', $companyName)) . '.png',
+    'logos/default_logo.png'
+];
 foreach ($possibleLogos as $logo) {
     if (!$logo) continue;
     $fullPath = $configPath . '/uploads/' . $logo;

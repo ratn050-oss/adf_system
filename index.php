@@ -294,38 +294,55 @@ try {
     $totalOperationalIncome = $pettyCashStats['received'] + $capitalStats['received'];
     
     // ============================================
-    // START KAS AWAL HARI INI
-    // Saldo sebelum hari ini (sisa uang kemarin)
+    // START KAS = Saldo akhir bulan sebelumnya
+    // (untuk bulan baru, reset dari sisa bulan lalu)
     // ============================================
     $today = date('Y-m-d');
+    $firstDayOfMonth = date('Y-m-01');
     $startKasOwner = 0;
     $startKasPetty = 0;
+    $ownerTransferThisMonth = 0;
     
-    // Modal Owner: all transactions before today
+    // Modal Owner: all transactions before THIS MONTH (end of last month)
     if ($hasCashAccountIdCol && !empty($capitalAccounts)) {
         $placeholders = implode(',', array_fill(0, count($capitalAccounts), '?'));
         $qStart = "SELECT 
             COALESCE(SUM(CASE WHEN transaction_type='income' THEN amount ELSE 0 END),0) -
             COALESCE(SUM(CASE WHEN transaction_type='expense' THEN amount ELSE 0 END),0) as bal
             FROM cash_book WHERE cash_account_id IN ($placeholders) AND transaction_date < ?";
-        $pStart = array_merge($capitalAccounts, [$today]);
+        $pStart = array_merge($capitalAccounts, [$firstDayOfMonth]);
         $rStart = $db->fetchOne($qStart, $pStart);
         $startKasOwner = $rStart['bal'] ?? 0;
     }
     
-    // Petty Cash / Kas Operasional: all transactions before today
+    // Petty Cash / Kas Operasional: all transactions before THIS MONTH
     if ($hasCashAccountIdCol && !empty($pettyCashAccounts)) {
         $placeholders = implode(',', array_fill(0, count($pettyCashAccounts), '?'));
         $qStart = "SELECT 
             COALESCE(SUM(CASE WHEN transaction_type='income' THEN amount ELSE 0 END),0) -
             COALESCE(SUM(CASE WHEN transaction_type='expense' THEN amount ELSE 0 END),0) as bal
             FROM cash_book WHERE cash_account_id IN ($placeholders) AND transaction_date < ?";
-        $pStart = array_merge($pettyCashAccounts, [$today]);
+        $pStart = array_merge($pettyCashAccounts, [$firstDayOfMonth]);
         $rStart = $db->fetchOne($qStart, $pStart);
         $startKasPetty = $rStart['bal'] ?? 0;
     }
     
     $startKasHariIni = $startKasOwner + $startKasPetty;
+    
+    // Owner Transfer THIS MONTH only (income to capital + petty accounts this month)
+    $ownerTransferThisMonth = 0;
+    if ($hasCashAccountIdCol && (!empty($capitalAccounts) || !empty($pettyCashAccounts))) {
+        $allAccIds = array_merge($capitalAccounts, $pettyCashAccounts);
+        $placeholders = implode(',', array_fill(0, count($allAccIds), '?'));
+        $thisMonth = date('Y-m');
+        $qOwner = "SELECT COALESCE(SUM(amount), 0) as total
+            FROM cash_book WHERE cash_account_id IN ($placeholders) 
+            AND transaction_type = 'income'
+            AND DATE_FORMAT(transaction_date, '%Y-%m') = ?";
+        $pOwner = array_merge($allAccIds, [$thisMonth]);
+        $rOwner = $db->fetchOne($qOwner, $pOwner);
+        $ownerTransferThisMonth = $rOwner['total'] ?? 0;
+    }
     
     // Today's transactions
     $todayIncome = 0;
@@ -784,7 +801,7 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
         <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 0.75rem;">
             <!-- Start Cash -->
             <div style="background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); padding: 0.875rem 1rem; border-radius: 10px; border: 1px solid #e2e8f0;">
-                <div style="font-size: 0.65rem; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 0.25rem;">Start Cash (<?php echo date('d M'); ?>)</div>
+                <div style="font-size: 0.65rem; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 0.25rem;">Start Cash (<?php echo date('M'); ?>)</div>
                 <div style="font-size: 1.125rem; font-weight: 700; color: #334155; font-family: 'Monaco', 'Courier New', monospace;"><?php echo formatCurrency($startKasHariIni); ?></div>
             </div>
             <!-- Cash Available -->
@@ -812,14 +829,14 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
         
         <!-- Detail: 3 compact cards -->
         <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.625rem;">
-            <!-- Cash Balance -->
+            <!-- Owner Transfer This Month -->
             <div style="background: #fff; padding: 0.75rem 0.875rem; border-radius: 8px; border: 1px solid #e5e7eb; display: flex; align-items: center; gap: 0.625rem;">
                 <div style="width: 32px; height: 32px; border-radius: 8px; background: linear-gradient(135deg, #fbbf24, #f59e0b); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="3"/></svg>
                 </div>
                 <div>
-                    <div style="font-size: 0.6rem; color: #9ca3af; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px;">Balance</div>
-                    <div style="font-size: 1rem; font-weight: 700; color: #1f2937; font-family: 'Monaco', monospace;"><?php echo formatCurrency($pettyCashStats['balance'] + $guestCashIncome); ?></div>
+                    <div style="font-size: 0.6rem; color: #9ca3af; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px;">Owner Transfer</div>
+                    <div style="font-size: 1rem; font-weight: 700; color: #1f2937; font-family: 'Monaco', monospace;"><?php echo formatCurrency($ownerTransferThisMonth); ?></div>
                 </div>
             </div>
             <!-- Income (Owner + Guest Cash) -->
