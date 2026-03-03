@@ -91,6 +91,49 @@ foreach ($dates as $date) {
     $expenseData[] = isset($transMap[$date]) ? $transMap[$date]['expense'] : 0;
 }
 
+// ============================================
+// CQC: Include Petty Cash data for live updates
+// ============================================
+$cqcData = null;
+$isCQC = false;
+try {
+    $masterDb = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
+    $masterDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $bizId = getMasterBusinessId();
+    $stmtBiz = $masterDb->prepare("SELECT business_type FROM businesses WHERE id = ?");
+    $stmtBiz->execute([$bizId]);
+    $bizRow = $stmtBiz->fetch(PDO::FETCH_ASSOC);
+    $isCQC = ($bizRow && $bizRow['business_type'] === 'contractor');
+} catch (Exception $e) {}
+
+if ($isCQC) {
+    try {
+        // Get Petty Cash actual balance
+        $stmtPetty = $masterDb->prepare("SELECT COALESCE(current_balance, 0) as balance FROM cash_accounts WHERE business_id = ? AND account_type = 'cash' LIMIT 1");
+        $stmtPetty->execute([$bizId]);
+        $pettyCashAccount = $stmtPetty->fetch(PDO::FETCH_ASSOC);
+        $pettyCashBalance = (float)($pettyCashAccount['balance'] ?? 0);
+        
+        // Get Petty Cash transfers this month
+        $pettyCashMonth = $db->fetchOne(
+            "SELECT COALESCE(SUM(amount), 0) as total 
+             FROM cash_book 
+             WHERE transaction_type = 'income' 
+             AND source_type = 'owner_fund'
+             AND DATE_FORMAT(transaction_date, '%Y-%m') = ?",
+            [$selectedMonth]
+        );
+        $pettyCashTransfers = (float)($pettyCashMonth['total'] ?? 0);
+        
+        $cqcData = [
+            'petty_cash_balance' => $pettyCashBalance,
+            'petty_cash_transfers' => $pettyCashTransfers
+        ];
+    } catch (Exception $e) {
+        error_log("CQC live data error: " . $e->getMessage());
+    }
+}
+
 echo json_encode([
     'success' => true,
     'labels' => $labels,
@@ -98,5 +141,6 @@ echo json_encode([
     'expense' => $expenseData,
     'month' => $selectedMonth,
     'days_in_month' => $daysInMonth,
-    'timestamp' => date('Y-m-d H:i:s')
+    'timestamp' => date('Y-m-d H:i:s'),
+    'cqc' => $cqcData ?? null
 ]);

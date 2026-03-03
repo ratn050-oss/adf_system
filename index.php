@@ -1966,9 +1966,24 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
                     // Update summary cards
                     const totalIncome = data.income.reduce((a, b) => a + b, 0);
                     const totalExpense = data.expense.reduce((a, b) => a + b, 0);
-                    const netBalance = totalIncome - totalExpense;
                     
-                    document.getElementById('totalIncome').textContent = formatRupiah(totalIncome);
+                    // CQC: Account for Petty Cash in live update
+                    const isCQC = data.cqc !== null && data.cqc !== undefined;
+                    let displayIncome = totalIncome;
+                    let netBalance = totalIncome - totalExpense;
+                    
+                    if (isCQC) {
+                        displayIncome = totalIncome - (data.cqc.petty_cash_transfers || 0);
+                        netBalance = totalIncome - totalExpense;
+                        
+                        // Update Petty Cash container
+                        const pettyCashEl = document.getElementById('totalPettyCash');
+                        if (pettyCashEl) {
+                            pettyCashEl.textContent = formatRupiah(data.cqc.petty_cash_balance || 0);
+                        }
+                    }
+                    
+                    document.getElementById('totalIncome').textContent = formatRupiah(displayIncome);
                     document.getElementById('totalExpense').textContent = formatRupiah(totalExpense);
                     document.getElementById('netBalance').textContent = formatRupiah(netBalance);
                     document.getElementById('netBalance').style.color = netBalance >= 0 ? 'var(--success)' : 'var(--danger)';
@@ -2003,9 +2018,23 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
                     // Update summary cards
                     const totalIncome = data.income.reduce((a, b) => a + b, 0);
                     const totalExpense = data.expense.reduce((a, b) => a + b, 0);
-                    const netBalance = totalIncome - totalExpense;
                     
-                    document.getElementById('totalIncome').textContent = formatRupiah(totalIncome);
+                    // CQC: Account for Petty Cash
+                    const isCQC = data.cqc !== null && data.cqc !== undefined;
+                    let displayIncome = totalIncome;
+                    let netBalance = totalIncome - totalExpense;
+                    
+                    if (isCQC) {
+                        displayIncome = totalIncome - (data.cqc.petty_cash_transfers || 0);
+                        netBalance = totalIncome - totalExpense;
+                        
+                        const pettyCashEl = document.getElementById('totalPettyCash');
+                        if (pettyCashEl) {
+                            pettyCashEl.textContent = formatRupiah(data.cqc.petty_cash_balance || 0);
+                        }
+                    }
+                    
+                    document.getElementById('totalIncome').textContent = formatRupiah(displayIncome);
                     document.getElementById('totalExpense').textContent = formatRupiah(totalExpense);
                     document.getElementById('netBalance').textContent = formatRupiah(netBalance);
                     document.getElementById('netBalance').style.color = netBalance >= 0 ? 'var(--success)' : 'var(--danger)';
