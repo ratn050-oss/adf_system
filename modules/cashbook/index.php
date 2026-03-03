@@ -478,6 +478,26 @@ foreach ($transactions as $trans) {
 }
 $balance = $totalIncome - $totalExpense;
 
+// CQC: Get actual Petty Cash balance from cash_accounts (master DB)
+$actualPettyCashBalance = 0;
+if ($isCQC) {
+    try {
+        $masterDb = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
+        $masterDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        
+        $businessId = getMasterBusinessId();
+        
+        // Get Petty Cash account balance (account_type = 'cash')
+        $stmtPetty = $masterDb->prepare("SELECT COALESCE(current_balance, 0) as balance FROM cash_accounts WHERE business_id = ? AND account_type = 'cash' LIMIT 1");
+        $stmtPetty->execute([$businessId]);
+        $pettyCashAccount = $stmtPetty->fetch(PDO::FETCH_ASSOC);
+        $actualPettyCashBalance = (float)($pettyCashAccount['balance'] ?? 0);
+    } catch (Exception $e) {
+        // Fallback to calculated value
+        $actualPettyCashBalance = $totalOwnerFund - $totalOfficeExpense;
+    }
+}
+
 include '../../includes/header.php';
 echo getPrintCSS();
 ?>
@@ -1366,14 +1386,15 @@ echo getPrintCSS();
 <!-- Summary Cards -->
 <div class="dashboard-grid" style="margin-bottom: 2rem;">
     <?php if ($isCQC): 
-        $saldoKasOperasional = $totalOwnerFund - $totalOfficeExpense;
+        // Use actual balance from cash_accounts
+        $saldoKasOperasional = $actualPettyCashBalance;
     ?>
-    <!-- CQC: Petty Cash = Transfer dari Owner - Pengeluaran (Invoice TIDAK masuk sini) -->
+    <!-- CQC: Petty Cash = Saldo aktual dari cash_accounts (sudah dikurangi pengeluaran) -->
     <div class="card">
         <div class="card-header">
             <div>
                 <div class="card-title">💰 Petty Cash</div>
-                <div class="card-value" style="color: #d97706;"><?php echo formatCurrency($totalOwnerFund); ?></div>
+                <div class="card-value" style="color: #d97706;"><?php echo formatCurrency($actualPettyCashBalance); ?></div>
             </div>
             <div class="card-icon" style="background: linear-gradient(135deg, #fbbf24, #f59e0b);">
                 <i data-feather="download"></i>
@@ -1428,7 +1449,7 @@ echo getPrintCSS();
         <div class="cqc-daily-icon">💰</div>
         <div>
             <div class="cqc-daily-title">Petty Cash CQC</div>
-            <div class="cqc-daily-subtitle">Transfer dari owner untuk operasional proyek • Dompet terpisah dari kas invoice</div>
+            <div class="cqc-daily-subtitle">Kas operasional untuk office & proyek • Dompet terpisah dari kas invoice</div>
         </div>
     </div>
     <div class="cqc-daily-grid" style="grid-template-columns: repeat(3, 1fr);">
@@ -1438,7 +1459,7 @@ echo getPrintCSS();
                 Transfer Petty Cash
             </div>
             <div class="cqc-daily-value">Rp <?php echo number_format($totalOwnerFund, 0, ',', '.'); ?></div>
-            <div class="cqc-daily-desc">Transfer dari owner ke petty cash</div>
+            <div class="cqc-daily-desc">Total transfer ke petty cash</div>
         </div>
         <div class="cqc-daily-card expense">
             <div class="cqc-daily-label">
@@ -1456,7 +1477,7 @@ echo getPrintCSS();
             <div class="cqc-daily-value" style="color: <?php echo $saldoKasOperasional >= 0 ? '#2563eb' : '#dc2626'; ?>;">
                 Rp <?php echo number_format($saldoKasOperasional, 0, ',', '.'); ?>
             </div>
-            <div class="cqc-daily-desc">Transfer petty cash − pengeluaran office & proyek</div>
+            <div class="cqc-daily-desc">Saldo aktual petty cash</div>
         </div>
     </div>
 </div>

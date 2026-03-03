@@ -634,12 +634,23 @@ if ($isCQC) {
          LIMIT 10"
     );
     
-    // CQC: Calculate Petty Cash totals (Transfer dari Owner untuk operasional)
-    // This is income with source_type = 'owner_fund'
-    $cqcPettyCashThisMonth = 0;
-    $cqcPettyCashTotal = 0;
+    // CQC: Calculate Petty Cash actual balance from cash_accounts table
+    $cqcPettyCashBalance = 0;
+    $cqcPettyCashTransfers = 0; // How much was transferred to petty cash this month
     try {
-        // Petty Cash this month (owner_fund income)
+        // Get actual Petty Cash balance from master DB cash_accounts
+        $masterDb = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
+        $masterDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        
+        $businessId = getMasterBusinessId();
+        
+        // Get Petty Cash account balance (account_type = 'cash')
+        $stmtPetty = $masterDb->prepare("SELECT COALESCE(current_balance, 0) as balance FROM cash_accounts WHERE business_id = ? AND account_type = 'cash' LIMIT 1");
+        $stmtPetty->execute([$businessId]);
+        $pettyCashAccount = $stmtPetty->fetch(PDO::FETCH_ASSOC);
+        $cqcPettyCashBalance = (float)($pettyCashAccount['balance'] ?? 0);
+        
+        // Get transfers to petty cash this month (from cash_book source_type = owner_fund)
         $pettyCashMonth = $db->fetchOne(
             "SELECT COALESCE(SUM(amount), 0) as total 
              FROM cash_book 
@@ -648,18 +659,10 @@ if ($isCQC) {
              AND DATE_FORMAT(transaction_date, '%Y-%m') = ?",
             [$thisMonth]
         );
-        $cqcPettyCashThisMonth = (float)($pettyCashMonth['total'] ?? 0);
+        $cqcPettyCashTransfers = (float)($pettyCashMonth['total'] ?? 0);
         
-        // Total Petty Cash all time
-        $pettyCashAll = $db->fetchOne(
-            "SELECT COALESCE(SUM(amount), 0) as total 
-             FROM cash_book 
-             WHERE transaction_type = 'income' 
-             AND source_type = 'owner_fund'"
-        );
-        $cqcPettyCashTotal = (float)($pettyCashAll['total'] ?? 0);
     } catch (Exception $e) {
-        error_log('CQC Petty Cash calculation error: ' . $e->getMessage());
+        error_log('CQC Petty Cash balance error: ' . $e->getMessage());
     }
 }
 
@@ -766,20 +769,19 @@ if ($trialStatus) {
                 <div id="totalIncome" style="font-size: 1.5rem; font-weight: 800; color: var(--success);">
                     <?php 
                     $totalIncome = array_sum(array_column($dailyData, 'income'));
-                    // CQC: Deduct Petty Cash transfer from Total Invoice display
-                    $displayIncome = $isCQC ? ($totalIncome - ($cqcPettyCashThisMonth ?? 0)) : $totalIncome;
+                    // CQC: Deduct Petty Cash transfers from Total Invoice display
+                    $displayIncome = $isCQC ? ($totalIncome - ($cqcPettyCashTransfers ?? 0)) : $totalIncome;
                     echo formatCurrency($displayIncome);
                     ?>
                 </div>
             </div>
             <?php if ($isCQC): ?>
-            <!-- CQC: Petty Cash Container - Transfer dari Owner untuk Operasional -->
+            <!-- CQC: Petty Cash Container - Actual Balance -->
             <div style="padding: 0.75rem; background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(217, 119, 6, 0.08)); border-radius: 8px; border-left: 4px solid #f59e0b;">
                 <div style="font-size: 0.75rem; color: #d97706; font-weight: 600; margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.05em;">💰 Petty Cash</div>
                 <div id="totalPettyCash" style="font-size: 1.5rem; font-weight: 800; color: #d97706;">
-                    <?php echo formatCurrency($cqcPettyCashThisMonth ?? 0); ?>
+                    <?php echo formatCurrency($cqcPettyCashBalance ?? 0); ?>
                 </div>
-                <div style="font-size: 0.65rem; color: #92400e; margin-top: 2px;">Transfer dari Owner</div>
             </div>
             <?php endif; ?>
             <div style="padding: 0.75rem; background: linear-gradient(135deg, rgba(239, 68, 68, 0.12), rgba(239, 68, 68, 0.05)); border-radius: 8px; border-left: 4px solid var(--danger);">
@@ -794,10 +796,11 @@ if ($trialStatus) {
             <div style="padding: 0.75rem; background: linear-gradient(135deg, rgba(<?php echo $cPrimaryRgb; ?>, 0.12), rgba(<?php echo $cSecondaryRgb; ?>, 0.05)); border-radius: 8px; border-left: 4px solid var(--primary-color);">
                 <div style="font-size: 0.75rem; color: var(--primary-color); font-weight: 600; margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.05em;"><?php echo $isCQC ? 'Saldo Bersih' : 'Net Balance'; ?></div>
                 <?php 
-                // CQC: Saldo Bersih = Display Invoice + Petty Cash - Pengeluaran
-                // $displayIncome already has ($totalIncome - $cqcPettyCash)
-                // So: Saldo = ($totalIncome - PettyCash) + PettyCash - Expense = $totalIncome - Expense
-                $netBalance = $isCQC ? ($displayIncome + ($cqcPettyCashThisMonth ?? 0) - $totalExpense) : ($totalIncome - $totalExpense);
+                // CQC: Saldo Bersih = Display Invoice + Petty Cash Balance - Pengeluaran
+                // displayIncome = totalIncome - transfers (shows remaining invoice income)
+                // cqcPettyCashBalance = actual petty cash balance (after expenses from petty cash)
+                // Saldo = displayIncome + pettyCashBalance - totalExpense
+                $netBalance = $isCQC ? ($displayIncome + ($cqcPettyCashBalance ?? 0) - $totalExpense) : ($totalIncome - $totalExpense);
                 ?>
                 <div id="netBalance" style="font-size: 1.5rem; font-weight: 800; color: <?php echo $netBalance >= 0 ? 'var(--success)' : 'var(--danger)'; ?>;">
                     <?php echo formatCurrency($netBalance); ?>
