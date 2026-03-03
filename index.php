@@ -828,18 +828,11 @@ if ($trialStatus) {
                     <?php echo formatCurrency($cqcPettyCashBalance ?? 0); ?>
                 </div>
             </div>
-            <!-- CQC: Expense from Bank Besar -->
+            <!-- CQC: Bank (Kas Besar) Container -->
             <div style="padding: 0.75rem; background: linear-gradient(135deg, rgba(59, 130, 246, 0.12), rgba(37, 99, 235, 0.05)); border-radius: 8px; border-left: 4px solid #3b82f6;">
-                <div style="font-size: 0.75rem; color: #2563eb; font-weight: 600; margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.05em;">🏦 Expense dari Bank</div>
-                <div id="expenseFromBank" style="font-size: 1.5rem; font-weight: 800; color: #2563eb;">
-                    <?php echo formatCurrency($cqcExpenseFromBank ?? 0); ?>
-                </div>
-            </div>
-            <!-- CQC: Expense from Petty Cash -->
-            <div style="padding: 0.75rem; background: linear-gradient(135deg, rgba(168, 85, 247, 0.12), rgba(139, 92, 246, 0.05)); border-radius: 8px; border-left: 4px solid #a855f7;">
-                <div style="font-size: 0.75rem; color: #9333ea; font-weight: 600; margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.05em;">💸 Expense dari Petty</div>
-                <div id="expenseFromPettyCash" style="font-size: 1.5rem; font-weight: 800; color: #9333ea;">
-                    <?php echo formatCurrency($cqcExpenseFromPettyCash ?? 0); ?>
+                <div style="font-size: 0.75rem; color: #2563eb; font-weight: 600; margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.05em;">🏦 Kas Besar</div>
+                <div id="totalKasBesar" style="font-size: 1.5rem; font-weight: 800; color: #2563eb;">
+                    <?php echo formatCurrency($cqcBankBalance ?? 0); ?>
                 </div>
             </div>
             <?php endif; ?>
@@ -1017,6 +1010,115 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
             <div id="dashboardPettyCashBalance" style="font-size: 1.35rem; font-weight: 800; color: <?php echo ($cqcPettyCashBalance ?? 0) >= 0 ? '#1e40af' : '#dc2626'; ?>;"><?php echo formatCurrency($cqcPettyCashBalance ?? 0); ?></div>
             <div style="font-size: 0.7rem; color: #3b82f6; margin-top: 0.25rem;">Saldo aktual petty cash</div>
         </div>
+    </div>
+    
+    <!-- Detail Pengeluaran Petty Cash -->
+    <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #f3f4f6;">
+        <div style="font-size: 0.75rem; font-weight: 700; color: #6b7280; margin-bottom: 0.75rem;">📋 Pengeluaran Terakhir dari Petty Cash</div>
+        <?php
+        // Get recent expenses from Petty Cash
+        $recentPettyExpenses = [];
+        if (isset($pettyCashAccountId) && $pettyCashAccountId > 0) {
+            $recentPettyExpenses = $db->fetchAll(
+                "SELECT cb.description, cb.amount, cb.transaction_date, c.name as category
+                 FROM cash_book cb
+                 LEFT JOIN categories c ON cb.category_id = c.id
+                 WHERE cb.transaction_type = 'expense' 
+                 AND cb.cash_account_id = ?
+                 ORDER BY cb.transaction_date DESC, cb.id DESC
+                 LIMIT 5",
+                [$pettyCashAccountId]
+            );
+        }
+        ?>
+        <?php if (!empty($recentPettyExpenses)): ?>
+        <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+            <?php foreach ($recentPettyExpenses as $exp): ?>
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.75rem; background: #fef2f2; border-radius: 8px;">
+                <div>
+                    <div style="font-size: 0.8rem; font-weight: 600; color: #374151;"><?php echo htmlspecialchars($exp['description']); ?></div>
+                    <div style="font-size: 0.65rem; color: #9ca3af;"><?php echo date('d M', strtotime($exp['transaction_date'])); ?> • <?php echo htmlspecialchars($exp['category'] ?? 'Uncategorized'); ?></div>
+                </div>
+                <div style="font-size: 0.85rem; font-weight: 700; color: #dc2626;">-<?php echo formatCurrency($exp['amount']); ?></div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+        <?php else: ?>
+        <div style="padding: 1rem; text-align: center; color: #9ca3af; font-size: 0.8rem;">Belum ada pengeluaran dari Petty Cash</div>
+        <?php endif; ?>
+    </div>
+</div>
+
+<!-- CQC Kas Besar (Bank) Summary -->
+<div style="background: #fff; border-radius: 16px; border: 1px solid #e5e7eb; padding: 1.25rem; margin-bottom: 1.5rem; border-left: 4px solid #3b82f6; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
+    <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;">
+        <div style="width: 40px; height: 40px; border-radius: 10px; background: linear-gradient(135deg, #3b82f6, #2563eb); display: flex; align-items: center; justify-content: center; font-size: 1.2rem;">🏦</div>
+        <div>
+            <div style="font-size: 1rem; font-weight: 700; color: #0d1f3c;">Kas Besar (Bank)</div>
+            <div style="font-size: 0.75rem; color: #6b7280;">Kas utama dari pembayaran invoice • Sumber dana untuk operasional</div>
+        </div>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;">
+        <div style="background: linear-gradient(135deg, #ecfdf5, #d1fae5); padding: 1rem; border-radius: 12px; border: 1px solid #a7f3d0;">
+            <div style="font-size: 0.7rem; font-weight: 700; color: #047857; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.35rem;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="7 13 12 8 17 13"/><line x1="12" y1="8" x2="12" y2="20"/></svg>
+                Pemasukan Invoice
+            </div>
+            <div style="font-size: 1.35rem; font-weight: 800; color: #065f46;"><?php echo formatCurrency($totalIncome ?? 0); ?></div>
+            <div style="font-size: 0.7rem; color: #059669; margin-top: 0.25rem;">Total pembayaran invoice bulan ini</div>
+        </div>
+        <div style="background: linear-gradient(135deg, #fef2f2, #fee2e2); padding: 1rem; border-radius: 12px; border: 1px solid #fecaca;">
+            <div style="font-size: 0.7rem; font-weight: 700; color: #dc2626; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.35rem;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 11 12 16 7 11"/><line x1="12" y1="16" x2="12" y2="4"/></svg>
+                Pengeluaran dari Bank
+            </div>
+            <div id="expenseFromBank" style="font-size: 1.35rem; font-weight: 800; color: #991b1b;"><?php echo formatCurrency($cqcExpenseFromBank ?? 0); ?></div>
+            <div style="font-size: 0.7rem; color: #dc2626; margin-top: 0.25rem;">Termasuk transfer ke Petty Cash</div>
+        </div>
+        <div style="background: linear-gradient(135deg, #eff6ff, #dbeafe); padding: 1rem; border-radius: 12px; border: 1px solid #bfdbfe;">
+            <div style="font-size: 0.7rem; font-weight: 700; color: #1d4ed8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.35rem;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+                Saldo Kas Besar
+            </div>
+            <div id="dashboardBankBalance" style="font-size: 1.35rem; font-weight: 800; color: <?php echo ($cqcBankBalance ?? 0) >= 0 ? '#1e40af' : '#dc2626'; ?>;"><?php echo formatCurrency($cqcBankBalance ?? 0); ?></div>
+            <div style="font-size: 0.7rem; color: #3b82f6; margin-top: 0.25rem;">Saldo aktual kas besar</div>
+        </div>
+    </div>
+    
+    <!-- Detail Pengeluaran Kas Besar -->
+    <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #f3f4f6;">
+        <div style="font-size: 0.75rem; font-weight: 700; color: #6b7280; margin-bottom: 0.75rem;">📋 Pengeluaran Terakhir dari Kas Besar</div>
+        <?php
+        // Get recent expenses from Bank
+        $recentBankExpenses = [];
+        if (isset($bankAccountId) && $bankAccountId > 0) {
+            $recentBankExpenses = $db->fetchAll(
+                "SELECT cb.description, cb.amount, cb.transaction_date, c.name as category
+                 FROM cash_book cb
+                 LEFT JOIN categories c ON cb.category_id = c.id
+                 WHERE cb.transaction_type = 'expense' 
+                 AND cb.cash_account_id = ?
+                 ORDER BY cb.transaction_date DESC, cb.id DESC
+                 LIMIT 5",
+                [$bankAccountId]
+            );
+        }
+        ?>
+        <?php if (!empty($recentBankExpenses)): ?>
+        <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+            <?php foreach ($recentBankExpenses as $exp): ?>
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.75rem; background: #fef2f2; border-radius: 8px;">
+                <div>
+                    <div style="font-size: 0.8rem; font-weight: 600; color: #374151;"><?php echo htmlspecialchars($exp['description']); ?></div>
+                    <div style="font-size: 0.65rem; color: #9ca3af;"><?php echo date('d M', strtotime($exp['transaction_date'])); ?> • <?php echo htmlspecialchars($exp['category'] ?? 'Uncategorized'); ?></div>
+                </div>
+                <div style="font-size: 0.85rem; font-weight: 700; color: #dc2626;">-<?php echo formatCurrency($exp['amount']); ?></div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+        <?php else: ?>
+        <div style="padding: 1rem; text-align: center; color: #9ca3af; font-size: 0.8rem;">Belum ada pengeluaran dari Kas Besar</div>
+        <?php endif; ?>
     </div>
 </div>
 <?php endif; ?>
@@ -2080,20 +2182,23 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
                         displayIncome = totalIncome - pettyCashTransfers;
                         // CQC: Saldo Bersih = Petty Cash + Bank (actual cash position)
                         netBalance = pettyCashBalance + bankBalance;
-                        // Update Petty Cash container with actual balance
+                        
+                        // Update chart summary containers
                         const pettyCashEl = document.getElementById('totalPettyCash');
-                        if (pettyCashEl) {
-                            pettyCashEl.textContent = formatRupiah(pettyCashBalance);
-                        }
-                        // Update expense summary containers
+                        if (pettyCashEl) pettyCashEl.textContent = formatRupiah(pettyCashBalance);
+                        
+                        const kasBesarEl = document.getElementById('totalKasBesar');
+                        if (kasBesarEl) kasBesarEl.textContent = formatRupiah(bankBalance);
+                        
+                        // Update widget containers
+                        const dashPettyEl = document.getElementById('dashboardPettyCashBalance');
+                        if (dashPettyEl) dashPettyEl.textContent = formatRupiah(pettyCashBalance);
+                        
+                        const dashBankEl = document.getElementById('dashboardBankBalance');
+                        if (dashBankEl) dashBankEl.textContent = formatRupiah(bankBalance);
+                        
                         const expBankEl = document.getElementById('expenseFromBank');
-                        if (expBankEl) {
-                            expBankEl.textContent = formatRupiah(expenseFromBank);
-                        }
-                        const expPettyEl = document.getElementById('expenseFromPettyCash');
-                        if (expPettyEl) {
-                            expPettyEl.textContent = formatRupiah(expenseFromPettyCash);
-                        }
+                        if (expBankEl) expBankEl.textContent = formatRupiah(expenseFromBank);
                     }
                     
                     document.getElementById('totalIncome').textContent = formatRupiah(displayIncome);
@@ -2147,19 +2252,23 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
                         displayIncome = totalIncome - pettyCashTransfers;
                         // CQC: Saldo Bersih = Petty Cash + Bank (actual cash position)
                         netBalance = pettyCashBalance + bankBalance;
+                        
+                        // Update chart summary containers
                         const pettyCashEl = document.getElementById('totalPettyCash');
-                        if (pettyCashEl) {
-                            pettyCashEl.textContent = formatRupiah(pettyCashBalance);
-                        }
-                        // Update expense summary containers
+                        if (pettyCashEl) pettyCashEl.textContent = formatRupiah(pettyCashBalance);
+                        
+                        const kasBesarEl = document.getElementById('totalKasBesar');
+                        if (kasBesarEl) kasBesarEl.textContent = formatRupiah(bankBalance);
+                        
+                        // Update widget containers
+                        const dashPettyEl = document.getElementById('dashboardPettyCashBalance');
+                        if (dashPettyEl) dashPettyEl.textContent = formatRupiah(pettyCashBalance);
+                        
+                        const dashBankEl = document.getElementById('dashboardBankBalance');
+                        if (dashBankEl) dashBankEl.textContent = formatRupiah(bankBalance);
+                        
                         const expBankEl = document.getElementById('expenseFromBank');
-                        if (expBankEl) {
-                            expBankEl.textContent = formatRupiah(expenseFromBank);
-                        }
-                        const expPettyEl = document.getElementById('expenseFromPettyCash');
-                        if (expPettyEl) {
-                            expPettyEl.textContent = formatRupiah(expenseFromPettyCash);
-                        }
+                        if (expBankEl) expBankEl.textContent = formatRupiah(expenseFromBank);
                     }
                     
                     document.getElementById('totalIncome').textContent = formatRupiah(displayIncome);
