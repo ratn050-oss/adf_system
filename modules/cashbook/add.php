@@ -665,7 +665,7 @@ include '../../includes/header.php';
                     <label class="form-label" style="font-size: 0.813rem; font-weight: 600; margin-bottom: 0.3rem; color: #0d1f3c;">💰 Jenis Uang Masuk <span style="color: var(--danger);">*</span></label>
                     <select name="cqc_income_type" id="cqc_income_type" class="form-control" style="height: 34px; font-size: 0.813rem;" onchange="updateCQCIncomeCategory(this)">
                         <option value="">-- Pilih Jenis --</option>
-                        <option value="topup_owner" style="background: #fef3c7; font-weight: 600;">🏦 Top Up Kas dari Owner (Operasional)</option>
+                        <option value="topup_owner" style="background: #fef3c7; font-weight: 600;">💰 Transfer Petty Cash (dari Owner)</option>
                         <option value="dp">💵 DP Masuk (Invoice)</option>
                         <option value="termin">📄 Pembayaran Termin (Invoice)</option>
                         <option value="pelunasan">✅ Pelunasan (Invoice)</option>
@@ -1002,7 +1002,7 @@ function updateCQCIncomeCategory(select) {
     const noteDiv = document.getElementById('cqcIncomeNote');
     
     const labels = {
-        'topup_owner': 'Top Up Kas Owner',
+        'topup_owner': 'Transfer Petty Cash',
         'dp': 'DP Masuk',
         'termin': 'Pembayaran Termin',
         'pelunasan': 'Pelunasan',
@@ -1014,7 +1014,7 @@ function updateCQCIncomeCategory(select) {
         noteDiv.style.display = 'block';
         noteDiv.style.background = '#fef3c7';
         noteDiv.style.color = '#92400e';
-        noteDiv.innerHTML = '⚠️ <strong>Ini BUKAN pendapatan perusahaan.</strong> Dana dari owner untuk operasional harian. Tidak masuk ke laporan income.';
+        noteDiv.innerHTML = '⚠️ <strong>Ini BUKAN pendapatan perusahaan.</strong> Transfer ke Petty Cash untuk operasional proyek. Tidak masuk ke laporan income.';
     } else if (['dp', 'termin', 'pelunasan'].includes(type)) {
         noteDiv.style.display = 'block';
         noteDiv.style.background = '#dcfce7';
@@ -1031,8 +1031,8 @@ function updateCQCIncomeCategory(select) {
         descInput.focus();
     } else if (type === 'topup_owner') {
         descInput.setAttribute('readonly', 'readonly');
-        descInput.value = 'Top Up Kas dari Owner - Operasional Harian';
-        catInput.value = 'Top Up Kas Owner';
+        descInput.value = 'Transfer Petty Cash dari Owner';
+        catInput.value = 'Transfer Petty Cash';
     } else if (type && labels[type]) {
         descInput.setAttribute('readonly', 'readonly');
         const desc = projName ? labels[type] + ' - ' + projName : labels[type];

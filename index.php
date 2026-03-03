@@ -633,6 +633,34 @@ if ($isCQC) {
          ORDER BY cb.transaction_date DESC, cb.transaction_time DESC, cb.id DESC
          LIMIT 10"
     );
+    
+    // CQC: Calculate Petty Cash totals (Transfer dari Owner untuk operasional)
+    // This is income with source_type = 'owner_fund'
+    $cqcPettyCashThisMonth = 0;
+    $cqcPettyCashTotal = 0;
+    try {
+        // Petty Cash this month (owner_fund income)
+        $pettyCashMonth = $db->fetchOne(
+            "SELECT COALESCE(SUM(amount), 0) as total 
+             FROM cash_book 
+             WHERE transaction_type = 'income' 
+             AND source_type = 'owner_fund'
+             AND DATE_FORMAT(transaction_date, '%Y-%m') = ?",
+            [$thisMonth]
+        );
+        $cqcPettyCashThisMonth = (float)($pettyCashMonth['total'] ?? 0);
+        
+        // Total Petty Cash all time
+        $pettyCashAll = $db->fetchOne(
+            "SELECT COALESCE(SUM(amount), 0) as total 
+             FROM cash_book 
+             WHERE transaction_type = 'income' 
+             AND source_type = 'owner_fund'"
+        );
+        $cqcPettyCashTotal = (float)($pettyCashAll['total'] ?? 0);
+    } catch (Exception $e) {
+        error_log('CQC Petty Cash calculation error: ' . $e->getMessage());
+    }
 }
 
 include 'includes/header.php';
@@ -742,6 +770,16 @@ if ($trialStatus) {
                     ?>
                 </div>
             </div>
+            <?php if ($isCQC): ?>
+            <!-- CQC: Petty Cash Container - Transfer dari Owner untuk Operasional -->
+            <div style="padding: 0.75rem; background: linear-gradient(135deg, rgba(245, 158, 11, 0.15), rgba(217, 119, 6, 0.08)); border-radius: 8px; border-left: 4px solid #f59e0b;">
+                <div style="font-size: 0.75rem; color: #d97706; font-weight: 600; margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.05em;">💰 Petty Cash</div>
+                <div id="totalPettyCash" style="font-size: 1.5rem; font-weight: 800; color: #d97706;">
+                    <?php echo formatCurrency($cqcPettyCashThisMonth ?? 0); ?>
+                </div>
+                <div style="font-size: 0.65rem; color: #92400e; margin-top: 2px;">Transfer dari Owner</div>
+            </div>
+            <?php endif; ?>
             <div style="padding: 0.75rem; background: linear-gradient(135deg, rgba(239, 68, 68, 0.12), rgba(239, 68, 68, 0.05)); border-radius: 8px; border-left: 4px solid var(--danger);">
                 <div style="font-size: 0.75rem; color: var(--danger); font-weight: 600; margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.05em;"><?php echo $isCQC ? 'Total Pengeluaran' : 'Total Pengeluaran'; ?></div>
                 <div id="totalExpense" style="font-size: 1.5rem; font-weight: 800; color: var(--danger);">
