@@ -356,23 +356,25 @@ try {
 }
 
 // ============================================
-// GUEST CASH INCOME (Cash payments from guests this month)
+// GUEST/CASH INCOME (All cash payments this month)
+// From cash_book with payment_method='cash' (rental, F&B, etc)
 // ============================================
 $guestCashIncome = 0;
 try {
     $thisMonth = date('Y-m');
-    $guestCashResult = $db->fetchOne(
-        "SELECT COALESCE(SUM(bp.amount), 0) as total 
-         FROM booking_payments bp 
-         INNER JOIN bookings b ON bp.booking_id = b.id 
-         WHERE bp.payment_method = 'cash' 
-         AND b.status IN ('checked_in', 'checked_out')
-         AND DATE_FORMAT(bp.payment_date, '%Y-%m') = ?",
+    
+    // All income from cash_book with payment_method='cash' this month
+    $cashIncomeResult = $db->fetchOne(
+        "SELECT COALESCE(SUM(amount), 0) as total 
+         FROM cash_book 
+         WHERE transaction_type = 'income' 
+         AND payment_method = 'cash'
+         AND DATE_FORMAT(transaction_date, '%Y-%m') = ?",
         [$thisMonth]
     );
-    $guestCashIncome = $guestCashResult['total'] ?? 0;
+    $guestCashIncome = $cashIncomeResult['total'] ?? 0;
 } catch (Exception $e) {
-    error_log("Error fetching guest cash income: " . $e->getMessage());
+    error_log("Error fetching cash income: " . $e->getMessage());
 }
 
 // ============================================
@@ -783,7 +785,7 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
                 <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><path d="M23 21v-2a4 4 0 0 0-3-3.87"/><path d="M16 3.13a4 4 0 0 1 0 7.75"/></svg>
             </div>
             <div style="flex: 1;">
-                <div style="font-size: 0.6rem; color: #1e40af; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px;">Guest Cash Income</div>
+                <div style="font-size: 0.6rem; color: #1e40af; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px;">Cash Income</div>
                 <div style="font-size: 1.1rem; font-weight: 700; color: #1e3a8a; font-family: 'Monaco', monospace; display: flex; align-items: center; gap: 0.35rem;">
                     <span style="color: #059669;">+</span><?php echo formatCurrency($guestCashIncome); ?>
                 </div>

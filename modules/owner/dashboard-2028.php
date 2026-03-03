@@ -1788,17 +1788,16 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
                 $stmtAll->execute($allAccounts);
                 $kasAvailable = (float)($stmtAll->fetchColumn() ?: 0);
                 
-                // Get Guest Cash Income this month (cash payments from guests)
-                $stmtGuest = $kasDb->prepare("
-                    SELECT COALESCE(SUM(bp.amount), 0) as total 
-                    FROM booking_payments bp 
-                    INNER JOIN bookings b ON bp.booking_id = b.id 
-                    WHERE bp.payment_method = 'cash' 
-                    AND b.status IN ('checked_in', 'checked_out')
-                    AND DATE_FORMAT(bp.payment_date, '%Y-%m') = ?
+                // Get Guest/Cash Income this month (all cash payments - rental, F&B, etc)
+                $stmtCashIncome = $kasDb->prepare("
+                    SELECT COALESCE(SUM(amount), 0) as total 
+                    FROM cash_book 
+                    WHERE transaction_type = 'income' 
+                    AND payment_method = 'cash'
+                    AND DATE_FORMAT(transaction_date, '%Y-%m') = ?
                 ");
-                $stmtGuest->execute([$thisMonth]);
-                $guestCashIncome = (float)($stmtGuest->fetchColumn() ?: 0);
+                $stmtCashIncome->execute([$thisMonth]);
+                $guestCashIncome = (float)($stmtCashIncome->fetchColumn() ?: 0);
                 
                 // Get recent transactions - filtered by accounts
                 $sqlKas = "
@@ -1835,7 +1834,7 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
                 </div>
                 <div style="flex: 1;">
-                    <div style="font-size: 9px; color: #60a5fa; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Guest Cash Income</div>
+                    <div style="font-size: 9px; color: #60a5fa; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Cash Income</div>
                     <div style="font-size: 15px; font-weight: 700; color: #93c5fd; display: flex; align-items: center; gap: 4px;">
                         <span style="color: #10b981;">+</span><?= number_format($guestCashIncome, 0, ',', '.') ?>
                     </div>
