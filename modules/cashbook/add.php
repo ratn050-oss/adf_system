@@ -321,6 +321,43 @@ if (isPost()) {
                                 $stmt = $masterDb->prepare("UPDATE cash_accounts SET current_balance = current_balance + ? WHERE id = ?");
                                 $stmt->execute([$amount, $cashAccountId]);
                                 error_log("BALANCE UPDATED - Account ID: {$cashAccountId} - INCOME +{$amount}");
+                                
+                                // ============================================
+                                // TRANSFER PETTY CASH: DEDUCT FROM KAS BESAR
+                                // When owner_fund, also deduct from owner_capital
+                                // ============================================
+                                if ($sourceType === 'owner_fund') {
+                                    // Get owner_capital account (Kas Besar)
+                                    $bizId = getMasterBusinessId();
+                                    $stmt = $masterDb->prepare("SELECT id, account_name, current_balance FROM cash_accounts WHERE business_id = ? AND account_type = 'owner_capital' ORDER BY id LIMIT 1");
+                                    $stmt->execute([$bizId]);
+                                    $ownerCapitalAccount = $stmt->fetch(PDO::FETCH_ASSOC);
+                                    
+                                    if ($ownerCapitalAccount) {
+                                        // Record expense transaction from Kas Besar
+                                        $stmt = $masterDb->prepare("
+                                            INSERT INTO cash_account_transactions 
+                                            (cash_account_id, transaction_date, description, amount, transaction_type, created_by) 
+                                            VALUES (?, ?, ?, ?, 'expense', ?)
+                                        ");
+                                        $stmt->execute([
+                                            $ownerCapitalAccount['id'],
+                                            $transactionDate,
+                                            'Transfer ke Petty Cash' . ($data['description'] ? ': ' . $data['description'] : ''),
+                                            $amount,
+                                            $_SESSION['user_id']
+                                        ]);
+                                        
+                                        // Deduct from Kas Besar (owner_capital)
+                                        $stmt = $masterDb->prepare("UPDATE cash_accounts SET current_balance = current_balance - ? WHERE id = ?");
+                                        $stmt->execute([$amount, $ownerCapitalAccount['id']]);
+                                        
+                                        error_log("TRANSFER PETTY CASH: Kas Besar ({$ownerCapitalAccount['account_name']}) -{$amount}, Petty Cash +{$amount}");
+                                    } else {
+                                        error_log("WARNING: No owner_capital account found for Transfer Petty Cash deduction");
+                                    }
+                                }
+                                // ============================================
                             } else {
                                 // Expense: subtract from balance (smart logic already handled account switch)
                                 $stmt = $masterDb->prepare("UPDATE cash_accounts SET current_balance = current_balance - ? WHERE id = ?");
