@@ -960,79 +960,6 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
 <?php endif; // !$isCQC - end kas operasional + charts hide ?>
 
 <?php if ($isCQC): ?>
-<!-- CQC Petty Cash Summary -->
-<div style="background: #fff; border-radius: 16px; border: 1px solid #e5e7eb; padding: 1.25rem; margin-bottom: 1.5rem; border-left: 4px solid #f0b429; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
-    <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;">
-        <div style="width: 40px; height: 40px; border-radius: 10px; background: linear-gradient(135deg, #fbbf24, #f59e0b); display: flex; align-items: center; justify-content: center; font-size: 1.2rem;">💰</div>
-        <div>
-            <div style="font-size: 1rem; font-weight: 700; color: #0d1f3c;">Petty Cash CQC</div>
-            <div style="font-size: 0.75rem; color: #6b7280;">Kas operasional untuk office & proyek • Dompet terpisah dari kas invoice</div>
-        </div>
-    </div>
-    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;">
-        <div style="background: linear-gradient(135deg, #fffbeb, #fef3c7); padding: 1rem; border-radius: 12px; border: 1px solid #fde68a;">
-            <div style="font-size: 0.7rem; font-weight: 700; color: #92400e; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.35rem;">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="7 13 12 8 17 13"/><line x1="12" y1="8" x2="12" y2="20"/></svg>
-                Transfer Petty Cash
-            </div>
-            <div style="font-size: 1.35rem; font-weight: 800; color: #78350f;"><?php echo formatCurrency($cqcPettyCashTransfers ?? 0); ?></div>
-            <div style="font-size: 0.7rem; color: #a16207; margin-top: 0.25rem;">Total transfer ke petty cash</div>
-        </div>
-        <div style="background: linear-gradient(135deg, #fef2f2, #fee2e2); padding: 1rem; border-radius: 12px; border: 1px solid #fecaca;">
-            <div style="font-size: 0.7rem; font-weight: 700; color: #dc2626; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.35rem;">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 11 12 16 7 11"/><line x1="12" y1="16" x2="12" y2="4"/></svg>
-                Pengeluaran dari Petty Cash
-            </div>
-            <div style="font-size: 1.35rem; font-weight: 800; color: #991b1b;"><?php echo formatCurrency(($cqcPettyCashTransfers ?? 0) - ($cqcPettyCashBalance ?? 0)); ?></div>
-            <div style="font-size: 0.7rem; color: #dc2626; margin-top: 0.25rem;">Office & proyek (sumber: petty cash)</div>
-        </div>
-        <div style="background: linear-gradient(135deg, #eff6ff, #dbeafe); padding: 1rem; border-radius: 12px; border: 1px solid #bfdbfe;">
-            <div style="font-size: 0.7rem; font-weight: 700; color: #1d4ed8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.35rem;">
-                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
-                Saldo Petty Cash
-            </div>
-            <div id="dashboardPettyCashBalance" style="font-size: 1.35rem; font-weight: 800; color: <?php echo ($cqcPettyCashBalance ?? 0) >= 0 ? '#1e40af' : '#dc2626'; ?>;"><?php echo formatCurrency($cqcPettyCashBalance ?? 0); ?></div>
-            <div style="font-size: 0.7rem; color: #3b82f6; margin-top: 0.25rem;">Saldo aktual petty cash</div>
-        </div>
-    </div>
-    
-    <!-- Detail Pengeluaran Petty Cash -->
-    <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #f3f4f6;">
-        <div style="font-size: 0.75rem; font-weight: 700; color: #6b7280; margin-bottom: 0.75rem;">📋 Pengeluaran Terakhir dari Petty Cash</div>
-        <?php
-        // Get recent expenses from Petty Cash
-        $recentPettyExpenses = [];
-        if (isset($pettyCashAccountId) && $pettyCashAccountId > 0) {
-            $recentPettyExpenses = $db->fetchAll(
-                "SELECT cb.description, cb.amount, cb.transaction_date, c.name as category
-                 FROM cash_book cb
-                 LEFT JOIN categories c ON cb.category_id = c.id
-                 WHERE cb.transaction_type = 'expense' 
-                 AND cb.cash_account_id = ?
-                 ORDER BY cb.transaction_date DESC, cb.id DESC
-                 LIMIT 5",
-                [$pettyCashAccountId]
-            );
-        }
-        ?>
-        <?php if (!empty($recentPettyExpenses)): ?>
-        <div style="display: flex; flex-direction: column; gap: 0.5rem;">
-            <?php foreach ($recentPettyExpenses as $exp): ?>
-            <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.75rem; background: #fef2f2; border-radius: 8px;">
-                <div>
-                    <div style="font-size: 0.8rem; font-weight: 600; color: #374151;"><?php echo htmlspecialchars($exp['description']); ?></div>
-                    <div style="font-size: 0.65rem; color: #9ca3af;"><?php echo date('d M', strtotime($exp['transaction_date'])); ?> • <?php echo htmlspecialchars($exp['category'] ?? 'Uncategorized'); ?></div>
-                </div>
-                <div style="font-size: 0.85rem; font-weight: 700; color: #dc2626;">-<?php echo formatCurrency($exp['amount']); ?></div>
-            </div>
-            <?php endforeach; ?>
-        </div>
-        <?php else: ?>
-        <div style="padding: 1rem; text-align: center; color: #9ca3af; font-size: 0.8rem;">Belum ada pengeluaran dari Petty Cash</div>
-        <?php endif; ?>
-    </div>
-</div>
-
 <!-- CQC Kas Besar (Bank) Summary -->
 <div style="background: #fff; border-radius: 16px; border: 1px solid #e5e7eb; padding: 1.25rem; margin-bottom: 1.5rem; border-left: 4px solid #3b82f6; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
     <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;">
@@ -1102,6 +1029,79 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
         </div>
         <?php else: ?>
         <div style="padding: 1rem; text-align: center; color: #9ca3af; font-size: 0.8rem;">Belum ada pengeluaran dari Kas Besar</div>
+        <?php endif; ?>
+    </div>
+</div>
+
+<!-- CQC Petty Cash Summary -->
+<div style="background: #fff; border-radius: 16px; border: 1px solid #e5e7eb; padding: 1.25rem; margin-bottom: 1.5rem; border-left: 4px solid #f0b429; box-shadow: 0 2px 8px rgba(0,0,0,0.04);">
+    <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;">
+        <div style="width: 40px; height: 40px; border-radius: 10px; background: linear-gradient(135deg, #fbbf24, #f59e0b); display: flex; align-items: center; justify-content: center; font-size: 1.2rem;">💰</div>
+        <div>
+            <div style="font-size: 1rem; font-weight: 700; color: #0d1f3c;">Petty Cash CQC</div>
+            <div style="font-size: 0.75rem; color: #6b7280;">Kas operasional untuk office & proyek • Dompet terpisah dari kas invoice</div>
+        </div>
+    </div>
+    <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem;">
+        <div style="background: linear-gradient(135deg, #fffbeb, #fef3c7); padding: 1rem; border-radius: 12px; border: 1px solid #fde68a;">
+            <div style="font-size: 0.7rem; font-weight: 700; color: #92400e; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.35rem;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="7 13 12 8 17 13"/><line x1="12" y1="8" x2="12" y2="20"/></svg>
+                Transfer Petty Cash
+            </div>
+            <div style="font-size: 1.35rem; font-weight: 800; color: #78350f;"><?php echo formatCurrency($cqcPettyCashTransfers ?? 0); ?></div>
+            <div style="font-size: 0.7rem; color: #a16207; margin-top: 0.25rem;">Total transfer ke petty cash</div>
+        </div>
+        <div style="background: linear-gradient(135deg, #fef2f2, #fee2e2); padding: 1rem; border-radius: 12px; border: 1px solid #fecaca;">
+            <div style="font-size: 0.7rem; font-weight: 700; color: #dc2626; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.35rem;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="17 11 12 16 7 11"/><line x1="12" y1="16" x2="12" y2="4"/></svg>
+                Pengeluaran dari Petty Cash
+            </div>
+            <div style="font-size: 1.35rem; font-weight: 800; color: #991b1b;"><?php echo formatCurrency(($cqcPettyCashTransfers ?? 0) - ($cqcPettyCashBalance ?? 0)); ?></div>
+            <div style="font-size: 0.7rem; color: #dc2626; margin-top: 0.25rem;">Office & proyek (sumber: petty cash)</div>
+        </div>
+        <div style="background: linear-gradient(135deg, #eff6ff, #dbeafe); padding: 1rem; border-radius: 12px; border: 1px solid #bfdbfe;">
+            <div style="font-size: 0.7rem; font-weight: 700; color: #1d4ed8; text-transform: uppercase; letter-spacing: 0.05em; margin-bottom: 0.5rem; display: flex; align-items: center; gap: 0.35rem;">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="1" y="4" width="22" height="16" rx="2"/><line x1="1" y1="10" x2="23" y2="10"/></svg>
+                Saldo Petty Cash
+            </div>
+            <div id="dashboardPettyCashBalance" style="font-size: 1.35rem; font-weight: 800; color: <?php echo ($cqcPettyCashBalance ?? 0) >= 0 ? '#1e40af' : '#dc2626'; ?>;"><?php echo formatCurrency($cqcPettyCashBalance ?? 0); ?></div>
+            <div style="font-size: 0.7rem; color: #3b82f6; margin-top: 0.25rem;">Saldo aktual petty cash</div>
+        </div>
+    </div>
+    
+    <!-- Detail Pengeluaran Petty Cash -->
+    <div style="margin-top: 1rem; padding-top: 1rem; border-top: 1px solid #f3f4f6;">
+        <div style="font-size: 0.75rem; font-weight: 700; color: #6b7280; margin-bottom: 0.75rem;">📋 Pengeluaran Terakhir dari Petty Cash</div>
+        <?php
+        // Get recent expenses from Petty Cash
+        $recentPettyExpenses = [];
+        if (isset($pettyCashAccountId) && $pettyCashAccountId > 0) {
+            $recentPettyExpenses = $db->fetchAll(
+                "SELECT cb.description, cb.amount, cb.transaction_date, c.name as category
+                 FROM cash_book cb
+                 LEFT JOIN categories c ON cb.category_id = c.id
+                 WHERE cb.transaction_type = 'expense' 
+                 AND cb.cash_account_id = ?
+                 ORDER BY cb.transaction_date DESC, cb.id DESC
+                 LIMIT 5",
+                [$pettyCashAccountId]
+            );
+        }
+        ?>
+        <?php if (!empty($recentPettyExpenses)): ?>
+        <div style="display: flex; flex-direction: column; gap: 0.5rem;">
+            <?php foreach ($recentPettyExpenses as $exp): ?>
+            <div style="display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0.75rem; background: #fef2f2; border-radius: 8px;">
+                <div>
+                    <div style="font-size: 0.8rem; font-weight: 600; color: #374151;"><?php echo htmlspecialchars($exp['description']); ?></div>
+                    <div style="font-size: 0.65rem; color: #9ca3af;"><?php echo date('d M', strtotime($exp['transaction_date'])); ?> • <?php echo htmlspecialchars($exp['category'] ?? 'Uncategorized'); ?></div>
+                </div>
+                <div style="font-size: 0.85rem; font-weight: 700; color: #dc2626;">-<?php echo formatCurrency($exp['amount']); ?></div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+        <?php else: ?>
+        <div style="padding: 1rem; text-align: center; color: #9ca3af; font-size: 0.8rem;">Belum ada pengeluaran dari Petty Cash</div>
         <?php endif; ?>
     </div>
 </div>
