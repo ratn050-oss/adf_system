@@ -128,11 +128,15 @@ try {
         $stats['occupancy'] = $stats['total_rooms'] > 0 ? round(($stats['occupied'] / $stats['total_rooms']) * 100) : 0;
 
         // Today's revenue (from booking_payments)
+        // FIXED: Only count payments from checked_in/checked_out bookings
+        // OTA payments should only count when guest has checked in
         try {
             $stmt = $pdo->prepare("
-                SELECT COALESCE(SUM(amount), 0) as total
-                FROM booking_payments
-                WHERE DATE(payment_date) = ?
+                SELECT COALESCE(SUM(bp.amount), 0) as total
+                FROM booking_payments bp
+                JOIN bookings b ON bp.booking_id = b.id
+                WHERE DATE(bp.payment_date) = ?
+                AND b.status IN ('checked_in', 'checked_out')
             ");
             $stmt->execute([$today]);
             $stats['today_revenue'] = (float)$stmt->fetchColumn();
@@ -140,13 +144,14 @@ try {
             $stats['today_revenue'] = 0;
         }
 
-        // In-House Revenue (total paid from active bookings: confirmed + checked_in)
+        // In-House Revenue (total paid from CHECKED-IN guests only)
+        // FIXED: Only count checked_in, not confirmed (OTA belum masuk kas sampai check-in)
         try {
             $stmt = $pdo->query("
                 SELECT COALESCE(SUM(bp.amount), 0) as total
                 FROM booking_payments bp
                 JOIN bookings b ON bp.booking_id = b.id
-                WHERE b.status IN ('confirmed', 'checked_in')
+                WHERE b.status = 'checked_in'
             ");
             $stats['inhouse_revenue'] = (float)$stmt->fetchColumn();
             
@@ -155,7 +160,7 @@ try {
                 $stmt = $pdo->query("
                     SELECT COALESCE(SUM(paid_amount), 0) as total
                     FROM bookings
-                    WHERE status IN ('confirmed', 'checked_in')
+                    WHERE status = 'checked_in'
                 ");
                 $stats['inhouse_revenue'] = (float)$stmt->fetchColumn();
             }
@@ -163,14 +168,15 @@ try {
             $stats['inhouse_revenue'] = 0;
         }
 
-        // Monthly revenue - only from active bookings (confirmed + checked_in)
+        // Monthly revenue - only from checked_in or checked_out bookings
+        // FIXED: confirmed (belum check-in) tidak termasuk
         try {
             $stmt = $pdo->prepare("
                 SELECT COALESCE(SUM(bp.amount), 0) as total
                 FROM booking_payments bp
                 JOIN bookings b ON bp.booking_id = b.id
                 WHERE DATE_FORMAT(bp.payment_date, '%Y-%m') = ?
-                AND b.status IN ('confirmed', 'checked_in')
+                AND b.status IN ('checked_in', 'checked_out')
             ");
             $stmt->execute([$thisMonth]);
             $stats['month_revenue'] = (float)$stmt->fetchColumn();
@@ -181,7 +187,7 @@ try {
                     SELECT COALESCE(SUM(paid_amount), 0) as total
                     FROM bookings
                     WHERE DATE_FORMAT(created_at, '%Y-%m') = ?
-                    AND status IN ('confirmed', 'checked_in')
+                    AND status IN ('checked_in', 'checked_out')
                 ");
                 $stmt->execute([$thisMonth]);
                 $stats['month_revenue'] = (float)$stmt->fetchColumn();
