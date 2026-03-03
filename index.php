@@ -771,8 +771,8 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
             </div>
             <!-- Cash Available -->
             <div style="background: linear-gradient(135deg, <?php echo $totalOperationalCash >= 0 ? '#ecfdf5' : '#fef2f2'; ?> 0%, <?php echo $totalOperationalCash >= 0 ? '#d1fae5' : '#fee2e2'; ?> 100%); padding: 0.875rem 1rem; border-radius: 10px; border: 1px solid <?php echo $totalOperationalCash >= 0 ? '#a7f3d0' : '#fecaca'; ?>;">
-                <div style="font-size: 0.65rem; color: <?php echo $totalOperationalCash >= 0 ? '#047857' : '#b91c1c'; ?>; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 0.25rem;">Cash Available</div>
-                <div style="font-size: 1.125rem; font-weight: 700; color: <?php echo $totalOperationalCash >= 0 ? '#059669' : '#dc2626'; ?>; font-family: 'Monaco', 'Courier New', monospace;"><?php echo formatCurrency($totalOperationalCash); ?></div>
+                <div style="font-size: 0.65rem; color: <?php echo ($totalOperationalCash + $guestCashIncome) >= 0 ? '#047857' : '#b91c1c'; ?>; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 0.25rem;">Cash Available</div>
+                <div style="font-size: 1.125rem; font-weight: 700; color: <?php echo ($totalOperationalCash + $guestCashIncome) >= 0 ? '#059669' : '#dc2626'; ?>; font-family: 'Monaco', 'Courier New', monospace;"><?php echo formatCurrency($totalOperationalCash + $guestCashIncome); ?></div>
             </div>
         </div>
         
@@ -801,17 +801,17 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
                 </div>
                 <div>
                     <div style="font-size: 0.6rem; color: #9ca3af; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px;">Balance</div>
-                    <div style="font-size: 1rem; font-weight: 700; color: #1f2937; font-family: 'Monaco', monospace;"><?php echo formatCurrency($pettyCashStats['balance']); ?></div>
+                    <div style="font-size: 1rem; font-weight: 700; color: #1f2937; font-family: 'Monaco', monospace;"><?php echo formatCurrency($pettyCashStats['balance'] + $guestCashIncome); ?></div>
                 </div>
             </div>
-            <!-- Income -->
+            <!-- Income (Owner + Guest Cash) -->
             <div style="background: #fff; padding: 0.75rem 0.875rem; border-radius: 8px; border: 1px solid #e5e7eb; display: flex; align-items: center; gap: 0.625rem;">
                 <div style="width: 32px; height: 32px; border-radius: 8px; background: linear-gradient(135deg, #34d399, #10b981); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><polyline points="7 13 12 8 17 13"/><line x1="12" y1="8" x2="12" y2="20"/></svg>
                 </div>
                 <div>
-                    <div style="font-size: 0.6rem; color: #9ca3af; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px;">Income</div>
-                    <div style="font-size: 1rem; font-weight: 700; color: #059669; font-family: 'Monaco', monospace;"><?php echo formatCurrency($totalOperationalIncome); ?></div>
+                    <div style="font-size: 0.6rem; color: #9ca3af; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px;">Owner + Guest</div>
+                    <div style="font-size: 1rem; font-weight: 700; color: #059669; font-family: 'Monaco', monospace;"><?php echo formatCurrency($totalOperationalIncome + $guestCashIncome); ?></div>
                 </div>
             </div>
             <!-- Expense -->

@@ -1847,11 +1847,11 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
             <div class="kas-summary-row">
                 <div class="kas-summary-box">
                     <div class="kas-summary-label">Balance</div>
-                    <div class="kas-summary-value saldo"><?= number_format($kasAvailable, 0, ',', '.') ?></div>
+                    <div class="kas-summary-value saldo"><?= number_format($kasAvailable + $guestCashIncome, 0, ',', '.') ?></div>
                 </div>
                 <div class="kas-summary-box">
-                    <div class="kas-summary-label">Income</div>
-                    <div class="kas-summary-value masuk"><?= number_format($monthMasuk, 0, ',', '.') ?></div>
+                    <div class="kas-summary-label">Owner + Guest</div>
+                    <div class="kas-summary-value masuk"><?= number_format($monthMasuk + $guestCashIncome, 0, ',', '.') ?></div>
                 </div>
                 <div class="kas-summary-box">
                     <div class="kas-summary-label">Expense</div>
