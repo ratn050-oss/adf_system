@@ -130,8 +130,13 @@ if (isPost()) {
             // ============================================
             $sourceType = 'manual';
             
+            // Check if source_type is explicitly set (from "Input dari Bu Sita" button)
+            $explicitSourceType = sanitize(getPost('source_type'));
+            if ($explicitSourceType === 'owner_fund') {
+                $sourceType = 'owner_fund';
+            }
             // For CQC with project module: use cqc_income_type field
-            if ($hasProjectModule && $transactionType === 'income') {
+            elseif ($hasProjectModule && $transactionType === 'income') {
                 $cqcIncomeType = getPost('cqc_income_type') ?? '';
                 if ($cqcIncomeType === 'topup_owner') {
                     $sourceType = 'owner_fund';
@@ -140,10 +145,10 @@ if (isPost()) {
                 }
             }
             
-            // NOTE: source_type is determined by payment method later:
-            // - Cash payment → manual (real income, goes to petty cash)
-            // - Non-cash payment → manual (real income, goes to bank)
-            // - Owner fund is ONLY set explicitly via CQC topup_owner
+            // NOTE: source_type is determined by:
+            // 1. Explicit owner_fund from "Input dari Bu Sita" button
+            // 2. CQC topup_owner for contractor businesses
+            // 3. Default 'manual' for regular income
 
             $data = [
                 'transaction_date' => $transactionDate,
@@ -180,7 +185,10 @@ if (isPost()) {
                         if ($pettyCashAccount) {
                             $cashAccountId = $pettyCashAccount['id'];
                             $data['cash_account_id'] = $cashAccountId;
-                            $data['source_type'] = 'manual'; // Real income, not owner fund
+                            // Only override source_type if not explicitly set to owner_fund
+                            if ($sourceType !== 'owner_fund') {
+                                $data['source_type'] = 'manual'; // Real income, not owner fund
+                            }
                             error_log("SMART LOGIC - CASH payment: Income goes to Petty Cash ({$pettyCashAccount['account_name']})");
                         }
                     } else {
@@ -192,7 +200,10 @@ if (isPost()) {
                         if ($bankAccount) {
                             $cashAccountId = $bankAccount['id'];
                             $data['cash_account_id'] = $cashAccountId;
-                            $data['source_type'] = 'manual'; // Real income
+                            // Only override source_type if not explicitly set to owner_fund
+                            if ($sourceType !== 'owner_fund') {
+                                $data['source_type'] = 'manual'; // Real income
+                            }
                             error_log("SMART LOGIC - NON-CASH payment ({$paymentMethod}): Income goes to Bank ({$bankAccount['account_name']})");
                         } else {
                             // No bank account, just record without cash_account_id
@@ -483,6 +494,12 @@ include '../../includes/header.php';
     margin-bottom: 0;
 }
 
+/* Animation for owner fund notification */
+@keyframes slideIn {
+    from { transform: translateX(100%); opacity: 0; }
+    to { transform: translateX(0); opacity: 1; }
+}
+
 .transaction-type-card {
     position: relative;
     display: flex;
@@ -535,13 +552,21 @@ include '../../includes/header.php';
     <!-- Main Form Container -->
     <div class="card" style="max-width: 920px; margin: 0 auto 0.75rem;">
         <div class="<?php echo $isCQC ? 'cqc-form-header' : ''; ?>" style="padding: 0.875rem 1rem; border-bottom: 1px solid var(--bg-tertiary); <?php echo !$isCQC ? 'background: linear-gradient(135deg, var(--primary-color)15, var(--bg-secondary));' : 'border-radius: 12px 12px 0 0;'; ?>">
-            <h3 style="font-size: 1rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem; margin: 0;">
-                <?php if ($isCQC): ?>
-                    ☀️ Input Transaksi Proyek CQC
-                <?php else: ?>
-                    <i data-feather="plus-circle" style="width: 16px; height: 16px;"></i> Tambah Transaksi Baru
+            <div style="display: flex; justify-content: space-between; align-items: center;">
+                <h3 style="font-size: 1rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem; margin: 0;">
+                    <?php if ($isCQC): ?>
+                        ☀️ Input Transaksi Proyek CQC
+                    <?php else: ?>
+                        <i data-feather="plus-circle" style="width: 16px; height: 16px;"></i> Tambah Transaksi Baru
+                    <?php endif; ?>
+                </h3>
+                <?php if (!$isCQC): ?>
+                <!-- Special Button: Input dari Bu Sita (Owner Fund) -->
+                <button type="button" id="btnOwnerFund" onclick="fillOwnerFund()" style="padding: 0.5rem 1rem; background: linear-gradient(135deg, #f59e0b, #d97706); color: white; border: none; border-radius: 8px; font-size: 0.75rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 0.4rem; box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3); transition: all 0.2s ease;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(245, 158, 11, 0.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(245, 158, 11, 0.3)'">
+                    💰 Input dari Bu Sita
+                </button>
                 <?php endif; ?>
-            </h3>
+            </div>
         </div>
         
         <div style="padding: 0.875rem; display: grid; grid-template-columns: 1fr 1fr; gap: 0.625rem 0.875rem;">
@@ -786,6 +811,100 @@ include '../../includes/header.php';
 
 <script>
 feather.replace();
+
+<?php if (!$isCQC): ?>
+// Owner Fund - Input dari Bu Sita
+function fillOwnerFund() {
+    // Set transaction type to income
+    const incomeRadio = document.querySelector('input[name="transaction_type"][value="income"]');
+    if (incomeRadio) {
+        incomeRadio.checked = true;
+        incomeRadio.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    
+    // Set date to today
+    document.querySelector('input[name="transaction_date"]').value = '<?php echo date("Y-m-d"); ?>';
+    document.querySelector('input[name="transaction_time"]').value = '<?php echo date("H:i"); ?>';
+    
+    // Set division to first available (or Hotel if exists)
+    const divisionSelect = document.querySelector('select[name="division_id"]');
+    if (divisionSelect) {
+        divisionSelect.value = divisionSelect.options[1]?.value || '';
+    }
+    
+    // Set category to "Modal Operasional"
+    document.querySelector('input[name="category_name"]').value = 'Modal Operasional dari Bu Sita';
+    
+    // Set cash account to Petty Cash (Kas Operasional)
+    const cashAccountSelect = document.querySelector('select[name="cash_account_id"]');
+    if (cashAccountSelect) {
+        // Find Kas Operasional option
+        for (let opt of cashAccountSelect.options) {
+            if (opt.text.toLowerCase().includes('kas operasional') || opt.text.toLowerCase().includes('petty cash')) {
+                cashAccountSelect.value = opt.value;
+                break;
+            }
+        }
+    }
+    
+    // Set payment method to cash (default)
+    const cashPayment = document.querySelector('input[name="payment_method"][value="cash"]');
+    if (cashPayment) cashPayment.checked = true;
+    
+    // Set source_type hidden field to owner_fund
+    let sourceTypeField = document.querySelector('input[name="source_type"]');
+    if (!sourceTypeField) {
+        sourceTypeField = document.createElement('input');
+        sourceTypeField.type = 'hidden';
+        sourceTypeField.name = 'source_type';
+        document.querySelector('form').appendChild(sourceTypeField);
+    }
+    sourceTypeField.value = 'owner_fund';
+    
+    // Set description
+    document.querySelector('textarea[name="description"]').value = 'Transfer dana operasional dari Bu Sita';
+    
+    // Focus on amount field
+    const amountField = document.querySelector('input[name="amount"]');
+    if (amountField) {
+        amountField.value = '';
+        amountField.focus();
+    }
+    
+    // Show notification
+    showOwnerFundNotice();
+}
+
+function showOwnerFundNotice() {
+    // Remove existing notice
+    const existing = document.getElementById('ownerFundNotice');
+    if (existing) existing.remove();
+    
+    // Create notice
+    const notice = document.createElement('div');
+    notice.id = 'ownerFundNotice';
+    notice.innerHTML = `
+        <div style="position: fixed; top: 80px; right: 20px; padding: 1rem 1.25rem; background: linear-gradient(135deg, #fef3c7, #fde68a); border: 1px solid #f59e0b; border-radius: 12px; box-shadow: 0 4px 20px rgba(245, 158, 11, 0.3); z-index: 9999; max-width: 320px; animation: slideIn 0.3s ease;">
+            <div style="display: flex; align-items: flex-start; gap: 0.75rem;">
+                <span style="font-size: 1.5rem;">💰</span>
+                <div>
+                    <div style="font-weight: 700; color: #92400e; font-size: 0.875rem; margin-bottom: 0.25rem;">Input dari Bu Sita</div>
+                    <div style="font-size: 0.75rem; color: #b45309; line-height: 1.4;">Form sudah diisi otomatis. Tinggal masukkan jumlah uang yang dikirim Bu Sita untuk operasional harian.</div>
+                </div>
+                <button onclick="this.parentElement.parentElement.parentElement.remove()" style="background: none; border: none; color: #92400e; cursor: pointer; font-size: 1.25rem; line-height: 1; padding: 0;">&times;</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(notice);
+    
+    // Auto-remove after 5 seconds
+    setTimeout(() => {
+        const el = document.getElementById('ownerFundNotice');
+        if (el) el.style.opacity = '0';
+        setTimeout(() => { if (el) el.remove(); }, 300);
+    }, 5000);
+}
+<?php endif; ?>
 
 <?php if ($isCQC): ?>
 // CQC Project Info Display
