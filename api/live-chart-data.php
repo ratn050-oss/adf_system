@@ -117,6 +117,12 @@ if ($isCQC) {
         $pettyCashAccount = $stmtPetty->fetch(PDO::FETCH_ASSOC);
         $pettyCashBalance = (float)($pettyCashAccount['balance'] ?? 0);
         
+        // Get Bank (Kas Besar) balance
+        $stmtBank = $masterDb->prepare("SELECT COALESCE(current_balance, 0) as balance FROM cash_accounts WHERE business_id = ? AND account_type = 'bank' LIMIT 1");
+        $stmtBank->execute([$bizId]);
+        $bankAccount = $stmtBank->fetch(PDO::FETCH_ASSOC);
+        $bankBalance = (float)($bankAccount['balance'] ?? 0);
+        
         // Get Petty Cash transfers this month
         $pettyCashMonth = $db->fetchOne(
             "SELECT COALESCE(SUM(amount), 0) as total 
@@ -130,6 +136,7 @@ if ($isCQC) {
         
         $cqcData = [
             'petty_cash_balance' => $pettyCashBalance,
+            'bank_balance' => $bankBalance,
             'petty_cash_transfers' => $pettyCashTransfers
         ];
     } catch (Exception $e) {

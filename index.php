@@ -636,6 +636,7 @@ if ($isCQC) {
     
     // CQC: Calculate Petty Cash actual balance from cash_accounts table
     $cqcPettyCashBalance = 0;
+    $cqcBankBalance = 0; // Bank (Kas Besar) balance
     $cqcPettyCashTransfers = 0; // How much was transferred to petty cash this month
     try {
         // Get actual Petty Cash balance from master DB cash_accounts
@@ -649,6 +650,12 @@ if ($isCQC) {
         $stmtPetty->execute([$businessId]);
         $pettyCashAccount = $stmtPetty->fetch(PDO::FETCH_ASSOC);
         $cqcPettyCashBalance = (float)($pettyCashAccount['balance'] ?? 0);
+        
+        // Get Bank account balance (account_type = 'bank') - Kas Besar
+        $stmtBank = $masterDb->prepare("SELECT COALESCE(current_balance, 0) as balance FROM cash_accounts WHERE business_id = ? AND account_type = 'bank' LIMIT 1");
+        $stmtBank->execute([$businessId]);
+        $bankAccount = $stmtBank->fetch(PDO::FETCH_ASSOC);
+        $cqcBankBalance = (float)($bankAccount['balance'] ?? 0);
         
         // Get transfers to petty cash this month (from cash_book source_type = owner_fund)
         $pettyCashMonth = $db->fetchOne(
@@ -796,13 +803,13 @@ if ($trialStatus) {
             <div style="padding: 0.75rem; background: linear-gradient(135deg, rgba(<?php echo $cPrimaryRgb; ?>, 0.12), rgba(<?php echo $cSecondaryRgb; ?>, 0.05)); border-radius: 8px; border-left: 4px solid var(--primary-color);">
                 <div style="font-size: 0.75rem; color: var(--primary-color); font-weight: 600; margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.05em;"><?php echo $isCQC ? 'Saldo Bersih' : 'Net Balance'; ?></div>
                 <?php 
-                // CQC: Saldo Bersih = Total Invoice - Total Pengeluaran (simple formula)
-                // displayIncome already = Invoice - Petty Cash transfers (remaining in Kas Besar)
-                // cqcPettyCashBalance = Petty Cash actual balance (transfers - expenses from petty cash)
-                // Total = displayIncome + cqcPettyCashBalance = (Invoice - Transfers) + (Transfers - Petty Expenses) = Invoice - Petty Expenses
-                // Then minus remaining expenses (from Kas Besar) gives total balance
-                // Simplified: netBalance = Invoice (totalIncome) - All Expenses
-                $netBalance = $isCQC ? ($totalIncome - $totalExpense) : ($totalIncome - $totalExpense);
+                // CQC: Saldo Bersih = Petty Cash + Bank (actual cash position)
+                // Non-CQC: Net Balance = Income - Expense
+                if ($isCQC) {
+                    $netBalance = ($cqcPettyCashBalance ?? 0) + ($cqcBankBalance ?? 0);
+                } else {
+                    $netBalance = $totalIncome - $totalExpense;
+                }
                 ?>
                 <div id="netBalance" style="font-size: 1.5rem; font-weight: 800; color: <?php echo $netBalance >= 0 ? 'var(--success)' : 'var(--danger)'; ?>;">
                     <?php echo formatCurrency($netBalance); ?>
@@ -2014,11 +2021,15 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
                     let displayIncome = totalIncome;
                     if (isCQC) {
                         const pettyCashTransfers = data.cqc.petty_cash_transfers || 0;
+                        const pettyCashBalance = data.cqc.petty_cash_balance || 0;
+                        const bankBalance = data.cqc.bank_balance || 0;
                         displayIncome = totalIncome - pettyCashTransfers;
+                        // CQC: Saldo Bersih = Petty Cash + Bank (actual cash position)
+                        netBalance = pettyCashBalance + bankBalance;
                         // Update Petty Cash container with actual balance
                         const pettyCashEl = document.getElementById('totalPettyCash');
                         if (pettyCashEl) {
-                            pettyCashEl.textContent = formatRupiah(data.cqc.petty_cash_balance || 0);
+                            pettyCashEl.textContent = formatRupiah(pettyCashBalance);
                         }
                     }
                     
@@ -2066,10 +2077,14 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
                     let displayIncome = totalIncome;
                     if (isCQC) {
                         const pettyCashTransfers = data.cqc.petty_cash_transfers || 0;
+                        const pettyCashBalance = data.cqc.petty_cash_balance || 0;
+                        const bankBalance = data.cqc.bank_balance || 0;
                         displayIncome = totalIncome - pettyCashTransfers;
+                        // CQC: Saldo Bersih = Petty Cash + Bank (actual cash position)
+                        netBalance = pettyCashBalance + bankBalance;
                         const pettyCashEl = document.getElementById('totalPettyCash');
                         if (pettyCashEl) {
-                            pettyCashEl.textContent = formatRupiah(data.cqc.petty_cash_balance || 0);
+                            pettyCashEl.textContent = formatRupiah(pettyCashBalance);
                         }
                     }
                     
