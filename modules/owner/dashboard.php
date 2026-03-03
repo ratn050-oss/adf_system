@@ -506,6 +506,148 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
             height: 240px;
         }
         
+        /* Kas Harian Styles */
+        .kas-harian-card {
+            margin-top: 20px;
+        }
+        
+        .kas-harian-summary {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 12px;
+            margin-bottom: 16px;
+        }
+        
+        .kas-summary-item {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+            padding: 12px;
+            background: var(--bg-tertiary);
+            border-radius: var(--radius-md);
+        }
+        
+        .kas-icon {
+            font-size: 20px;
+        }
+        
+        .kas-info {
+            flex: 1;
+        }
+        
+        .kas-label {
+            font-size: 11px;
+            color: var(--text-tertiary);
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+        
+        .kas-value {
+            font-size: 16px;
+            font-weight: 700;
+            color: var(--text-primary);
+        }
+        
+        .kas-value.positive {
+            color: var(--accent-green);
+        }
+        
+        .kas-value.negative {
+            color: var(--accent-red);
+        }
+        
+        .kas-harian-table-wrapper {
+            max-height: 280px;
+            overflow-y: auto;
+            border-radius: var(--radius-sm);
+            border: 1px solid var(--border-color);
+        }
+        
+        .kas-harian-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 13px;
+        }
+        
+        .kas-harian-table th {
+            background: var(--bg-tertiary);
+            padding: 10px 12px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 11px;
+            text-transform: uppercase;
+            color: var(--text-tertiary);
+            position: sticky;
+            top: 0;
+        }
+        
+        .kas-harian-table td {
+            padding: 10px 12px;
+            border-bottom: 1px solid var(--border-color);
+        }
+        
+        .kas-harian-table tr:last-child td {
+            border-bottom: none;
+        }
+        
+        .kas-harian-table .text-right {
+            text-align: right;
+        }
+        
+        .kas-harian-table .badge-masuk {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 600;
+            background: rgba(52, 199, 89, 0.15);
+            color: var(--accent-green);
+        }
+        
+        .kas-harian-table .badge-keluar {
+            display: inline-block;
+            padding: 2px 8px;
+            border-radius: 4px;
+            font-size: 10px;
+            font-weight: 600;
+            background: rgba(255, 59, 48, 0.15);
+            color: var(--accent-red);
+        }
+        
+        .kas-harian-table .amount-masuk {
+            color: var(--accent-green);
+            font-weight: 600;
+        }
+        
+        .kas-harian-table .amount-keluar {
+            color: var(--accent-red);
+            font-weight: 600;
+        }
+        
+        @media (max-width: 768px) {
+            .kas-harian-summary {
+                grid-template-columns: 1fr;
+                gap: 8px;
+            }
+            
+            .kas-summary-item {
+                padding: 10px;
+            }
+            
+            .kas-value {
+                font-size: 14px;
+            }
+            
+            .kas-harian-table {
+                font-size: 12px;
+            }
+            
+            .kas-harian-table th,
+            .kas-harian-table td {
+                padding: 8px 10px;
+            }
+        }
+
         /* Business Cards Grid */
         .business-grid {
             display: grid;
@@ -999,6 +1141,54 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
                             </div>
                         </div>
                     </div>
+                    
+                    <!-- Kas Harian Section -->
+                    <div class="card kas-harian-card">
+                        <div class="card-header">
+                            <div>
+                                <div class="card-title">💰 Kas Harian</div>
+                                <div class="card-subtitle" id="kasHarianDate">Loading...</div>
+                            </div>
+                        </div>
+                        <div class="kas-harian-summary">
+                            <div class="kas-summary-item kas-saldo">
+                                <div class="kas-icon">💳</div>
+                                <div class="kas-info">
+                                    <div class="kas-label">Saldo Kas</div>
+                                    <div class="kas-value" id="kasSaldo">Rp 0</div>
+                                </div>
+                            </div>
+                            <div class="kas-summary-item kas-masuk">
+                                <div class="kas-icon">⬆️</div>
+                                <div class="kas-info">
+                                    <div class="kas-label">Masuk</div>
+                                    <div class="kas-value positive" id="kasMasuk">Rp 0</div>
+                                </div>
+                            </div>
+                            <div class="kas-summary-item kas-keluar">
+                                <div class="kas-icon">⬇️</div>
+                                <div class="kas-info">
+                                    <div class="kas-label">Keluar</div>
+                                    <div class="kas-value negative" id="kasKeluar">Rp 0</div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="kas-harian-table-wrapper">
+                            <table class="kas-harian-table">
+                                <thead>
+                                    <tr>
+                                        <th>Waktu</th>
+                                        <th>Keterangan</th>
+                                        <th>Tipe</th>
+                                        <th class="text-right">Jumlah</th>
+                                    </tr>
+                                </thead>
+                                <tbody id="kasHarianTable">
+                                    <tr><td colspan="4" class="empty-state">Loading...</td></tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
                 </section>
                 
                 <!-- Business Units -->
@@ -1271,8 +1461,68 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
             await Promise.all([
                 loadStats(),
                 loadComparison(),
-                loadTransactions()
+                loadTransactions(),
+                loadKasHarian()
             ]);
+        }
+        
+        // Load Kas Harian (Daily Cash)
+        async function loadKasHarian() {
+            try {
+                const today = new Date();
+                const dateStr = today.toLocaleDateString('id-ID', { 
+                    weekday: 'long', 
+                    year: 'numeric', 
+                    month: 'long', 
+                    day: 'numeric' 
+                });
+                document.getElementById('kasHarianDate').textContent = dateStr;
+                
+                // Fetch today's transactions
+                const url = currentBusiness === 'all' 
+                    ? '../../api/owner-recent-transactions.php?limit=20&today=1'
+                    : `../../api/owner-recent-transactions.php?branch_id=${currentBusiness}&limit=20&today=1`;
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.success && data.transactions) {
+                    let totalMasuk = 0;
+                    let totalKeluar = 0;
+                    
+                    const tbody = document.getElementById('kasHarianTable');
+                    
+                    if (data.transactions.length === 0) {
+                        tbody.innerHTML = '<tr><td colspan="4" class="empty-state">Belum ada transaksi hari ini</td></tr>';
+                    } else {
+                        tbody.innerHTML = data.transactions.map(txn => {
+                            const isMasuk = txn.transaction_type === 'income';
+                            if (isMasuk) totalMasuk += parseFloat(txn.amount);
+                            else totalKeluar += parseFloat(txn.amount);
+                            
+                            const time = txn.transaction_time ? txn.transaction_time.substring(0, 5) : '-';
+                            const desc = txn.description || txn.category_name || '-';
+                            const shortDesc = desc.length > 35 ? desc.substring(0, 35) + '...' : desc;
+                            
+                            return `<tr>
+                                <td>${time}</td>
+                                <td title="${desc}">${shortDesc}</td>
+                                <td><span class="badge-${isMasuk ? 'masuk' : 'keluar'}">${isMasuk ? 'Masuk' : 'Keluar'}</span></td>
+                                <td class="text-right amount-${isMasuk ? 'masuk' : 'keluar'}">${isMasuk ? '+' : '-'}${formatRupiah(txn.amount)}</td>
+                            </tr>`;
+                        }).join('');
+                    }
+                    
+                    const saldo = totalMasuk - totalKeluar;
+                    document.getElementById('kasMasuk').textContent = formatRupiah(totalMasuk);
+                    document.getElementById('kasKeluar').textContent = formatRupiah(totalKeluar);
+                    document.getElementById('kasSaldo').textContent = formatRupiah(saldo);
+                }
+            } catch (error) {
+                console.error('Error loading kas harian:', error);
+                document.getElementById('kasHarianTable').innerHTML = 
+                    '<tr><td colspan="4" class="empty-state">Gagal memuat data</td></tr>';
+            }
         }
         
         // Load stats

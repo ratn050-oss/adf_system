@@ -27,10 +27,16 @@ if (!in_array($currentUser['role'], ['owner', 'admin', 'manager', 'developer']))
 }
 
 $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 10;
+$todayOnly = isset($_GET['today']) && $_GET['today'] == '1';
 
 try {
     // Switch to hotel database
     $db = Database::switchDatabase(getDbName('adf_narayana_hotel'));
+    
+    // Build date filter
+    $dateFilter = $todayOnly 
+        ? "DATE(cb.transaction_date) = CURDATE()" 
+        : "DATE(cb.transaction_date) >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)";
     
     // Get recent transactions
     $transactions = $db->fetchAll(
@@ -43,7 +49,7 @@ try {
          LEFT JOIN divisions d ON cb.division_id = d.id
          LEFT JOIN categories c ON cb.category_id = c.id
          LEFT JOIN users u ON cb.created_by = u.id
-         WHERE DATE(cb.transaction_date) >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+         WHERE $dateFilter
          ORDER BY cb.transaction_date DESC, cb.transaction_time DESC
          LIMIT ?",
         [$limit]
