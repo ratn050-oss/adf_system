@@ -85,10 +85,11 @@ if (!$invoice) {
     die("Invoice not found.");
 }
 
-// Get business settings from master database based on active business
+// Get business settings from master database settings table
 // Use getMasterBusinessId() which is the preferred way
 require_once '../../includes/business_helper.php';
 $businessId = getMasterBusinessId();
+$activeBusinessId = defined('ACTIVE_BUSINESS_ID') ? ACTIVE_BUSINESS_ID : ($_SESSION['active_business_id'] ?? '');
 
 // Default company info
 $companyName = 'My Business';
@@ -103,26 +104,41 @@ $bankName = '';
 $bankAccount = '';
 $bankHolder = '';
 
-// Try to load from business_settings
+// Try to load from settings table (main settings storage)
 try {
-    $settings = $db->fetchAll("SELECT setting_key, setting_value FROM business_settings WHERE business_id = ?", [$businessId]);
-    foreach ($settings as $s) {
-        switch ($s['setting_key']) {
-            case 'business_name': if ($s['setting_value']) $companyName = $s['setting_value']; break;
-            case 'tagline': if ($s['setting_value']) $companyTagline = $s['setting_value']; break;
-            case 'address': if ($s['setting_value']) $companyAddress = $s['setting_value']; break;
-            case 'city': if ($s['setting_value']) $companyCity = $s['setting_value']; break;
-            case 'phone': if ($s['setting_value']) $companyPhone = $s['setting_value']; break;
-            case 'email': if ($s['setting_value']) $companyEmail = $s['setting_value']; break;
-            case 'npwp': if ($s['setting_value']) $companyNPWP = $s['setting_value']; break;
-            case 'logo': if ($s['setting_value']) $companyLogo = $s['setting_value']; break;
-            case 'bank_name': if ($s['setting_value']) $bankName = $s['setting_value']; break;
-            case 'bank_account': if ($s['setting_value']) $bankAccount = $s['setting_value']; break;
-            case 'bank_holder': if ($s['setting_value']) $bankHolder = $s['setting_value']; break;
-        }
+    $allSettings = $db->fetchAll("SELECT setting_key, setting_value FROM settings");
+    $settingsMap = [];
+    foreach ($allSettings as $row) {
+        $settingsMap[$row['setting_key']] = $row['setting_value'];
     }
     
-    // Fallback: try businesses table
+    // Company settings (global)
+    if (!empty($settingsMap['company_name'])) $companyName = $settingsMap['company_name'];
+    if (!empty($settingsMap['company_tagline'])) $companyTagline = $settingsMap['company_tagline'];
+    if (!empty($settingsMap['company_address'])) $companyAddress = $settingsMap['company_address'];
+    if (!empty($settingsMap['company_phone'])) $companyPhone = $settingsMap['company_phone'];
+    if (!empty($settingsMap['company_email'])) $companyEmail = $settingsMap['company_email'];
+    if (!empty($settingsMap['company_website'])) $companyWebsite = $settingsMap['company_website'];
+    if (!empty($settingsMap['company_npwp'])) $companyNPWP = $settingsMap['company_npwp'];
+    
+    // Bank settings
+    if (!empty($settingsMap['bank_name'])) $bankName = $settingsMap['bank_name'];
+    if (!empty($settingsMap['bank_account'])) $bankAccount = $settingsMap['bank_account'];
+    if (!empty($settingsMap['bank_holder'])) $bankHolder = $settingsMap['bank_holder'];
+    
+    // Logo: check business-specific first, then global
+    // Priority: invoice_logo_BUSINESS_ID > company_logo_BUSINESS_ID > invoice_logo > company_logo
+    if (!empty($activeBusinessId) && !empty($settingsMap['invoice_logo_' . $activeBusinessId])) {
+        $companyLogo = $settingsMap['invoice_logo_' . $activeBusinessId];
+    } elseif (!empty($activeBusinessId) && !empty($settingsMap['company_logo_' . $activeBusinessId])) {
+        $companyLogo = $settingsMap['company_logo_' . $activeBusinessId];
+    } elseif (!empty($settingsMap['invoice_logo'])) {
+        $companyLogo = $settingsMap['invoice_logo'];
+    } elseif (!empty($settingsMap['company_logo'])) {
+        $companyLogo = $settingsMap['company_logo'];
+    }
+    
+    // Fallback: try businesses table for name
     if ($companyName === 'My Business') {
         $biz = $db->fetchOne("SELECT business_name, logo FROM businesses WHERE id = ?", [$businessId]);
         if ($biz) {
