@@ -356,22 +356,38 @@ try {
 }
 
 // ============================================
-// GUEST/CASH INCOME (All cash payments this month)
+// GUEST/CASH INCOME (Cash payments NOT from owner accounts)
 // From cash_book with payment_method='cash' (rental, F&B, etc)
+// EXCLUDE transactions already counted in owner_capital/petty_cash
 // ============================================
 $guestCashIncome = 0;
 try {
     $thisMonth = date('Y-m');
     
-    // All income from cash_book with payment_method='cash' this month
-    $cashIncomeResult = $db->fetchOne(
-        "SELECT COALESCE(SUM(amount), 0) as total 
-         FROM cash_book 
-         WHERE transaction_type = 'income' 
-         AND payment_method = 'cash'
-         AND DATE_FORMAT(transaction_date, '%Y-%m') = ?",
-        [$thisMonth]
-    );
+    // All owner account IDs to exclude
+    $excludeAccountIds = array_merge($capitalAccounts ?? [], $pettyCashAccounts ?? []);
+    
+    if (!empty($excludeAccountIds)) {
+        $excludePlaceholders = implode(',', array_fill(0, count($excludeAccountIds), '?'));
+        $cashIncomeResult = $db->fetchOne(
+            "SELECT COALESCE(SUM(amount), 0) as total 
+             FROM cash_book 
+             WHERE transaction_type = 'income' 
+             AND payment_method = 'cash'
+             AND (cash_account_id IS NULL OR cash_account_id NOT IN ($excludePlaceholders))
+             AND DATE_FORMAT(transaction_date, '%Y-%m') = ?",
+            array_merge($excludeAccountIds, [$thisMonth])
+        );
+    } else {
+        $cashIncomeResult = $db->fetchOne(
+            "SELECT COALESCE(SUM(amount), 0) as total 
+             FROM cash_book 
+             WHERE transaction_type = 'income' 
+             AND payment_method = 'cash'
+             AND DATE_FORMAT(transaction_date, '%Y-%m') = ?",
+            [$thisMonth]
+        );
+    }
     $guestCashIncome = $cashIncomeResult['total'] ?? 0;
 } catch (Exception $e) {
     error_log("Error fetching cash income: " . $e->getMessage());

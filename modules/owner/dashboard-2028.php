@@ -1788,15 +1788,17 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
                 $stmtAll->execute($allAccounts);
                 $kasAvailable = (float)($stmtAll->fetchColumn() ?: 0);
                 
-                // Get Guest/Cash Income this month (all cash payments - rental, F&B, etc)
-                $stmtCashIncome = $kasDb->prepare("
+                // Get Guest/Cash Income this month - EXCLUDE owner accounts to avoid double counting
+                $sqlCashIncome = "
                     SELECT COALESCE(SUM(amount), 0) as total 
                     FROM cash_book 
                     WHERE transaction_type = 'income' 
                     AND payment_method = 'cash'
+                    AND (cash_account_id IS NULL OR cash_account_id NOT IN ($placeholders))
                     AND DATE_FORMAT(transaction_date, '%Y-%m') = ?
-                ");
-                $stmtCashIncome->execute([$thisMonth]);
+                ";
+                $stmtCashIncome = $kasDb->prepare($sqlCashIncome);
+                $stmtCashIncome->execute(array_merge($allAccounts, [$thisMonth]));
                 $guestCashIncome = (float)($stmtCashIncome->fetchColumn() ?: 0);
                 
                 // Get recent transactions - filtered by accounts
