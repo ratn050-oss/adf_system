@@ -225,15 +225,73 @@ try {
         ]);
     }
     
+    // ==========================================
+    // SYNC OTA PAYMENT TO CASHBOOK AT CHECK-IN
+    // OTA payment tercatat saat check-in (bisa diedit untuk cocokkan dgn aktual)
+    // ==========================================
+    $cashbookSynced = false;
+    if ($isOTA) {
+        try {
+            require_once '../includes/CashbookHelper.php';
+            $cashbookHelper = new CashbookHelper($db, $_SESSION['business_id'] ?? 1, $validUserId ?? 1);
+            
+            // Get total amount paid for this booking
+            $totalPayment = $db->fetchOne("SELECT COALESCE(SUM(amount), 0) as total FROM booking_payments WHERE booking_id = ?", [$bookingId]);
+            $otaAmount = (float)$totalPayment['total'];
+            if ($otaAmount <= 0) {
+                $otaAmount = (float)$booking['final_price'];
+            }
+            
+            // Sync to cashbook with is_editable = true (for OTA reconciliation later)
+            $syncResult = $cashbookHelper->syncPaymentToCashbook([
+                'payment_id' => null,  // OTA payment grouped
+                'booking_id' => $bookingId,
+                'amount' => $otaAmount,
+                'payment_method' => strtolower($booking['booking_source']),  // agoda, booking, etc.
+                'guest_name' => $booking['guest_name'],
+                'booking_code' => $booking['booking_code'],
+                'room_number' => $booking['room_number'],
+                'booking_source' => $booking['booking_source'],
+                'final_price' => $booking['final_price'],
+                'total_paid' => $otaAmount,
+                'is_new_reservation' => false,
+                'is_ota_checkin' => true  // Flag for editable OTA entry
+            ]);
+            
+            $cashbookSynced = $syncResult['success'];
+            
+            // Mark all booking_payments as synced
+            if ($cashbookSynced && $syncResult['transaction_id']) {
+                try {
+                    $db->query("UPDATE booking_payments SET synced_to_cashbook = 1, cashbook_id = ? WHERE booking_id = ?", [$syncResult['transaction_id'], $bookingId]);
+                } catch (\Throwable $e) {
+                    // Ignore if column doesn't exist
+                }
+            }
+            
+        } catch (\Throwable $e) {
+            error_log("OTA Cashbook sync error at check-in: " . $e->getMessage());
+        }
+    }
+    
     $db->commit();
+    
+    // Build success message
+    $successMessage = "Check-in berhasil! {$booking['guest_name']} - Room {$booking['room_number']}";
+    if ($isOTA && $cashbookSynced) {
+        $successMessage .= "\n\n✅ Pembayaran OTA ({$booking['booking_source']}) tercatat di Buku Kas";
+        $successMessage .= "\n⚠️ Sebagai ESTIMASI - dapat diedit saat rekonsiliasi akhir bulan";
+    }
     
     echo json_encode([
         'success' => true,
-        'message' => "Check-in berhasil! {$booking['guest_name']} - Room {$booking['room_number']}",
+        'message' => $successMessage,
         'booking_id' => $bookingId,
         'guest_name' => $booking['guest_name'],
         'room_number' => $booking['room_number'],
-        'invoice_number' => $invoiceNumber
+        'invoice_number' => $invoiceNumber,
+        'is_ota' => $isOTA,
+        'cashbook_synced' => $cashbookSynced ?? false
     ]);
     
 } catch (Exception $e) {

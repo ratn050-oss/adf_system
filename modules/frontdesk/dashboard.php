@@ -129,8 +129,11 @@ try {
         } catch (\Throwable $e) {}
 
         // Get booking payments to sync - method depends on whether column exists
+        // SKIP OTA bookings - they sync at check-in time, not here
+        $otaSourcesSQL = "'agoda','booking','tiket','airbnb','ota','traveloka','pegipegi','expedia'";
+        
         if ($hasSyncCol) {
-            // FAST: Use synced_to_cashbook flag
+            // FAST: Use synced_to_cashbook flag, exclude OTA bookings
             $unsyncedPayments = $db->fetchAll("
                 SELECT bp.id as payment_id, bp.booking_id, bp.amount, bp.payment_method, bp.payment_date,
                        b.booking_code, b.booking_source, b.final_price,
@@ -140,10 +143,11 @@ try {
                 LEFT JOIN guests g ON b.guest_id = g.id
                 LEFT JOIN rooms r ON b.room_id = r.id
                 WHERE bp.synced_to_cashbook = 0
+                AND LOWER(COALESCE(b.booking_source, '')) NOT IN ({$otaSourcesSQL})
                 ORDER BY bp.id ASC
             ");
         } else {
-            // FALLBACK: Get all recent payments and check each against cash_book
+            // FALLBACK: Get all recent payments and check each against cash_book, exclude OTA
             $unsyncedPayments = $db->fetchAll("
                 SELECT bp.id as payment_id, bp.booking_id, bp.amount, bp.payment_method, bp.payment_date,
                        b.booking_code, b.booking_source, b.final_price,
@@ -153,6 +157,7 @@ try {
                 LEFT JOIN guests g ON b.guest_id = g.id
                 LEFT JOIN rooms r ON b.room_id = r.id
                 WHERE bp.payment_date >= DATE_SUB(NOW(), INTERVAL 60 DAY)
+                AND LOWER(COALESCE(b.booking_source, '')) NOT IN ({$otaSourcesSQL})
                 ORDER BY bp.id ASC
             ");
         }

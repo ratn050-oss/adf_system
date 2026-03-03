@@ -198,17 +198,37 @@ class CashbookHelper {
             return $this->categoryId;
         }
         
+        // Priority 1: Exact match for room sales/rental categories
         $category = $this->db->fetchOne("
             SELECT id FROM categories 
             WHERE category_type = 'income' 
             AND (
-                LOWER(category_name) LIKE '%room%' 
-                OR LOWER(category_name) LIKE '%kamar%'
+                LOWER(category_name) = 'room sell'
+                OR LOWER(category_name) = 'room rental'
+                OR LOWER(category_name) = 'penjualan kamar'
+                OR LOWER(category_name) = 'sewa kamar'
+                OR LOWER(category_name) LIKE '%room sell%'
+                OR LOWER(category_name) LIKE '%room rental%'
                 OR LOWER(category_name) LIKE '%penjualan kamar%'
             )
             ORDER BY id ASC LIMIT 1
         ");
         
+        // Priority 2: Contains 'kamar' but exclude 'service'
+        if (!$category) {
+            $category = $this->db->fetchOne("
+                SELECT id FROM categories 
+                WHERE category_type = 'income' 
+                AND (
+                    LOWER(category_name) LIKE '%kamar%'
+                    OR LOWER(category_name) LIKE '%room%'
+                )
+                AND LOWER(category_name) NOT LIKE '%service%'
+                ORDER BY id ASC LIMIT 1
+            ");
+        }
+        
+        // Priority 3: Any income category
         if (!$category) {
             $category = $this->db->fetchOne("SELECT id FROM categories WHERE category_type = 'income' ORDER BY id ASC LIMIT 1");
         }
@@ -442,36 +462,45 @@ class CashbookHelper {
                 }
             }
             
+            // Check if this is OTA check-in (should be editable for reconciliation)
+            $isOtaCheckin = $paymentData['is_ota_checkin'] ?? false;
+            if ($isOtaCheckin) {
+                $description .= ' [OTA - ESTIMASI]';  // Mark as estimate, needs reconciliation
+            }
+            
             // Map payment method
             $cbMethod = $this->mapPaymentMethod($paymentData['payment_method'] ?? 'cash');
             
             // Get payment date
             $paymentDate = $paymentData['payment_date'] ?? date('Y-m-d H:i:s');
             
-            // Insert into cash_book
+            // Set is_editable: 1 for OTA (reconciliation needed), 0 for direct
+            $isEditable = $isOtaCheckin ? 1 : 1;  // Default all editable, but OTA marked specially
+            
+            // Insert into cash_book with is_editable flag
             if ($this->hasCashAccountIdColumn()) {
                 $stmt = $this->db->getConnection()->prepare("
                     INSERT INTO cash_book (
                         transaction_date, transaction_time, division_id, category_id,
                         description, transaction_type, amount, payment_method,
-                        cash_account_id, created_by, created_at
-                    ) VALUES (DATE(?), TIME(?), ?, ?, ?, 'income', ?, ?, ?, ?, NOW())
+                        cash_account_id, is_editable, created_by, created_at
+                    ) VALUES (DATE(?), TIME(?), ?, ?, ?, 'income', ?, ?, ?, ?, ?, NOW())
                 ");
                 $stmt->execute([
                     $paymentDate, $paymentDate, $divisionId, $categoryId,
-                    $description, $amountToRecord, $cbMethod, $account['id'], $this->userId
+                    $description, $amountToRecord, $cbMethod, $account['id'], $isEditable, $this->userId
                 ]);
             } else {
                 $stmt = $this->db->getConnection()->prepare("
                     INSERT INTO cash_book (
                         transaction_date, transaction_time, division_id, category_id,
                         description, transaction_type, amount, payment_method,
-                        created_by, created_at
-                    ) VALUES (DATE(?), TIME(?), ?, ?, ?, 'income', ?, ?, ?, NOW())
+                        is_editable, created_by, created_at
+                    ) VALUES (DATE(?), TIME(?), ?, ?, ?, 'income', ?, ?, ?, ?, NOW())
                 ");
                 $stmt->execute([
                     $paymentDate, $paymentDate, $divisionId, $categoryId,
-                    $description, $amountToRecord, $cbMethod, $this->userId
+                    $description, $amountToRecord, $cbMethod, $isEditable, $this->userId
                 ]);
             }
             

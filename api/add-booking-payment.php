@@ -83,6 +83,7 @@ try {
 
     // ==========================================
     // AUTO-INSERT TO CASHBOOK SYSTEM (via Helper)
+    // ONLY for DIRECT BOOKING - OTA akan tercatat saat check-in
     // ==========================================
     $cashbookInserted = false;
     $cashbookMessage = '';
@@ -104,31 +105,41 @@ try {
             WHERE b.id = ?
         ", [$bookingId]);
         
-        // Use CashbookHelper for reliable sync
-        $cashbookHelper = new CashbookHelper($db, $_SESSION['business_id'] ?? 1, $currentUser['id'] ?? 1);
+        // Check if OTA booking - OTA payments sync at check-in, not at payment time
+        $otaSources = ['agoda', 'booking', 'tiket', 'airbnb', 'ota', 'traveloka', 'pegipegi', 'expedia'];
+        $isOTA = in_array(strtolower($bookingDetails['booking_source'] ?? ''), $otaSources);
         
-        $syncResult = $cashbookHelper->syncPaymentToCashbook([
-            'payment_id' => $newPaymentId,
-            'booking_id' => $bookingId,
-            'amount' => $amount,
-            'payment_method' => $paymentMethod,
-            'guest_name' => $bookingDetails['guest_name'] ?? 'Guest',
-            'booking_code' => $bookingDetails['booking_code'] ?? '',
-            'room_number' => $bookingDetails['room_number'] ?? '',
-            'booking_source' => $bookingDetails['booking_source'] ?? '',
-            'final_price' => $bookingDetails['final_price'] ?? 0,
-            'total_paid' => $totalPaid,
-            'is_new_reservation' => false  // This is additional payment
-        ]);
-        
-        $cashbookInserted = $syncResult['success'];
-        $cashbookMessage = $syncResult['message'];
-        $cashAccountName = $syncResult['account_name'];
-        
-        if ($syncResult['ota_fee']) {
-            $otaFeePercent = $syncResult['ota_fee']['fee_percent'];
-            $otaFeeAmount = $syncResult['ota_fee']['fee_amount'];
-            $netAmount = $syncResult['ota_fee']['net'];
+        if ($isOTA) {
+            // OTA Booking: DO NOT sync to cashbook now
+            // Payment will be synced when guest checks in
+            $cashbookMessage = "Booking OTA - akan tercatat di buku kas saat check-in";
+        } else {
+            // Direct Booking: Sync to cashbook immediately (DP masuk langsung)
+            $cashbookHelper = new CashbookHelper($db, $_SESSION['business_id'] ?? 1, $currentUser['id'] ?? 1);
+            
+            $syncResult = $cashbookHelper->syncPaymentToCashbook([
+                'payment_id' => $newPaymentId,
+                'booking_id' => $bookingId,
+                'amount' => $amount,
+                'payment_method' => $paymentMethod,
+                'guest_name' => $bookingDetails['guest_name'] ?? 'Guest',
+                'booking_code' => $bookingDetails['booking_code'] ?? '',
+                'room_number' => $bookingDetails['room_number'] ?? '',
+                'booking_source' => $bookingDetails['booking_source'] ?? '',
+                'final_price' => $bookingDetails['final_price'] ?? 0,
+                'total_paid' => $totalPaid,
+                'is_new_reservation' => false  // This is additional payment
+            ]);
+            
+            $cashbookInserted = $syncResult['success'];
+            $cashbookMessage = $syncResult['message'];
+            $cashAccountName = $syncResult['account_name'];
+            
+            if ($syncResult['ota_fee']) {
+                $otaFeePercent = $syncResult['ota_fee']['fee_percent'];
+                $otaFeeAmount = $syncResult['ota_fee']['fee_amount'];
+                $netAmount = $syncResult['ota_fee']['net'];
+            }
         }
         
     } catch (\Throwable $cashbookError) {
@@ -138,6 +149,9 @@ try {
     }
 
     $db->commit();
+    
+    // Check if this is OTA booking for message
+    $isOtaBooking = in_array(strtolower($bookingDetails['booking_source'] ?? ''), ['agoda', 'booking', 'tiket', 'airbnb', 'ota', 'traveloka', 'pegipegi', 'expedia']);
     
     // Prepare success message
     $successMessage = 'Payment saved';
@@ -155,6 +169,16 @@ try {
         } else {
             $successMessage .= "\nStatus: PARTIAL (Sisa: Rp " . number_format($remaining, 0, ',', '.') . ")";
         }
+    } elseif ($isOtaBooking) {
+        // OTA booking - explain that cashbook entry happens at check-in
+        $successMessage .= "\n\n📋 Booking via " . strtoupper($bookingDetails['booking_source']);
+        $successMessage .= "\n⏰ Akan tercatat di Buku Kas saat CHECK-IN";
+        $successMessage .= "\n💡 Bisa diedit untuk rekonsiliasi akhir bulan";
+        if ($paymentStatus === 'paid') {
+            $successMessage .= "\nStatus: LUNAS";
+        } else {
+            $successMessage .= "\nStatus: PARTIAL (Sisa: Rp " . number_format($remaining, 0, ',', '.') . ")";
+        }
     } else {
         $successMessage .= "\n\n⚠️ " . $cashbookMessage;
     }
@@ -166,7 +190,9 @@ try {
         'remaining' => $remaining,
         'payment_status' => $paymentStatus,
         'cashbook_inserted' => $cashbookInserted,
-        'cash_account' => $cashAccountName
+        'cash_account' => $cashAccountName,
+        'is_ota' => $isOtaBooking,
+        'cashbook_at_checkin' => $isOtaBooking  // OTA payments sync at check-in
     ]);
 
 } catch (\Throwable $e) {
