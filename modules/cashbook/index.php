@@ -1399,18 +1399,7 @@ echo getPrintCSS();
         // Use actual balance from cash_accounts
         $saldoKasOperasional = $actualPettyCashBalance;
     ?>
-    <!-- CQC: Petty Cash = Saldo aktual dari cash_accounts (sudah dikurangi pengeluaran) -->
-    <div class="card">
-        <div class="card-header">
-            <div>
-                <div class="card-title">💰 Petty Cash</div>
-                <div class="card-value" style="color: #d97706;"><?php echo formatCurrency($actualPettyCashBalance); ?></div>
-            </div>
-            <div class="card-icon" style="background: linear-gradient(135deg, #fbbf24, #f59e0b);">
-                <i data-feather="download"></i>
-            </div>
-        </div>
-    </div>
+    <!-- CQC: Skip top summary cards, shown in Petty Cash CQC section below -->
     <?php else: ?>
     <div class="card">
         <div class="card-header">
@@ -1425,11 +1414,12 @@ echo getPrintCSS();
     </div>
     <?php endif; ?>
     
+    <?php if (!$isCQC): ?>
     <div class="card">
         <div class="card-header">
             <div>
-                <div class="card-title"><?php echo $isCQC ? 'Pengeluaran dari Petty Cash' : 'Total Pengeluaran'; ?></div>
-                <div class="card-value text-danger"><?php echo formatCurrency($isCQC ? $totalPettyCashExpense : $totalExpense); ?></div>
+                <div class="card-title">Total Pengeluaran</div>
+                <div class="card-value text-danger"><?php echo formatCurrency($totalExpense); ?></div>
             </div>
             <div class="card-icon expense">
                 <i data-feather="arrow-up-circle"></i>
@@ -1440,9 +1430,9 @@ echo getPrintCSS();
     <div class="card">
         <div class="card-header">
             <div>
-                <div class="card-title"><?php echo $isCQC ? 'Saldo Petty Cash' : 'Saldo'; ?></div>
-                <div class="card-value <?php echo ($isCQC ? $saldoKasOperasional : $balance) >= 0 ? 'text-success' : 'text-danger'; ?>">
-                    <?php echo formatCurrency($isCQC ? $saldoKasOperasional : $balance); ?>
+                <div class="card-title">Saldo</div>
+                <div class="card-value <?php echo $balance >= 0 ? 'text-success' : 'text-danger'; ?>">
+                    <?php echo formatCurrency($balance); ?>
                 </div>
             </div>
             <div class="card-icon balance">
@@ -1450,6 +1440,7 @@ echo getPrintCSS();
             </div>
         </div>
     </div>
+    <?php endif; ?>
 </div>
 
 <?php if ($isCQC): ?>
