@@ -1713,119 +1713,59 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
         
         <!-- Daily Cash Section -->
         <?php
-        // Fetch this month's cash book entries - SAME LOGIC AS index.php
-        // Only count owner_capital + petty_cash accounts
+        // ============================================
+        // DAILY CASH - EXACT SAME LOGIC AS CASHBOOK/INDEX.PHP
+        // Query ALL cash_book transactions (no account filtering)
+        // ============================================
         $todayKas = [];
-        $startKasHariIni = 0;
-        $ownerTransferThisMonth = 0;
-        $monthKeluar = 0;
-        $kasAvailable = 0;
-        $guestCashIncome = 0;
+        $totalIncome = 0;
+        $totalExpense = 0;
+        $balance = 0;
         
         try {
-            // Connect to master DB to get cash account IDs
-            $masterDb = new PDO("mysql:host=" . $dbHost . ";dbname=" . $masterDbName . ";charset=utf8mb4", $dbUser, $dbPass);
-            $masterDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+            $kasDb = new PDO("mysql:host=" . $dbHost . ";dbname=" . $businessDbName . ";charset=utf8mb4", $dbUser, $dbPass);
+            $kasDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
             
-            $businessId = getMasterBusinessId();
+            $thisMonth = date('Y-m');
             
-            // Get owner_capital account IDs
-            $stmtCap = $masterDb->prepare("SELECT id FROM cash_accounts WHERE business_id = ? AND account_type = 'owner_capital'");
-            $stmtCap->execute([$businessId]);
-            $capitalAccounts = $stmtCap->fetchAll(PDO::FETCH_COLUMN);
+            // Get ALL income this month (same as cashbook)
+            $sqlIncome = "
+                SELECT COALESCE(SUM(amount), 0) as total
+                FROM cash_book 
+                WHERE transaction_type = 'income'
+                AND DATE_FORMAT(transaction_date, '%Y-%m') = ?
+            ";
+            $stmtIncome = $kasDb->prepare($sqlIncome);
+            $stmtIncome->execute([$thisMonth]);
+            $totalIncome = (float)($stmtIncome->fetchColumn() ?: 0);
             
-            // Get petty cash (cash) account IDs
-            $stmtPetty = $masterDb->prepare("SELECT id FROM cash_accounts WHERE business_id = ? AND account_type = 'cash'");
-            $stmtPetty->execute([$businessId]);
-            $pettyCashAccounts = $stmtPetty->fetchAll(PDO::FETCH_COLUMN);
+            // Get ALL expense this month (same as cashbook)
+            $sqlExpense = "
+                SELECT COALESCE(SUM(amount), 0) as total
+                FROM cash_book 
+                WHERE transaction_type = 'expense'
+                AND DATE_FORMAT(transaction_date, '%Y-%m') = ?
+            ";
+            $stmtExpense = $kasDb->prepare($sqlExpense);
+            $stmtExpense->execute([$thisMonth]);
+            $totalExpense = (float)($stmtExpense->fetchColumn() ?: 0);
             
-            // Merge all operational accounts
-            $allAccounts = array_merge($capitalAccounts, $pettyCashAccounts);
+            // Balance = Income - Expense (same as cashbook)
+            $balance = $totalIncome - $totalExpense;
             
-            if (!empty($allAccounts)) {
-                $kasDb = new PDO("mysql:host=" . $dbHost . ";dbname=" . $businessDbName . ";charset=utf8mb4", $dbUser, $dbPass);
-                $kasDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-                
-                $today = date('Y-m-d');
-                $thisMonth = date('Y-m');
-                $firstDayOfMonth = date('Y-m-01');
-                $placeholders = implode(',', array_fill(0, count($allAccounts), '?'));
-                
-                // Get start kas = Saldo akhir bulan lalu (sebelum bulan ini)
-                $sqlSaldo = "
-                    SELECT 
-                        COALESCE(SUM(CASE WHEN transaction_type='income' THEN amount ELSE 0 END),0) -
-                        COALESCE(SUM(CASE WHEN transaction_type='expense' THEN amount ELSE 0 END),0) as bal
-                    FROM cash_book 
-                    WHERE cash_account_id IN ($placeholders) AND transaction_date < ?
-                ";
-                $stmtSaldo = $kasDb->prepare($sqlSaldo);
-                $stmtSaldo->execute(array_merge($allAccounts, [$firstDayOfMonth]));
-                $startKasHariIni = (float)($stmtSaldo->fetchColumn() ?: 0);
-                
-                // Get Owner Transfer THIS MONTH only (income to capital + petty accounts this month)
-                $sqlOwnerTransfer = "
-                    SELECT COALESCE(SUM(amount), 0) as total
-                    FROM cash_book 
-                    WHERE cash_account_id IN ($placeholders) 
-                    AND transaction_type = 'income'
-                    AND DATE_FORMAT(transaction_date, '%Y-%m') = ?
-                ";
-                $stmtOwnerTransfer = $kasDb->prepare($sqlOwnerTransfer);
-                $stmtOwnerTransfer->execute(array_merge($allAccounts, [$thisMonth]));
-                $ownerTransferThisMonth = (float)($stmtOwnerTransfer->fetchColumn() ?: 0);
-                
-                // Get this month's expense - filtered by accounts
-                $sqlMonth = "
-                    SELECT COALESCE(SUM(amount), 0) as keluar
-                    FROM cash_book 
-                    WHERE cash_account_id IN ($placeholders) 
-                    AND transaction_type = 'expense'
-                    AND DATE_FORMAT(transaction_date, '%Y-%m') = ?
-                ";
-                $stmtMonth = $kasDb->prepare($sqlMonth);
-                $stmtMonth->execute(array_merge($allAccounts, [$thisMonth]));
-                $monthKeluar = (float)($stmtMonth->fetchColumn() ?: 0);
-                
-                // Calculate kas available (all time balance) - filtered by accounts
-                $sqlAll = "
-                    SELECT 
-                        COALESCE(SUM(CASE WHEN transaction_type='income' THEN amount ELSE 0 END),0) -
-                        COALESCE(SUM(CASE WHEN transaction_type='expense' THEN amount ELSE 0 END),0) as bal
-                    FROM cash_book
-                    WHERE cash_account_id IN ($placeholders)
-                ";
-                $stmtAll = $kasDb->prepare($sqlAll);
-                $stmtAll->execute($allAccounts);
-                $kasAvailable = (float)($stmtAll->fetchColumn() ?: 0);
-                
-                // Get Guest/Cash Income this month - EXCLUDE owner accounts to avoid double counting
-                $sqlCashIncome = "
-                    SELECT COALESCE(SUM(amount), 0) as total 
-                    FROM cash_book 
-                    WHERE transaction_type = 'income' 
-                    AND payment_method = 'cash'
-                    AND (cash_account_id IS NULL OR cash_account_id NOT IN ($placeholders))
-                    AND DATE_FORMAT(transaction_date, '%Y-%m') = ?
-                ";
-                $stmtCashIncome = $kasDb->prepare($sqlCashIncome);
-                $stmtCashIncome->execute(array_merge($allAccounts, [$thisMonth]));
-                $guestCashIncome = (float)($stmtCashIncome->fetchColumn() ?: 0);
-                
-                // Get recent transactions - filtered by accounts
-                $sqlKas = "
-                    SELECT id, transaction_type, description, amount,
-                           TIME_FORMAT(CONCAT(transaction_date, ' ', COALESCE(transaction_time, '00:00:00')), '%H:%i') as jam,
-                           transaction_date
-                    FROM cash_book 
-                    WHERE cash_account_id IN ($placeholders) AND DATE_FORMAT(transaction_date, '%Y-%m') = ?
-                    ORDER BY transaction_date DESC, id DESC
-                    LIMIT 8
-                ";
-                $stmtKas = $kasDb->prepare($sqlKas);
-                $stmtKas->execute(array_merge($allAccounts, [$thisMonth]));
-                $todayKas = $stmtKas->fetchAll(PDO::FETCH_ASSOC);
-            }
+            // Get recent transactions - ALL transactions (no account filtering)
+            $sqlKas = "
+                SELECT id, transaction_type, description, amount,
+                       TIME_FORMAT(CONCAT(transaction_date, ' ', COALESCE(transaction_time, '00:00:00')), '%H:%i') as jam,
+                       transaction_date
+                FROM cash_book 
+                WHERE DATE_FORMAT(transaction_date, '%Y-%m') = ?
+                ORDER BY transaction_date DESC, id DESC
+                LIMIT 8
+            ";
+            $stmtKas = $kasDb->prepare($sqlKas);
+            $stmtKas->execute([$thisMonth]);
+            $todayKas = $stmtKas->fetchAll(PDO::FETCH_ASSOC);
             
         } catch (PDOException $e) {
             // Silent fail - error_log for debugging
@@ -1841,33 +1781,18 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
                 <div class="kas-harian-date"><?= date('M Y') ?></div>
             </div>
             
-            <?php if ($guestCashIncome > 0): ?>
-            <div style="margin-bottom: 12px; padding: 10px 12px; background: linear-gradient(135deg, rgba(59,130,246,0.15) 0%, rgba(37,99,235,0.1) 100%); border-radius: 10px; border: 1px solid rgba(59,130,246,0.3); display: flex; align-items: center; gap: 10px;">
-                <div style="width: 32px; height: 32px; border-radius: 8px; background: linear-gradient(135deg, #3b82f6, #2563eb); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
-                </div>
-                <div style="flex: 1;">
-                    <div style="font-size: 9px; color: #60a5fa; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Cash Income</div>
-                    <div style="font-size: 15px; font-weight: 700; color: #93c5fd; display: flex; align-items: center; gap: 4px;">
-                        <span style="color: #10b981;">+</span><?= number_format($guestCashIncome, 0, ',', '.') ?>
-                    </div>
-                </div>
-                <div style="font-size: 10px; color: #3b82f6; background: rgba(255,255,255,0.1); padding: 3px 8px; border-radius: 4px; font-weight: 600;">Cash</div>
-            </div>
-            <?php endif; ?>
-            
             <div class="kas-summary-row">
                 <div class="kas-summary-box">
-                    <div class="kas-summary-label">Owner Transfer</div>
-                    <div class="kas-summary-value saldo"><?= number_format($ownerTransferThisMonth, 0, ',', '.') ?></div>
+                    <div class="kas-summary-label">Balance</div>
+                    <div class="kas-summary-value <?= $balance >= 0 ? 'saldo' : 'keluar' ?>"><?= number_format($balance, 0, ',', '.') ?></div>
                 </div>
                 <div class="kas-summary-box">
                     <div class="kas-summary-label">Owner + Guest</div>
-                    <div class="kas-summary-value masuk"><?= number_format($ownerTransferThisMonth + $guestCashIncome, 0, ',', '.') ?></div>
+                    <div class="kas-summary-value masuk"><?= number_format($totalIncome, 0, ',', '.') ?></div>
                 </div>
                 <div class="kas-summary-box">
                     <div class="kas-summary-label">Expense</div>
-                    <div class="kas-summary-value keluar"><?= number_format($monthKeluar, 0, ',', '.') ?></div>
+                    <div class="kas-summary-value keluar"><?= number_format($totalExpense, 0, ',', '.') ?></div>
                 </div>
             </div>
             
