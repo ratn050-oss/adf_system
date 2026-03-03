@@ -309,24 +309,69 @@ class CashbookHelper {
     }
     
     /**
+     * Normalize OTA source name for consistent matching
+     */
+    private function normalizeOtaSource($bookingSource) {
+        $source = strtolower(trim($bookingSource ?? ''));
+        // Remove common suffixes
+        $source = str_replace(['.com', '.co.id', '.id'], '', $source);
+        // Remove spaces and special chars
+        $source = preg_replace('/[^a-z0-9]/', '', $source);
+        return $source;
+    }
+    
+    /**
      * Calculate OTA fee based on booking source
      */
     public function calculateOtaFee($amount, $bookingSource) {
-        $otaSources = ['agoda', 'booking', 'tiket', 'airbnb', 'ota'];
+        // Normalize source name (tiket.com -> tiket, Booking.com -> booking, etc)
+        $normalizedSource = $this->normalizeOtaSource($bookingSource);
         
-        if (!in_array(strtolower($bookingSource), $otaSources)) {
+        // All recognized OTA sources
+        $otaSources = [
+            'agoda', 
+            'booking', 'bookingcom',
+            'tiket', 'tiketcom',
+            'airbnb', 
+            'traveloka',
+            'expedia',
+            'pegipegi',
+            'ota'
+        ];
+        
+        // Check if this is an OTA
+        $isOta = false;
+        $matchedSource = 'ota';  // default fallback
+        foreach ($otaSources as $ota) {
+            if (strpos($normalizedSource, $ota) !== false || $normalizedSource === $ota) {
+                $isOta = true;
+                $matchedSource = $ota;
+                break;
+            }
+        }
+        
+        if (!$isOta) {
             return ['gross' => $amount, 'fee_percent' => 0, 'fee_amount' => 0, 'net' => $amount];
         }
         
+        // Map normalized source to setting key
         $settingKeyMap = [
             'agoda' => 'ota_fee_agoda',
             'booking' => 'ota_fee_booking_com',
+            'bookingcom' => 'ota_fee_booking_com',
             'tiket' => 'ota_fee_tiket_com',
+            'tiketcom' => 'ota_fee_tiket_com',
             'airbnb' => 'ota_fee_airbnb',
+            'traveloka' => 'ota_fee_traveloka',
+            'expedia' => 'ota_fee_expedia',
+            'pegipegi' => 'ota_fee_other_ota',
             'ota' => 'ota_fee_other_ota'
         ];
         
-        $settingKey = $settingKeyMap[strtolower($bookingSource)] ?? 'ota_fee_other_ota';
+        // Use matched source (normalized) for lookup
+        $settingKey = $settingKeyMap[$matchedSource] ?? 'ota_fee_other_ota';
+        
+        error_log("CashbookHelper::calculateOtaFee: source='{$bookingSource}' normalized='{$normalizedSource}' matched='{$matchedSource}' settingKey='{$settingKey}'");
         
         try {
             $feeStmt = $this->masterDb->prepare("SELECT setting_value FROM settings WHERE setting_key = ?");
@@ -335,8 +380,10 @@ class CashbookHelper {
             
             if ($feeQuery) {
                 $feePercent = (float)($feeQuery['setting_value'] ?? 0);
+                error_log("CashbookHelper::calculateOtaFee: feePercent={$feePercent}% amount={$amount}");
                 if ($feePercent > 0) {
                     $feeAmount = ($amount * $feePercent) / 100;
+                    error_log("CashbookHelper::calculateOtaFee: feeAmount={$feeAmount} net=" . ($amount - $feeAmount));
                     return [
                         'gross' => $amount,
                         'fee_percent' => $feePercent,
@@ -344,6 +391,8 @@ class CashbookHelper {
                         'net' => $amount - $feeAmount
                     ];
                 }
+            } else {
+                error_log("CashbookHelper::calculateOtaFee: No fee setting found for key '{$settingKey}'");
             }
         } catch (\Throwable $e) {
             error_log("CashbookHelper: OTA fee calculation error - " . $e->getMessage());

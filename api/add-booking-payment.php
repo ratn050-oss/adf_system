@@ -105,9 +105,20 @@ try {
             WHERE b.id = ?
         ", [$bookingId]);
         
+        // Normalize booking source for matching (tiket.com -> tiket, Booking.com -> booking)
+        $normalizedSource = strtolower(trim($bookingDetails['booking_source'] ?? ''));
+        $normalizedSource = str_replace(['.com', '.co.id', '.id'], '', $normalizedSource);
+        $normalizedSource = preg_replace('/[^a-z0-9]/', '', $normalizedSource);
+        
         // Check if OTA booking - OTA payments sync at check-in, not at payment time
-        $otaSources = ['agoda', 'booking', 'tiket', 'airbnb', 'ota', 'traveloka', 'pegipegi', 'expedia'];
-        $isOTA = in_array(strtolower($bookingDetails['booking_source'] ?? ''), $otaSources);
+        $otaSources = ['agoda', 'booking', 'bookingcom', 'tiket', 'tiketcom', 'airbnb', 'ota', 'traveloka', 'pegipegi', 'expedia'];
+        $isOTA = false;
+        foreach ($otaSources as $ota) {
+            if (strpos($normalizedSource, $ota) !== false || $normalizedSource === $ota) {
+                $isOTA = true;
+                break;
+            }
+        }
         
         if ($isOTA) {
             // OTA Booking: DO NOT sync to cashbook now
@@ -150,8 +161,7 @@ try {
 
     $db->commit();
     
-    // Check if this is OTA booking for message
-    $isOtaBooking = in_array(strtolower($bookingDetails['booking_source'] ?? ''), ['agoda', 'booking', 'tiket', 'airbnb', 'ota', 'traveloka', 'pegipegi', 'expedia']);
+    // $isOTA already calculated above using normalized source matching
     
     // Prepare success message
     $successMessage = 'Payment saved';
@@ -169,7 +179,7 @@ try {
         } else {
             $successMessage .= "\nStatus: PARTIAL (Sisa: Rp " . number_format($remaining, 0, ',', '.') . ")";
         }
-    } elseif ($isOtaBooking) {
+    } elseif ($isOTA) {
         // OTA booking - explain that cashbook entry happens at check-in
         $successMessage .= "\n\n📋 Booking via " . strtoupper($bookingDetails['booking_source']);
         $successMessage .= "\n⏰ Akan tercatat di Buku Kas saat CHECK-IN";
@@ -191,8 +201,8 @@ try {
         'payment_status' => $paymentStatus,
         'cashbook_inserted' => $cashbookInserted,
         'cash_account' => $cashAccountName,
-        'is_ota' => $isOtaBooking,
-        'cashbook_at_checkin' => $isOtaBooking  // OTA payments sync at check-in
+        'is_ota' => $isOTA,
+        'cashbook_at_checkin' => $isOTA  // OTA payments sync at check-in
     ]);
 
 } catch (\Throwable $e) {

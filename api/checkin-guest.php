@@ -102,8 +102,21 @@ try {
     // ==========================================
     // NEW LOGIC: OTA vs Direct Booking Check-in
     // ==========================================
-    $otaSources = ['agoda', 'booking', 'tiket', 'airbnb', 'ota', 'traveloka', 'pegipegi', 'expedia'];
-    $isOTA = in_array(strtolower($booking['booking_source']), $otaSources);
+    // Normalize booking source for matching (tiket.com -> tiket, Booking.com -> booking)
+    $normalizedSource = strtolower(trim($booking['booking_source'] ?? ''));
+    $normalizedSource = str_replace(['.com', '.co.id', '.id'], '', $normalizedSource);
+    $normalizedSource = preg_replace('/[^a-z0-9]/', '', $normalizedSource);
+    
+    $otaSources = ['agoda', 'booking', 'bookingcom', 'tiket', 'tiketcom', 'airbnb', 'ota', 'traveloka', 'pegipegi', 'expedia'];
+    
+    // Check if any OTA keyword is in the normalized source
+    $isOTA = false;
+    foreach ($otaSources as $ota) {
+        if (strpos($normalizedSource, $ota) !== false || $normalizedSource === $ota) {
+            $isOTA = true;
+            break;
+        }
+    }
 
     // Start transaction
     $db->beginTransaction();
