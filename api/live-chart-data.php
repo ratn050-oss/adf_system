@@ -57,10 +57,11 @@ for ($i = 1; $i <= $daysInMonth; $i++) {
 
 // Get actual transaction data for the month
 // IMPORTANT: Exclude owner capital ONLY from income, NOT from expense!
+// Also exclude owner_fund source_type (Bu Sita transfers) from income statistics
 $transData = $db->fetchAll(
     "SELECT 
         DATE(transaction_date) as date,
-        SUM(CASE WHEN transaction_type = 'income'{$ownerCapitalExcludeCondition} THEN amount ELSE 0 END) as income,
+        SUM(CASE WHEN transaction_type = 'income'{$ownerCapitalExcludeCondition} AND (source_type IS NULL OR source_type != 'owner_fund') THEN amount ELSE 0 END) as income,
         SUM(CASE WHEN transaction_type = 'expense' THEN amount ELSE 0 END) as expense
     FROM cash_book
     WHERE DATE_FORMAT(transaction_date, '%Y-%m') = :month
