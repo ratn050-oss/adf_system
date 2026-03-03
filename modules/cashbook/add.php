@@ -326,39 +326,54 @@ if (isPost()) {
                                 error_log("BALANCE UPDATED - Account ID: {$cashAccountId} - INCOME +{$amount}");
                                 
                                 // ============================================
-                                // TRANSFER PETTY CASH: DEDUCT FROM BANK (KAS BESAR)
-                                // Transfer to Petty Cash comes from Bank account (invoice income)
-                                // NOT from owner_capital
+                                // TRANSFER PETTY CASH / MODAL OWNER
+                                // CQC: Transfer dari Bank (invoice income)
+                                // Narayana: Modal dari Bu Sita (owner_capital)
                                 // ============================================
                                 if ($sourceType === 'owner_fund') {
-                                    // Get Bank account (Kas Besar - where invoice income goes)
                                     $bizId = getMasterBusinessId();
-                                    $stmt = $masterDb->prepare("SELECT id, account_name, current_balance FROM cash_accounts WHERE business_id = ? AND account_type = 'bank' ORDER BY id LIMIT 1");
-                                    $stmt->execute([$bizId]);
-                                    $bankAccount = $stmt->fetch(PDO::FETCH_ASSOC);
                                     
-                                    if ($bankAccount) {
-                                        // Record expense transaction from Bank (Kas Besar)
+                                    if ($isCQC) {
+                                        // CQC: Transfer ke Petty Cash dari BANK (Kas Besar)
+                                        // Karena di CQC, uang invoice masuk ke Bank, bukan dari owner
+                                        $stmt = $masterDb->prepare("SELECT id, account_name, current_balance FROM cash_accounts WHERE business_id = ? AND account_type = 'bank' ORDER BY id LIMIT 1");
+                                        $stmt->execute([$bizId]);
+                                        $sourceAccount = $stmt->fetch(PDO::FETCH_ASSOC);
+                                        $sourceLabel = 'Bank';
+                                    } else {
+                                        // Narayana: Modal dari Bu Sita dari OWNER_CAPITAL
+                                        // Ini uang dari owner yang ditambahkan ke kas operasional
+                                        $stmt = $masterDb->prepare("SELECT id, account_name, current_balance FROM cash_accounts WHERE business_id = ? AND account_type = 'owner_capital' ORDER BY id LIMIT 1");
+                                        $stmt->execute([$bizId]);
+                                        $sourceAccount = $stmt->fetch(PDO::FETCH_ASSOC);
+                                        $sourceLabel = 'Kas Modal Owner';
+                                    }
+                                    
+                                    if ($sourceAccount) {
+                                        // Record expense transaction from source account
                                         $stmt = $masterDb->prepare("
                                             INSERT INTO cash_account_transactions 
                                             (cash_account_id, transaction_date, description, amount, transaction_type, created_by) 
                                             VALUES (?, ?, ?, ?, 'expense', ?)
                                         ");
+                                        $transferDesc = $isCQC 
+                                            ? 'Transfer ke Petty Cash' . ($data['description'] ? ': ' . $data['description'] : '')
+                                            : 'Modal dari Bu Sita' . ($data['description'] ? ': ' . $data['description'] : '');
                                         $stmt->execute([
-                                            $bankAccount['id'],
+                                            $sourceAccount['id'],
                                             $transactionDate,
-                                            'Transfer ke Petty Cash' . ($data['description'] ? ': ' . $data['description'] : ''),
+                                            $transferDesc,
                                             $amount,
                                             $_SESSION['user_id']
                                         ]);
                                         
-                                        // Deduct from Bank (Kas Besar)
+                                        // Deduct from source account
                                         $stmt = $masterDb->prepare("UPDATE cash_accounts SET current_balance = current_balance - ? WHERE id = ?");
-                                        $stmt->execute([$amount, $bankAccount['id']]);
+                                        $stmt->execute([$amount, $sourceAccount['id']]);
                                         
-                                        error_log("TRANSFER PETTY CASH: Bank ({$bankAccount['account_name']}) -{$amount}, Petty Cash +{$amount}");
+                                        error_log("TRANSFER/MODAL: {$sourceLabel} ({$sourceAccount['account_name']}) -{$amount}, Petty Cash +{$amount}");
                                     } else {
-                                        error_log("WARNING: No bank account found for Transfer Petty Cash deduction");
+                                        error_log("WARNING: No {$sourceLabel} account found for transfer deduction");
                                     }
                                 }
                                 // ============================================
