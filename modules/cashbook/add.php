@@ -636,11 +636,15 @@ include '../../includes/header.php';
                     </button>
                     <?php else: ?>
                     <!-- CQC: Transfer to Petty Cash Button -->
-                    <button type="button" id="btnTransferPettyCash" onclick="fillTransferPettyCash()" style="padding: 0.75rem; flex: 1; min-width: 160px; max-width: 200px; background: linear-gradient(135deg, #0d1f3c, #1e3a5f); color: #f0b429; border: 2px solid #f0b429; border-radius: 12px; font-size: 0.875rem; font-weight: 700; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.3rem; box-shadow: 0 2px 8px rgba(240, 180, 41, 0.3); transition: all 0.2s ease;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(240, 180, 41, 0.5)'; this.style.borderColor='#fbbf24'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(240, 180, 41, 0.3)'; this.style.borderColor='#f0b429'">
-                        <span style="font-size: 1.25rem;">💸</span>
-                        <div style="font-weight: 700; font-size: 0.75rem;">TRANSFER TO PETTY CASH</div>
-                        <div style="font-size: 0.65rem; color: #fbbf24;">Dari Kas Besar → Petty Cash</div>
-                    </button>
+                    <label class="transaction-type-card" id="btnTransferPettyCash" onclick="fillTransferPettyCash()" style="padding: 0.75rem; flex: 1; min-width: 140px; max-width: 180px; cursor: pointer;">
+                        <div style="display: flex; flex-direction: column; align-items: center; gap: 0.3rem; text-align: center;">
+                            <span style="font-size: 1.25rem;">💸</span>
+                            <div>
+                                <div style="font-weight: 700; font-size: 0.813rem; color: var(--text-primary);">TRANSFER PETTY CASH</div>
+                                <div style="font-size: 0.7rem; color: var(--text-muted);">Operasional Site</div>
+                            </div>
+                        </div>
+                    </label>
                     <?php endif; ?>
                 </div>
             </div>
@@ -709,7 +713,7 @@ include '../../includes/header.php';
                     <label class="form-label" style="font-size: 0.813rem; font-weight: 600; margin-bottom: 0.3rem; color: #0d1f3c;">💰 Jenis Uang Masuk <span style="color: var(--danger);">*</span></label>
                     <select name="cqc_income_type" id="cqc_income_type" class="form-control" style="height: 34px; font-size: 0.813rem;" onchange="updateCQCIncomeCategory(this)">
                         <option value="">-- Pilih Jenis --</option>
-                        <option value="topup_owner" style="background: #fef3c7; font-weight: 600;">💰 Transfer Petty Cash (dari Owner)</option>
+                        <option value="topup_owner" style="background: #fef3c7; font-weight: 600;">� Operasional Site (Transfer Petty Cash)</option>
                         <option value="dp">💵 DP Masuk (Invoice)</option>
                         <option value="termin">📄 Pembayaran Termin (Invoice)</option>
                         <option value="pelunasan">✅ Pelunasan (Invoice)</option>
@@ -1031,7 +1035,13 @@ function fillTransferPettyCash() {
         // Set description
         const descField = document.querySelector('textarea[name="description"]');
         if (descField) {
-            descField.value = 'Transfer dari Kas Besar ke Petty Cash untuk operasional proyek';
+            descField.value = 'Operasional Site - Transfer Petty Cash';
+        }
+        
+        // Update income desc field
+        const incomeDescField = document.getElementById('cqc_income_desc');
+        if (incomeDescField) {
+            incomeDescField.value = 'Operasional Site';
         }
         
         // Focus on amount field
@@ -1055,15 +1065,15 @@ function showPettyCashNotice() {
     const notice = document.createElement('div');
     notice.id = 'pettyCashNotice';
     notice.innerHTML = `
-        <div style="position: fixed; top: 80px; right: 20px; padding: 1rem 1.25rem; background: linear-gradient(135deg, #0d1f3c, #1e3a5f); border: 2px solid #f0b429; border-radius: 12px; box-shadow: 0 4px 20px rgba(240, 180, 41, 0.4); z-index: 9999; max-width: 350px; animation: slideIn 0.3s ease;">
+        <div style="position: fixed; top: 80px; right: 20px; padding: 1rem 1.25rem; background: linear-gradient(135deg, #f0fdf4, #dcfce7); border: 2px solid #22c55e; border-radius: 12px; box-shadow: 0 4px 20px rgba(34, 197, 94, 0.25); z-index: 9999; max-width: 350px; animation: slideIn 0.3s ease;">
             <div style="display: flex; align-items: flex-start; gap: 0.75rem;">
                 <span style="font-size: 1.5rem;">💸</span>
                 <div>
-                    <div style="font-weight: 700; color: #f0b429; font-size: 0.875rem; margin-bottom: 0.25rem;">Transfer ke Petty Cash</div>
-                    <div style="font-size: 0.75rem; color: #fcd34d; line-height: 1.4;">Form sudah diisi otomatis. Masukkan jumlah yang akan dipindahkan dari <strong>Kas Besar</strong> ke <strong>Petty Cash</strong>.</div>
-                    <div style="font-size: 0.7rem; color: #94a3b8; margin-top: 0.3rem;">⚡ Saldo Kas Besar akan otomatis berkurang</div>
+                    <div style="font-weight: 700; color: #166534; font-size: 0.875rem; margin-bottom: 0.25rem;">Operasional Site</div>
+                    <div style="font-size: 0.75rem; color: #15803d; line-height: 1.4;">Form sudah diisi otomatis. Masukkan jumlah untuk <strong>Petty Cash</strong>.</div>
+                    <div style="font-size: 0.7rem; color: #64748b; margin-top: 0.3rem;">⚡ Saldo Kas Besar akan otomatis berkurang</div>
                 </div>
-                <button onclick="this.parentElement.parentElement.parentElement.remove()" style="background: none; border: none; color: #f0b429; cursor: pointer; font-size: 1.25rem; line-height: 1; padding: 0;">&times;</button>
+                <button onclick="this.parentElement.parentElement.parentElement.remove()" style="background: none; border: none; color: #166534; cursor: pointer; font-size: 1.25rem; line-height: 1; padding: 0;">&times;</button>
             </div>
         </div>
     `;
