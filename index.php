@@ -765,12 +765,12 @@ if ($trialStatus) {
                 </div>
             </div>
             <div style="padding: 0.75rem; background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(16, 185, 129, 0.05)); border-radius: 8px; border-left: 4px solid var(--success);">
-                <div style="font-size: 0.75rem; color: var(--success); font-weight: 600; margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.05em;"><?php echo $isCQC ? 'Total Pemasukan Invoice' : 'Total Pemasukan'; ?></div>
+                <div style="font-size: 0.75rem; color: var(--success); font-weight: 600; margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.05em;"><?php echo $isCQC ? 'Kas Besar (Invoice)' : 'Total Pemasukan'; ?></div>
                 <div id="totalIncome" style="font-size: 1.5rem; font-weight: 800; color: var(--success);">
                     <?php 
                     $totalIncome = array_sum(array_column($dailyData, 'income'));
-                    // Income already excludes owner_fund (petty cash transfers) from SQL query
-                    $displayIncome = $totalIncome;
+                    // CQC: Show invoice income minus petty cash transfers (money remaining in Kas Besar)
+                    $displayIncome = $isCQC ? ($totalIncome - ($cqcPettyCashTransfers ?? 0)) : $totalIncome;
                     echo formatCurrency($displayIncome);
                     ?>
                 </div>
@@ -2010,7 +2010,11 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
                     const isCQC = data.cqc !== null && data.cqc !== undefined;
                     let netBalance = totalIncome - totalExpense;
                     
+                    // CQC: displayIncome = invoice - petty cash transfers
+                    let displayIncome = totalIncome;
                     if (isCQC) {
+                        const pettyCashTransfers = data.cqc.petty_cash_transfers || 0;
+                        displayIncome = totalIncome - pettyCashTransfers;
                         // Update Petty Cash container with actual balance
                         const pettyCashEl = document.getElementById('totalPettyCash');
                         if (pettyCashEl) {
@@ -2018,7 +2022,7 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
                         }
                     }
                     
-                    document.getElementById('totalIncome').textContent = formatRupiah(totalIncome);
+                    document.getElementById('totalIncome').textContent = formatRupiah(displayIncome);
                     document.getElementById('totalExpense').textContent = formatRupiah(totalExpense);
                     document.getElementById('netBalance').textContent = formatRupiah(netBalance);
                     document.getElementById('netBalance').style.color = netBalance >= 0 ? 'var(--success)' : 'var(--danger)';
@@ -2058,14 +2062,18 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
                     const isCQC = data.cqc !== null && data.cqc !== undefined;
                     let netBalance = totalIncome - totalExpense;
                     
+                    // CQC: displayIncome = invoice - petty cash transfers
+                    let displayIncome = totalIncome;
                     if (isCQC) {
+                        const pettyCashTransfers = data.cqc.petty_cash_transfers || 0;
+                        displayIncome = totalIncome - pettyCashTransfers;
                         const pettyCashEl = document.getElementById('totalPettyCash');
                         if (pettyCashEl) {
                             pettyCashEl.textContent = formatRupiah(data.cqc.petty_cash_balance || 0);
                         }
                     }
                     
-                    document.getElementById('totalIncome').textContent = formatRupiah(totalIncome);
+                    document.getElementById('totalIncome').textContent = formatRupiah(displayIncome);
                     document.getElementById('totalExpense').textContent = formatRupiah(totalExpense);
                     document.getElementById('netBalance').textContent = formatRupiah(netBalance);
                     document.getElementById('netBalance').style.color = netBalance >= 0 ? 'var(--success)' : 'var(--danger)';
