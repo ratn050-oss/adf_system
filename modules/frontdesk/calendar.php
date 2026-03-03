@@ -455,30 +455,32 @@ body[data-theme="dark"] .grid-header-room {
 }
 
 .grid-header-date {
-    background: linear-gradient(180deg, rgba(99, 102, 241, 0.08), rgba(99, 102, 241, 0.02));
-    border-right: 0.5px solid var(--border-color);
-    border-bottom: 1px solid var(--border-color);
-    padding: 0.1rem 0.15rem;
+    background: linear-gradient(180deg, #f8fafc, #f1f5f9);
+    border-right: 1px solid #e2e8f0;
+    border-bottom: 2px solid #cbd5e1;
+    padding: 0.25rem 0.2rem;
     text-align: center;
-    font-weight: 600;
-    font-size: 0.62rem;
-    color: var(--text-primary);
+    font-weight: 700;
+    font-size: 0.7rem;
+    color: #334155;
     position: relative;
-    min-height: 24px;
+    min-height: 28px;
 }
 
 /* Light theme - visible borders */
 body[data-theme="light"] .grid-header-date {
-    border-right: 1px solid rgba(51, 65, 85, 0.12);
-    border-bottom: 1px solid rgba(51, 65, 85, 0.12);
-    background: rgba(248, 250, 252, 0.5);
+    border-right: 1px solid #cbd5e1;
+    border-bottom: 2px solid #94a3b8;
+    background: linear-gradient(180deg, #ffffff, #f8fafc);
+    color: #1e293b;
 }
 
 /* Dark theme - header date */
 body[data-theme="dark"] .grid-header-date {
-    background: linear-gradient(180deg, rgba(99, 102, 241, 0.1), rgba(99, 102, 241, 0.03));
-    border-right: 0.5px solid rgba(71, 85, 105, 0.4);
-    border-bottom: 1px solid rgba(71, 85, 105, 0.4);
+    background: linear-gradient(180deg, #1e293b, #0f172a);
+    border-right: 1px solid #334155;
+    border-bottom: 2px solid #475569;
+    color: #e2e8f0;
 }
 
 /* Dark theme - date cells */
@@ -516,19 +518,19 @@ body[data-theme="light"] .grid-date-cell.today {
 
 .grid-header-date-day {
     display: inline;
-    font-size: 0.58rem;
+    font-size: 0.65rem;
     text-transform: uppercase;
-    letter-spacing: 0.3px;
-    color: var(--text-secondary);
     font-weight: 600;
+    letter-spacing: 0.3px;
+    color: #64748b;
 }
 
 .grid-header-date-num {
     display: inline;
-    font-size: 0.72rem;
+    font-size: 0.8rem;
     font-weight: 900;
     line-height: 1;
-    color: var(--text-primary);
+    color: #1e293b;
     margin-left: 0.15rem;
 }
 
@@ -635,29 +637,32 @@ body[data-theme="dark"] .grid-room-type-header {
 
 /* Type Price Cell (date columns in type header row) */
 .grid-type-price-cell {
-    background: linear-gradient(135deg, rgba(99, 102, 241, 0.06), rgba(99, 102, 241, 0.02));
-    border-right: 1px solid rgba(99, 102, 241, 0.15);
-    border-bottom: 1px solid rgba(99, 102, 241, 0.1);
-    min-height: 22px;
+    background: linear-gradient(135deg, #eef2ff, #e0e7ff);
+    border-right: 1px solid #c7d2fe;
+    border-bottom: 1px solid #a5b4fc;
+    min-height: 26px;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-size: 0.65rem;
+    font-size: 0.72rem;
     font-weight: 800;
-    color: rgba(99, 102, 241, 0.8);
-    letter-spacing: 0.2px;
+    color: #4338ca;
+    letter-spacing: 0.3px;
+    font-family: 'JetBrains Mono', 'Consolas', monospace;
 }
 
 body[data-theme="dark"] .grid-type-price-cell {
-    background: linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(99, 102, 241, 0.05));
-    border-right: 1px solid rgba(99, 102, 241, 0.25);
-    border-bottom: 1px solid rgba(99, 102, 241, 0.15);
-    color: rgba(165, 180, 252, 0.8);
+    background: linear-gradient(135deg, #312e81, #1e1b4b);
+    border-right: 1px solid #4338ca;
+    border-bottom: 1px solid #3730a3;
+    color: #c7d2fe;
 }
 
 body[data-theme="light"] .grid-type-price-cell {
-    background: linear-gradient(135deg, rgba(99, 102, 241, 0.08), rgba(99, 102, 241, 0.03));
-    color: rgba(67, 56, 202, 0.7);
+    background: linear-gradient(135deg, #eef2ff, #e0e7ff);
+    border-right: 1px solid #a5b4fc;
+    border-bottom: 1px solid #818cf8;
+    color: #3730a3;
 }
 
 /* Ensure booking bar text stays white in light theme */
@@ -2021,7 +2026,7 @@ body[data-theme="dark"] .stats-list li {
                 </div>
                 <?php foreach ($dates as $date): ?>
                 <div class="grid-type-price-cell">
-                    Rp<?php echo number_format($typePrice / 1000, 0, ',', '.'); ?>K
+                    Rp<?php echo number_format($typePrice, 0, ',', '.'); ?>
                 </div>
                 <?php endforeach; ?>
                 
