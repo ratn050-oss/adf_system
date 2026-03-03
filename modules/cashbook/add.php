@@ -560,12 +560,6 @@ include '../../includes/header.php';
                         <i data-feather="plus-circle" style="width: 16px; height: 16px;"></i> Tambah Transaksi Baru
                     <?php endif; ?>
                 </h3>
-                <?php if (!$isCQC): ?>
-                <!-- Special Button: Input dari Bu Sita (Owner Fund) -->
-                <button type="button" id="btnOwnerFund" onclick="fillOwnerFund()" style="padding: 0.5rem 1rem; background: linear-gradient(135deg, #f59e0b, #d97706); color: white; border: none; border-radius: 8px; font-size: 0.75rem; font-weight: 700; cursor: pointer; display: flex; align-items: center; gap: 0.4rem; box-shadow: 0 2px 8px rgba(245, 158, 11, 0.3); transition: all 0.2s ease;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(245, 158, 11, 0.4)'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(245, 158, 11, 0.3)'">
-                    💰 Input dari Bu Sita
-                </button>
-                <?php endif; ?>
             </div>
         </div>
         
@@ -573,8 +567,8 @@ include '../../includes/header.php';
             <!-- Transaction Type - FIRST (Full Width) -->
             <div style="grid-column: span 2; margin-bottom: 0.5rem;">
                 <label class="form-label" style="font-size: 0.813rem; font-weight: 600; margin-bottom: 0.5rem; display: block;">Tipe Transaksi <span style="color: var(--danger);">*</span></label>
-                <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; max-width: 400px;">
-                    <label class="transaction-type-card" style="padding: 0.75rem;">
+                <div style="display: flex; align-items: stretch; gap: 0.75rem; flex-wrap: wrap;">
+                    <label class="transaction-type-card" style="padding: 0.75rem; flex: 1; min-width: 140px; max-width: 180px;">
                         <input type="radio" name="transaction_type" value="income" required>
                         <div style="display: flex; flex-direction: column; align-items: center; gap: 0.3rem; text-align: center;">
                             <i data-feather="trending-up" style="width: 22px; height: 22px; color: var(--success); stroke-width: 2.5;"></i>
@@ -585,7 +579,7 @@ include '../../includes/header.php';
                         </div>
                     </label>
                     
-                    <label class="transaction-type-card" style="padding: 0.75rem;">
+                    <label class="transaction-type-card" style="padding: 0.75rem; flex: 1; min-width: 140px; max-width: 180px;">
                         <input type="radio" name="transaction_type" value="expense" required checked>
                         <div style="display: flex; flex-direction: column; align-items: center; gap: 0.3rem; text-align: center;">
                             <i data-feather="trending-down" style="width: 22px; height: 22px; color: var(--danger); stroke-width: 2.5;"></i>
@@ -595,6 +589,15 @@ include '../../includes/header.php';
                             </div>
                         </div>
                     </label>
+                    
+                    <?php if (!$isCQC): ?>
+                    <!-- Special Button: Input dari Bu Sita (Owner Fund) -->
+                    <button type="button" id="btnOwnerFund" onclick="fillOwnerFund()" style="padding: 0.75rem; flex: 1; min-width: 140px; max-width: 180px; background: linear-gradient(135deg, #fef3c7, #fde68a); color: #92400e; border: 2px solid #f59e0b; border-radius: 12px; font-size: 0.875rem; font-weight: 700; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.3rem; box-shadow: 0 2px 8px rgba(245, 158, 11, 0.2); transition: all 0.2s ease;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(245, 158, 11, 0.35)'; this.style.borderColor='#d97706'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(245, 158, 11, 0.2)'; this.style.borderColor='#f59e0b'">
+                        <span style="font-size: 1.25rem;">💰</span>
+                        <div style="font-weight: 700; font-size: 0.813rem;">INPUT DARI BU SITA</div>
+                        <div style="font-size: 0.7rem; color: #b45309;">Modal Pemilik</div>
+                    </button>
+                    <?php endif; ?>
                 </div>
             </div>
             
