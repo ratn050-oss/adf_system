@@ -103,17 +103,27 @@ try {
     
     $businessId = getMasterBusinessId();
     
+    // Get owner_capital account IDs
     $stmt = $masterDb->prepare("SELECT id FROM cash_accounts WHERE business_id = ? AND account_type = 'owner_capital'");
     $stmt->execute([$businessId]);
     $ownerCapitalAccountIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
+    
+    // Get cash (Kas Operasional) account IDs - income to these = owner fund, NOT real income
+    $stmt = $masterDb->prepare("SELECT id FROM cash_accounts WHERE business_id = ? AND account_type = 'cash'");
+    $stmt->execute([$businessId]);
+    $kasOperasionalAccountIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
 } catch (Exception $e) {
     error_log("Error fetching owner capital accounts: " . $e->getMessage());
 }
 
 // Build exclusion clause - ONLY if cash_account_id column exists in cash_book
+// Exclude income from:
+// 1. owner_capital accounts
+// 2. cash accounts (Kas Operasional) - income here is owner fund, not real income
 $excludeOwnerCapital = '';
-if ($hasCashAccountIdCol && !empty($ownerCapitalAccountIds)) {
-    $excludeOwnerCapital = " AND (cash_account_id IS NULL OR cash_account_id NOT IN (" . implode(',', $ownerCapitalAccountIds) . "))";
+$allOwnerFundAccounts = array_merge($ownerCapitalAccountIds ?? [], $kasOperasionalAccountIds ?? []);
+if ($hasCashAccountIdCol && !empty($allOwnerFundAccounts)) {
+    $excludeOwnerCapital = " AND (cash_account_id IS NULL OR cash_account_id NOT IN (" . implode(',', $allOwnerFundAccounts) . "))";
 }
 
 // Colors for divisions
