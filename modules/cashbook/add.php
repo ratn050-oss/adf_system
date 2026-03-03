@@ -634,6 +634,13 @@ include '../../includes/header.php';
                         <div style="font-weight: 700; font-size: 0.813rem;">INPUT DARI BU SITA</div>
                         <div style="font-size: 0.7rem; color: #b45309;">Modal Pemilik</div>
                     </button>
+                    <?php else: ?>
+                    <!-- CQC: Transfer to Petty Cash Button -->
+                    <button type="button" id="btnTransferPettyCash" onclick="fillTransferPettyCash()" style="padding: 0.75rem; flex: 1; min-width: 160px; max-width: 200px; background: linear-gradient(135deg, #0d1f3c, #1e3a5f); color: #f0b429; border: 2px solid #f0b429; border-radius: 12px; font-size: 0.875rem; font-weight: 700; cursor: pointer; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 0.3rem; box-shadow: 0 2px 8px rgba(240, 180, 41, 0.3); transition: all 0.2s ease;" onmouseover="this.style.transform='translateY(-2px)'; this.style.boxShadow='0 4px 12px rgba(240, 180, 41, 0.5)'; this.style.borderColor='#fbbf24'" onmouseout="this.style.transform='translateY(0)'; this.style.boxShadow='0 2px 8px rgba(240, 180, 41, 0.3)'; this.style.borderColor='#f0b429'">
+                        <span style="font-size: 1.25rem;">💸</span>
+                        <div style="font-weight: 700; font-size: 0.75rem;">TRANSFER TO PETTY CASH</div>
+                        <div style="font-size: 0.65rem; color: #fbbf24;">Dari Kas Besar → Petty Cash</div>
+                    </button>
                     <?php endif; ?>
                 </div>
             </div>
@@ -971,6 +978,105 @@ function showOwnerFundNotice() {
 <?php endif; ?>
 
 <?php if ($isCQC): ?>
+// CQC: Transfer to Petty Cash
+function fillTransferPettyCash() {
+    // Set transaction type to income (uang masuk ke Petty Cash)
+    const incomeRadio = document.querySelector('input[name="transaction_type"][value="income"]');
+    if (incomeRadio) {
+        incomeRadio.checked = true;
+        incomeRadio.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+    
+    // Wait for income section to show, then fill
+    setTimeout(() => {
+        // Set income type to topup_owner
+        const incomeTypeSelect = document.getElementById('cqc_income_type');
+        if (incomeTypeSelect) {
+            incomeTypeSelect.value = 'topup_owner';
+            incomeTypeSelect.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        
+        // Set project to Operational Office
+        const projectSelect = document.getElementById('cqc_project_id');
+        if (projectSelect) {
+            projectSelect.value = 'operational';
+            projectSelect.dispatchEvent(new Event('change', { bubbles: true }));
+        }
+        
+        // Set cash account to Petty Cash
+        const cashAccountSelect = document.querySelector('select[name="cash_account_id"]');
+        if (cashAccountSelect) {
+            for (let opt of cashAccountSelect.options) {
+                if (opt.text.toLowerCase().includes('petty') || opt.text.toLowerCase().includes('kas operasional')) {
+                    cashAccountSelect.value = opt.value;
+                    break;
+                }
+            }
+        }
+        
+        // Set payment method to cash
+        const cashPayment = document.querySelector('input[name="payment_method"][value="cash"]');
+        if (cashPayment) cashPayment.checked = true;
+        
+        // Set source_type hidden field to owner_fund
+        let sourceTypeField = document.querySelector('input[name="source_type"]');
+        if (!sourceTypeField) {
+            sourceTypeField = document.createElement('input');
+            sourceTypeField.type = 'hidden';
+            sourceTypeField.name = 'source_type';
+            document.querySelector('form').appendChild(sourceTypeField);
+        }
+        sourceTypeField.value = 'owner_fund';
+        
+        // Set description
+        const descField = document.querySelector('textarea[name="description"]');
+        if (descField) {
+            descField.value = 'Transfer dari Kas Besar ke Petty Cash untuk operasional proyek';
+        }
+        
+        // Focus on amount field
+        const amountField = document.querySelector('input[name="amount"]');
+        if (amountField) {
+            amountField.value = '';
+            amountField.focus();
+        }
+        
+        // Show notification
+        showPettyCashNotice();
+    }, 100);
+}
+
+function showPettyCashNotice() {
+    // Remove existing notice
+    const existing = document.getElementById('pettyCashNotice');
+    if (existing) existing.remove();
+    
+    // Create notice
+    const notice = document.createElement('div');
+    notice.id = 'pettyCashNotice';
+    notice.innerHTML = `
+        <div style="position: fixed; top: 80px; right: 20px; padding: 1rem 1.25rem; background: linear-gradient(135deg, #0d1f3c, #1e3a5f); border: 2px solid #f0b429; border-radius: 12px; box-shadow: 0 4px 20px rgba(240, 180, 41, 0.4); z-index: 9999; max-width: 350px; animation: slideIn 0.3s ease;">
+            <div style="display: flex; align-items: flex-start; gap: 0.75rem;">
+                <span style="font-size: 1.5rem;">💸</span>
+                <div>
+                    <div style="font-weight: 700; color: #f0b429; font-size: 0.875rem; margin-bottom: 0.25rem;">Transfer ke Petty Cash</div>
+                    <div style="font-size: 0.75rem; color: #fcd34d; line-height: 1.4;">Form sudah diisi otomatis. Masukkan jumlah yang akan dipindahkan dari <strong>Kas Besar</strong> ke <strong>Petty Cash</strong>.</div>
+                    <div style="font-size: 0.7rem; color: #94a3b8; margin-top: 0.3rem;">⚡ Saldo Kas Besar akan otomatis berkurang</div>
+                </div>
+                <button onclick="this.parentElement.parentElement.parentElement.remove()" style="background: none; border: none; color: #f0b429; cursor: pointer; font-size: 1.25rem; line-height: 1; padding: 0;">&times;</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(notice);
+    
+    // Auto-remove after 6 seconds
+    setTimeout(() => {
+        const el = document.getElementById('pettyCashNotice');
+        if (el) el.style.opacity = '0';
+        setTimeout(() => { if (el) el.remove(); }, 300);
+    }, 6000);
+}
+
 // CQC Project Info Display
 function updateCQCProjectInfo(select) {
     const opt = select.options[select.selectedIndex];
