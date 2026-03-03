@@ -454,6 +454,8 @@ $totalOwnerFund = 0; // ALL BUSINESSES: Owner top-up to Kas Operasional (NOT inc
 $totalRealIncome = 0; // Real income from customers/invoices
 $totalOfficeExpense = 0; // Office/operational expenses only (no project)
 $totalProjectExpense = 0; // Project-linked expenses (for contractor businesses)
+$totalPettyCashExpense = 0; // Expenses funded from Petty Cash (office + project)
+$totalKasBesarExpense = 0; // Expenses funded from Kas Besar
 foreach ($transactions as $trans) {
     if ($trans['transaction_type'] === 'income') {
         $totalIncome += $trans['amount'];
@@ -470,8 +472,16 @@ foreach ($transactions as $trans) {
             $desc = $trans['description'] ?? '';
             if (preg_match('/\[CQC_PROJECT:\d+\]/', $desc)) {
                 $totalProjectExpense += $trans['amount'];
+                // Track fund source from description tag
+                if (strpos($desc, '[Petty Cash]') !== false) {
+                    $totalPettyCashExpense += $trans['amount'];
+                } else {
+                    $totalKasBesarExpense += $trans['amount'];
+                }
             } else {
                 $totalOfficeExpense += $trans['amount'];
+                // Office expenses default to Petty Cash
+                $totalPettyCashExpense += $trans['amount'];
             }
         }
     }
@@ -1418,8 +1428,8 @@ echo getPrintCSS();
     <div class="card">
         <div class="card-header">
             <div>
-                <div class="card-title"><?php echo $isCQC ? 'Pengeluaran Office & Proyek' : 'Total Pengeluaran'; ?></div>
-                <div class="card-value text-danger"><?php echo formatCurrency($isCQC ? $totalOfficeExpense : $totalExpense); ?></div>
+                <div class="card-title"><?php echo $isCQC ? 'Pengeluaran dari Petty Cash' : 'Total Pengeluaran'; ?></div>
+                <div class="card-value text-danger"><?php echo formatCurrency($isCQC ? $totalPettyCashExpense : $totalExpense); ?></div>
             </div>
             <div class="card-icon expense">
                 <i data-feather="arrow-up-circle"></i>
@@ -1464,10 +1474,10 @@ echo getPrintCSS();
         <div class="cqc-daily-card expense">
             <div class="cqc-daily-label">
                 <i data-feather="upload" style="width: 14px; height: 14px;"></i>
-                Pengeluaran Office & Proyek
+                Pengeluaran dari Petty Cash
             </div>
-            <div class="cqc-daily-value">Rp <?php echo number_format($totalOfficeExpense, 0, ',', '.'); ?></div>
-            <div class="cqc-daily-desc">Biaya operasional harian</div>
+            <div class="cqc-daily-value">Rp <?php echo number_format($totalPettyCashExpense, 0, ',', '.'); ?></div>
+            <div class="cqc-daily-desc">Office & proyek (sumber: petty cash)</div>
         </div>
         <div class="cqc-daily-card balance">
             <div class="cqc-daily-label">
