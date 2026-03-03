@@ -402,7 +402,7 @@ body[data-theme="light"] .grid-room-type-header {
 .calendar-grid {
     display: grid;
     gap: 0;
-    grid-template-columns: 130px repeat(<?php echo count($dates); ?>, 130px);
+    grid-template-columns: 95px repeat(<?php echo count($dates); ?>, 130px);
     width: fit-content;
     min-width: fit-content;
     max-width: none;
@@ -414,44 +414,45 @@ body[data-theme="light"] .grid-room-type-header {
 }
 
 .grid-header-room {
-    background: linear-gradient(135deg, #e2e8f0 0%, #f1f5f9 100%);
-    border-right: 2px solid #94a3b8;
+    background: linear-gradient(135deg, #f1f5f9 0%, #ffffff 100%);
+    border-right: 2px solid #e2e8f0;
     backdrop-filter: none;
-    border-bottom: 1px solid #cbd5e1;
-    padding: 0.15rem 0.4rem;
+    border-bottom: 2px solid #cbd5e1;
+    padding: 0.2rem 0.5rem;
     font-weight: 800;
     text-align: center;
     position: sticky;
     left: 0;
     z-index: 40;
-    font-size: 0.62rem;
+    font-size: 0.68rem;
     color: #475569;
-    box-shadow: 3px 0 8px rgba(0,0,0,0.08);
-    letter-spacing: 1.5px;
+    box-shadow: 2px 0 6px rgba(0,0,0,0.04);
+    letter-spacing: 1px;
     text-transform: uppercase;
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: 24px;
-    min-width: 130px;
+    min-height: 28px;
+    min-width: 95px;
+    max-width: 95px;
 }
 
 /* Light theme - better header visibility */
 body[data-theme="light"] .grid-header-room {
-    background: linear-gradient(135deg, #cbd5e1 0%, #e2e8f0 100%);
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
     font-weight: 900;
-    border-right: 2px solid #94a3b8;
-    border-bottom: 1px solid #94a3b8;
-    color: #0f172a;
+    border-right: 2px solid #cbd5e1;
+    border-bottom: 2px solid #94a3b8;
+    color: #1e293b;
 }
 
 /* Dark theme - header room */
 body[data-theme="dark"] .grid-header-room {
-    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
-    border-right: 2px solid #475569;
-    border-bottom: 1px solid #475569;
-    color: #94a3b8;
-    box-shadow: 3px 0 8px rgba(0,0,0,0.3);
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    border-right: 2px solid #334155;
+    border-bottom: 2px solid #475569;
+    color: #e2e8f0;
+    box-shadow: 2px 0 8px rgba(0,0,0,0.3);
 }
 
 .grid-header-date {
@@ -544,39 +545,42 @@ body[data-theme="light"] .grid-date-cell.today {
 }
 
 .grid-footer-room {
-    background: linear-gradient(135deg, #e2e8f0 0%, #f1f5f9 100%);
-    border-right: 2px solid #94a3b8;
+    background: linear-gradient(135deg, #f1f5f9 0%, #ffffff 100%);
+    border-right: 2px solid #e2e8f0;
     border-top: 2px solid #cbd5e1;
-    padding: 0.15rem 0.4rem;
+    padding: 0.2rem 0.5rem;
     font-weight: 800;
     text-align: center;
     position: sticky;
     left: 0;
     z-index: 40;
-    font-size: 0.62rem;
+    font-size: 0.68rem;
     color: #475569;
-    letter-spacing: 1.5px;
+    letter-spacing: 1px;
     text-transform: uppercase;
     display: flex;
     align-items: center;
     justify-content: center;
-    min-height: 24px;
-    min-width: 130px;
+    min-height: 28px;
+    min-width: 95px;
+    max-width: 95px;
+    box-shadow: 2px 0 6px rgba(0,0,0,0.04);
 }
 
 body[data-theme="light"] .grid-footer-room {
-    background: linear-gradient(135deg, #cbd5e1 0%, #e2e8f0 100%);
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
     font-weight: 900;
-    border-right: 2px solid #94a3b8;
+    border-right: 2px solid #cbd5e1;
     border-top: 2px solid #94a3b8;
-    color: #0f172a;
+    color: #1e293b;
 }
 
 body[data-theme="dark"] .grid-footer-room {
-    background: linear-gradient(135deg, #1e293b 0%, #334155 100%);
-    border-right: 2px solid #475569;
+    background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
+    border-right: 2px solid #334155;
     border-top: 2px solid #475569;
-    color: #94a3b8;
+    color: #e2e8f0;
+    box-shadow: 2px 0 8px rgba(0,0,0,0.3);
 }
 
 .grid-footer-date {
@@ -629,66 +633,95 @@ body[data-theme="dark"] .grid-footer-date {
 
 /* Room Row */
 .grid-room-label {
-    background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%);
-    border-right: 2px solid #cbd5e1;
-    border-bottom: 1px solid #e2e8f0;
-    padding: 0.15rem 0.4rem;
-    font-weight: 800;
-    color: var(--text-primary);
+    background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+    border-right: 2px solid #e2e8f0;
+    border-bottom: 1px solid #f1f5f9;
+    padding: 0.2rem 0.5rem;
+    font-weight: 700;
+    color: #334155;
     position: sticky;
     left: 0;
     z-index: 30;
     display: flex;
-    flex-direction: row;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
     text-align: center;
-    gap: 0.3rem;
-    min-width: 130px;
+    gap: 0.1rem;
+    min-width: 95px;
+    max-width: 95px;
     cursor: grab;
-    font-size: 0.78rem;
-    min-height: 26px;
-    box-shadow: 3px 0 8px rgba(0,0,0,0.06);
+    font-size: 0.82rem;
+    min-height: 28px;
+    box-shadow: 2px 0 6px rgba(0,0,0,0.04);
     white-space: nowrap;
-    transition: background 0.15s ease;
+    transition: all 0.2s ease;
 }
 
 .grid-room-label:hover {
     background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
+    border-right-color: #a5b4fc;
 }
 
 /* Light theme - better room label contrast */
 body[data-theme="light"] .grid-room-label {
-    background: linear-gradient(135deg, #e2e8f0 0%, #f1f5f9 100%);
+    background: linear-gradient(135deg, #ffffff 0%, #f8fafc 100%);
     color: #1e293b;
-    font-weight: 900;
-    border-right: 2px solid #94a3b8;
-    border-bottom: 1px solid #cbd5e1;
+    font-weight: 800;
+    border-right: 2px solid #cbd5e1;
+    border-bottom: 1px solid #e2e8f0;
 }
 
 body[data-theme="light"] .grid-room-label:hover {
-    background: linear-gradient(135deg, #dbeafe 0%, #e0e7ff 100%);
+    background: linear-gradient(135deg, #eef2ff 0%, #dbeafe 100%);
+    border-right-color: #818cf8;
 }
 
 /* Dark theme - room label */
 body[data-theme="dark"] .grid-room-label {
     background: linear-gradient(135deg, #1e293b 0%, #0f172a 100%);
-    color: #e2e8f0;
-    border-right: 2px solid #475569;
-    border-bottom: 1px solid #334155;
-    box-shadow: 3px 0 8px rgba(0,0,0,0.3);
+    color: #f1f5f9;
+    border-right: 2px solid #334155;
+    border-bottom: 1px solid #1e293b;
+    box-shadow: 2px 0 8px rgba(0,0,0,0.3);
 }
 
 body[data-theme="dark"] .grid-room-label:hover {
     background: linear-gradient(135deg, #312e81 0%, #1e1b4b 100%);
-    color: #c7d2fe;
+    color: #e0e7ff;
+    border-right-color: #6366f1;
+}
+
+.grid-room-type-label {
+    font-size: 0.58rem;
+    font-weight: 600;
+    color: #6366f1;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    line-height: 1;
+}
+
+body[data-theme="dark"] .grid-room-type-label {
+    color: #a5b4fc;
+}
+
+.grid-room-number {
+    font-size: 0.85rem;
+    color: #1e293b;
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: 0.3px;
+}
+
+body[data-theme="dark"] .grid-room-number {
+    color: #f1f5f9;
 }
 
 .grid-room-type-header {
     background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
     border-right: 2px solid #a5b4fc;
     border-bottom: 1px solid #c7d2fe;
-    padding: 0.1rem 0.4rem;
+    padding: 0.15rem 0.5rem;
     font-weight: 800;
     color: #4338ca;
     position: sticky;
@@ -698,11 +731,12 @@ body[data-theme="dark"] .grid-room-label:hover {
     align-items: center;
     justify-content: center;
     text-align: center;
-    font-size: 0.68rem;
+    font-size: 0.72rem;
     gap: 0.2rem;
-    min-width: 130px;
-    min-height: 22px;
-    box-shadow: 3px 0 8px rgba(0,0,0,0.06);
+    min-width: 95px;
+    max-width: 95px;
+    min-height: 24px;
+    box-shadow: 2px 0 6px rgba(0,0,0,0.04);
     letter-spacing: 0.3px;
 }
 
@@ -2122,6 +2156,7 @@ body[data-theme="dark"] .stats-list li {
                 <!-- Individual Rooms of This Type -->
                 <?php foreach ($typeRooms as $room): ?>
                 <div class="grid-room-label">
+                    <span class="grid-room-type-label"><?php echo htmlspecialchars($room['type_name']); ?></span>
                     <span class="grid-room-number"><?php echo htmlspecialchars($room['room_number']); ?></span>
                 </div>
 
