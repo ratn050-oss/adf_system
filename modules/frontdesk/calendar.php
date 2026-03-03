@@ -710,18 +710,9 @@ body .booking-bar > span {
     transition: background 0.15s ease;
 }
 
-/* Same-day turnover divider (checkout left, checkin right) */
+/* Same-day turnover divider - HIDDEN */
 .grid-date-cell.has-turnover::before {
-    content: '';
-    position: absolute;
-    left: 50%;
-    top: 0;
-    bottom: 0;
-    width: 3px;
-    background: linear-gradient(180deg, #ef4444, #f97316, #ef4444);
-    z-index: 5;
-    box-shadow: 0 0 6px rgba(239, 68, 68, 0.6);
-    transform: translateX(-50%);
+    display: none;
 }
 
 /* Light theme - visible cell borders */
