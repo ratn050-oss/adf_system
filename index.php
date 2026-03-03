@@ -766,7 +766,9 @@ if ($trialStatus) {
                 <div id="totalIncome" style="font-size: 1.5rem; font-weight: 800; color: var(--success);">
                     <?php 
                     $totalIncome = array_sum(array_column($dailyData, 'income'));
-                    echo formatCurrency($totalIncome);
+                    // CQC: Deduct Petty Cash transfer from Total Invoice display
+                    $displayIncome = $isCQC ? ($totalIncome - ($cqcPettyCashThisMonth ?? 0)) : $totalIncome;
+                    echo formatCurrency($displayIncome);
                     ?>
                 </div>
             </div>
@@ -791,8 +793,14 @@ if ($trialStatus) {
             </div>
             <div style="padding: 0.75rem; background: linear-gradient(135deg, rgba(<?php echo $cPrimaryRgb; ?>, 0.12), rgba(<?php echo $cSecondaryRgb; ?>, 0.05)); border-radius: 8px; border-left: 4px solid var(--primary-color);">
                 <div style="font-size: 0.75rem; color: var(--primary-color); font-weight: 600; margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.05em;"><?php echo $isCQC ? 'Saldo Bersih' : 'Net Balance'; ?></div>
-                <div id="netBalance" style="font-size: 1.5rem; font-weight: 800; color: <?php echo ($totalIncome - $totalExpense) >= 0 ? 'var(--success)' : 'var(--danger)'; ?>;">
-                    <?php echo formatCurrency($totalIncome - $totalExpense); ?>
+                <?php 
+                // CQC: Saldo Bersih = Display Invoice + Petty Cash - Pengeluaran
+                // $displayIncome already has ($totalIncome - $cqcPettyCash)
+                // So: Saldo = ($totalIncome - PettyCash) + PettyCash - Expense = $totalIncome - Expense
+                $netBalance = $isCQC ? ($displayIncome + ($cqcPettyCashThisMonth ?? 0) - $totalExpense) : ($totalIncome - $totalExpense);
+                ?>
+                <div id="netBalance" style="font-size: 1.5rem; font-weight: 800; color: <?php echo $netBalance >= 0 ? 'var(--success)' : 'var(--danger)'; ?>;">
+                    <?php echo formatCurrency($netBalance); ?>
                 </div>
             </div>
         </div>
