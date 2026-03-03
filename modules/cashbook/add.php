@@ -1,4 +1,4 @@
-<?php
+﻿<?php
 /**
  * NARAYANA HOTEL MANAGEMENT SYSTEM
  * Add New Transaction
@@ -641,7 +641,7 @@ include '../../includes/header.php';
                             <span style="font-size: 1.25rem;">💸</span>
                             <div>
                                 <div style="font-weight: 700; font-size: 0.813rem; color: var(--text-primary);">TRANSFER PETTY CASH</div>
-                                <div style="font-size: 0.7rem; color: var(--text-muted);">Operasional Site</div>
+                                <div style="font-size: 0.7rem; color: var(--text-muted);">Office & Proyek</div>
                             </div>
                         </div>
                     </label>
@@ -668,7 +668,7 @@ include '../../includes/header.php';
                     <label class="form-label" style="font-size: 0.813rem; font-weight: 600; margin-bottom: 0.3rem; color: #0d1f3c;">☀️ Proyek <span style="color: var(--danger);">*</span></label>
                     <select name="cqc_project_id" id="cqc_project_id" class="form-control cqc-select-project" style="height: 38px; font-size: 0.813rem;" required onchange="updateCQCProjectInfo(this)">
                         <option value="">-- Pilih Proyek --</option>
-                        <option value="operational" data-budget="0" data-spent="0" data-remaining="0" data-client="Office" style="background: #f0f9ff; font-weight: 600;">🏢 Operasional Office (Non-Proyek)</option>
+                        <option value="operational" data-budget="0" data-spent="0" data-remaining="0" data-client="Office" style="background: #f0f9ff; font-weight: 600;">💼 Operasional Office & Proyek</option>
                         <?php foreach ($cqcProjects as $proj): 
                             $statusLabels = ['planning'=>'📋 Planning','procurement'=>'🛒 Procurement','installation'=>'⚡ Instalasi','testing'=>'🔧 Testing','completed'=>'✅ Selesai','on_hold'=>'⏸️ Ditunda'];
                             $statusLabel = $statusLabels[$proj['status']] ?? ucfirst($proj['status']);
@@ -713,7 +713,7 @@ include '../../includes/header.php';
                     <label class="form-label" style="font-size: 0.813rem; font-weight: 600; margin-bottom: 0.3rem; color: #0d1f3c;">💰 Jenis Uang Masuk <span style="color: var(--danger);">*</span></label>
                     <select name="cqc_income_type" id="cqc_income_type" class="form-control" style="height: 34px; font-size: 0.813rem;" onchange="updateCQCIncomeCategory(this)">
                         <option value="">-- Pilih Jenis --</option>
-                        <option value="topup_owner" style="background: #fef3c7; font-weight: 600;">� Operasional Site (Transfer Petty Cash)</option>
+                        <option value="topup_owner" style="background: #fef3c7; font-weight: 600;">� Operasional Office & Proyek</option>
                         <option value="dp">💵 DP Masuk (Invoice)</option>
                         <option value="termin">📄 Pembayaran Termin (Invoice)</option>
                         <option value="pelunasan">✅ Pelunasan (Invoice)</option>
@@ -1035,13 +1035,13 @@ function fillTransferPettyCash() {
         // Set description
         const descField = document.querySelector('textarea[name="description"]');
         if (descField) {
-            descField.value = 'Operasional Site - Transfer Petty Cash';
+            descField.value = 'Transfer Petty Cash - Operasional Office & Proyek';
         }
         
         // Update income desc field
         const incomeDescField = document.getElementById('cqc_income_desc');
         if (incomeDescField) {
-            incomeDescField.value = 'Operasional Site';
+            incomeDescField.value = 'Operasional Office & Proyek';
         }
         
         // Focus on amount field
@@ -1069,7 +1069,7 @@ function showPettyCashNotice() {
             <div style="display: flex; align-items: flex-start; gap: 0.75rem;">
                 <span style="font-size: 1.5rem;">💸</span>
                 <div>
-                    <div style="font-weight: 700; color: #166534; font-size: 0.875rem; margin-bottom: 0.25rem;">Operasional Site</div>
+                    <div style="font-weight: 700; color: #166534; font-size: 0.875rem; margin-bottom: 0.25rem;">Operasional Office & Proyek</div>
                     <div style="font-size: 0.75rem; color: #15803d; line-height: 1.4;">Form sudah diisi otomatis. Masukkan jumlah untuk <strong>Petty Cash</strong>.</div>
                     <div style="font-size: 0.7rem; color: #64748b; margin-top: 0.3rem;">⚡ Saldo Kas Besar akan otomatis berkurang</div>
                 </div>
@@ -1095,7 +1095,7 @@ function updateCQCProjectInfo(select) {
     
     // Handle Operational Office selection
     if (opt.value === 'operational') {
-        info.innerHTML = '<div style="display: flex; gap: 1rem; font-size: 0.75rem; color: #0d1f3c;"><span>🏢 <strong>Biaya Operasional Kantor</strong> - Pengeluaran ini tidak terkait dengan proyek tertentu</span></div>';
+        info.innerHTML = '<div style="display: flex; gap: 1rem; font-size: 0.75rem; color: #0d1f3c;"><span>💼 <strong>Operasional Office & Proyek</strong> - Untuk kebutuhan kantor dan proyek</span></div>';
         info.style.display = 'block';
         info.style.background = 'linear-gradient(135deg, rgba(59,130,246,0.08), rgba(59,130,246,0.03))';
         info.style.borderLeftColor = '#3b82f6';
