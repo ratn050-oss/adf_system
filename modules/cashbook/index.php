@@ -116,25 +116,49 @@ try {
             if (!$category) $category = $db->fetchOne("SELECT id FROM categories WHERE category_type = 'income' ORDER BY id ASC LIMIT 1");
             $categoryId = $category['id'] ?? 1;
 
+            // ============================================
+            // IMPORTANT: Only sync payments where:
+            // - Direct Booking: sync anytime (already paid)
+            // - OTA: ONLY sync when booking status = checked_in or checked_out
+            // This prevents OTA payments from entering kas before check-in!
+            // ============================================
+            $otaSources = "'agoda', 'booking', 'booking.com', 'tiket', 'tiket.com', 'traveloka', 'airbnb', 'expedia', 'pegipegi', 'ota'";
+            
             if ($hasSyncCol) {
                 $unsyncedPayments = $db->fetchAll("
                     SELECT bp.id as payment_id, bp.booking_id, bp.amount, bp.payment_method, bp.payment_date,
-                           b.booking_code, b.booking_source, b.final_price, g.guest_name, r.room_number
+                           b.booking_code, b.booking_source, b.final_price, b.status as booking_status, g.guest_name, r.room_number
                     FROM booking_payments bp
                     JOIN bookings b ON bp.booking_id = b.id
                     LEFT JOIN guests g ON b.guest_id = g.id
                     LEFT JOIN rooms r ON b.room_id = r.id
-                    WHERE bp.synced_to_cashbook = 0 ORDER BY bp.id ASC
+                    WHERE bp.synced_to_cashbook = 0 
+                    AND (
+                        -- Direct Booking: sync anytime
+                        (LOWER(COALESCE(b.booking_source,'')) NOT IN ({$otaSources}) AND LOWER(COALESCE(b.booking_source,'')) NOT LIKE '%ota%')
+                        OR
+                        -- OTA: only sync if checked_in or checked_out
+                        (b.status IN ('checked_in', 'checked_out'))
+                    )
+                    ORDER BY bp.id ASC
                 ");
             } else {
                 $unsyncedPayments = $db->fetchAll("
                     SELECT bp.id as payment_id, bp.booking_id, bp.amount, bp.payment_method, bp.payment_date,
-                           b.booking_code, b.booking_source, b.final_price, g.guest_name, r.room_number
+                           b.booking_code, b.booking_source, b.final_price, b.status as booking_status, g.guest_name, r.room_number
                     FROM booking_payments bp
                     JOIN bookings b ON bp.booking_id = b.id
                     LEFT JOIN guests g ON b.guest_id = g.id
                     LEFT JOIN rooms r ON b.room_id = r.id
-                    WHERE bp.payment_date >= DATE_SUB(NOW(), INTERVAL 60 DAY) ORDER BY bp.id ASC
+                    WHERE bp.payment_date >= DATE_SUB(NOW(), INTERVAL 60 DAY) 
+                    AND (
+                        -- Direct Booking: sync anytime
+                        (LOWER(COALESCE(b.booking_source,'')) NOT IN ({$otaSources}) AND LOWER(COALESCE(b.booking_source,'')) NOT LIKE '%ota%')
+                        OR
+                        -- OTA: only sync if checked_in or checked_out
+                        (b.status IN ('checked_in', 'checked_out'))
+                    )
+                    ORDER BY bp.id ASC
                 ");
             }
 
