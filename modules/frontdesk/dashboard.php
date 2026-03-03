@@ -218,19 +218,36 @@ try {
     }
 
     // 10. Direct Booking Payments Today (alternative source if cash_book empty)
+    // EXCLUDE: OTA bookings (masuk saat check-in) dan booking yang belum check-in
     $directPaymentsResult = $db->fetchOne("
-        SELECT COALESCE(SUM(amount), 0) as total
-        FROM booking_payments
-        WHERE DATE(payment_date) = ?
+        SELECT COALESCE(SUM(bp.amount), 0) as total
+        FROM booking_payments bp
+        JOIN bookings b ON bp.booking_id = b.id
+        WHERE DATE(bp.payment_date) = ?
+        AND b.status = 'checked_in'
+        AND LOWER(COALESCE(b.booking_source, '')) NOT LIKE '%agoda%'
+        AND LOWER(COALESCE(b.booking_source, '')) NOT LIKE '%booking%'
+        AND LOWER(COALESCE(b.booking_source, '')) NOT LIKE '%tiket%'
+        AND LOWER(COALESCE(b.booking_source, '')) NOT LIKE '%traveloka%'
+        AND LOWER(COALESCE(b.booking_source, '')) NOT LIKE '%airbnb%'
+        AND LOWER(COALESCE(b.booking_source, '')) NOT LIKE '%expedia%'
+        AND LOWER(COALESCE(b.booking_source, '')) NOT LIKE '%ota%'
     ", [$today]);
     $stats['direct_payments_today'] = $directPaymentsResult['total'] ?? 0;
 
     // Fallback for today's payments from bookings.paid_amount (created today)
+    // ONLY checked_in AND direct bookings
     if ($stats['direct_payments_today'] == 0) {
         $fallbackToday = $db->fetchOne("
             SELECT COALESCE(SUM(paid_amount), 0) as total
             FROM bookings
-            WHERE DATE(created_at) = ? AND status IN ('confirmed', 'checked_in')
+            WHERE DATE(created_at) = ? 
+            AND status = 'checked_in'
+            AND LOWER(COALESCE(booking_source, '')) NOT LIKE '%agoda%'
+            AND LOWER(COALESCE(booking_source, '')) NOT LIKE '%booking%'
+            AND LOWER(COALESCE(booking_source, '')) NOT LIKE '%tiket%'
+            AND LOWER(COALESCE(booking_source, '')) NOT LIKE '%traveloka%'
+            AND LOWER(COALESCE(booking_source, '')) NOT LIKE '%ota%'
         ", [$today]);
         $stats['direct_payments_today'] = $fallbackToday['total'] ?? 0;
     }
