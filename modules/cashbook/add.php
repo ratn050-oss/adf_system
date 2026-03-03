@@ -14,19 +14,31 @@ $auth = new Auth();
 $auth->requireLogin();
 $db = Database::getInstance();
 
-// CQC Detection
-$isCQC = (strtolower(ACTIVE_BUSINESS_ID) === 'cqc');
+// Load business configuration
+$businessConfig = require '../../config/businesses/' . ACTIVE_BUSINESS_ID . '.php';
 
-$pageTitle = $isCQC ? '☀️ Input Transaksi Proyek' : 'Tambah Transaksi';
-$pageSubtitle = $isCQC ? 'Catat pemasukan & pengeluaran proyek solar panel' : 'Input Transaksi Baru';
+// ============================================
+// BUSINESS FEATURE DETECTION (CONFIG-BASED)
+// Uses enabled_modules and business_type from config
+// NOT hardcoded business ID - allows proper isolation
+// ============================================
+$hasProjectModule = in_array('cqc-projects', $businessConfig['enabled_modules'] ?? []);
+$isContractor = ($businessConfig['business_type'] ?? '') === 'contractor';
+$isHotel = ($businessConfig['business_type'] ?? '') === 'hotel';
+
+// Legacy compatibility - use feature flags for conditional logic
+$isCQC = $hasProjectModule; // Only true if business has cqc-projects module enabled
+
+$pageTitle = $hasProjectModule ? '☀️ Input Transaksi Proyek' : 'Tambah Transaksi';
+$pageSubtitle = $hasProjectModule ? 'Catat pemasukan & pengeluaran proyek solar panel' : 'Input Transaksi Baru';
 
 // Get divisions and categories
 $divisions = $db->fetchAll("SELECT * FROM divisions WHERE is_active = 1 ORDER BY division_name");
 
-// CQC: Load projects and expense categories
+// Project Module: Load projects and expense categories (only if module enabled)
 $cqcProjects = [];
 $cqcCategories = [];
-if ($isCQC) {
+if ($hasProjectModule) {
     try {
         require_once __DIR__ . '/../cqc-projects/db-helper.php';
         $cqcPdo = getCQCDatabaseConnection();
@@ -35,7 +47,7 @@ if ($isCQC) {
         $stmt = $cqcPdo->query("SELECT id, category_name, category_icon FROM cqc_expense_categories WHERE is_active = 1 ORDER BY id");
         $cqcCategories = $stmt->fetchAll(PDO::FETCH_ASSOC);
     } catch (Exception $e) {
-        error_log('CQC project load error: ' . $e->getMessage());
+        error_log('Project module load error: ' . $e->getMessage());
     }
 }
 

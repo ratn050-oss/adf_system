@@ -259,12 +259,21 @@ try {
 // Load business configuration
 $businessConfig = require '../../config/businesses/' . ACTIVE_BUSINESS_ID . '.php';
 
-// CQC Detection
-$isCQC = (strtolower(ACTIVE_BUSINESS_ID) === 'cqc');
+// ============================================
+// BUSINESS FEATURE DETECTION (CONFIG-BASED)
+// Uses enabled_modules and business_type from config
+// NOT hardcoded business ID - allows proper isolation
+// ============================================
+$hasProjectModule = in_array('cqc-projects', $businessConfig['enabled_modules'] ?? []);
+$isContractor = ($businessConfig['business_type'] ?? '') === 'contractor';
+$isHotel = ($businessConfig['business_type'] ?? '') === 'hotel';
 
-// CQC: Load project names for mapping
+// Legacy compatibility - use feature flags for conditional logic
+$isCQC = $hasProjectModule; // Only true if business has cqc-projects module enabled
+
+// Project module: Load project names for mapping (only if module enabled)
 $cqcProjectMap = [];
-if ($isCQC) {
+if ($hasProjectModule) {
     try {
         require_once __DIR__ . '/../cqc-projects/db-helper.php';
         $cqcPdo = getCQCDatabaseConnection();

@@ -49,20 +49,26 @@ $pageTitle = BUSINESS_ICON . ' ' . $displayCompanyName;
 $pageSubtitle = 'Dashboard & Monitoring Real-time';
 
 // ============================================
-// CQC-SPECIFIC COLOR PALETTE
+// BUSINESS FEATURE DETECTION (CONFIG-BASED)
+// Uses enabled_modules and business_type from config
 // ============================================
-$isCQC = (strtolower(ACTIVE_BUSINESS_ID) === 'cqc');
+$hasProjectModule = in_array('cqc-projects', $businessConfig['enabled_modules'] ?? []);
+$isContractor = ($businessConfig['business_type'] ?? '') === 'contractor';
+$isHotel = ($businessConfig['business_type'] ?? '') === 'hotel';
+$isCQC = $hasProjectModule; // Legacy compatibility
+
+// Dynamic color palette based on business config
 // Primary glow/tint color (replaces purple rgba(99,102,241,...))
-$cPrimaryRgb = $isCQC ? '240, 180, 41' : '99, 102, 241';
+$cPrimaryRgb = $isContractor ? '240, 180, 41' : '99, 102, 241';
 // Secondary tint (replaces secondary purple rgba(139,92,246,...))
-$cSecondaryRgb = $isCQC ? '13, 31, 60' : '139, 92, 246';
+$cSecondaryRgb = $isContractor ? '13, 31, 60' : '139, 92, 246';
 // Action button color (replaces blue #0071e3)
-$cAccent = $isCQC ? '#0d1f3c' : '#0071e3';
-$cAccentDark = $isCQC ? '#122a4e' : '#0055b8';
+$cAccent = $isContractor ? '#0d1f3c' : '#0071e3';
+$cAccentDark = $isContractor ? '#122a4e' : '#0055b8';
 // Action button rgb (replaces blue rgba(0,113,227,...))
-$cAccentRgb = $isCQC ? '13, 31, 60' : '0, 113, 227';
+$cAccentRgb = $isContractor ? '13, 31, 60' : '0, 113, 227';
 // Kas tersedia highlight color
-$cKasColor = $isCQC ? '#f0b429' : '#0071e3';
+$cKasColor = $isContractor ? '#f0b429' : '#0071e3';
 
 // Get date range (today, this month, this year)
 $today = date('Y-m-d');

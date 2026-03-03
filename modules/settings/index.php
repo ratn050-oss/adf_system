@@ -34,8 +34,13 @@ $db = Database::getInstance();
 $currentUser = $auth->getCurrentUser();
 $pageTitle = 'Pengaturan';
 
-// CQC Detection
-$isCQC = (strtolower(ACTIVE_BUSINESS_ID) === 'cqc');
+// Load business configuration
+$businessConfig = require '../../config/businesses/' . ACTIVE_BUSINESS_ID . '.php';
+
+// Business feature detection (config-based)
+$hasProjectModule = in_array('cqc-projects', $businessConfig['enabled_modules'] ?? []);
+$isContractor = ($businessConfig['business_type'] ?? '') === 'contractor';
+$isCQC = $hasProjectModule; // Legacy compatibility
 
 include '../../includes/header.php';
 ?>
