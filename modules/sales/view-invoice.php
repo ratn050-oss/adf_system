@@ -1,6 +1,6 @@
 <?php
 /**
- * CQC Professional General Invoice - Same design as Termin Invoice
+ * Professional Invoice View - Support both CQC and standard business invoices
  * Elegant A4 invoice display and print
  */
 define('APP_ACCESS', true);
@@ -12,44 +12,85 @@ require_once '../../includes/functions.php';
 $auth = new Auth();
 $auth->requireLogin();
 
-require_once '../cqc-projects/db-helper.php';
-
-try {
-    $pdo = getCQCDatabaseConnection();
-    ensureCQCGeneralInvoiceTable($pdo);
-} catch (Exception $e) {
-    die("Database connection failed: " . $e->getMessage());
-}
+$db = Database::getInstance();
 
 $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 $print = isset($_GET['print']) && $_GET['print'] == '1';
 
 if (!$id) {
-    header('Location: index-cqc.php');
+    header('Location: index.php');
     exit;
 }
 
-// Get invoice
-$stmt = $pdo->prepare("SELECT * FROM cqc_general_invoices WHERE id = ?");
-$stmt->execute([$id]);
-$invoice = $stmt->fetch(PDO::FETCH_ASSOC);
+// Detect business type
+$currentBusiness = $_SESSION['active_business_id'] ?? '';
+$isCQC = (strtoupper($currentBusiness) === 'CQC' || strpos(strtoupper($currentBusiness), 'CQC') !== false);
+
+$invoice = null;
+$items = [];
+
+if ($isCQC) {
+    // CQC: Use cqc_general_invoices
+    require_once '../cqc-projects/db-helper.php';
+    try {
+        $pdo = getCQCDatabaseConnection();
+        ensureCQCGeneralInvoiceTable($pdo);
+        
+        $stmt = $pdo->prepare("SELECT * FROM cqc_general_invoices WHERE id = ?");
+        $stmt->execute([$id]);
+        $invoice = $stmt->fetch(PDO::FETCH_ASSOC);
+        
+        if ($invoice) {
+            $stmtItems = $pdo->prepare("SELECT * FROM cqc_general_invoice_items WHERE invoice_id = ? ORDER BY sort_order");
+            $stmtItems->execute([$id]);
+            $items = $stmtItems->fetchAll(PDO::FETCH_ASSOC);
+        }
+    } catch (Exception $e) {
+        die("Database connection failed: " . $e->getMessage());
+    }
+} else {
+    // Standard business: Use sales_invoices_header
+    $invoice = $db->fetchOne("
+        SELECT si.*, d.division_name 
+        FROM sales_invoices_header si
+        LEFT JOIN divisions d ON si.division_id = d.id
+        WHERE si.id = ?
+    ", [$id]);
+    
+    if ($invoice) {
+        $items = $db->fetchAll("
+            SELECT *, item_name as description, quantity as quantity, unit_price, total_price as amount, 'pcs' as unit
+            FROM sales_invoices_detail 
+            WHERE invoice_header_id = ? 
+            ORDER BY id
+        ", [$id]);
+        
+        // Map standard fields to CQC format for template compatibility
+        $invoice['client_name'] = $invoice['customer_name'] ?? '';
+        $invoice['client_phone'] = $invoice['customer_phone'] ?? '';
+        $invoice['client_email'] = $invoice['customer_email'] ?? '';
+        $invoice['client_address'] = $invoice['customer_address'] ?? '';
+        $invoice['subject'] = $invoice['division_name'] ?? '';
+        $invoice['subtotal'] = $invoice['subtotal'] ?? $invoice['total_amount'];
+        $invoice['ppn_amount'] = $invoice['tax_amount'] ?? 0;
+        $invoice['ppn_percentage'] = 0;
+        $invoice['pph_amount'] = 0;
+        $invoice['pph_percentage'] = 0;
+        $invoice['discount_percentage'] = 0;
+        $invoice['due_date'] = null;
+    }
+}
 
 if (!$invoice) {
     die("Invoice not found.");
 }
 
-// Get invoice items
-$stmtItems = $pdo->prepare("SELECT * FROM cqc_general_invoice_items WHERE invoice_id = ? ORDER BY sort_order");
-$stmtItems->execute([$id]);
-$items = $stmtItems->fetchAll(PDO::FETCH_ASSOC);
-
-// Get CQC business settings from master database
-$db = Database::getInstance();
-$businessId = 7;
+// Get business settings from master database based on active business
+$businessId = $_SESSION['business_id'] ?? 1;
 
 // Default company info
-$companyName = 'CQC Enjiniring';
-$companyTagline = 'Solar Panel Installation Contractor';
+$companyName = 'My Business';
+$companyTagline = '';
 $companyAddress = 'Address not configured';
 $companyCity = '';
 $companyPhone = '-';
@@ -77,6 +118,12 @@ try {
             case 'bank_account': if ($s['setting_value']) $bankAccount = $s['setting_value']; break;
             case 'bank_holder': if ($s['setting_value']) $bankHolder = $s['setting_value']; break;
         }
+    }
+    
+    // Fallback: try businesses table
+    if ($companyName === 'My Business') {
+        $biz = $db->fetchOne("SELECT business_name FROM businesses WHERE id = ?", [$businessId]);
+        if ($biz) $companyName = $biz['business_name'];
     }
 } catch (Exception $e) {}
 
@@ -323,7 +370,7 @@ foreach ($possibleLogos as $logo) {
 <body>
     <?php if (!$print): ?>
     <div class="print-controls">
-        <a href="index-cqc.php" class="btn-back">← Back</a>
+        <a href="<?php echo $isCQC ? 'index-cqc.php' : 'index.php'; ?>" class="btn-back">← Back</a>
         <button class="btn-print" onclick="window.print()">Print Invoice</button>
     </div>
     <?php endif; ?>
