@@ -377,6 +377,12 @@ if (isset($_SESSION['user_id'])) {
                                     <span>Reports</span>
                                 </a>
                             </li>
+                            <li class="submenu-item">
+                                <a href="<?php echo BASE_URL; ?>/modules/payroll/attendance.php" class="submenu-link <?php echo activeMenu('attendance.php'); ?>">
+                                    <i data-feather="map-pin" class="submenu-icon"></i>
+                                    <span>Absensi GPS</span>
+                                </a>
+                            </li>
                         </ul>
                     </li>
                     <?php endif; ?>
