@@ -9,6 +9,10 @@ require_once '../../config/database.php';
 
 $baseUrl = defined('BASE_URL') ? BASE_URL : '';
 $apiUrl  = $baseUrl . '/modules/payroll/attendance-clock.php';
+
+// Load employee list for name picker
+$db = Database::getInstance();
+$empList = $db->fetchAll("SELECT id, employee_code, full_name, position, department FROM payroll_employees WHERE is_active = 1 ORDER BY full_name") ?: [];
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -35,20 +39,25 @@ body{font-family:'Inter',sans-serif;background:#0d1f3c;min-height:100vh;overflow
 .load-fill{height:100%;background:#f0b429;border-radius:2px;transition:width 0.4s;width:0%;}
 @keyframes pulse{0%,100%{transform:scale(1);}50%{transform:scale(1.1);}}
 
-/* ── SCREEN 1: CODE INPUT ── */
-#screenCode{background:#0d1f3c;align-items:center;justify-content:center;padding:24px;}
-.logo-area{text-align:center;margin-bottom:32px;}
-.logo-area .icon{font-size:56px;margin-bottom:8px;}
-.logo-area h1{color:#fff;font-size:22px;font-weight:800;}
-.logo-area p{color:rgba(255,255,255,0.5);font-size:13px;margin-top:4px;}
-.code-card{background:rgba(255,255,255,0.08);border:1px solid rgba(255,255,255,0.12);border-radius:16px;padding:24px;width:100%;max-width:360px;}
-.field-label{color:rgba(255,255,255,0.7);font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:0.5px;display:block;margin-bottom:8px;}
-.code-input{width:100%;background:rgba(255,255,255,0.1);border:1.5px solid rgba(255,255,255,0.2);border-radius:10px;padding:14px 16px;color:#fff;font-size:18px;font-weight:700;letter-spacing:3px;text-align:center;text-transform:uppercase;}
-.code-input::placeholder{color:rgba(255,255,255,0.3);letter-spacing:0;font-size:14px;font-weight:400;}
-.code-input:focus{outline:none;border-color:#f0b429;}
-.btn-primary{width:100%;margin-top:16px;padding:15px;background:#f0b429;color:#0d1f3c;border:none;border-radius:10px;font-size:15px;font-weight:800;cursor:pointer;transition:all 0.15s;}
-.btn-primary:active{transform:scale(0.98);}
-.btn-primary:disabled{opacity:0.5;cursor:not-allowed;}
+/* ── SCREEN 1: NAME PICKER ── */
+#screenCode{background:#0d1f3c;align-items:flex-start;justify-content:flex-start;padding:0;}
+.logo-area{text-align:center;padding:28px 24px 12px;width:100%;}
+.logo-area .icon{font-size:44px;margin-bottom:6px;}
+.logo-area h1{color:#fff;font-size:20px;font-weight:800;}
+.logo-area p{color:rgba(255,255,255,0.5);font-size:12px;margin-top:3px;}
+.search-wrap{padding:0 16px 10px;width:100%;}
+.search-box{width:100%;background:rgba(255,255,255,0.1);border:1.5px solid rgba(255,255,255,0.2);border-radius:10px;padding:12px 14px 12px 38px;color:#fff;font-size:14px;background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' fill='none' stroke='rgba(255,255,255,0.4)' stroke-width='2' viewBox='0 0 24 24'%3E%3Ccircle cx='11' cy='11' r='8'/%3E%3Cpath d='m21 21-4.35-4.35'/%3E%3C/svg%3E");background-repeat:no-repeat;background-position:12px center;}
+.search-box::placeholder{color:rgba(255,255,255,0.35);}
+.search-box:focus{outline:none;border-color:#f0b429;}
+.emp-list{width:100%;padding:0 16px 24px;overflow-y:auto;flex:1;display:flex;flex-direction:column;gap:8px;}
+.emp-pick-card{display:flex;align-items:center;gap:12px;background:rgba(255,255,255,0.07);border:1px solid rgba(255,255,255,0.1);border-radius:12px;padding:14px 16px;cursor:pointer;transition:all 0.15s;width:100%;text-align:left;}
+.emp-pick-card:active{background:rgba(240,180,41,0.15);border-color:rgba(240,180,41,0.5);transform:scale(0.98);}
+.emp-pick-avatar{width:42px;height:42px;border-radius:50%;background:linear-gradient(135deg,#f0b429,#e09000);display:flex;align-items:center;justify-content:center;font-size:17px;font-weight:800;color:#0d1f3c;flex-shrink:0;}
+.emp-pick-info{flex:1;}
+.emp-pick-name{color:#fff;font-size:14px;font-weight:700;margin-bottom:2px;}
+.emp-pick-pos{color:rgba(255,255,255,0.5);font-size:11px;}
+.emp-pick-arrow{color:rgba(255,255,255,0.3);font-size:18px;}
+.emp-empty{text-align:center;color:rgba(255,255,255,0.4);font-size:13px;padding:30px 0;}
 .err-msg{background:rgba(220,38,38,0.15);border:1px solid rgba(220,38,38,0.3);border-radius:8px;color:#fca5a5;font-size:12px;padding:10px 12px;margin-top:12px;display:none;}
 
 /* ── SCREEN 2: FACE SCAN ── */
@@ -139,25 +148,33 @@ body{font-family:'Inter',sans-serif;background:#0d1f3c;min-height:100vh;overflow
     <div class="load-bar"><div class="load-fill" id="loadFill"></div></div>
 </div>
 
-<!-- Screen 1: Kode Karyawan -->
+<!-- Screen 1: Pilih Nama -->
 <div id="screenCode" class="screen">
-    <div class="logo-area" style="margin-top:60px;">
+    <div class="logo-area">
         <div class="icon">🏢</div>
         <h1>Absensi Karyawan</h1>
-        <p>Verifikasi wajah otomatis</p>
+        <p>Pilih nama Anda untuk mulai absen</p>
     </div>
-    <div style="padding:0 24px; display:flex; flex-direction:column; align-items:center;">
-        <div class="code-card" style="width:100%; max-width:360px;">
-            <label class="field-label">Kode Karyawan</label>
-            <input type="text" id="inputCode" class="code-input" placeholder="Contoh: EMP001"
-                autocomplete="off" autocapitalize="characters" inputmode="text"
-                onkeydown="if(event.key==='Enter') lookupEmployee()">
-            <button class="btn-primary" id="btnLookup" onclick="lookupEmployee()">
-                Lanjutkan → Scan Wajah
-            </button>
-            <div class="err-msg" id="codeError"></div>
-        </div>
+    <div class="search-wrap">
+        <input type="text" id="searchEmp" class="search-box" placeholder="Cari nama karyawan..." oninput="filterEmp()">
     </div>
+    <div class="emp-list" id="empList">
+        <?php if (empty($empList)): ?>
+        <div class="emp-empty">Belum ada karyawan terdaftar.<br>Tambahkan karyawan di menu Payroll → Employee Data.</div>
+        <?php else: ?>
+        <?php foreach ($empList as $emp): ?>
+        <button class="emp-pick-card" onclick="selectEmployee(<?php echo $emp['id']; ?>, '<?php echo addslashes(htmlspecialchars($emp['full_name'])); ?>')" data-name="<?php echo strtolower(htmlspecialchars($emp['full_name'])); ?>">
+            <div class="emp-pick-avatar"><?php echo mb_strtoupper(mb_substr($emp['full_name'],0,1)); ?></div>
+            <div class="emp-pick-info">
+                <div class="emp-pick-name"><?php echo htmlspecialchars($emp['full_name']); ?></div>
+                <div class="emp-pick-pos"><?php echo htmlspecialchars($emp['position']); ?><?php echo $emp['department'] ? ' · '.$emp['department'] : ''; ?></div>
+            </div>
+            <span class="emp-pick-arrow">›</span>
+        </button>
+        <?php endforeach; ?>
+        <?php endif; ?>
+    </div>
+    <div class="err-msg" id="codeError" style="margin:0 16px 16px;"></div>
 </div>
 
 <!-- Screen 2: Face Scan -->
@@ -325,34 +342,33 @@ function goHistory() {
 }
 
 // ────────────────────────────────────────────────────────
-//  3. LOOKUP EMPLOYEE BY CODE
+//  SEARCH FILTER
 // ────────────────────────────────────────────────────────
-async function lookupEmployee() {
-    const code = document.getElementById('inputCode').value.trim().toUpperCase();
-    const errEl = document.getElementById('codeError');
-    errEl.style.display = 'none';
-    if (!code) { showErr(errEl, 'Masukkan kode karyawan.'); return; }
+function filterEmp() {
+    const q = document.getElementById('searchEmp').value.toLowerCase();
+    document.querySelectorAll('.emp-pick-card').forEach(card => {
+        card.style.display = card.dataset.name.includes(q) ? '' : 'none';
+    });
+}
 
-    const btn = document.getElementById('btnLookup');
-    btn.innerHTML = '<span class="spinner"></span> Memverifikasi...';
-    btn.disabled = true;
-
+// ────────────────────────────────────────────────────────
+//  3. SELECT EMPLOYEE BY ID
+// ────────────────────────────────────────────────────────
+async function selectEmployee(empId, displayName) {
+    showToast('⏳ Memuat data ' + displayName + '...');
     try {
         const fd = new FormData();
         fd.append('action', 'get_employee');
-        fd.append('employee_code', code);
-        const res = await fetch(API_URL, { method: 'POST', body: fd });
+        fd.append('employee_id', empId);
+        const res  = await fetch(API_URL, { method: 'POST', body: fd });
         const data = await res.json();
 
-        if (!data.success) { showErr(errEl, data.message); return; }
+        if (!data.success) { showToast('❌ ' + data.message); return; }
 
         currentEmployee = data.employee;
         officeConfig    = data.config;
+        currentEmployee._today = data.today;
 
-        // Store today's data
-        currentEmployee._today  = data.today;
-
-        // If face registered: parse descriptor
         if (data.employee.has_face && data.employee.face_descriptor) {
             storedDescriptor = new Float32Array(data.employee.face_descriptor);
             verifyMode = true;
@@ -366,14 +382,9 @@ async function lookupEmployee() {
         await startCamera();
 
     } catch (err) {
-        showErr(errEl, 'Kesalahan jaringan: ' + err.message);
-    } finally {
-        btn.innerHTML = 'Lanjutkan → Scan Wajah';
-        btn.disabled = false;
+        showToast('❌ Jaringan error: ' + err.message);
     }
 }
-
-function showErr(el, msg) { el.textContent = msg; el.style.display = 'block'; }
 
 function backToCode() {
     stopCamera();

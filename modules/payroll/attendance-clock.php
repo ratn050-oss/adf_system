@@ -82,14 +82,21 @@ try {
     $db->getConnection()->exec("ALTER TABLE payroll_employees ADD COLUMN `face_descriptor` MEDIUMTEXT DEFAULT NULL COMMENT 'JSON face descriptor from face-api.js'");
 }
 
-// ── GET EMPLOYEE by code (no PIN — face will verify) ──
+// ── GET EMPLOYEE by code or ID (no PIN — face will verify) ──
 if ($action === 'get_employee') {
     $employee_code = strtoupper(trim($_POST['employee_code'] ?? ''));
-    if (!$employee_code) {
-        echo json_encode(['success' => false, 'message' => 'Kode karyawan wajib diisi.']);
+    $employee_id   = (int)($_POST['employee_id'] ?? 0);
+
+    if (!$employee_code && !$employee_id) {
+        echo json_encode(['success' => false, 'message' => 'Data karyawan tidak ditemukan.']);
         exit;
     }
-    $emp = $db->fetchOne("SELECT id, employee_code, full_name, position, department, face_descriptor FROM payroll_employees WHERE employee_code = ? AND is_active = 1", [$employee_code]);
+
+    if ($employee_id) {
+        $emp = $db->fetchOne("SELECT id, employee_code, full_name, position, department, face_descriptor FROM payroll_employees WHERE id = ? AND is_active = 1", [$employee_id]);
+    } else {
+        $emp = $db->fetchOne("SELECT id, employee_code, full_name, position, department, face_descriptor FROM payroll_employees WHERE employee_code = ? AND is_active = 1", [$employee_code]);
+    }
     if (!$emp) {
         echo json_encode(['success' => false, 'message' => 'Kode karyawan tidak ditemukan atau tidak aktif.']);
         exit;
