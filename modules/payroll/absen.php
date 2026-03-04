@@ -19,17 +19,14 @@ if ($bizSlug) {
     }
 }
 
-// If no slug provided, auto-detect: use first available business
 if (!$bizConfig) {
-    $files = glob($bizConfigDir . '*.php');
-    if ($files) {
-        $bizConfig = require $files[0];
-        $bizSlug   = $bizConfig['business_id'];
-    }
-}
-
-if (!$bizConfig) {
-    die('<p style="font-family:sans-serif;padding:40px;color:#dc2626;">❌ Business tidak ditemukan. Hubungi admin.</p>');
+    // No valid ?b= slug — show a helpful error instead of loading wrong business
+    $available = array_map(fn($f) => basename($f, '.php'), glob($bizConfigDir . '*.php') ?: []);
+    die('<div style="font-family:sans-serif;padding:40px;max-width:480px;margin:60px auto;background:#fff;border-radius:16px;box-shadow:0 4px 20px rgba(0,0,0,0.1)">' .
+        '<h2 style="color:#dc2626;margin-bottom:8px">❌ Link Absen Tidak Valid</h2>' .
+        '<p style="color:#475569;margin-bottom:16px">Gunakan link yang diberikan oleh admin Anda. Link harus menyertakan kode bisnis (<code>?b=...</code>).</p>' .
+        '<p style="color:#94a3b8;font-size:13px">Bisnis tersedia: <strong>' . implode(', ', $available) . '</strong></p>' .
+    '</div>');
 }
 
 // Define so Database::getInstance() connects to correct DB
@@ -55,7 +52,7 @@ $bizName = htmlspecialchars($bizConfig['name'] ?? 'Absensi');
 <meta name="apple-mobile-web-app-title" content="Absensi">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Absensi · <?php echo $bizName; ?></title>
-<link rel="manifest" href="absen-manifest.json?b=<?php echo urlencode($bizSlug); ?>">
+<link rel="manifest" href="absen-manifest.php?b=<?php echo urlencode($bizSlug); ?>">
 <link rel="apple-touch-icon" href="../../assets/icons/absen-icon-192.svg">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>

@@ -20,13 +20,9 @@ if ($_bizSlug) {
     }
 }
 // Auto-detect from first available business if still not set
-if (!defined('ACTIVE_BUSINESS_ID')) {
-    $_files = glob(__DIR__ . '/../../config/businesses/*.php');
-    if ($_files) {
-        $_bizCfg = require $_files[0];
-        if (!defined('ACTIVE_BUSINESS_ID')) define('ACTIVE_BUSINESS_ID', $_bizCfg['business_id']);
-        if (!defined('BUSINESS_TYPE'))      define('BUSINESS_TYPE',      $_bizCfg['business_type'] ?? 'other');
-    }
+if (!isset($_bizCfg)) {
+    echo json_encode(['success' => false, 'message' => 'Parameter bisnis (?b=) tidak ditemukan. Gunakan link yang benar dari admin.']);
+    exit;
 }
 
 // Force connect to correct business DB directly (bypass session-based lookup)
