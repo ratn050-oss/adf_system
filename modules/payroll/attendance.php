@@ -480,7 +480,7 @@ include '../../includes/header.php';
             <form method="GET" style="display:flex; gap:8px; align-items:center;">
                 <input type="hidden" name="tab" value="daily">
                 <input type="date" name="date" value="<?php echo $viewDate; ?>" class="form-input" style="width:150px;">
-                <button type="submit" style="padding:8px 16px; background:var(--navy); color:#fff; border:none; border-radius:7px; font-size:12px; font-weight:700; cursor:pointer;">Tampilkan</button>
+                <button type="submit" style="padding:8px 16px; background:var(--gold); color:var(--navy); border:none; border-radius:7px; font-size:12px; font-weight:700; cursor:pointer;">Tampilkan</button>
             </form>
             <span style="font-size:12px; color:var(--muted);"><?php echo date('l, d F Y', strtotime($viewDate)); ?></span>
         </div>
@@ -561,7 +561,7 @@ include '../../includes/header.php';
             <form method="GET" style="display:flex; gap:8px;">
                 <input type="hidden" name="tab" value="monthly">
                 <input type="month" name="month" value="<?php echo $viewMonth; ?>" class="form-input" style="width:150px;">
-                <button type="submit" style="padding:8px 16px; background:var(--navy); color:#fff; border:none; border-radius:7px; font-size:12px; font-weight:700; cursor:pointer;">Tampilkan</button>
+                <button type="submit" style="padding:8px 16px; background:var(--gold); color:var(--navy); border:none; border-radius:7px; font-size:12px; font-weight:700; cursor:pointer;">Tampilkan</button>
             </form>
         </div>
         <div class="att-table-wrap">
