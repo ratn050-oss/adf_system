@@ -296,7 +296,7 @@ if (isset($_SESSION['user_id'])) {
                     <?php endif; ?>
                     
                     <!-- Bills / Tagihan Menu -->
-                    <?php if ($auth->hasPermission('cashbook')): ?>
+                    <?php if ($auth->hasPermission('bills')): ?>
                     <li class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/bills/') !== false) ? 'open' : ''; ?>">
                         <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo activeMenu('bills'); ?>">
                             <i data-feather="credit-card" class="nav-icon"></i>
@@ -437,6 +437,36 @@ if (isset($_SESSION['user_id'])) {
                     </li>
                     <?php endif; ?>
                     
+                    <!-- Project Menu -->
+                    <?php if ($auth->hasPermission('project')): ?>
+                    <li class="nav-item">
+                        <a href="<?php echo BASE_URL; ?>/modules/project/" class="nav-link <?php echo activeMenu('project'); ?>">
+                            <i data-feather="folder" class="nav-icon"></i>
+                            <span>Project</span>
+                        </a>
+                    </li>
+                    <?php endif; ?>
+                    
+                    <!-- Finance Menu -->
+                    <?php if ($auth->hasPermission('finance')): ?>
+                    <li class="nav-item">
+                        <a href="<?php echo BASE_URL; ?>/modules/finance/" class="nav-link <?php echo activeMenu('finance'); ?>">
+                            <i data-feather="trending-up" class="nav-icon"></i>
+                            <span>Manajemen Keuangan</span>
+                        </a>
+                    </li>
+                    <?php endif; ?>
+                    
+                    <!-- Owner Monitoring Menu -->
+                    <?php if ($auth->hasPermission('owner')): ?>
+                    <li class="nav-item">
+                        <a href="<?php echo BASE_URL; ?>/modules/owner/" class="nav-link <?php echo activeMenu('owner'); ?>">
+                            <i data-feather="eye" class="nav-icon"></i>
+                            <span>Owner Monitoring</span>
+                        </a>
+                    </li>
+                    <?php endif; ?>
+
                     <?php if ($auth->hasPermission('settings')): ?>
                     <li class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/settings/') !== false) ? 'open' : ''; ?>" style="margin-top: 2rem; padding-top: 1rem; border-top: 1px solid var(--bg-tertiary);">
                         <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo activeMenu('settings'); ?>">
