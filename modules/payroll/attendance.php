@@ -556,11 +556,7 @@ include '../../includes/header.php';
                                 </div>
                                 <div style="display:flex; gap:4px; flex-shrink:0; margin-left:10px;">
                                     <button class="act-btn act-btn-edit" onclick='openLocModal(<?php echo json_encode($loc); ?>)'>✏️</button>
-                                    <form method="POST" style="display:inline;" onsubmit="return confirm('Hapus lokasi ini?')">
-                                        <input type="hidden" name="action" value="delete_location">
-                                        <input type="hidden" name="loc_id" value="<?php echo $loc['id']; ?>">
-                                        <button type="submit" class="act-btn act-btn-del">🗑</button>
-                                    </form>
+                                    <button class="act-btn act-btn-del" onclick="deleteLoc(<?php echo $loc['id']; ?>, '<?php echo addslashes(htmlspecialchars($loc['location_name'])); ?>')">🗑</button>
                                 </div>
                             </div>
                         </div>
@@ -617,7 +613,7 @@ include '../../includes/header.php';
 <div class="modal-overlay" id="locModal">
     <div class="modal-box" style="max-width:540px;">
         <div class="modal-title" id="locModalTitle">📍 Tambah Lokasi Baru</div>
-        <form method="POST" id="locForm">
+        <form method="POST" id="locForm" onsubmit="return handleLocSubmit(event)">
             <input type="hidden" name="action" id="locFormAction" value="add_location">
             <input type="hidden" name="loc_id" id="locFormId" value="">
             <div class="form-group">
@@ -796,6 +792,44 @@ function switchTab(tab) {
 // Restore tab from URL
 const urlTab = new URLSearchParams(window.location.search).get('tab');
 if (urlTab) switchTab(urlTab);
+
+// ─ LOCATION FORM AJAX SUBMIT ─
+async function handleLocSubmit(e) {
+    e.preventDefault();
+    const lat = parseFloat(document.getElementById('locLat').value || '0');
+    const lng = parseFloat(document.getElementById('locLng').value || '0');
+    if (!lat && !lng) {
+        document.getElementById('locGpsStatus').textContent = '\u274c Tentukan titik lokasi dulu — klik peta atau gunakan GPS.';
+        document.getElementById('locGpsStatus').style.color = '#dc2626';
+        return false;
+    }
+    const btn = e.target.querySelector('[type=submit]');
+    btn.disabled = true; btn.textContent = '\u23f3 Menyimpan...';
+    try {
+        const fd = new FormData(e.target);
+        await fetch(window.location.href, { method: 'POST', body: fd });
+        // Redirect to settings tab after save
+        const url = new URL(window.location.href);
+        url.searchParams.set('tab', 'settings');
+        window.location.href = url.toString();
+    } catch(err) {
+        btn.disabled = false; btn.textContent = '\ud83d\udcbe Simpan Lokasi';
+        alert('Gagal menyimpan: ' + err.message);
+    }
+    return false;
+}
+
+// ─ DELETE LOCATION AJAX ─
+async function deleteLoc(id, name) {
+    if (!confirm('Hapus lokasi "' + name + '"?')) return;
+    const fd = new FormData();
+    fd.append('action', 'delete_location');
+    fd.append('loc_id', id);
+    await fetch(window.location.href, { method: 'POST', body: fd });
+    const url = new URL(window.location.href);
+    url.searchParams.set('tab', 'settings');
+    window.location.href = url.toString();
+}
 
 // ─ ADMIN MAP (overview) ─
 let adminMap = null;
