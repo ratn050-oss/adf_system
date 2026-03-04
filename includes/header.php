@@ -287,11 +287,31 @@ if (isset($_SESSION['user_id'])) {
                     
                     <!-- Sales Invoice Menu -->
                     <?php if ($auth->hasPermission('sales_invoice') && isModuleEnabled('sales')): ?>
-                    <li class="nav-item">
-                        <a href="<?php echo BASE_URL; ?>/modules/sales/" class="nav-link <?php echo activeMenu('sales'); ?>">
+                    <li class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/sales/') !== false) ? 'open' : ''; ?>">
+                        <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo activeMenu('sales'); ?>">
                             <i data-feather="file-text" class="nav-icon"></i>
                             <span><?php echo __('menu.sales_invoice'); ?></span>
                         </a>
+                        <ul class="submenu">
+                            <li class="submenu-item">
+                                <a href="<?php echo BASE_URL; ?>/modules/sales/index-cqc.php?tab=termin" class="submenu-link <?php echo (strpos($_SERVER['REQUEST_URI'], 'index-cqc') !== false && ($_GET['tab'] ?? '') === 'termin') ? 'active' : ''; ?>">
+                                    <i data-feather="file" class="submenu-icon"></i>
+                                    <span>Invoice Termin</span>
+                                </a>
+                            </li>
+                            <li class="submenu-item">
+                                <a href="<?php echo BASE_URL; ?>/modules/sales/index-cqc.php?tab=general" class="submenu-link <?php echo (strpos($_SERVER['REQUEST_URI'], 'index-cqc') !== false && ($_GET['tab'] ?? '') === 'general') ? 'active' : ''; ?>">
+                                    <i data-feather="file-text" class="submenu-icon"></i>
+                                    <span>Invoice Umum</span>
+                                </a>
+                            </li>
+                            <li class="submenu-item">
+                                <a href="<?php echo BASE_URL; ?>/modules/sales/index-cqc.php?tab=quotation" class="submenu-link <?php echo (strpos($_SERVER['REQUEST_URI'], 'index-cqc') !== false && ($_GET['tab'] ?? '') === 'quotation') ? 'active' : ''; ?>">
+                                    <i data-feather="clipboard" class="submenu-icon"></i>
+                                    <span>Quotation</span>
+                                </a>
+                            </li>
+                        </ul>
                     </li>
                     <?php endif; ?>
                     
