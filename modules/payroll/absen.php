@@ -22,7 +22,11 @@ $empList = $db->fetchAll("SELECT id, employee_code, full_name, position, departm
 <meta name="theme-color" content="#0d1f3c">
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<title>Absensi Wajah</title>
+<meta name="apple-mobile-web-app-title" content="Absensi">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>Absensi Karyawan</title>
+<link rel="manifest" href="absen-manifest.json">
+<link rel="apple-touch-icon" href="../../assets/icons/absen-icon-192.svg">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
@@ -137,6 +141,17 @@ body{font-family:'Inter',sans-serif;background:#0d1f3c;min-height:100vh;overflow
 @keyframes spin{to{transform:rotate(360deg);}}
 .toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:600;z-index:9999;opacity:0;transition:opacity 0.3s;pointer-events:none;max-width:85%;text-align:center;}
 .toast.show{opacity:1;}
+/* ── PWA Install Banner ── */
+#installBanner{position:fixed;bottom:0;left:0;right:0;background:linear-gradient(135deg,#1a3a5c,#0d1f3c);border-top:2px solid rgba(240,180,41,0.4);padding:14px 16px;display:none;align-items:center;gap:12px;z-index:9998;box-shadow:0 -4px 20px rgba(0,0,0,0.4);animation:slideUp 0.4s ease;}
+#installBanner.show{display:flex;}
+.ib-icon{font-size:36px;flex-shrink:0;}
+.ib-text{flex:1;}
+.ib-text b{display:block;color:#f0b429;font-size:14px;font-weight:800;margin-bottom:2px;}
+.ib-text span{color:rgba(255,255,255,0.65);font-size:11px;line-height:1.3;}
+.ib-btns{display:flex;flex-direction:column;gap:6px;flex-shrink:0;}
+.ib-install{background:#f0b429;color:#0d1f3c;border:none;border-radius:8px;padding:8px 16px;font-size:12px;font-weight:800;cursor:pointer;white-space:nowrap;}
+.ib-dismiss{background:transparent;color:rgba(255,255,255,0.45);border:none;font-size:11px;cursor:pointer;text-align:center;padding:2px;}
+@keyframes slideUp{from{transform:translateY(100%);}to{transform:translateY(0);}}
 </style>
 </head>
 <body>
@@ -176,6 +191,19 @@ body{font-family:'Inter',sans-serif;background:#0d1f3c;min-height:100vh;overflow
         <?php endif; ?>
     </div>
     <div class="err-msg" id="codeError" style="margin:0 16px 16px;"></div>
+</div>
+
+<!-- PWA Install Banner -->
+<div id="installBanner">
+    <div class="ib-icon">📲</div>
+    <div class="ib-text">
+        <b>Install Aplikasi Absensi</b>
+        <span>Tambahkan ke homescreen HP<br>untuk akses cepat tanpa buka browser</span>
+    </div>
+    <div class="ib-btns">
+        <button class="ib-install" id="btnInstall">⬇️ Install</button>
+        <button class="ib-dismiss" onclick="dismissInstall()">Nanti saja</button>
+    </div>
 </div>
 
 <!-- Screen 2: Face Scan -->
@@ -781,6 +809,60 @@ function showToast(msg) {
 //  INIT
 // ────────────────────────────────────────────────────────
 loadModels();
+
+// ────────────────────────────────────────────────────────
+//  PWA: Service Worker + Install Prompt
+// ────────────────────────────────────────────────────────
+let deferredInstallPrompt = null;
+
+// Register service worker
+if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js')
+            .then(reg => console.log('[SW] Registered, scope:', reg.scope))
+            .catch(err => console.warn('[SW] Registration failed:', err));
+    });
+}
+
+// Capture the install prompt before it fires
+window.addEventListener('beforeinstallprompt', e => {
+    e.preventDefault();
+    deferredInstallPrompt = e;
+    // Only show if user hasn't dismissed before
+    if (!sessionStorage.getItem('installDismissed')) {
+        setTimeout(() => {
+            document.getElementById('installBanner').classList.add('show');
+        }, 3000); // Show after 3s so page loads first
+    }
+});
+
+// Install button click
+document.getElementById('btnInstall').addEventListener('click', async () => {
+    if (!deferredInstallPrompt) return;
+    document.getElementById('installBanner').classList.remove('show');
+    deferredInstallPrompt.prompt();
+    const { outcome } = await deferredInstallPrompt.userChoice;
+    console.log('[PWA] Install outcome:', outcome);
+    deferredInstallPrompt = null;
+});
+
+// Dismiss button
+function dismissInstall() {
+    document.getElementById('installBanner').classList.remove('show');
+    sessionStorage.setItem('installDismissed', '1');
+}
+
+// Hide banner if already installed (standalone mode)
+if (window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone) {
+    document.getElementById('installBanner').style.display = 'none';
+}
+
+// App installed event
+window.addEventListener('appinstalled', () => {
+    document.getElementById('installBanner').classList.remove('show');
+    showToast('✅ Aplikasi berhasil diinstall!');
+    deferredInstallPrompt = null;
+});
 </script>
 </body>
 </html>

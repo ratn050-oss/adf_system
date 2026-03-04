@@ -1,0 +1,16 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 192 192">
+  <rect width="192" height="192" rx="40" fill="#0d1f3c"/>
+  <!-- Fingerprint ring outer -->
+  <circle cx="96" cy="88" r="52" fill="none" stroke="#f0b429" stroke-width="5" opacity="0.3"/>
+  <!-- Fingerprint ring middle -->
+  <circle cx="96" cy="88" r="38" fill="none" stroke="#f0b429" stroke-width="4.5" opacity="0.55"/>
+  <!-- Fingerprint ring inner -->
+  <circle cx="96" cy="88" r="24" fill="none" stroke="#f0b429" stroke-width="4" opacity="0.8"/>
+  <!-- Center dot -->
+  <circle cx="96" cy="88" r="8" fill="#f0b429"/>
+  <!-- Map pin bottom -->
+  <path d="M80 152 Q96 172 112 152 Q96 138 80 152Z" fill="#f0b429" opacity="0.7"/>
+  <rect x="90" y="136" width="12" height="20" rx="4" fill="#f0b429" opacity="0.7"/>
+  <!-- Scan line -->
+  <line x1="44" y1="88" x2="148" y2="88" stroke="#f0b429" stroke-width="1.5" opacity="0.25" stroke-dasharray="4 4"/>
+</svg>
