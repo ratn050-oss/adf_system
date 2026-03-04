@@ -585,7 +585,7 @@ include '../../includes/header.php';
             </tbody>
         </table>
     </div>
-    <?php else: ?>
+    <?php elseif ($activeTab === 'general'): ?>
     <!-- General Invoices Table -->
     <div class="cqc-table-card">
         <table class="cqc-table">
