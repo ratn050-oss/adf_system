@@ -111,3 +111,47 @@ CREATE TABLE IF NOT EXISTS `payroll_slip_details` (
   `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   FOREIGN KEY (`slip_id`) REFERENCES `payroll_slips`(`id`) ON DELETE CASCADE
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+
+-- 5. Attendance Config (office GPS location + radius + schedule)
+CREATE TABLE IF NOT EXISTS `payroll_attendance_config` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `office_lat` DECIMAL(10,7) NOT NULL DEFAULT -6.2000000,
+  `office_lng` DECIMAL(10,7) NOT NULL DEFAULT 106.8166700,
+  `allowed_radius_m` INT NOT NULL DEFAULT 200,
+  `office_name` VARCHAR(100) DEFAULT 'Kantor',
+  `checkin_start` TIME DEFAULT '07:00:00',
+  `checkin_end` TIME DEFAULT '10:00:00',
+  `checkout_start` TIME DEFAULT '16:00:00',
+  `allow_outside` TINYINT(1) DEFAULT 0,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  `updated_by` INT DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+
+-- 6. Attendance Records
+CREATE TABLE IF NOT EXISTS `payroll_attendance` (
+  `id` INT AUTO_INCREMENT PRIMARY KEY,
+  `employee_id` INT NOT NULL,
+  `attendance_date` DATE NOT NULL,
+  `check_in_time` TIME DEFAULT NULL,
+  `check_in_lat` DECIMAL(10,7) DEFAULT NULL,
+  `check_in_lng` DECIMAL(10,7) DEFAULT NULL,
+  `check_in_distance_m` INT DEFAULT NULL,
+  `check_in_address` VARCHAR(255) DEFAULT NULL,
+  `check_in_device` VARCHAR(200) DEFAULT NULL,
+  `check_out_time` TIME DEFAULT NULL,
+  `check_out_lat` DECIMAL(10,7) DEFAULT NULL,
+  `check_out_lng` DECIMAL(10,7) DEFAULT NULL,
+  `check_out_distance_m` INT DEFAULT NULL,
+  `check_out_device` VARCHAR(200) DEFAULT NULL,
+  `work_hours` DECIMAL(5,2) DEFAULT NULL,
+  `status` ENUM('present','late','absent','leave','holiday','half_day') NOT NULL DEFAULT 'present',
+  `is_outside_radius` TINYINT(1) DEFAULT 0,
+  `notes` VARCHAR(255) DEFAULT NULL,
+  `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+  UNIQUE KEY `unique_attendance` (`employee_id`, `attendance_date`),
+  INDEX `idx_date` (`attendance_date`),
+  INDEX `idx_employee` (`employee_id`),
+  FOREIGN KEY (`employee_id`) REFERENCES `payroll_employees`(`id`) ON DELETE CASCADE
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;

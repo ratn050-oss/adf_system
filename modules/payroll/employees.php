@@ -62,13 +62,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $employee_code = 'EMP-' . str_pad($count['c'] + 1, 3, '0', STR_PAD_LEFT);
                 }
                 
-                $sql = "INSERT INTO payroll_employees (employee_code, full_name, position, department, phone, join_date, base_salary, bank_name, bank_account, created_by) 
+                $attendance_pin = preg_replace('/\D/', '', $_POST['attendance_pin'] ?? '');
+                $attendance_pin = (strlen($attendance_pin) >= 4) ? $attendance_pin : null;
+                $sql = "INSERT INTO payroll_employees (employee_code, full_name, position, department, phone, join_date, base_salary, bank_name, bank_account, attendance_pin, created_by) 
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-                $db->query($sql, [$employee_code, $full_name, $position, $department, $phone, $join_date, $base_salary, $bank_name, $bank_account, $_SESSION['user_id']]);
+                $db->query($sql, [$employee_code, $full_name, $position, $department, $phone, $join_date, $base_salary, $bank_name, $bank_account, $attendance_pin, $_SESSION['user_id']]);
                 setFlash('success', 'Employee added successfully');
             } else {
-                $sql = "UPDATE payroll_employees SET full_name=?, position=?, department=?, phone=?, join_date=?, base_salary=?, bank_name=?, bank_account=? WHERE id=?";
-                $db->query($sql, [$full_name, $position, $department, $phone, $join_date, $base_salary, $bank_name, $bank_account, $id]);
+                if (!isset($attendance_pin)) {
+                    $attendance_pin = preg_replace('/\D/', '', $_POST['attendance_pin'] ?? '');
+                    $attendance_pin = (strlen($attendance_pin) >= 4) ? $attendance_pin : null;
+                }
+                $sql = "UPDATE payroll_employees SET full_name=?, position=?, department=?, phone=?, join_date=?, base_salary=?, bank_name=?, bank_account=?, attendance_pin=? WHERE id=?";
+                $db->query($sql, [$full_name, $position, $department, $phone, $join_date, $base_salary, $bank_name, $bank_account, $attendance_pin, $id]);
                 setFlash('success', 'Employee data updated');
             }
         } catch (PDOException $e) {
@@ -689,7 +695,7 @@ include '../../includes/header.php';
                     <th>Position</th>
                     <th>Join Date</th>
                     <th>Base Salary</th>
-                    <th>Bank Account</th>
+                    <th>Bank Account</th><th style="text-align:center;">PIN</th>
                     <th style="text-align: center;">Actions</th>
                 </tr>
             </thead>
@@ -718,6 +724,13 @@ include '../../includes/header.php';
                             <?php echo htmlspecialchars($emp['bank_name'] ?: '-'); ?>
                             <span><?php echo htmlspecialchars($emp['bank_account'] ?: '-'); ?></span>
                         </div>
+                    </td>
+                    <td style="text-align:center;">
+                        <?php if ($emp['attendance_pin']): ?>
+                            <span style="font-family:monospace; font-size:11px; background:#f0fdf4; color:#166534; padding:2px 7px; border-radius:4px; font-weight:700;">✅ diatur</span>
+                        <?php else: ?>
+                            <span style="font-size:11px; color:#94a3b8;">default</span>
+                        <?php endif; ?>
                     </td>
                     <td>
                         <div class="emp-actions" style="justify-content: center;">
@@ -816,6 +829,16 @@ include '../../includes/header.php';
                 </div>
             </div>
         </div>
+        <div class="emp-form-section">
+            <h4 class="emp-form-section-title">🔐 PIN Absensi</h4>
+            <div class="emp-form-grid">
+                <div class="emp-form-group">
+                    <label class="emp-form-label">PIN Absen (4-6 digit)</label>
+                    <input type="tel" name="attendance_pin" id="attendancePin" class="emp-form-input" placeholder="Kosongkan = default 1234" maxlength="6" pattern="[0-9]{4,6}" inputmode="numeric" style="letter-spacing:4px; font-size:16px;">
+                    <div style="font-size:11px; color:#64748b; margin-top:3px;">PIN digunakan karyawan untuk login absen dari HP. Default: 1234</div>
+                </div>
+            </div>
+        </div>
         <div class="emp-modal-footer">
             <button type="button" class="emp-btn-cancel" onclick="closeModal()">Cancel</button>
             <button type="submit" class="emp-btn-save">Save Data</button>
@@ -867,6 +890,7 @@ function editEmployee(data) {
     formatCurrency(document.getElementById('baseSalary'));
     document.getElementById('bankName').value = data.bank_name;
     document.getElementById('bankAccount').value = data.bank_account;
+    document.getElementById('attendancePin').value = data.attendance_pin || '';
 }
 
 function deleteEmployee(id) {
