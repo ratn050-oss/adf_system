@@ -69,17 +69,17 @@ try {
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci");
 }
 
-// Add attendance_pin column if missing
+// Add missing columns using raw PDO (db->query() swallows exceptions, so use getConnection() directly)
+$pdo = $db->getConnection();
 try {
-    $db->query("SELECT attendance_pin FROM payroll_employees LIMIT 1");
-} catch (Exception $e) {
-    $db->getConnection()->exec("ALTER TABLE payroll_employees ADD COLUMN `attendance_pin` VARCHAR(6) DEFAULT NULL");
+    $pdo->query("SELECT attendance_pin FROM payroll_employees LIMIT 1");
+} catch (PDOException $e) {
+    $pdo->exec("ALTER TABLE payroll_employees ADD COLUMN `attendance_pin` VARCHAR(6) DEFAULT NULL");
 }
-// Add face_descriptor column if missing
 try {
-    $db->query("SELECT face_descriptor FROM payroll_employees LIMIT 1");
-} catch (Exception $e) {
-    $db->getConnection()->exec("ALTER TABLE payroll_employees ADD COLUMN `face_descriptor` MEDIUMTEXT DEFAULT NULL COMMENT 'JSON face descriptor from face-api.js'");
+    $pdo->query("SELECT face_descriptor FROM payroll_employees LIMIT 1");
+} catch (PDOException $e) {
+    $pdo->exec("ALTER TABLE payroll_employees ADD COLUMN `face_descriptor` MEDIUMTEXT DEFAULT NULL COMMENT 'JSON face descriptor from face-api.js'");
 }
 
 // ── GET EMPLOYEE by code or ID (no PIN — face will verify) ──
