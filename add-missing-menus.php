@@ -9,8 +9,12 @@ require_once __DIR__ . '/public/includes/config.php';
 echo "<h2>Adding Missing Menu Items</h2>";
 
 try {
-    $masterDb = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
+    // Connect to MASTER database (adf_system), not business database
+    $masterDbName = defined('MASTER_DB_NAME') ? MASTER_DB_NAME : 'adfb2574_adfsystem';
+    $masterDb = new PDO("mysql:host=" . DB_HOST . ";dbname=" . $masterDbName, DB_USER, DB_PASS);
     $masterDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    
+    echo "<p>Connected to: {$masterDbName}</p>";
     
     $menusToAdd = [
         ['bills', 'Tagihan', 'modules/bills/', 7],
