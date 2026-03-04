@@ -166,8 +166,22 @@ body{font-family:'Inter',sans-serif;background:#0d1f3c;min-height:100vh;overflow
 /* Spinner */
 .spinner{display:inline-block;width:16px;height:16px;border:2px solid rgba(0,0,0,0.2);border-top-color:#0d1f3c;border-radius:50%;animation:spin 0.7s linear infinite;vertical-align:middle;}
 @keyframes spin{to{transform:rotate(360deg);}}
-.toast{position:fixed;bottom:90px;left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:600;z-index:9999;opacity:0;transition:opacity 0.3s;pointer-events:none;max-width:85%;text-align:center;}
+.toast{position:fixed;bottom:30px;left:50%;transform:translateX(-50%);background:#1e293b;color:#fff;padding:12px 20px;border-radius:10px;font-size:13px;font-weight:600;z-index:9999;opacity:0;transition:opacity 0.3s;pointer-events:none;max-width:85%;text-align:center;}
 .toast.show{opacity:1;}
+/* ── DASHBOARD SCREEN ── */
+#screenDashboard{background:#f0f4f8;}
+.dash-header{background:linear-gradient(135deg,#0d1f3c,#1a3a5c);padding:16px 16px 14px;color:#fff;}
+.dash-emp-row{display:flex;align-items:center;gap:10px;margin-bottom:6px;}
+.dash-emp-info{flex:1;min-width:0;}
+.dash-emp-name{font-size:16px;font-weight:800;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+.dash-emp-pos{font-size:11px;color:rgba(255,255,255,0.6);margin-top:2px;}
+.btn-switch{background:rgba(255,255,255,0.12);border:1px solid rgba(255,255,255,0.25);color:#fff;padding:7px 14px;border-radius:20px;font-size:11px;font-weight:700;cursor:pointer;flex-shrink:0;}
+.dash-date{color:rgba(255,255,255,0.5);font-size:11px;margin-bottom:10px;}
+.dash-select-wrap{position:relative;}
+.dash-select{width:100%;background:rgba(255,255,255,0.08);border:1.5px solid rgba(255,255,255,0.2);border-radius:10px;padding:10px 36px 10px 12px;color:#fff;font-size:13px;-webkit-appearance:none;appearance:none;cursor:pointer;}
+.dash-select option{background:#1a3a5c;color:#fff;}
+.dash-select-arrow{position:absolute;right:12px;top:50%;transform:translateY(-50%);color:rgba(255,255,255,0.5);pointer-events:none;font-size:11px;}
+.sect-title{font-size:13px;font-weight:700;color:#0d1f3c;padding:14px 16px 6px;}
 /* ── PWA Install Banner ── */
 #installBanner{position:fixed;bottom:0;left:0;right:0;background:linear-gradient(135deg,#1a3a5c,#0d1f3c);border-top:2px solid rgba(240,180,41,0.4);padding:14px 16px;display:none;align-items:center;gap:12px;z-index:9998;box-shadow:0 -4px 20px rgba(0,0,0,0.4);animation:slideUp 0.4s ease;}
 #installBanner.show{display:flex;}
@@ -257,18 +271,29 @@ body{font-family:'Inter',sans-serif;background:#0d1f3c;min-height:100vh;overflow
     </div>
 </div>
 
-<!-- Screen 3: Absen -->
-<div id="screenAbsen" class="screen">
-    <div class="absen-header">
-        <div class="emp-card">
-            <div class="emp-avatar" id="empAvatarLetter">?</div>
-            <div class="emp-info">
-                <h3 id="empName">—</h3>
-                <p id="empPosition">—</p>
+<!-- Screen: Dashboard ─ employee info + today status + GPS + absen button + history -->
+<div id="screenDashboard" class="screen">
+    <!-- Header with dropdown -->
+    <div class="dash-header">
+        <div class="dash-emp-row">
+            <div class="emp-avatar" id="dashAvatar">?</div>
+            <div class="dash-emp-info">
+                <div class="dash-emp-name" id="dashEmpName">—</div>
+                <div class="dash-emp-pos" id="dashEmpPos">—</div>
             </div>
+            <button class="btn-switch" onclick="showScreen('screenCode')">&#x1F504; Ganti</button>
         </div>
-        <div style="margin-top:10px; font-size:11px; color:rgba(255,255,255,0.5); text-align:right;" id="todayDateLabel"></div>
+        <div class="dash-date" id="dashDate"></div>
+        <div class="dash-select-wrap">
+            <select id="empDropdown" class="dash-select" onchange="switchEmployee(this.value)">
+                <?php foreach ($empList as $e): ?>
+                <option value="<?php echo $e['id']; ?>"><?php echo htmlspecialchars($e['full_name']); ?><?php echo $e['position'] ? ' — '.htmlspecialchars($e['position']) : ''; ?></option>
+                <?php endforeach; ?>
+            </select>
+            <span class="dash-select-arrow">▼</span>
+        </div>
     </div>
+    <!-- Today status -->
     <div class="time-grid">
         <div class="time-box">
             <div class="tb-label">Check-In</div>
@@ -287,39 +312,26 @@ body{font-family:'Inter',sans-serif;background:#0d1f3c;min-height:100vh;overflow
             <div class="tb-val" id="displayStatus" style="font-size:13px;"><span class="dim">—</span></div>
         </div>
     </div>
-    <div id="mapContainer"></div>
+    <!-- GPS Map -->
+    <div id="mapContainer" style="margin:10px 16px 0;border-radius:12px;overflow:hidden;height:150px;border:1px solid #e2e8f0;"></div>
+    <!-- Distance bar -->
     <div class="dist-wrap">
         <div class="dist-label-row">
-            <span>📍 Jarak ke Kantor</span>
+            <span>&#x1F4CD; Jarak ke Lokasi</span>
             <span id="distText">Mengambil GPS...</span>
         </div>
         <div class="dist-bar"><div class="dist-fill" id="distFill" style="width:0%;background:#e2e8f0;"></div></div>
         <div class="gps-note" id="gpsAccuracy"></div>
     </div>
-    <button class="btn-clock done" id="btnClock" onclick="doClock()" disabled>
-        ⌛ Mengambil GPS...
+    <!-- Absen button (triggers face scan) -->
+    <button class="btn-clock done" id="btnClock" onclick="openFaceScan()" disabled>
+        &#x231B; Mengambil GPS...
     </button>
+    <!-- History section -->
+    <div class="sect-title">&#x1F4CB; Riwayat Absen Bulan Ini</div>
+    <div class="summary-grid" id="summaryGrid" style="padding:0 16px;"></div>
+    <div class="hist-list" id="histList" style="padding:0 16px 30px;"></div>
 </div>
-
-<!-- Screen 4: History -->
-<div id="screenHistory" class="screen">
-    <div class="hist-header">
-        <h2>📋 Riwayat Absen</h2>
-        <p style="font-size:12px; color:rgba(255,255,255,0.5); margin-top:4px;" id="histEmpName"></p>
-    </div>
-    <div class="summary-grid" id="summaryGrid"></div>
-    <div class="hist-list" id="histList"></div>
-</div>
-
-<!-- Bottom Nav -->
-<nav id="bottomNav">
-    <button class="nav-btn active" id="navAbsen" onclick="goAbsen()">
-        <span class="nav-icon">📍</span>Absen
-    </button>
-    <button class="nav-btn" id="navHistory" onclick="goHistory()">
-        <span class="nav-icon">📋</span>Riwayat
-    </button>
-</nav>
 
 <!-- Toast -->
 <div class="toast" id="toast"></div>
@@ -384,16 +396,12 @@ function showScreen(id) {
 }
 
 function goAbsen() {
-    showScreen('screenAbsen');
-    document.getElementById('navAbsen').classList.add('active');
-    document.getElementById('navHistory').classList.remove('active');
+    showScreen('screenDashboard');
     if (leafletMap) leafletMap.invalidateSize();
 }
 
 function goHistory() {
-    showScreen('screenHistory');
-    document.getElementById('navAbsen').classList.remove('active');
-    document.getElementById('navHistory').classList.add('active');
+    showScreen('screenDashboard');
     loadHistory();
 }
 
@@ -411,15 +419,14 @@ function filterEmp() {
 //  3. SELECT EMPLOYEE BY ID
 // ────────────────────────────────────────────────────────
 async function selectEmployee(empId, displayName) {
-    showToast('⏳ Memuat data ' + displayName + '...');
+    showToast('⏳ Memuat data ' + (displayName || '') + '...');
     try {
         const fd = new FormData();
         fd.append('action', 'get_employee');
         fd.append('employee_id', empId);
         const res  = await fetch(API_URL, { method: 'POST', body: fd });
         const data = await res.json();
-
-        if (!data.success) { showToast('❌ ' + data.message); return; }
+        if (!data.success) { showToast('\u274c ' + data.message); return; }
 
         currentEmployee = data.employee;
         officeConfig    = data.config;
@@ -433,19 +440,56 @@ async function selectEmployee(empId, displayName) {
             verifyMode = false;
         }
 
-        showScreen('screenFace');
-        document.getElementById('faceEmpBadge').textContent = currentEmployee.name;
-        await startCamera();
+        // Sync dropdown
+        const dd = document.getElementById('empDropdown');
+        if (dd) dd.value = empId;
+
+        fillDashboard();
+        showScreen('screenDashboard');
+        updateClockButton();
+        initMap();
+        if (!gpsWatcher) startGPS();
+        loadHistory();
 
     } catch (err) {
-        showToast('❌ Jaringan error: ' + err.message);
+        showToast('\u274c Jaringan error: ' + err.message);
     }
+}
+
+function fillDashboard() {
+    const emp = currentEmployee;
+    document.getElementById('dashAvatar').textContent = emp.name.charAt(0).toUpperCase();
+    document.getElementById('dashEmpName').textContent = emp.name;
+    document.getElementById('dashEmpPos').textContent  = emp.position + (emp.department ? ' \u00b7 ' + emp.department : '');
+    document.getElementById('dashDate').textContent    = new Date().toLocaleDateString('id-ID', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
+    const t = emp._today;
+    document.getElementById('displayCheckIn').innerHTML  = t?.check_in_time  ? t.check_in_time.substring(0,5)  : '<span class="dim">\u2014</span>';
+    document.getElementById('displayCheckOut').innerHTML = t?.check_out_time ? t.check_out_time.substring(0,5) : '<span class="dim">\u2014</span>';
+    document.getElementById('displayHours').innerHTML    = t?.work_hours     ? t.work_hours + 'j'              : '<span class="dim">\u2014</span>';
+    document.getElementById('displayStatus').innerHTML   = t?.status         ? statusLabel(t.status)           : '<span class="dim">\u2014</span>';
+}
+
+async function switchEmployee(empId) {
+    if (!empId) return;
+    const opt = document.getElementById('empDropdown').querySelector('option[value="' + empId + '"]');
+    await selectEmployee(parseInt(empId), opt ? opt.textContent.split('\u2014')[0].trim() : '');
+}
+
+function openFaceScan() {
+    if (!currentEmployee) { showToast('Pilih karyawan terlebih dahulu.'); return; }
+    showScreen('screenFace');
+    document.getElementById('faceEmpBadge').textContent = currentEmployee.name;
+    startCamera();
 }
 
 function backToCode() {
     stopCamera();
     clearInterval(verifyInterval);
-    showScreen('screenCode');
+    if (currentEmployee) {
+        showScreen('screenDashboard');
+    } else {
+        showScreen('screenCode');
+    }
 }
 
 // ────────────────────────────────────────────────────────
@@ -630,26 +674,11 @@ async function captureSelfie() {
 // ────────────────────────────────────────────────────────
 function onFaceVerified() {
     stopCamera();
-    document.getElementById('bottomNav').classList.add('visible');
-    // Fill employee info
-    const emp = currentEmployee;
-    document.getElementById('empName').textContent = emp.name;
-    document.getElementById('empPosition').textContent = emp.position + (emp.department ? ' · ' + emp.department : '');
-    document.getElementById('empAvatarLetter').textContent = emp.name.charAt(0).toUpperCase();
-    document.getElementById('todayDateLabel').textContent = new Date().toLocaleDateString('id-ID', { weekday:'long', day:'numeric', month:'long', year:'numeric' });
-    document.getElementById('histEmpName').textContent = emp.name;
-    // Fill today data
-    const today = emp._today;
-    if (today) {
-        if (today.check_in_time)  document.getElementById('displayCheckIn').textContent  = today.check_in_time.substring(0,5);
-        if (today.check_out_time) document.getElementById('displayCheckOut').textContent = today.check_out_time.substring(0,5);
-        if (today.work_hours)     document.getElementById('displayHours').textContent    = today.work_hours + 'j';
-        if (today.status)         document.getElementById('displayStatus').textContent   = statusLabel(today.status);
-    }
-    updateClockButton();
-    goAbsen();
-    initMap();
-    startGPS();
+    fillDashboard();
+    showScreen('screenDashboard');
+    if (leafletMap) leafletMap.invalidateSize();
+    // Auto clock-in/out right after face verification
+    doClock();
 }
 
 // ────────────────────────────────────────────────────────
@@ -682,23 +711,31 @@ function onGPS(pos) {
     const acc = Math.round(pos.coords.accuracy);
     document.getElementById('gpsAccuracy').textContent = '±' + acc + 'm akurasi GPS';
     // Update map
-    if (userMarker) userMarker.setLatLng([lat, lng]);
-    else userMarker = L.circleMarker([lat, lng], { radius:8, color:'#2563eb', fillOpacity:0.8, weight:2 }).addTo(leafletMap);
+    if (leafletMap) {
+        if (userMarker) userMarker.setLatLng([lat, lng]);
+        else userMarker = L.circleMarker([lat, lng], { radius:8, color:'#2563eb', fillOpacity:0.8, weight:2 }).addTo(leafletMap);
+    }
     // Find nearest location
-    const locs = officeConfig.locations || [];
-    let nearest = null, nearestDist = Infinity;
-    locs.forEach(loc => {
-        const d = haversine(lat, lng, loc.lat, loc.lng);
-        if (d < nearestDist) { nearestDist = d; nearest = loc; }
-    });
-    const dist = nearestDist < Infinity ? nearestDist : 0;
-    const maxD = nearest ? nearest.radius : 200;
-    const locLabel = nearest ? nearest.name : 'Lokasi';
-    const pct  = Math.min(100, (dist / maxD) * 100);
-    document.getElementById('distText').textContent = dist + 'm dari ' + locLabel + ' (maks ' + maxD + 'm)';
-    const fill = document.getElementById('distFill');
-    fill.style.width    = pct + '%';
-    fill.style.background = dist <= maxD ? '#059669' : '#dc2626';
+    const locs = officeConfig?.locations || [];
+    if (locs.length === 0) {
+        document.getElementById('distText').textContent = 'Lokasi bebas \u2014 belum dikonfigurasi';
+        document.getElementById('distFill').style.width = '100%';
+        document.getElementById('distFill').style.background = '#059669';
+    } else {
+        let nearest = null, nearestDist = Infinity;
+        locs.forEach(loc => {
+            const d = haversine(lat, lng, loc.lat, loc.lng);
+            if (d < nearestDist) { nearestDist = d; nearest = loc; }
+        });
+        const dist = nearestDist < Infinity ? nearestDist : 0;
+        const maxD = nearest ? nearest.radius : 200;
+        const locLabel = nearest ? nearest.name : 'Lokasi';
+        const pct  = Math.min(100, (dist / maxD) * 100);
+        document.getElementById('distText').textContent = dist + 'm dari ' + locLabel + ' (maks ' + maxD + 'm)';
+        const fill = document.getElementById('distFill');
+        fill.style.width    = pct + '%';
+        fill.style.background = dist <= maxD ? '#059669' : '#dc2626';
+    }
     updateClockButton();
 }
 
@@ -718,29 +755,31 @@ function haversine(lat1, lng1, lat2, lng2) {
 function updateClockButton() {
     const btn  = document.getElementById('btnClock');
     const today = currentEmployee?._today;
-    if (!currentGPS) { btn.className='btn-clock done'; btn.textContent='⌛ Mengambil GPS...'; btn.disabled=true; return; }
+    if (!currentGPS) { btn.className='btn-clock done'; btn.textContent='\u231b Mengambil GPS...'; btn.disabled=true; return; }
 
-    // ── Nearest location check ──
-    const lat = currentGPS.coords.latitude, lng = currentGPS.coords.longitude;
-    const locs = officeConfig.locations || [];
-    let nearest = null, nearestDist = Infinity;
-    locs.forEach(loc => {
-        const d = haversine(lat, lng, loc.lat, loc.lng);
-        if (d < nearestDist) { nearestDist = d; nearest = loc; }
-    });
-    const dist = nearestDist < Infinity ? nearestDist : 99999;
-    const inRadius = nearest ? dist <= nearest.radius : false;
-    if (!inRadius && !officeConfig.allow_outside) {
-        const locName = nearest ? nearest.name : 'lokasi manapun';
-        btn.className='btn-clock outside'; btn.textContent='\ud83d\udccd Di luar radius ' + locName + ' (' + dist + 'm)'; btn.disabled=true; return;
+    // Radius check (skip if no locations configured)
+    const locs = officeConfig?.locations || [];
+    if (locs.length > 0) {
+        const lat = currentGPS.coords.latitude, lng = currentGPS.coords.longitude;
+        let nearest = null, nearestDist = Infinity;
+        locs.forEach(loc => {
+            const d = haversine(lat, lng, loc.lat, loc.lng);
+            if (d < nearestDist) { nearestDist = d; nearest = loc; }
+        });
+        const dist = nearestDist < Infinity ? nearestDist : 99999;
+        const inRadius = nearest ? dist <= nearest.radius : false;
+        if (!inRadius && !officeConfig.allow_outside) {
+            const locName = nearest ? nearest.name : 'lokasi manapun';
+            btn.className='btn-clock outside'; btn.textContent='\ud83d\udccd Di luar radius ' + locName + ' (' + dist + 'm)'; btn.disabled=true; return;
+        }
     }
 
     if (!today || !today.check_in_time) {
-        btn.className='btn-clock checkin'; btn.textContent='✅ Check-In Sekarang'; btn.disabled=false;
+        btn.className='btn-clock checkin'; btn.textContent='\u2705 Absen Masuk \u2014 Scan Wajah'; btn.disabled=false;
     } else if (!today.check_out_time) {
-        btn.className='btn-clock checkout'; btn.textContent='🚪 Check-Out Sekarang'; btn.disabled=false;
+        btn.className='btn-clock checkout'; btn.textContent='\ud83d\udea8 Absen Pulang \u2014 Scan Wajah'; btn.disabled=false;
     } else {
-        btn.className='btn-clock done'; btn.textContent='✔️ Sudah Absen Lengkap'; btn.disabled=true;
+        btn.className='btn-clock done'; btn.textContent='\u2714\ufe0f Sudah Absen Lengkap'; btn.disabled=true;
     }
 }
 
@@ -774,22 +813,19 @@ async function doClock() {
         const data = await res.json();
         if (data.success) {
             showToast(data.message);
-            // Update local state
             if (!currentEmployee._today) currentEmployee._today = {};
             if (action === 'checkin') {
                 currentEmployee._today.check_in_time = data.time + ':00';
                 currentEmployee._today.status = data.status;
-                document.getElementById('displayCheckIn').textContent = data.time;
-                document.getElementById('displayStatus').textContent  = statusLabel(data.status);
             } else {
                 currentEmployee._today.check_out_time = data.time + ':00';
                 currentEmployee._today.work_hours = data.work_hours;
-                document.getElementById('displayCheckOut').textContent = data.time;
-                document.getElementById('displayHours').textContent    = data.work_hours + 'j';
             }
+            fillDashboard();
             updateClockButton();
+            loadHistory();
         } else {
-            showToast('❌ ' + data.message);
+            showToast('\u274c ' + data.message);
             updateClockButton();
         }
     } catch(err) {

@@ -189,24 +189,25 @@ if ($action === 'checkin') {
     $allowOutside = (bool)($config['allow_outside'] ?? false);
     $checkinEnd   = $config['checkin_end'] ?? '10:00:00';
 
-    // Find nearest active location
+    // Find nearest active location (bypass check if none configured)
     $locRows  = $db->fetchAll("SELECT * FROM payroll_attendance_locations WHERE is_active = 1") ?: [];
-    $nearest  = null; $nearestDist = PHP_INT_MAX;
-    foreach ($locRows as $loc) {
-        $d = haversineDistance($lat, $lng, (float)$loc['lat'], (float)$loc['lng']);
-        if ($d < $nearestDist) { $nearestDist = $d; $nearest = $loc; }
+    if (empty($locRows)) {
+        // No locations set up yet — allow check-in from anywhere
+        $distance = 0; $radius = 0; $locName = 'Kantor'; $isOutside = false;
+    } else {
+        $nearest  = null; $nearestDist = PHP_INT_MAX;
+        foreach ($locRows as $loc) {
+            $d = haversineDistance($lat, $lng, (float)$loc['lat'], (float)$loc['lng']);
+            if ($d < $nearestDist) { $nearestDist = $d; $nearest = $loc; }
+        }
+        $distance  = $nearestDist;
+        $radius    = (int)$nearest['radius_m'];
+        $locName   = $nearest['location_name'];
+        $isOutside = $distance > $radius;
     }
-    $distance  = $nearestDist;
-    $radius    = $nearest ? (int)$nearest['radius_m'] : 200;
-    $locName   = $nearest ? $nearest['location_name'] : 'Kantor';
-    $isOutside = $distance > $radius;
 
     if ($isOutside && !$allowOutside) {
-        echo json_encode([
-            'success'  => false,
-            'message'  => "Anda berada di luar radius lokasi ({$distance}m dari {$locName}, maks {$radius}m). Harap absen dari area kerja.",
-            'distance' => $distance
-        ]);
+        echo json_encode(['success'=>false,'message'=>"Di luar radius {$locName} ({$distance}m, maks {$radius}m).",'distance'=>$distance]);
         exit;
     }
 
@@ -261,27 +262,26 @@ if ($action === 'checkout') {
     $allowOutside = (bool)($config['allow_outside'] ?? false);
     $checkoutStart = $config['checkout_start'] ?? '16:00:00';
 
-    // Find nearest active location
+    // Find nearest active location (bypass check if none configured)
     $locRows  = $db->fetchAll("SELECT * FROM payroll_attendance_locations WHERE is_active = 1") ?: [];
-    $nearest  = null; $nearestDist = 9999;
-    if ($lat && $lng) {
-        $nearestDist = PHP_INT_MAX;
-        foreach ($locRows as $loc) {
-            $d = haversineDistance($lat, $lng, (float)$loc['lat'], (float)$loc['lng']);
-            if ($d < $nearestDist) { $nearestDist = $d; $nearest = $loc; }
+    if (empty($locRows)) {
+        $distance = 0; $radius = 0; $locName = 'Kantor'; $isOutside = false;
+    } else {
+        $nearest = null; $nearestDist = PHP_INT_MAX;
+        if ($lat && $lng) {
+            foreach ($locRows as $loc) {
+                $d = haversineDistance($lat, $lng, (float)$loc['lat'], (float)$loc['lng']);
+                if ($d < $nearestDist) { $nearestDist = $d; $nearest = $loc; }
+            }
         }
+        $distance  = $nearestDist < PHP_INT_MAX ? $nearestDist : 9999;
+        $radius    = $nearest ? (int)$nearest['radius_m'] : 200;
+        $locName   = $nearest ? $nearest['location_name'] : 'Kantor';
+        $isOutside = $distance > $radius;
     }
-    $distance  = $nearestDist;
-    $radius    = $nearest ? (int)$nearest['radius_m'] : 200;
-    $locName   = $nearest ? $nearest['location_name'] : 'Kantor';
-    $isOutside = $distance > $radius;
 
     if ($isOutside && !$allowOutside) {
-        echo json_encode([
-            'success'  => false,
-            'message'  => "Anda berada di luar radius lokasi ({$distance}m dari {$locName}). Harap check-out dari area kerja.",
-            'distance' => $distance
-        ]);
+        echo json_encode(['success'=>false,'message'=>"Di luar radius {$locName} ({$distance}m, maks {$radius}m).",'distance'=>$distance]);
         exit;
     }
 
