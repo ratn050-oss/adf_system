@@ -98,6 +98,7 @@ body{font-family:'Inter',sans-serif;background:#0d1f3c;min-height:100vh;overflow
 .btn-clock:active{transform:scale(0.98);}
 .btn-clock.checkin{background:#059669;color:#fff;}
 .btn-clock.checkout{background:#ea580c;color:#fff;}
+.btn-clock.outside{background:#94a3b8;color:#fff;cursor:not-allowed;opacity:0.85;}
 .btn-clock.done{background:#e2e8f0;color:#94a3b8;cursor:not-allowed;}
 
 /* ── SCREEN 4: HISTORY ── */
@@ -652,6 +653,14 @@ function updateClockButton() {
     const btn  = document.getElementById('btnClock');
     const today = currentEmployee?._today;
     if (!currentGPS) { btn.className='btn-clock done'; btn.textContent='⌛ Mengambil GPS...'; btn.disabled=true; return; }
+
+    // ── Radius check ──
+    const dist = haversine(currentGPS.coords.latitude, currentGPS.coords.longitude, officeConfig.office_lat, officeConfig.office_lng);
+    const inRadius = dist <= officeConfig.radius;
+    if (!inRadius && !officeConfig.allow_outside) {
+        btn.className='btn-clock outside'; btn.textContent='📍 Di luar radius kantor (' + dist + 'm)'; btn.disabled=true; return;
+    }
+
     if (!today || !today.check_in_time) {
         btn.className='btn-clock checkin'; btn.textContent='✅ Check-In Sekarang'; btn.disabled=false;
     } else if (!today.check_out_time) {
