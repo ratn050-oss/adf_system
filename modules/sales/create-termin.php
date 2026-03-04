@@ -35,6 +35,56 @@ $projects = $pdo->query("
     ORDER BY project_name
 ")->fetchAll(PDO::FETCH_ASSOC);
 
+// Load quotation data if creating termin from a quotation
+$fromQuotationId = isset($_GET['from_quotation']) ? (int)$_GET['from_quotation'] : 0;
+$fromQuotation = null;
+$preSelectedProjectId = 0;
+$preContractValue = '';
+$prePpnPercentage = 11;
+$preDescription = '';
+
+if ($fromQuotationId > 0) {
+    try {
+        ensureCQCQuotationTable($pdo);
+        $stmtQ = $pdo->prepare("SELECT * FROM cqc_quotations WHERE id = ?");
+        $stmtQ->execute([$fromQuotationId]);
+        $fromQuotation = $stmtQ->fetch(PDO::FETCH_ASSOC);
+
+        if ($fromQuotation) {
+            // Pre-fill contract value from quotation subtotal (DPP before tax)
+            $baseVal = floatval($fromQuotation['subtotal'] ?: ($fromQuotation['total_amount'] ?? 0));
+            $preContractValue = number_format($baseVal, 0, ',', '.');
+            $prePpnPercentage = floatval($fromQuotation['ppn_percentage'] ?? 11);
+            $preDescription = "Pembayaran Termin 1 - " . ($fromQuotation['subject'] ?: $fromQuotation['quote_number']);
+
+            // Match project by client name (case-insensitive substring match)
+            $quotClient = strtolower(trim($fromQuotation['client_name'] ?? ''));
+            foreach ($projects as $proj) {
+                $projClient = strtolower(trim($proj['client_name']));
+                if ($quotClient && ($quotClient === $projClient
+                    || strpos($projClient, $quotClient) !== false
+                    || strpos($quotClient, $projClient) !== false)) {
+                    $preSelectedProjectId = $proj['id'];
+                    break;
+                }
+            }
+            // Fallback: match by phone number
+            if (!$preSelectedProjectId && !empty($fromQuotation['client_phone'])) {
+                $quotPhone = preg_replace('/\D/', '', $fromQuotation['client_phone']);
+                foreach ($projects as $proj) {
+                    $projPhone = preg_replace('/\D/', '', $proj['client_phone'] ?? '');
+                    if ($quotPhone && $projPhone && strpos($projPhone, $quotPhone) !== false) {
+                        $preSelectedProjectId = $proj['id'];
+                        break;
+                    }
+                }
+            }
+        }
+    } catch (Exception $e) {
+        // Ignore quotation load errors; form still works normally
+    }
+}
+
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
@@ -117,6 +167,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'created_by' => $currentUser['id']
         ]);
         
+        // Update quotation status to 'approved' if invoice created from quotation
+        if (!empty($_POST['from_quotation_id'])) {
+            $fqId = (int)$_POST['from_quotation_id'];
+            if ($fqId > 0) {
+                try {
+                    $pdo->prepare("UPDATE cqc_quotations SET status = 'approved' WHERE id = ?")
+                        ->execute([$fqId]);
+                } catch (Exception $e) { /* ignore status update error */ }
+            }
+        }
+
         $_SESSION['success'] = "Invoice $invoice_number berhasil dibuat!";
         header('Location: index-cqc.php');
         exit;
@@ -290,7 +351,20 @@ include '../../includes/header.php';
         <div class="cqc-alert-error">⚠️ <?php echo htmlspecialchars($error); ?></div>
     <?php endif; ?>
 
+    <?php if ($fromQuotation): ?>
+    <div style="background: linear-gradient(135deg, #e8f5e9, #c8e6c9); border-left: 4px solid #2e7d32; padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; display: flex; align-items: center; gap: 10px;">
+        <span style="font-size: 20px;">🧾</span>
+        <div>
+            <div style="color: #1b5e20; font-weight: 700; font-size: 13px;">Invoice Termin 1 dari Quotation <strong><?php echo htmlspecialchars($fromQuotation['quote_number']); ?></strong></div>
+            <div style="color: #2e7d32; font-size: 12px; margin-top: 2px;">Klien: <?php echo htmlspecialchars($fromQuotation['client_name']); ?> &bull; <?php echo htmlspecialchars($fromQuotation['subject'] ?: '-'); ?></div>
+        </div>
+    </div>
+    <?php endif; ?>
+
     <form method="POST" id="terminForm">
+        <?php if ($fromQuotationId > 0): ?>
+        <input type="hidden" name="from_quotation_id" value="<?php echo $fromQuotationId; ?>">
+        <?php endif; ?>
         <div class="cqc-form-card">
             
             <!-- Project Selection -->
@@ -307,7 +381,8 @@ include '../../includes/header.php';
                                     data-phone="<?php echo htmlspecialchars($proj['client_phone']); ?>"
                                     data-email="<?php echo htmlspecialchars($proj['client_email']); ?>"
                                     data-contract="<?php echo $proj['contract_value']; ?>"
-                                    data-kwp="<?php echo $proj['solar_capacity_kwp']; ?>">
+                                    data-kwp="<?php echo $proj['solar_capacity_kwp']; ?>"
+                                    <?php echo ($proj['id'] == $preSelectedProjectId) ? 'selected' : ''; ?>>
                                 [<?php echo $proj['project_code']; ?>] <?php echo $proj['project_name']; ?>
                             </option>
                         <?php endforeach; ?>
@@ -365,7 +440,7 @@ include '../../includes/header.php';
                 <div class="cqc-form-grid" style="margin-top: 16px;">
                     <div class="cqc-form-group cqc-form-full">
                         <label class="cqc-form-label">Keterangan</label>
-                        <input type="text" name="description" class="cqc-form-input" placeholder="Pembayaran Termin 1 - DP 30%">
+                        <input type="text" name="description" class="cqc-form-input" placeholder="Pembayaran Termin 1 - DP 30%" value="<?php echo htmlspecialchars($preDescription); ?>">
                     </div>
                 </div>
             </div>
@@ -378,12 +453,12 @@ include '../../includes/header.php';
                     <div class="cqc-form-group">
                         <label class="cqc-form-label">Nilai Kontrak (DPP) <span class="required">*</span></label>
                         <input type="text" name="contract_value" id="contractValue" class="cqc-form-input amount" 
-                               placeholder="0" required onkeyup="formatCurrency(this); calculateTotal();">
+                               placeholder="0" required onkeyup="formatCurrency(this); calculateTotal();" value="<?php echo htmlspecialchars($preContractValue); ?>">
                     </div>
                     <div class="cqc-form-group">
                         <label class="cqc-form-label">PPN (%)</label>
                         <input type="number" name="ppn_percentage" id="ppnPercentage" class="cqc-form-input" 
-                               step="0.01" min="0" max="100" value="11" onchange="calculateTotal()">
+                               step="0.01" min="0" max="100" value="<?php echo $prePpnPercentage; ?>" onchange="calculateTotal()">
                     </div>
                 </div>
                 
@@ -508,6 +583,21 @@ function calculateTotal() {
 
 // Initial calculation
 calculateTotal();
+
+<?php if ($preSelectedProjectId > 0): ?>
+// Auto-initialize project info card when coming from quotation
+document.addEventListener('DOMContentLoaded', function() {
+    var sel = document.getElementById('projectSelect');
+    if (sel && sel.value) {
+        loadProjectInfo();
+        <?php if ($preContractValue): ?>
+        // Restore quotation contract value (quotation subtotal, not project budget)
+        document.getElementById('contractValue').value = '<?php echo addslashes($preContractValue); ?>';
+        calculateTotal();
+        <?php endif; ?>
+    }
+});
+<?php endif; ?>
 </script>
 
 <?php include '../../includes/footer.php'; ?>

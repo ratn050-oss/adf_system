@@ -760,7 +760,7 @@ include '../../includes/header.php';
                                     <a href="edit-quotation.php?id=<?php echo $quot['id']; ?>" class="cqc-action-btn" title="Edit" style="background: #f1f5f9; color: #475569;">
                                         ✏️
                                     </a>
-                                    <a href="add-invoice.php?from_quotation=<?php echo $quot['id']; ?>" class="cqc-action-btn" title="Buat Invoice dari Quotation" style="background: #e8f5e9; color: #2e7d32; font-size: 13px;" onclick="return confirm('Buat Invoice dari Quotation <?php echo addslashes($quot['quote_number']); ?>?')">
+                                    <a href="create-termin.php?from_quotation=<?php echo $quot['id']; ?>" class="cqc-action-btn" title="Buat Invoice Termin 1 dari Quotation" style="background: #e8f5e9; color: #2e7d32; font-size: 13px;" onclick="return confirm('Buat Invoice Termin 1 dari Quotation <?php echo addslashes($quot['quote_number']); ?>?')">
                                         🧾
                                     </a>
                                     <button type="button" class="cqc-action-btn btn-delete" title="Hapus" onclick="deleteQuotation(<?php echo $quot['id']; ?>, '<?php echo $quot['quote_number']; ?>')">
