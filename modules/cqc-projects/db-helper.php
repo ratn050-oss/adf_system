@@ -250,7 +250,7 @@ function ensureCQCQuotationTable($pdo) {
                 total_amount DECIMAL(15,2) NOT NULL,
                 
                 -- Status
-                status ENUM('draft','sent','accepted','rejected','expired') DEFAULT 'draft',
+                status ENUM('draft','sent','approved','rejected','expired') DEFAULT 'draft',
                 
                 created_by INT NOT NULL DEFAULT 1,
                 created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -281,6 +281,24 @@ function ensureCQCQuotationTable($pdo) {
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
         ");
     }
+    
+    // Patch existing table: ensure subject col exists and status enum includes 'approved'
+    try {
+        $cols = $pdo->query("SHOW COLUMNS FROM cqc_quotations LIKE 'subject'")->rowCount();
+        if ($cols === 0) {
+            $pdo->exec("ALTER TABLE cqc_quotations ADD COLUMN subject VARCHAR(255) AFTER client_address");
+        }
+        // Ensure discount_type and discount_value columns exist
+        if ($pdo->query("SHOW COLUMNS FROM cqc_quotations LIKE 'discount_type'")->rowCount() === 0) {
+            $pdo->exec("ALTER TABLE cqc_quotations ADD COLUMN discount_type ENUM('fixed','percentage') DEFAULT 'fixed' AFTER ppn_amount");
+        }
+        if ($pdo->query("SHOW COLUMNS FROM cqc_quotations LIKE 'discount_value'")->rowCount() === 0) {
+            $pdo->exec("ALTER TABLE cqc_quotations ADD COLUMN discount_value DECIMAL(15,2) DEFAULT 0 AFTER discount_type");
+        }
+        // Patch status ENUM to include 'approved'
+        $pdo->exec("ALTER TABLE cqc_quotations MODIFY COLUMN status ENUM('draft','sent','approved','rejected','expired') DEFAULT 'draft'");
+    } catch (Exception $e) {}
+    
     return true;
 }
 

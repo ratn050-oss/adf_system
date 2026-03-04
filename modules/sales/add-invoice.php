@@ -36,6 +36,7 @@ $error = '';
 // Pre-fill from quotation if from_quotation param exists
 $fromQuotation = null;
 $quotationItems = [];
+$preSelectedCustomerId = 0;
 $fromQuotationId = isset($_GET['from_quotation']) ? (int)$_GET['from_quotation'] : 0;
 if ($fromQuotationId > 0) {
     try {
@@ -47,6 +48,21 @@ if ($fromQuotationId > 0) {
             $stmtQI = $pdo->prepare("SELECT * FROM cqc_quotation_items WHERE quotation_id = ? ORDER BY sort_order");
             $stmtQI->execute([$fromQuotationId]);
             $quotationItems = $stmtQI->fetchAll(PDO::FETCH_ASSOC);
+            // Try to match customer from database by phone or name
+            foreach ($customers as $cust) {
+                $custPhone = preg_replace('/[^0-9]/', '', $cust['phone'] ?? '');
+                $quotPhone = preg_replace('/[^0-9]/', '', $fromQuotation['client_phone'] ?? '');
+                $quotName = strtolower(trim($fromQuotation['client_name'] ?? ''));
+                $custName = strtolower(trim($cust['customer_name'] ?? ''));
+                $custCompany = strtolower(trim($cust['company_name'] ?? ''));
+                if (($custPhone && $quotPhone && $custPhone === $quotPhone) ||
+                    $custName === $quotName ||
+                    ($custCompany && strpos($quotName, $custCompany) !== false) ||
+                    strpos($quotName, $custName) !== false) {
+                    $preSelectedCustomerId = $cust['id'];
+                    break;
+                }
+            }
         }
     } catch (Exception $e) {}
 }
@@ -268,6 +284,7 @@ include '../../includes/header.php';
                             <option value="">-- Pilih Customer atau input manual --</option>
                             <?php foreach ($customers as $cust): ?>
                             <option value="<?php echo $cust['id']; ?>"
+                                <?php echo ($preSelectedCustomerId == $cust['id']) ? 'selected' : ''; ?>
                                 data-name="<?php echo htmlspecialchars($cust['customer_name'] . ($cust['company_name'] ? ' (' . $cust['company_name'] . ')' : '')); ?>"
                                 data-phone="<?php echo htmlspecialchars($cust['phone'] ?? ''); ?>"
                                 data-email="<?php echo htmlspecialchars($cust['email'] ?? ''); ?>"
