@@ -1,12 +1,12 @@
 <?php
 /**
- * Add Missing Menu Items to Database
+ * Add Missing Menu Items to Database + Enable for All Businesses
  * Run this script once on hosting to add missing menus
  */
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
-echo "<h2>Adding Missing Menu Items</h2>";
+echo "<h2>Adding Missing Menu Items + Enabling for Businesses</h2>";
 
 // Hosting database credentials
 $dbHost = 'localhost';
@@ -20,11 +20,19 @@ try {
     
     echo "<p>Connected to: {$dbName}</p>";
     
+    // Menus to add with their details
     $menusToAdd = [
         ['bills', 'Tagihan', 'modules/bills/', 7],
         ['owner', 'Owner Monitoring', 'modules/owner/', 15],
         ['admin', 'Admin Panel', 'modules/admin/', 16],
+        ['divisions', 'Kelola Divisi', 'modules/divisions/', 3],
+        ['frontdesk', 'Frontdesk', 'modules/frontdesk/', 4],
+        ['project', 'Project', 'modules/project/', 10],
+        ['investor', 'Investor', 'modules/investor/', 9],
+        ['payroll', 'Payroll', 'modules/payroll/', 14],
     ];
+    
+    echo "<h3>Step 1: Add missing menus</h3>";
     
     foreach ($menusToAdd as $menu) {
         list($code, $name, $url, $order) = $menu;
@@ -41,6 +49,41 @@ try {
             $stmt->execute([$code, $name, $url, $order]);
             echo "<p>✅ Added menu: <strong>{$name}</strong> ({$code}) → {$url}</p>";
         }
+    }
+    
+    echo "<h3>Step 2: Enable menus for all businesses</h3>";
+    
+    // Get all businesses
+    $bizStmt = $masterDb->query("SELECT id, business_name FROM businesses WHERE is_active = 1");
+    $businesses = $bizStmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Get all menus
+    $menuStmt = $masterDb->query("SELECT id, menu_code, menu_name FROM menu_items WHERE is_active = 1");
+    $menus = $menuStmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    foreach ($businesses as $biz) {
+        echo "<p><strong>{$biz['business_name']}</strong>: ";
+        $added = 0;
+        
+        foreach ($menus as $menu) {
+            // Check if already in business_menu_config
+            $stmt = $masterDb->prepare("SELECT id FROM business_menu_config WHERE business_id = ? AND menu_id = ?");
+            $stmt->execute([$biz['id'], $menu['id']]);
+            
+            if (!$stmt->fetch()) {
+                // Add to business_menu_config
+                $stmt = $masterDb->prepare("INSERT INTO business_menu_config (business_id, menu_id, is_enabled, created_at) VALUES (?, ?, 1, NOW())");
+                $stmt->execute([$biz['id'], $menu['id']]);
+                $added++;
+            }
+        }
+        
+        if ($added > 0) {
+            echo "✅ Enabled {$added} new menus";
+        } else {
+            echo "✓ All menus already configured";
+        }
+        echo "</p>";
     }
     
     echo "<h3>Current Menu Items:</h3>";
