@@ -115,28 +115,50 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_
 // Add / Edit / Delete location
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $locAction = $_POST['action'] ?? '';
+    if ($locAction === 'add_location' || $locAction === 'edit_location' || $locAction === 'delete_location') {
+        // Ensure table exists (idempotent)
+        $db->getConnection()->exec("CREATE TABLE IF NOT EXISTS `payroll_attendance_locations` (
+            `id` INT AUTO_INCREMENT PRIMARY KEY,
+            `location_name` VARCHAR(100) NOT NULL,
+            `address` VARCHAR(255) DEFAULT NULL,
+            `lat` DECIMAL(10,7) NOT NULL DEFAULT 0,
+            `lng` DECIMAL(10,7) NOT NULL DEFAULT 0,
+            `radius_m` INT NOT NULL DEFAULT 200,
+            `is_active` TINYINT(1) DEFAULT 1,
+            `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    }
     if ($locAction === 'add_location' || $locAction === 'edit_location') {
         $locName   = trim(htmlspecialchars($_POST['loc_name'] ?? 'Lokasi'));
         $locAddr   = trim(htmlspecialchars($_POST['loc_address'] ?? ''));
         $locLat    = (float)($_POST['loc_lat'] ?? 0);
         $locLng    = (float)($_POST['loc_lng'] ?? 0);
-        $locRad    = max(10, min(5000, (int)($_POST['loc_radius'] ?? 200)));
+        $locRad    = max(10, min(10000, (int)($_POST['loc_radius'] ?? 200)));
         $locActive = isset($_POST['loc_active']) ? 1 : 0;
-        if ($locAction === 'add_location') {
-            $db->query("INSERT INTO payroll_attendance_locations (location_name, address, lat, lng, radius_m, is_active) VALUES (?,?,?,?,?,?)",
-                [$locName, $locAddr, $locLat, $locLng, $locRad, 1]);
-            $msg = "Lokasi '{$locName}' berhasil ditambahkan."; $msgType = 'success';
-        } else {
-            $locId = (int)($_POST['loc_id'] ?? 0);
-            $db->query("UPDATE payroll_attendance_locations SET location_name=?, address=?, lat=?, lng=?, radius_m=?, is_active=? WHERE id=?",
-                [$locName, $locAddr, $locLat, $locLng, $locRad, $locActive, $locId]);
-            $msg = "Lokasi '{$locName}' berhasil diperbarui."; $msgType = 'success';
+        try {
+            $pdo = $db->getConnection();
+            if ($locAction === 'add_location') {
+                $pdo->prepare("INSERT INTO payroll_attendance_locations (location_name, address, lat, lng, radius_m, is_active) VALUES (?,?,?,?,?,?)")
+                    ->execute([$locName, $locAddr, $locLat, $locLng, $locRad, 1]);
+                $msg = "✅ Lokasi '{$locName}' berhasil ditambahkan."; $msgType = 'success';
+            } else {
+                $locId = (int)($_POST['loc_id'] ?? 0);
+                $pdo->prepare("UPDATE payroll_attendance_locations SET location_name=?, address=?, lat=?, lng=?, radius_m=?, is_active=? WHERE id=?")
+                    ->execute([$locName, $locAddr, $locLat, $locLng, $locRad, $locActive, $locId]);
+                $msg = "✅ Lokasi '{$locName}' berhasil diperbarui."; $msgType = 'success';
+            }
+        } catch (Exception $e) {
+            $msg = '❌ Gagal menyimpan lokasi: ' . $e->getMessage(); $msgType = 'error';
         }
     }
     if ($locAction === 'delete_location') {
         $locId = (int)($_POST['loc_id'] ?? 0);
-        $db->query("DELETE FROM payroll_attendance_locations WHERE id=?", [$locId]);
-        $msg = 'Lokasi berhasil dihapus.'; $msgType = 'success';
+        try {
+            $db->getConnection()->prepare("DELETE FROM payroll_attendance_locations WHERE id=?")->execute([$locId]);
+            $msg = '✅ Lokasi berhasil dihapus.'; $msgType = 'success';
+        } catch (Exception $e) {
+            $msg = '❌ Gagal menghapus: ' . $e->getMessage(); $msgType = 'error';
+        }
     }
 }
 
@@ -503,7 +525,7 @@ include '../../includes/header.php';
                 <!-- Time Settings -->
                 <div style="background:#fff; border:1px solid var(--border); border-radius:12px; padding:18px; margin-bottom:14px;">
                     <h3 style="font-size:14px; font-weight:700; color:var(--navy); margin:0 0 14px;">🕐 Pengaturan Waktu Absen</h3>
-                    <form method="POST">
+                    <form method="POST" action="?tab=settings">
                         <input type="hidden" name="action" value="save_config">
                         <div class="form-grid">
                             <div class="form-group">
@@ -555,8 +577,12 @@ include '../../includes/header.php';
                                     </div>
                                 </div>
                                 <div style="display:flex; gap:4px; flex-shrink:0; margin-left:10px;">
-                                    <button class="act-btn act-btn-edit" onclick='openLocModal(<?php echo json_encode($loc); ?>)'>✏️</button>
-                                    <button class="act-btn act-btn-del" onclick="deleteLoc(<?php echo $loc['id']; ?>, '<?php echo addslashes(htmlspecialchars($loc['location_name'])); ?>')">🗑</button>
+                    <button class="act-btn act-btn-edit" onclick='openLocModal(<?php echo json_encode($loc); ?>)'>✏️</button>
+                                    <form method="POST" action="?tab=settings" style="display:inline;" onsubmit="return confirm('Hapus lokasi ini?')">
+                                        <input type="hidden" name="action" value="delete_location">
+                                        <input type="hidden" name="loc_id" value="<?php echo $loc['id']; ?>">
+                                        <button type="submit" class="act-btn act-btn-del">🗑</button>
+                                    </form>
                                 </div>
                             </div>
                         </div>
@@ -613,7 +639,7 @@ include '../../includes/header.php';
 <div class="modal-overlay" id="locModal">
     <div class="modal-box" style="max-width:540px;">
         <div class="modal-title" id="locModalTitle">📍 Tambah Lokasi Baru</div>
-        <form method="POST" id="locForm" onsubmit="return handleLocSubmit(event)">
+        <form method="POST" action="?tab=settings" id="locForm" onsubmit="return validateLocForm()">
             <input type="hidden" name="action" id="locFormAction" value="add_location">
             <input type="hidden" name="loc_id" id="locFormId" value="">
             <div class="form-group">
@@ -793,42 +819,19 @@ function switchTab(tab) {
 const urlTab = new URLSearchParams(window.location.search).get('tab');
 if (urlTab) switchTab(urlTab);
 
-// ─ LOCATION FORM AJAX SUBMIT ─
-async function handleLocSubmit(e) {
-    e.preventDefault();
-    const lat = parseFloat(document.getElementById('locLat').value || '0');
-    const lng = parseFloat(document.getElementById('locLng').value || '0');
-    if (!lat && !lng) {
-        document.getElementById('locGpsStatus').textContent = '\u274c Tentukan titik lokasi dulu — klik peta atau gunakan GPS.';
-        document.getElementById('locGpsStatus').style.color = '#dc2626';
+// ─ LOCATION FORM VALIDATION (plain POST to ?tab=settings) ─
+function validateLocForm() {
+    const lat = document.getElementById('locLat').value.trim();
+    const lng = document.getElementById('locLng').value.trim();
+    const name = document.getElementById('locName').value.trim();
+    if (!name) { alert('Masukkan nama lokasi.'); return false; }
+    if (!lat || !lng || (parseFloat(lat) === 0 && parseFloat(lng) === 0)) {
+        const s = document.getElementById('locGpsStatus');
+        s.textContent = '❌ Tentukan titik lokasi dulu — klik peta atau gunakan GPS.';
+        s.style.color = '#dc2626';
         return false;
     }
-    const btn = e.target.querySelector('[type=submit]');
-    btn.disabled = true; btn.textContent = '\u23f3 Menyimpan...';
-    try {
-        const fd = new FormData(e.target);
-        await fetch(window.location.href, { method: 'POST', body: fd });
-        // Redirect to settings tab after save
-        const url = new URL(window.location.href);
-        url.searchParams.set('tab', 'settings');
-        window.location.href = url.toString();
-    } catch(err) {
-        btn.disabled = false; btn.textContent = '\ud83d\udcbe Simpan Lokasi';
-        alert('Gagal menyimpan: ' + err.message);
-    }
-    return false;
-}
-
-// ─ DELETE LOCATION AJAX ─
-async function deleteLoc(id, name) {
-    if (!confirm('Hapus lokasi "' + name + '"?')) return;
-    const fd = new FormData();
-    fd.append('action', 'delete_location');
-    fd.append('loc_id', id);
-    await fetch(window.location.href, { method: 'POST', body: fd });
-    const url = new URL(window.location.href);
-    url.searchParams.set('tab', 'settings');
-    window.location.href = url.toString();
+    return true;
 }
 
 // ─ ADMIN MAP (overview) ─
