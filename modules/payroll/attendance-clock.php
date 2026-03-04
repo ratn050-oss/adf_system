@@ -29,6 +29,7 @@ if (!defined('ACTIVE_BUSINESS_ID')) {
     }
 }
 
+// Force connect to correct business DB directly (bypass session-based lookup)
 // Helper: Haversine formula — returns distance in meters
 function haversineDistance($lat1, $lng1, $lat2, $lng2) {
     $R = 6371000; // Earth radius in meters
@@ -40,7 +41,7 @@ function haversineDistance($lat1, $lng1, $lat2, $lng2) {
     return (int)(2 * $R * asin(sqrt($a)));
 }
 
-$db = Database::getInstance();
+$db = isset($_bizCfg['database']) ? Database::switchDatabase($_bizCfg['database']) : Database::getInstance();
 $action = $_POST['action'] ?? '';
 
 // ── Auto-create tables if missing ──

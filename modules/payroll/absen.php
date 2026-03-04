@@ -39,8 +39,8 @@ if (!defined('BUSINESS_TYPE'))      define('BUSINESS_TYPE',      $bizConfig['bus
 $baseUrl = defined('BASE_URL') ? BASE_URL : '';
 $apiUrl  = $baseUrl . '/modules/payroll/attendance-clock.php?b=' . urlencode($bizSlug);
 
-// Load employee list for name picker
-$db = Database::getInstance();
+// Load employee list for name picker — force correct business DB directly
+$db = Database::switchDatabase($bizConfig['database']);
 $empList = $db->fetchAll("SELECT id, employee_code, full_name, position, department FROM payroll_employees WHERE is_active = 1 ORDER BY full_name") ?: [];
 $bizName = htmlspecialchars($bizConfig['name'] ?? 'Absensi');
 ?>
