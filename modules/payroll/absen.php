@@ -7,12 +7,42 @@ define('APP_ACCESS', true);
 require_once '../../config/config.php';
 require_once '../../config/database.php';
 
+// ── Resolve Business Context (public page — no session) ──────────────────
+$bizSlug      = preg_replace('/[^a-z0-9\-_]/', '', strtolower(trim($_GET['b'] ?? '')));
+$bizConfigDir = __DIR__ . '/../../config/businesses/';
+$bizConfig    = null;
+
+if ($bizSlug) {
+    $file = $bizConfigDir . $bizSlug . '.php';
+    if (file_exists($file)) {
+        $bizConfig = require $file;
+    }
+}
+
+// If no slug provided, auto-detect: use first available business
+if (!$bizConfig) {
+    $files = glob($bizConfigDir . '*.php');
+    if ($files) {
+        $bizConfig = require $files[0];
+        $bizSlug   = $bizConfig['business_id'];
+    }
+}
+
+if (!$bizConfig) {
+    die('<p style="font-family:sans-serif;padding:40px;color:#dc2626;">❌ Business tidak ditemukan. Hubungi admin.</p>');
+}
+
+// Define so Database::getInstance() connects to correct DB
+if (!defined('ACTIVE_BUSINESS_ID')) define('ACTIVE_BUSINESS_ID', $bizConfig['business_id']);
+if (!defined('BUSINESS_TYPE'))      define('BUSINESS_TYPE',      $bizConfig['business_type'] ?? 'other');
+
 $baseUrl = defined('BASE_URL') ? BASE_URL : '';
-$apiUrl  = $baseUrl . '/modules/payroll/attendance-clock.php';
+$apiUrl  = $baseUrl . '/modules/payroll/attendance-clock.php?b=' . urlencode($bizSlug);
 
 // Load employee list for name picker
 $db = Database::getInstance();
 $empList = $db->fetchAll("SELECT id, employee_code, full_name, position, department FROM payroll_employees WHERE is_active = 1 ORDER BY full_name") ?: [];
+$bizName = htmlspecialchars($bizConfig['name'] ?? 'Absensi');
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -24,8 +54,8 @@ $empList = $db->fetchAll("SELECT id, employee_code, full_name, position, departm
 <meta name="apple-mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-title" content="Absensi">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-<title>Absensi Karyawan</title>
-<link rel="manifest" href="absen-manifest.json">
+<title>Absensi · <?php echo $bizName; ?></title>
+<link rel="manifest" href="absen-manifest.json?b=<?php echo urlencode($bizSlug); ?>">
 <link rel="apple-touch-icon" href="../../assets/icons/absen-icon-192.svg">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
@@ -169,7 +199,7 @@ body{font-family:'Inter',sans-serif;background:#0d1f3c;min-height:100vh;overflow
     <div class="logo-area">
         <div class="icon">🏢</div>
         <h1>Absensi Karyawan</h1>
-        <p>Pilih nama Anda untuk mulai absen</p>
+        <p><?php echo $bizName; ?></p>
     </div>
     <div class="search-wrap">
         <input type="text" id="searchEmp" class="search-box" placeholder="Cari nama karyawan..." oninput="filterEmp()">

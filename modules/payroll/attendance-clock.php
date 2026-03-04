@@ -9,6 +9,26 @@ require_once '../../config/database.php';
 
 header('Content-Type: application/json');
 
+// ── Resolve Business Context from ?b= param (public API — no session) ──
+$_bizSlug = preg_replace('/[^a-z0-9\-_]/', '', strtolower(trim($_GET['b'] ?? '')));
+if ($_bizSlug) {
+    $_bizFile = __DIR__ . '/../../config/businesses/' . $_bizSlug . '.php';
+    if (file_exists($_bizFile)) {
+        $_bizCfg = require $_bizFile;
+        if (!defined('ACTIVE_BUSINESS_ID')) define('ACTIVE_BUSINESS_ID', $_bizCfg['business_id']);
+        if (!defined('BUSINESS_TYPE'))      define('BUSINESS_TYPE',      $_bizCfg['business_type'] ?? 'other');
+    }
+}
+// Auto-detect from first available business if still not set
+if (!defined('ACTIVE_BUSINESS_ID')) {
+    $_files = glob(__DIR__ . '/../../config/businesses/*.php');
+    if ($_files) {
+        $_bizCfg = require $_files[0];
+        if (!defined('ACTIVE_BUSINESS_ID')) define('ACTIVE_BUSINESS_ID', $_bizCfg['business_id']);
+        if (!defined('BUSINESS_TYPE'))      define('BUSINESS_TYPE',      $_bizCfg['business_type'] ?? 'other');
+    }
+}
+
 // Helper: Haversine formula — returns distance in meters
 function haversineDistance($lat1, $lng1, $lat2, $lng2) {
     $R = 6371000; // Earth radius in meters

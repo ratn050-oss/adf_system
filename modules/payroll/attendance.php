@@ -186,7 +186,7 @@ foreach ($dailyAtt as $a) {
     if ($a['check_out_time']) $todayStats['checkedout']++;
 }
 
-$absenUrl = $baseUrl . '/modules/payroll/absen.php';
+$absenUrl = $baseUrl . '/modules/payroll/absen.php?b=' . ACTIVE_BUSINESS_ID;
 
 include '../../includes/header.php';
 ?>
