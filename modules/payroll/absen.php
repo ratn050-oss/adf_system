@@ -40,6 +40,8 @@ $apiUrl  = $baseUrl . '/modules/payroll/attendance-clock.php?b=' . urlencode($bi
 $db = Database::switchDatabase($bizConfig['database']);
 $empList = $db->fetchAll("SELECT id, employee_code, full_name, position, department FROM payroll_employees WHERE is_active = 1 ORDER BY full_name") ?: [];
 $bizName = htmlspecialchars($bizConfig['name'] ?? 'Absensi');
+$absenConfig = $db->fetchOne("SELECT app_logo FROM payroll_attendance_config WHERE id=1") ?: [];
+$appLogo = !empty($absenConfig['app_logo']) ? $baseUrl.'/'.$absenConfig['app_logo'] : null;
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -275,6 +277,11 @@ body{font-family:'Inter',sans-serif;background:#0d1f3c;min-height:100vh;overflow
 <div id="screenDashboard" class="screen">
     <!-- Header with dropdown -->
     <div class="dash-header">
+        <?php if ($appLogo): ?>
+        <div style="text-align:center;margin-bottom:10px;">
+            <img src="<?php echo htmlspecialchars($appLogo); ?>" style="height:40px;max-width:160px;object-fit:contain;background:rgba(255,255,255,0.92);border-radius:8px;padding:4px 10px;">
+        </div>
+        <?php endif; ?>
         <div class="dash-emp-row">
             <div class="emp-avatar" id="dashAvatar">?</div>
             <div class="dash-emp-info">

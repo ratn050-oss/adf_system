@@ -40,11 +40,11 @@ function haversineDistance($lat1, $lng1, $lat2, $lng2) {
 $db = isset($_bizCfg['database']) ? Database::switchDatabase($_bizCfg['database']) : Database::getInstance();
 $action = $_POST['action'] ?? '';
 
-// ── Auto-create tables if missing ──
+// ── Auto-create tables if missing (use raw PDO — $db->query() swallows exceptions) ──
+$pdo = $db->getConnection();
 try {
-    $db->query("SELECT 1 FROM payroll_attendance LIMIT 1");
-} catch (Exception $e) {
-    $pdo = $db->getConnection();
+    $pdo->query("SELECT 1 FROM payroll_attendance LIMIT 1");
+} catch (PDOException $e) {
     $pdo->exec("CREATE TABLE IF NOT EXISTS `payroll_attendance_config` (
         `id` INT AUTO_INCREMENT PRIMARY KEY,
         `office_lat` DECIMAL(10,7) NOT NULL DEFAULT -6.2000000,
@@ -222,12 +222,13 @@ if ($action === 'checkin') {
     $status = ($now > $checkinEnd) ? 'late' : 'present';
 
     try {
+        $pdo = $db->getConnection();
         if ($existing) {
-            $db->query("UPDATE payroll_attendance SET check_in_time=?, check_in_lat=?, check_in_lng=?, check_in_distance_m=?, check_in_address=?, check_in_device=?, status=?, is_outside_radius=? WHERE id=?",
-                [$now, $lat, $lng, $distance, $address, $device, $status, $isOutside ? 1 : 0, $existing['id']]);
+            $pdo->prepare("UPDATE payroll_attendance SET check_in_time=?, check_in_lat=?, check_in_lng=?, check_in_distance_m=?, check_in_address=?, check_in_device=?, status=?, is_outside_radius=? WHERE id=?")
+                ->execute([$now, $lat, $lng, $distance, $address, $device, $status, $isOutside ? 1 : 0, $existing['id']]);
         } else {
-            $db->query("INSERT INTO payroll_attendance (employee_id, attendance_date, check_in_time, check_in_lat, check_in_lng, check_in_distance_m, check_in_address, check_in_device, status, is_outside_radius) VALUES (?,?,?,?,?,?,?,?,?,?)",
-                [$employee_id, $today, $now, $lat, $lng, $distance, $address, $device, $status, $isOutside ? 1 : 0]);
+            $pdo->prepare("INSERT INTO payroll_attendance (employee_id, attendance_date, check_in_time, check_in_lat, check_in_lng, check_in_distance_m, check_in_address, check_in_device, status, is_outside_radius) VALUES (?,?,?,?,?,?,?,?,?,?)")
+                ->execute([$employee_id, $today, $now, $lat, $lng, $distance, $address, $device, $status, $isOutside ? 1 : 0]);
         }
         echo json_encode([
             'success' => true,
@@ -303,8 +304,9 @@ if ($action === 'checkout') {
     $workHours = round(($outTime - $inTime) / 3600, 2);
 
     try {
-        $db->query("UPDATE payroll_attendance SET check_out_time=?, check_out_lat=?, check_out_lng=?, check_out_distance_m=?, check_out_device=?, work_hours=? WHERE id=?",
-            [$now, $lat ?: null, $lng ?: null, $distance, $device, $workHours, $attendance['id']]);
+        $pdo = $db->getConnection();
+        $pdo->prepare("UPDATE payroll_attendance SET check_out_time=?, check_out_lat=?, check_out_lng=?, check_out_distance_m=?, check_out_device=?, work_hours=? WHERE id=?")
+            ->execute([$now, $lat ?: null, $lng ?: null, $distance, $device, $workHours, $attendance['id']]);
         echo json_encode([
             'success' => true,
             'message' => "Check-out berhasil! Jam kerja: {$workHours} jam ✅",
