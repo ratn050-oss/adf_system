@@ -253,6 +253,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'manua
 $config = $db->fetchOne("SELECT * FROM payroll_attendance_config WHERE id = 1") ?: [];
 $locations = $db->fetchAll("SELECT * FROM payroll_attendance_locations ORDER BY id") ?: [];
 
+// Helper: find nearest registered location from GPS coords (Haversine)
+function getAttendanceLocation(float $lat, float $lng, array $locs): ?array {
+    if (abs($lat) < 0.001 || abs($lng) < 0.001 || empty($locs)) return null;
+    $nearest = null; $minDist = PHP_INT_MAX;
+    foreach ($locs as $loc) {
+        $dlat = deg2rad($lat - (float)$loc['lat']);
+        $dlng = deg2rad($lng - (float)$loc['lng']);
+        $a = sin($dlat/2)**2 + cos(deg2rad($lat)) * cos(deg2rad((float)$loc['lat'])) * sin($dlng/2)**2;
+        $dist = (int) round(6371000 * 2 * atan2(sqrt($a), sqrt(1-$a)));
+        if ($dist < $minDist) { $minDist = $dist; $nearest = array_merge($loc, ['_dist' => $dist]); }
+    }
+    return $nearest;
+}
+
 $viewDate = $_GET['date'] ?? date('Y-m-d');
 $viewMonth = $_GET['month'] ?? date('Y-m');
 
@@ -315,12 +329,13 @@ include '../../includes/header.php';
 
 /* Stat Cards */
 .att-stats { display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:16px; }
-.att-stat { background:#fff; padding:14px 16px; border-radius:10px; border:1px solid var(--border); box-shadow:0 1px 4px rgba(0,0,0,0.04); }
-.att-stat .label { font-size:11px; color:var(--muted); font-weight:600; text-transform:uppercase; }
-.att-stat .value { font-size:24px; font-weight:800; color:var(--navy); margin-top:4px; }
-.att-stat.success .value { color:var(--green); }
-.att-stat.warning .value { color:var(--orange); }
-.att-stat.info .value { color:var(--blue); }
+.att-stat { background:#fff; padding:16px 18px; border-radius:12px; border:1px solid var(--border); box-shadow:0 2px 8px rgba(0,0,0,0.05); border-top:3px solid var(--border); }
+.att-stat .label { font-size:11px; color:var(--muted); font-weight:700; text-transform:uppercase; letter-spacing:0.5px; }
+.att-stat .value { font-size:28px; font-weight:800; color:var(--navy); margin-top:6px; line-height:1; }
+.att-stat .sub { font-size:11px; color:var(--muted); margin-top:4px; }
+.att-stat.success { border-top-color:var(--green); } .att-stat.success .value { color:var(--green); }
+.att-stat.warning { border-top-color:var(--orange); } .att-stat.warning .value { color:var(--orange); }
+.att-stat.info { border-top-color:#c084fc; } .att-stat.info .value { color:#7c3aed; }
 
 /* Tabs */
 .att-tabs { display:flex; gap:4px; background:var(--bg); padding:3px; border-radius:10px; margin-bottom:14px; border:1px solid var(--border); }
@@ -328,12 +343,16 @@ include '../../includes/header.php';
 .att-tab.active { background:var(--gold); color:var(--navy); font-weight:800; }
 
 /* Table */
-.att-table-wrap { background:#fff; border-radius:10px; overflow:hidden; box-shadow:0 2px 6px rgba(0,0,0,0.06); border:1px solid var(--border); }
+.att-table-wrap { background:#fff; border-radius:12px; overflow:hidden; box-shadow:0 2px 10px rgba(0,0,0,0.06); border:1px solid var(--border); }
 .att-table { width:100%; border-collapse:collapse; }
-.att-table th { background:var(--bg); color:var(--navy); padding:11px 14px; text-align:left; font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:0.4px; border-bottom:2px solid var(--gold); }
-.att-table td { padding:11px 14px; border-bottom:1px solid #f1f5f9; font-size:12px; color:var(--navy); }
+.att-table th { background:#f8fafc; color:#475569; padding:11px 14px; text-align:left; font-weight:700; font-size:11px; text-transform:uppercase; letter-spacing:0.5px; border-bottom:2px solid var(--gold); white-space:nowrap; }
+.att-table td { padding:13px 14px; border-bottom:1px solid #f1f5f9; font-size:13px; color:#1e293b; vertical-align:middle; }
 .att-table tr:last-child td { border-bottom:none; }
-.att-table tr:hover { background:#fafbfc; }
+.att-table tr:hover td { background:#fafbfd; }
+/* location badge in table */
+.loc-pill { display:inline-flex; align-items:center; gap:5px; background:#f0fdf4; color:#166534; border:1px solid #bbf7d0; border-radius:20px; padding:3px 10px; font-size:11px; font-weight:700; white-space:nowrap; max-width:160px; overflow:hidden; text-overflow:ellipsis; }
+.loc-pill.outside { background:#fff7ed; color:#9a3412; border-color:#fed7aa; }
+.loc-pill.unknown { background:#f1f5f9; color:#64748b; border-color:#e2e8f0; }
 
 /* Status Badge */
 .s-badge { padding:3px 9px; border-radius:5px; font-size:10px; font-weight:700; text-transform:uppercase; display:inline-flex; align-items:center; gap:3px; }
@@ -351,11 +370,11 @@ include '../../includes/header.php';
 .act-btn-pin { background:#fef3c7; color:#92400e; }
 .act-btn-del { background:#fef2f2; color:var(--red); }
 
-/* QR URL section */
-.att-url-card { background:linear-gradient(135deg, var(--navy), var(--navy-light)); border-radius:12px; padding:18px; color:#fff; margin-bottom:16px; }
-.att-url-card h3 { font-size:14px; margin:0 0 10px; color:var(--gold); }
-.att-url-input { background:rgba(255,255,255,0.1); border:1px solid rgba(255,255,255,0.2); border-radius:8px; padding:10px 12px; color:#fff; font-size:12px; width:100%; font-family:monospace; }
-.att-url-btn { margin-top:8px; padding:8px 16px; background:var(--gold); color:var(--navy); border:none; border-radius:7px; font-size:12px; font-weight:700; cursor:pointer; }
+/* URL bar */
+.att-url-bar { background:#fff; border:1px solid var(--border); border-radius:10px; padding:10px 14px; margin-bottom:16px; display:flex; align-items:center; gap:10px; box-shadow:0 1px 4px rgba(0,0,0,0.04); }
+.att-url-bar .url-label { font-size:11px; font-weight:700; color:var(--muted); white-space:nowrap; text-transform:uppercase; letter-spacing:0.4px; }
+.att-url-bar input { flex:1; border:1.5px solid var(--border); border-radius:7px; padding:7px 10px; font-size:12px; color:var(--navy); font-family:monospace; background:#f8fafc; min-width:0; }
+.att-url-bar button { padding:7px 14px; background:var(--navy); color:#fff; border:none; border-radius:7px; font-size:12px; font-weight:700; cursor:pointer; white-space:nowrap; }
 
 /* Forms */
 .form-grid { display:grid; grid-template-columns:1fr 1fr; gap:10px; }
@@ -416,12 +435,11 @@ include '../../includes/header.php';
         </div>
     </div>
 
-    <!-- QR Link Card -->
-    <div class="att-url-card">
-        <h3>📲 Link Absen untuk Karyawan</h3>
-        <input type="text" class="att-url-input" value="<?php echo htmlspecialchars($absenUrl); ?>" readonly id="absenUrlInput">
-        <button class="att-url-btn" onclick="copyAbsenUrl()">📋 Salin Link</button>
-        <span style="font-size:11px; color:rgba(255,255,255,0.6); margin-left:8px;">Bagikan link ini kepada seluruh karyawan</span>
+    <!-- URL bar -->
+    <div class="att-url-bar">
+        <span class="url-label">📲 Link Absen</span>
+        <input type="text" value="<?php echo htmlspecialchars($absenUrl); ?>" readonly id="absenUrlInput">
+        <button onclick="copyAbsenUrl()">📋 Salin Link</button>
     </div>
 
     <!-- Stats -->
@@ -429,18 +447,22 @@ include '../../includes/header.php';
         <div class="att-stat">
             <div class="label">Total Karyawan</div>
             <div class="value"><?php echo $todayStats['total']; ?></div>
+            <div class="sub">karyawan aktif</div>
         </div>
         <div class="att-stat success">
             <div class="label">Hadir Hari Ini</div>
             <div class="value"><?php echo $todayStats['present']; ?></div>
+            <div class="sub"><?php echo $todayStats['total'] > 0 ? round($todayStats['present']/$todayStats['total']*100).'%' : '0%'; ?> kehadiran</div>
         </div>
         <div class="att-stat warning">
             <div class="label">Terlambat</div>
             <div class="value"><?php echo $todayStats['late']; ?></div>
+            <div class="sub">dari yang hadir</div>
         </div>
         <div class="att-stat info">
             <div class="label">Belum Absen</div>
             <div class="value"><?php echo max(0, $todayStats['total'] - $todayStats['present']); ?></div>
+            <div class="sub">perlu perhatian</div>
         </div>
     </div>
 
@@ -470,7 +492,8 @@ include '../../includes/header.php';
                     <th>Check-In</th>
                     <th>Check-Out</th>
                     <th>Jam Kerja</th>
-                    <th>GPS (m)</th>
+                    <th>Lokasi Absen</th>
+                    <th>GPS</th>
                     <th>Status</th>
                     <th>Aksi</th>
                 </tr></thead>
@@ -490,15 +513,32 @@ include '../../includes/header.php';
                         <strong><?php echo htmlspecialchars($emp['full_name']); ?></strong>
                         <div style="font-size:10px; color:var(--muted);"><?php echo htmlspecialchars($emp['employee_code']); ?> • <?php echo htmlspecialchars($emp['position']); ?></div>
                     </td>
-                    <td><?php echo $a && $a['check_in_time'] ? '<strong>'.substr($a['check_in_time'],0,5).'</strong>' : '<span style="color:#ccc;">—</span>'; ?></td>
-                    <td><?php echo $a && $a['check_out_time'] ? '<strong>'.substr($a['check_out_time'],0,5).'</strong>' : '<span style="color:#ccc;">—</span>'; ?></td>
-                    <td><?php echo $a && $a['work_hours'] ? number_format($a['work_hours'],1).'j' : '—'; ?></td>
+                    <td style="font-weight:700;"><?php echo $a && $a['check_in_time'] ? substr($a['check_in_time'],0,5) : '<span style="color:#d1d5db;">—</span>'; ?></td>
+                    <td style="font-weight:700; color:var(--muted);"><?php echo $a && $a['check_out_time'] ? '<span style="color:var(--navy)">'.substr($a['check_out_time'],0,5).'</span>' : '<span style="color:#d1d5db;">—</span>'; ?></td>
+                    <td><?php echo $a && $a['work_hours'] ? '<strong>'.number_format($a['work_hours'],1).'</strong><span style="font-size:11px;color:var(--muted);"> jam</span>' : '<span style="color:#d1d5db;">—</span>'; ?></td>
+                    <td>
+                        <?php
+                        if ($a && (abs((float)($a['check_in_lat'] ?? 0)) > 0.001)) {
+                            $nearLoc = getAttendanceLocation((float)$a['check_in_lat'], (float)$a['check_in_lng'], $locations);
+                            if ($nearLoc) {
+                                $isOut = (bool)($a['is_outside_radius'] ?? false);
+                                $pillClass = $isOut ? 'loc-pill outside' : 'loc-pill';
+                                $distTxt = $nearLoc['_dist'] < 1000 ? $nearLoc['_dist'].'m' : round($nearLoc['_dist']/1000,1).'km';
+                                echo '<span class="'.$pillClass.'" title="'.htmlspecialchars($nearLoc['location_name']).' — '.$distTxt.'">📍 '.htmlspecialchars(mb_substr($nearLoc['location_name'],0,22)).'</span>';
+                            } else {
+                                echo '<span class="loc-pill unknown">🌐 Luar Area</span>';
+                            }
+                        } else {
+                            echo '<span style="color:#d1d5db;">—</span>';
+                        }
+                        ?>
+                    </td>
                     <td>
                         <?php if ($a && $a['check_in_distance_m']): ?>
-                            <span style="font-size:11px; color:<?php echo $a['is_outside_radius'] ? 'var(--red)' : 'var(--green)'; ?>">
+                            <span style="font-size:12px; font-weight:600; color:<?php echo $a['is_outside_radius'] ? 'var(--red)' : 'var(--green)'; ?>">
                                 <?php echo $a['check_in_distance_m']; ?>m <?php echo $a['is_outside_radius'] ? '⚠️' : '✅'; ?>
                             </span>
-                        <?php else: echo '—'; endif; ?>
+                        <?php else: echo '<span style="color:#d1d5db;">—</span>'; endif; ?>
                     </td>
                     <td><span class="s-badge s-<?php echo $status; ?>"><?php echo $labels[$status] ?? $status; ?></span></td>
                     <td>
