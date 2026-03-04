@@ -85,6 +85,24 @@ if ($fromQuotationId > 0) {
     }
 }
 
+// Also support ?project_id=X direct pre-selection (e.g. from Pelunasan button)
+if (!$preSelectedProjectId && isset($_GET['project_id'])) {
+    $directProjId = (int)$_GET['project_id'];
+    foreach ($projects as $proj) {
+        if ((int)$proj['id'] === $directProjId) {
+            $preSelectedProjectId = $directProjId;
+            if (!$preContractValue) {
+                $preContractValue = number_format(floatval($proj['contract_value']), 0, ',', '.');
+            }
+            // Suggest description for pelunasan
+            if (!$preDescription) {
+                $preDescription = "Pembayaran Pelunasan - " . htmlspecialchars($proj['project_name']);
+            }
+            break;
+        }
+    }
+}
+
 // Handle form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {

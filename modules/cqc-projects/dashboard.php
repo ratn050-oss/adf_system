@@ -126,6 +126,22 @@ try {
     // Table doesn't exist
 }
 
+// Get unpaid invoice totals per project (for Finish gate check)
+$unpaid_by_project = [];
+try {
+    $stmt = $pdo->query("
+        SELECT project_id, COUNT(*) as unpaid_count, SUM(total_amount) as unpaid_total
+        FROM cqc_termin_invoices
+        WHERE payment_status NOT IN ('paid')
+        GROUP BY project_id
+    ");
+    while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
+        $unpaid_by_project[$row['project_id']] = $row;
+    }
+} catch (Exception $e) {
+    // table may not exist yet
+}
+
 // Get ALL projects (including planning, on_hold, completed)
 $all_projects = [];
 try {
@@ -671,9 +687,14 @@ include '../../includes/header.php';
                             <div class="cqc-card-actions">
                                 <a href="detail.php?id=<?php echo $proj['id']; ?>">Detail</a>
                                 <a href="add.php?id=<?php echo $proj['id']; ?>">Edit</a>
-                                <a href="?action=finish&id=<?php echo $proj['id']; ?>" 
+                                <?php 
+                                $unpaidInfo = $unpaid_by_project[$proj['id']] ?? null;
+                                $unpaidCount = $unpaidInfo ? (int)$unpaidInfo['unpaid_count'] : 0;
+                                $unpaidTotal = $unpaidInfo ? floatval($unpaidInfo['unpaid_total']) : 0;
+                                ?>
+                                <a href="javascript:void(0)"
                                    style="background: #059669; color: #fff; border-color: #059669;"
-                                   onclick="return confirm('Selesaikan proyek <?php echo htmlspecialchars($proj['project_name']); ?>?\n\nStatus akan diubah ke COMPLETED dan progress 100%.\nAnda akan diarahkan ke laporan proyek.')">✓ Finish</a>
+                                   onclick="checkAndFinish(<?php echo $proj['id']; ?>, '<?php echo addslashes(htmlspecialchars($proj['project_name'])); ?>', <?php echo $unpaidCount; ?>, <?php echo $unpaidTotal; ?>)">✓ Finish</a>
                             </div>
                         </div>
                     </div>
@@ -733,11 +754,16 @@ include '../../includes/header.php';
                                 <td>
                                     <div class="cqc-action-links">
                                         <a href="detail.php?id=<?php echo $proj['id']; ?>">Lihat</a>
-                                        <a href="add.php?id=<?php echo $proj['id']; ?>">Edit</a>
+                                        <a href="add.php?id=<?php echo $proj['id']; ?>" style="color: #2563eb; font-weight: 600;">✏️ Edit</a>
                                         <?php if ($proj['status'] === 'planning' || $proj['status'] === 'on_hold'): ?>
                                         <a href="?action=start&id=<?php echo $proj['id']; ?>" class="btn-start" onclick="return confirm('Start proyek ini?')">Start</a>
                                         <?php elseif ($proj['status'] !== 'completed'): ?>
-                                        <a href="?action=finish&id=<?php echo $proj['id']; ?>" style="color: #059669; font-weight: 700;" onclick="return confirm('Selesaikan proyek ini?')">✓ Finish</a>
+                                        <?php 
+                                        $unpaidInfoT = $unpaid_by_project[$proj['id']] ?? null;
+                                        $unpaidCountT = $unpaidInfoT ? (int)$unpaidInfoT['unpaid_count'] : 0;
+                                        $unpaidTotalT = $unpaidInfoT ? floatval($unpaidInfoT['unpaid_total']) : 0;
+                                        ?>
+                                        <a href="javascript:void(0)" style="color: #059669; font-weight: 700;" onclick="checkAndFinish(<?php echo $proj['id']; ?>, '<?php echo addslashes(htmlspecialchars($proj['project_name'])); ?>', <?php echo $unpaidCountT; ?>, <?php echo $unpaidTotalT; ?>)">✓ Finish</a>
                                         <?php endif; ?>
                                         <?php if ($proj['status'] === 'completed'): ?>
                                         <a href="report.php?id=<?php echo $proj['id']; ?>" style="color: #2563eb; font-weight: 600;">📊 Laporan</a>
@@ -1077,3 +1103,75 @@ include '../../includes/header.php';
     </script>
 
 <?php include '../../includes/footer.php'; ?>
+
+<!-- ===== FINISH PROJECT MODAL ===== -->
+<div id="finishModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:9999; align-items:center; justify-content:center;">
+    <div style="background:#fff; border-radius:14px; padding:24px 26px; max-width:480px; width:92%; box-shadow:0 20px 60px rgba(0,0,0,0.3); border-top:4px solid #f0b429; position:relative;">
+        <button onclick="document.getElementById('finishModal').style.display='none'" style="position:absolute; top:12px; right:14px; background:none; border:none; font-size:18px; cursor:pointer; color:#aaa; line-height:1;">✕</button>
+        
+        <div style="font-size:28px; margin-bottom:10px;">🏁</div>
+        <h3 id="finishModalTitle" style="color:#0d1f3c; font-size:15px; font-weight:700; margin:0 0 14px;"></h3>
+
+        <!-- Unpaid warning box -->
+        <div id="finishModalUnpaidBox" style="display:none; background:#fff8e1; border:1px solid #f0b429; border-left:4px solid #e65100; border-radius:8px; padding:14px; margin-bottom:16px;">
+            <div style="font-weight:700; color:#e65100; font-size:13px; margin-bottom:6px;">⚠️ Masih ada tagihan belum lunas!</div>
+            <div style="font-size:12px; color:#7c4700; line-height:1.6;">
+                <strong id="finishUnpaidCount"></strong> invoice termin belum dibayar<br>
+                Total tagihan: <strong id="finishUnpaidTotal" style="color:#e65100;"></strong>
+            </div>
+            <div style="font-size:11px; color:#9a7200; margin-top:8px; background:rgba(240,180,41,0.12); padding:8px; border-radius:6px;">
+                💡 Disarankan buat <strong>Invoice Pelunasan</strong> terlebih dahulu agar tagihan tercatat lunas sebelum proyek diselesaikan.
+            </div>
+        </div>
+
+        <!-- No unpaid message -->
+        <div id="finishModalCleanBox" style="display:none; background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:12px; margin-bottom:16px; font-size:12px; color:#166534;">
+            ✅ Semua tagihan sudah lunas. Proyek siap diselesaikan.
+        </div>
+
+        <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <a id="btnBuatPelunasan" href="#" style="background:#0d1f3c; color:#f0b429; padding:10px 16px; border-radius:8px; font-size:12px; font-weight:700; text-decoration:none; display:none; align-items:center; gap:6px;">
+                🧾 Buat Invoice Pelunasan
+            </a>
+            <a id="btnConfirmFinish" href="#" style="background:#059669; color:#fff; padding:10px 16px; border-radius:8px; font-size:12px; font-weight:700; text-decoration:none; display:inline-flex; align-items:center; gap:6px;">
+                ✓ Selesaikan Proyek
+            </a>
+            <button onclick="document.getElementById('finishModal').style.display='none'" style="background:#f1f5f9; color:#475569; border:1px solid #e2e8f0; padding:10px 16px; border-radius:8px; font-size:12px; font-weight:600; cursor:pointer;">
+                Batal
+            </button>
+        </div>
+    </div>
+</div>
+
+<script>
+function checkAndFinish(id, name, unpaidCount, unpaidTotal) {
+    var modal = document.getElementById('finishModal');
+    document.getElementById('finishModalTitle').textContent = 'Selesaikan proyek "' + name + '"?';
+    document.getElementById('btnConfirmFinish').href = '?action=finish&id=' + id;
+
+    if (unpaidCount > 0) {
+        document.getElementById('finishModalUnpaidBox').style.display = 'block';
+        document.getElementById('finishModalCleanBox').style.display = 'none';
+        document.getElementById('finishUnpaidCount').textContent = unpaidCount;
+        document.getElementById('finishUnpaidTotal').textContent = 'Rp ' + parseFloat(unpaidTotal).toLocaleString('id-ID');
+        var pelBtn = document.getElementById('btnBuatPelunasan');
+        pelBtn.href = '../sales/create-termin.php?project_id=' + id;
+        pelBtn.style.display = 'inline-flex';
+        // Change finish button text to reflect bypass
+        document.getElementById('btnConfirmFinish').textContent = '⚡ Tetap Selesaikan';
+    } else {
+        document.getElementById('finishModalUnpaidBox').style.display = 'none';
+        document.getElementById('finishModalCleanBox').style.display = 'block';
+        document.getElementById('btnBuatPelunasan').style.display = 'none';
+        document.getElementById('btnConfirmFinish').innerHTML = '✓ Selesaikan Proyek';
+    }
+
+    modal.style.display = 'flex';
+    modal.addEventListener('click', function handler(e) {
+        if (e.target === modal) {
+            modal.style.display = 'none';
+            modal.removeEventListener('click', handler);
+        }
+    });
+}
+</script>
