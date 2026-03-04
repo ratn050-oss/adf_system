@@ -33,6 +33,24 @@ try {
 $message = '';
 $error = '';
 
+// Pre-fill from quotation if from_quotation param exists
+$fromQuotation = null;
+$quotationItems = [];
+$fromQuotationId = isset($_GET['from_quotation']) ? (int)$_GET['from_quotation'] : 0;
+if ($fromQuotationId > 0) {
+    try {
+        ensureCQCQuotationTable($pdo);
+        $stmtQ = $pdo->prepare("SELECT * FROM cqc_quotations WHERE id = ?");
+        $stmtQ->execute([$fromQuotationId]);
+        $fromQuotation = $stmtQ->fetch(PDO::FETCH_ASSOC);
+        if ($fromQuotation) {
+            $stmtQI = $pdo->prepare("SELECT * FROM cqc_quotation_items WHERE quotation_id = ? ORDER BY sort_order");
+            $stmtQI->execute([$fromQuotationId]);
+            $quotationItems = $stmtQI->fetchAll(PDO::FETCH_ASSOC);
+        }
+    } catch (Exception $e) {}
+}
+
 // Generate invoice number
 function generateInvoiceNumber($pdo) {
     $prefix = 'INV';
@@ -117,6 +135,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $stmtItem->execute([$invoiceId, $item['description'], $item['quantity'], $item['unit'], $item['unit_price'], $item['amount'], $idx]);
         }
         
+        // Mark quotation as approved if created from quotation
+        $fromQuotIdPost = intval($_POST['from_quotation_id'] ?? 0);
+        if ($fromQuotIdPost > 0) {
+            try {
+                $pdo->prepare("UPDATE cqc_quotations SET status = 'approved', updated_at = NOW() WHERE id = ?")->execute([$fromQuotIdPost]);
+            } catch (Exception $e) {}
+        }
+        
         $pdo->commit();
         
         header('Location: view-invoice.php?id=' . $invoiceId);
@@ -197,6 +223,15 @@ include '../../includes/header.php';
     <?php endif; ?>
     
     <form method="POST" id="invoiceForm">
+        <input type="hidden" name="from_quotation_id" value="<?php echo $fromQuotationId; ?>">
+        
+        <?php if ($fromQuotation): ?>
+        <div style="background: #e0f7fa; border-left: 4px solid #0d1f3c; padding: 12px 16px; border-radius: 8px; margin-bottom: 16px; font-size: 13px;">
+            📝 Invoice dibuat dari Quotation <strong><?php echo htmlspecialchars($fromQuotation['quote_number']); ?></strong>
+            — Status quotation akan otomatis menjadi <strong>Disetujui</strong> setelah simpan.
+        </div>
+        <?php endif; ?>
+        
         <!-- Invoice Details -->
         <div class="card">
             <div class="card-head">📋 Detail Invoice</div>
@@ -208,7 +243,7 @@ include '../../includes/header.php';
                     </div>
                     <div class="form-group">
                         <label>Subject / Perihal</label>
-                        <input type="text" name="subject" placeholder="e.g. Jasa Konsultasi, Penjualan Barang">
+                        <input type="text" name="subject" id="subject" value="<?php echo htmlspecialchars($fromQuotation['subject'] ?? ''); ?>" placeholder="e.g. Jasa Konsultasi, Penjualan Barang">
                     </div>
                     <div class="form-group">
                         <label>Tanggal Invoice *</label>
@@ -244,19 +279,19 @@ include '../../includes/header.php';
                     </div>
                     <div class="form-group">
                         <label>Nama Client *</label>
-                        <input type="text" name="client_name" id="client_name" required placeholder="PT ABC atau Nama Perorangan">
+                        <input type="text" name="client_name" id="client_name" required placeholder="PT ABC atau Nama Perorangan" value="<?php echo htmlspecialchars($fromQuotation['client_name'] ?? ''); ?>">
                     </div>
                     <div class="form-group">
                         <label>No. Telepon</label>
-                        <input type="text" name="client_phone" id="client_phone" placeholder="+62...">
+                        <input type="text" name="client_phone" id="client_phone" placeholder="+62..." value="<?php echo htmlspecialchars($fromQuotation['client_phone'] ?? ''); ?>">
                     </div>
                     <div class="form-group">
                         <label>Email</label>
-                        <input type="email" name="client_email" id="client_email" placeholder="email@example.com">
+                        <input type="email" name="client_email" id="client_email" placeholder="email@example.com" value="<?php echo htmlspecialchars($fromQuotation['client_email'] ?? ''); ?>">
                     </div>
                     <div class="form-group">
                         <label>Alamat</label>
-                        <input type="text" name="client_address" id="client_address" placeholder="Alamat lengkap">
+                        <input type="text" name="client_address" id="client_address" placeholder="Alamat lengkap" value="<?php echo htmlspecialchars($fromQuotation['client_address'] ?? ''); ?>">
                     </div>
                 </div>
             </div>
@@ -278,6 +313,18 @@ include '../../includes/header.php';
                         </tr>
                     </thead>
                     <tbody id="itemsBody">
+                        <?php if (!empty($quotationItems)): ?>
+                        <?php foreach ($quotationItems as $qi): ?>
+                        <tr class="item-row">
+                            <td><input type="text" name="item_desc[]" value="<?php echo htmlspecialchars($qi['description']); ?>"></td>
+                            <td><input type="number" name="item_qty[]" value="<?php echo $qi['quantity']; ?>" min="0" step="0.01" class="qty-input"></td>
+                            <td><input type="text" name="item_unit[]" value="<?php echo htmlspecialchars($qi['unit']); ?>" placeholder="unit"></td>
+                            <td><input type="number" name="item_price[]" value="<?php echo $qi['unit_price']; ?>" min="0" class="price-input"></td>
+                            <td class="col-amount"><span class="row-amount"><?php echo number_format($qi['amount'], 0, ',', '.'); ?></span></td>
+                            <td class="col-action"><button type="button" class="btn-remove" onclick="removeRow(this)">×</button></td>
+                        </tr>
+                        <?php endforeach; ?>
+                        <?php else: ?>
                         <tr class="item-row">
                             <td><input type="text" name="item_desc[]" placeholder="Deskripsi item..."></td>
                             <td><input type="number" name="item_qty[]" value="1" min="0" step="0.01" class="qty-input"></td>
@@ -286,6 +333,7 @@ include '../../includes/header.php';
                             <td class="col-amount"><span class="row-amount">0</span></td>
                             <td class="col-action"><button type="button" class="btn-remove" onclick="removeRow(this)">×</button></td>
                         </tr>
+                        <?php endif; ?>
                     </tbody>
                 </table>
                 <button type="button" class="btn-add-row" onclick="addRow()">+ Tambah Item</button>
@@ -297,11 +345,11 @@ include '../../includes/header.php';
                         <span class="value" id="subtotalDisplay">IDR 0</span>
                     </div>
                     <div class="summary-row">
-                        <span>Diskon <input type="number" name="discount_percentage" value="0" min="0" max="100" step="0.1" style="width:60px" onchange="calculateTotal()">%</span>
+                        <span>Diskon <input type="number" name="discount_percentage" value="<?php echo $fromQuotation ? (($fromQuotation['discount_type'] === 'percentage' ? $fromQuotation['discount_value'] : 0)) : 0; ?>" min="0" max="100" step="0.1" style="width:60px" onchange="calculateTotal()">%</span>
                         <span class="value" id="discountDisplay">- IDR 0</span>
                     </div>
                     <div class="summary-row">
-                        <span>PPN <input type="number" name="ppn_percentage" value="11" min="0" max="100" step="0.1" style="width:60px" onchange="calculateTotal()">%</span>
+                        <span>PPN <input type="number" name="ppn_percentage" value="<?php echo $fromQuotation ? $fromQuotation['ppn_percentage'] : 11; ?>" min="0" max="100" step="0.1" style="width:60px" onchange="calculateTotal()">%</span>
                         <span class="value" id="ppnDisplay">+ IDR 0</span>
                     </div>
                     <div class="summary-row">
