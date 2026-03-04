@@ -73,64 +73,71 @@ try {
 try {
     $db->query("SELECT attendance_pin FROM payroll_employees LIMIT 1");
 } catch (Exception $e) {
-    $db->getConnection()->exec("ALTER TABLE payroll_employees ADD COLUMN `attendance_pin` VARCHAR(6) DEFAULT NULL COMMENT '4-6 digit attendance PIN'");
+    $db->getConnection()->exec("ALTER TABLE payroll_employees ADD COLUMN `attendance_pin` VARCHAR(6) DEFAULT NULL");
+}
+// Add face_descriptor column if missing
+try {
+    $db->query("SELECT face_descriptor FROM payroll_employees LIMIT 1");
+} catch (Exception $e) {
+    $db->getConnection()->exec("ALTER TABLE payroll_employees ADD COLUMN `face_descriptor` MEDIUMTEXT DEFAULT NULL COMMENT 'JSON face descriptor from face-api.js'");
 }
 
-// ── VERIFY PIN + get employee ──
-if ($action === 'verify') {
+// ── GET EMPLOYEE by code (no PIN — face will verify) ──
+if ($action === 'get_employee') {
     $employee_code = strtoupper(trim($_POST['employee_code'] ?? ''));
-    $pin = trim($_POST['pin'] ?? '');
-
-    if (!$employee_code || !$pin) {
-        echo json_encode(['success' => false, 'message' => 'Kode karyawan dan PIN wajib diisi.']);
+    if (!$employee_code) {
+        echo json_encode(['success' => false, 'message' => 'Kode karyawan wajib diisi.']);
         exit;
     }
-
-    $emp = $db->fetchOne("SELECT id, employee_code, full_name, position, department, attendance_pin FROM payroll_employees WHERE employee_code = ? AND is_active = 1", [$employee_code]);
-
+    $emp = $db->fetchOne("SELECT id, employee_code, full_name, position, department, face_descriptor FROM payroll_employees WHERE employee_code = ? AND is_active = 1", [$employee_code]);
     if (!$emp) {
-        echo json_encode(['success' => false, 'message' => 'Kode karyawan tidak ditemukan.']);
+        echo json_encode(['success' => false, 'message' => 'Kode karyawan tidak ditemukan atau tidak aktif.']);
         exit;
     }
-
-    if ($emp['attendance_pin'] === null) {
-        // No PIN set - allow with default "1234" first time
-        if ($pin !== '1234') {
-            echo json_encode(['success' => false, 'message' => 'PIN belum diatur. Gunakan PIN default: 1234 lalu ubah dari admin.']);
-            exit;
-        }
-    } elseif ($emp['attendance_pin'] !== $pin) {
-        echo json_encode(['success' => false, 'message' => 'PIN salah.']);
-        exit;
-    }
-
-    // Get today's attendance
     $today = date('Y-m-d');
     $attendance = $db->fetchOne("SELECT * FROM payroll_attendance WHERE employee_id = ? AND attendance_date = ?", [$emp['id'], $today]);
-
-    // Get office config
     $config = $db->fetchOne("SELECT * FROM payroll_attendance_config WHERE id = 1");
-
     echo json_encode([
-        'success' => true,
-        'employee' => [
-            'id' => $emp['id'],
-            'code' => $emp['employee_code'],
-            'name' => $emp['full_name'],
-            'position' => $emp['position'],
+        'success'   => true,
+        'employee'  => [
+            'id'         => $emp['id'],
+            'code'       => $emp['employee_code'],
+            'name'       => $emp['full_name'],
+            'position'   => $emp['position'],
             'department' => $emp['department'],
+            'has_face'   => !empty($emp['face_descriptor']),
+            'face_descriptor' => $emp['face_descriptor'] ? json_decode($emp['face_descriptor'], true) : null,
         ],
-        'today' => $attendance,
+        'today'  => $attendance,
         'config' => [
-            'office_lat' => (float)($config['office_lat'] ?? -6.2),
-            'office_lng' => (float)($config['office_lng'] ?? 106.82),
-            'radius' => (int)($config['allowed_radius_m'] ?? 200),
-            'office_name' => $config['office_name'] ?? 'Kantor',
-            'checkin_end' => $config['checkin_end'] ?? '10:00:00',
-            'checkout_start' => $config['checkout_start'] ?? '16:00:00',
+            'office_lat'    => (float)($config['office_lat'] ?? -6.2),
+            'office_lng'    => (float)($config['office_lng'] ?? 106.82),
+            'radius'        => (int)($config['allowed_radius_m'] ?? 200),
+            'office_name'   => $config['office_name'] ?? 'Kantor',
+            'checkin_end'   => $config['checkin_end'] ?? '10:00:00',
+            'checkout_start'=> $config['checkout_start'] ?? '16:00:00',
             'allow_outside' => (bool)($config['allow_outside'] ?? false),
         ]
     ]);
+    exit;
+}
+
+// ── REGISTER FACE DESCRIPTOR ──
+if ($action === 'register_face') {
+    $employee_id  = (int)($_POST['employee_id'] ?? 0);
+    $descriptor   = trim($_POST['face_descriptor'] ?? '');
+    if (!$employee_id || !$descriptor) {
+        echo json_encode(['success' => false, 'message' => 'Data tidak lengkap.']);
+        exit;
+    }
+    // Validate it's a JSON array
+    $arr = json_decode($descriptor, true);
+    if (!is_array($arr) || count($arr) < 100) {
+        echo json_encode(['success' => false, 'message' => 'Format descriptor wajah tidak valid.']);
+        exit;
+    }
+    $db->query("UPDATE payroll_employees SET face_descriptor = ? WHERE id = ?", [$descriptor, $employee_id]);
+    echo json_encode(['success' => true, 'message' => 'Wajah berhasil didaftarkan!']);
     exit;
 }
 

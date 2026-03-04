@@ -94,17 +94,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_
 }
 
 // Reset/update employee PIN
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'set_pin') {
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'reset_face') {
     $empId = (int)$_POST['employee_id'];
-    $pin = preg_replace('/\D/', '', $_POST['new_pin'] ?? '');
-    if (strlen($pin) >= 4 && strlen($pin) <= 6) {
-        $db->query("UPDATE payroll_employees SET attendance_pin = ? WHERE id = ?", [$pin, $empId]);
-        $msg = 'PIN karyawan berhasil diubah.';
-        $msgType = 'success';
-    } else {
-        $msg = 'PIN harus 4-6 digit angka.';
-        $msgType = 'error';
-    }
+    $db->query("UPDATE payroll_employees SET face_descriptor = NULL WHERE id = ?", [$empId]);
+    $msg = 'Data wajah karyawan berhasil direset. Karyawan perlu daftar ulang wajah.';
+    $msgType = 'success';
 }
 
 // Update attendance record
@@ -153,7 +147,7 @@ $config = $db->fetchOne("SELECT * FROM payroll_attendance_config WHERE id = 1") 
 $viewDate = $_GET['date'] ?? date('Y-m-d');
 $viewMonth = $_GET['month'] ?? date('Y-m');
 
-$employees = $db->fetchAll("SELECT id, employee_code, full_name, position, attendance_pin FROM payroll_employees WHERE is_active = 1 ORDER BY full_name") ?: [];
+$employees = $db->fetchAll("SELECT id, employee_code, full_name, position, face_descriptor FROM payroll_employees WHERE is_active = 1 ORDER BY full_name") ?: [];
 
 // Daily attendance query
 $dailyAtt = $db->fetchAll("
@@ -342,7 +336,7 @@ include '../../includes/header.php';
         <button class="att-tab active" id="tabDaily" onclick="switchTab('daily')">📋 Harian</button>
         <button class="att-tab" id="tabMonthly" onclick="switchTab('monthly')">📅 Bulanan</button>
         <button class="att-tab" id="tabSettings" onclick="switchTab('settings')">⚙️ Pengaturan</button>
-        <button class="att-tab" id="tabPins" onclick="switchTab('pins')">🔐 PIN Karyawan</button>
+        <button class="att-tab" id="tabPins" onclick="switchTab('pins')">�️ Data Wajah</button>
     </div>
 
     <!-- ── DAILY TAB ── -->
@@ -508,15 +502,15 @@ include '../../includes/header.php';
         </div>
     </div>
 
-    <!-- ── PINS TAB ── -->
+    <!-- ── FACE DATA TAB ── -->
     <div id="tabPanelPins" style="display:none;">
-        <div style="background:#fff8e1; border:1px solid #f0b429; border-radius:8px; padding:12px 14px; margin-bottom:14px; font-size:12px; color:#7c4700;">
-            🔐 PIN default karyawan adalah <strong>1234</strong>. Ubah PIN di sini agar lebih aman. Karyawan dapat absen menggunakan kode karyawan + PIN.
+        <div style="background:#e0f2fe; border:1px solid #38bdf8; border-radius:8px; padding:12px 14px; margin-bottom:14px; font-size:12px; color:#0c4a6e;">
+            👁️ Karyawan absen menggunakan <strong>scan wajah</strong> dari HP. Jika wajah bermasalah, reset data wajah di sini — karyawan akan diminta selfie ulang saat absen berikutnya.
         </div>
         <div class="att-table-wrap">
             <table class="att-table">
                 <thead><tr>
-                    <th>Kode</th><th>Nama</th><th>Jabatan</th><th>PIN Status</th><th>Aksi</th>
+                    <th>Kode</th><th>Nama</th><th>Jabatan</th><th>Status Wajah</th><th>Aksi</th>
                 </tr></thead>
                 <tbody>
                 <?php foreach ($employees as $emp): ?>
@@ -524,8 +518,14 @@ include '../../includes/header.php';
                     <td><code style="font-size:10px; background:rgba(240,180,41,0.15); padding:2px 6px; border-radius:3px;"><?php echo htmlspecialchars($emp['employee_code']); ?></code></td>
                     <td><strong><?php echo htmlspecialchars($emp['full_name']); ?></strong></td>
                     <td style="font-size:11px; color:var(--muted);"><?php echo htmlspecialchars($emp['position']); ?></td>
-                    <td><?php echo $emp['attendance_pin'] ? '<span style="color:var(--green); font-size:12px; font-weight:600;">✅ PIN diatur</span>' : '<span style="color:var(--orange); font-size:12px; font-weight:600;">⚠️ Belum diatur (default 1234)</span>'; ?></td>
-                    <td><button class="act-btn act-btn-pin" onclick="openPinModal(<?php echo $emp['id']; ?>, '<?php echo addslashes($emp['full_name']); ?>')">🔑 Ubah PIN</button></td>
+                    <td><?php echo $emp['face_descriptor'] ? '<span style="color:var(--green); font-size:12px; font-weight:600;">✅ Wajah terdaftar</span>' : '<span style="color:var(--orange); font-size:12px; font-weight:600;">⚠️ Belum terdaftar (selfie saat absen pertama)</span>'; ?></td>
+                    <td>
+                        <?php if ($emp['face_descriptor']): ?>
+                        <button class="act-btn act-btn-del" onclick="openFaceResetModal(<?php echo $emp['id']; ?>, '<?php echo addslashes($emp['full_name']); ?>')">🔄 Reset Wajah</button>
+                        <?php else: ?>
+                        <span style="font-size:11px; color:var(--muted);">—</span>
+                        <?php endif; ?>
+                    </td>
                 </tr>
                 <?php endforeach; ?>
                 </tbody>
@@ -576,21 +576,20 @@ include '../../includes/header.php';
     </div>
 </div>
 
-<!-- ═══ MODAL: SET PIN ═══ -->
+<!-- ═══ MODAL: RESET FACE ═══ -->
 <div class="modal-overlay" id="pinModal">
     <div class="modal-box">
-        <div class="modal-title">🔑 Ubah PIN Karyawan</div>
+        <div class="modal-title">🔄 Reset Data Wajah</div>
         <form method="POST">
-            <input type="hidden" name="action" value="set_pin">
+            <input type="hidden" name="action" value="reset_face">
             <input type="hidden" name="employee_id" id="pinEmpId">
             <div style="font-size:13px; color:var(--muted); margin-bottom:12px;" id="pinEmpName"></div>
-            <div class="form-group">
-                <label class="form-label">PIN Baru (4-6 digit)</label>
-                <input type="tel" name="new_pin" class="form-input" placeholder="Contoh: 1234" maxlength="6" inputmode="numeric" required style="font-size:18px; letter-spacing:6px; text-align:center;">
+            <div style="background:#fef2f2; border:1px solid #fca5a5; border-radius:8px; padding:12px; font-size:12px; color:#991b1b; margin-bottom:12px;">
+                ⚠️ Setelah direset, karyawan ini harus <strong>selfie ulang</strong> saat absen berikutnya untuk mendaftarkan wajah baru.
             </div>
             <div class="modal-actions">
                 <button type="button" class="btn-cancel" onclick="closeModal('pinModal')">Batal</button>
-                <button type="submit" class="btn-save">💾 Simpan PIN</button>
+                <button type="submit" class="btn-save" style="background:#dc2626;">🔄 Reset Wajah</button>
             </div>
         </form>
     </div>
@@ -709,7 +708,7 @@ function openEditModal(att) {
     document.getElementById('editNotes').value = att.notes || '';
     document.getElementById('editModal').classList.add('open');
 }
-function openPinModal(id, name) {
+function openFaceResetModal(id, name) {
     document.getElementById('pinEmpId').value = id;
     document.getElementById('pinEmpName').textContent = 'Karyawan: ' + name;
     document.getElementById('pinModal').classList.add('open');
