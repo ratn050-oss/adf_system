@@ -23,24 +23,29 @@ $pageTitle = 'Absensi Karyawan';
 $baseUrl = defined('BASE_URL') ? BASE_URL : '';
 
 // ── Auto-create tables ──
+
+// Always ensure config table exists (idempotent — safe to run every time)
+$_pdo = $db->getConnection();
+$_pdo->exec("CREATE TABLE IF NOT EXISTS `payroll_attendance_config` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `office_lat` DECIMAL(10,7) NOT NULL DEFAULT -6.2000000,
+    `office_lng` DECIMAL(10,7) NOT NULL DEFAULT 106.8166700,
+    `allowed_radius_m` INT NOT NULL DEFAULT 200,
+    `office_name` VARCHAR(100) DEFAULT 'Kantor',
+    `checkin_start` TIME DEFAULT '07:00:00',
+    `checkin_end` TIME DEFAULT '10:00:00',
+    `checkout_start` TIME DEFAULT '16:00:00',
+    `allow_outside` TINYINT(1) DEFAULT 0,
+    `app_logo` VARCHAR(255) DEFAULT NULL,
+    `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    `updated_by` INT DEFAULT NULL
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+$_pdo->exec("INSERT IGNORE INTO `payroll_attendance_config` (`id`) VALUES (1)");
+
 try {
     $db->query("SELECT 1 FROM payroll_attendance LIMIT 1");
 } catch (Exception $e) {
     $pdo = $db->getConnection();
-    $pdo->exec("CREATE TABLE IF NOT EXISTS `payroll_attendance_config` (
-        `id` INT AUTO_INCREMENT PRIMARY KEY,
-        `office_lat` DECIMAL(10,7) NOT NULL DEFAULT -6.2000000,
-        `office_lng` DECIMAL(10,7) NOT NULL DEFAULT 106.8166700,
-        `allowed_radius_m` INT NOT NULL DEFAULT 200,
-        `office_name` VARCHAR(100) DEFAULT 'Kantor',
-        `checkin_start` TIME DEFAULT '07:00:00',
-        `checkin_end` TIME DEFAULT '10:00:00',
-        `checkout_start` TIME DEFAULT '16:00:00',
-        `allow_outside` TINYINT(1) DEFAULT 0,
-        `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        `updated_by` INT DEFAULT NULL
-    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-    $pdo->exec("INSERT IGNORE INTO `payroll_attendance_config` (`id`) VALUES (1)");
     $pdo->exec("CREATE TABLE IF NOT EXISTS `payroll_attendance` (
         `id` INT AUTO_INCREMENT PRIMARY KEY,
         `employee_id` INT NOT NULL,
