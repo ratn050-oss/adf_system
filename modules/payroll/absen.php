@@ -255,7 +255,7 @@ body{font-family:'Inter',sans-serif;background:#0d1f3c;min-height:100vh;overflow
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 const API_URL = '<?php echo $apiUrl; ?>';
-const MODEL_URL = 'https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/weights';
+const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights';
 
 let currentEmployee  = null;
 let storedDescriptor = null; // Float32Array
