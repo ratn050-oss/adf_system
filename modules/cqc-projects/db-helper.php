@@ -215,6 +215,76 @@ function ensureCQCTerminTable($pdo) {
 }
 
 /**
+ * Ensure CQC Quotations table exists
+ */
+function ensureCQCQuotationTable($pdo) {
+    $check = $pdo->query("SHOW TABLES LIKE 'cqc_quotations'");
+    if ($check->rowCount() === 0) {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS cqc_quotations (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                quote_number VARCHAR(50) UNIQUE NOT NULL,
+                quote_date DATE NOT NULL,
+                valid_until DATE,
+                
+                -- Client info
+                client_name VARCHAR(200) NOT NULL,
+                client_attn VARCHAR(100),
+                client_phone VARCHAR(50),
+                client_email VARCHAR(100),
+                client_address TEXT,
+                
+                -- From (company) info is taken from settings
+                
+                -- Quote details
+                subject VARCHAR(255) COMMENT 'Quote subject/title',
+                notes TEXT,
+                terms_conditions TEXT,
+                
+                -- Amount calculation  
+                subtotal DECIMAL(15,2) NOT NULL DEFAULT 0,
+                discount_percentage DECIMAL(5,2) DEFAULT 0,
+                discount_amount DECIMAL(15,2) DEFAULT 0,
+                ppn_percentage DECIMAL(5,2) DEFAULT 11,
+                ppn_amount DECIMAL(15,2) DEFAULT 0,
+                total_amount DECIMAL(15,2) NOT NULL,
+                
+                -- Status
+                status ENUM('draft','sent','accepted','rejected','expired') DEFAULT 'draft',
+                
+                created_by INT NOT NULL DEFAULT 1,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                
+                INDEX idx_status (status),
+                INDEX idx_date (quote_date),
+                INDEX idx_client (client_name)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        ");
+        
+        // Create quotation items table
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS cqc_quotation_items (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                quotation_id INT NOT NULL,
+                description VARCHAR(500) NOT NULL,
+                remarks VARCHAR(255),
+                quantity DECIMAL(10,2) DEFAULT 1,
+                unit VARCHAR(50) DEFAULT 'unit',
+                unit_price DECIMAL(15,2) NOT NULL,
+                amount DECIMAL(15,2) NOT NULL,
+                sort_order INT DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                
+                INDEX idx_quotation (quotation_id),
+                FOREIGN KEY (quotation_id) REFERENCES cqc_quotations(id) ON DELETE CASCADE
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        ");
+    }
+    return true;
+}
+
+/**
  * Ensure CQC General Invoices table exists
  */
 function ensureCQCGeneralInvoiceTable($pdo) {

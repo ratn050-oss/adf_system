@@ -20,6 +20,7 @@ try {
     // Ensure termin table exists
     ensureCQCTerminTable($pdo);
     ensureCQCGeneralInvoiceTable($pdo);
+    ensureCQCQuotationTable($pdo);
 } catch (Exception $e) {
     die("Database connection failed: " . $e->getMessage());
 }
@@ -124,8 +125,45 @@ $generalStats = [
     }, $generalInvoices))
 ];
 
+// Get quotations for "Quotation" tab
+$quotations = [];
+try {
+    $quotWhere = ["quote_date BETWEEN :date_from AND :date_to"];
+    $quotParams = ['date_from' => $date_from, 'date_to' => $date_to];
+    
+    if ($payment_status) {
+        $quotWhere[] = "status = :status";
+        $quotParams['status'] = $payment_status;
+    }
+    
+    $quotWhereClause = implode(' AND ', $quotWhere);
+    
+    $stmtQuot = $pdo->prepare("
+        SELECT * FROM cqc_quotations
+        WHERE $quotWhereClause
+        ORDER BY quote_date DESC, created_at DESC
+        LIMIT 100
+    ");
+    $stmtQuot->execute($quotParams);
+    $quotations = $stmtQuot->fetchAll(PDO::FETCH_ASSOC);
+} catch (Exception $e) {
+    // Table might not exist
+}
+
+// Calculate stats for quotations
+$quotationStats = [
+    'total_invoices' => count($quotations),
+    'total_amount' => array_sum(array_column($quotations, 'total_amount')),
+    'paid_amount' => array_sum(array_map(function($q) {
+        return $q['status'] === 'approved' ? floatval($q['total_amount']) : 0;
+    }, $quotations)),
+    'unpaid_amount' => array_sum(array_map(function($q) {
+        return in_array($q['status'], ['draft', 'sent']) ? floatval($q['total_amount']) : 0;
+    }, $quotations))
+];
+
 // Use stats based on active tab
-$displayStats = $activeTab === 'general' ? $generalStats : $stats;
+$displayStats = $activeTab === 'general' ? $generalStats : ($activeTab === 'quotation' ? $quotationStats : $stats);
 
 $pageTitle = "Invoice CQC";
 include '../../includes/header.php';
@@ -349,6 +387,11 @@ include '../../includes/header.php';
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
                 Buat Invoice Umum
             </a>
+            <?php elseif ($activeTab === 'quotation'): ?>
+            <a href="add-quotation.php" class="btn-create">
+                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
+                Buat Quotation
+            </a>
             <?php else: ?>
             <a href="create-termin.php" class="btn-create">
                 <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><path d="M12 5v14M5 12h14"/></svg>
@@ -365,6 +408,9 @@ include '../../includes/header.php';
         </a>
         <a href="?tab=general&date_from=<?php echo $date_from; ?>&date_to=<?php echo $date_to; ?>" class="cqc-tab <?php echo $activeTab === 'general' ? 'active' : ''; ?>">
             📄 Invoice Umum <span class="badge"><?php echo count($generalInvoices); ?></span>
+        </a>
+        <a href="?tab=quotation&date_from=<?php echo $date_from; ?>&date_to=<?php echo $date_to; ?>" class="cqc-tab <?php echo $activeTab === 'quotation' ? 'active' : ''; ?>">
+            📝 Quotation <span class="badge"><?php echo count($quotations); ?></span>
         </a>
     </div>
 
@@ -635,6 +681,97 @@ include '../../includes/header.php';
         </table>
     </div>
     <?php endif; ?>
+    
+    <!-- Quotation Tab Content -->
+    <?php if ($activeTab === 'quotation'): ?>
+    <div class="cqc-table-responsive">
+        <table class="cqc-table">
+            <thead>
+                <tr>
+                    <th style="width: 40px; text-align: center;">No</th>
+                    <th>No. Quotation</th>
+                    <th>Tanggal</th>
+                    <th>Klien</th>
+                    <th>Subject</th>
+                    <th style="text-align: right;">Total</th>
+                    <th>Status</th>
+                    <th style="text-align: center;">Aksi</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php if (empty($quotations)): ?>
+                    <tr>
+                        <td colspan="8">
+                            <div class="cqc-empty">
+                                <div class="cqc-empty-icon">📝</div>
+                                <h3>Tidak ada quotation</h3>
+                                <p>Buat quotation pertama untuk penawaran harga.</p>
+                            </div>
+                        </td>
+                    </tr>
+                <?php else: ?>
+                    <?php foreach ($quotations as $idx => $quot): ?>
+                        <tr>
+                            <td style="text-align: center;">
+                                <span class="cqc-termin-badge"><?php echo $idx + 1; ?></span>
+                            </td>
+                            <td>
+                                <strong style="color: var(--cqc-primary);"><?php echo htmlspecialchars($quot['quote_number']); ?></strong>
+                            </td>
+                            <td style="font-size: 11px;"><?php echo date('d/m/Y', strtotime($quot['quote_date'])); ?></td>
+                            <td>
+                                <div style="font-weight: 600;"><?php echo htmlspecialchars($quot['client_name']); ?></div>
+                                <?php if ($quot['client_attn']): ?>
+                                <div style="font-size: 10px; color: var(--cqc-muted);">Attn: <?php echo htmlspecialchars($quot['client_attn']); ?></div>
+                                <?php endif; ?>
+                            </td>
+                            <td style="font-size: 11px;">
+                                <?php echo htmlspecialchars(mb_substr($quot['subject'] ?: '-', 0, 30)); ?>
+                            </td>
+                            <td style="text-align: right; font-weight: 700; color: var(--cqc-primary);">
+                                Rp <?php echo number_format($quot['total_amount'], 0, ',', '.'); ?>
+                            </td>
+                            <td>
+                                <?php
+                                $quotStatusClass = [
+                                    'draft' => 'cqc-status-draft',
+                                    'sent' => 'cqc-status-sent',
+                                    'approved' => 'cqc-status-paid',
+                                    'rejected' => 'cqc-status-overdue',
+                                    'expired' => 'cqc-status-partial'
+                                ];
+                                $quotStatusLabel = [
+                                    'draft' => 'Draft',
+                                    'sent' => 'Terkirim',
+                                    'approved' => '✓ Disetujui',
+                                    'rejected' => '✗ Ditolak',
+                                    'expired' => '⌛ Expired'
+                                ];
+                                ?>
+                                <span class="cqc-status <?php echo $quotStatusClass[$quot['status']] ?? 'cqc-status-draft'; ?>">
+                                    <?php echo $quotStatusLabel[$quot['status']] ?? ucfirst($quot['status']); ?>
+                                </span>
+                            </td>
+                            <td>
+                                <div class="cqc-actions">
+                                    <a href="view-quotation.php?id=<?php echo $quot['id']; ?>" class="cqc-action-btn btn-view" title="Lihat & Cetak">
+                                        👁
+                                    </a>
+                                    <a href="edit-quotation.php?id=<?php echo $quot['id']; ?>" class="cqc-action-btn" title="Edit" style="background: #f1f5f9; color: #475569;">
+                                        ✏️
+                                    </a>
+                                    <button type="button" class="cqc-action-btn btn-delete" title="Hapus" onclick="deleteQuotation(<?php echo $quot['id']; ?>, '<?php echo $quot['quote_number']; ?>')">
+                                        🗑
+                                    </button>
+                                </div>
+                            </td>
+                        </tr>
+                    <?php endforeach; ?>
+                <?php endif; ?>
+            </tbody>
+        </table>
+    </div>
+    <?php endif; ?>
 </div>
 
 <!-- Payment Modal -->
@@ -707,6 +844,12 @@ function deleteInvoice(id, invoiceNum) {
 function deleteGeneralInvoice(id, invoiceNum) {
     if (confirm('⚠️ Hapus faktur ' + invoiceNum + '?\n\nData akan dihapus permanen!')) {
         window.location.href = 'delete-general-invoice.php?id=' + id;
+    }
+}
+
+function deleteQuotation(id, quoteNum) {
+    if (confirm('⚠️ Hapus quotation ' + quoteNum + '?\n\nData akan dihapus permanen!')) {
+        window.location.href = 'delete-quotation.php?id=' + id;
     }
 }
 
