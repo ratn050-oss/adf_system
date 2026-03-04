@@ -86,6 +86,46 @@ try {
         echo "</p>";
     }
     
+    // Step 3: Add missing user permissions for Owner role users
+    echo "<h3>Step 3: Add missing permissions for Owner users</h3>";
+    
+    // Get all Owner users with their business assignments
+    $ownerUsers = $masterDb->query("
+        SELECT u.id as user_id, u.full_name, uba.business_id 
+        FROM users u 
+        JOIN user_business_assignment uba ON u.id = uba.user_id
+        JOIN roles r ON u.role_id = r.id
+        WHERE r.role_name = 'owner'
+    ")->fetchAll(PDO::FETCH_ASSOC);
+    
+    foreach ($ownerUsers as $ownerUser) {
+        echo "<p><strong>{$ownerUser['full_name']}</strong> (Business ID: {$ownerUser['business_id']}): ";
+        $addedPerms = 0;
+        
+        // Get all menus
+        $menuItems = $masterDb->query("SELECT id, menu_code FROM menu_items WHERE is_active = 1")->fetchAll(PDO::FETCH_ASSOC);
+        
+        foreach ($menuItems as $menu) {
+            // Check if permission exists
+            $check = $masterDb->prepare("SELECT id FROM user_menu_permissions WHERE user_id = ? AND business_id = ? AND menu_code = ?");
+            $check->execute([$ownerUser['user_id'], $ownerUser['business_id'], $menu['menu_code']]);
+            
+            if (!$check->fetch()) {
+                // Add permission with full access for owner
+                $insert = $masterDb->prepare("INSERT INTO user_menu_permissions (user_id, business_id, menu_id, menu_code, can_view, can_create, can_edit, can_delete) VALUES (?, ?, ?, ?, 1, 1, 1, 1)");
+                $insert->execute([$ownerUser['user_id'], $ownerUser['business_id'], $menu['id'], $menu['menu_code']]);
+                $addedPerms++;
+            }
+        }
+        
+        if ($addedPerms > 0) {
+            echo "✅ Added {$addedPerms} permissions";
+        } else {
+            echo "✓ All permissions exist";
+        }
+        echo "</p>";
+    }
+    
     echo "<h3>Current Menu Items:</h3>";
     echo "<table border='1' cellpadding='8' style='border-collapse: collapse;'>";
     echo "<tr><th>Order</th><th>Name</th><th>Code</th><th>URL</th><th>Active</th></tr>";
