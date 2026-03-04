@@ -251,11 +251,17 @@ body{font-family:'Inter',sans-serif;background:#0d1f3c;min-height:100vh;overflow
 <!-- Toast -->
 <div class="toast" id="toast"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/face-api.js@0.22.2/dist/face-api.min.js"></script>
+<script src="https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/dist/face-api.min.js"></script>
 <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
 <script>
 const API_URL = '<?php echo $apiUrl; ?>';
-const MODEL_URL = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights';
+<?php
+$localWeights = __DIR__ . '/../../assets/face-weights/tiny_face_detector_model-weights_manifest.json';
+$modelPath = file_exists($localWeights)
+    ? $baseUrl . '/assets/face-weights'
+    : 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights';
+?>
+const MODEL_URL = '<?php echo $modelPath; ?>';
 
 let currentEmployee  = null;
 let storedDescriptor = null; // Float32Array

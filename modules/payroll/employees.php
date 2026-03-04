@@ -695,7 +695,7 @@ include '../../includes/header.php';
                     <th>Position</th>
                     <th>Join Date</th>
                     <th>Base Salary</th>
-                    <th>Bank Account</th><th style="text-align:center;">PIN</th>
+                    <th>Bank Account</th><th style="text-align:center;">👁️ Wajah</th>
                     <th style="text-align: center;">Actions</th>
                 </tr>
             </thead>
@@ -726,10 +726,10 @@ include '../../includes/header.php';
                         </div>
                     </td>
                     <td style="text-align:center;">
-                        <?php if ($emp['attendance_pin']): ?>
-                            <span style="font-family:monospace; font-size:11px; background:#f0fdf4; color:#166534; padding:2px 7px; border-radius:4px; font-weight:700;">✅ diatur</span>
+                        <?php if (!empty($emp['face_descriptor'])): ?>
+                            <span style="font-size:11px; background:#f0fdf4; color:#166534; padding:2px 7px; border-radius:4px; font-weight:700">👁️ Terdaftar</span>
                         <?php else: ?>
-                            <span style="font-size:11px; color:#94a3b8;">default</span>
+                            <span style="font-size:11px; color:#94a3b8;">— Belum</span>
                         <?php endif; ?>
                     </td>
                     <td>
