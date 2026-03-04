@@ -41,7 +41,28 @@ $db = Database::switchDatabase($bizConfig['database']);
 $empList = $db->fetchAll("SELECT id, employee_code, full_name, position, department FROM payroll_employees WHERE is_active = 1 ORDER BY full_name") ?: [];
 $bizName = htmlspecialchars($bizConfig['name'] ?? 'Absensi');
 $absenConfig = $db->fetchOne("SELECT app_logo FROM payroll_attendance_config WHERE id=1") ?: [];
-$appLogo = !empty($absenConfig['app_logo']) ? $baseUrl.'/'.$absenConfig['app_logo'] : null;
+// Logo priority: 1) payroll app_logo setting, 2) business logo from bizConfig, 3) none
+$appLogo = null;
+if (!empty($absenConfig['app_logo'])) {
+    $appLogo = $baseUrl . '/' . ltrim($absenConfig['app_logo'], '/');
+} elseif (!empty($bizConfig['logo'])) {
+    // bizConfig logo can be just a filename (stored in uploads/images/) or a full path
+    $logoVal = $bizConfig['logo'];
+    if (str_starts_with($logoVal, 'http')) {
+        $appLogo = $logoVal;
+    } elseif (str_contains($logoVal, '/')) {
+        $appLogo = $baseUrl . '/' . ltrim($logoVal, '/');
+    } else {
+        // bare filename — check uploads/logos/ (primary location per getBusinessLogo)
+        if (file_exists(BASE_PATH . '/uploads/logos/' . $logoVal)) {
+            $appLogo = $baseUrl . '/uploads/logos/' . $logoVal;
+        } elseif (file_exists(BASE_PATH . '/uploads/images/' . $logoVal)) {
+            $appLogo = $baseUrl . '/uploads/images/' . $logoVal;
+        } elseif (file_exists(BASE_PATH . '/assets/images/' . $logoVal)) {
+            $appLogo = $baseUrl . '/assets/images/' . $logoVal;
+        }
+    }
+}
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -214,7 +235,12 @@ body{font-family:'Inter',sans-serif;background:#0d1f3c;min-height:100vh;overflow
 <!-- Screen 1: Pilih Nama -->
 <div id="screenCode" class="screen">
     <div class="logo-area">
+        <?php if ($appLogo): ?>
+        <img src="<?php echo htmlspecialchars($appLogo); ?>" alt="<?php echo $bizName; ?>"
+             style="max-height:72px;max-width:220px;object-fit:contain;margin-bottom:10px;border-radius:10px;">
+        <?php else: ?>
         <div class="icon">🏢</div>
+        <?php endif; ?>
         <h1>Absensi Karyawan</h1>
         <p><?php echo $bizName; ?></p>
     </div>
