@@ -35,16 +35,28 @@ echo json_encode([
     'lang'             => 'id',
     'icons'            => [
         [
-            'src'     => '../../assets/icons/absen-icon-192.svg',
+            'src'     => 'absen-icon.php?size=192',
             'sizes'   => '192x192',
-            'type'    => 'image/svg+xml',
-            'purpose' => 'any maskable',
+            'type'    => 'image/png',
+            'purpose' => 'any',
+        ],
+        [
+            'src'     => 'absen-icon.php?size=512',
+            'sizes'   => '512x512',
+            'type'    => 'image/png',
+            'purpose' => 'any',
+        ],
+        [
+            'src'     => 'absen-icon.php?size=192',
+            'sizes'   => '192x192',
+            'type'    => 'image/png',
+            'purpose' => 'maskable',
         ],
         [
             'src'     => '../../assets/icons/absen-icon-512.svg',
             'sizes'   => '512x512',
             'type'    => 'image/svg+xml',
-            'purpose' => 'any maskable',
+            'purpose' => 'any',
         ],
     ],
     'categories'                 => ['productivity', 'utilities'],

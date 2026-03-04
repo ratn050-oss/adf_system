@@ -55,7 +55,11 @@ $appLogo = !empty($absenConfig['app_logo']) ? $baseUrl.'/'.$absenConfig['app_log
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <title>Absensi · <?php echo $bizName; ?></title>
 <link rel="manifest" href="absen-manifest.php?b=<?php echo urlencode($bizSlug); ?>">
-<link rel="apple-touch-icon" href="../../assets/icons/absen-icon-192.svg">
+<!-- iOS: PNG icons required (SVG not reliably supported on iOS home screen) -->
+<link rel="apple-touch-icon" sizes="180x180" href="absen-icon.php?size=180">
+<link rel="apple-touch-icon" sizes="167x167" href="absen-icon.php?size=167">
+<link rel="apple-touch-icon" sizes="152x152" href="absen-icon.php?size=152">
+<link rel="apple-touch-icon" href="absen-icon.php?size=192">
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}
@@ -246,6 +250,22 @@ body{font-family:'Inter',sans-serif;background:#0d1f3c;min-height:100vh;overflow
     <div class="ib-btns">
         <button class="ib-install" id="btnInstall">⬇️ Install</button>
         <button class="ib-dismiss" onclick="dismissInstall()">Nanti saja</button>
+    </div>
+</div>
+
+<!-- iOS install guide banner -->
+<div id="iosBanner" style="display:none;position:fixed;bottom:0;left:0;right:0;background:linear-gradient(135deg,#1a3a5c,#0d1f3c);border-top:2px solid rgba(240,180,41,0.5);padding:14px 16px;z-index:9998;box-shadow:0 -4px 20px rgba(0,0,0,0.4);animation:slideUp 0.4s ease;">
+    <div style="display:flex;align-items:flex-start;gap:12px;">
+        <div style="font-size:32px;flex-shrink:0;">🌐</div>
+        <div style="flex:1;">
+            <div style="color:#f0b429;font-size:13px;font-weight:800;margin-bottom:4px;">Install di iPhone / iPad</div>
+            <div style="color:rgba(255,255,255,0.8);font-size:12px;line-height:1.5;">
+                Buka halaman ini di <strong style="color:#fff;">Safari</strong>, lalu ketuk tombol<br>
+                <span style="background:rgba(255,255,255,0.15);border-radius:5px;padding:1px 6px;">⬆️ Share</span>
+                &rarr; <span style="background:rgba(255,255,255,0.15);border-radius:5px;padding:1px 6px;">Add to Home Screen</span>
+            </div>
+        </div>
+        <button onclick="document.getElementById('iosBanner').style.display='none';sessionStorage.setItem('iosDismissed','1');" style="background:none;border:none;color:rgba(255,255,255,0.4);font-size:20px;cursor:pointer;padding:0 4px;line-height:1;">&times;</button>
     </div>
 </div>
 
@@ -913,17 +933,26 @@ if ('serviceWorker' in navigator) {
     });
 }
 
-// Capture the install prompt before it fires
+// Capture the install prompt before it fires (Android/Chrome)
 window.addEventListener('beforeinstallprompt', e => {
     e.preventDefault();
     deferredInstallPrompt = e;
-    // Only show if user hasn't dismissed before
     if (!sessionStorage.getItem('installDismissed')) {
         setTimeout(() => {
             document.getElementById('installBanner').classList.add('show');
-        }, 3000); // Show after 3s so page loads first
+        }, 3000);
     }
 });
+
+// iOS detection — show manual install guide
+const isIOS = /iphone|ipad|ipod/i.test(navigator.userAgent) && !window.MSStream;
+const isInStandalone = window.navigator.standalone === true ||
+                       window.matchMedia('(display-mode: standalone)').matches;
+if (isIOS && !isInStandalone && !sessionStorage.getItem('iosDismissed')) {
+    setTimeout(() => {
+        document.getElementById('iosBanner').style.display = 'block';
+    }, 4000);
+}
 
 // Install button click
 document.getElementById('btnInstall').addEventListener('click', async () => {
