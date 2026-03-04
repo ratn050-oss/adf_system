@@ -1102,8 +1102,6 @@ include '../../includes/header.php';
         <?php endforeach; ?>
     </script>
 
-<?php include '../../includes/footer.php'; ?>
-
 <!-- ===== FINISH PROJECT MODAL ===== -->
 <div id="finishModal" style="display:none; position:fixed; inset:0; background:rgba(0,0,0,0.55); z-index:9999; align-items:center; justify-content:center;">
     <div style="background:#fff; border-radius:14px; padding:24px 26px; max-width:480px; width:92%; box-shadow:0 20px 60px rgba(0,0,0,0.3); border-top:4px solid #f0b429; position:relative;">
@@ -1157,8 +1155,7 @@ function checkAndFinish(id, name, unpaidCount, unpaidTotal) {
         var pelBtn = document.getElementById('btnBuatPelunasan');
         pelBtn.href = '../sales/create-termin.php?project_id=' + id;
         pelBtn.style.display = 'inline-flex';
-        // Change finish button text to reflect bypass
-        document.getElementById('btnConfirmFinish').textContent = '⚡ Tetap Selesaikan';
+        document.getElementById('btnConfirmFinish').innerHTML = '⚡ Tetap Selesaikan';
     } else {
         document.getElementById('finishModalUnpaidBox').style.display = 'none';
         document.getElementById('finishModalCleanBox').style.display = 'block';
@@ -1175,3 +1172,5 @@ function checkAndFinish(id, name, unpaidCount, unpaidTotal) {
     });
 }
 </script>
+
+<?php include '../../includes/footer.php'; ?>
