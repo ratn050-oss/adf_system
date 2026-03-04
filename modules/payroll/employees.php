@@ -61,24 +61,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $count = $db->fetchOne("SELECT COUNT(*) as c FROM payroll_employees");
                     $employee_code = 'EMP-' . str_pad($count['c'] + 1, 3, '0', STR_PAD_LEFT);
                 }
-                
-                $attendance_pin = preg_replace('/\D/', '', $_POST['attendance_pin'] ?? '');
-                $attendance_pin = (strlen($attendance_pin) >= 4) ? $attendance_pin : null;
-                $sql = "INSERT INTO payroll_employees (employee_code, full_name, position, department, phone, join_date, base_salary, bank_name, bank_account, attendance_pin, created_by) 
+                $sql = "INSERT INTO payroll_employees (employee_code, full_name, position, department, phone, join_date, base_salary, bank_name, bank_account, created_by) 
                         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-                $db->query($sql, [$employee_code, $full_name, $position, $department, $phone, $join_date, $base_salary, $bank_name, $bank_account, $attendance_pin, $_SESSION['user_id']]);
-                setFlash('success', 'Employee added successfully');
+                $db->query($sql, [$employee_code, $full_name, $position, $department, $phone, $join_date, $base_salary, $bank_name, $bank_account, $_SESSION['user_id']]);
+                setFlash('success', 'Karyawan berhasil ditambahkan');
             } else {
-                if (!isset($attendance_pin)) {
-                    $attendance_pin = preg_replace('/\D/', '', $_POST['attendance_pin'] ?? '');
-                    $attendance_pin = (strlen($attendance_pin) >= 4) ? $attendance_pin : null;
-                }
-                $sql = "UPDATE payroll_employees SET full_name=?, position=?, department=?, phone=?, join_date=?, base_salary=?, bank_name=?, bank_account=?, attendance_pin=? WHERE id=?";
-                $db->query($sql, [$full_name, $position, $department, $phone, $join_date, $base_salary, $bank_name, $bank_account, $attendance_pin, $id]);
-                setFlash('success', 'Employee data updated');
+                $sql = "UPDATE payroll_employees SET full_name=?, position=?, department=?, phone=?, join_date=?, base_salary=?, bank_name=?, bank_account=? WHERE id=?";
+                $db->query($sql, [$full_name, $position, $department, $phone, $join_date, $base_salary, $bank_name, $bank_account, $id]);
+                setFlash('success', 'Data karyawan berhasil diperbarui');
             }
         } catch (PDOException $e) {
-            setFlash('error', 'Failed to save: ' . $e->getMessage());
+            setFlash('error', 'Gagal menyimpan: ' . $e->getMessage());
         }
         header('Location: employees.php');
         exit;
@@ -829,16 +822,6 @@ include '../../includes/header.php';
                 </div>
             </div>
         </div>
-        <div class="emp-form-section">
-            <h4 class="emp-form-section-title">🔐 PIN Absensi</h4>
-            <div class="emp-form-grid">
-                <div class="emp-form-group">
-                    <label class="emp-form-label">PIN Absen (4-6 digit)</label>
-                    <input type="tel" name="attendance_pin" id="attendancePin" class="emp-form-input" placeholder="Kosongkan = default 1234" maxlength="6" pattern="[0-9]{4,6}" inputmode="numeric" style="letter-spacing:4px; font-size:16px;">
-                    <div style="font-size:11px; color:#64748b; margin-top:3px;">PIN digunakan karyawan untuk login absen dari HP. Default: 1234</div>
-                </div>
-            </div>
-        </div>
         <div class="emp-modal-footer">
             <button type="button" class="emp-btn-cancel" onclick="closeModal()">Cancel</button>
             <button type="submit" class="emp-btn-save">Save Data</button>
@@ -890,7 +873,6 @@ function editEmployee(data) {
     formatCurrency(document.getElementById('baseSalary'));
     document.getElementById('bankName').value = data.bank_name;
     document.getElementById('bankAccount').value = data.bank_account;
-    document.getElementById('attendancePin').value = data.attendance_pin || '';
 }
 
 function deleteEmployee(id) {
