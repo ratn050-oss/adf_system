@@ -657,14 +657,18 @@ function onFaceVerified() {
 // ────────────────────────────────────────────────────────
 function initMap() {
     if (leafletMap) { leafletMap.invalidateSize(); return; }
-    const cfg = officeConfig;
-    leafletMap = L.map('mapContainer', { zoomControl: false }).setView([cfg.office_lat, cfg.office_lng], 16);
-    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19, attribution:'© OSM' }).addTo(leafletMap);
-    officeMarker = L.marker([cfg.office_lat, cfg.office_lng]).addTo(leafletMap)
-        .bindPopup(cfg.office_name).openPopup();
-    radiusCircle = L.circle([cfg.office_lat, cfg.office_lng], {
-        radius: cfg.radius, color:'#f0b429', fillOpacity:0.1, weight:2
-    }).addTo(leafletMap);
+    const locs = officeConfig.locations || [];
+    const center = locs.length ? [locs[0].lat, locs[0].lng] : [-6.2, 106.82];
+    leafletMap = L.map('mapContainer', { zoomControl: false }).setView(center, 14);
+    L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom:19, attribution:'\u00a9 OSM' }).addTo(leafletMap);
+    locs.forEach(loc => {
+        L.circle([loc.lat, loc.lng], { radius: loc.radius, color:'#f0b429', fillOpacity:0.1, weight:2 }).addTo(leafletMap);
+        L.marker([loc.lat, loc.lng]).addTo(leafletMap).bindPopup(`<b>${loc.name}</b><br>Radius: ${loc.radius}m`);
+    });
+    if (locs.length > 1) {
+        const bounds = locs.map(l => [l.lat, l.lng]);
+        leafletMap.fitBounds(bounds, { padding: [30, 30] });
+    }
 }
 
 function startGPS() {
@@ -680,11 +684,18 @@ function onGPS(pos) {
     // Update map
     if (userMarker) userMarker.setLatLng([lat, lng]);
     else userMarker = L.circleMarker([lat, lng], { radius:8, color:'#2563eb', fillOpacity:0.8, weight:2 }).addTo(leafletMap);
-    // Calculate distance
-    const dist = haversine(lat, lng, officeConfig.office_lat, officeConfig.office_lng);
-    const maxD = officeConfig.radius;
+    // Find nearest location
+    const locs = officeConfig.locations || [];
+    let nearest = null, nearestDist = Infinity;
+    locs.forEach(loc => {
+        const d = haversine(lat, lng, loc.lat, loc.lng);
+        if (d < nearestDist) { nearestDist = d; nearest = loc; }
+    });
+    const dist = nearestDist < Infinity ? nearestDist : 0;
+    const maxD = nearest ? nearest.radius : 200;
+    const locLabel = nearest ? nearest.name : 'Lokasi';
     const pct  = Math.min(100, (dist / maxD) * 100);
-    document.getElementById('distText').textContent = dist + 'm dari kantor (maks ' + maxD + 'm)';
+    document.getElementById('distText').textContent = dist + 'm dari ' + locLabel + ' (maks ' + maxD + 'm)';
     const fill = document.getElementById('distFill');
     fill.style.width    = pct + '%';
     fill.style.background = dist <= maxD ? '#059669' : '#dc2626';
@@ -709,11 +720,19 @@ function updateClockButton() {
     const today = currentEmployee?._today;
     if (!currentGPS) { btn.className='btn-clock done'; btn.textContent='⌛ Mengambil GPS...'; btn.disabled=true; return; }
 
-    // ── Radius check ──
-    const dist = haversine(currentGPS.coords.latitude, currentGPS.coords.longitude, officeConfig.office_lat, officeConfig.office_lng);
-    const inRadius = dist <= officeConfig.radius;
+    // ── Nearest location check ──
+    const lat = currentGPS.coords.latitude, lng = currentGPS.coords.longitude;
+    const locs = officeConfig.locations || [];
+    let nearest = null, nearestDist = Infinity;
+    locs.forEach(loc => {
+        const d = haversine(lat, lng, loc.lat, loc.lng);
+        if (d < nearestDist) { nearestDist = d; nearest = loc; }
+    });
+    const dist = nearestDist < Infinity ? nearestDist : 99999;
+    const inRadius = nearest ? dist <= nearest.radius : false;
     if (!inRadius && !officeConfig.allow_outside) {
-        btn.className='btn-clock outside'; btn.textContent='📍 Di luar radius kantor (' + dist + 'm)'; btn.disabled=true; return;
+        const locName = nearest ? nearest.name : 'lokasi manapun';
+        btn.className='btn-clock outside'; btn.textContent='\ud83d\udccd Di luar radius ' + locName + ' (' + dist + 'm)'; btn.disabled=true; return;
     }
 
     if (!today || !today.check_in_time) {

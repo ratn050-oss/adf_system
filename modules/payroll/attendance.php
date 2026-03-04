@@ -73,24 +73,71 @@ try {
     $db->getConnection()->exec("ALTER TABLE payroll_employees ADD COLUMN `attendance_pin` VARCHAR(6) DEFAULT NULL");
 }
 
+// Auto-create multi-location table
+try {
+    $db->query("SELECT 1 FROM payroll_attendance_locations LIMIT 1");
+} catch (Exception $e) {
+    $pdo2 = $db->getConnection();
+    $pdo2->exec("CREATE TABLE IF NOT EXISTS `payroll_attendance_locations` (
+        `id` INT AUTO_INCREMENT PRIMARY KEY,
+        `location_name` VARCHAR(100) NOT NULL,
+        `address` VARCHAR(255) DEFAULT NULL,
+        `lat` DECIMAL(10,7) NOT NULL,
+        `lng` DECIMAL(10,7) NOT NULL,
+        `radius_m` INT NOT NULL DEFAULT 200,
+        `is_active` TINYINT(1) DEFAULT 1,
+        `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    // Migrate existing single-location config if already set
+    $existCfg = $pdo2->query("SELECT * FROM payroll_attendance_config WHERE id=1")->fetch(PDO::FETCH_ASSOC);
+    if ($existCfg && abs((float)$existCfg['office_lat']) > 0.01) {
+        $pdo2->prepare("INSERT INTO payroll_attendance_locations (location_name, lat, lng, radius_m) VALUES (?,?,?,?)")
+             ->execute([$existCfg['office_name'] ?? 'Kantor Utama', $existCfg['office_lat'], $existCfg['office_lng'], $existCfg['allowed_radius_m'] ?? 200]);
+    }
+}
+
 // ── Actions ──
 $msg = '';
 $msgType = '';
 
 // Save settings
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_config') {
-    $lat  = floatval($_POST['office_lat'] ?? 0);
-    $lng  = floatval($_POST['office_lng'] ?? 0);
-    $rad  = max(10, min(5000, intval($_POST['allowed_radius_m'] ?? 200)));
-    $name = trim(htmlspecialchars($_POST['office_name'] ?? 'Kantor'));
     $ciStart = $_POST['checkin_start'];
     $ciEnd   = $_POST['checkin_end'];
     $coStart = $_POST['checkout_start'];
     $allowOut = isset($_POST['allow_outside']) ? 1 : 0;
-    $db->query("UPDATE payroll_attendance_config SET office_lat=?, office_lng=?, allowed_radius_m=?, office_name=?, checkin_start=?, checkin_end=?, checkout_start=?, allow_outside=?, updated_by=? WHERE id=1",
-        [$lat, $lng, $rad, $name, $ciStart, $ciEnd, $coStart, $allowOut, $currentUser['id']]);
-    $msg = 'Pengaturan lokasi berhasil disimpan.';
+    $db->query("UPDATE payroll_attendance_config SET checkin_start=?, checkin_end=?, checkout_start=?, allow_outside=?, updated_by=? WHERE id=1",
+        [$ciStart, $ciEnd, $coStart, $allowOut, $currentUser['id']]);
+    $msg = 'Pengaturan waktu berhasil disimpan.';
     $msgType = 'success';
+}
+
+// Add / Edit / Delete location
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    $locAction = $_POST['action'] ?? '';
+    if ($locAction === 'add_location' || $locAction === 'edit_location') {
+        $locName   = trim(htmlspecialchars($_POST['loc_name'] ?? 'Lokasi'));
+        $locAddr   = trim(htmlspecialchars($_POST['loc_address'] ?? ''));
+        $locLat    = (float)($_POST['loc_lat'] ?? 0);
+        $locLng    = (float)($_POST['loc_lng'] ?? 0);
+        $locRad    = max(10, min(5000, (int)($_POST['loc_radius'] ?? 200)));
+        $locActive = isset($_POST['loc_active']) ? 1 : 0;
+        if ($locAction === 'add_location') {
+            $db->query("INSERT INTO payroll_attendance_locations (location_name, address, lat, lng, radius_m, is_active) VALUES (?,?,?,?,?,?)",
+                [$locName, $locAddr, $locLat, $locLng, $locRad, 1]);
+            $msg = "Lokasi '{$locName}' berhasil ditambahkan."; $msgType = 'success';
+        } else {
+            $locId = (int)($_POST['loc_id'] ?? 0);
+            $db->query("UPDATE payroll_attendance_locations SET location_name=?, address=?, lat=?, lng=?, radius_m=?, is_active=? WHERE id=?",
+                [$locName, $locAddr, $locLat, $locLng, $locRad, $locActive, $locId]);
+            $msg = "Lokasi '{$locName}' berhasil diperbarui."; $msgType = 'success';
+        }
+    }
+    if ($locAction === 'delete_location') {
+        $locId = (int)($_POST['loc_id'] ?? 0);
+        $db->query("DELETE FROM payroll_attendance_locations WHERE id=?", [$locId]);
+        $msg = 'Lokasi berhasil dihapus.'; $msgType = 'success';
+    }
 }
 
 // Reset/update employee PIN
@@ -143,6 +190,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'manua
 
 // ── Fetch data ──
 $config = $db->fetchOne("SELECT * FROM payroll_attendance_config WHERE id = 1") ?: [];
+$locations = $db->fetchAll("SELECT * FROM payroll_attendance_locations ORDER BY id") ?: [];
 
 $viewDate = $_GET['date'] ?? date('Y-m-d');
 $viewMonth = $_GET['month'] ?? date('Y-m');
@@ -277,6 +325,10 @@ include '../../includes/header.php';
     .att-stats { grid-template-columns: repeat(2,1fr); }
     .form-grid, .form-grid-3 { grid-template-columns: 1fr; }
 }
+/* Location cards */
+.loc-card { background:#f8fafc; border:1px solid var(--border); border-radius:10px; padding:12px 14px; }
+.loc-card:hover { border-color:#f0b429; }
+.loc-inactive { opacity:0.55; }
 </style>
 
 <?php if ($msg): ?>
@@ -444,61 +496,87 @@ include '../../includes/header.php';
 
     <!-- ── SETTINGS TAB ── -->
     <div id="tabPanelSettings" style="display:none;">
-        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:14px;">
+        <div style="display:grid; grid-template-columns: 1fr 1fr; gap:14px; align-items:start;">
+
+            <!-- LEFT: Time settings + Locations list -->
             <div>
+                <!-- Time Settings -->
                 <div style="background:#fff; border:1px solid var(--border); border-radius:12px; padding:18px; margin-bottom:14px;">
-                    <h3 style="font-size:14px; font-weight:700; color:var(--navy); margin:0 0 14px;">📍 Lokasi Kantor</h3>
+                    <h3 style="font-size:14px; font-weight:700; color:var(--navy); margin:0 0 14px;">🕐 Pengaturan Waktu Absen</h3>
                     <form method="POST">
                         <input type="hidden" name="action" value="save_config">
-                        <div class="form-group">
-                            <label class="form-label">Nama Lokasi</label>
-                            <input type="text" name="office_name" class="form-input" value="<?php echo htmlspecialchars($config['office_name'] ?? 'Kantor'); ?>">
-                        </div>
                         <div class="form-grid">
                             <div class="form-group">
-                                <label class="form-label">Latitude</label>
-                                <input type="text" name="office_lat" id="inputLat" class="form-input" value="<?php echo $config['office_lat'] ?? '-6.2'; ?>" step="any">
-                            </div>
-                            <div class="form-group">
-                                <label class="form-label">Longitude</label>
-                                <input type="text" name="office_lng" id="inputLng" class="form-input" value="<?php echo $config['office_lng'] ?? '106.82'; ?>" step="any">
-                            </div>
-                        </div>
-                        <div class="form-group">
-                            <label class="form-label">Radius Absen (meter)</label>
-                            <input type="number" name="allowed_radius_m" class="form-input" value="<?php echo $config['allowed_radius_m'] ?? 200; ?>" min="10" max="5000">
-                            <div style="font-size:11px; color:var(--muted); margin-top:4px;">Karyawan harus berada dalam radius ini untuk absen.</div>
-                        </div>
-                        <div class="form-grid">
-                            <div class="form-group">
-                                <label class="form-label">Batas Masuk (Awal)</label>
+                                <label class="form-label">Jam Masuk (Awal)</label>
                                 <input type="time" name="checkin_start" class="form-input" value="<?php echo $config['checkin_start'] ?? '07:00'; ?>">
                             </div>
                             <div class="form-group">
                                 <label class="form-label">Batas Masuk (Terlambat)</label>
                                 <input type="time" name="checkin_end" class="form-input" value="<?php echo $config['checkin_end'] ?? '10:00'; ?>">
-                                <div style="font-size:10px; color:var(--muted);">Check-in setelah jam ini = Terlambat</div>
+                                <div style="font-size:10px; color:var(--muted); margin-top:3px;">Check-in setelah jam ini = Terlambat</div>
                             </div>
                         </div>
                         <div class="form-group">
-                            <label class="form-label">Check-Out Awal Boleh (jam)</label>
+                            <label class="form-label">Check-Out Boleh Mulai Jam</label>
                             <input type="time" name="checkout_start" class="form-input" value="<?php echo $config['checkout_start'] ?? '16:00'; ?>">
                         </div>
                         <div class="form-group" style="display:flex; align-items:center; gap:8px;">
                             <input type="checkbox" name="allow_outside" id="allowOut" <?php echo ($config['allow_outside'] ?? 0) ? 'checked' : ''; ?>>
-                            <label for="allowOut" style="font-size:12px; color:var(--navy);">Izinkan absen di luar radius (dengan tanda peringatan)</label>
+                            <label for="allowOut" style="font-size:12px; color:var(--navy);">Izinkan absen di luar radius (⚠️ peringatan saja)</label>
                         </div>
-                        <button type="submit" class="btn-save" style="width:100%;">💾 Simpan Pengaturan</button>
+                        <button type="submit" class="btn-save" style="width:100%;">💾 Simpan Waktu</button>
                     </form>
                 </div>
-            </div>
-            <div>
+
+                <!-- Locations List -->
                 <div style="background:#fff; border:1px solid var(--border); border-radius:12px; padding:18px;">
-                    <h3 style="font-size:14px; font-weight:700; color:var(--navy); margin:0 0 10px;">🗺️ Klik Peta untuk Pilih Lokasi Kantor</h3>
-                    <div id="adminMap"></div>
-                    <div style="font-size:11px; color:var(--muted);">Klik pada peta untuk mengambil koordinat secara otomatis, lalu simpan pengaturan.</div>
+                    <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:14px;">
+                        <h3 style="font-size:14px; font-weight:700; color:var(--navy); margin:0;">📍 Lokasi Proyek / Kantor</h3>
+                        <button onclick="openLocModal()" class="btn-save" style="font-size:11px; padding:7px 14px; background:var(--gold); color:var(--navy);">➕ Tambah Lokasi</button>
+                    </div>
+                    <?php if (empty($locations)): ?>
+                    <div style="text-align:center; padding:24px; color:var(--muted); font-size:13px;">
+                        Belum ada lokasi. Klik <strong>➕ Tambah Lokasi</strong> untuk menambahkan.
+                    </div>
+                    <?php else: ?>
+                    <div style="display:flex; flex-direction:column; gap:8px;" id="locList">
+                        <?php foreach ($locations as $loc): ?>
+                        <div class="loc-card <?php echo $loc['is_active'] ? '' : 'loc-inactive'; ?>" data-id="<?php echo $loc['id']; ?>">
+                            <div style="display:flex; justify-content:space-between; align-items:flex-start;">
+                                <div style="flex:1;">
+                                    <div style="font-size:13px; font-weight:700; color:var(--navy);">
+                                        <?php echo $loc['is_active'] ? '🟢' : '⚫'; ?> <?php echo htmlspecialchars($loc['location_name']); ?>
+                                    </div>
+                                    <?php if ($loc['address']): ?>
+                                    <div style="font-size:11px; color:var(--muted); margin-top:2px;"><?php echo htmlspecialchars($loc['address']); ?></div>
+                                    <?php endif; ?>
+                                    <div style="font-size:11px; color:var(--muted); margin-top:3px; font-family:monospace;">
+                                        <?php echo number_format((float)$loc['lat'],7); ?>, <?php echo number_format((float)$loc['lng'],7); ?> · Radius: <?php echo $loc['radius_m']; ?>m
+                                    </div>
+                                </div>
+                                <div style="display:flex; gap:4px; flex-shrink:0; margin-left:10px;">
+                                    <button class="act-btn act-btn-edit" onclick='openLocModal(<?php echo json_encode($loc); ?>)'>✏️</button>
+                                    <form method="POST" style="display:inline;" onsubmit="return confirm('Hapus lokasi ini?')">
+                                        <input type="hidden" name="action" value="delete_location">
+                                        <input type="hidden" name="loc_id" value="<?php echo $loc['id']; ?>">
+                                        <button type="submit" class="act-btn act-btn-del">🗑</button>
+                                    </form>
+                                </div>
+                            </div>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                    <?php endif; ?>
                 </div>
             </div>
+
+            <!-- RIGHT: Map preview -->
+            <div style="background:#fff; border:1px solid var(--border); border-radius:12px; padding:18px; position:sticky; top:10px;">
+                <h3 style="font-size:14px; font-weight:700; color:var(--navy); margin:0 0 10px;">🗺️ Preview Semua Lokasi</h3>
+                <div id="adminMap" style="height:320px;"></div>
+                <div style="font-size:11px; color:var(--muted); margin-top:6px;">Semua lokasi aktif ditampilkan di peta. Klik ➕ Tambah Lokasi untuk setting koordinat via klik peta.</div>
+            </div>
+
         </div>
     </div>
 
@@ -534,6 +612,56 @@ include '../../includes/header.php';
     </div>
 
 </div><!-- /att-container -->
+
+<!-- ═══ MODAL: ADD / EDIT LOCATION ═══ -->
+<div class="modal-overlay" id="locModal">
+    <div class="modal-box" style="max-width:540px;">
+        <div class="modal-title" id="locModalTitle">📍 Tambah Lokasi Baru</div>
+        <form method="POST" id="locForm">
+            <input type="hidden" name="action" id="locFormAction" value="add_location">
+            <input type="hidden" name="loc_id" id="locFormId" value="">
+            <div class="form-group">
+                <label class="form-label">Nama Lokasi / Proyek</label>
+                <input type="text" name="loc_name" id="locName" class="form-input" placeholder="mis: Proyek PLN Semarang" required>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Alamat (opsional)</label>
+                <input type="text" name="loc_address" id="locAddress" class="form-input" placeholder="Alamat lengkap">
+            </div>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label class="form-label">Latitude</label>
+                    <input type="text" name="loc_lat" id="locLat" class="form-input" placeholder="-6.2000000" required readonly style="background:#f8fafc;">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Longitude</label>
+                    <input type="text" name="loc_lng" id="locLng" class="form-input" placeholder="106.8166700" required readonly style="background:#f8fafc;">
+                </div>
+            </div>
+            <div style="font-size:11px; color:#2563eb; background:#eff6ff; border:1px solid #bfdbfe; border-radius:7px; padding:8px 10px; margin-bottom:10px;">
+                📌 <strong>Klik pada peta di bawah</strong> untuk menentukan titik lokasi, atau gunakan tombol "Gunakan Lokasi Saya".
+            </div>
+            <div id="locPickerMap" style="height:200px; border-radius:8px; border:1px solid var(--border); margin-bottom:10px;"></div>
+            <div style="display:flex; gap:8px; margin-bottom:10px;">
+                <button type="button" onclick="useMyGPS()" style="padding:7px 14px; background:#eff6ff; color:#2563eb; border:1px solid #bfdbfe; border-radius:7px; font-size:11px; font-weight:700; cursor:pointer;">📍 Gunakan Lokasi Saya</button>
+                <span id="locGpsStatus" style="font-size:11px; color:var(--muted); line-height:2;"></span>
+            </div>
+            <div class="form-group">
+                <label class="form-label">Radius Absen (meter)</label>
+                <input type="number" name="loc_radius" id="locRadius" class="form-input" value="200" min="10" max="10000">
+            </div>
+            <div class="form-group" id="locActiveGroup" style="display:none;">
+                <label style="display:flex; align-items:center; gap:8px; font-size:12px;">
+                    <input type="checkbox" name="loc_active" id="locActive"> Lokasi aktif (karyawan bisa absen di sini)
+                </label>
+            </div>
+            <div class="modal-actions">
+                <button type="button" class="btn-cancel" onclick="closeModal('locModal')">Batal</button>
+                <button type="submit" class="btn-save">💾 Simpan Lokasi</button>
+            </div>
+        </form>
+    </div>
+</div>
 
 <!-- ═══ MODAL: EDIT ATTENDANCE ═══ -->
 <div class="modal-overlay" id="editModal">
@@ -669,33 +797,104 @@ function switchTab(tab) {
 const urlTab = new URLSearchParams(window.location.search).get('tab');
 if (urlTab) switchTab(urlTab);
 
-// ─ ADMIN MAP ─
-let adminMap = null, adminMarker = null, adminCircle = null;
+// ─ ADMIN MAP (overview) ─
+let adminMap = null;
+const allLocations = <?php echo json_encode(array_values($locations)); ?>;
 function initAdminMap() {
     if (adminMap) { adminMap.invalidateSize(); return; }
-    const lat = parseFloat(document.getElementById('inputLat').value) || -6.2;
-    const lng = parseFloat(document.getElementById('inputLng').value) || 106.82;
-    adminMap = L.map('adminMap').setView([lat, lng], 16);
+    const center = allLocations.length
+        ? [allLocations[0].lat, allLocations[0].lng]
+        : [-6.2, 106.82];
+    adminMap = L.map('adminMap').setView(center, 14);
     L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OSM' }).addTo(adminMap);
-    adminMarker = L.marker([lat, lng], { draggable: true }).addTo(adminMap);
-    const rad = parseInt('<?php echo $config['allowed_radius_m'] ?? 200; ?>') || 200;
-    adminCircle = L.circle([lat, lng], { radius: rad, color: '#f0b429', fillOpacity: 0.1 }).addTo(adminMap);
-    // Click to move marker
-    adminMap.on('click', function(e) {
-        adminMarker.setLatLng(e.latlng);
-        adminCircle.setLatLng(e.latlng);
-        document.getElementById('inputLat').value = e.latlng.lat.toFixed(7);
-        document.getElementById('inputLng').value = e.latlng.lng.toFixed(7);
+    const bounds = [];
+    allLocations.forEach(loc => {
+        const ll = [parseFloat(loc.lat), parseFloat(loc.lng)];
+        bounds.push(ll);
+        const color = loc.is_active ? '#f0b429' : '#94a3b8';
+        L.circle(ll, { radius: parseInt(loc.radius_m), color, fillOpacity: 0.15, weight: 2 }).addTo(adminMap)
+            .bindTooltip(loc.location_name);
+        L.marker(ll).addTo(adminMap)
+            .bindPopup(`<b>${loc.location_name}</b><br>Radius: ${loc.radius_m}m<br>${loc.is_active ? '🟢 Aktif' : '⚫ Nonaktif'}`);
     });
-    adminMarker.on('dragend', function() {
-        const pos = adminMarker.getLatLng();
-        adminCircle.setLatLng(pos);
-        document.getElementById('inputLat').value = pos.lat.toFixed(7);
-        document.getElementById('inputLng').value = pos.lng.toFixed(7);
-    });
-    document.querySelector('[name=allowed_radius_m]').addEventListener('input', function() {
-        adminCircle.setRadius(parseInt(this.value) || 200);
-    });
+    if (bounds.length > 1) adminMap.fitBounds(bounds, { padding: [30, 30] });
+}
+
+// ─ LOCATION PICKER MAP ─
+let locPickerMap = null, locPickerMarker = null, locPickerCircle = null;
+function initLocPickerMap(lat, lng, radius) {
+    lat = lat || -6.2; lng = lng || 106.82; radius = radius || 200;
+    if (!locPickerMap) {
+        locPickerMap = L.map('locPickerMap').setView([lat, lng], 16);
+        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', { maxZoom: 19, attribution: '© OSM' }).addTo(locPickerMap);
+        locPickerMarker = L.marker([lat, lng], { draggable: true }).addTo(locPickerMap);
+        locPickerCircle = L.circle([lat, lng], { radius, color: '#f0b429', fillOpacity: 0.15 }).addTo(locPickerMap);
+        locPickerMap.on('click', function(e) {
+            locPickerMarker.setLatLng(e.latlng); locPickerCircle.setLatLng(e.latlng);
+            document.getElementById('locLat').value = e.latlng.lat.toFixed(7);
+            document.getElementById('locLng').value = e.latlng.lng.toFixed(7);
+        });
+        locPickerMarker.on('dragend', function() {
+            const pos = locPickerMarker.getLatLng();
+            locPickerCircle.setLatLng(pos);
+            document.getElementById('locLat').value = pos.lat.toFixed(7);
+            document.getElementById('locLng').value = pos.lng.toFixed(7);
+        });
+        document.getElementById('locRadius').addEventListener('input', function() {
+            locPickerCircle.setRadius(parseInt(this.value) || 200);
+        });
+    } else {
+        locPickerMap.setView([lat, lng], 16);
+        locPickerMarker.setLatLng([lat, lng]);
+        locPickerCircle.setLatLng([lat, lng]).setRadius(radius);
+        locPickerMap.invalidateSize();
+    }
+    document.getElementById('locLat').value = lat;
+    document.getElementById('locLng').value = lng;
+}
+
+function openLocModal(loc) {
+    if (loc) {
+        document.getElementById('locModalTitle').textContent = '✏️ Edit Lokasi';
+        document.getElementById('locFormAction').value = 'edit_location';
+        document.getElementById('locFormId').value = loc.id;
+        document.getElementById('locName').value = loc.location_name;
+        document.getElementById('locAddress').value = loc.address || '';
+        document.getElementById('locRadius').value = loc.radius_m;
+        document.getElementById('locActive').checked = loc.is_active == 1;
+        document.getElementById('locActiveGroup').style.display = 'block';
+        document.getElementById('locModal').classList.add('open');
+        setTimeout(() => initLocPickerMap(parseFloat(loc.lat), parseFloat(loc.lng), parseInt(loc.radius_m)), 100);
+    } else {
+        document.getElementById('locModalTitle').textContent = '📌 Tambah Lokasi Baru';
+        document.getElementById('locFormAction').value = 'add_location';
+        document.getElementById('locFormId').value = '';
+        document.getElementById('locForm').reset();
+        document.getElementById('locRadius').value = 200;
+        document.getElementById('locActiveGroup').style.display = 'none';
+        document.getElementById('locModal').classList.add('open');
+        const firstLoc = allLocations[0];
+        setTimeout(() => initLocPickerMap(
+            firstLoc ? parseFloat(firstLoc.lat) : -6.2,
+            firstLoc ? parseFloat(firstLoc.lng) : 106.82, 200
+        ), 100);
+    }
+}
+
+function useMyGPS() {
+    const status = document.getElementById('locGpsStatus');
+    status.textContent = '📡 Mengambil GPS...';
+    navigator.geolocation.getCurrentPosition(pos => {
+        const lat = pos.coords.latitude, lng = pos.coords.longitude;
+        document.getElementById('locLat').value = lat.toFixed(7);
+        document.getElementById('locLng').value = lng.toFixed(7);
+        if (locPickerMarker) {
+            locPickerMarker.setLatLng([lat, lng]);
+            locPickerCircle.setLatLng([lat, lng]);
+            locPickerMap.setView([lat, lng], 17);
+        }
+        status.textContent = '✅ ±' + Math.round(pos.coords.accuracy) + 'm akurasi';
+    }, err => { status.textContent = '❌ ' + err.message; }, { enableHighAccuracy: true });
 }
 
 // ─ MODALS ─

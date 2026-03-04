@@ -120,7 +120,15 @@ if ($action === 'get_employee') {
     }
     $today = date('Y-m-d');
     $attendance = $db->fetchOne("SELECT * FROM payroll_attendance WHERE employee_id = ? AND attendance_date = ?", [$emp['id'], $today]);
-    $config = $db->fetchOne("SELECT * FROM payroll_attendance_config WHERE id = 1");
+    $config    = $db->fetchOne("SELECT * FROM payroll_attendance_config WHERE id = 1");
+    $locRows   = $db->fetchAll("SELECT id, location_name, lat, lng, radius_m FROM payroll_attendance_locations WHERE is_active = 1 ORDER BY id") ?: [];
+    $locations = array_map(fn($l) => [
+        'id'     => (int)$l['id'],
+        'name'   => $l['location_name'],
+        'lat'    => (float)$l['lat'],
+        'lng'    => (float)$l['lng'],
+        'radius' => (int)$l['radius_m'],
+    ], $locRows);
     echo json_encode([
         'success'   => true,
         'employee'  => [
@@ -134,13 +142,10 @@ if ($action === 'get_employee') {
         ],
         'today'  => $attendance,
         'config' => [
-            'office_lat'    => (float)($config['office_lat'] ?? -6.2),
-            'office_lng'    => (float)($config['office_lng'] ?? 106.82),
-            'radius'        => (int)($config['allowed_radius_m'] ?? 200),
-            'office_name'   => $config['office_name'] ?? 'Kantor',
-            'checkin_end'   => $config['checkin_end'] ?? '10:00:00',
-            'checkout_start'=> $config['checkout_start'] ?? '16:00:00',
-            'allow_outside' => (bool)($config['allow_outside'] ?? false),
+            'locations'      => $locations,
+            'checkin_end'    => $config['checkin_end'] ?? '10:00:00',
+            'checkout_start' => $config['checkout_start'] ?? '16:00:00',
+            'allow_outside'  => (bool)($config['allow_outside'] ?? false),
         ]
     ]);
     exit;
@@ -180,20 +185,26 @@ if ($action === 'checkin') {
         exit;
     }
 
-    $config = $db->fetchOne("SELECT * FROM payroll_attendance_config WHERE id = 1");
-    $officeLat = (float)($config['office_lat'] ?? -6.2);
-    $officeLng = (float)($config['office_lng'] ?? 106.82);
-    $radius = (int)($config['allowed_radius_m'] ?? 200);
+    $config      = $db->fetchOne("SELECT * FROM payroll_attendance_config WHERE id = 1");
     $allowOutside = (bool)($config['allow_outside'] ?? false);
-    $checkinEnd = $config['checkin_end'] ?? '10:00:00';
+    $checkinEnd   = $config['checkin_end'] ?? '10:00:00';
 
-    $distance = haversineDistance($lat, $lng, $officeLat, $officeLng);
+    // Find nearest active location
+    $locRows  = $db->fetchAll("SELECT * FROM payroll_attendance_locations WHERE is_active = 1") ?: [];
+    $nearest  = null; $nearestDist = PHP_INT_MAX;
+    foreach ($locRows as $loc) {
+        $d = haversineDistance($lat, $lng, (float)$loc['lat'], (float)$loc['lng']);
+        if ($d < $nearestDist) { $nearestDist = $d; $nearest = $loc; }
+    }
+    $distance  = $nearestDist;
+    $radius    = $nearest ? (int)$nearest['radius_m'] : 200;
+    $locName   = $nearest ? $nearest['location_name'] : 'Kantor';
     $isOutside = $distance > $radius;
 
     if ($isOutside && !$allowOutside) {
         echo json_encode([
-            'success' => false,
-            'message' => "Anda berada di luar radius kantor ({$distance}m dari kantor, maks {$radius}m). Harap absen dari lokasi kantor.",
+            'success'  => false,
+            'message'  => "Anda berada di luar radius lokasi ({$distance}m dari {$locName}, maks {$radius}m). Harap absen dari area kerja.",
             'distance' => $distance
         ]);
         exit;
@@ -246,20 +257,29 @@ if ($action === 'checkout') {
         exit;
     }
 
-    $config = $db->fetchOne("SELECT * FROM payroll_attendance_config WHERE id = 1");
-    $officeLat = (float)($config['office_lat'] ?? -6.2);
-    $officeLng = (float)($config['office_lng'] ?? 106.82);
-    $radius = (int)($config['allowed_radius_m'] ?? 200);
+    $config       = $db->fetchOne("SELECT * FROM payroll_attendance_config WHERE id = 1");
     $allowOutside = (bool)($config['allow_outside'] ?? false);
     $checkoutStart = $config['checkout_start'] ?? '16:00:00';
 
-    $distance = ($lat && $lng) ? haversineDistance($lat, $lng, $officeLat, $officeLng) : 9999;
+    // Find nearest active location
+    $locRows  = $db->fetchAll("SELECT * FROM payroll_attendance_locations WHERE is_active = 1") ?: [];
+    $nearest  = null; $nearestDist = 9999;
+    if ($lat && $lng) {
+        $nearestDist = PHP_INT_MAX;
+        foreach ($locRows as $loc) {
+            $d = haversineDistance($lat, $lng, (float)$loc['lat'], (float)$loc['lng']);
+            if ($d < $nearestDist) { $nearestDist = $d; $nearest = $loc; }
+        }
+    }
+    $distance  = $nearestDist;
+    $radius    = $nearest ? (int)$nearest['radius_m'] : 200;
+    $locName   = $nearest ? $nearest['location_name'] : 'Kantor';
     $isOutside = $distance > $radius;
 
     if ($isOutside && !$allowOutside) {
         echo json_encode([
-            'success' => false,
-            'message' => "Anda berada di luar radius kantor ({$distance}m). Harap check-out dari lokasi kantor.",
+            'success'  => false,
+            'message'  => "Anda berada di luar radius lokasi ({$distance}m dari {$locName}). Harap check-out dari area kerja.",
             'distance' => $distance
         ]);
         exit;
