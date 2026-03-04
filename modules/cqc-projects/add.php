@@ -25,6 +25,15 @@ try {
     die("Database error: " . $e->getMessage());
 }
 
+// Fetch customers from Database module
+$customers = [];
+try {
+    $bizDb = Database::getInstance();
+    $customers = $bizDb->fetchAll("SELECT id, customer_code, customer_name, company_name, phone, email, address, city FROM customers WHERE is_active = 1 ORDER BY customer_name");
+} catch (Exception $e) {
+    // Customers table may not exist yet
+}
+
 // Check if editing existing project
 $isEdit = false;
 $project = [];
@@ -285,18 +294,35 @@ include '../../includes/header.php';
                     <h3>👤 Informasi Klien</h3>
                     <div class="cqc-form-grid">
                         <div class="cqc-form-group">
+                            <label>Pilih dari Database</label>
+                            <select id="customer_select" class="cqc-customer-select" onchange="fillCustomerData()">
+                                <option value="">-- Pilih Customer atau input manual --</option>
+                                <?php foreach ($customers as $cust): ?>
+                                <option value="<?php echo $cust['id']; ?>"
+                                    data-name="<?php echo htmlspecialchars($cust['customer_name'] . ($cust['company_name'] ? ' - ' . $cust['company_name'] : '')); ?>"
+                                    data-phone="<?php echo htmlspecialchars($cust['phone'] ?? ''); ?>"
+                                    data-email="<?php echo htmlspecialchars($cust['email'] ?? ''); ?>"
+                                    data-address="<?php echo htmlspecialchars(($cust['address'] ?? '') . ($cust['city'] ? ', ' . $cust['city'] : '')); ?>">
+                                    <?php echo htmlspecialchars($cust['customer_code'] . ' - ' . $cust['customer_name']); ?>
+                                </option>
+                                <?php endforeach; ?>
+                            </select>
+                            <p class="cqc-hint">Pilih customer untuk auto-fill, atau kosongkan untuk input manual</p>
+                        </div>
+
+                        <div class="cqc-form-group">
                             <label>Nama Klien</label>
-                            <input type="text" name="client_name" value="<?php echo htmlspecialchars($project['client_name'] ?? ''); ?>" placeholder="Nama klien atau perusahaan">
+                            <input type="text" name="client_name" id="client_name" value="<?php echo htmlspecialchars($project['client_name'] ?? ''); ?>" placeholder="Nama klien atau perusahaan">
                         </div>
 
                         <div class="cqc-form-group">
                             <label>Telepon Klien</label>
-                            <input type="tel" name="client_phone" value="<?php echo htmlspecialchars($project['client_phone'] ?? ''); ?>" placeholder="0812-3456-7890">
+                            <input type="tel" name="client_phone" id="client_phone" value="<?php echo htmlspecialchars($project['client_phone'] ?? ''); ?>" placeholder="0812-3456-7890">
                         </div>
 
                         <div class="cqc-form-group">
                             <label>Email Klien</label>
-                            <input type="email" name="client_email" value="<?php echo htmlspecialchars($project['client_email'] ?? ''); ?>" placeholder="client@example.com">
+                            <input type="email" name="client_email" id="client_email" value="<?php echo htmlspecialchars($project['client_email'] ?? ''); ?>" placeholder="client@example.com">
                         </div>
                     </div>
                 </div>
@@ -368,6 +394,18 @@ include '../../includes/header.php';
             const value = this.value.replace(/\D/g, '');
             this.value = value ? new Intl.NumberFormat('id-ID').format(value) : '';
         });
+
+        // Auto-fill customer data from dropdown
+        function fillCustomerData() {
+            const select = document.getElementById('customer_select');
+            const option = select.options[select.selectedIndex];
+            
+            if (option.value) {
+                document.getElementById('client_name').value = option.dataset.name || '';
+                document.getElementById('client_phone').value = option.dataset.phone || '';
+                document.getElementById('client_email').value = option.dataset.email || '';
+            }
+        }
     </script>
 
 <?php include '../../includes/footer.php'; ?>

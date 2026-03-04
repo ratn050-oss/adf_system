@@ -14,6 +14,14 @@ $pageTitle = 'Buat Invoice Baru';
 // Get divisions
 $divisions = $db->fetchAll("SELECT * FROM divisions WHERE is_active = 1 ORDER BY division_name");
 
+// Fetch customers from Database module
+$customers = [];
+try {
+    $customers = $db->fetchAll("SELECT id, customer_code, customer_name, company_name, phone, email, address, city FROM customers WHERE is_active = 1 ORDER BY customer_name");
+} catch (Exception $e) {
+    // Customers table may not exist yet
+}
+
 // Handle form submission
 if (isPost()) {
     try {
@@ -471,24 +479,40 @@ include '../../includes/header.php';
         <div class="section">
             <div class="section-title">👤 Customer Information</div>
             <div class="grid-2">
+                <div class="form-group" style="grid-column: span 2;">
+                    <label class="form-label">Pilih dari Database</label>
+                    <select id="customer_select" class="form-control" onchange="fillCustomerData()">
+                        <option value="">-- Pilih Customer atau input manual --</option>
+                        <?php foreach ($customers as $cust): ?>
+                        <option value="<?php echo $cust['id']; ?>"
+                            data-name="<?php echo htmlspecialchars($cust['customer_name'] . ($cust['company_name'] ? ' (' . $cust['company_name'] . ')' : '')); ?>"
+                            data-phone="<?php echo htmlspecialchars($cust['phone'] ?? ''); ?>"
+                            data-email="<?php echo htmlspecialchars($cust['email'] ?? ''); ?>"
+                            data-address="<?php echo htmlspecialchars(($cust['address'] ?? '') . ($cust['city'] ? ', ' . $cust['city'] : '')); ?>">
+                            <?php echo htmlspecialchars($cust['customer_code'] . ' - ' . $cust['customer_name']); ?>
+                        </option>
+                        <?php endforeach; ?>
+                    </select>
+                </div>
+                
                 <div class="form-group">
                     <label class="form-label">Nama Customer <span style="color: #ef4444;">*</span></label>
-                    <input type="text" name="customer_name" class="form-control" placeholder="PT. Maju Jaya Indonesia" required>
+                    <input type="text" name="customer_name" id="customer_name" class="form-control" placeholder="PT. Maju Jaya Indonesia" required>
                 </div>
                 
                 <div class="form-group">
                     <label class="form-label">No. Telepon</label>
-                    <input type="text" name="customer_phone" class="form-control" placeholder="081234567890">
+                    <input type="text" name="customer_phone" id="customer_phone" class="form-control" placeholder="081234567890">
                 </div>
                 
                 <div class="form-group">
                     <label class="form-label">Email</label>
-                    <input type="email" name="customer_email" class="form-control" placeholder="customer@example.com">
+                    <input type="email" name="customer_email" id="customer_email" class="form-control" placeholder="customer@example.com">
                 </div>
                 
                 <div class="form-group">
                     <label class="form-label">Alamat</label>
-                    <input type="text" name="customer_address" class="form-control" placeholder="Jl. Merdeka No. 123...">
+                    <input type="text" name="customer_address" id="customer_address" class="form-control" placeholder="Jl. Merdeka No. 123...">
                 </div>
             </div>
         </div>
@@ -680,6 +704,19 @@ function removeItem(id) {
     if (item) {
         item.remove();
         calculateTotal();
+    }
+}
+
+// Auto-fill customer data from dropdown
+function fillCustomerData() {
+    const select = document.getElementById('customer_select');
+    const option = select.options[select.selectedIndex];
+    
+    if (option.value) {
+        document.getElementById('customer_name').value = option.dataset.name || '';
+        document.getElementById('customer_phone').value = option.dataset.phone || '';
+        document.getElementById('customer_email').value = option.dataset.email || '';
+        document.getElementById('customer_address').value = option.dataset.address || '';
     }
 }
 
