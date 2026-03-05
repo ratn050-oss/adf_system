@@ -76,6 +76,19 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS hotel_invoice_items (
     KEY idx_inv (invoice_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
+$pdo->exec("CREATE TABLE IF NOT EXISTS hotel_service_catalog (
+    id            INT AUTO_INCREMENT PRIMARY KEY,
+    business_id   INT NOT NULL DEFAULT 1,
+    service_type  ENUM('motor_rental','laundry','service','airport_drop','harbor_drop','narayana_trip','lain_lain') NOT NULL,
+    item_name     VARCHAR(120) NOT NULL,
+    default_price DECIMAL(15,2) NOT NULL DEFAULT 0,
+    unit          VARCHAR(30)  DEFAULT 'unit',
+    is_active     TINYINT(1)   NOT NULL DEFAULT 1,
+    sort_order    INT          NOT NULL DEFAULT 0,
+    created_at    DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    KEY idx_biz_svc (business_id, service_type)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
 // ── Service type config ────────────────────────────────────────────────────────
 $serviceTypes = [
     'motor_rental'   => ['label' => 'Motor Rental',   'icon' => '🏍️'],
@@ -376,6 +389,131 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             exit;
         }
 
+        // ── SAVE HOTEL SETTINGS (لوغو + detail perusahaan) ───────────────────────────
+        if ($action === 'save_hs_settings') {
+            $allowed = ['company_name','company_address','company_phone','company_email','company_website','company_logo'];
+            $saved = 0;
+            foreach ($allowed as $key) {
+                if (isset($_POST[$key])) {
+                    $val = trim($_POST[$key]);
+                    $ex  = $pdo->prepare("SELECT id FROM settings WHERE setting_key=? LIMIT 1");
+                    $ex->execute([$key]);
+                    if ($ex->fetch()) {
+                        $pdo->prepare("UPDATE settings SET setting_value=? WHERE setting_key=?")->execute([$val, $key]);
+                    } else {
+                        $pdo->prepare("INSERT INTO settings (setting_key, setting_value) VALUES (?,?)")->execute([$key, $val]);
+                    }
+                    $saved++;
+                }
+            }
+            // Handle logo upload
+            if (!empty($_FILES['logo_file']['tmp_name'])) {
+                $ext  = strtolower(pathinfo($_FILES['logo_file']['name'], PATHINFO_EXTENSION));
+                $allowed_ext = ['jpg','jpeg','png','gif','svg','webp'];
+                if (!in_array($ext, $allowed_ext)) throw new Exception('Invalid logo file type');
+                $destDir = rtrim(defined('BASE_PATH') ? BASE_PATH : __DIR__ . '/../..', '/') . '/uploads/logos/';
+                if (!is_dir($destDir)) mkdir($destDir, 0755, true);
+                $fname = 'logo_hotel_svc_' . uniqid() . '.' . $ext;
+                if (move_uploaded_file($_FILES['logo_file']['tmp_name'], $destDir . $fname)) {
+                    $logoVal = BASE_URL . '/uploads/logos/' . $fname;
+                    $ex2 = $pdo->prepare("SELECT id FROM settings WHERE setting_key='company_logo' LIMIT 1");
+                    $ex2->execute();
+                    if ($ex2->fetch()) {
+                        $pdo->prepare("UPDATE settings SET setting_value=? WHERE setting_key='company_logo'")->execute([$logoVal]);
+                    } else {
+                        $pdo->prepare("INSERT INTO settings (setting_key, setting_value) VALUES ('company_logo',?)")->execute([$logoVal]);
+                    }
+                    $saved++;
+                }
+            }
+            ob_clean();
+            echo json_encode(['success' => true, 'saved' => $saved]);
+            exit;
+        }
+
+        // ── SAVE / UPDATE CATALOG ITEM ─────────────────────────────────────────────────
+        if ($action === 'save_catalog_item') {
+            $cid   = (int)($_POST['cid'] ?? 0);
+            $stype = $_POST['service_type'] ?? '';
+            $name  = trim($_POST['item_name'] ?? '');
+            $price = max(0, (float)($_POST['default_price'] ?? 0));
+            $unit  = trim($_POST['unit'] ?? 'unit');
+            $sort  = (int)($_POST['sort_order'] ?? 0);
+            if (!$name) throw new Exception('Item name is required');
+            if (!isset($serviceTypes[$stype])) throw new Exception('Invalid service type');
+            if ($cid) {
+                $pdo->prepare("UPDATE hotel_service_catalog SET service_type=?,item_name=?,default_price=?,unit=?,sort_order=? WHERE id=? AND business_id=?")
+                    ->execute([$stype, $name, $price, $unit, $sort, $cid, $businessId]);
+            } else {
+                $pdo->prepare("INSERT INTO hotel_service_catalog (business_id,service_type,item_name,default_price,unit,sort_order) VALUES (?,?,?,?,?,?)")
+                    ->execute([$businessId, $stype, $name, $price, $unit, $sort]);
+                $cid = (int)$pdo->lastInsertId();
+            }
+            ob_clean();
+            echo json_encode(['success' => true, 'id' => $cid]);
+            exit;
+        }
+
+        // ── DELETE CATALOG ITEM ─────────────────────────────────────────────────────────────
+        if ($action === 'delete_catalog_item') {
+            $cid = (int)($_POST['cid'] ?? 0);
+            if (!$cid) throw new Exception('Invalid item ID');
+            $pdo->prepare("DELETE FROM hotel_service_catalog WHERE id=? AND business_id=?")->execute([$cid, $businessId]);
+            ob_clean();
+            echo json_encode(['success' => true]);
+            exit;
+        }
+
+        // ── UPDATE INVOICE ────────────────────────────────────────────────────────────────
+        if ($action === 'update_invoice') {
+            $id         = (int)($_POST['id'] ?? 0);
+            $guestName  = trim($_POST['guest_name'] ?? '');
+            $guestPhone = trim($_POST['guest_phone'] ?? '');
+            $roomNumber = trim($_POST['room_number'] ?? '');
+            $payMethod  = $_POST['payment_method'] ?? 'cash';
+            $paidAmount = max(0, (float)($_POST['paid_amount'] ?? 0));
+            $notes      = trim($_POST['notes'] ?? '');
+            $taxRate    = max(0, min(100, (float)($_POST['tax_rate'] ?? 0)));
+            if (!$id || !$guestName) throw new Exception('Invalid data');
+
+            $items = json_decode($_POST['items'] ?? '[]', true);
+            if (empty($items)) throw new Exception('At least one service item is required');
+
+            // Verify invoice belongs to this business
+            $chk = $pdo->prepare("SELECT id FROM hotel_invoices WHERE id=? AND business_id=? AND cashbook_synced=0");
+            $chk->execute([$id, $businessId]);
+            if (!$chk->fetch()) throw new Exception('Invoice not found or already processed (cannot edit processed invoices)');
+
+            $subtotal = 0;
+            foreach ($items as &$item) {
+                $item['qty']        = max(0.5, (float)($item['qty'] ?? 1));
+                $item['unit_price'] = max(0, (float)($item['unit_price'] ?? 0));
+                $item['total']      = round($item['qty'] * $item['unit_price'], 2);
+                $subtotal += $item['total'];
+                if (!isset($serviceTypes[$item['service_type'] ?? ''])) throw new Exception('Invalid service type');
+            }
+            unset($item);
+
+            $taxAmount  = round($subtotal * $taxRate / 100, 2);
+            $total      = $subtotal + $taxAmount;
+            $paidAmount = min($paidAmount, $total);
+            $remaining  = $total - $paidAmount;
+            $payStatus  = ($paidAmount <= 0) ? 'unpaid' : ($remaining <= 0 ? 'paid' : 'partial');
+
+            $pdo->beginTransaction();
+            $pdo->prepare("UPDATE hotel_invoices SET guest_name=?,guest_phone=?,room_number=?,total=?,paid_amount=?,payment_status=?,payment_method=?,notes=?,tax_rate=?,tax_amount=?,updated_at=NOW() WHERE id=?")
+                ->execute([$guestName, $guestPhone ?: null, $roomNumber ?: null, $total, $paidAmount, $payStatus, $payMethod, $notes ?: null, $taxRate, $taxAmount, $id]);
+            $pdo->prepare("DELETE FROM hotel_invoice_items WHERE invoice_id=?")->execute([$id]);
+            $iStmt = $pdo->prepare("INSERT INTO hotel_invoice_items (invoice_id,service_type,description,quantity,unit_price,total_price) VALUES (?,?,?,?,?,?)");
+            foreach ($items as $item) {
+                $iStmt->execute([$id, $item['service_type'], $item['description'] ?: null, $item['qty'], $item['unit_price'], $item['total']]);
+            }
+            $pdo->commit();
+            ob_clean();
+            echo json_encode(['success' => true]);
+            exit;
+        }
+
         throw new Exception('Unknown action');
     } catch (Exception $e) {
         ob_clean();
@@ -446,6 +584,40 @@ try {
         ->fetchAll(PDO::FETCH_ASSOC);
 } catch (\Throwable $e) { $inHouseGuests = []; }
 
+// ── GET: load invoice for edit modal ─────────────────────────────────────────
+if (isset($_GET['get_invoice']) && isset($_GET['id'])) {
+    $gid = (int)$_GET['id'];
+    ob_clean();
+    try {
+        $gInv = $pdo->prepare("SELECT * FROM hotel_invoices WHERE id=? AND business_id=?");
+        $gInv->execute([$gid, $businessId]);
+        $gRow = $gInv->fetch(PDO::FETCH_ASSOC);
+        if (!$gRow) throw new Exception('Not found');
+        $gItems = $pdo->prepare("SELECT * FROM hotel_invoice_items WHERE invoice_id=? ORDER BY id");
+        $gItems->execute([$gid]);
+        $gRow['items'] = $gItems->fetchAll(PDO::FETCH_ASSOC);
+        $gRow['success'] = true;
+        echo json_encode($gRow);
+    } catch (\Throwable $e) {
+        echo json_encode(['success' => false, 'message' => $e->getMessage()]);
+    }
+    exit;
+}
+
+// Load catalog items for JS
+try {
+    $catalogItems = $pdo->prepare("SELECT * FROM hotel_service_catalog WHERE business_id=? AND is_active=1 ORDER BY service_type, sort_order, item_name");
+    $catalogItems->execute([$businessId]);
+    $catalogRows = $catalogItems->fetchAll(PDO::FETCH_ASSOC);
+} catch (\Throwable $e) { $catalogRows = []; }
+
+// Load current settings for settings modal
+$hsSettings = [];
+try {
+    $settingsRows = $pdo->query("SELECT setting_key, setting_value FROM settings WHERE setting_key LIKE 'company_%'")->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($settingsRows as $r) { $hsSettings[$r['setting_key']] = $r['setting_value']; }
+} catch (\Throwable $e) {}}
+
 include '../../includes/header.php';
 ?>
 <style>
@@ -500,6 +672,20 @@ include '../../includes/header.php';
 .hs-empty { text-align:center; padding:3rem 1rem; color:var(--text-secondary); }
 .hs-empty .em-icon { font-size:2.5rem; margin-bottom:0.5rem; }
 .sect-label { font-size:0.75rem; font-weight:700; color:var(--text-secondary); margin-bottom:0.4rem; display:block; text-transform:uppercase; letter-spacing:0.04em; }
+/* Tabs */
+.hs-tabs { display:flex; border-bottom:2px solid #e2e8f0; margin-bottom:1rem; gap:0; }
+.hs-tab { padding:0.5rem 1rem; font-size:0.82rem; font-weight:600; cursor:pointer; color:#64748b; border-bottom:2px solid transparent; margin-bottom:-2px; background:none; border-top:none; border-left:none; border-right:none; }
+.hs-tab.active { color:#4338ca; border-bottom-color:#6366f1; }
+.hs-tab-pane { display:none; }
+.hs-tab-pane.active { display:block; }
+/* Catalog table */
+.cat-tbl { width:100%; border-collapse:collapse; font-size:0.8rem; }
+.cat-tbl th { background:#f8fafc; padding:0.4rem 0.5rem; font-size:0.7rem; font-weight:700; color:#64748b; text-transform:uppercase; border-bottom:2px solid #e2e8f0; text-align:left; }
+.cat-tbl td { padding:0.4rem 0.5rem; border-bottom:1px solid #f1f5f9; vertical-align:middle; }
+.cat-tbl td input, .cat-tbl td select { width:100%; padding:0.3rem 0.4rem; border:1px solid #e2e8f0; border-radius:5px; font-size:0.78rem; background:white; box-sizing:border-box; }
+.cat-tbl .btn-cat-del { background:#fee2e2; color:#b91c1c; border:none; border-radius:4px; padding:0.25rem 0.5rem; cursor:pointer; font-size:0.75rem; }
+.cat-tbl .btn-cat-save { background:#dcfce7; color:#15803d; border:none; border-radius:4px; padding:0.25rem 0.5rem; cursor:pointer; font-size:0.75rem; }
+.logo-preview { max-height:60px; border-radius:6px; margin-top:0.4rem; display:block; }
 @media(max-width:580px) {
     .hs-form-row { grid-template-columns:1fr; }
     .hs-stats { grid-template-columns:repeat(2,1fr); }
@@ -513,7 +699,10 @@ include '../../includes/header.php';
             <h2>🛎️ Hotel Services</h2>
             <div style="font-size:0.75rem;color:var(--text-secondary)">Motor Rental · Laundry · Service · Airport Drop · Harbor Drop · Narayana Trip · Lain-lain</div>
         </div>
-        <button class="btn-hs btn-hs-primary" onclick="openCreateModal()">+ New Invoice</button>
+        <div style="display:flex;gap:0.5rem;flex-wrap:wrap">
+            <button class="btn-hs btn-hs-secondary" onclick="openSettingsModal()">⚙️ Pengaturan</button>
+            <button class="btn-hs btn-hs-primary" onclick="openCreateModal()">+ New Invoice</button>
+        </div>
     </div>
 
     <!-- Stats -->
@@ -604,6 +793,7 @@ include '../../includes/header.php';
                 <td style="font-size:0.72rem;color:var(--text-secondary);white-space:nowrap"><?php echo date('d M Y', strtotime($inv['created_at'])); ?></td>
                 <td>
                     <div style="display:flex;gap:0.3rem;flex-wrap:wrap;min-width:160px">
+                        <button class="hs-action-btn" style="background:#e0f2fe;color:#0277bd;text-decoration:none" onclick="openEditModal(<?php echo $inv['id']; ?>)">✏️ Edit</button>
                         <a href="hotel-service-invoice.php?id=<?php echo $inv['id']; ?>" target="_blank" class="hs-action-btn" style="background:#e0f2fe;color:#0277bd;text-decoration:none">🖨️ Invoice</a>
                         <?php if ($inv['payment_status'] !== 'paid'): ?>
                         <button class="hs-action-btn" style="background:#dcfce7;color:#15803d"
@@ -765,6 +955,157 @@ include '../../includes/header.php';
   <div class="hs-modal-footer">
     <button class="btn-hs btn-hs-secondary" onclick="closePayModal()">Cancel</button>
     <button class="btn-hs btn-hs-primary" id="payBtn" onclick="submitPay()">💾 Save &amp; Sync to Cashbook</button>
+  </div>
+ </div>
+</div>
+
+<!-- ══ SETTINGS MODAL ══════════════════════════════════════════════════════════════════════ -->
+<div id="settingsModal" class="hs-modal-overlay" onclick="if(event.target===this)closeSettingsModal()">
+ <div class="hs-modal" style="max-width:700px">
+  <h3>⚙️ Pengaturan Hotel Services</h3>
+  <div class="hs-tabs">
+    <button class="hs-tab active" id="tab-inv"    onclick="switchTab('inv')">   🏨 Invoice &amp; Perusahaan</button>
+    <button class="hs-tab"        id="tab-catalog" onclick="switchTab('catalog')">📂 Katalog Harga</button>
+  </div>
+
+  <!-- TAB 1: Invoice & Company -->
+  <div class="hs-tab-pane active" id="pane-inv">
+    <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem">
+      <div class="hs-field"><label>Nama Perusahaan</label><input type="text" id="sCmpName" value="<?php echo htmlspecialchars($hsSettings['company_name'] ?? 'Narayana Hotel Karimunjawa', ENT_QUOTES); ?>"></div>
+      <div class="hs-field"><label>Website</label><input type="text" id="sCmpWeb" value="<?php echo htmlspecialchars($hsSettings['company_website'] ?? 'www.narayanakarimunjawa.com', ENT_QUOTES); ?>"></div>
+      <div class="hs-field"><label>Telepon</label><input type="text" id="sCmpPhone" value="<?php echo htmlspecialchars($hsSettings['company_phone'] ?? '', ENT_QUOTES); ?>"></div>
+      <div class="hs-field"><label>Email</label><input type="email" id="sCmpEmail" value="<?php echo htmlspecialchars($hsSettings['company_email'] ?? '', ENT_QUOTES); ?>"></div>
+      <div class="hs-field" style="grid-column:1/-1"><label>Alamat</label><textarea id="sCmpAddr" rows="2"><?php echo htmlspecialchars($hsSettings['company_address'] ?? 'Karimunjawa, Jepara, Central Java, Indonesia', ENT_QUOTES); ?></textarea></div>
+    </div>
+    <div class="hs-field" style="margin-top:0.75rem">
+      <label>Logo Perusahaan (upload gambar baru)</label>
+      <input type="file" id="sLogoFile" accept="image/*" onchange="previewLogo(this)">
+      <?php if (!empty($hsSettings['company_logo'])): ?>
+      <img id="logoPreview" src="<?php echo htmlspecialchars($hsSettings['company_logo']); ?>" class="logo-preview">
+      <?php else: ?>
+      <img id="logoPreview" src="" class="logo-preview" style="display:none">
+      <?php endif; ?>
+      <div style="font-size:0.72rem;color:#94a3b8;margin-top:0.25rem">Format: JPG, PNG, SVG, WebP. Logo saat ini: <em><?php echo htmlspecialchars(basename($hsSettings['company_logo'] ?? 'belum diatur')); ?></em></div>
+    </div>
+    <div class="hs-modal-footer">
+      <button class="btn-hs btn-hs-secondary" onclick="closeSettingsModal()">Batal</button>
+      <button class="btn-hs btn-hs-primary" id="btnSaveSettings" onclick="saveSettings()">💾 Simpan Pengaturan</button>
+    </div>
+  </div>
+
+  <!-- TAB 2: Catalog Harga -->
+  <div class="hs-tab-pane" id="pane-catalog">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.65rem">
+      <span style="font-size:0.78rem;color:#64748b">Database item layanan &amp; harga default. Klik item saat tambah invoice untuk isi otomatis.</span>
+      <button class="btn-hs btn-hs-primary" style="font-size:0.78rem;padding:0.35rem 0.85rem" onclick="addCatalogRow()">+ Tambah Item</button>
+    </div>
+    <div style="overflow-x:auto;max-height:55vh;overflow-y:auto">
+      <table class="cat-tbl">
+        <thead><tr>
+          <th style="min-width:130px">Tipe Layanan</th>
+          <th style="min-width:140px">Nama Item</th>
+          <th style="width:110px">Harga Default</th>
+          <th style="width:75px">Satuan</th>
+          <th style="width:50px">Urut</th>
+          <th style="width:80px"></th>
+        </tr></thead>
+        <tbody id="catalogBody"><?php
+        foreach ($catalogRows as $cr): ?>
+        <tr id="ctr<?php echo $cr['id']; ?>">
+          <td><select class="cSType">
+            <?php foreach ($serviceTypes as $sk => $sv): ?>
+            <option value="<?php echo $sk; ?>" <?php echo $cr['service_type']===$sk?'selected':''; ?>><?php echo $sv['icon'].' '.$sv['label']; ?></option>
+            <?php endforeach; ?>
+          </select></td>
+          <td><input type="text" class="cName" value="<?php echo htmlspecialchars($cr['item_name'],ENT_QUOTES); ?>"></td>
+          <td><input type="number" class="cPrice" value="<?php echo $cr['default_price']; ?>" min="0"></td>
+          <td><input type="text" class="cUnit" value="<?php echo htmlspecialchars($cr['unit']??'unit',ENT_QUOTES); ?>"></td>
+          <td><input type="number" class="cSort" value="<?php echo $cr['sort_order']; ?>" style="width:45px"></td>
+          <td style="display:flex;gap:3px">
+            <button class="btn-cat-save" onclick="saveCatalogRow(<?php echo $cr['id']; ?>)">💾</button>
+            <button class="btn-cat-del" onclick="deleteCatalogRow(<?php echo $cr['id']; ?>)">✕</button>
+          </td>
+        </tr>
+        <?php endforeach; ?></tbody>
+      </table>
+    </div>
+  </div>
+
+ </div>
+</div>
+
+<!-- ══ EDIT INVOICE MODAL ════════════════════════════════════════════════════════════════════ -->
+<div id="editModal" class="hs-modal-overlay" onclick="if(event.target===this)closeEditModal()">
+ <div class="hs-modal">
+  <h3>✏️ Edit Invoice</h3>
+  <input type="hidden" id="eInvId">
+  <div id="eInvNo" style="font-size:0.78rem;color:#6366f1;font-weight:700;margin-bottom:0.75rem"></div>
+
+  <div class="hs-form-row">
+    <div class="hs-field"><label>Nama Tamu</label><input type="text" id="eGuestName"></div>
+    <div class="hs-field"><label>Telepon</label><input type="text" id="ePhone"></div>
+  </div>
+  <div class="hs-field" style="margin-bottom:0.75rem"><label>Nomor Kamar</label><input type="text" id="eRoom" style="width:200px"></div>
+
+  <span class="sect-label">Service Items *</span>
+  <div style="overflow-x:auto;margin-bottom:0.4rem">
+    <table class="items-tbl">
+      <thead><tr>
+        <th style="min-width:140px">Tipe Layanan</th>
+        <th style="min-width:160px">Deskripsi</th>
+        <th style="width:65px">Qty</th>
+        <th style="width:115px">Harga Satuan</th>
+        <th style="width:105px;text-align:right">Subtotal</th>
+        <th style="width:34px"></th>
+      </tr></thead>
+      <tbody id="eItemsBody"></tbody>
+    </table>
+  </div>
+  <button type="button" class="btn-add-item" onclick="eAddItemRow()">+ Tambah Item</button>
+
+  <span class="sect-label">PPN / Pajak</span>
+  <div class="hs-form-row" style="margin-bottom:0.5rem">
+    <div class="hs-field">
+      <label>Tarif PPN</label>
+      <select id="eTaxRate" onchange="eOnTaxRateChange()">
+        <option value="0">Tanpa PPN (0%)</option>
+        <option value="5">5%</option>
+        <option value="10">10%</option>
+        <option value="11">11% (Standar)</option>
+        <option value="custom">Custom...</option>
+      </select>
+    </div>
+    <div class="hs-field" id="eCustomTaxWrap" style="display:none">
+      <label>Custom (%)</label>
+      <input type="number" id="eTaxCustom" value="0" min="0" max="100" step="0.5" oninput="eRefreshTotal()">
+    </div>
+  </div>
+
+  <span class="sect-label">Pembayaran / DP</span>
+  <div class="hs-form-row">
+    <div class="hs-field"><label>Metode Bayar</label>
+      <select id="ePayMethod">
+        <option value="cash">Cash</option>
+        <option value="transfer">Transfer</option>
+        <option value="qris">QRIS</option>
+        <option value="card">Card</option>
+      </select>
+    </div>
+    <div class="hs-field"><label>DP / Down Payment (Rp)</label>
+      <input type="number" id="ePaid" value="0" min="0" oninput="eRefreshTotal()">
+    </div>
+  </div>
+  <div class="hs-field" style="margin-bottom:0.75rem"><label>Catatan</label><textarea id="eNotes" rows="2"></textarea></div>
+
+  <div class="hs-total-preview" id="eTotalPreview" style="text-align:left;line-height:1.7">
+    <div style="font-size:0.82rem;color:#6b7280">Subtotal: <span id="etpSub">Rp 0</span></div>
+    <div style="font-size:0.82rem;color:#f59e0b" id="etpTaxRow">PPN: <span id="etpTax">Rp 0</span></div>
+    <div style="font-size:1.05rem;font-weight:800;color:#4338ca;border-top:1px solid #dde3ff;padding-top:4px">Grand Total: <span id="etpGrand">Rp 0</span></div>
+  </div>
+
+  <div class="hs-modal-footer">
+    <button class="btn-hs btn-hs-secondary" onclick="closeEditModal()">Batal</button>
+    <button class="btn-hs btn-hs-primary" id="editBtn" onclick="submitEdit()">💾 Simpan Perubahan</button>
   </div>
  </div>
 </div>
@@ -1022,6 +1363,202 @@ function submitPay() {
                 btn.disabled = false; btn.textContent = '💾 Save & Sync to Cashbook';
             }
         });
+}
+
+// ── SETTINGS ─────────────────────────────────────────────────────────────────
+function openSettingsModal() { document.getElementById('settingsModal').classList.add('open'); switchTab('inv'); }
+function closeSettingsModal() { document.getElementById('settingsModal').classList.remove('open'); }
+function switchTab(t) {
+    ['inv','catalog'].forEach(id => {
+        document.getElementById('tab-'+id).classList.toggle('active', id===t);
+        document.getElementById('pane-'+id).classList.toggle('active', id===t);
+    });
+}
+function previewLogo(inp) {
+    const prev = document.getElementById('logoPreview');
+    if (inp.files && inp.files[0]) {
+        const reader = new FileReader();
+        reader.onload = e => { prev.src = e.target.result; prev.style.display='block'; };
+        reader.readAsDataURL(inp.files[0]);
+    }
+}
+function saveSettings() {
+    const btn = document.getElementById('btnSaveSettings');
+    btn.disabled = true; btn.textContent = 'Menyimpan...';
+    const fd = new FormData();
+    fd.append('action',          'save_hs_settings');
+    fd.append('company_name',    document.getElementById('sCmpName').value.trim());
+    fd.append('company_website', document.getElementById('sCmpWeb').value.trim());
+    fd.append('company_phone',   document.getElementById('sCmpPhone').value.trim());
+    fd.append('company_email',   document.getElementById('sCmpEmail').value.trim());
+    fd.append('company_address', document.getElementById('sCmpAddr').value.trim());
+    const logoFile = document.getElementById('sLogoFile').files[0];
+    if (logoFile) fd.append('logo_file', logoFile);
+    fetch('hotel-services.php', {method:'POST', body:fd, credentials:'include'})
+        .then(r=>r.json())
+        .then(res=>{
+            if (res.success) { alert('✅ Pengaturan disimpan!'); closeSettingsModal(); location.reload(); }
+            else { alert('Gagal: ' + (res.message||'unknown')); }
+            btn.disabled=false; btn.textContent='💾 Simpan Pengaturan';
+        }).catch(()=>{ alert('Network error'); btn.disabled=false; btn.textContent='💾 Simpan Pengaturan'; });
+}
+
+// ── CATALOG ───────────────────────────────────────────────────────────────────
+let catRowCnt = 0;
+const SVC_OPTIONS = <?php echo json_encode(array_map(fn($k,$v) => ['val'=>$k,'lbl'=>$v['icon'].' '.$v['label']], array_keys($serviceTypes), $serviceTypes)); ?>;
+
+function buildSvcOptsFor(selected='') {
+    return SVC_OPTIONS.map(o=>`<option value="${o.val}" ${o.val===selected?'selected':''}>${o.lbl}</option>`).join('');
+}
+
+function addCatalogRow() {
+    catRowCnt++;
+    const id = 'new_' + catRowCnt;
+    const tr = document.createElement('tr');
+    tr.id = 'ctr' + id;
+    tr.innerHTML =
+        `<td><select class="cSType">${buildSvcOptsFor()}</select></td>`+
+        `<td><input type="text" class="cName" placeholder="ex: Honda Beat 1 Hari"></td>`+
+        `<td><input type="number" class="cPrice" value="0" min="0"></td>`+
+        `<td><input type="text" class="cUnit" value="unit"></td>`+
+        `<td><input type="number" class="cSort" value="0" style="width:45px"></td>`+
+        `<td style="display:flex;gap:3px">`+
+        `<button class="btn-cat-save" onclick="saveCatalogRow('${id}')">💾</button>`+
+        `<button class="btn-cat-del" onclick="document.getElementById('ctr${id}').remove()">✕</button>`+
+        `</td>`;
+    document.getElementById('catalogBody').prepend(tr);
+}
+
+function saveCatalogRow(cid) {
+    const tr = document.getElementById('ctr'+cid);
+    if (!tr) return;
+    const fd = new FormData();
+    fd.append('action',       'save_catalog_item');
+    fd.append('cid',          isNaN(cid) ? 0 : cid);
+    fd.append('service_type', tr.querySelector('.cSType').value);
+    fd.append('item_name',    tr.querySelector('.cName').value.trim());
+    fd.append('default_price',tr.querySelector('.cPrice').value);
+    fd.append('unit',         tr.querySelector('.cUnit').value.trim() || 'unit');
+    fd.append('sort_order',   tr.querySelector('.cSort').value);
+    fetch('hotel-services.php', {method:'POST', body:fd, credentials:'include'})
+        .then(r=>r.json())
+        .then(res=>{
+            if (res.success) {
+                tr.id = 'ctr' + res.id;
+                tr.querySelectorAll('button')[0].setAttribute('onclick','saveCatalogRow('+res.id+')');
+                tr.querySelectorAll('button')[1].setAttribute('onclick','deleteCatalogRow('+res.id+')');
+                tr.style.background='#f0fdf4'; setTimeout(()=>tr.style.background='',1500);
+            } else { alert('Error: '+(res.message||'failed')); }
+        });
+}
+
+function deleteCatalogRow(cid) {
+    if (!confirm('Hapus item ini dari katalog?')) return;
+    const fd = new FormData();
+    fd.append('action','delete_catalog_item'); fd.append('cid',cid);
+    fetch('hotel-services.php', {method:'POST', body:fd, credentials:'include'})
+        .then(r=>r.json())
+        .then(res=>{ if (res.success) { const el=document.getElementById('ctr'+cid); if(el)el.remove(); } else alert('Error'); });
+}
+
+const CATALOG = <?php echo json_encode(array_map(fn($r)=>['stype'=>$r['service_type'],'name'=>$r['item_name'],'price'=>(float)$r['default_price'],'unit'=>$r['unit']], $catalogRows)); ?>;
+
+// ── EDIT INVOICE ──────────────────────────────────────────────────────────────
+let eRowCnt = 0;
+
+function openEditModal(id) {
+    fetch('hotel-services.php?get_invoice=1&id='+id, {credentials:'include'})
+        .then(r=>r.json())
+        .then(inv=>{
+            if (!inv.success) { alert(inv.message||'Cannot load invoice'); return; }
+            document.getElementById('eInvId').value = inv.id;
+            document.getElementById('eInvNo').textContent = 'Invoice: ' + inv.invoice_number;
+            document.getElementById('eGuestName').value = inv.guest_name||'';
+            document.getElementById('ePhone').value     = inv.guest_phone||'';
+            document.getElementById('eRoom').value      = inv.room_number||'';
+            document.getElementById('ePayMethod').value = inv.payment_method||'cash';
+            document.getElementById('ePaid').value      = inv.paid_amount||0;
+            document.getElementById('eNotes').value     = inv.notes||'';
+            const tr2 = parseFloat(inv.tax_rate)||0;
+            const taxSel = document.getElementById('eTaxRate');
+            if (['0','5','10','11'].includes(String(tr2))) { taxSel.value = String(tr2); document.getElementById('eCustomTaxWrap').style.display='none'; }
+            else { taxSel.value='custom'; document.getElementById('eCustomTaxWrap').style.display=''; document.getElementById('eTaxCustom').value=tr2; }
+            document.getElementById('eItemsBody').innerHTML='';
+            eRowCnt = 0;
+            (inv.items||[]).forEach(it => eAddItemRow(it.service_type, it.description, it.quantity, it.unit_price));
+            eRefreshTotal();
+            document.getElementById('editModal').classList.add('open');
+        })
+        .catch(()=>alert('Network error loading invoice'));
+}
+function closeEditModal() { document.getElementById('editModal').classList.remove('open'); }
+
+function eAddItemRow(svc, desc, qty, price) {
+    eRowCnt++;
+    const id2 = 'er'+eRowCnt;
+    const tr3 = document.createElement('tr');
+    tr3.id = id2;
+    tr3.innerHTML =
+        `<td><select class="iSvc" onchange="ercalc('${id2}')">${buildSvcOpts(svc||'')}</select></td>`+
+        `<td><input type="text" class="iDesc" value="${(desc||'').replace(/"/g,'&quot;')}" placeholder="Deskripsi"></td>`+
+        `<td><input type="number" class="iQty" value="${qty||1}" min="0.5" step="0.5" style="width:60px" oninput="ercalc('${id2}')"></td>`+
+        `<td><input type="number" class="iPrice" value="${price||0}" min="0" style="width:105px" oninput="ercalc('${id2}')"></td>`+
+        `<td style="font-weight:700;color:#4338ca;text-align:right;white-space:nowrap" class="iTotal">Rp 0</td>`+
+        `<td><button type="button" class="btn-del-row" onclick="eDelRow('${id2}')">✕</button></td>`;
+    document.getElementById('eItemsBody').appendChild(tr3);
+    ercalc(id2);
+}
+function eDelRow(id) { const el=document.getElementById(id); if(el)el.remove(); eRefreshTotal(); }
+function ercalc(id) {
+    const tr=document.getElementById(id); if(!tr)return;
+    const t=(parseFloat(tr.querySelector('.iQty').value)||0)*(parseFloat(tr.querySelector('.iPrice').value)||0);
+    tr.querySelector('.iTotal').textContent='Rp '+Math.round(t).toLocaleString('id-ID'); eRefreshTotal();
+}
+function eOnTaxRateChange() {
+    const sel=document.getElementById('eTaxRate');
+    document.getElementById('eCustomTaxWrap').style.display=sel.value==='custom'?'':'none'; eRefreshTotal();
+}
+function eRefreshTotal() {
+    let s=0;
+    document.querySelectorAll('#eItemsBody tr').forEach(tr=>{ s+=(parseFloat(tr.querySelector('.iQty')?.value)||0)*(parseFloat(tr.querySelector('.iPrice')?.value)||0); });
+    const sel=document.getElementById('eTaxRate');
+    let r=sel?((sel.value==='custom'?(parseFloat(document.getElementById('eTaxCustom')?.value)||0):(parseFloat(sel.value)||0))):0;
+    const tax=s*(r/100), tot=s+tax;
+    const fmt=v=>'Rp '+Math.round(v).toLocaleString('id-ID');
+    document.getElementById('etpSub').textContent=fmt(s);
+    document.getElementById('etpGrand').textContent=fmt(tot);
+    document.getElementById('etpTaxRow').style.display=r>0?'':'none';
+    document.getElementById('etpTax').textContent=fmt(tax)+' ('+r+'%)';
+}
+function submitEdit() {
+    const id=document.getElementById('eInvId').value;
+    const guestName=document.getElementById('eGuestName').value.trim();
+    if(!guestName){alert('Nama tamu wajib diisi');return;}
+    const rows=document.querySelectorAll('#eItemsBody tr');
+    if(!rows.length){alert('Minimal 1 item layanan');return;}
+    const items=[];
+    for(const tr of rows){
+        items.push({service_type:tr.querySelector('.iSvc').value,description:tr.querySelector('.iDesc').value.trim(),qty:parseFloat(tr.querySelector('.iQty').value)||1,unit_price:parseFloat(tr.querySelector('.iPrice').value)||0});
+    }
+    const sel=document.getElementById('eTaxRate');
+    const taxR=sel.value==='custom'?(parseFloat(document.getElementById('eTaxCustom')?.value)||0):(parseFloat(sel.value)||0);
+    const btn=document.getElementById('editBtn'); btn.disabled=true; btn.textContent='Menyimpan...';
+    const fd=new FormData();
+    fd.append('action','update_invoice'); fd.append('id',id);
+    fd.append('guest_name',guestName);
+    fd.append('guest_phone',document.getElementById('ePhone').value.trim());
+    fd.append('room_number',document.getElementById('eRoom').value.trim());
+    fd.append('payment_method',document.getElementById('ePayMethod').value);
+    fd.append('paid_amount',document.getElementById('ePaid').value||0);
+    fd.append('tax_rate',taxR);
+    fd.append('notes',document.getElementById('eNotes').value.trim());
+    fd.append('items',JSON.stringify(items));
+    fetch('hotel-services.php',{method:'POST',body:fd,credentials:'include'})
+        .then(r=>r.json())
+        .then(res=>{
+            if(res.success){closeEditModal();location.reload();}
+            else{alert('Error: '+(res.message||'Unknown'));btn.disabled=false;btn.textContent='💾 Simpan Perubahan';}
+        }).catch(()=>{alert('Network error');btn.disabled=false;btn.textContent='💾 Simpan Perubahan';});
 }
 </script>
 
