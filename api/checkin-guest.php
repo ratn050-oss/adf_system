@@ -70,6 +70,11 @@ try {
     }
     
     $createInvoice = ($_POST['create_invoice'] ?? '0') == '1';
+    $payNow    = ($_POST['pay_now']    ?? '0') === '1';
+    $payAmount = (float)($_POST['pay_amount'] ?? 0);
+    $payMethod = trim($_POST['pay_method'] ?? 'cash');
+    $validPayMethods = ['cash', 'card', 'transfer', 'qris', 'ota', 'bank_transfer', 'other', 'edc'];
+    if (!in_array($payMethod, $validPayMethods)) $payMethod = 'cash';
 
     // Get booking details
     $booking = $db->fetchOne("
@@ -121,30 +126,41 @@ try {
     // Start transaction
     $db->beginTransaction();
 
-    if ($isOTA) {
-        // LOGIC 1: OTA Booking -> Auto-settle payment (LUNAS)
-        if ($remaining > 0) {
-            // Add automated payment record for OTA
-            $db->insert('booking_payments', [
-                'booking_id' => $bookingId,
-                'amount' => $remaining,
-                'payment_date' => date('Y-m-d H:i:s'),
-                'payment_method' => 'ota', // Assume payment via OTA
-                'notes' => 'Auto-payment upon check-in (OTA Source: ' . $booking['booking_source'] . ')',
-                'processed_by' => $validUserId  // Can be NULL if user not found
-            ]);
-        }
-    } else {
-        // LOGIC 2: Direct Booking -> Allow check-in but create invoice for debt
-        if ($remaining > 0) {
-            // Force create invoice for the remaining amount
-            $createInvoice = true; 
-        }
+    // Jika user memilih bayar sekarang saat check-in: tambahkan pembayaran
+    if ($payNow && $payAmount > 0) {
+        $db->insert('booking_payments', [
+            'booking_id' => $bookingId,
+            'amount'     => $payAmount,
+            'payment_date'   => date('Y-m-d H:i:s'),
+            'payment_method' => $payMethod,
+            'notes'          => 'Dibayar saat check-in',
+            'processed_by'   => $validUserId
+        ]);
+        // Recalculate setelah pembayaran baru
+        $payment   = $db->fetchOne("SELECT COALESCE(SUM(amount), 0) as paid FROM booking_payments WHERE booking_id = ?", [$bookingId]);
+        $totalPaid = (float)$payment['paid'];
+        $remaining = max(0, (float)$booking['final_price'] - $totalPaid);
+        $newPayStatus = $remaining <= 0 ? 'paid' : ($totalPaid > 0 ? 'partial' : 'unpaid');
+        $db->query("UPDATE bookings SET paid_amount = ?, payment_status = ?, updated_at = NOW() WHERE id = ?", [$totalPaid, $newPayStatus, $bookingId]);
     }
 
-    // Original Payment Check (Now effectively bypassed by above logic)
-    if ($remaining > 0 && !$createInvoice) {
-        throw new Exception('Pembayaran belum lunas. Silakan bayar atau buat invoice sisa.');
+    if ($isOTA && !$payNow) {
+        // OTA: uang sudah diterima platform, auto-settle record pembayaran
+        if ($remaining > 0) {
+            $db->insert('booking_payments', [
+                'booking_id'   => $bookingId,
+                'amount'       => $remaining,
+                'payment_date' => date('Y-m-d H:i:s'),
+                'payment_method' => 'ota',
+                'notes'        => 'Auto-payment check-in OTA: ' . $booking['booking_source'],
+                'processed_by' => $validUserId
+            ]);
+        }
+    } elseif (!$isOTA && !$payNow) {
+        // Direct booking bayar nanti: buat invoice untuk sisa tagihan
+        if ($remaining > 0) {
+            $createInvoice = true;
+        }
     }
 
     // Create invoice for remaining balance if required
@@ -239,51 +255,53 @@ try {
     }
     
     // ==========================================
-    // SYNC OTA PAYMENT TO CASHBOOK AT CHECK-IN
-    // OTA payment tercatat saat check-in (bisa diedit untuk cocokkan dgn aktual)
+    // SYNC TO CASHBOOK:
+    // - OTA: selalu sync saat check-in (uang sudah di-terima OTA platform)
+    // - Direct: HANYA sync jika user memilih pay_now=1
     // ==========================================
     $cashbookSynced = false;
-    if ($isOTA) {
+    if ($isOTA || $payNow) {
         try {
             require_once '../includes/CashbookHelper.php';
             $cashbookHelper = new CashbookHelper($db, $_SESSION['business_id'] ?? 1, $validUserId ?? 1);
-            
-            // Get total amount paid for this booking
-            $totalPayment = $db->fetchOne("SELECT COALESCE(SUM(amount), 0) as total FROM booking_payments WHERE booking_id = ?", [$bookingId]);
-            $otaAmount = (float)$totalPayment['total'];
-            if ($otaAmount <= 0) {
-                $otaAmount = (float)$booking['final_price'];
+
+            if ($payNow && $payAmount > 0) {
+                // Direct/OTA bayar sekarang: sync jumlah yang baru dibayar
+                $syncAmount = $payAmount;
+                $syncMethod = $payMethod;
+            } else {
+                // OTA auto-settle: sync total yang sudah dibayar
+                $totalPayment = $db->fetchOne("SELECT COALESCE(SUM(amount), 0) as total FROM booking_payments WHERE booking_id = ?", [$bookingId]);
+                $syncAmount = (float)$totalPayment['total'];
+                if ($syncAmount <= 0) $syncAmount = (float)$booking['final_price'];
+                $syncMethod = strtolower($booking['booking_source']);
             }
-            
-            // Sync to cashbook with is_editable = true (for OTA reconciliation later)
+
             $syncResult = $cashbookHelper->syncPaymentToCashbook([
-                'payment_id' => null,  // OTA payment grouped
-                'booking_id' => $bookingId,
-                'amount' => $otaAmount,
-                'payment_method' => strtolower($booking['booking_source']),  // agoda, booking, etc.
-                'guest_name' => $booking['guest_name'],
-                'booking_code' => $booking['booking_code'],
-                'room_number' => $booking['room_number'],
+                'payment_id'     => null,
+                'booking_id'     => $bookingId,
+                'amount'         => $syncAmount,
+                'payment_method' => $syncMethod,
+                'guest_name'     => $booking['guest_name'],
+                'booking_code'   => $booking['booking_code'],
+                'room_number'    => $booking['room_number'],
                 'booking_source' => $booking['booking_source'],
-                'final_price' => $booking['final_price'],
-                'total_paid' => $otaAmount,
+                'final_price'    => $booking['final_price'],
+                'total_paid'     => $totalPaid,
                 'is_new_reservation' => false,
-                'is_ota_checkin' => true  // Flag for editable OTA entry
+                'is_ota_checkin' => $isOTA
             ]);
-            
+
             $cashbookSynced = $syncResult['success'];
-            
-            // Mark all booking_payments as synced
-            if ($cashbookSynced && $syncResult['transaction_id']) {
+
+            if ($cashbookSynced && !empty($syncResult['transaction_id'])) {
                 try {
                     $db->query("UPDATE booking_payments SET synced_to_cashbook = 1, cashbook_id = ? WHERE booking_id = ?", [$syncResult['transaction_id'], $bookingId]);
-                } catch (\Throwable $e) {
-                    // Ignore if column doesn't exist
-                }
+                } catch (\Throwable $e) {}
             }
-            
+
         } catch (\Throwable $e) {
-            error_log("OTA Cashbook sync error at check-in: " . $e->getMessage());
+            error_log("Cashbook sync error at check-in: " . $e->getMessage());
         }
     }
     
@@ -291,18 +309,19 @@ try {
     
     // Build success message
     $successMessage = "Check-in berhasil! {$booking['guest_name']} - Room {$booking['room_number']}";
-    
-    if ($isOTA && $cashbookSynced) {
-        $successMessage .= "\n\n✅ Pembayaran OTA ({$booking['booking_source']}) tercatat di Buku Kas";
-        $successMessage .= "\n⚠️ Sebagai ESTIMASI - dapat diedit saat rekonsiliasi akhir bulan";
-    } elseif (!$isOTA && $remaining > 0) {
-        // Direct booking with remaining balance
-        $successMessage .= "\n\n⚠️ TAGIHAN BELUM LUNAS";
-        $successMessage .= "\nTotal: Rp " . number_format($booking['final_price'], 0, ',', '.');
-        $successMessage .= "\nSudah Dibayar: Rp " . number_format($totalPaid, 0, ',', '.');
-        $successMessage .= "\nSisa Tagihan: Rp " . number_format($remaining, 0, ',', '.');
-        $successMessage .= "\n\n📋 Invoice #{$invoiceNumber} telah dibuat";
-        $successMessage .= "\nWAJIB DILUNASI sebelum CHECK-OUT!";
+
+    if ($cashbookSynced) {
+        $syncedAmt = ($payNow && $payAmount > 0) ? $payAmount : $totalPaid;
+        $successMessage .= "\n\n✅ Rp " . number_format($syncedAmt, 0, ',', '.') . " tercatat di Buku Kas";
+        if ($isOTA && !$payNow) {
+            $successMessage .= "\n📋 Estimasi OTA - edit saat rekonsiliasi akhir bulan";
+        }
+    } elseif ($payNow && !$cashbookSynced) {
+        $successMessage .= "\n\n⚠️ Pembayaran tersimpan namun gagal sync ke buku kas";
+    } elseif (!$payNow && $remaining > 0) {
+        $successMessage .= "\n\n⏰ Sisa tagihan Rp " . number_format($remaining, 0, ',', '.') . " belum dibayar";
+        if ($invoiceNumber) $successMessage .= "\n📋 Invoice #{$invoiceNumber} telah dibuat";
+        $successMessage .= "\nHarap lunasi sebelum CHECK-OUT!";
     }
     
     echo json_encode([

@@ -120,37 +120,12 @@ try {
             }
         }
         
+        // Semua booking (OTA maupun Direct) TIDAK langsung masuk buku kas
+        // Pembayaran dicatat di booking_payments, masuk kas saat guest CHECK-IN setelah konfirmasi
         if ($isOTA) {
-            // OTA Booking: DO NOT sync to cashbook now
-            // Payment will be synced when guest checks in
             $cashbookMessage = "Booking OTA - akan tercatat di buku kas saat check-in";
         } else {
-            // Direct Booking: Sync to cashbook immediately (DP masuk langsung)
-            $cashbookHelper = new CashbookHelper($db, $_SESSION['business_id'] ?? 1, $currentUser['id'] ?? 1);
-            
-            $syncResult = $cashbookHelper->syncPaymentToCashbook([
-                'payment_id' => $newPaymentId,
-                'booking_id' => $bookingId,
-                'amount' => $amount,
-                'payment_method' => $paymentMethod,
-                'guest_name' => $bookingDetails['guest_name'] ?? 'Guest',
-                'booking_code' => $bookingDetails['booking_code'] ?? '',
-                'room_number' => $bookingDetails['room_number'] ?? '',
-                'booking_source' => $bookingDetails['booking_source'] ?? '',
-                'final_price' => $bookingDetails['final_price'] ?? 0,
-                'total_paid' => $totalPaid,
-                'is_new_reservation' => false  // This is additional payment
-            ]);
-            
-            $cashbookInserted = $syncResult['success'];
-            $cashbookMessage = $syncResult['message'];
-            $cashAccountName = $syncResult['account_name'];
-            
-            if ($syncResult['ota_fee']) {
-                $otaFeePercent = $syncResult['ota_fee']['fee_percent'];
-                $otaFeeAmount = $syncResult['ota_fee']['fee_amount'];
-                $netAmount = $syncResult['ota_fee']['net'];
-            }
+            $cashbookMessage = "Pembayaran tersimpan - akan tercatat di buku kas saat check-in";
         }
         
     } catch (\Throwable $cashbookError) {
@@ -161,37 +136,12 @@ try {
 
     $db->commit();
     
-    // $isOTA already calculated above using normalized source matching
-    
-    // Prepare success message
-    $successMessage = 'Payment saved';
-    if ($cashbookInserted) {
-        $successMessage .= "\n\n✅ Payment tercatat di Buku Kas!";
-        if ($otaFeePercent > 0) {
-            $successMessage .= "\nGross: Rp " . number_format($amount, 0, ',', '.');
-            $successMessage .= "\nOTA Fee ({$otaFeePercent}%): -Rp " . number_format($otaFeeAmount, 0, ',', '.');
-            $successMessage .= "\nNet: Rp " . number_format($netAmount, 0, ',', '.') . " → {$cashAccountName}";
-        } else {
-            $successMessage .= "\nRp " . number_format($amount, 0, ',', '.') . " → {$cashAccountName}";
-        }
-        if ($paymentStatus === 'paid') {
-            $successMessage .= "\nStatus: LUNAS";
-        } else {
-            $successMessage .= "\nStatus: PARTIAL (Sisa: Rp " . number_format($remaining, 0, ',', '.') . ")";
-        }
-    } elseif ($isOTA) {
-        // OTA booking - explain that cashbook entry happens at check-in
-        $successMessage .= "\n\n📋 Booking via " . strtoupper($bookingDetails['booking_source']);
-        $successMessage .= "\n⏰ Akan tercatat di Buku Kas saat CHECK-IN";
-        $successMessage .= "\n💡 Bisa diedit untuk rekonsiliasi akhir bulan";
-        if ($paymentStatus === 'paid') {
-            $successMessage .= "\nStatus: LUNAS";
-        } else {
-            $successMessage .= "\nStatus: PARTIAL (Sisa: Rp " . number_format($remaining, 0, ',', '.') . ")";
-        }
-    } else {
-        $successMessage .= "\n\n⚠️ " . $cashbookMessage;
-    }
+    // Prepare success message - semua pembayaran masuk kas saat CHECK-IN
+    $statusLabel = $paymentStatus === 'paid' ? 'LUNAS ✅' : 'PARTIAL - Sisa: Rp ' . number_format($remaining, 0, ',', '.');
+    $successMessage = "Pembayaran tersimpan ✅";
+    $successMessage .= "\nRp " . number_format($amount, 0, ',', '.') . " dicatat untuk booking " . ($bookingDetails['booking_code'] ?? '');
+    $successMessage .= "\n\n⏰ Akan masuk Buku Kas saat CHECK-IN";
+    $successMessage .= "\nStatus: " . $statusLabel;
 
     echo json_encode([
         'success' => true,
@@ -199,10 +149,9 @@ try {
         'total_paid' => $totalPaid,
         'remaining' => $remaining,
         'payment_status' => $paymentStatus,
-        'cashbook_inserted' => $cashbookInserted,
-        'cash_account' => $cashAccountName,
-        'is_ota' => $isOTA,
-        'cashbook_at_checkin' => $isOTA  // OTA payments sync at check-in
+        'cashbook_inserted' => false,
+        'cashbook_at_checkin' => true,
+        'is_ota' => $isOTA
     ]);
 
 } catch (\Throwable $e) {
