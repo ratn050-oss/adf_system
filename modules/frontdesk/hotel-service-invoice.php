@@ -84,7 +84,7 @@ $subtotal  = $taxRate > 0 ? round($inv['total'] - $taxAmount, 2) : $inv['total']
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Segoe UI',system-ui,sans-serif;background:#eef1f5;color:#1e293b;font-size:13px}
-.page{width:100%;max-width:760px;margin:18px auto;background:#fff;box-shadow:0 2px 20px rgba(0,0,0,0.09);position:relative;overflow:hidden;border-radius:6px}
+.page{width:100%;max-width:760px;margin:18px auto;background:#fff;box-shadow:0 2px 20px rgba(0,0,0,0.09);position:relative;overflow:hidden;border-radius:6px;display:flex;flex-direction:column;min-height:275mm}
 
 /* ── Header ───────────────────────────────────────────────────────── */
 .inv-head{
@@ -143,7 +143,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#eef1f5;color:#1e293
 .st-paid{background:#059669}.st-partial{background:#d97706}.st-unpaid{background:#dc2626}
 
 /* ── Body ─────────────────────────────────────────────────────────── */
-.inv-body{padding:1.4rem 1.75rem}
+.inv-body{padding:1.4rem 1.75rem;flex:1}
 
 /* ── Guest + Invoice meta two-col ────────────────────────────────── */
 .meta-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.25rem;margin-bottom:1.4rem}
@@ -228,7 +228,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#eef1f5;color:#1e293
 @media print{
     body{background:white}
     .no-print{display:none!important}
-    .page{box-shadow:none;margin:0;max-width:none;overflow:visible;border-radius:0}
+    .page{box-shadow:none;margin:0;max-width:none;overflow:visible;border-radius:0;min-height:277mm}
     .inv-table tbody tr:nth-child(even) td{background:transparent!important}
     .inv-head,.inv-head::before,.logo-wrap,.inv-table thead tr,.status-stripe,.t-row.t-grand,.inv-foot,.watermark{-webkit-print-color-adjust:exact;print-color-adjust:exact}
     @page{margin:8mm 10mm}
