@@ -24,10 +24,15 @@ class CloudinaryHelper {
     private $baseFolder = 'adf_system'; // Root folder in Cloudinary
     
     private function __construct() {
-        // Try loading from config/config.php constants first, then .env
+        // Try loading from config/config.php constants first, then .env, then hardcoded fallback
         $this->cloudName  = defined('CLOUDINARY_CLOUD_NAME') ? CLOUDINARY_CLOUD_NAME : $this->getEnv('CLOUDINARY_CLOUD_NAME');
         $this->apiKey     = defined('CLOUDINARY_API_KEY') ? CLOUDINARY_API_KEY : $this->getEnv('CLOUDINARY_API_KEY');
         $this->apiSecret  = defined('CLOUDINARY_API_SECRET') ? CLOUDINARY_API_SECRET : $this->getEnv('CLOUDINARY_API_SECRET');
+        
+        // Fallback for hosting where .env might not be accessible
+        if (!$this->cloudName) $this->cloudName = 'dpdmut9ls';
+        if (!$this->apiKey) $this->apiKey = '999333726539525';
+        if (!$this->apiSecret) $this->apiSecret = 'cUP7S-bH0OlrJxtndLQj_Gl2jHw';
         
         if ($this->cloudName && $this->apiKey && $this->apiSecret) {
             $this->enabled = true;
