@@ -615,21 +615,46 @@ function rp($num) {
             font-weight: 600;
         }
         
-        /* ── Reservasi Bulan Ini ─────────────────────────────────── */
-        .res-table-wrap { background: var(--card); border-radius: 12px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-bottom: 16px; }
-        .res-table { width: 100%; border-collapse: collapse; font-size: 11px; }
-        .res-table thead tr { background: linear-gradient(90deg, #6366f1, #818cf8); }
-        .res-table th { color: #fff; padding: 7px 8px; font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-align: left; }
-        .res-table th.r { text-align: right; }
-        .res-table td { padding: 7px 8px; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: middle; }
-        .res-table tbody tr:last-child td { border-bottom: none; }
-        .res-table tbody tr:nth-child(even) td { background: #f8faff; }
-        .res-status { display: inline-block; padding: 2px 6px; border-radius: 8px; font-size: 9px; font-weight: 700; letter-spacing: 0.03em; }
-        .res-s-confirmed  { background: #dbeafe; color: #1d4ed8; }
-        .res-s-checked_in { background: #dcfce7; color: #15803d; }
-        .res-s-checked_out{ background: #f1f5f9; color: #475569; }
-        .res-s-pending    { background: #fef9c3; color: #a16207; }
-        .res-empty { text-align: center; padding: 20px; color: var(--text-muted); font-size: 12px; }
+        /* ── Booking Calendar ──────────────────────────────── */
+        .cal-wrap { background: var(--card); border-radius: 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); margin-bottom: 16px; overflow: hidden; }
+        .cal-header { background: linear-gradient(90deg,#6366f1,#818cf8); padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; }
+        .cal-header-title { color: #fff; font-weight: 700; font-size: 13px; letter-spacing: 0.02em; }
+        .cal-header-sub { color: rgba(255,255,255,0.7); font-size: 10px; }
+        .cal-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 0; }
+        .cal-dow { text-align: center; font-size: 9px; font-weight: 700; color: var(--text-muted); padding: 6px 0 4px; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 1px solid var(--border); }
+        .cal-day { position: relative; min-height: 38px; padding: 4px 2px 2px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.15s; user-select: none; }
+        .cal-day:nth-child(7n) { border-right: none; }
+        .cal-day.empty { background: #f8fafc; cursor: default; }
+        .cal-day.today .cal-day-num { background: #6366f1; color: #fff; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; margin: 0 auto; }
+        .cal-day.has-booking { background: #f0f4ff; }
+        .cal-day.has-booking:active { background: #dbeafe; }
+        .cal-day-num { font-size: 11px; font-weight: 600; color: var(--text); text-align: center; line-height: 20px; margin-bottom: 2px; }
+        .cal-dots { display: flex; flex-wrap: wrap; gap: 2px; justify-content: center; padding: 0 2px; }
+        .cal-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
+        .dot-confirmed  { background: #3b82f6; }
+        .dot-checked_in { background: #10b981; }
+        .dot-checked_out{ background: #94a3b8; }
+        .dot-pending    { background: #f59e0b; }
+        .cal-legend { display: flex; gap: 10px; flex-wrap: wrap; padding: 8px 14px 10px; border-top: 1px solid var(--border); }
+        .cal-legend-item { display: flex; align-items: center; gap: 4px; font-size: 9px; color: var(--text-muted); }
+        /* Bottom Sheet */
+        .cal-sheet-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 200; display: none; }
+        .cal-sheet { position: fixed; bottom: 0; left: 0; right: 0; max-width: 480px; margin: 0 auto; background: #fff; border-radius: 20px 20px 0 0; z-index: 201; transform: translateY(100%); transition: transform 0.28s cubic-bezier(.4,0,.2,1); max-height: 70vh; overflow-y: auto; padding-bottom: env(safe-area-inset-bottom,16px); }
+        .cal-sheet.open { transform: translateY(0); }
+        .cal-sheet-handle { width: 36px; height: 4px; background: #e2e8f0; border-radius: 2px; margin: 10px auto 0; }
+        .cal-sheet-title { padding: 10px 16px 8px; font-weight: 700; font-size: 14px; color: var(--text); border-bottom: 1px solid var(--border); }
+        .cal-sheet-item { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid #f1f5f9; }
+        .cal-sheet-room { width: 36px; height: 36px; border-radius: 8px; background: linear-gradient(135deg,#6366f1,#818cf8); color: #fff; font-weight: 800; font-size: 11px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+        .cal-sheet-info { flex: 1; min-width: 0; }
+        .cal-sheet-name { font-weight: 600; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .cal-sheet-detail { font-size: 10px; color: var(--text-muted); margin-top: 1px; }
+        .cal-sheet-status { flex-shrink: 0; }
+        .css-badge { display: inline-block; padding: 2px 7px; border-radius: 8px; font-size: 9px; font-weight: 700; }
+        .badge-confirmed  { background: #dbeafe; color: #1d4ed8; }
+        .badge-checked_in { background: #dcfce7; color: #15803d; }
+        .badge-checked_out{ background: #f1f5f9; color: #475569; }
+        .badge-pending    { background: #fef9c3; color: #a16207; }
+        .cal-sheet-empty { padding: 24px; text-align: center; color: var(--text-muted); font-size: 12px; }
 
         /* Empty State */
         .empty-state {
@@ -907,64 +932,88 @@ function rp($num) {
         
         <?php endif; ?>
 
-        <!-- ══ Reservasi Bulan Ini ══════════════════════════════════════════════ -->
+        <!-- ══ Booking Calendar ════════════════════════════════════════════════ -->
         <?php
             $monthReservations = $monthReservations ?? [];
-            $monthName = date('F Y');
-            $statusLabel = [
-                'confirmed'   => 'Confirmed',
-                'checked_in'  => 'In-House',
-                'checked_out' => 'Checked-Out',
-                'pending'     => 'Pending',
-            ];
-            $statusClass = [
-                'confirmed'   => 'res-s-confirmed',
-                'checked_in'  => 'res-s-checked_in',
-                'checked_out' => 'res-s-checked_out',
-                'pending'     => 'res-s-pending',
-            ];
+            // Build lookup: date => [ bookings ]
+            $calData = [];
+            foreach ($monthReservations as $r) {
+                // A booking spans check_in to check_out-1 — mark every day it's active
+                $di = new DateTime($r['check_in_date']);
+                $de = new DateTime($r['check_out_date']);
+                $cur = clone $di;
+                while ($cur < $de) {
+                    $k = $cur->format('Y-m-d');
+                    $calData[$k][] = $r;
+                    $cur->modify('+1 day');
+                }
+            }
+            $calJson = json_encode($calData, JSON_UNESCAPED_UNICODE);
+            $monthTs  = mktime(0,0,0, (int)date('m'), 1, (int)date('Y'));
+            $daysInMonth = (int)date('t', $monthTs);
+            $firstDow    = (int)date('w', $monthTs); // 0=Sun
         ?>
         <div class="section-title">
-            📅 Reservasi Bulan Ini
+            📅 Booking Calendar &mdash; <?= date('F Y') ?>
             <span class="badge"><?= count($monthReservations) ?></span>
         </div>
 
-        <div class="res-table-wrap">
-            <?php if (empty($monthReservations)): ?>
-            <div class="res-empty">Belum ada reservasi bulan <?= $monthName ?></div>
-            <?php else: ?>
-            <div style="overflow-x:auto">
-            <table class="res-table">
-                <thead>
-                    <tr>
-                        <th>Tamu</th>
-                        <th>Kamar</th>
-                        <th>Check-in</th>
-                        <th>Check-out</th>
-                        <th>Status</th>
-                        <th class="r">Total</th>
-                    </tr>
-                </thead>
-                <tbody>
-                <?php foreach ($monthReservations as $res): ?>
-                <tr>
-                    <td style="max-width:90px">
-                        <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:88px"><?= htmlspecialchars($res['guest_name'] ?? '-') ?></div>
-                        <?php if (!empty($res['booking_source'])): ?>
-                        <div style="font-size:9px;color:var(--text-muted)"><?= htmlspecialchars($res['booking_source']) ?></div>
-                        <?php endif; ?>
-                    </td>
-                    <td style="font-weight:700;color:var(--primary)"><?= htmlspecialchars($res['room_number'] ?? '-') ?><div style="font-size:9px;color:var(--text-muted);font-weight:400"><?= htmlspecialchars(substr($res['room_type'] ?? '', 0, 8)) ?></div></td>
-                    <td style="white-space:nowrap"><?= date('d M', strtotime($res['check_in_date'])) ?></td>
-                    <td style="white-space:nowrap"><?= date('d M', strtotime($res['check_out_date'])) ?></td>
-                    <td><span class="res-status <?= $statusClass[$res['status']] ?? '' ?>"><?= $statusLabel[$res['status']] ?? ucfirst($res['status']) ?></span></td>
-                    <td style="text-align:right;font-weight:600;white-space:nowrap"><?= rp((float)$res['final_price']) ?></td>
-                </tr>
-                <?php endforeach; ?>
-                </tbody>
-            </table>
+        <div class="cal-wrap">
+            <div class="cal-header">
+                <div>
+                    <div class="cal-header-title"><?= date('F Y') ?></div>
+                    <div class="cal-header-sub"><?= count($monthReservations) ?> reservasi bulan ini</div>
+                </div>
+                <div style="font-size:22px">&#x1F4C6;</div>
             </div>
-            <?php endif; ?>
+            <!-- Day-of-week headers -->
+            <div class="cal-grid" id="calGrid">
+                <?php foreach (['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] as $d): ?>
+                <div class="cal-dow"><?= $d ?></div>
+                <?php endforeach; ?>
+                <!-- Empty cells before 1st -->
+                <?php for ($e = 0; $e < $firstDow; $e++): ?>
+                <div class="cal-day empty"></div>
+                <?php endfor; ?>
+                <!-- Day cells -->
+                <?php for ($day = 1; $day <= $daysInMonth; $day++):
+                    $dateStr = date('Y-m') . '-' . str_pad($day, 2, '0', STR_PAD_LEFT);
+                    $isToday = ($dateStr === date('Y-m-d'));
+                    $hasBook = isset($calData[$dateStr]) && count($calData[$dateStr]) > 0;
+                ?>
+                <div class="cal-day<?= $isToday ? ' today' : '' ?><?= $hasBook ? ' has-booking' : '' ?>"
+                     <?= $hasBook ? "onclick=\"showDay('$dateStr')\"" : '' ?>>
+                    <div class="cal-day-num"><?= $day ?></div>
+                    <?php if ($hasBook): ?>
+                    <div class="cal-dots">
+                        <?php
+                        $shown = [];
+                        foreach (array_slice($calData[$dateStr], 0, 4) as $bk) {
+                            $shown[$bk['status']] = true;
+                        }
+                        foreach ($shown as $st => $_): ?>
+                        <div class="cal-dot dot-<?= $st ?>"></div>
+                        <?php endforeach; ?>
+                    </div>
+                    <?php endif; ?>
+                </div>
+                <?php endfor; ?>
+            </div>
+            <!-- Legend -->
+            <div class="cal-legend">
+                <div class="cal-legend-item"><div class="cal-dot dot-checked_in"></div> In-House</div>
+                <div class="cal-legend-item"><div class="cal-dot dot-confirmed"></div> Confirmed</div>
+                <div class="cal-legend-item"><div class="cal-dot dot-checked_out"></div> Checked-Out</div>
+                <div class="cal-legend-item"><div class="cal-dot dot-pending"></div> Pending</div>
+            </div>
+        </div>
+
+        <!-- Bottom Sheet -->
+        <div class="cal-sheet-backdrop" id="sheetBackdrop" onclick="closeSheet()"></div>
+        <div class="cal-sheet" id="calSheet">
+            <div class="cal-sheet-handle"></div>
+            <div class="cal-sheet-title" id="sheetTitle"></div>
+            <div id="sheetBody"></div>
         </div>
 
         
@@ -975,6 +1024,70 @@ function rp($num) {
     ?>
     
     <script>
+    // ── Booking Calendar data (read-only) ────────────────────────────────────
+    var CAL_DATA = <?= $calJson ?? '{}' ?>;
+
+    var statusLabel = {
+        confirmed:   'Confirmed',
+        checked_in:  'In-House',
+        checked_out: 'Checked-Out',
+        pending:     'Pending'
+    };
+    var badgeClass = {
+        confirmed:   'badge-confirmed',
+        checked_in:  'badge-checked_in',
+        checked_out: 'badge-checked_out',
+        pending:     'badge-pending'
+    };
+    var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+
+    function showDay(dateStr) {
+        var bookings = CAL_DATA[dateStr] || [];
+        var parts = dateStr.split('-');
+        var label = parseInt(parts[2]) + ' ' + months[parseInt(parts[1])-1] + ' ' + parts[0];
+        document.getElementById('sheetTitle').textContent = '📅 ' + label + '  (' + bookings.length + ' booking)';
+
+        var html = '';
+        if (bookings.length === 0) {
+            html = '<div class="cal-sheet-empty">Tidak ada booking hari ini</div>';
+        } else {
+            // Deduplicate by booking id
+            var seen = {};
+            bookings.forEach(function(b) {
+                if (seen[b.id]) return;
+                seen[b.id] = true;
+                var initials = (b.guest_name || 'G').substring(0,3).toUpperCase();
+                var st = b.status || 'pending';
+                var ciDate = b.check_in_date ? b.check_in_date.substring(5,10).replace('-','/') : '-';
+                var coDate = b.check_out_date ? b.check_out_date.substring(5,10).replace('-','/') : '-';
+                html += '<div class="cal-sheet-item">' +
+                    '<div class="cal-sheet-room">' + (b.room_number || '-') + '</div>' +
+                    '<div class="cal-sheet-info">' +
+                        '<div class="cal-sheet-name">' + (b.guest_name || 'Guest') + '</div>' +
+                        '<div class="cal-sheet-detail">' + (b.room_type || '') + '  •  ' + ciDate + ' – ' + coDate + '</div>' +
+                    '</div>' +
+                    '<div class="cal-sheet-status"><span class="css-badge ' + (badgeClass[st]||'') + '">' + (statusLabel[st]||st) + '</span></div>' +
+                '</div>';
+            });
+        }
+        document.getElementById('sheetBody').innerHTML = html;
+        document.getElementById('sheetBackdrop').style.display = 'block';
+        setTimeout(function(){ document.getElementById('calSheet').classList.add('open'); }, 10);
+    }
+
+    function closeSheet() {
+        document.getElementById('calSheet').classList.remove('open');
+        setTimeout(function(){ document.getElementById('sheetBackdrop').style.display = 'none'; }, 280);
+    }
+
+    // swipe down to close
+    (function(){
+        var sheet = document.getElementById('calSheet');
+        var startY = 0;
+        sheet.addEventListener('touchstart', function(e){ startY = e.touches[0].clientY; }, {passive:true});
+        sheet.addEventListener('touchend', function(e){ if (e.changedTouches[0].clientY - startY > 60) closeSheet(); }, {passive:true});
+    })();
+
     document.addEventListener('DOMContentLoaded', function() {
         var canvas = document.getElementById('occupancyPie');
         if (!canvas) return;
