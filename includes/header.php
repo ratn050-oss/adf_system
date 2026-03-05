@@ -281,15 +281,17 @@ if (isset($_SESSION['user_id'])) {
                                     <span><?php echo __('settings.title'); ?></span>
                                 </a>
                             </li>
-                            <?php if (defined('BUSINESS_TYPE') && BUSINESS_TYPE === 'hotel'): ?>
-                            <li class="submenu-item">
-                                <a href="<?php echo BASE_URL; ?>/modules/frontdesk/hotel-services.php" class="submenu-link <?php echo activeMenu('hotel-services.php'); ?>">
-                                    <i data-feather="briefcase" class="submenu-icon"></i>
-                                    <span>Hotel Services</span>
-                                </a>
-                            </li>
-                            <?php endif; ?>
                         </ul>
+                    </li>
+                    <?php endif; ?>
+
+                    <!-- Hotel Services Menu (hotel only) -->
+                    <?php if (defined('BUSINESS_TYPE') && BUSINESS_TYPE === 'hotel' && $auth->hasPermission('frontdesk')): ?>
+                    <li class="nav-item <?php echo activeMenu('hotel-services.php') ? 'active' : ''; ?>">
+                        <a href="<?php echo BASE_URL; ?>/modules/frontdesk/hotel-services.php" class="nav-link <?php echo activeMenu('hotel-services.php'); ?>">
+                            <i data-feather="briefcase" class="nav-icon"></i>
+                            <span>Hotel Services</span>
+                        </a>
                     </li>
                     <?php endif; ?>
                     
