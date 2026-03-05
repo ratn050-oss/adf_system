@@ -194,15 +194,31 @@ try {
     ", [$today]);
     $stats['ota_revenue_today'] = $otaRevenueResult['total'] ?? 0;
 
-    // 9. In-House Revenue - Total billing for guests currently checked-in
-    //    AND guests who checked out this month (to include fully-settled stays)
-    $inHouseRevenueResult = $db->fetchOne("
-        SELECT COALESCE(SUM(final_price), 0) as total
+    // 9. Room Revenue - ACTUAL received money for checked-in + checked-out this month
+    //    Source of truth = cash_book (same as Paid This Month logic)
+    //    For each qualifying booking: use cash_book amount if exists, else paid_amount
+    $roomBookings = $db->fetchAll("
+        SELECT booking_code, paid_amount
         FROM bookings
         WHERE status = 'checked_in'
            OR (status = 'checked_out' AND DATE_FORMAT(check_out_date, '%Y-%m') = DATE_FORMAT(NOW(), '%Y-%m'))
     ");
-    $stats['inhouse_revenue'] = $inHouseRevenueResult['total'] ?? 0;
+    $totalRoomRevenue = 0;
+    foreach ($roomBookings as $bk) {
+        $cbResult = $db->fetchOne("
+            SELECT COALESCE(SUM(amount), 0) as total
+            FROM cash_book
+            WHERE transaction_type = 'income'
+            AND description LIKE ?
+        ", ['%' . $bk['booking_code'] . '%']);
+        $cbAmount = $cbResult['total'] ?? 0;
+        if ($cbAmount > 0) {
+            $totalRoomRevenue += $cbAmount;
+        } else {
+            $totalRoomRevenue += ($bk['paid_amount'] ?? 0);
+        }
+    }
+    $stats['inhouse_revenue'] = $totalRoomRevenue;
 
     // 10. Direct Booking Payments Today (alternative source if cash_book empty)
     // EXCLUDE: OTA bookings (masuk saat check-in) dan booking yang belum check-in
