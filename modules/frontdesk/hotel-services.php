@@ -9,6 +9,7 @@ define('APP_ACCESS', true);
 require_once '../../config/config.php';
 require_once '../../config/database.php';
 require_once '../../includes/auth.php';
+require_once '../../includes/CloudinaryHelper.php';
 
 $auth = new Auth();
 $auth->requireLogin();
@@ -524,11 +525,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                 $ext  = strtolower(pathinfo($_FILES['logo_file']['name'], PATHINFO_EXTENSION));
                 $allowed_ext = ['jpg','jpeg','png','gif','svg','webp'];
                 if (!in_array($ext, $allowed_ext)) throw new Exception('Invalid logo file type');
-                $destDir = rtrim(defined('BASE_PATH') ? BASE_PATH : __DIR__ . '/../..', '/') . '/uploads/logos/';
-                if (!is_dir($destDir)) mkdir($destDir, 0755, true);
                 $fname = 'logo_hotel_svc_' . uniqid() . '.' . $ext;
-                if (move_uploaded_file($_FILES['logo_file']['tmp_name'], $destDir . $fname)) {
-                    $logoVal = BASE_URL . '/uploads/logos/' . $fname;
+                $cloudinary = CloudinaryHelper::getInstance();
+                $uploadResult = $cloudinary->smartUpload($_FILES['logo_file'], 'uploads/logos', $fname, 'logos', 'hotel_svc_logo');
+                if ($uploadResult['success']) {
+                    $logoVal = $uploadResult['is_cloud'] ? $uploadResult['path'] : BASE_URL . '/uploads/logos/' . $fname;
                     $ex2 = $pdo->prepare("SELECT id FROM settings WHERE setting_key='company_logo' LIMIT 1");
                     $ex2->execute();
                     if ($ex2->fetch()) {

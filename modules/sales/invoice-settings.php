@@ -8,6 +8,7 @@ require_once '../../config/config.php';
 require_once '../../config/database.php';
 require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
+require_once '../../includes/CloudinaryHelper.php';
 
 $auth = new Auth();
 $auth->requireLogin();
@@ -26,11 +27,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         // Handle logo upload
         if (isset($_FILES['logo']) && $_FILES['logo']['error'] === UPLOAD_ERR_OK) {
-            $uploadDir = $rootPath . '/uploads/logos/';
-            if (!is_dir($uploadDir)) {
-                mkdir($uploadDir, 0755, true);
-            }
-            
             $fileInfo = pathinfo($_FILES['logo']['name']);
             $extension = strtolower($fileInfo['extension']);
             
@@ -39,10 +35,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
             
             $newFilename = 'cqc-logo-' . time() . '.' . $extension;
-            $uploadPath = $uploadDir . $newFilename;
-            
-            if (move_uploaded_file($_FILES['logo']['tmp_name'], $uploadPath)) {
-                saveInvoiceSetting($db, $businessId, 'logo', 'logos/' . $newFilename);
+            $cloudinary = CloudinaryHelper::getInstance();
+            $uploadResult = $cloudinary->smartUpload($_FILES['logo'], 'uploads/logos', $newFilename, 'logos', 'cqc_invoice_logo');
+            if ($uploadResult['success']) {
+                $storedPath = $uploadResult['is_cloud'] ? $uploadResult['path'] : 'logos/' . $newFilename;
+                saveInvoiceSetting($db, $businessId, 'logo', $storedPath);
             }
         }
         
@@ -91,10 +88,15 @@ foreach ($defaults as $key => $value) {
 $logoExists = false;
 $logoPath = '';
 if (!empty($settings['logo'])) {
-    $fullPath = $rootPath . '/uploads/' . $settings['logo'];
-    if (file_exists($fullPath)) {
+    if (strpos($settings['logo'], 'http') === 0) {
         $logoExists = true;
-        $logoPath = BASE_URL . '/uploads/' . $settings['logo'];
+        $logoPath = $settings['logo'];
+    } else {
+        $fullPath = $rootPath . '/uploads/' . $settings['logo'];
+        if (file_exists($fullPath)) {
+            $logoExists = true;
+            $logoPath = BASE_URL . '/uploads/' . $settings['logo'];
+        }
     }
 }
 

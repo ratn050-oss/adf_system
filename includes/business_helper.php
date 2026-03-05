@@ -354,19 +354,26 @@ function getBusinessLogo() {
         );
         
         if ($businessLogo && $businessLogo['setting_value']) {
-            $logoPath = __DIR__ . '/../uploads/logos/' . $businessLogo['setting_value'];
+            $val = $businessLogo['setting_value'];
+            // If it's a Cloudinary URL, return directly
+            if (strpos($val, 'http') === 0) {
+                return $val;
+            }
+            $logoPath = __DIR__ . '/../uploads/logos/' . $val;
             if (file_exists($logoPath)) {
                 $timestamp = filemtime($logoPath);
-                return BASE_URL . '/uploads/logos/' . $businessLogo['setting_value'] . '?v=' . $timestamp;
+                return BASE_URL . '/uploads/logos/' . $val . '?v=' . $timestamp;
             }
         }
         
         // Priority 2: Custom logo from config
         if (!empty($config['logo'])) {
-            $logoPath = __DIR__ . '/../uploads/logos/' . $config['logo'];
+            $val = $config['logo'];
+            if (strpos($val, 'http') === 0) return $val;
+            $logoPath = __DIR__ . '/../uploads/logos/' . $val;
             if (file_exists($logoPath)) {
                 $timestamp = filemtime($logoPath);
-                return BASE_URL . '/uploads/logos/' . $config['logo'] . '?v=' . $timestamp;
+                return BASE_URL . '/uploads/logos/' . $val . '?v=' . $timestamp;
             }
         }
         
@@ -379,15 +386,31 @@ function getBusinessLogo() {
             }
         }
         
-        // Priority 4: Global company logo from settings (fallback)
+        // Priority 4: Hotel logo from settings
+        $hotelLogo = $db->fetchOne(
+            "SELECT setting_value FROM settings WHERE setting_key = 'hotel_logo' LIMIT 1"
+        );
+        if ($hotelLogo && $hotelLogo['setting_value']) {
+            $val = $hotelLogo['setting_value'];
+            if (strpos($val, 'http') === 0) return $val;
+            $logoFile = __DIR__ . '/../uploads/logos/' . $val;
+            if (file_exists($logoFile)) {
+                $timestamp = filemtime($logoFile);
+                return BASE_URL . '/uploads/logos/' . $val . '?v=' . $timestamp;
+            }
+        }
+        
+        // Priority 5: Global company logo from settings (fallback)
         $globalLogo = $db->fetchOne(
             "SELECT setting_value FROM settings WHERE setting_key = 'company_logo' LIMIT 1"
         );
         if ($globalLogo && $globalLogo['setting_value']) {
-            $settingsLogo = __DIR__ . '/../uploads/logos/' . $globalLogo['setting_value'];
+            $val = $globalLogo['setting_value'];
+            if (strpos($val, 'http') === 0) return $val;
+            $settingsLogo = __DIR__ . '/../uploads/logos/' . $val;
             if (file_exists($settingsLogo)) {
                 $timestamp = filemtime($settingsLogo);
-                return BASE_URL . '/uploads/logos/' . $globalLogo['setting_value'] . '?v=' . $timestamp;
+                return BASE_URL . '/uploads/logos/' . $val . '?v=' . $timestamp;
             }
         }
     } catch (Exception $e) {

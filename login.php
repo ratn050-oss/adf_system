@@ -30,23 +30,20 @@ $loginLogo = null;
 $loginLogoUrl = null;
 $faviconUrl = null;
 try {
+    require_once __DIR__ . '/includes/CloudinaryHelper.php';
+    $cl = CloudinaryHelper::getInstance();
+    
     $loginBgSetting = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'login_background'");
     $customBg = $loginBgSetting['setting_value'] ?? null;
-    $bgUrl = $customBg && file_exists(BASE_PATH . '/uploads/backgrounds/' . $customBg) 
-        ? BASE_URL . '/uploads/backgrounds/' . $customBg 
-        : null;
+    $bgUrl = $customBg ? $cl->getDisplayUrl($customBg, 'uploads/backgrounds/') : null;
     
     $loginLogoSetting = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'login_logo'");
     $loginLogo = $loginLogoSetting['setting_value'] ?? null;
-    $loginLogoUrl = $loginLogo && file_exists(BASE_PATH . '/uploads/logos/' . $loginLogo) 
-        ? BASE_URL . '/uploads/logos/' . $loginLogo 
-        : null;
+    $loginLogoUrl = $loginLogo ? $cl->getDisplayUrl($loginLogo, 'uploads/logos/') : null;
     
     $faviconSetting = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'site_favicon'");
     $faviconFile = $faviconSetting['setting_value'] ?? null;
-    $faviconUrl = $faviconFile && file_exists(BASE_PATH . '/uploads/icons/' . $faviconFile) 
-        ? BASE_URL . '/uploads/icons/' . $faviconFile 
-        : null;
+    $faviconUrl = $faviconFile ? $cl->getDisplayUrl($faviconFile, 'uploads/icons/') : null;
     
     // Get demo credentials from settings
     $demoUsernameSetting = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'demo_username'");

@@ -8,6 +8,7 @@ require_once '../../config/config.php';
 require_once '../../config/database.php';
 require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
+require_once '../../includes/CloudinaryHelper.php';
 
 $auth = new Auth();
 $auth->requireLogin();
@@ -126,18 +127,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_
 
 // Save logo
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_logo') {
-    $uploadDir = __DIR__ . '/../../uploads/attendance_logos/';
-    if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
     if (!empty($_FILES['logo_file']['tmp_name'])) {
         $ext = strtolower(pathinfo($_FILES['logo_file']['name'], PATHINFO_EXTENSION));
         $allowed = ['png','jpg','jpeg','svg','webp'];
         if (in_array($ext, $allowed)) {
             $slug = preg_replace('/[^a-z0-9_]/', '_', strtolower(defined('ACTIVE_BUSINESS_ID') ? ACTIVE_BUSINESS_ID : 'biz'));
             $filename = 'logo_' . $slug . '.' . $ext;
-            if (move_uploaded_file($_FILES['logo_file']['tmp_name'], $uploadDir . $filename)) {
-                $logoPath = 'uploads/attendance_logos/' . $filename;
+            $cloudinary = CloudinaryHelper::getInstance();
+            $uploadResult = $cloudinary->smartUpload($_FILES['logo_file'], 'uploads/attendance_logos', $filename, 'attendance', 'attendance_logo_' . $slug);
+            if ($uploadResult['success']) {
+                $logoPath = $uploadResult['path'];
                 $db->getConnection()->prepare("UPDATE payroll_attendance_config SET app_logo=? WHERE id=1")->execute([$logoPath]);
-                $msg = '✅ Logo berhasil disimpan.';
+                $msg = '✅ Logo berhasil disimpan.' . ($uploadResult['is_cloud'] ? ' (Cloudinary)' : '');
                 $msgType = 'success';
             }
         } else {
@@ -604,9 +605,11 @@ include '../../includes/header.php';
                 <!-- Logo Upload -->
                 <div style="background:#fff; border:1px solid var(--border); border-radius:12px; padding:18px; margin-bottom:14px;">
                     <h3 style="font-size:14px; font-weight:700; color:var(--navy); margin:0 0 14px;">🖼️ Logo Aplikasi Absen</h3>
-                    <?php if (!empty($config['app_logo'])): ?>
+                    <?php if (!empty($config['app_logo'])): 
+                        $logoDisplayUrl = (strpos($config['app_logo'], 'http') === 0) ? $config['app_logo'] : $baseUrl . '/' . htmlspecialchars($config['app_logo']);
+                    ?>
                     <div style="margin-bottom:12px; display:flex; align-items:center; gap:12px;">
-                        <img src="<?php echo $baseUrl . '/' . htmlspecialchars($config['app_logo']); ?>" style="height:56px; max-width:160px; object-fit:contain; border-radius:8px; border:1px solid #eee; padding:4px; background:#fafafa;">
+                        <img src="<?php echo $logoDisplayUrl; ?>" style="height:56px; max-width:160px; object-fit:contain; border-radius:8px; border:1px solid #eee; padding:4px; background:#fafafa;">
                         <form method="POST" action="?tab=settings" style="margin:0;">
                             <input type="hidden" name="action" value="save_logo">
                             <input type="hidden" name="remove_logo" value="1">

@@ -3,6 +3,7 @@ require_once '../../config/config.php';
 require_once '../../config/database.php';
 require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
+require_once '../../includes/CloudinaryHelper.php';
 
 $auth = new Auth();
 $auth->requireLogin();
@@ -34,42 +35,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['hotel_logo'])) {
         } elseif ($file['size'] > $maxSize) {
             setFlash('error', 'Ukuran file terlalu besar. Maksimal 2MB.');
         } else {
-            // Create uploads directory if not exists
-            $uploadDir = BASE_PATH . '/uploads/logos/';
-            if (!file_exists($uploadDir)) {
-                mkdir($uploadDir, 0755, true);
-            }
-            
-            // Generate unique filename
+            // Generate filename
             $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
-            $filename = 'hotel_logo_' . time() . '.' . $extension;
-            $uploadPath = $uploadDir . $filename;
+            $localFilename = 'hotel_logo_' . time() . '.' . $extension;
             
-            // Delete old logo if exists
-            if ($currentLogo && file_exists($uploadDir . $currentLogo['setting_value'])) {
-                unlink($uploadDir . $currentLogo['setting_value']);
-            }
+            // Smart upload: Cloudinary first, fallback to local
+            $cloudinary = CloudinaryHelper::getInstance();
+            $result = $cloudinary->smartUpload($file, 'uploads/logos', $localFilename, 'logos', 'hotel_logo');
             
-            // Move uploaded file
-            if (move_uploaded_file($file['tmp_name'], $uploadPath)) {
+            if ($result['success']) {
+                // Delete old local logo if exists
+                $uploadDir = BASE_PATH . '/uploads/logos/';
+                if ($currentLogo && !empty($currentLogo['setting_value']) && strpos($currentLogo['setting_value'], 'http') !== 0) {
+                    if (file_exists($uploadDir . $currentLogo['setting_value'])) {
+                        unlink($uploadDir . $currentLogo['setting_value']);
+                    }
+                }
+                
+                // Store path (full URL for cloud, filename for local)
+                $storedValue = $result['path'];
+                
                 // Update database
                 $exists = $db->fetchOne("SELECT COUNT(*) as count FROM settings WHERE setting_key = 'hotel_logo'");
                 
                 if ($exists['count'] > 0) {
                     $db->query("UPDATE settings SET setting_value = :filename WHERE setting_key = 'hotel_logo'", [
-                        'filename' => $filename
+                        'filename' => $storedValue
                     ]);
                 } else {
                     $db->query("INSERT INTO settings (setting_key, setting_value) VALUES ('hotel_logo', :filename)", [
-                        'filename' => $filename
+                        'filename' => $storedValue
                     ]);
                 }
                 
-                setFlash('success', 'Logo hotel berhasil diunggah!');
+                setFlash('success', 'Logo hotel berhasil diunggah!' . ($result['is_cloud'] ? ' (Cloudinary)' : ''));
                 header('Location: hotel-logo.php');
                 exit;
             } else {
-                setFlash('error', 'Tidak berhasil mengunggah berkas. Periksa izin folder.');
+                setFlash('error', 'Tidak berhasil mengunggah berkas: ' . ($result['error'] ?? 'Unknown error'));
             }
         }
     } else {
@@ -165,8 +168,15 @@ include '../../includes/header.php';
         
         <div style="display: flex; flex-direction: column; align-items: center; gap: 1rem;">
             <div class="logo-preview <?php echo empty($currentLogo) ? 'empty' : ''; ?>">
-                <?php if ($currentLogo && file_exists(BASE_PATH . '/uploads/logos/' . $currentLogo['setting_value'])): ?>
-                    <img src="<?php echo BASE_URL; ?>/uploads/logos/<?php echo $currentLogo['setting_value']; ?>" alt="Hotel Logo">
+                <?php 
+                $logoUrl = null;
+                if ($currentLogo && $currentLogo['setting_value']) {
+                    $cl = CloudinaryHelper::getInstance();
+                    $logoUrl = $cl->getDisplayUrl($currentLogo['setting_value'], 'uploads/logos/', ['width' => 400, 'quality' => 'auto']);
+                }
+                ?>
+                <?php if ($logoUrl): ?>
+                    <img src="<?php echo $logoUrl; ?>" alt="Hotel Logo">
                 <?php else: ?>
                     <div style="text-align: center;">
                         <i data-feather="image" style="width: 48px; height: 48px; color: var(--text-muted); margin-bottom: 0.5rem;"></i>
@@ -251,8 +261,8 @@ include '../../includes/header.php';
             </h4>
             <div style="background: var(--bg-secondary); padding: 1rem; border-radius: var(--radius-md);">
                 <div style="display: flex; align-items: center; gap: 0.875rem;">
-                    <?php if ($currentLogo && file_exists(BASE_PATH . '/uploads/logos/' . $currentLogo['setting_value'])): ?>
-                        <img src="<?php echo BASE_URL; ?>/uploads/logos/<?php echo $currentLogo['setting_value']; ?>" alt="Logo" style="width: 42px; height: 42px; border-radius: var(--radius-md); object-fit: cover; border: 2px solid var(--bg-tertiary);">
+                    <?php if ($logoUrl): ?>
+                        <img src="<?php echo $logoUrl; ?>" alt="Logo" style="width: 42px; height: 42px; border-radius: var(--radius-md); object-fit: cover; border: 2px solid var(--bg-tertiary);">
                     <?php else: ?>
                         <div style="width: 42px; height: 42px; border-radius: var(--radius-md); background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)); display: flex; align-items: center; justify-content: center; border: 2px solid var(--bg-tertiary);">
                             <span style="font-size: 1.5rem; font-weight: 800; color: white;">N</span>

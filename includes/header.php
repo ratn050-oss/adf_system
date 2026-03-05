@@ -12,8 +12,12 @@ try {
         $db = Database::getInstance();
         $faviconSetting = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'site_favicon'");
         $faviconFile = $faviconSetting['setting_value'] ?? null;
-        if ($faviconFile && file_exists(BASE_PATH . '/uploads/icons/' . $faviconFile)) {
-            $faviconUrl = BASE_URL . '/uploads/icons/' . $faviconFile;
+        if ($faviconFile) {
+            if (strpos($faviconFile, 'http') === 0) {
+                $faviconUrl = $faviconFile;
+            } elseif (file_exists(BASE_PATH . '/uploads/icons/' . $faviconFile)) {
+                $faviconUrl = BASE_URL . '/uploads/icons/' . $faviconFile;
+            }
         }
     }
 } catch (Exception $e) {

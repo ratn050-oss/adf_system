@@ -8,6 +8,7 @@ require_once dirname(dirname(__FILE__)) . '/config/config.php';
 require_once dirname(dirname(__FILE__)) . '/config/database.php';
 require_once __DIR__ . '/includes/dev_auth.php';
 require_once dirname(dirname(__FILE__)) . '/includes/functions.php';
+require_once dirname(dirname(__FILE__)) . '/includes/CloudinaryHelper.php';
 
 $devAuth = new DevAuth();
 $devAuth->requireLogin();
@@ -90,23 +91,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['login_background']) 
     } elseif ($file['size'] > $maxSize) {
         $error = 'Ukuran file terlalu besar. Maksimal 2MB.';
     } else {
-        $uploadDir = BASE_PATH . '/uploads/backgrounds/';
-        if (!file_exists($uploadDir)) {
-            mkdir($uploadDir, 0755, true);
-        }
-        
         $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
-        $filename = 'login-bg.' . $extension;
-        $uploadPath = $uploadDir . $filename;
+        $localFilename = 'login-bg.' . $extension;
         
-        foreach (glob($uploadDir . 'login-bg.*') as $oldFile) {
-            unlink($oldFile);
-        }
+        $cloudinary = CloudinaryHelper::getInstance();
+        $uploadResult = $cloudinary->smartUpload($file, 'uploads/backgrounds', $localFilename, 'backgrounds', 'login_background');
         
-        if (move_uploaded_file($file['tmp_name'], $uploadPath)) {
-            $db->query("INSERT INTO settings (setting_key, setting_value) VALUES ('login_background', ?) ON DUPLICATE KEY UPDATE setting_value = ?", [$filename, $filename]);
-            $success = 'Background login berhasil diupload!';
-            $currentLoginBg = $filename;
+        if ($uploadResult['success']) {
+            $storedValue = $uploadResult['path'];
+            $db->query("INSERT INTO settings (setting_key, setting_value) VALUES ('login_background', ?) ON DUPLICATE KEY UPDATE setting_value = ?", [$storedValue, $storedValue]);
+            $success = 'Background login berhasil diupload!' . ($uploadResult['is_cloud'] ? ' (Cloudinary)' : '');
+            $currentLoginBg = $storedValue;
         } else {
             $error = 'Gagal upload file.';
         }
@@ -124,23 +119,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['login_logo']) && $_F
     } elseif ($file['size'] > $maxSize) {
         $error = 'Ukuran file terlalu besar. Maksimal 1MB.';
     } else {
-        $uploadDir = BASE_PATH . '/uploads/logos/';
-        if (!file_exists($uploadDir)) {
-            mkdir($uploadDir, 0755, true);
-        }
-        
         $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
-        $filename = 'login-logo.' . $extension;
-        $uploadPath = $uploadDir . $filename;
+        $localFilename = 'login-logo.' . $extension;
         
-        foreach (glob($uploadDir . 'login-logo.*') as $oldFile) {
-            unlink($oldFile);
-        }
+        $cloudinary = CloudinaryHelper::getInstance();
+        $uploadResult = $cloudinary->smartUpload($file, 'uploads/logos', $localFilename, 'logos', 'login_logo');
         
-        if (move_uploaded_file($file['tmp_name'], $uploadPath)) {
-            $db->query("INSERT INTO settings (setting_key, setting_value) VALUES ('login_logo', ?) ON DUPLICATE KEY UPDATE setting_value = ?", [$filename, $filename]);
-            $success = 'Logo login berhasil diupload!';
-            $currentLoginLogo = $filename;
+        if ($uploadResult['success']) {
+            $storedValue = $uploadResult['path'];
+            $db->query("INSERT INTO settings (setting_key, setting_value) VALUES ('login_logo', ?) ON DUPLICATE KEY UPDATE setting_value = ?", [$storedValue, $storedValue]);
+            $success = 'Logo login berhasil diupload!' . ($uploadResult['is_cloud'] ? ' (Cloudinary)' : '');
+            $currentLoginLogo = $storedValue;
         } else {
             $error = 'Gagal upload file.';
         }
@@ -149,6 +138,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['login_logo']) && $_F
 
 // Handle delete login logo
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_login_logo'])) {
+    // Delete from Cloudinary if it's a cloud URL
+    if ($currentLoginLogo && strpos($currentLoginLogo, 'http') === 0) {
+        $cl = CloudinaryHelper::getInstance();
+        $cl->delete('adf_system/logos/login_logo');
+    }
+    // Also remove local files
     $uploadDir = BASE_PATH . '/uploads/logos/';
     foreach (glob($uploadDir . 'login-logo.*') as $oldFile) {
         unlink($oldFile);
@@ -169,23 +164,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['site_favicon']) && $
     } elseif ($file['size'] > $maxSize) {
         $error = 'Ukuran file terlalu besar. Maksimal 500KB.';
     } else {
-        $uploadDir = BASE_PATH . '/uploads/icons/';
-        if (!file_exists($uploadDir)) {
-            mkdir($uploadDir, 0755, true);
-        }
-        
         $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
-        $filename = 'favicon.' . $extension;
-        $uploadPath = $uploadDir . $filename;
+        $localFilename = 'favicon.' . $extension;
         
-        foreach (glob($uploadDir . 'favicon.*') as $oldFile) {
-            unlink($oldFile);
-        }
+        $cloudinary = CloudinaryHelper::getInstance();
+        $uploadResult = $cloudinary->smartUpload($file, 'uploads/icons', $localFilename, 'icons', 'site_favicon');
         
-        if (move_uploaded_file($file['tmp_name'], $uploadPath)) {
-            $db->query("INSERT INTO settings (setting_key, setting_value) VALUES ('site_favicon', ?) ON DUPLICATE KEY UPDATE setting_value = ?", [$filename, $filename]);
-            $success = 'Favicon berhasil diupload!';
-            $currentFavicon = $filename;
+        if ($uploadResult['success']) {
+            $storedValue = $uploadResult['path'];
+            $db->query("INSERT INTO settings (setting_key, setting_value) VALUES ('site_favicon', ?) ON DUPLICATE KEY UPDATE setting_value = ?", [$storedValue, $storedValue]);
+            $success = 'Favicon berhasil diupload!' . ($uploadResult['is_cloud'] ? ' (Cloudinary)' : '');
+            $currentFavicon = $storedValue;
         } else {
             $error = 'Gagal upload file.';
         }
@@ -194,6 +183,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['site_favicon']) && $
 
 // Handle delete favicon
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_favicon'])) {
+    // Delete from Cloudinary if it's a cloud URL
+    if ($currentFavicon && strpos($currentFavicon, 'http') === 0) {
+        $cl = CloudinaryHelper::getInstance();
+        $cl->delete('adf_system/icons/site_favicon');
+    }
+    // Also remove local files
     $uploadDir = BASE_PATH . '/uploads/icons/';
     foreach (glob($uploadDir . 'favicon.*') as $oldFile) {
         unlink($oldFile);
@@ -710,9 +705,16 @@ require_once __DIR__ . '/includes/header.php';
                     </div>
                 </div>
                 <div class="settings-card-body">
-                    <?php if ($currentLoginBg && file_exists(BASE_PATH . '/uploads/backgrounds/' . $currentLoginBg)): ?>
+                    <?php 
+                    $loginBgUrl = null;
+                    if ($currentLoginBg) {
+                        $cl = CloudinaryHelper::getInstance();
+                        $loginBgUrl = $cl->getDisplayUrl($currentLoginBg, 'uploads/backgrounds/');
+                    }
+                    ?>
+                    <?php if ($loginBgUrl): ?>
                     <div class="preview-box mb-3" style="padding:0;overflow:hidden;border:0;">
-                        <img src="<?php echo BASE_URL . '/uploads/backgrounds/' . $currentLoginBg; ?>?v=<?php echo time(); ?>" 
+                        <img src="<?php echo $loginBgUrl; ?>?v=<?php echo time(); ?>" 
                              alt="Login Background" style="width:100%;height:150px;object-fit:cover;border-radius:10px;">
                     </div>
                     <?php else: ?>
@@ -746,9 +748,16 @@ require_once __DIR__ . '/includes/header.php';
                     </div>
                 </div>
                 <div class="settings-card-body">
-                    <?php if ($currentLoginLogo && file_exists(BASE_PATH . '/uploads/logos/' . $currentLoginLogo)): ?>
+                    <?php 
+                    $loginLogoUrl = null;
+                    if ($currentLoginLogo) {
+                        $cl = CloudinaryHelper::getInstance();
+                        $loginLogoUrl = $cl->getDisplayUrl($currentLoginLogo, 'uploads/logos/');
+                    }
+                    ?>
+                    <?php if ($loginLogoUrl): ?>
                     <div class="preview-box mb-3">
-                        <img src="<?php echo BASE_URL . '/uploads/logos/' . $currentLoginLogo; ?>?v=<?php echo time(); ?>" 
+                        <img src="<?php echo $loginLogoUrl; ?>?v=<?php echo time(); ?>" 
                              alt="Login Logo" style="max-width:100px;max-height:100px;border-radius:8px;">
                         <div class="mt-2">
                             <form method="POST" style="display:inline;">
@@ -790,14 +799,21 @@ require_once __DIR__ . '/includes/header.php';
                     </div>
                 </div>
                 <div class="settings-card-body">
-                    <?php if ($currentFavicon && file_exists(BASE_PATH . '/uploads/icons/' . $currentFavicon)): ?>
+                    <?php 
+                    $faviconUrl = null;
+                    if ($currentFavicon) {
+                        $cl = CloudinaryHelper::getInstance();
+                        $faviconUrl = $cl->getDisplayUrl($currentFavicon, 'uploads/icons/');
+                    }
+                    ?>
+                    <?php if ($faviconUrl): ?>
                     <div class="preview-box mb-3">
-                        <img src="<?php echo BASE_URL . '/uploads/icons/' . $currentFavicon; ?>?v=<?php echo time(); ?>" 
+                        <img src="<?php echo $faviconUrl; ?>?v=<?php echo time(); ?>" 
                              alt="Favicon" style="width:48px;height:48px;border-radius:4px;">
                         <div class="mt-2" style="font-size:0.75rem;color:#888;">
                             Preview di tab: 
                             <span style="display:inline-flex;align-items:center;background:#f1f5f9;padding:4px 10px;border-radius:6px;margin-left:5px;">
-                                <img src="<?php echo BASE_URL . '/uploads/icons/' . $currentFavicon; ?>?v=<?php echo time(); ?>" style="width:16px;height:16px;margin-right:6px;">
+                                <img src="<?php echo $faviconUrl; ?>?v=<?php echo time(); ?>" style="width:16px;height:16px;margin-right:6px;">
                                 <span style="font-size:0.7rem;color:#333;">ADF System</span>
                             </span>
                         </div>

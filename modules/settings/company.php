@@ -3,6 +3,7 @@ require_once '../../config/config.php';
 require_once '../../config/database.php';
 require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
+require_once '../../includes/CloudinaryHelper.php';
 
 $auth = new Auth();
 $auth->requireLogin();
@@ -56,51 +57,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         // Handle logo upload (per business)
         if (isset($_FILES['company_logo']) && $_FILES['company_logo']['error'] === UPLOAD_ERR_OK) {
-            $uploadDir = '../../uploads/logos/';
-            if (!is_dir($uploadDir)) {
-                mkdir($uploadDir, 0777, true);
-            }
-            
             $fileExt = strtolower(pathinfo($_FILES['company_logo']['name'], PATHINFO_EXTENSION));
             $allowedExts = ['jpg', 'jpeg', 'png', 'gif'];
             
             if (in_array($fileExt, $allowedExts)) {
-                // Filename with business ID prefix (unique per business)
-                $fileName = ACTIVE_BUSINESS_ID . '_logo.' . $fileExt;
-                $targetPath = $uploadDir . $fileName;
+                $localFilename = ACTIVE_BUSINESS_ID . '_logo.' . $fileExt;
                 
-                if (move_uploaded_file($_FILES['company_logo']['tmp_name'], $targetPath)) {
-                    // Delete old logo for this business (if exists with old naming)
-                    $oldLogoPrefixes = [
-                        ACTIVE_BUSINESS_ID . '_logo_*.jpg',
-                        ACTIVE_BUSINESS_ID . '_logo_*.jpeg',
-                        ACTIVE_BUSINESS_ID . '_logo_*.png',
-                        ACTIVE_BUSINESS_ID . '_logo_*.gif'
-                    ];
-                    foreach ($oldLogoPrefixes as $pattern) {
-                        $oldFiles = glob($uploadDir . $pattern);
-                        foreach ($oldFiles as $oldFile) {
-                            if (file_exists($oldFile) && $oldFile !== $targetPath) {
-                                unlink($oldFile);
-                            }
-                        }
-                    }
+                // Smart upload: Cloudinary → local fallback
+                $cloudinary = CloudinaryHelper::getInstance();
+                $uploadResult = $cloudinary->smartUpload(
+                    $_FILES['company_logo'],
+                    'uploads/logos',
+                    $localFilename,
+                    'logos',
+                    'company_logo_' . ACTIVE_BUSINESS_ID
+                );
+                
+                if ($uploadResult['success']) {
+                    $storedValue = $uploadResult['path'];
                     
-                    // Store filename in settings (simple approach without business_id column)
-                    $db->query(
-                        "UPDATE settings SET setting_value = :value WHERE setting_key = :key",
-                        ['value' => $fileName, 'key' => 'company_logo_' . ACTIVE_BUSINESS_ID]
-                    );
-                    
-                    // Insert if not exists (fallback)
+                    // Store in settings
+                    $settingKey = 'company_logo_' . ACTIVE_BUSINESS_ID;
                     $exists = $db->fetchOne(
                         "SELECT id FROM settings WHERE setting_key = :key",
-                        ['key' => 'company_logo_' . ACTIVE_BUSINESS_ID]
+                        ['key' => $settingKey]
                     );
-                    if (!$exists) {
+                    if ($exists) {
+                        $db->query(
+                            "UPDATE settings SET setting_value = :value WHERE setting_key = :key",
+                            ['value' => $storedValue, 'key' => $settingKey]
+                        );
+                    } else {
                         $db->insert('settings', [
-                            'setting_key' => 'company_logo_' . ACTIVE_BUSINESS_ID,
-                            'setting_value' => $fileName,
+                            'setting_key' => $settingKey,
+                            'setting_value' => $storedValue,
                             'setting_type' => 'file',
                             'description' => 'Company logo for ' . BUSINESS_NAME
                         ]);

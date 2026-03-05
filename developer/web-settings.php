@@ -15,6 +15,7 @@ require_once dirname(dirname(__FILE__)) . '/config/config.php';
 require_once dirname(dirname(__FILE__)) . '/config/database.php';
 require_once __DIR__ . '/includes/dev_auth.php';
 require_once dirname(dirname(__FILE__)) . '/includes/functions.php';
+require_once dirname(dirname(__FILE__)) . '/includes/CloudinaryHelper.php';
 
 $devAuth = new DevAuth();
 $devAuth->requireLogin();
@@ -170,22 +171,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         // Handle logo upload
         if (isset($_FILES['web_logo']) && $_FILES['web_logo']['error'] === UPLOAD_ERR_OK) {
-            $uploadDir = dirname(dirname(__FILE__)) . '/uploads/logo/';
-            if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
             $fileInfo = pathinfo($_FILES['web_logo']['name']);
             $allowedExts = ['png', 'svg', 'jpg', 'jpeg', 'webp', 'gif'];
             if (in_array(strtolower($fileInfo['extension']), $allowedExts)) {
-                $newFileName = 'logo-' . time() . '.' . $fileInfo['extension'];
-                $uploadPath = $uploadDir . $newFileName;
-                if (move_uploaded_file($_FILES['web_logo']['tmp_name'], $uploadPath)) {
-                    $relativePath = 'uploads/logo/' . $newFileName;
+                $localFilename = 'logo-' . time() . '.' . $fileInfo['extension'];
+                $cloudinary = CloudinaryHelper::getInstance();
+                $uploadResult = $cloudinary->smartUpload($_FILES['web_logo'], 'uploads/logo', $localFilename, 'website', 'web_logo');
+                if ($uploadResult['success']) {
+                    $relativePath = $uploadResult['path'];
                     $stmt = $webDb->prepare("INSERT INTO settings (setting_key, setting_value, setting_type, description) VALUES ('web_logo', ?, 'text', 'Website Logo') ON DUPLICATE KEY UPDATE setting_value = ?");
                     $stmt->execute([$relativePath, $relativePath]);
-                    $websiteLogoDir = $websitePublicDir . '/uploads/logo/';
-                    if (!is_dir($websiteLogoDir)) @mkdir($websiteLogoDir, 0755, true);
-                    @copy($uploadPath, $websiteLogoDir . $newFileName);
+                    // Sync to website public dir if local
+                    if (!$uploadResult['is_cloud']) {
+                        $websiteLogoDir = $websitePublicDir . '/uploads/logo/';
+                        if (!is_dir($websiteLogoDir)) @mkdir($websiteLogoDir, 0755, true);
+                        @copy(dirname(dirname(__FILE__)) . '/' . $relativePath, $websiteLogoDir . $localFilename);
+                    }
                     $oldLogo = $webSettings['web_logo'] ?? '';
-                    if ($oldLogo) {
+                    if ($oldLogo && strpos($oldLogo, 'http') !== 0) {
                         $old1 = dirname(dirname(__FILE__)) . '/' . $oldLogo;
                         $old2 = $websitePublicDir . '/' . $oldLogo;
                         if (file_exists($old1)) @unlink($old1);
@@ -225,31 +228,31 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
         // Handle favicon upload
         if (isset($_FILES['web_favicon']) && $_FILES['web_favicon']['error'] === UPLOAD_ERR_OK) {
-            $uploadDir = dirname(dirname(__FILE__)) . '/uploads/favicon/';
-            if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
-
             $fileInfo = pathinfo($_FILES['web_favicon']['name']);
             $allowedExts = ['ico', 'png', 'svg', 'jpg', 'jpeg', 'webp'];
 
             if (in_array(strtolower($fileInfo['extension']), $allowedExts)) {
-                $newFileName = 'favicon-' . time() . '.' . $fileInfo['extension'];
-                $uploadPath = $uploadDir . $newFileName;
+                $localFilename = 'favicon-' . time() . '.' . $fileInfo['extension'];
+                $cloudinary = CloudinaryHelper::getInstance();
+                $uploadResult = $cloudinary->smartUpload($_FILES['web_favicon'], 'uploads/favicon', $localFilename, 'website', 'web_favicon');
 
-                if (move_uploaded_file($_FILES['web_favicon']['tmp_name'], $uploadPath)) {
-                    $relativePath = 'uploads/favicon/' . $newFileName;
+                if ($uploadResult['success']) {
+                    $relativePath = $uploadResult['path'];
                     $stmt = $webDb->prepare("INSERT INTO settings (setting_key, setting_value, setting_type, description)
                                 VALUES ('web_favicon', ?, 'text', 'Website Favicon Icon')
                                 ON DUPLICATE KEY UPDATE setting_value = ?");
                     $stmt->execute([$relativePath, $relativePath]);
 
-                    // Auto-sync to website public dir
-                    $websiteFaviconDir = $websitePublicDir . '/uploads/favicon/';
-                    if (!is_dir($websiteFaviconDir)) @mkdir($websiteFaviconDir, 0755, true);
-                    @copy($uploadPath, $websiteFaviconDir . $newFileName);
+                    // Sync to website public dir if local
+                    if (!$uploadResult['is_cloud']) {
+                        $websiteFaviconDir = $websitePublicDir . '/uploads/favicon/';
+                        if (!is_dir($websiteFaviconDir)) @mkdir($websiteFaviconDir, 0755, true);
+                        @copy(dirname(dirname(__FILE__)) . '/' . $relativePath, $websiteFaviconDir . $localFilename);
+                    }
 
                     // Delete old favicon
                     $oldFav = $webSettings['web_favicon'] ?? '';
-                    if ($oldFav) {
+                    if ($oldFav && strpos($oldFav, 'http') !== 0) {
                         $old1 = dirname(dirname(__FILE__)) . '/' . $oldFav;
                         $old2 = $websitePublicDir . '/' . $oldFav;
                         if (file_exists($old1)) @unlink($old1);
@@ -311,39 +314,44 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         // Handle hero background image upload
         if (isset($_FILES['web_hero_background']) && $_FILES['web_hero_background']['error'] === UPLOAD_ERR_OK) {
-            $uploadDir = dirname(dirname(__FILE__)) . '/uploads/hero/';
-            
-            // Create directory if not exists
-            if (!is_dir($uploadDir)) {
-                mkdir($uploadDir, 0755, true);
-            }
-            
             $fileInfo = pathinfo($_FILES['web_hero_background']['name']);
             $allowedExts = ['jpg', 'jpeg', 'png', 'webp'];
             
             if (in_array(strtolower($fileInfo['extension']), $allowedExts)) {
-                $newFileName = 'hero-bg-' . time() . '.' . $fileInfo['extension'];
-                $uploadPath = $uploadDir . $newFileName;
+                $localFilename = 'hero-bg-' . time() . '.' . $fileInfo['extension'];
                 
-                if (move_uploaded_file($_FILES['web_hero_background']['tmp_name'], $uploadPath)) {
-                    // Save relative path to database
-                    $relativePath = 'uploads/hero/' . $newFileName;
+                // Smart upload: Cloudinary → local fallback
+                $cloudinary = CloudinaryHelper::getInstance();
+                $uploadResult = $cloudinary->smartUpload(
+                    $_FILES['web_hero_background'],
+                    'uploads/hero',
+                    $localFilename,
+                    'hero',
+                    'hero_background'
+                );
+                
+                if ($uploadResult['success']) {
+                    $storedValue = $uploadResult['is_cloud'] ? $uploadResult['url'] : 'uploads/hero/' . $localFilename;
+                    
                     $stmt = $webDb->prepare("INSERT INTO settings (setting_key, setting_value, setting_type, description) 
                                 VALUES ('web_hero_background', ?, 'text', 'Website Hero Background Image') 
                                 ON DUPLICATE KEY UPDATE setting_value = ?");
-                    $stmt->execute([$relativePath, $relativePath]);
-                    $webSettings['web_hero_background'] = $relativePath;
+                    $stmt->execute([$storedValue, $storedValue]);
+                    $webSettings['web_hero_background'] = $storedValue;
                     
-                    // Auto-sync to narayanakarimunjawa website folder
-                    $websiteUploadDir = $websitePublicDir . '/uploads/hero/';
-                    if (!is_dir($websiteUploadDir)) {
-                        mkdir($websiteUploadDir, 0755, true);
+                    // Auto-sync to narayanakarimunjawa if local
+                    if (!$uploadResult['is_cloud']) {
+                        $uploadDir = dirname(dirname(__FILE__)) . '/uploads/hero/';
+                        $websiteUploadDir = $websitePublicDir . '/uploads/hero/';
+                        if (!is_dir($websiteUploadDir)) {
+                            mkdir($websiteUploadDir, 0755, true);
+                        }
+                        @copy($uploadDir . $localFilename, $websiteUploadDir . $localFilename);
                     }
-                    @copy($uploadPath, $websiteUploadDir . $newFileName);
                     
-                    // Delete old image if exists (both locations)
+                    // Delete old local image if exists
                     $oldBg = $currentValues['web_hero_background'] ?? '';
-                    if ($oldBg) {
+                    if ($oldBg && strpos($oldBg, 'http') !== 0) {
                         $oldFile1 = dirname(dirname(__FILE__)) . '/' . $oldBg;
                         $oldFile2 = $websitePublicDir . '/' . $oldBg;
                         if (file_exists($oldFile1)) unlink($oldFile1);
@@ -471,6 +479,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     mkdir($websiteUploadDir, 0755, true);
                 }
                 
+                $cloudinary = CloudinaryHelper::getInstance();
                 $uploaded = 0;
                 foreach ($_FILES['room_images']['tmp_name'] as $key => $tmpName) {
                     if ($_FILES['room_images']['error'][$key] === UPLOAD_ERR_OK) {
@@ -479,8 +488,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         
                         if (in_array(strtolower($fileInfo['extension']), $allowedExts)) {
                             $newFileName = $roomType . '-' . time() . '-' . $uploaded . '.' . $fileInfo['extension'];
-                            $uploadPath = $uploadDir . $newFileName;
                             
+                            // Try Cloudinary first
+                            if ($cloudinary->isEnabled()) {
+                                $cloudResult = $cloudinary->upload($tmpName, 'rooms/' . $roomType);
+                                if ($cloudResult) {
+                                    $existingGallery[] = $cloudResult['secure_url'];
+                                    $uploaded++;
+                                    continue;
+                                }
+                            }
+                            
+                            // Fallback: local storage
+                            $uploadPath = $uploadDir . $newFileName;
                             if (move_uploaded_file($tmpName, $uploadPath)) {
                                 // Auto-sync to narayanakarimunjawa
                                 @copy($uploadPath, $websiteUploadDir . $newFileName);
@@ -557,18 +577,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             
             // Handle image upload for new destination
             if (isset($_FILES['dest_image']) && $_FILES['dest_image']['error'] === UPLOAD_ERR_OK) {
-                $uploadDir = dirname(dirname(__FILE__)) . '/uploads/destinations/';
-                if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
                 $fileInfo = pathinfo($_FILES['dest_image']['name']);
                 $allowedExts = ['jpg', 'jpeg', 'png', 'webp'];
                 if (in_array(strtolower($fileInfo['extension']), $allowedExts)) {
-                    $newFileName = 'dest-' . time() . '.' . $fileInfo['extension'];
-                    $uploadPath = $uploadDir . $newFileName;
-                    if (move_uploaded_file($_FILES['dest_image']['tmp_name'], $uploadPath)) {
-                        $newDest['image'] = 'uploads/destinations/' . $newFileName;
-                        $websiteDestDir = $websitePublicDir . '/uploads/destinations/';
-                        if (!is_dir($websiteDestDir)) @mkdir($websiteDestDir, 0755, true);
-                        @copy($uploadPath, $websiteDestDir . $newFileName);
+                    $localFilename = 'dest-' . time() . '.' . $fileInfo['extension'];
+                    $cloudinary = CloudinaryHelper::getInstance();
+                    $uploadResult = $cloudinary->smartUpload($_FILES['dest_image'], 'uploads/destinations', $localFilename, 'destinations', 'dest_' . $newDest['id']);
+                    if ($uploadResult['success']) {
+                        $newDest['image'] = $uploadResult['path'];
+                        if (!$uploadResult['is_cloud']) {
+                            $websiteDestDir = $websitePublicDir . '/uploads/destinations/';
+                            if (!is_dir($websiteDestDir)) @mkdir($websiteDestDir, 0755, true);
+                            @copy(dirname(dirname(__FILE__)) . '/' . $uploadResult['path'], $websiteDestDir . $localFilename);
+                        }
                     }
                 }
             }
@@ -591,25 +612,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         // Handle image upload for update
                         $fileKey = 'dest_update_image_' . $destId;
                         if (isset($_FILES[$fileKey]) && $_FILES[$fileKey]['error'] === UPLOAD_ERR_OK) {
-                            $uploadDir = dirname(dirname(__FILE__)) . '/uploads/destinations/';
-                            if (!is_dir($uploadDir)) mkdir($uploadDir, 0755, true);
                             $fileInfo = pathinfo($_FILES[$fileKey]['name']);
                             $allowedExts = ['jpg', 'jpeg', 'png', 'webp'];
                             if (in_array(strtolower($fileInfo['extension']), $allowedExts)) {
-                                $newFileName = 'dest-' . time() . '-' . $idx . '.' . $fileInfo['extension'];
-                                $uploadPath = $uploadDir . $newFileName;
-                                if (move_uploaded_file($_FILES[$fileKey]['tmp_name'], $uploadPath)) {
-                                    // Delete old image
-                                    if (!empty($d['image'])) {
+                                $localFilename = 'dest-' . time() . '-' . $idx . '.' . $fileInfo['extension'];
+                                $cloudinary = CloudinaryHelper::getInstance();
+                                $uploadResult = $cloudinary->smartUpload($_FILES[$fileKey], 'uploads/destinations', $localFilename, 'destinations', 'dest_' . $destId);
+                                if ($uploadResult['success']) {
+                                    // Delete old image (local only)
+                                    if (!empty($d['image']) && strpos($d['image'], 'http') !== 0) {
                                         $old1 = dirname(dirname(__FILE__)) . '/' . $d['image'];
                                         $old2 = $websitePublicDir . '/' . $d['image'];
                                         if (file_exists($old1)) @unlink($old1);
                                         if (file_exists($old2)) @unlink($old2);
                                     }
-                                    $d['image'] = 'uploads/destinations/' . $newFileName;
-                                    $websiteDestDir = $websitePublicDir . '/uploads/destinations/';
-                                    if (!is_dir($websiteDestDir)) @mkdir($websiteDestDir, 0755, true);
-                                    @copy($uploadPath, $websiteDestDir . $newFileName);
+                                    $d['image'] = $uploadResult['path'];
+                                    if (!$uploadResult['is_cloud']) {
+                                        $websiteDestDir = $websitePublicDir . '/uploads/destinations/';
+                                        if (!is_dir($websiteDestDir)) @mkdir($websiteDestDir, 0755, true);
+                                        @copy(dirname(dirname(__FILE__)) . '/' . $uploadResult['path'], $websiteDestDir . $localFilename);
+                                    }
                                 }
                             }
                         }

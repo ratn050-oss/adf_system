@@ -3,6 +3,7 @@ require_once '../../config/config.php';
 require_once '../../config/database.php';
 require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
+require_once '../../includes/CloudinaryHelper.php';
 
 $auth = new Auth();
 $auth->requireLogin();
@@ -66,45 +67,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['invoice_logo'])) {
         } elseif ($file['size'] > $maxSize) {
             setFlashMessage('error', 'Ukuran file terlalu besar. Maksimal 2MB.');
         } else {
-            // Create uploads directory if not exists
-            $uploadDir = BASE_PATH . '/uploads/logos/';
-            if (!file_exists($uploadDir)) {
-                mkdir($uploadDir, 0755, true);
-            }
-            
-            // Generate unique filename
             $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
-            $filename = ACTIVE_BUSINESS_ID . '_invoice_logo.' . $extension;
-            $uploadPath = $uploadDir . $filename;
+            $localFilename = ACTIVE_BUSINESS_ID . '_invoice_logo.' . $extension;
             
-            // Delete old logo for this business if exists
-            $currentLogo = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'invoice_logo_' . :key", 
-                ['key' => ACTIVE_BUSINESS_ID]);
-            if ($currentLogo && file_exists($uploadDir . $currentLogo['setting_value'])) {
-                unlink($uploadDir . $currentLogo['setting_value']);
-            }
+            // Smart upload: Cloudinary → local fallback
+            $cloudinary = CloudinaryHelper::getInstance();
+            $uploadResult = $cloudinary->smartUpload(
+                $file,
+                'uploads/logos',
+                $localFilename,
+                'logos',
+                'invoice_logo_' . ACTIVE_BUSINESS_ID
+            );
             
-            // Move uploaded file
-            if (move_uploaded_file($file['tmp_name'], $uploadPath)) {
-                // Update database with business-specific key
+            if ($uploadResult['success']) {
+                $storedValue = $uploadResult['path'];
                 $settingKey = 'invoice_logo_' . ACTIVE_BUSINESS_ID;
                 $exists = $db->fetchOne("SELECT COUNT(*) as count FROM settings WHERE setting_key = :key", 
                     ['key' => $settingKey]);
                 
                 if ($exists['count'] > 0) {
                     $db->update('settings', 
-                        ['setting_value' => $filename], 
+                        ['setting_value' => $storedValue], 
                         'setting_key = :key', 
                         ['key' => $settingKey]
                     );
                 } else {
                     $db->insert('settings', [
                         'setting_key' => $settingKey,
-                        'setting_value' => $filename
+                        'setting_value' => $storedValue
                     ]);
                 }
                 
-                setFlashMessage('success', 'Logo faktur berhasil diunggah!');
+                setFlashMessage('success', 'Logo faktur berhasil diunggah!' . ($uploadResult['is_cloud'] ? ' (Cloudinary)' : ''));
                 header('Location: report-settings.php');
                 exit;
             } else {

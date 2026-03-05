@@ -5,6 +5,7 @@
  */
 
 require_once __DIR__ . '/../config/database.php';
+require_once __DIR__ . '/CloudinaryHelper.php';
 
 /**
  * Generate Purchase Order Number
@@ -409,20 +410,15 @@ function approvePurchaseOrderAndPay($po_id, $approved_by, $options = []) {
         // 2. Handle File Upload (Attachment)
         $attachment_path = null;
         if (isset($options['attachment_file']) && $options['attachment_file']['error'] === UPLOAD_ERR_OK) {
-            $upload_dir = __DIR__ . '/../uploads/purchase_attachments/';
-            if (!is_dir($upload_dir)) {
-                mkdir($upload_dir, 0755, true);
-            }
-            
             $file_extension = strtolower(pathinfo($options['attachment_file']['name'], PATHINFO_EXTENSION));
             $allowed_extensions = ['jpg', 'jpeg', 'png', 'pdf', 'gif'];
             
             if (in_array($file_extension, $allowed_extensions)) {
                 $new_filename = 'PO_' . $po['po_number'] . '_' . time() . '.' . $file_extension;
-                $upload_path = $upload_dir . $new_filename;
-                
-                if (move_uploaded_file($options['attachment_file']['tmp_name'], $upload_path)) {
-                    $attachment_path = 'uploads/purchase_attachments/' . $new_filename;
+                $cloudinary = CloudinaryHelper::getInstance();
+                $uploadResult = $cloudinary->smartUpload($options['attachment_file'], 'uploads/purchase_attachments', $new_filename, 'attachments', 'po_' . $po['po_number']);
+                if ($uploadResult['success']) {
+                    $attachment_path = $uploadResult['path'];
                 }
             }
         }
