@@ -63,7 +63,7 @@ $serviceLabels = [
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
 body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f2f5;color:#1a1a2e;font-size:13px}
-.page{width:100%;max-width:760px;margin:20px auto;background:white;box-shadow:0 4px 24px rgba(0,0,0,0.12)}
+.page{width:100%;max-width:760px;margin:20px auto;background:white;box-shadow:0 4px 24px rgba(0,0,0,0.12);position:relative;overflow:hidden}
 /* Header */
 .inv-head{background:linear-gradient(135deg,#1e3a5f 0%,#0d2137 100%);color:white;padding:2rem 2.5rem;display:flex;justify-content:space-between;align-items:flex-start}
 .inv-head .company-name{font-size:1.3rem;font-weight:800;letter-spacing:0.03em;margin-bottom:0.25rem}
@@ -107,7 +107,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f2f5;color:#1a1a2e;fo
 .inv-foot{background:#f8fafc;padding:1.25rem 2.5rem;text-align:center;font-size:0.75rem;color:#94a3b8;border-top:2px solid #e2e8f0}
 .inv-foot strong{color:#1e3a5f;display:block;margin-bottom:0.25rem;font-size:0.8rem}
 /* PAID watermark */
-.paid-watermark{position:fixed;top:40%;left:50%;transform:translate(-50%,-50%) rotate(-25deg);font-size:7rem;font-weight:900;color:rgba(16,185,129,0.1);pointer-events:none;z-index:9999;letter-spacing:0.1em}
+.paid-watermark{position:absolute;top:38%;left:50%;transform:translate(-50%,-50%) rotate(-25deg);font-size:7rem;font-weight:900;color:rgba(16,185,129,0.12);pointer-events:none;z-index:10;letter-spacing:0.1em;white-space:nowrap}
 /* No-print */
 .no-print{background:#1e3a5f;padding:0.75rem 2.5rem;display:flex;gap:0.75rem;align-items:center}
 .btn-print{background:white;color:#1e3a5f;border:none;border-radius:6px;padding:0.5rem 1.25rem;font-weight:700;cursor:pointer;font-size:0.85rem}
@@ -115,7 +115,10 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f2f5;color:#1a1a2e;fo
 @media print{
     body{background:white}
     .no-print{display:none!important}
-    .page{box-shadow:none;margin:0;max-width:none}
+    .page{box-shadow:none;margin:0;max-width:none;overflow:visible}
+    .inv-table tr:hover td{background:transparent!important}
+    .inv-table tr td{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .inv-head,.inv-table th,.status-banner,.totals-row.grand{-webkit-print-color-adjust:exact;print-color-adjust:exact}
     @page{margin:10mm 12mm}
 }
 </style>
@@ -129,11 +132,11 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f2f5;color:#1a1a2e;fo
     <span style="color:rgba(255,255,255,0.7);font-size:0.8rem;margin-left:auto"><?php echo htmlspecialchars($inv['invoice_number']); ?></span>
 </div>
 
+<div class="page">
+
 <?php if ($inv['payment_status'] === 'paid'): ?>
 <div class="paid-watermark">PAID</div>
 <?php endif; ?>
-
-<div class="page">
 
     <!-- Header -->
     <div class="inv-head">
@@ -263,7 +266,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f2f5;color:#1a1a2e;fo
         Contact: <?php echo htmlspecialchars(implode(' | ', array_filter([$companyPhone, $companyEmail]))); ?>
         <?php endif; ?>
     </div>
-</div>
+</div><!-- /page -->
 
 </body>
 </html>

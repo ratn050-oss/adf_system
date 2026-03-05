@@ -76,14 +76,70 @@ function syncServiceCashbook($db, $businessId, $userId, $amount, $method, $invoi
         $helper  = new CashbookHelper($db, $businessId, $userId);
         $account = $helper->getCashAccount($method);
         if (!$account) return false;
-        $svcText = implode(', ', array_unique($svcLabels));
-        $desc    = "Hotel Services [{$invoiceNo}] {$guestName} | {$svcText}";
-        $db->query(
-            "INSERT INTO cashbook_transactions
-             (transaction_date, transaction_type, account_id, category, description, amount, payment_method, reference_number, created_by, created_at)
-             VALUES (CURDATE(), 'income', ?, 'Hotel Services', ?, ?, ?, ?, NOW())",
-            [$account['id'], $desc, $amount, $method, $invoiceNo, $userId]
-        );
+
+        $svcText  = implode(', ', array_unique(array_filter($svcLabels)));
+        $desc     = "Hotel Services [{$invoiceNo}] {$guestName}" . ($svcText ? " | {$svcText}" : '');
+
+        // Map payment method to valid enum (matches CashbookHelper logic)
+        $methodMap = ['bank_transfer' => 'transfer', 'debit_card' => 'debit', 'credit_card' => 'credit'];
+        $allowed   = ['cash', 'transfer', 'qris', 'card', 'debit', 'credit'];
+        $cbMethod  = $methodMap[$method] ?? (in_array($method, $allowed) ? $method : 'cash');
+
+        $divId  = $helper->getDivisionId();
+        $catId  = $helper->getCategoryId();
+        $hasCa  = $helper->hasCashAccountIdColumn();
+        $bPdo   = $db->getConnection();
+        $now    = date('Y-m-d H:i:s');
+
+        // ── Insert into cash_book (business DB) ──────────────────────────────
+        if ($hasCa) {
+            $stmt = $bPdo->prepare("INSERT INTO cash_book
+                (transaction_date, transaction_time, division_id, category_id,
+                 description, transaction_type, amount, payment_method,
+                 cash_account_id, is_editable, created_by, created_at)
+                VALUES (DATE(?), TIME(?), ?, ?, ?, 'income', ?, ?, ?, 1, ?, NOW())");
+            $stmt->execute([$now, $now, $divId, $catId, $desc, $amount, $cbMethod, $account['id'], $userId]);
+        } else {
+            $stmt = $bPdo->prepare("INSERT INTO cash_book
+                (transaction_date, transaction_time, division_id, category_id,
+                 description, transaction_type, amount, payment_method,
+                 is_editable, created_by, created_at)
+                VALUES (DATE(?), TIME(?), ?, ?, ?, 'income', ?, ?, 1, ?, NOW())");
+            $stmt->execute([$now, $now, $divId, $catId, $desc, $amount, $cbMethod, $userId]);
+        }
+        $transId = (int)$bPdo->lastInsertId();
+
+        // ── Sync to master DB: cash_account_transactions + balance ───────────
+        try {
+            $masterDbName = defined('MASTER_DB_NAME') ? MASTER_DB_NAME : (defined('DB_NAME') ? DB_NAME : null);
+            if ($masterDbName) {
+                $mPdo = new PDO(
+                    "mysql:host=" . DB_HOST . ";dbname={$masterDbName};charset=" . DB_CHARSET,
+                    DB_USER, DB_PASS,
+                    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+                );
+                $hasTxCol = (bool)$mPdo->query("SHOW COLUMNS FROM cash_account_transactions LIKE 'transaction_id'")->fetch();
+                if ($hasTxCol) {
+                    $mPdo->prepare("INSERT INTO cash_account_transactions
+                        (cash_account_id, transaction_id, transaction_date,
+                         description, amount, transaction_type, reference_number, created_by, created_at)
+                        VALUES (?, ?, DATE(?), ?, ?, 'income', ?, ?, NOW())")
+                        ->execute([$account['id'], $transId, $now, $desc, $amount, $invoiceNo, $userId]);
+                } else {
+                    $mPdo->prepare("INSERT INTO cash_account_transactions
+                        (cash_account_id, transaction_date,
+                         description, amount, transaction_type, reference_number, created_by, created_at)
+                        VALUES (?, DATE(?), ?, ?, 'income', ?, ?, NOW())")
+                        ->execute([$account['id'], $now, $desc, $amount, $invoiceNo, $userId]);
+                }
+                $newBal = $account['current_balance'] + $amount;
+                $mPdo->prepare("UPDATE cash_accounts SET current_balance = ? WHERE id = ?")
+                    ->execute([$newBal, $account['id']]);
+            }
+        } catch (\Throwable $me) {
+            error_log("Hotel svc cashbook master sync: " . $me->getMessage());
+        }
+
         return true;
     } catch (\Throwable $e) {
         error_log("Hotel svc cashbook error: " . $e->getMessage());
@@ -258,7 +314,7 @@ $stmt = $pdo->prepare("SELECT hi.*,
 $stmt->execute($params);
 $invoices = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-// Stats
+// Stats — today totals
 $stats = $pdo->prepare("SELECT COUNT(*) as total,
     COALESCE(SUM(total),0) as revenue, COALESCE(SUM(paid_amount),0) as collected,
     SUM(CASE WHEN status='completed' THEN 1 ELSE 0 END) as completed,
@@ -266,6 +322,23 @@ $stats = $pdo->prepare("SELECT COUNT(*) as total,
     FROM hotel_invoices WHERE business_id=? AND DATE(created_at)=CURDATE()");
 $stats->execute([$businessId]);
 $today = $stats->fetch(PDO::FETCH_ASSOC);
+
+// Revenue per service type — this month (paid/partial invoices)
+$svcRevStmt = $pdo->prepare("
+    SELECT hii.service_type,
+           COUNT(DISTINCT hii.invoice_id) AS invoice_count,
+           SUM(hii.total_price)           AS total_revenue
+    FROM hotel_invoice_items hii
+    JOIN hotel_invoices hi ON hii.invoice_id = hi.id
+    WHERE hi.business_id = ?
+      AND hi.payment_status IN ('paid','partial')
+      AND YEAR(hi.created_at)  = YEAR(CURDATE())
+      AND MONTH(hi.created_at) = MONTH(CURDATE())
+    GROUP BY hii.service_type
+    ORDER BY total_revenue DESC
+");
+$svcRevStmt->execute([$businessId]);
+$svcRevStats = $svcRevStmt->fetchAll(PDO::FETCH_ASSOC);
 
 // In-house guests
 try {
@@ -356,6 +429,30 @@ include '../../includes/header.php';
         <div class="hs-stat" style="--c:#ef4444"><div class="val"><?php echo $today['unpaid']; ?></div><div class="lbl">Unpaid</div></div>
         <div class="hs-stat" style="--c:#8b5cf6"><div class="val"><?php echo $today['completed']; ?></div><div class="lbl">Completed</div></div>
     </div>
+
+    <!-- Revenue per Service Type (this month) -->
+    <?php if (!empty($svcRevStats)): ?>
+    <div style="background:white;border-radius:10px;box-shadow:0 1px 4px rgba(0,0,0,0.07);padding:0.85rem 1rem;margin-bottom:1rem;">
+        <div style="font-size:0.72rem;font-weight:700;color:var(--text-secondary);text-transform:uppercase;letter-spacing:0.04em;margin-bottom:0.65rem;">
+            📊 Revenue per Service — This Month
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:0.6rem;">
+            <?php
+            $svcColors = ['motor_rental'=>'#f59e0b','laundry'=>'#3b82f6','service'=>'#10b981','airport_drop'=>'#8b5cf6','harbor_drop'=>'#06b6d4'];
+            foreach ($svcRevStats as $sr):
+                $svcKey  = $sr['service_type'];
+                $svcInfo = $serviceTypes[$svcKey] ?? ['label'=>$svcKey,'icon'=>'🔹'];
+                $color   = $svcColors[$svcKey] ?? '#6366f1';
+            ?>
+            <div style="flex:1;min-width:130px;border-left:3px solid <?php echo $color; ?>;padding:0.5rem 0.75rem;background:#fafbff;border-radius:0 7px 7px 0;">
+                <div style="font-size:0.8rem;font-weight:700;color:<?php echo $color; ?>"><?php echo $svcInfo['icon']; ?> <?php echo htmlspecialchars($svcInfo['label']); ?></div>
+                <div style="font-size:0.95rem;font-weight:800;color:#1e293b;margin-top:0.15rem">Rp <?php echo number_format($sr['total_revenue'],0,',','.'); ?></div>
+                <div style="font-size:0.68rem;color:var(--text-secondary)"><?php echo $sr['invoice_count']; ?> invoice<?php echo $sr['invoice_count']!=1?'s':''; ?></div>
+            </div>
+            <?php endforeach; ?>
+        </div>
+    </div>
+    <?php endif; ?>
 
     <!-- Filters -->
     <form method="GET" class="hs-filters">
