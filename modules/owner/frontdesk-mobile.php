@@ -246,6 +246,24 @@ try {
         foreach ($roomStatus as $rs) {
             $roomStatusMap[$rs['status']] = (int)$rs['count'];
         }
+
+        // This month's reservations (all statuses except cancelled)
+        $stmt = $pdo->prepare("
+            SELECT b.id, g.guest_name, b.check_in_date, b.check_out_date,
+                   r.room_number, rt.type_name as room_type,
+                   b.status, b.final_price, b.paid_amount,
+                   b.booking_source
+            FROM bookings b
+            LEFT JOIN guests g ON b.guest_id = g.id
+            LEFT JOIN rooms r ON b.room_id = r.id
+            LEFT JOIN room_types rt ON r.room_type_id = rt.id
+            WHERE DATE_FORMAT(b.check_in_date, '%Y-%m') = ?
+              AND b.status NOT IN ('cancelled')
+            ORDER BY b.check_in_date ASC
+            LIMIT 50
+        ");
+        $stmt->execute([$thisMonth]);
+        $monthReservations = $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
 } catch (Exception $e) {
     $error = $e->getMessage();
@@ -597,6 +615,22 @@ function rp($num) {
             font-weight: 600;
         }
         
+        /* ── Reservasi Bulan Ini ─────────────────────────────────── */
+        .res-table-wrap { background: var(--card); border-radius: 12px; overflow: hidden; box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-bottom: 16px; }
+        .res-table { width: 100%; border-collapse: collapse; font-size: 11px; }
+        .res-table thead tr { background: linear-gradient(90deg, #6366f1, #818cf8); }
+        .res-table th { color: #fff; padding: 7px 8px; font-size: 10px; font-weight: 600; letter-spacing: 0.04em; text-align: left; }
+        .res-table th.r { text-align: right; }
+        .res-table td { padding: 7px 8px; border-bottom: 1px solid var(--border); color: var(--text); vertical-align: middle; }
+        .res-table tbody tr:last-child td { border-bottom: none; }
+        .res-table tbody tr:nth-child(even) td { background: #f8faff; }
+        .res-status { display: inline-block; padding: 2px 6px; border-radius: 8px; font-size: 9px; font-weight: 700; letter-spacing: 0.03em; }
+        .res-s-confirmed  { background: #dbeafe; color: #1d4ed8; }
+        .res-s-checked_in { background: #dcfce7; color: #15803d; }
+        .res-s-checked_out{ background: #f1f5f9; color: #475569; }
+        .res-s-pending    { background: #fef9c3; color: #a16207; }
+        .res-empty { text-align: center; padding: 20px; color: var(--text-muted); font-size: 12px; }
+
         /* Empty State */
         .empty-state {
             text-align: center;
@@ -872,10 +906,68 @@ function rp($num) {
         </div>
         
         <?php endif; ?>
+
+        <!-- ══ Reservasi Bulan Ini ══════════════════════════════════════════════ -->
+        <?php
+            $monthReservations = $monthReservations ?? [];
+            $monthName = date('F Y');
+            $statusLabel = [
+                'confirmed'   => 'Confirmed',
+                'checked_in'  => 'In-House',
+                'checked_out' => 'Checked-Out',
+                'pending'     => 'Pending',
+            ];
+            $statusClass = [
+                'confirmed'   => 'res-s-confirmed',
+                'checked_in'  => 'res-s-checked_in',
+                'checked_out' => 'res-s-checked_out',
+                'pending'     => 'res-s-pending',
+            ];
+        ?>
+        <div class="section-title">
+            📅 Reservasi Bulan Ini
+            <span class="badge"><?= count($monthReservations) ?></span>
+        </div>
+
+        <div class="res-table-wrap">
+            <?php if (empty($monthReservations)): ?>
+            <div class="res-empty">Belum ada reservasi bulan <?= $monthName ?></div>
+            <?php else: ?>
+            <div style="overflow-x:auto">
+            <table class="res-table">
+                <thead>
+                    <tr>
+                        <th>Tamu</th>
+                        <th>Kamar</th>
+                        <th>Check-in</th>
+                        <th>Check-out</th>
+                        <th>Status</th>
+                        <th class="r">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                <?php foreach ($monthReservations as $res): ?>
+                <tr>
+                    <td style="max-width:90px">
+                        <div style="font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:88px"><?= htmlspecialchars($res['guest_name'] ?? '-') ?></div>
+                        <?php if (!empty($res['booking_source'])): ?>
+                        <div style="font-size:9px;color:var(--text-muted)"><?= htmlspecialchars($res['booking_source']) ?></div>
+                        <?php endif; ?>
+                    </td>
+                    <td style="font-weight:700;color:var(--primary)"><?= htmlspecialchars($res['room_number'] ?? '-') ?><div style="font-size:9px;color:var(--text-muted);font-weight:400"><?= htmlspecialchars(substr($res['room_type'] ?? '', 0, 8)) ?></div></td>
+                    <td style="white-space:nowrap"><?= date('d M', strtotime($res['check_in_date'])) ?></td>
+                    <td style="white-space:nowrap"><?= date('d M', strtotime($res['check_out_date'])) ?></td>
+                    <td><span class="res-status <?= $statusClass[$res['status']] ?? '' ?>"><?= $statusLabel[$res['status']] ?? ucfirst($res['status']) ?></span></td>
+                    <td style="text-align:right;font-weight:600;white-space:nowrap"><?= rp((float)$res['final_price']) ?></td>
+                </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+            </div>
+            <?php endif; ?>
+        </div>
+
         
-    </div>
-    
-    <!-- Footer Nav -->
     <?php
     require_once __DIR__ . '/../../includes/owner_footer_nav.php';
     $activeConfig = getActiveBusinessConfig();
