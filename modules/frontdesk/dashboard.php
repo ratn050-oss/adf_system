@@ -172,18 +172,14 @@ try {
     ", [$today]);
     $stats['revenue_today'] = $revenueResult['total'] ?? 0;
 
-    // 7. Expected Revenue / Potential Revenue (Sum of final_price of all active guests)
-    // Fix: Use final_price instead of total_price (which might be 0)
-    // Fix: Count revenue from ALL active bookings, not just those checking out today
+    // 7. Expected Revenue - SUM(final_price) of ALL non-cancelled bookings with check_in this month
+    //    Decreases when a booking is cancelled
     $expectedResult = $db->fetchOne("
-        SELECT COALESCE(SUM(b.final_price), 0) as total
-        FROM bookings b
-        WHERE b.status IN ('checked_in', 'confirmed')
-        AND (
-            (DATE(b.check_in_date) <= ? AND DATE(b.check_out_date) > ?)
-            OR b.status = 'checked_in'
-        )
-    ", [$today, $today]);
+        SELECT COALESCE(SUM(final_price), 0) as total
+        FROM bookings
+        WHERE status NOT IN ('cancelled')
+        AND DATE_FORMAT(check_in_date, '%Y-%m') = ?
+    ", [$thisMonth]);
     $stats['expected_revenue'] = $expectedResult['total'] ?? 0;
     
     // OTA Revenue Today - Dari cash_book dengan payment_method OTA
@@ -248,25 +244,29 @@ try {
         $stats['revenue_today'] = $stats['direct_payments_today'];
     }
 
-    // 11. Monthly Revenue - only from active bookings (confirmed + checked_in)
+    // 11. Paid This Month - actual money received: paid_amount from paid/partial bookings
+    //     with check_in this month (lunas + DP direct bookings), excludes cancelled
     $monthRevenueResult = $db->fetchOne("
+        SELECT COALESCE(SUM(paid_amount), 0) as total
+        FROM bookings
+        WHERE status NOT IN ('cancelled')
+        AND payment_status IN ('paid', 'partial')
+        AND DATE_FORMAT(check_in_date, '%Y-%m') = ?
+    ", [$thisMonth]);
+    $stats['month_revenue'] = $monthRevenueResult['total'] ?? 0;
+
+    // Also add booking_payments records this month as supplemental source
+    $monthPaymentsResult = $db->fetchOne("
         SELECT COALESCE(SUM(bp.amount), 0) as total
         FROM booking_payments bp
         JOIN bookings b ON bp.booking_id = b.id
         WHERE DATE_FORMAT(bp.payment_date, '%Y-%m') = ?
-        AND b.status IN ('confirmed', 'checked_in')
+        AND b.status NOT IN ('cancelled')
     ", [$thisMonth]);
-    $stats['month_revenue'] = $monthRevenueResult['total'] ?? 0;
-
-    // Fallback: use bookings.paid_amount for this month
-    if ($stats['month_revenue'] == 0) {
-        $fallbackMonth = $db->fetchOne("
-            SELECT COALESCE(SUM(paid_amount), 0) as total
-            FROM bookings
-            WHERE DATE_FORMAT(created_at, '%Y-%m') = ?
-            AND status IN ('confirmed', 'checked_in')
-        ", [$thisMonth]);
-        $stats['month_revenue'] = $fallbackMonth['total'] ?? 0;
+    // Use whichever is higher (booking_payments may be more up-to-date)
+    $bpTotal = $monthPaymentsResult['total'] ?? 0;
+    if ($bpTotal > $stats['month_revenue']) {
+        $stats['month_revenue'] = $bpTotal;
     }
 
     // 12. Guest Data for Today
@@ -1588,8 +1588,9 @@ include '../../includes/header.php';
                         <span style="font-size: 1.25rem;">📅</span>
                         <span style="font-size: 0.65rem; background: rgba(236, 72, 153, 0.2); color: #db2777; padding: 0.2rem 0.4rem; border-radius: 8px; font-weight: 600;">MONTH</span>
                     </div>
-                    <div style="font-size: 0.75rem; color: #db2777; font-weight: 600; margin-bottom: 0.25rem;">This Month</div>
+                    <div style="font-size: 0.75rem; color: #db2777; font-weight: 600; margin-bottom: 0.25rem;">Paid This Month</div>
                     <div style="font-size: 1.1rem; font-weight: 800; color: #be185d;">Rp <?php echo number_format($stats['month_revenue'], 0, ',', '.'); ?></div>
+                    <div style="font-size: 0.65rem; color: #f472b6; margin-top: 3px;">Paid + DP received this month</div>
                 </div>
                 
                 <!-- Expected Revenue -->
@@ -1600,6 +1601,7 @@ include '../../includes/header.php';
                     </div>
                     <div style="font-size: 0.75rem; color: #d97706; font-weight: 600; margin-bottom: 0.25rem;">Expected Revenue</div>
                     <div style="font-size: 1.1rem; font-weight: 800; color: #b45309;">Rp <?php echo number_format($stats['expected_revenue'], 0, ',', '.'); ?></div>
+                    <div style="font-size: 0.65rem; color: #fbbf24; margin-top: 3px;">All reservations this month (excl. cancelled)</div>
                 </div>
             </div>
         </div>
