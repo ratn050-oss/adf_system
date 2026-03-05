@@ -273,7 +273,7 @@ try {
         FROM bookings b
         LEFT JOIN guests g ON b.guest_id = g.id
         LEFT JOIN rooms r ON b.room_id = r.id
-        WHERE b.status IN ('confirmed','checked_in')
+        WHERE b.status = 'checked_in'
         ORDER BY r.room_number ASC LIMIT 100")
         ->fetchAll(PDO::FETCH_ASSOC);
 } catch (\Throwable $e) { $inHouseGuests = []; }
