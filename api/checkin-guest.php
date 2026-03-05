@@ -256,11 +256,13 @@ try {
     
     // ==========================================
     // SYNC TO CASHBOOK:
-    // - OTA: selalu sync saat check-in (uang sudah di-terima OTA platform)
-    // - Direct: HANYA sync jika user memilih pay_now=1
+    // - OTA: selalu sync saat check-in
+    // - Direct bayar sekarang: sync jumlah yang baru dibayar
+    // - Direct sudah bayar sebelumnya (paid_amount > 0): sync juga saat check-in
     // ==========================================
     $cashbookSynced = false;
-    if ($isOTA || $payNow) {
+    $directAlreadyPaid = (!$isOTA && !$payNow && $totalPaid > 0);
+    if ($isOTA || $payNow || $directAlreadyPaid) {
         try {
             require_once '../includes/CashbookHelper.php';
             $cashbookHelper = new CashbookHelper($db, $_SESSION['business_id'] ?? 1, $validUserId ?? 1);
@@ -270,11 +272,14 @@ try {
                 $syncAmount = $payAmount;
                 $syncMethod = $payMethod;
             } else {
-                // OTA auto-settle: sync total yang sudah dibayar
+                // OTA atau direct yang sudah bayar sebelumnya: sync total yang sudah dibayar
                 $totalPayment = $db->fetchOne("SELECT COALESCE(SUM(amount), 0) as total FROM booking_payments WHERE booking_id = ?", [$bookingId]);
                 $syncAmount = (float)$totalPayment['total'];
+                // Fallback: gunakan paid_amount dari bookings (lebih reliable)
+                if ($syncAmount <= 0) $syncAmount = $totalPaid;
+                if ($syncAmount <= 0) $syncAmount = (float)$booking['paid_amount'];
                 if ($syncAmount <= 0) $syncAmount = (float)$booking['final_price'];
-                $syncMethod = strtolower($booking['booking_source']);
+                $syncMethod = $isOTA ? strtolower($booking['booking_source']) : 'transfer';
             }
 
             $syncResult = $cashbookHelper->syncPaymentToCashbook([

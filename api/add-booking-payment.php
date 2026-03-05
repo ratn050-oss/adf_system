@@ -55,16 +55,28 @@ try {
 
     $db->beginTransaction();
 
-    $db->query("INSERT INTO booking_payments (booking_id, amount, payment_method, processed_by, payment_date, created_at) VALUES (?, ?, ?, ?, NOW(), NOW())", [
-        $bookingId,
-        $amount,
-        $paymentMethod,
-        $currentUser['id']
-    ]);
-    $newPaymentId = $db->getConnection()->lastInsertId();
+    // INSERT ke booking_payments - coba dengan created_at, fallback tanpa
+    try {
+        $db->query("INSERT INTO booking_payments (booking_id, amount, payment_method, processed_by, payment_date, created_at) VALUES (?, ?, ?, ?, NOW(), NOW())", [
+            $bookingId, $amount, $paymentMethod, $currentUser['id']
+        ]);
+    } catch (\Throwable $e) {
+        // Fallback: kolom created_at mungkin tidak ada
+        try {
+            $db->query("INSERT INTO booking_payments (booking_id, amount, payment_method, processed_by, payment_date) VALUES (?, ?, ?, ?, NOW())", [
+                $bookingId, $amount, $paymentMethod, $currentUser['id']
+            ]);
+        } catch (\Throwable $e2) {
+            // booking_payments tidak ada - lanjutkan, update langsung di bookings saja
+            error_log("booking_payments insert failed: " . $e2->getMessage());
+        }
+    }
 
+    // Hitung total dari booking_payments + paid_amount yang sudah ada
     $payment = $db->fetchOne("SELECT COALESCE(SUM(amount), 0) as paid FROM booking_payments WHERE booking_id = ?", [$bookingId]);
-    $totalPaid = max((float)$payment['paid'], (float)$booking['paid_amount']);
+    $bpTotal  = (float)($payment['paid'] ?? 0);
+    // Gunakan nilai terbesar antara booking_payments sum dan paid_amount lama + amount baru
+    $totalPaid = max($bpTotal, (float)$booking['paid_amount'] + $amount);
     $remaining = max(0, (float)$booking['final_price'] - $totalPaid);
 
     if ($totalPaid <= 0) {
@@ -75,6 +87,7 @@ try {
         $paymentStatus = 'partial';
     }
 
+    // Selalu update langsung ke bookings - ini yang dibaca oleh Pay button
     $db->query("UPDATE bookings SET paid_amount = ?, payment_status = ?, updated_at = NOW() WHERE id = ?", [
         $totalPaid,
         $paymentStatus,
