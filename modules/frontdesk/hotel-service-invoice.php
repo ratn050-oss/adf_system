@@ -39,8 +39,20 @@ $companyName    = $settings['company_name']    ?? 'Narayana Hotel Karimunjawa';
 $companyAddress = $settings['company_address'] ?? 'Karimunjawa, Jepara, Central Java, Indonesia';
 $companyPhone   = $settings['company_phone']   ?? '';
 $companyEmail   = $settings['company_email']   ?? '';
-// Logo intentionally omitted — using clean text header
+// Logo from settings
+$companyLogo = null;
+$logoKey = $settings['company_logo'] ?? '';
+if ($logoKey) {
+    $logoFile = basename($logoKey);
+    $logoPhysical = rtrim(defined('BASE_PATH') ? BASE_PATH : __DIR__ . '/../..', '/') . '/uploads/logos/' . $logoFile;
+    if (file_exists($logoPhysical)) {
+        $companyLogo = BASE_URL . '/uploads/logos/' . $logoFile;
+    }
+}
 $companyWebsite = $settings['company_website'] ?? 'www.narayanakarimunjawa.com';
+
+// Processed status
+$isProcessed = (bool)($inv['cashbook_synced'] ?? 0);
 
 $serviceLabels = [
     'motor_rental' => ['label' => 'Motor Rental', 'icon' => '🏍️'],
@@ -58,18 +70,21 @@ $serviceLabels = [
 <title>Invoice <?php echo htmlspecialchars($inv['invoice_number']); ?></title>
 <style>
 *{margin:0;padding:0;box-sizing:border-box}
-body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f2f5;color:#1a1a2e;font-size:13px}
-.page{width:100%;max-width:760px;margin:20px auto;background:white;box-shadow:0 4px 24px rgba(0,0,0,0.12);position:relative;overflow:hidden}
-/* Header */
-.inv-head{background:linear-gradient(135deg,#1e3a5f 0%,#0d2137 100%);color:white;padding:2rem 2.5rem;display:flex;justify-content:space-between;align-items:flex-start}
-.inv-head .company-name{font-size:1.4rem;font-weight:900;letter-spacing:0.04em;margin-bottom:0.2rem}
-.inv-head .company-website{font-size:0.8rem;opacity:0.7;font-style:italic;letter-spacing:0.03em;margin-bottom:0.3rem}
-.inv-head .company-sub{font-size:0.75rem;opacity:0.75;line-height:1.6}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f4f8;color:#1a1a2e;font-size:13px}
+.page{width:100%;max-width:780px;margin:20px auto;background:white;box-shadow:0 4px 24px rgba(0,0,0,0.10);position:relative;overflow:hidden;border-radius:4px}
+/* Header — Light */
+.inv-head{background:white;border-bottom:3px solid #1e3a5f;padding:1.75rem 2.5rem;display:flex;justify-content:space-between;align-items:flex-start;gap:1.5rem}
+.inv-head .logo-wrap{flex-shrink:0}
+.inv-head .logo-wrap img{height:64px;width:auto;object-fit:contain}
+.inv-head .company-block{flex:1}
+.inv-head .company-name{font-size:1.5rem;font-weight:900;color:#1e3a5f;letter-spacing:0.03em;margin-bottom:0.15rem}
+.inv-head .company-website{font-size:0.78rem;color:#6366f1;font-style:italic;margin-bottom:0.25rem}
+.inv-head .company-sub{font-size:0.75rem;color:#475569;line-height:1.6}
 .inv-head .inv-title{text-align:right;flex-shrink:0}
-.inv-head .inv-title .word{font-size:1.8rem;font-weight:900;letter-spacing:0.12em;opacity:0.12;display:block}
-.inv-head .inv-title .num{font-size:0.95rem;font-weight:700;background:rgba(255,255,255,0.18);padding:0.3rem 0.8rem;border-radius:20px;display:inline-block;margin-top:0.5rem}
+.inv-head .inv-title .word{font-size:2rem;font-weight:900;letter-spacing:0.15em;color:#1e3a5f;opacity:0.07;display:block;line-height:1}
+.inv-head .inv-title .num{font-size:0.9rem;font-weight:700;background:#1e3a5f;color:white;padding:0.3rem 0.9rem;border-radius:20px;display:inline-block;margin-top:0.5rem}
 /* Status banner */
-.status-banner{padding:0.55rem 2.5rem;font-size:0.8rem;font-weight:700;letter-spacing:0.04em;color:white;text-align:center}
+.status-banner{padding:0.5rem 2.5rem;font-size:0.78rem;font-weight:700;letter-spacing:0.05em;color:white;text-align:center}
 .st-paid{background:#10b981}.st-partial{background:#f59e0b}.st-unpaid{background:#ef4444}
 /* Body */
 .inv-body{padding:2rem 2.5rem}
@@ -101,20 +116,25 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f2f5;color:#1a1a2e;fo
 .notes-box strong{display:block;font-size:0.7rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:0.3rem}
 /* Footer */
 .inv-foot{background:#f8fafc;padding:1.25rem 2.5rem;text-align:center;font-size:0.75rem;color:#94a3b8;border-top:2px solid #e2e8f0}
-.inv-foot strong{color:#1e3a5f;display:block;margin-bottom:0.25rem;font-size:0.8rem}
-/* PAID watermark */
-.paid-watermark{position:absolute;top:38%;left:50%;transform:translate(-50%,-50%) rotate(-25deg);font-size:7rem;font-weight:900;color:rgba(16,185,129,0.12);pointer-events:none;z-index:10;letter-spacing:0.1em;white-space:nowrap}
-/* No-print */
-.no-print{background:#1e3a5f;padding:0.75rem 2.5rem;display:flex;gap:0.75rem;align-items:center}
+.inv-foot strong{color:#1e3a5f;display:block;margin-bottom:0.15rem;font-size:0.8rem}
+.inv-foot .web{color:#6366f1;font-style:italic;display:block;margin-bottom:0.25rem}
+/* Watermark */
+.watermark{position:absolute;top:42%;left:50%;transform:translate(-50%,-50%) rotate(-28deg);font-size:5.5rem;font-weight:900;pointer-events:none;z-index:10;letter-spacing:0.1em;white-space:nowrap;user-select:none}
+.wm-unpaid{color:rgba(239,68,68,0.10)}
+.wm-paid{color:rgba(16,185,129,0.10)}
+.wm-partial{color:rgba(245,158,11,0.10)}
+/* No-print actions bar */
+.no-print{background:#1e3a5f;padding:0.75rem 2.5rem;display:flex;gap:0.75rem;align-items:center;flex-wrap:wrap}
 .btn-print{background:white;color:#1e3a5f;border:none;border-radius:6px;padding:0.5rem 1.25rem;font-weight:700;cursor:pointer;font-size:0.85rem}
 .btn-back{background:rgba(255,255,255,0.15);color:white;border:1px solid rgba(255,255,255,0.4);border-radius:6px;padding:0.5rem 1.25rem;font-weight:600;cursor:pointer;font-size:0.85rem;text-decoration:none;display:inline-block}
+.btn-process{background:#10b981;color:white;border:none;border-radius:6px;padding:0.5rem 1.4rem;font-weight:700;cursor:pointer;font-size:0.85rem;display:flex;align-items:center;gap:0.4rem}
+.btn-process:disabled{opacity:0.6;cursor:not-allowed}
 @media print{
     body{background:white}
     .no-print{display:none!important}
-    .page{box-shadow:none;margin:0;max-width:none;overflow:visible}
+    .page{box-shadow:none;margin:0;max-width:none;overflow:visible;border-radius:0}
     .inv-table tr:hover td{background:transparent!important}
-    .inv-table tr td{-webkit-print-color-adjust:exact;print-color-adjust:exact}
-    .inv-head,.inv-table th,.status-banner,.totals-row.grand{-webkit-print-color-adjust:exact;print-color-adjust:exact}
+    .inv-head,.inv-table th,.status-banner,.totals-row.grand,.watermark{-webkit-print-color-adjust:exact;print-color-adjust:exact}
     @page{margin:10mm 12mm}
 }
 </style>
@@ -123,24 +143,45 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f2f5;color:#1a1a2e;fo
 
 <!-- Actions bar -->
 <div class="no-print">
-    <button class="btn-print" onclick="window.print()">🖨️ Print Invoice</button>
+    <button class="btn-print" onclick="window.print()">🖨️ Print</button>
     <a class="btn-back" href="javascript:history.back()">← Back</a>
-    <span style="color:rgba(255,255,255,0.7);font-size:0.8rem;margin-left:auto"><?php echo htmlspecialchars($inv['invoice_number']); ?></span>
+    <?php if (!$isProcessed): ?>
+    <button class="btn-process" id="btnProcess" onclick="processInvoice(<?php echo $inv['id']; ?>)">
+        ✅ Process Invoice
+        <?php if ((float)$inv['paid_amount'] > 0): ?>
+        <span style="font-size:0.75rem;opacity:0.85">(Rp <?php echo number_format($inv['paid_amount'],0,',','.'); ?> → Buku Kas)</span>
+        <?php else: ?>
+        <span style="font-size:0.75rem;opacity:0.85">(No payment yet)</span>
+        <?php endif; ?>
+    </button>
+    <?php else: ?>
+    <span style="color:#86efac;font-size:0.82rem;font-weight:600">✓ Processed &amp; recorded in Buku Kas</span>
+    <?php endif; ?>
+    <span style="color:rgba(255,255,255,0.6);font-size:0.78rem;margin-left:auto"><?php echo htmlspecialchars($inv['invoice_number']); ?></span>
 </div>
 
 <div class="page">
 
-<?php if ($inv['payment_status'] === 'paid'): ?>
-<div class="paid-watermark">PAID</div>
+<?php
+// Watermark logic
+if (!$isProcessed): ?>
+<div class="watermark wm-unpaid">UNPAID</div>
+<?php elseif ($inv['payment_status'] === 'paid'): ?>
+<div class="watermark wm-paid">PAID</div>
+<?php elseif ($inv['payment_status'] === 'partial'): ?>
+<div class="watermark wm-partial">PARTIAL</div>
 <?php endif; ?>
 
     <!-- Header -->
     <div class="inv-head">
-        <div>
+        <?php if ($companyLogo): ?>
+        <div class="logo-wrap"><img src="<?php echo htmlspecialchars($companyLogo); ?>" alt="Logo"></div>
+        <?php endif; ?>
+        <div class="company-block">
             <div class="company-name"><?php echo htmlspecialchars($companyName); ?></div>
             <div class="company-website"><?php echo htmlspecialchars($companyWebsite); ?></div>
             <div class="company-sub">
-                <?php echo htmlspecialchars($companyAddress); ?>
+                <?php echo nl2br(htmlspecialchars($companyAddress)); ?>
                 <?php if ($companyPhone): ?><br>📞 <?php echo htmlspecialchars($companyPhone); ?><?php endif; ?>
                 <?php if ($companyEmail): ?><br>✉️ <?php echo htmlspecialchars($companyEmail); ?><?php endif; ?>
             </div>
@@ -253,13 +294,39 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f2f5;color:#1a1a2e;fo
     <!-- Footer -->
     <div class="inv-foot">
         <strong><?php echo htmlspecialchars($companyName); ?></strong>
-        <span style="display:block;margin-bottom:0.3rem;color:#3b82f6;font-style:italic"><?php echo htmlspecialchars($companyWebsite); ?></span>
+        <span class="web"><?php echo htmlspecialchars($companyWebsite); ?></span>
         Thank you for choosing our services. We look forward to serving you again!<br>
         <?php if ($companyPhone||$companyEmail): ?>
         Contact: <?php echo htmlspecialchars(implode(' | ', array_filter([$companyPhone, $companyEmail]))); ?>
         <?php endif; ?>
     </div>
 </div><!-- /page -->
+
+<script>
+function processInvoice(id) {
+    const btn = document.getElementById('btnProcess');
+    if (!btn) return;
+    if (!confirm('Process this invoice? Payment will be recorded in Buku Kas.')) return;
+    btn.disabled = true;
+    btn.textContent = '⏳ Processing...';
+    const fd = new FormData();
+    fd.append('action', 'process_invoice');
+    fd.append('id', id);
+    fetch('<?php echo BASE_URL; ?>/modules/frontdesk/hotel-services.php', {method:'POST', body:fd})
+        .then(r => r.json())
+        .then(d => {
+            if (d.success) {
+                btn.textContent = '✓ Done!';
+                setTimeout(() => location.reload(), 800);
+            } else {
+                alert('Error: ' + (d.message || 'Unknown error'));
+                btn.disabled = false;
+                btn.textContent = '✅ Process Invoice';
+            }
+        })
+        .catch(() => { alert('Network error'); btn.disabled = false; });
+}
+</script>
 
 </body>
 </html>

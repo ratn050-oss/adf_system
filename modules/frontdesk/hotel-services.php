@@ -40,9 +40,17 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS hotel_invoices (
     created_by      INT          DEFAULT NULL,
     created_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at      DATETIME     DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
+    cashbook_synced  TINYINT(1)   NOT NULL DEFAULT 0,
     KEY idx_biz (business_id),
     KEY idx_date (created_at)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+// Add cashbook_synced to existing tables that predate this column
+try {
+    $pdo->query("SELECT cashbook_synced FROM hotel_invoices LIMIT 1");
+} catch (\Throwable $e) {
+    try { $pdo->exec("ALTER TABLE hotel_invoices ADD COLUMN cashbook_synced TINYINT(1) NOT NULL DEFAULT 0"); } catch (\Throwable $e2) {}
+}
 
 $pdo->exec("CREATE TABLE IF NOT EXISTS hotel_invoice_items (
     id              INT AUTO_INCREMENT PRIMARY KEY,
@@ -69,75 +77,115 @@ $serviceTypes = [
 $statusColors    = ['pending'=>'#f59e0b','confirmed'=>'#3b82f6','completed'=>'#10b981','cancelled'=>'#ef4444'];
 $payStatusColors = ['unpaid'=>'#ef4444','partial'=>'#f59e0b','paid'=>'#10b981'];
 
-// ── Helper: cashbook sync ──────────────────────────────────────────────────────
-function syncServiceCashbook($db, $businessId, $userId, $amount, $method, $invoiceNo, $guestName, array $svcLabels): bool {
+// ── Helper: find/create division by service type ──────────────────────────────
+function getDivisionForService(PDO $pdo, string $serviceType): int {
+    static $cache = [];
+    if (isset($cache[$serviceType])) return $cache[$serviceType];
+    $nameMap = [
+        'motor_rental' => 'Motor Rental',
+        'laundry'      => 'Laundry',
+        'service'      => 'General Service',
+        'airport_drop' => 'Airport Drop',
+        'harbor_drop'  => 'Harbor Drop',
+    ];
+    $name  = $nameMap[$serviceType] ?? 'Hotel Services';
+    $words = explode(' ', strtolower($name));
+    $like  = '%' . $words[0] . '%';
+    $stmt  = $pdo->prepare("SELECT id FROM divisions WHERE LOWER(division_name) LIKE ? ORDER BY id LIMIT 1");
+    $stmt->execute([$like]);
+    $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if ($row) { $cache[$serviceType] = (int)$row['id']; return $cache[$serviceType]; }
+    try {
+        $pdo->prepare("INSERT INTO divisions (division_name, is_active, created_at) VALUES (?, 1, NOW())")->execute([$name]);
+        $id = (int)$pdo->lastInsertId();
+    } catch (\Throwable $e) {
+        $any = $pdo->query("SELECT id FROM divisions ORDER BY id LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+        $id = (int)($any['id'] ?? 1);
+    }
+    $cache[$serviceType] = $id;
+    return $id;
+}
+
+// ── Helper: sync invoice payment to cashbook (called from process_invoice) ─────
+function syncInvoiceToCashbook($db, $businessId, $userId, array $invRow, array $itemGroups, array $serviceTypes): bool {
     try {
         require_once '../../includes/CashbookHelper.php';
         $helper  = new CashbookHelper($db, $businessId, $userId);
-        $account = $helper->getCashAccount($method);
+        $account = $helper->getCashAccount($invRow['payment_method']);
         if (!$account) return false;
 
-        $svcText  = implode(', ', array_unique(array_filter($svcLabels)));
-        $desc     = "Hotel Services [{$invoiceNo}] {$guestName}" . ($svcText ? " | {$svcText}" : '');
+        $cbMethod  = $helper->mapPaymentMethod($invRow['payment_method']);
+        $catId     = $helper->getCategoryId();
+        $hasCa     = $helper->hasCashAccountIdColumn();
+        $bPdo      = $db->getConnection();
+        $now       = date('Y-m-d H:i:s');
+        $invNo     = $invRow['invoice_number'];
+        $guest     = $invRow['guest_name'];
+        $paidAmt   = (float)$invRow['paid_amount'];
+        $totalAmt  = (float)$invRow['total'];
+        $totalInserted = 0;
+        $lastTransId   = 0;
 
-        // Use CashbookHelper's method which reads the actual ENUM from DB
-        $cbMethod = $helper->mapPaymentMethod($method);
+        foreach ($itemGroups as $group) {
+            $svcType   = $group['service_type'];
+            $svcLabel  = $serviceTypes[$svcType]['label'] ?? $svcType;
+            $proportion = $totalAmt > 0 ? ($group['type_total'] / $totalAmt) : (1 / count($itemGroups));
+            $svcAmount  = $group === end($itemGroups)
+                ? round($paidAmt - $totalInserted, 2)   // last item gets remainder to avoid rounding loss
+                : round($paidAmt * $proportion, 2);
+            if ($svcAmount <= 0) continue;
+            $totalInserted += $svcAmount;
 
-        $divId  = $helper->getDivisionId();
-        $catId  = $helper->getCategoryId();
-        $hasCa  = $helper->hasCashAccountIdColumn();
-        $bPdo   = $db->getConnection();
-        $now    = date('Y-m-d H:i:s');
+            $divId = getDivisionForService($bPdo, $svcType);
+            $desc  = "[{$invNo}] {$guest} - {$svcLabel}";
 
-        // ── Insert into cash_book (business DB) ──────────────────────────────
-        if ($hasCa) {
-            $stmt = $bPdo->prepare("INSERT INTO cash_book
-                (transaction_date, transaction_time, division_id, category_id,
-                 description, transaction_type, amount, payment_method,
-                 cash_account_id, is_editable, created_by, created_at)
-                VALUES (DATE(?), TIME(?), ?, ?, ?, 'income', ?, ?, ?, 1, ?, NOW())");
-            $stmt->execute([$now, $now, $divId, $catId, $desc, $amount, $cbMethod, $account['id'], $userId]);
-        } else {
-            $stmt = $bPdo->prepare("INSERT INTO cash_book
-                (transaction_date, transaction_time, division_id, category_id,
-                 description, transaction_type, amount, payment_method,
-                 is_editable, created_by, created_at)
-                VALUES (DATE(?), TIME(?), ?, ?, ?, 'income', ?, ?, 1, ?, NOW())");
-            $stmt->execute([$now, $now, $divId, $catId, $desc, $amount, $cbMethod, $userId]);
+            if ($hasCa) {
+                $stmt = $bPdo->prepare("INSERT INTO cash_book
+                    (transaction_date, transaction_time, division_id, category_id,
+                     description, transaction_type, amount, payment_method,
+                     cash_account_id, is_editable, created_by, created_at)
+                    VALUES (DATE(?), TIME(?), ?, ?, ?, 'income', ?, ?, ?, 1, ?, NOW())");
+                $stmt->execute([$now, $now, $divId, $catId, $desc, $svcAmount, $cbMethod, $account['id'], $userId]);
+            } else {
+                $stmt = $bPdo->prepare("INSERT INTO cash_book
+                    (transaction_date, transaction_time, division_id, category_id,
+                     description, transaction_type, amount, payment_method,
+                     is_editable, created_by, created_at)
+                    VALUES (DATE(?), TIME(?), ?, ?, ?, 'income', ?, ?, 1, ?, NOW())");
+                $stmt->execute([$now, $now, $divId, $catId, $desc, $svcAmount, $cbMethod, $userId]);
+            }
+            $lastTransId = (int)$bPdo->lastInsertId();
         }
-        $transId = (int)$bPdo->lastInsertId();
 
-        // ── Sync to master DB: cash_account_transactions + balance ───────────
+        // ── Master DB: one cash_account_transactions entry for total + balance update
         try {
             $masterDbName = defined('MASTER_DB_NAME') ? MASTER_DB_NAME : (defined('DB_NAME') ? DB_NAME : null);
-            if ($masterDbName) {
+            if ($masterDbName && $totalInserted > 0) {
                 $mPdo = new PDO(
                     "mysql:host=" . DB_HOST . ";dbname={$masterDbName};charset=" . DB_CHARSET,
-                    DB_USER, DB_PASS,
-                    [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+                    DB_USER, DB_PASS, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
                 );
+                $masterDesc = "Hotel Services [{$invNo}] {$guest}";
                 $hasTxCol = (bool)$mPdo->query("SHOW COLUMNS FROM cash_account_transactions LIKE 'transaction_id'")->fetch();
                 if ($hasTxCol) {
                     $mPdo->prepare("INSERT INTO cash_account_transactions
                         (cash_account_id, transaction_id, transaction_date,
                          description, amount, transaction_type, reference_number, created_by, created_at)
                         VALUES (?, ?, DATE(?), ?, ?, 'income', ?, ?, NOW())")
-                        ->execute([$account['id'], $transId, $now, $desc, $amount, $invoiceNo, $userId]);
+                        ->execute([$account['id'], $lastTransId, $now, $masterDesc, $paidAmt, $invNo, $userId]);
                 } else {
                     $mPdo->prepare("INSERT INTO cash_account_transactions
                         (cash_account_id, transaction_date,
                          description, amount, transaction_type, reference_number, created_by, created_at)
                         VALUES (?, DATE(?), ?, ?, 'income', ?, ?, NOW())")
-                        ->execute([$account['id'], $now, $desc, $amount, $invoiceNo, $userId]);
+                        ->execute([$account['id'], $now, $masterDesc, $paidAmt, $invNo, $userId]);
                 }
-                $newBal = $account['current_balance'] + $amount;
-                $mPdo->prepare("UPDATE cash_accounts SET current_balance = ? WHERE id = ?")
-                    ->execute([$newBal, $account['id']]);
+                $newBal = $account['current_balance'] + $paidAmt;
+                $mPdo->prepare("UPDATE cash_accounts SET current_balance = ? WHERE id = ?")->execute([$newBal, $account['id']]);
             }
         } catch (\Throwable $me) {
             error_log("Hotel svc cashbook master sync: " . $me->getMessage());
         }
-
         return true;
     } catch (\Throwable $e) {
         error_log("Hotel svc cashbook error: " . $e->getMessage());
@@ -213,14 +261,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             }
             $pdo->commit();
 
-            $cbOk = false;
-            if ($paidAmount > 0) {
-                $cbOk = syncServiceCashbook($db, $businessId, $currentUser['id'] ?? 1,
-                    $paidAmount, $payMethod, $invNo, $guestName, $svcLabels);
-            }
-
+            // Cashbook is NOT synced on save — staff must click "Process Invoice" in preview
             ob_clean();
-            echo json_encode(['success' => true, 'invoice_number' => $invNo, 'id' => $invId, 'cashbook' => $cbOk]);
+            echo json_encode(['success' => true, 'invoice_number' => $invNo, 'id' => $invId, 'cashbook' => false]);
             exit;
         }
 
@@ -246,12 +289,46 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             $pdo->prepare("UPDATE hotel_invoices SET paid_amount=?, payment_status=?, payment_method=?, updated_at=NOW() WHERE id=? AND business_id=?")
                 ->execute([$newPaid, $payStatus, $method, $id, $businessId]);
 
-            $svcLabels = array_map(fn($t) => $serviceTypes[$t]['label'] ?? $t, explode(',', $r['svc_types'] ?? ''));
-            $cbOk = syncServiceCashbook($db, $businessId, $currentUser['id'] ?? 1,
-                $amount, $method, $r['invoice_number'], $r['guest_name'], $svcLabels);
+            // Cashbook NOT synced here — must use "Process Invoice" in preview
+            ob_clean();
+            echo json_encode(['success' => true, 'payment_status' => $payStatus, 'paid_amount' => $newPaid, 'cashbook' => false]);
+            exit;
+        }
+
+        // ── PROCESS INVOICE (syncs payment to cashbook per service type) ─────────
+        if ($action === 'process_invoice') {
+            $id = (int)($_POST['id'] ?? 0);
+            if (!$id) throw new Exception('Invalid ID');
+
+            $invStmt = $pdo->prepare("SELECT * FROM hotel_invoices WHERE id=? AND business_id=?");
+            $invStmt->execute([$id, $businessId]);
+            $invRow = $invStmt->fetch(PDO::FETCH_ASSOC);
+            if (!$invRow) throw new Exception('Invoice not found');
+            if ($invRow['cashbook_synced'] ?? 0) {
+                ob_clean();
+                echo json_encode(['success' => true, 'already' => true, 'message' => 'Already processed']);
+                exit;
+            }
+
+            // Group items by service type with proportion totals
+            $grpStmt = $pdo->prepare("
+                SELECT service_type, SUM(total_price) as type_total
+                FROM hotel_invoice_items WHERE invoice_id=?
+                GROUP BY service_type ORDER BY service_type");
+            $grpStmt->execute([$id]);
+            $itemGroups = $grpStmt->fetchAll(PDO::FETCH_ASSOC);
+
+            $cbOk = false;
+            if ((float)$invRow['paid_amount'] > 0 && !empty($itemGroups)) {
+                $cbOk = syncInvoiceToCashbook($db, $businessId, $currentUser['id'] ?? 1,
+                    $invRow, $itemGroups, $serviceTypes);
+            }
+
+            // Mark as processed regardless of payment (even unpaid invoices can be "issued")
+            $pdo->prepare("UPDATE hotel_invoices SET cashbook_synced=1, updated_at=NOW() WHERE id=?")->execute([$id]);
 
             ob_clean();
-            echo json_encode(['success' => true, 'payment_status' => $payStatus, 'paid_amount' => $newPaid, 'cashbook' => $cbOk]);
+            echo json_encode(['success' => true, 'cashbook' => $cbOk, 'paid_amount' => $invRow['paid_amount']]);
             exit;
         }
 
