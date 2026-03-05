@@ -269,9 +269,12 @@ $today = $stats->fetch(PDO::FETCH_ASSOC);
 
 // In-house guests
 try {
-    $inHouseGuests = $pdo->query("SELECT b.id as booking_id, g.guest_name, b.room_number, g.phone
-        FROM bookings b LEFT JOIN guests g ON b.guest_id = g.id
-        WHERE b.status IN ('confirmed','checked_in') ORDER BY b.room_number ASC LIMIT 100")
+    $inHouseGuests = $pdo->query("SELECT b.id as booking_id, g.guest_name, r.room_number, g.phone
+        FROM bookings b
+        LEFT JOIN guests g ON b.guest_id = g.id
+        LEFT JOIN rooms r ON b.room_id = r.id
+        WHERE b.status IN ('confirmed','checked_in')
+        ORDER BY r.room_number ASC LIMIT 100")
         ->fetchAll(PDO::FETCH_ASSOC);
 } catch (\Throwable $e) { $inHouseGuests = []; }
 
@@ -551,7 +554,7 @@ include '../../includes/header.php';
 
 <script>
 const SVC_KEYS   = <?php echo json_encode(array_keys($serviceTypes)); ?>;
-const SVC_LABELS = <?php echo json_encode(array_map(fn($v) => $v['icon'].' '.$v['label'], $serviceTypes)); ?>;
+const SVC_LABELS = <?php echo json_encode(array_values(array_map(fn($v) => $v['icon'].' '.$v['label'], $serviceTypes))); ?>;
 
 // ── Guest mode ────────────────────────────────────────────────────────────────
 function setGuestMode(mode) {
