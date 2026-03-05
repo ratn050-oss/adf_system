@@ -1221,13 +1221,19 @@ function onSvcChange(id, isNew) {
     const descInput  = tr.querySelector('.iDesc');
     const items = CATALOG_DATA[svc];
     if (items && items.length > 0) {
-        // Only auto-fill if field is still empty/zero (don't overwrite manual entry)
-        if (isNew || parseFloat(priceInput.value) === 0) {
+        // On new row: fill only if still empty/zero
+        // On manual service-type change: always sync from catalog
+        if (isNew) {
+            if (parseFloat(priceInput.value) === 0) priceInput.value = items[0].price;
+            if (!descInput.value.trim())            descInput.value  = items[0].name;
+        } else {
+            // User switched type → always update price & description from catalog
             priceInput.value = items[0].price;
+            descInput.value  = items[0].name;
         }
-        if (isNew && !descInput.value.trim()) {
-            descInput.value = items[0].name;
-        }
+    } else if (!isNew) {
+        // Switched to a type with no catalog entry — clear price so user must enter manually
+        priceInput.value = 0;
     }
     rcalc(id);
 }
@@ -1588,8 +1594,15 @@ function eOnSvcChange(id2, isNew) {
     const descInput  = tr3.querySelector('.iDesc');
     const items = CATALOG_DATA[svc];
     if (items && items.length > 0) {
-        if (isNew || parseFloat(priceInput.value) === 0) priceInput.value = items[0].price;
-        if (isNew && !descInput.value.trim()) descInput.value = items[0].name;
+        if (isNew) {
+            if (parseFloat(priceInput.value) === 0) priceInput.value = items[0].price;
+            if (!descInput.value.trim())            descInput.value  = items[0].name;
+        } else {
+            priceInput.value = items[0].price;
+            descInput.value  = items[0].name;
+        }
+    } else if (!isNew) {
+        priceInput.value = 0;
     }
     ercalc(id2);
 }
