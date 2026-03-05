@@ -1,7 +1,7 @@
 <?php
 /**
- * Hotel Service Invoice — Print-friendly
- * Motor Rental · Laundry · Service · Airport Drop · Harbor Drop
+ * Hotel Service Invoice — Print View
+ * Reads from hotel_invoices + hotel_invoice_items tables
  */
 
 define('APP_ACCESS', true);
@@ -11,425 +11,258 @@ require_once '../../includes/auth.php';
 
 $auth = new Auth();
 $auth->requireLogin();
-if (!$auth->hasPermission('frontdesk')) {
-    header('Location: ' . BASE_URL . '/index.php');
-    exit;
-}
 
 $db  = Database::getInstance();
 $pdo = $db->getConnection();
 $id  = (int)($_GET['id'] ?? 0);
-if (!$id) die('Invalid Order ID');
+if (!$id) { die('Invalid invoice ID'); }
 
-// Fetch order
-$stmt = $pdo->prepare("SELECT * FROM hotel_service_orders WHERE id = ?");
+// Load invoice
+$stmt = $pdo->prepare("SELECT * FROM hotel_invoices WHERE id = ?");
 $stmt->execute([$id]);
-$order = $stmt->fetch(PDO::FETCH_ASSOC);
-if (!$order) die('Order not found');
+$inv = $stmt->fetch(PDO::FETCH_ASSOC);
+if (!$inv) { die('Invoice not found'); }
 
-// Service type labels
-$serviceLabels = [
-    'motor_rental'  => 'Motor Rental',
-    'laundry'       => 'Laundry',
-    'service'       => 'Service',
-    'airport_drop'  => 'Airport Drop',
-    'harbor_drop'   => 'Harbor Drop',
-];
-
-$serviceIcons = [
-    'motor_rental'  => '🏍️',
-    'laundry'       => '👕',
-    'service'       => '🔧',
-    'airport_drop'  => '✈️',
-    'harbor_drop'   => '⚓',
-];
+// Load items
+$istmt = $pdo->prepare("SELECT * FROM hotel_invoice_items WHERE invoice_id = ? ORDER BY id ASC");
+$istmt->execute([$id]);
+$items = $istmt->fetchAll(PDO::FETCH_ASSOC);
 
 // Company settings
-$businessId  = $_SESSION['business_id'] ?? 1;
-$business    = $db->fetchOne("SELECT * FROM businesses WHERE id = ?", [$businessId]);
-$settingsResult = $db->fetchAll("SELECT setting_key, setting_value FROM settings WHERE setting_key LIKE 'company_%'");
-$co = [];
-foreach ($settingsResult as $s) {
-    if (strpos($s['setting_key'], 'company_logo_') === 0) {
-        $bizCode = str_replace('company_logo_', '', $s['setting_key']);
-        if ($bizCode === ($_SESSION['selected_business_id'] ?? '')) {
-            $co['logo'] = $s['setting_value'];
-        }
-    } else {
-        $co[str_replace('company_', '', $s['setting_key'])] = $s['setting_value'];
-    }
-}
-if (empty($co['name'])) $co['name'] = $business['business_name'] ?? 'Narayana Hotel';
+$settings = [];
+try {
+    $rows = $pdo->query("SELECT setting_key, setting_value FROM settings WHERE setting_key LIKE 'company_%'")->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($rows as $r) { $settings[$r['setting_key']] = $r['setting_value']; }
+} catch (\Throwable $e) {}
 
-// Resolve logo path
-$logoUrl = null;
-if (!empty($co['logo'])) {
-    $logoFile = BASE_PATH . '/uploads/logos/' . $co['logo'];
-    if (file_exists($logoFile)) $logoUrl = BASE_URL . '/uploads/logos/' . $co['logo'] . '?v=' . time();
+$companyName    = $settings['company_name']    ?? 'Narayana Hotel Karimunjawa';
+$companyAddress = $settings['company_address'] ?? 'Karimunjawa, Jepara, Central Java, Indonesia';
+$companyPhone   = $settings['company_phone']   ?? '';
+$companyEmail   = $settings['company_email']   ?? '';
+$companyLogo    = null;
+$logoKey        = $settings['company_logo']    ?? '';
+if ($logoKey) {
+    $logoPath = '../../uploads/logos/' . basename($logoKey);
+    if (file_exists($logoPath)) $companyLogo = BASE_URL . '/uploads/logos/' . basename($logoKey);
 }
 
-$remaining = $order['total_price'] - $order['paid_amount'];
-$serviceName = $serviceLabels[$order['service_type']] ?? ucwords(str_replace('_',' ',$order['service_type']));
-$serviceIcon = $serviceIcons[$order['service_type']] ?? '🛎️';
+$serviceLabels = [
+    'motor_rental' => ['label' => 'Motor Rental', 'icon' => '🏍️'],
+    'laundry'      => ['label' => 'Laundry',       'icon' => '👕'],
+    'service'      => ['label' => 'Service',       'icon' => '🔧'],
+    'airport_drop' => ['label' => 'Airport Drop',  'icon' => '✈️'],
+    'harbor_drop'  => ['label' => 'Harbor Drop',   'icon' => '⚓'],
+];
 ?>
 <!DOCTYPE html>
 <html lang="en">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Invoice <?php echo htmlspecialchars($order['order_number']); ?> — <?php echo htmlspecialchars($co['name']); ?></title>
-    <style>
-        @media print {
-            body { background: white !important; padding: 0 !important; }
-            .no-print { display: none !important; }
-            .invoice-container { box-shadow: none !important; }
-            @page { margin: 12mm; }
-        }
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            font-family: 'Segoe UI', -apple-system, Arial, sans-serif;
-            background: #f0f4ff;
-            padding: 24px 16px;
-            color: #1f2937;
-            font-size: 14px;
-            line-height: 1.5;
-        }
-        .invoice-container {
-            max-width: 760px;
-            margin: 0 auto;
-            background: white;
-            border-radius: 12px;
-            overflow: hidden;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.12);
-        }
-
-        /* Header */
-        .inv-header {
-            display: grid;
-            grid-template-columns: auto 1fr;
-            gap: 1.5rem;
-            padding: 1.75rem 2rem 1.25rem;
-            border-bottom: 1px solid #e5e7eb;
-        }
-        .logo-wrap img { max-width: 160px; max-height: 70px; object-fit: contain; }
-        .logo-wrap .fallback-name { font-size: 1.5rem; font-weight: 800; color: #1e1b4b; }
-        .co-info { text-align: right; }
-        .co-info .co-name { font-size: 1.35rem; font-weight: 800; color: #1f2937; }
-        .co-info .co-sub  { font-size: 0.78rem; color: #6366f1; font-weight: 600; margin-bottom: 0.5rem; }
-        .co-info .co-addr { font-size: 0.72rem; color: #6b7280; line-height: 1.5; }
-
-        /* Title bar */
-        .inv-title-bar {
-            background: linear-gradient(135deg, #1e1b4b 0%, #312e81 60%, #4c1d95 100%);
-            color: white;
-            padding: 1rem 2rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-        }
-        .inv-title-bar .left .svc-label {
-            font-size: 1.35rem;
-            font-weight: 800;
-            letter-spacing: 0.5px;
-        }
-        .inv-title-bar .left .svc-sub {
-            font-size: 0.78rem;
-            opacity: 0.75;
-            margin-top: 0.1rem;
-        }
-        .inv-title-bar .right { text-align: right; }
-        .inv-title-bar .inv-number { font-size: 1rem; font-weight: 700; background: rgba(255,255,255,0.2); padding: 0.3rem 0.75rem; border-radius: 20px; }
-        .inv-title-bar .inv-date { font-size: 0.72rem; opacity: 0.75; margin-top: 0.4rem; }
-
-        /* Body */
-        .inv-body { padding: 1.5rem 2rem; }
-
-        /* Status badge */
-        .pay-status-banner {
-            border-radius: 8px;
-            padding: 0.6rem 1rem;
-            margin-bottom: 1.25rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-weight: 700;
-        }
-        .pay-status-banner.paid    { background: #dcfce7; color: #166534; border: 1px solid #86efac; }
-        .pay-status-banner.unpaid  { background: #fee2e2; color: #991b1b; border: 1px solid #fca5a5; }
-        .pay-status-banner.partial { background: #fef9c3; color: #92400e; border: 1px solid #fde047; }
-
-        .info-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-bottom: 1.25rem; }
-        .info-block .lbl { font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.05em; color: #9ca3af; font-weight: 600; margin-bottom: 0.2rem; }
-        .info-block .val { font-size: 0.9rem; font-weight: 600; color: #1f2937; }
-
-        /* Service table */
-        .svc-table { width: 100%; border-collapse: collapse; margin-bottom: 1.25rem; }
-        .svc-table thead th {
-            background: #f8fafc;
-            padding: 0.6rem 0.85rem;
-            text-align: left;
-            font-size: 0.7rem;
-            text-transform: uppercase;
-            letter-spacing: 0.04em;
-            color: #6b7280;
-            font-weight: 600;
-            border-bottom: 2px solid #e5e7eb;
-        }
-        .svc-table thead th:last-child { text-align: right; }
-        .svc-table tbody td {
-            padding: 0.75rem 0.85rem;
-            border-bottom: 1px solid #f1f5f9;
-            font-size: 0.88rem;
-            vertical-align: top;
-        }
-        .svc-table tbody td:last-child { text-align: right; font-weight: 600; }
-        .svc-table .svc-icon-cell { font-size: 1.5rem; width: 50px; vertical-align: middle; }
-
-        /* Totals */
-        .totals-table { margin-left: auto; width: 280px; border-collapse: collapse; }
-        .totals-table td { padding: 0.4rem 0.6rem; font-size: 0.88rem; }
-        .totals-table .t-label { color: #6b7280; }
-        .totals-table .t-val   { text-align: right; font-weight: 600; }
-        .totals-table .total-row td { border-top: 2px solid #1e1b4b; font-size: 1rem; font-weight: 800; color: #1e1b4b; padding-top: 0.6rem; }
-        .totals-table .paid-row td  { color: #15803d; font-weight: 700; }
-        .totals-table .due-row  td  { color: #dc2626; font-weight: 800; font-size: 1.05rem; }
-
-        /* Section titles */
-        .sec-title { font-size: 0.72rem; text-transform: uppercase; letter-spacing: 0.06em; color: #9ca3af; font-weight: 700; margin-bottom: 0.6rem; padding-bottom: 0.3rem; border-bottom: 1px solid #f1f5f9; }
-
-        /* Notes */
-        .notes-box { background: #f8fafc; border-radius: 8px; padding: 0.75rem 1rem; font-size: 0.83rem; color: #374151; }
-
-        /* Footer */
-        .inv-footer {
-            background: #f8fafc;
-            border-top: 1px solid #e5e7eb;
-            padding: 1rem 2rem;
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            font-size: 0.72rem;
-            color: #9ca3af;
-        }
-        .inv-footer .thank-you { font-size: 0.85rem; font-weight: 600; color: #4338ca; }
-
-        /* Print button */
-        .print-area { text-align: center; margin-top: 1.5rem; }
-        .print-btn {
-            background: #1e1b4b; color: white; border: none;
-            padding: 0.7rem 2rem; border-radius: 8px; font-size: 0.9rem;
-            font-weight: 600; cursor: pointer; margin-right: 0.5rem;
-        }
-        .back-btn {
-            background: #f3f4f6; color: #374151; border: 1px solid #e5e7eb;
-            padding: 0.7rem 1.5rem; border-radius: 8px; font-size: 0.9rem;
-            font-weight: 600; cursor: pointer; text-decoration: none; display: inline-block;
-        }
-
-        /* Watermark for paid */
-        .watermark {
-            position: absolute;
-            top: 50%; left: 50%;
-            transform: translate(-50%, -50%) rotate(-35deg);
-            font-size: 5rem;
-            font-weight: 900;
-            opacity: 0.05;
-            color: #16a34a;
-            pointer-events: none;
-            z-index: 0;
-            white-space: nowrap;
-        }
-        .inv-body { position: relative; }
-    </style>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Invoice <?php echo htmlspecialchars($inv['invoice_number']); ?></title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f2f5;color:#1a1a2e;font-size:13px}
+.page{width:100%;max-width:760px;margin:20px auto;background:white;box-shadow:0 4px 24px rgba(0,0,0,0.12)}
+/* Header */
+.inv-head{background:linear-gradient(135deg,#1e3a5f 0%,#0d2137 100%);color:white;padding:2rem 2.5rem;display:flex;justify-content:space-between;align-items:flex-start}
+.inv-head .company-name{font-size:1.3rem;font-weight:800;letter-spacing:0.03em;margin-bottom:0.25rem}
+.inv-head .company-sub{font-size:0.78rem;opacity:0.8;line-height:1.5}
+.inv-head .inv-title{text-align:right}
+.inv-head .inv-title .word{font-size:1.7rem;font-weight:900;letter-spacing:0.1em;opacity:0.15;display:block}
+.inv-head .inv-title .num{font-size:0.95rem;font-weight:700;background:rgba(255,255,255,0.15);padding:0.3rem 0.75rem;border-radius:20px;display:inline-block;margin-top:0.5rem}
+.inv-head .logo-wrap img{height:60px;width:auto;object-fit:contain;border-radius:6px}
+/* Status banner */
+.status-banner{padding:0.55rem 2.5rem;font-size:0.8rem;font-weight:700;letter-spacing:0.04em;color:white;text-align:center}
+.st-paid{background:#10b981}.st-partial{background:#f59e0b}.st-unpaid{background:#ef4444}
+/* Body */
+.inv-body{padding:2rem 2.5rem}
+/* Info grid */
+.info-grid{display:grid;grid-template-columns:1fr 1fr;gap:1.5rem;margin-bottom:1.75rem}
+.info-box h4{font-size:0.65rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.6rem;border-bottom:2px solid #f0f4ff;padding-bottom:0.35rem}
+.info-row{display:flex;justify-content:space-between;gap:0.5rem;margin-bottom:0.3rem;font-size:0.8rem}
+.info-row .lbl{color:#64748b;min-width:90px}
+.info-row .val{font-weight:600;text-align:right}
+/* Items table */
+.items-section h4{font-size:0.65rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:0.75rem;border-bottom:2px solid #f0f4ff;padding-bottom:0.35rem}
+.inv-table{width:100%;border-collapse:collapse;margin-bottom:1.25rem}
+.inv-table th{background:#1e3a5f;color:white;padding:0.6rem 0.8rem;font-size:0.7rem;font-weight:600;letter-spacing:0.04em;text-align:left}
+.inv-table th.r{text-align:right}
+.inv-table td{padding:0.65rem 0.8rem;border-bottom:1px solid #f1f5f9;font-size:0.82rem;vertical-align:top}
+.inv-table td.r{text-align:right;font-weight:600}
+.inv-table tr:last-child td{border-bottom:none}
+.inv-table tr:hover td{background:#fafbff}
+.svc-type-label{display:inline-flex;align-items:center;gap:0.35rem;background:#ede9fe;color:#5b21b6;padding:0.15rem 0.55rem;border-radius:12px;font-size:0.72rem;font-weight:700}
+/* Totals */
+.totals-wrap{display:flex;justify-content:flex-end;margin-bottom:1.5rem}
+.totals-box{min-width:280px;border:1px solid #e8edf5;border-radius:10px;overflow:hidden}
+.totals-row{display:flex;justify-content:space-between;padding:0.55rem 1rem;font-size:0.82rem;border-bottom:1px solid #f1f5f9}
+.totals-row:last-child{border-bottom:none}
+.totals-row.grand{background:#1e3a5f;color:white;font-weight:700;font-size:0.9rem}
+.totals-row.balance{background:#fff8e1;color:#92400e;font-weight:700}
+/* Notes */
+.notes-box{background:#f8fafc;border-left:3px solid #6366f1;padding:0.75rem 1rem;border-radius:0 6px 6px 0;margin-bottom:1.5rem;font-size:0.82rem;color:#374151}
+.notes-box strong{display:block;font-size:0.7rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.06em;margin-bottom:0.3rem}
+/* Footer */
+.inv-foot{background:#f8fafc;padding:1.25rem 2.5rem;text-align:center;font-size:0.75rem;color:#94a3b8;border-top:2px solid #e2e8f0}
+.inv-foot strong{color:#1e3a5f;display:block;margin-bottom:0.25rem;font-size:0.8rem}
+/* PAID watermark */
+.paid-watermark{position:fixed;top:40%;left:50%;transform:translate(-50%,-50%) rotate(-25deg);font-size:7rem;font-weight:900;color:rgba(16,185,129,0.1);pointer-events:none;z-index:9999;letter-spacing:0.1em}
+/* No-print */
+.no-print{background:#1e3a5f;padding:0.75rem 2.5rem;display:flex;gap:0.75rem;align-items:center}
+.btn-print{background:white;color:#1e3a5f;border:none;border-radius:6px;padding:0.5rem 1.25rem;font-weight:700;cursor:pointer;font-size:0.85rem}
+.btn-back{background:rgba(255,255,255,0.15);color:white;border:1px solid rgba(255,255,255,0.4);border-radius:6px;padding:0.5rem 1.25rem;font-weight:600;cursor:pointer;font-size:0.85rem;text-decoration:none;display:inline-block}
+@media print{
+    body{background:white}
+    .no-print{display:none!important}
+    .page{box-shadow:none;margin:0;max-width:none}
+    @page{margin:10mm 12mm}
+}
+</style>
 </head>
 <body>
 
-<div class="invoice-container">
+<!-- Actions bar -->
+<div class="no-print">
+    <button class="btn-print" onclick="window.print()">🖨️ Print Invoice</button>
+    <a class="btn-back" href="javascript:history.back()">← Back</a>
+    <span style="color:rgba(255,255,255,0.7);font-size:0.8rem;margin-left:auto"><?php echo htmlspecialchars($inv['invoice_number']); ?></span>
+</div>
+
+<?php if ($inv['payment_status'] === 'paid'): ?>
+<div class="paid-watermark">PAID</div>
+<?php endif; ?>
+
+<div class="page">
 
     <!-- Header -->
-    <div class="inv-header">
-        <div class="logo-wrap">
-            <?php if ($logoUrl): ?>
-            <img src="<?php echo $logoUrl; ?>" alt="<?php echo htmlspecialchars($co['name']); ?>">
-            <?php else: ?>
-            <div class="fallback-name"><?php echo htmlspecialchars($co['name']); ?></div>
+    <div class="inv-head">
+        <div style="display:flex;align-items:flex-start;gap:1rem">
+            <?php if ($companyLogo): ?>
+            <div class="logo-wrap"><img src="<?php echo htmlspecialchars($companyLogo); ?>" alt="Logo"></div>
             <?php endif; ?>
-        </div>
-        <div class="co-info">
-            <div class="co-name"><?php echo htmlspecialchars($co['name']); ?></div>
-            <?php if (!empty($co['tagline'])): ?>
-            <div class="co-sub"><?php echo htmlspecialchars($co['tagline']); ?></div>
-            <?php endif; ?>
-            <div class="co-addr">
-                <?php if (!empty($co['address'])): ?>
-                    <?php echo nl2br(htmlspecialchars($co['address'])); ?><br>
-                <?php endif; ?>
-                <?php if (!empty($co['phone'])): ?>📞 <?php echo htmlspecialchars($co['phone']); ?><?php endif; ?>
-                <?php if (!empty($co['email']) && !empty($co['phone'])): ?> &nbsp;·&nbsp; <?php endif; ?>
-                <?php if (!empty($co['email'])): ?>✉️ <?php echo htmlspecialchars($co['email']); ?><?php endif; ?>
+            <div>
+                <div class="company-name"><?php echo htmlspecialchars($companyName); ?></div>
+                <div class="company-sub">
+                    <?php echo htmlspecialchars($companyAddress); ?>
+                    <?php if ($companyPhone): ?><br>📞 <?php echo htmlspecialchars($companyPhone); ?><?php endif; ?>
+                    <?php if ($companyEmail): ?><br>✉️ <?php echo htmlspecialchars($companyEmail); ?><?php endif; ?>
+                </div>
             </div>
         </div>
-    </div>
-
-    <!-- Title bar -->
-    <div class="inv-title-bar">
-        <div class="left">
-            <div class="svc-label"><?php echo $serviceIcon; ?> <?php echo strtoupper($serviceName); ?> INVOICE</div>
-            <div class="svc-sub">Hotel Additional Services</div>
-        </div>
-        <div class="right">
-            <div class="inv-number"><?php echo htmlspecialchars($order['order_number']); ?></div>
-            <div class="inv-date">Issued: <?php echo date('d F Y', strtotime($order['created_at'])); ?></div>
+        <div class="inv-title">
+            <span class="word">INVOICE</span>
+            <div class="num"><?php echo htmlspecialchars($inv['invoice_number']); ?></div>
         </div>
     </div>
 
-    <!-- Body -->
+    <!-- Status banner -->
+    <?php
+    $bannerClass = ['paid'=>'st-paid','partial'=>'st-partial','unpaid'=>'st-unpaid'][$inv['payment_status']] ?? 'st-unpaid';
+    $bannerText  = ['paid'=>'✅ PAID IN FULL','partial'=>'⚡ PARTIALLY PAID — BALANCE DUE','unpaid'=>'❌ UNPAID'][$inv['payment_status']] ?? 'UNPAID';
+    ?>
+    <div class="status-banner <?php echo $bannerClass; ?>"><?php echo $bannerText; ?></div>
+
     <div class="inv-body">
-        <?php if ($order['payment_status'] === 'paid'): ?>
-        <div class="watermark">PAID</div>
-        <?php endif; ?>
 
-        <!-- Payment status banner -->
-        <div class="pay-status-banner <?php echo $order['payment_status']; ?>">
-            <span>
-                <?php if ($order['payment_status'] === 'paid'): ?>✅ FULLY PAID
-                <?php elseif ($order['payment_status'] === 'partial'): ?>⚠️ PARTIALLY PAID — Balance Due: Rp <?php echo number_format($remaining, 0, ',', '.'); ?>
-                <?php else: ?>❌ PAYMENT PENDING — Amount Due: Rp <?php echo number_format($order['total_price'], 0, ',', '.'); ?>
+        <!-- Info grid -->
+        <div class="info-grid">
+            <div class="info-box">
+                <h4>Bill To</h4>
+                <div class="info-row"><span class="lbl">Guest Name</span><span class="val"><?php echo htmlspecialchars($inv['guest_name']); ?></span></div>
+                <?php if ($inv['guest_phone']): ?>
+                <div class="info-row"><span class="lbl">Phone</span><span class="val"><?php echo htmlspecialchars($inv['guest_phone']); ?></span></div>
                 <?php endif; ?>
-            </span>
-            <span style="font-size:0.75rem;opacity:0.75"><?php echo strtoupper($order['payment_method']); ?></span>
-        </div>
-
-        <!-- Guest & Order info -->
-        <div style="margin-bottom:1.25rem">
-            <div class="sec-title">Guest &amp; Order Details</div>
-            <div class="info-grid">
-                <div class="info-block">
-                    <div class="lbl">Guest Name</div>
-                    <div class="val"><?php echo htmlspecialchars($order['guest_name']); ?></div>
-                </div>
-                <div class="info-block">
-                    <div class="lbl">Order Number</div>
-                    <div class="val"><?php echo htmlspecialchars($order['order_number']); ?></div>
-                </div>
-                <?php if ($order['guest_phone']): ?>
-                <div class="info-block">
-                    <div class="lbl">Phone</div>
-                    <div class="val"><?php echo htmlspecialchars($order['guest_phone']); ?></div>
-                </div>
+                <?php if ($inv['room_number']): ?>
+                <div class="info-row"><span class="lbl">Room</span><span class="val"><?php echo htmlspecialchars($inv['room_number']); ?></span></div>
                 <?php endif; ?>
-                <div class="info-block">
-                    <div class="lbl">Room</div>
-                    <div class="val"><?php echo $order['room_number'] ? htmlspecialchars($order['room_number']) : '—'; ?></div>
-                </div>
-                <div class="info-block">
-                    <div class="lbl">Order Date</div>
-                    <div class="val"><?php echo date('d F Y, H:i', strtotime($order['created_at'])); ?></div>
-                </div>
-                <div class="info-block">
-                    <div class="lbl">Status</div>
-                    <div class="val"><?php echo ucwords(str_replace('_',' ',$order['status'])); ?></div>
-                </div>
-                <?php if ($order['start_datetime']): ?>
-                <div class="info-block">
-                    <div class="lbl">Start / Pickup</div>
-                    <div class="val"><?php echo date('d M Y, H:i', strtotime($order['start_datetime'])); ?></div>
-                </div>
-                <?php endif; ?>
-                <?php if ($order['end_datetime']): ?>
-                <div class="info-block">
-                    <div class="lbl">End / Return</div>
-                    <div class="val"><?php echo date('d M Y, H:i', strtotime($order['end_datetime'])); ?></div>
-                </div>
-                <?php endif; ?>
+            </div>
+            <div class="info-box">
+                <h4>Invoice Details</h4>
+                <div class="info-row"><span class="lbl">Invoice No.</span><span class="val" style="color:#1e3a5f;font-weight:800"><?php echo htmlspecialchars($inv['invoice_number']); ?></span></div>
+                <div class="info-row"><span class="lbl">Date</span><span class="val"><?php echo date('d F Y', strtotime($inv['created_at'])); ?></span></div>
+                <div class="info-row"><span class="lbl">Payment</span><span class="val"><?php echo ucfirst($inv['payment_method']); ?></span></div>
+                <div class="info-row"><span class="lbl">Status</span><span class="val"><?php echo ucfirst($inv['status']); ?></span></div>
             </div>
         </div>
 
-        <!-- Service line items -->
-        <div style="margin-bottom:1.25rem">
-            <div class="sec-title">Service Details</div>
-            <table class="svc-table">
+        <!-- Items table -->
+        <div class="items-section">
+            <h4>Services Provided</h4>
+            <table class="inv-table">
                 <thead>
                     <tr>
-                        <th style="width:50px"></th>
+                        <th>#</th>
+                        <th>Service Type</th>
                         <th>Description</th>
-                        <th style="width:80px;text-align:center">Qty</th>
-                        <th style="width:120px;text-align:right">Unit Price</th>
-                        <th style="width:130px;text-align:right">Amount</th>
+                        <th class="r">Qty</th>
+                        <th class="r">Unit Price</th>
+                        <th class="r">Amount</th>
                     </tr>
                 </thead>
                 <tbody>
-                    <tr>
-                        <td class="svc-icon-cell"><?php echo $serviceIcon; ?></td>
-                        <td>
-                            <div style="font-weight:700;color:#1e1b4b"><?php echo $serviceName; ?></div>
-                            <?php if ($order['description']): ?>
-                            <div style="font-size:0.78rem;color:#6b7280;margin-top:0.2rem"><?php echo htmlspecialchars($order['description']); ?></div>
-                            <?php endif; ?>
-                        </td>
-                        <td style="text-align:center"><?php echo rtrim(rtrim(number_format($order['quantity'], 2), '0'),'.')?></td>
-                        <td style="text-align:right">Rp <?php echo number_format($order['unit_price'], 0, ',', '.'); ?></td>
-                        <td style="text-align:right">Rp <?php echo number_format($order['total_price'], 0, ',', '.'); ?></td>
-                    </tr>
+                <?php $rowNo = 1; foreach ($items as $item):
+                    $svcInfo = $serviceLabels[$item['service_type']] ?? ['label'=>$item['service_type'],'icon'=>''];
+                ?>
+                <tr>
+                    <td style="color:#94a3b8;font-size:0.75rem"><?php echo $rowNo++; ?></td>
+                    <td><span class="svc-type-label"><?php echo $svcInfo['icon']; ?> <?php echo $svcInfo['label']; ?></span></td>
+                    <td style="color:#374151">
+                        <?php echo htmlspecialchars($item['description'] ?? ''); ?>
+                        <?php if ($item['start_datetime']): ?>
+                        <div style="font-size:0.72rem;color:#94a3b8;margin-top:2px">
+                            From: <?php echo date('d M Y H:i', strtotime($item['start_datetime'])); ?>
+                            <?php if ($item['end_datetime']): ?> — <?php echo date('d M Y H:i', strtotime($item['end_datetime'])); ?><?php endif; ?>
+                        </div>
+                        <?php endif; ?>
+                    </td>
+                    <td class="r"><?php echo rtrim(rtrim(number_format($item['quantity'],2),'0'),'.'); ?></td>
+                    <td class="r">Rp <?php echo number_format($item['unit_price'],0,',','.'); ?></td>
+                    <td class="r">Rp <?php echo number_format($item['total_price'],0,',','.'); ?></td>
+                </tr>
+                <?php endforeach; ?>
                 </tbody>
             </table>
+        </div>
 
-            <!-- Totals -->
-            <table class="totals-table">
-                <tr>
-                    <td class="t-label">Subtotal</td>
-                    <td class="t-val">Rp <?php echo number_format($order['total_price'], 0, ',', '.'); ?></td>
-                </tr>
-                <tr class="total-row">
-                    <td>TOTAL</td>
-                    <td>Rp <?php echo number_format($order['total_price'], 0, ',', '.'); ?></td>
-                </tr>
-                <tr class="paid-row">
-                    <td>PAID</td>
-                    <td>Rp <?php echo number_format($order['paid_amount'], 0, ',', '.'); ?></td>
-                </tr>
-                <?php if ($remaining > 0): ?>
-                <tr class="due-row">
-                    <td>BALANCE DUE</td>
-                    <td>Rp <?php echo number_format($remaining, 0, ',', '.'); ?></td>
-                </tr>
-                <?php else: ?>
-                <tr>
-                    <td colspan="2" style="text-align:right;padding-top:0.5rem;font-size:0.8rem;color:#16a34a;font-weight:600">✅ No Outstanding Balance</td>
-                </tr>
+        <!-- Totals -->
+        <div class="totals-wrap">
+            <div class="totals-box">
+                <div class="totals-row grand">
+                    <span>TOTAL</span>
+                    <span>Rp <?php echo number_format($inv['total'],0,',','.'); ?></span>
+                </div>
+                <div class="totals-row">
+                    <span>Paid</span>
+                    <span style="color:#10b981;font-weight:700">Rp <?php echo number_format($inv['paid_amount'],0,',','.'); ?></span>
+                </div>
+                <?php $balance = $inv['total'] - $inv['paid_amount']; if ($balance > 0): ?>
+                <div class="totals-row balance">
+                    <span>Balance Due</span>
+                    <span>Rp <?php echo number_format($balance,0,',','.'); ?></span>
+                </div>
                 <?php endif; ?>
-            </table>
+            </div>
         </div>
 
         <!-- Notes -->
-        <?php if ($order['notes']): ?>
-        <div style="margin-bottom:1.25rem">
-            <div class="sec-title">Notes</div>
-            <div class="notes-box"><?php echo nl2br(htmlspecialchars($order['notes'])); ?></div>
+        <?php if ($inv['notes']): ?>
+        <div class="notes-box">
+            <strong>Notes</strong>
+            <?php echo nl2br(htmlspecialchars($inv['notes'])); ?>
         </div>
         <?php endif; ?>
 
-    </div><!-- /inv-body -->
-
-    <!-- Footer -->
-    <div class="inv-footer">
-        <div>
-            <div class="thank-you">Thank you for choosing <?php echo htmlspecialchars($co['name']); ?>!</div>
-            <?php if (!empty($co['phone'])): ?>
-            <div style="margin-top:0.2rem">For inquiries: <?php echo htmlspecialchars($co['phone']); ?></div>
-            <?php endif; ?>
-        </div>
-        <div style="text-align:right">
-            <div style="font-weight:600;color:#374151"><?php echo htmlspecialchars($order['order_number']); ?></div>
-            <div>Printed: <?php echo date('d M Y H:i'); ?></div>
-        </div>
     </div>
 
-</div><!-- /invoice-container -->
-
-<div class="print-area no-print">
-    <button class="print-btn" onclick="window.print()">🖨️ Print Invoice</button>
-    <a href="hotel-services.php" class="back-btn">← Back to Services</a>
+    <!-- Footer -->
+    <div class="inv-foot">
+        <strong><?php echo htmlspecialchars($companyName); ?></strong>
+        Thank you for choosing our services. We look forward to serving you again!<br>
+        <?php if ($companyPhone||$companyEmail): ?>
+        Contact: <?php echo htmlspecialchars(implode(' | ', array_filter([$companyPhone, $companyEmail]))); ?>
+        <?php endif; ?>
+    </div>
 </div>
 
 </body>
