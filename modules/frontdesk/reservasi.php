@@ -298,8 +298,8 @@ include '../../includes/header.php';
     font-size: 0.7rem;
     font-weight: 600;
     transition: all 0.2s ease;
-    background: #6366f1;
-    color: #ffffff;
+    background: #6366f1 !important;
+    color: #ffffff !important;
     border: 1px solid #4f46e5;
     white-space: nowrap;
 }
@@ -342,12 +342,12 @@ include '../../includes/header.php';
 
 .room-badge {
     display: inline-block;
-    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    background: linear-gradient(135deg, #6366f1, #8b5cf6) !important;
     padding: 0.2rem 0.5rem;
     border-radius: 4px;
     font-weight: 600;
     font-size: 0.7rem;
-    color: #ffffff;
+    color: #ffffff !important;
 }
 
 .ota-badge {
