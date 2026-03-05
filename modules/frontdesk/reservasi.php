@@ -607,7 +607,7 @@ include '../../includes/header.php';
 
                     <!-- Room -->
                     <td>
-                        <span class="room-badge">
+                        <span class="room-badge" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;padding:0.2rem 0.5rem;border-radius:4px;font-weight:600;">
                             <?php echo htmlspecialchars($booking['room_number']); ?>
                         </span>
                         <div style="font-size: 0.7rem; margin-top: 0.25rem;">
@@ -685,10 +685,10 @@ include '../../includes/header.php';
                     <!-- Actions -->
                     <td>
                         <div class="row-actions">
-                            <button class="action-btn" onclick="viewBooking(<?php echo $booking['id']; ?>)">
+                            <button class="action-btn" style="background:#6366f1;color:#fff;border:1px solid #4f46e5;" onclick="viewBooking(<?php echo $booking['id']; ?>)">
                                 View
                             </button>
-                            <button class="action-btn" onclick="editBooking(<?php echo $booking['id']; ?>)">
+                            <button class="action-btn" style="background:#6366f1;color:#fff;border:1px solid #4f46e5;" onclick="editBooking(<?php echo $booking['id']; ?>)">
                                 Edit
                             </button>
                             <button class="action-btn" style="background-color: #6366f1; color: white; border-color: #4f46e5;" onclick="printInvoice(<?php echo $booking['id']; ?>)">
@@ -712,10 +712,10 @@ include '../../includes/header.php';
                             <?php endif; ?>
 
                             <?php if ($booking['status'] !== 'checked_in' && $booking['status'] !== 'checked_out'): ?>
-                            <button class="action-btn action-cancel" onclick="cancelBooking(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_code']); ?>')">
+                            <button class="action-btn action-cancel" style="background:#f59e0b;color:#fff;border:1px solid #d97706;" onclick="cancelBooking(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_code']); ?>')">
                                 Cancel
                             </button>
-                            <button class="action-btn action-delete" onclick="deleteBooking(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_code']); ?>')">
+                            <button class="action-btn action-delete" style="background:#ef4444;color:#fff;border:1px solid #dc2626;" onclick="deleteBooking(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_code']); ?>')">
                                 Delete
                             </button>
                             <?php endif; ?>
