@@ -298,38 +298,40 @@ include '../../includes/header.php';
     font-size: 0.7rem;
     font-weight: 600;
     transition: all 0.2s ease;
-    background: #f3f4f6;
-    color: #6366f1;
-    border: 1px solid #e5e7eb;
+    background: #6366f1;
+    color: #ffffff;
+    border: 1px solid #4f46e5;
     white-space: nowrap;
 }
 
 .action-btn:hover {
-    background: #6366f1;
-    color: white;
-    border-color: #6366f1;
+    background: #4f46e5;
+    color: #ffffff;
+    border-color: #4338ca;
 }
 
 .action-btn.action-cancel {
-    color: #f59e0b;
-    border-color: #fcd34d;
+    background: #f59e0b;
+    color: #ffffff;
+    border-color: #d97706;
 }
 
 .action-btn.action-cancel:hover {
-    background: #f59e0b;
-    color: white;
-    border-color: #f59e0b;
+    background: #d97706;
+    color: #ffffff;
+    border-color: #b45309;
 }
 
 .action-btn.action-delete {
-    color: #ef4444;
-    border-color: #fca5a5;
+    background: #ef4444;
+    color: #ffffff;
+    border-color: #dc2626;
 }
 
 .action-btn.action-delete:hover {
-    background: #ef4444;
-    color: white;
-    border-color: #ef4444;
+    background: #dc2626;
+    color: #ffffff;
+    border-color: #b91c1c;
 }
 
 .empty-state {
@@ -340,12 +342,12 @@ include '../../includes/header.php';
 
 .room-badge {
     display: inline-block;
-    background: #e5e7eb;
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
     padding: 0.2rem 0.5rem;
     border-radius: 4px;
     font-weight: 600;
     font-size: 0.7rem;
-    color: #374151;
+    color: #ffffff;
 }
 
 .ota-badge {
