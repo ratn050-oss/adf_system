@@ -84,11 +84,12 @@ try {
     ", [$today]);
     $stats['revenue_today'] = $revenueResult['total'] ?? 0;
 
-    // In-House Revenue - Total tagihan (final_price) tamu yang sedang check-in
+    // In-House Revenue - Total billing (final_price) for active guests this month
     $inHouseRevenueResult = $db->fetchOne("
         SELECT COALESCE(SUM(final_price), 0) as total
         FROM bookings
         WHERE status = 'checked_in'
+           OR (status = 'checked_out' AND DATE_FORMAT(check_out_date, '%Y-%m') = DATE_FORMAT(NOW(), '%Y-%m'))
     ");
     $stats['inhouse_revenue'] = $inHouseRevenueResult['total'] ?? 0;
 
@@ -623,13 +624,13 @@ include '../../includes/header.php';
         <div class="stat-card">
             <div class="stat-icon" style="background: rgba(99, 102, 241, 0.15); color: #6366f1;">👥</div>
             <div class="stat-value"><?php echo $stats['checkins']; ?></div>
-            <div class="stat-label">Check-in Hari Ini</div>
+            <div class="stat-label">Check-in Today</div>
         </div>
 
         <div class="stat-card">
             <div class="stat-icon" style="background: rgba(16, 185, 129, 0.15); color: #10b981;">👋</div>
             <div class="stat-value"><?php echo $stats['checkouts']; ?></div>
-            <div class="stat-label">Check-out Hari Ini</div>
+            <div class="stat-label">Check-out Today</div>
         </div>
 
         <div class="stat-card">
@@ -647,7 +648,7 @@ include '../../includes/header.php';
         <div class="stat-card">
             <div class="stat-icon" style="background: rgba(239, 68, 68, 0.15); color: #ef4444;">📈</div>
             <div class="stat-value" style="font-size: 1.25rem;">Rp <?php echo number_format($stats['revenue_today'], 0, ',', '.'); ?></div>
-            <div class="stat-label">Pendapatan Hari Ini</div>
+            <div class="stat-label">Revenue Today</div>
         </div>
 
         <div class="stat-card">
@@ -659,7 +660,7 @@ include '../../includes/header.php';
         <div class="stat-card">
             <div class="stat-icon" style="background: rgba(139, 92, 246, 0.15); color: #8b5cf6;">👨‍💼</div>
             <div class="stat-value"><?php echo $stats['occupied']; ?></div>
-            <div class="stat-label">Kamar Terisi</div>
+            <div class="stat-label">Rooms Occupied</div>
         </div>
     </div>
 
@@ -669,7 +670,7 @@ include '../../includes/header.php';
             🏁 Check-in/out
         </button>
         <button class="tab-btn" onclick="switchTab('reservasi', this)">
-            📅 Reservasi
+            📅 Reservations
         </button>
         <button class="tab-btn" onclick="switchTab('ruangan', this)">
             🛏️ Manajemen Ruangan
@@ -731,7 +732,7 @@ include '../../includes/header.php';
     <!-- Tab 2: RESERVASI -->
     <div id="tab-reservasi" class="tab-content">
         <div class="fd-card">
-            <div class="fd-card-title">📅 Reservasi Management</div>
+            <div class="fd-card-title">📅 Reservation Management</div>
             <div class="quick-actions">
                 <button class="quick-btn" onclick="alert('Coming Soon: New Reservation')">
                     ➕ New Reservation
@@ -847,7 +848,7 @@ include '../../includes/header.php';
             <div style="background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); border-radius: 16px; padding: 1.25rem; color: white;">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
                     <div>
-                        <div style="font-size: 0.85rem; opacity: 0.9; margin-bottom: 0.25rem;">📆 Laporan Bulanan</div>
+                        <div style="font-size: 0.85rem; opacity: 0.9; margin-bottom: 0.25rem;">📆 Monthly Report</div>
                         <div style="font-size: 0.75rem; opacity: 0.7;"><?php echo date('F Y'); ?></div>
                     </div>
                     <div style="background: rgba(255,255,255,0.2); padding: 0.5rem; border-radius: 10px;">
@@ -860,7 +861,7 @@ include '../../includes/header.php';
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.2);">
                     <div>
                         <div style="font-size: 1.25rem; font-weight: 700;"><?php echo $stats['monthly_bookings']; ?></div>
-                        <div style="font-size: 0.7rem; opacity: 0.8;">Total Reservasi</div>
+                        <div style="font-size: 0.7rem; opacity: 0.8;">Total Reservations</div>
                     </div>
                     <div>
                         <div style="font-size: 1.25rem; font-weight: 700;"><?php echo $stats['monthly_nights']; ?></div>
@@ -873,8 +874,8 @@ include '../../includes/header.php';
             <div style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); border-radius: 16px; padding: 1.25rem; color: white;">
                 <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
                     <div>
-                        <div style="font-size: 0.85rem; opacity: 0.9; margin-bottom: 0.25rem;">📅 Laporan Tahunan</div>
-                        <div style="font-size: 0.75rem; opacity: 0.7;">Tahun <?php echo date('Y'); ?></div>
+                        <div style="font-size: 0.85rem; opacity: 0.9; margin-bottom: 0.25rem;">📅 Annual Report</div>
+                        <div style="font-size: 0.75rem; opacity: 0.7;">Year <?php echo date('Y'); ?></div>
                     </div>
                     <div style="background: rgba(255,255,255,0.2); padding: 0.5rem; border-radius: 10px;">
                         <span style="font-size: 1.5rem;">🏆</span>
@@ -886,7 +887,7 @@ include '../../includes/header.php';
                 <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 0.75rem; margin-top: 1rem; padding-top: 1rem; border-top: 1px solid rgba(255,255,255,0.2);">
                     <div>
                         <div style="font-size: 1.25rem; font-weight: 700;"><?php echo $stats['yearly_bookings']; ?></div>
-                        <div style="font-size: 0.7rem; opacity: 0.8;">Total Reservasi</div>
+                        <div style="font-size: 0.7rem; opacity: 0.8;">Total Reservations</div>
                     </div>
                     <div>
                         <div style="font-size: 1.25rem; font-weight: 700;"><?php echo $stats['yearly_nights']; ?></div>
@@ -899,7 +900,7 @@ include '../../includes/header.php';
         <!-- Today's Bookings Table -->
         <div class="fd-card">
             <div class="fd-card-title" style="display: flex; justify-content: space-between; align-items: center;">
-                <span>📋 Reservasi Hari Ini</span>
+                <span>📋 Today's Reservations</span>
                 <span style="font-size: 0.8rem; color: var(--text-secondary);"><?php echo date('d M Y'); ?></span>
             </div>
             <?php if (!empty($stats['recent_bookings'])): ?>
@@ -908,12 +909,12 @@ include '../../includes/header.php';
                     <thead>
                         <tr style="background: var(--bg-tertiary); text-align: left;">
                             <th style="padding: 0.75rem; font-weight: 600; color: var(--text-secondary);">Kode</th>
-                            <th style="padding: 0.75rem; font-weight: 600; color: var(--text-secondary);">Tamu</th>
+                            <th style="padding: 0.75rem; font-weight: 600; color: var(--text-secondary);">Guest</th>
                             <th style="padding: 0.75rem; font-weight: 600; color: var(--text-secondary);">Kamar</th>
                             <th style="padding: 0.75rem; font-weight: 600; color: var(--text-secondary);">Check-in</th>
                             <th style="padding: 0.75rem; font-weight: 600; color: var(--text-secondary);">Check-out</th>
                             <th style="padding: 0.75rem; font-weight: 600; color: var(--text-secondary); text-align: right;">Total</th>
-                            <th style="padding: 0.75rem; font-weight: 600; color: var(--text-secondary); text-align: right;">Dibayar</th>
+                            <th style="padding: 0.75rem; font-weight: 600; color: var(--text-secondary); text-align: right;">Paid</th>
                             <th style="padding: 0.75rem; font-weight: 600; color: var(--text-secondary);">Status</th>
                         </tr>
                     </thead>
@@ -957,23 +958,23 @@ include '../../includes/header.php';
             <?php else: ?>
             <div style="text-align: center; padding: 2rem; color: var(--text-secondary);">
                 <div style="font-size: 2rem; margin-bottom: 0.5rem;">📭</div>
-                <p>Belum ada reservasi hari ini</p>
+                <p>No reservations today</p>
             </div>
             <?php endif; ?>
         </div>
 
         <!-- Quick Actions -->
         <div class="fd-card">
-            <div class="fd-card-title">🔗 Laporan Lainnya</div>
+            <div class="fd-card-title">🔗 Other Reports</div>
             <div class="quick-actions" style="display: flex; gap: 1rem; flex-wrap: wrap;">
                 <a href="laporan.php" class="quick-btn" style="text-decoration: none;">
-                    📊 Laporan Harian Detail
+                    📊 Detailed Daily Report
                 </a>
                 <a href="in-house.php" class="quick-btn" style="text-decoration: none;">
-                    🏨 Tamu In-House
+                    🏨 In-House Guests
                 </a>
                 <a href="calendar.php" class="quick-btn" style="text-decoration: none;">
-                    📅 Kalender Booking
+                    📅 Booking Calendar
                 </a>
             </div>
         </div>
@@ -984,7 +985,7 @@ include '../../includes/header.php';
         <div class="fd-card">
             <div class="fd-card-title">⚙️ Settings & Configuration</div>
             <p style="color: var(--text-secondary); margin-bottom: 1.5rem;">
-                Manage rooms, room types, dan OTA commission fees
+                Manage rooms, room types, and OTA commission fees
             </p>
             <div class="quick-actions">
                 <a href="settings.php?tab=rooms" class="quick-btn" style="text-decoration: none; display: inline-block;">

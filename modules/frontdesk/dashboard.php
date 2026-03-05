@@ -198,11 +198,13 @@ try {
     ", [$today]);
     $stats['ota_revenue_today'] = $otaRevenueResult['total'] ?? 0;
 
-    // 9. In-House Revenue - Total final_price tagihan tamu yang sedang check-in
+    // 9. In-House Revenue - Total billing for guests currently checked-in
+    //    AND guests who checked out this month (to include fully-settled stays)
     $inHouseRevenueResult = $db->fetchOne("
         SELECT COALESCE(SUM(final_price), 0) as total
         FROM bookings
         WHERE status = 'checked_in'
+           OR (status = 'checked_out' AND DATE_FORMAT(check_out_date, '%Y-%m') = DATE_FORMAT(NOW(), '%Y-%m'))
     ");
     $stats['inhouse_revenue'] = $inHouseRevenueResult['total'] ?? 0;
 
@@ -1497,11 +1499,11 @@ include '../../includes/header.php';
             <div class="header-actions">
                 <a href="reservasi.php" class="btn-premium">
                     <span>📋</span>
-                    <span>List Reservasi</span>
+                    <span>Reservations</span>
                 </a>
                 <a href="in-house.php" class="btn-premium" style="background: linear-gradient(135deg, #f59e0b, #fbbf24);">
                     <span>🏨</span>
-                    <span>Tamu In House</span>
+                    <span>In-House Guests</span>
                 </a>
                 <a href="calendar.php" class="btn-premium" style="background: linear-gradient(135deg, #10b981, #34d399);">
                     <span>📆</span>
@@ -1541,11 +1543,11 @@ include '../../includes/header.php';
             <div style="display: flex; justify-content: center; gap: 1.25rem; margin-top: 0.75rem; font-size: 0.85rem;">
                 <span style="display: flex; align-items: center; gap: 0.35rem;">
                     <span style="width: 10px; height: 10px; background: #10b981; border-radius: 50%;"></span>
-                    TERISI (<?php echo $stats['occupied_rooms']; ?>)
+                    OCCUPIED (<?php echo $stats['occupied_rooms']; ?>)
                 </span>
                 <span style="display: flex; align-items: center; gap: 0.35rem;">
                     <span style="width: 10px; height: 10px; background: #818cf8; border-radius: 50%;"></span>
-                    KOSONG (<?php echo $stats['available_rooms']; ?>)
+                    VACANT (<?php echo $stats['available_rooms']; ?>)
                 </span>
             </div>
         </div>
@@ -1573,11 +1575,11 @@ include '../../includes/header.php';
                 <div style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(139, 92, 246, 0.08)); border: 1px solid rgba(99, 102, 241, 0.3); border-radius: 10px; padding: 0.75rem;">
                     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
                         <span style="font-size: 1.25rem;">🏨</span>
-                        <span style="font-size: 0.65rem; background: rgba(99, 102, 241, 0.2); color: #6366f1; padding: 0.2rem 0.4rem; border-radius: 8px; font-weight: 600;">ACTIVE</span>
+                        <span style="font-size: 0.65rem; background: rgba(99, 102, 241, 0.2); color: #6366f1; padding: 0.2rem 0.4rem; border-radius: 8px; font-weight: 600;">MONTH</span>
                     </div>
-                    <div style="font-size: 0.75rem; color: #6366f1; font-weight: 600; margin-bottom: 0.25rem;">In-House Revenue</div>
+                    <div style="font-size: 0.75rem; color: #6366f1; font-weight: 600; margin-bottom: 0.25rem;">Room Revenue</div>
                     <div style="font-size: 1.1rem; font-weight: 800; color: #4f46e5;">Rp <?php echo number_format($stats['inhouse_revenue'], 0, ',', '.'); ?></div>
-                    <div style="font-size: 0.65rem; color: #818cf8; margin-top: 3px;">Total tagihan tamu check-in</div>
+                    <div style="font-size: 0.65rem; color: #818cf8; margin-top: 3px;">Active guests + check-outs this month</div>
                 </div>
                 
                 <!-- Monthly Revenue -->
@@ -1610,19 +1612,19 @@ include '../../includes/header.php';
         <h3 style="font-size: 0.9rem; margin-bottom: 0.75rem; display: flex; align-items: center; gap: 0.5rem; color: #b45309;">
             👋 Check-out Today
             <span style="font-size: 0.65rem; background: rgba(245, 158, 11, 0.15); color: #d97706; padding: 0.2rem 0.6rem; border-radius: 20px; font-weight: 600;">
-                <?php echo count($stats['checkout_guests']); ?> Tamu
+                <?php echo count($stats['checkout_guests']); ?> Guests
             </span>
         </h3>
         <div style="overflow-x: auto;">
             <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem;">
                 <thead>
                     <tr style="background: rgba(245, 158, 11, 0.1);">
-                        <th style="padding: 0.6rem 0.75rem; text-align: left; font-weight: 600; color: #92400e; border-bottom: 1px solid rgba(245, 158, 11, 0.2);">Tamu</th>
+                        <th style="padding: 0.6rem 0.75rem; text-align: left; font-weight: 600; color: #92400e; border-bottom: 1px solid rgba(245, 158, 11, 0.2);">Guest</th>
                         <th style="padding: 0.6rem 0.75rem; text-align: center; font-weight: 600; color: #92400e; border-bottom: 1px solid rgba(245, 158, 11, 0.2);">Room</th>
-                        <th style="padding: 0.6rem 0.75rem; text-align: center; font-weight: 600; color: #92400e; border-bottom: 1px solid rgba(245, 158, 11, 0.2);">Tipe</th>
+                        <th style="padding: 0.6rem 0.75rem; text-align: center; font-weight: 600; color: #92400e; border-bottom: 1px solid rgba(245, 158, 11, 0.2);">Type</th>
                         <th style="padding: 0.6rem 0.75rem; text-align: center; font-weight: 600; color: #92400e; border-bottom: 1px solid rgba(245, 158, 11, 0.2);">Check-out</th>
                         <th style="padding: 0.6rem 0.75rem; text-align: right; font-weight: 600; color: #92400e; border-bottom: 1px solid rgba(245, 158, 11, 0.2);">Total</th>
-                        <th style="padding: 0.6rem 0.75rem; text-align: right; font-weight: 600; color: #92400e; border-bottom: 1px solid rgba(245, 158, 11, 0.2);">Dibayar</th>
+                        <th style="padding: 0.6rem 0.75rem; text-align: right; font-weight: 600; color: #92400e; border-bottom: 1px solid rgba(245, 158, 11, 0.2);">Paid</th>
                         <th style="padding: 0.6rem 0.75rem; text-align: center; font-weight: 600; color: #92400e; border-bottom: 1px solid rgba(245, 158, 11, 0.2);">Status</th>
                     </tr>
                 </thead>
@@ -1655,7 +1657,7 @@ include '../../includes/header.php';
                         </td>
                         <td style="padding: 0.6rem 0.75rem; text-align: center;">
                             <?php if ($isPaid): ?>
-                                <span style="background: rgba(16, 185, 129, 0.1); color: #059669; padding: 0.2rem 0.5rem; border-radius: 6px; font-size: 0.7rem; font-weight: 600;">✅ LUNAS</span>
+                                <span style="background: rgba(16, 185, 129, 0.1); color: #059669; padding: 0.2rem 0.5rem; border-radius: 6px; font-size: 0.7rem; font-weight: 600;">✅ PAID</span>
                             <?php else: ?>
                                 <span style="background: rgba(239, 68, 68, 0.1); color: #dc2626; padding: 0.2rem 0.5rem; border-radius: 6px; font-size: 0.7rem; font-weight: 600;">⚠️ Rp <?php echo number_format($remaining, 0, ',', '.'); ?></span>
                             <?php endif; ?>
@@ -1772,7 +1774,7 @@ include '../../includes/header.php';
         </div>
         <?php else: ?>
         <div class="empty-state">
-            <p>🏖️ Tidak ada tamu yang sedang menginap hari ini</p>
+            <p>🏖️ No guests currently staying today</p>
         </div>
         <?php endif; ?>
     </div>
@@ -1803,7 +1805,7 @@ if (occupancyCtx) {
     const occupancyChart = new Chart(occupancyCtx, {
         type: 'doughnut',
         data: {
-            labels: ['TERISI', 'KOSONG'],
+            labels: ['OCCUPIED', 'VACANT'],
             datasets: [{
                 data: [
                     <?php echo $stats['occupied_rooms']; ?>,
