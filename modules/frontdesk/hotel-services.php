@@ -412,7 +412,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
 
         // ── SAVE HOTEL SETTINGS (لوغو + detail perusahaan) ───────────────────────────
         if ($action === 'save_hs_settings') {
-            $allowed = ['company_name','company_address','company_phone','company_email','company_website','company_logo'];
+            $allowed = ['company_name','company_address','company_phone','company_email','company_website','company_logo',
+                        'payment_info_bank','payment_info_account','payment_info_name','payment_info_note'];
             $saved = 0;
             foreach ($allowed as $key) {
                 if (isset($_POST[$key])) {
@@ -1008,9 +1009,20 @@ include '../../includes/header.php';
       <?php endif; ?>
       <div style="font-size:0.72rem;color:#94a3b8;margin-top:0.25rem">Format: JPG, PNG, SVG, WebP. Logo saat ini: <em><?php echo htmlspecialchars(basename($hsSettings['company_logo'] ?? 'belum diatur')); ?></em></div>
     </div>
+
+    <!-- Payment Info -->
+    <div style="margin-top:1.1rem;padding-top:0.9rem;border-top:2px solid #e2e8f0">
+      <div style="font-size:0.7rem;font-weight:700;color:#1a3457;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.65rem">🏦 Payment Details (shown on invoice)</div>
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem">
+        <div class="hs-field"><label>Bank Name</label><input type="text" id="sPayBank" placeholder="e.g. BCA / Mandiri / BNI" value="<?php echo htmlspecialchars($hsSettings['payment_info_bank'] ?? '', ENT_QUOTES); ?>"></div>
+        <div class="hs-field"><label>Account Number</label><input type="text" id="sPayAccount" placeholder="e.g. 1234567890" value="<?php echo htmlspecialchars($hsSettings['payment_info_account'] ?? '', ENT_QUOTES); ?>"></div>
+        <div class="hs-field"><label>Account Holder Name</label><input type="text" id="sPayName" placeholder="e.g. Narayana Hotel" value="<?php echo htmlspecialchars($hsSettings['payment_info_name'] ?? '', ENT_QUOTES); ?>"></div>
+        <div class="hs-field"><label>Additional Note</label><input type="text" id="sPayNote" placeholder="e.g. Transfer reference: Invoice No." value="<?php echo htmlspecialchars($hsSettings['payment_info_note'] ?? '', ENT_QUOTES); ?>"></div>
+      </div>
+    </div>
     <div class="hs-modal-footer">
-      <button class="btn-hs btn-hs-secondary" onclick="closeSettingsModal()">Batal</button>
-      <button class="btn-hs btn-hs-primary" id="btnSaveSettings" onclick="saveSettings()">💾 Simpan Pengaturan</button>
+      <button class="btn-hs btn-hs-secondary" onclick="closeSettingsModal()">Cancel</button>
+      <button class="btn-hs btn-hs-primary" id="btnSaveSettings" onclick="saveSettings()">💾 Save Settings</button>
     </div>
   </div>
 
@@ -1405,23 +1417,27 @@ function previewLogo(inp) {
 }
 function saveSettings() {
     const btn = document.getElementById('btnSaveSettings');
-    btn.disabled = true; btn.textContent = 'Menyimpan...';
+    btn.disabled = true; btn.textContent = 'Saving...';
     const fd = new FormData();
-    fd.append('action',          'save_hs_settings');
-    fd.append('company_name',    document.getElementById('sCmpName').value.trim());
-    fd.append('company_website', document.getElementById('sCmpWeb').value.trim());
-    fd.append('company_phone',   document.getElementById('sCmpPhone').value.trim());
-    fd.append('company_email',   document.getElementById('sCmpEmail').value.trim());
-    fd.append('company_address', document.getElementById('sCmpAddr').value.trim());
+    fd.append('action',               'save_hs_settings');
+    fd.append('company_name',         document.getElementById('sCmpName').value.trim());
+    fd.append('company_website',      document.getElementById('sCmpWeb').value.trim());
+    fd.append('company_phone',        document.getElementById('sCmpPhone').value.trim());
+    fd.append('company_email',        document.getElementById('sCmpEmail').value.trim());
+    fd.append('company_address',      document.getElementById('sCmpAddr').value.trim());
+    fd.append('payment_info_bank',    document.getElementById('sPayBank').value.trim());
+    fd.append('payment_info_account', document.getElementById('sPayAccount').value.trim());
+    fd.append('payment_info_name',    document.getElementById('sPayName').value.trim());
+    fd.append('payment_info_note',    document.getElementById('sPayNote').value.trim());
     const logoFile = document.getElementById('sLogoFile').files[0];
     if (logoFile) fd.append('logo_file', logoFile);
     fetch('hotel-services.php', {method:'POST', body:fd, credentials:'include'})
         .then(r=>r.json())
         .then(res=>{
-            if (res.success) { alert('✅ Pengaturan disimpan!'); closeSettingsModal(); location.reload(); }
-            else { alert('Gagal: ' + (res.message||'unknown')); }
-            btn.disabled=false; btn.textContent='💾 Simpan Pengaturan';
-        }).catch(()=>{ alert('Network error'); btn.disabled=false; btn.textContent='💾 Simpan Pengaturan'; });
+            if (res.success) { alert('✅ Settings saved!'); closeSettingsModal(); location.reload(); }
+            else { alert('Error: ' + (res.message||'unknown')); }
+            btn.disabled=false; btn.textContent='💾 Save Settings';
+        }).catch(()=>{ alert('Network error'); btn.disabled=false; btn.textContent='💾 Save Settings'; });
 }
 
 // ── CATALOG ───────────────────────────────────────────────────────────────────

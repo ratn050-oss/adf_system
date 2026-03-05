@@ -51,6 +51,12 @@ if ($logoKey) {
 }
 $companyWebsite = $settings['company_website'] ?? 'www.narayanakarimunjawa.com';
 
+// Payment info (bank account details)
+$payBank    = $settings['payment_info_bank']    ?? '';
+$payAccount = $settings['payment_info_account'] ?? '';
+$payName    = $settings['payment_info_name']    ?? '';
+$payNote    = $settings['payment_info_note']    ?? '';
+
 // Processed status
 $isProcessed = (bool)($inv['cashbook_synced'] ?? 0);
 
@@ -187,6 +193,18 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#eef1f5;color:#1e293
 .notes-box{background:#f8fafc;border-left:3px solid #6366f1;padding:0.6rem 0.9rem;border-radius:0 5px 5px 0;margin-bottom:1.25rem;font-size:0.78rem;color:#374151}
 .notes-box strong{display:block;font-size:0.6rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.25rem}
 
+/* ── Payment Info Box ─────────────────────────────────────────────── */
+.pay-info-wrap{margin-bottom:1.25rem}
+.pay-info-box{display:flex;align-items:flex-start;gap:0.85rem;background:#f0f7ff;border:1px solid #bfdbfe;border-radius:8px;padding:0.75rem 1rem}
+.pay-info-icon{font-size:1.5rem;line-height:1;flex-shrink:0;margin-top:0.1rem}
+.pay-info-body{flex:1}
+.pay-row{display:flex;align-items:baseline;gap:0.5rem;padding:0.2rem 0;font-size:0.78rem;border-bottom:1px dashed #dbeafe}
+.pay-row:last-of-type{border-bottom:none}
+.pay-row .pk{color:#1e40af;font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;min-width:110px;flex-shrink:0}
+.pay-row .pv{color:#1e293b;font-weight:600}
+.pay-row .pv.acct{font-family:'Courier New',monospace;font-size:0.85rem;font-weight:800;color:#1a3457;letter-spacing:0.08em}
+.pay-note{margin-top:0.45rem;font-size:0.74rem;color:#1e40af;font-style:italic;padding-top:0.35rem;border-top:1px solid #bfdbfe}
+
 /* ── Footer ───────────────────────────────────────────────────────── */
 .inv-foot{background:linear-gradient(90deg,#1a3457 0%,#2a5298 100%);padding:0.9rem 2rem;display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap}
 .inv-foot .foot-left{font-size:0.7rem;color:rgba(255,255,255,0.65);line-height:1.6}
@@ -222,16 +240,16 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#eef1f5;color:#1e293
 <!-- Actions bar -->
 <div class="no-print">
     <button class="btn-print" onclick="window.print()">🖨️ Print</button>
-    <button class="btn-back" onclick="window.history.length > 1 ? history.back() : window.location.href='hotel-services.php'">← Kembali</button>
+    <button class="btn-back" onclick="window.history.length > 1 ? history.back() : window.location.href='hotel-services.php'">← Back</button>
     <?php if (!$isProcessed): ?>
     <button class="btn-process" id="btnProcess" onclick="processInvoice(<?php echo $inv['id']; ?>)">
-        ✅ Proses Invoice
+        ✅ Process Invoice
         <span style="font-size:0.72rem;opacity:0.85">
-        <?php echo (float)$inv['paid_amount'] > 0 ? '(Rp '.number_format($inv['paid_amount'],0,',','.').' → Buku Kas)' : '(Belum ada pembayaran)'; ?>
+        <?php echo (float)$inv['paid_amount'] > 0 ? '(Rp '.number_format($inv['paid_amount'],0,',','.').' → Cash Book)' : '(No payment yet)'; ?>
         </span>
     </button>
     <?php else: ?>
-    <span style="color:#6ee7b7;font-size:0.78rem;font-weight:600">✓ Sudah diproses &amp; dicatat di Buku Kas</span>
+    <span style="color:#6ee7b7;font-size:0.78rem;font-weight:600">✓ Processed &amp; recorded in Cash Book</span>
     <?php endif; ?>
     <span style="color:rgba(255,255,255,0.45);font-size:0.72rem;margin-left:auto"><?php echo htmlspecialchars($inv['invoice_number']); ?></span>
 </div>
@@ -274,7 +292,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#eef1f5;color:#1e293
     <!-- ── Status stripe ── -->
     <?php
     $stripeClass = ['paid'=>'st-paid','partial'=>'st-partial','unpaid'=>'st-unpaid'][$inv['payment_status']] ?? 'st-unpaid';
-    $stripeText  = ['paid'=>'✓ LUNAS','partial'=>'⚡ DIBAYAR SEBAGIAN — MASIH ADA SISA','unpaid'=>'✕ BELUM DIBAYAR'][$inv['payment_status']] ?? 'BELUM DIBAYAR';
+    $stripeText  = ['paid'=>'✓ PAID IN FULL','partial'=>'⚡ PARTIALLY PAID — BALANCE DUE','unpaid'=>'✕ UNPAID'][$inv['payment_status']] ?? 'UNPAID';
     ?>
     <div class="status-stripe <?php echo $stripeClass; ?>"><?php echo $stripeText; ?></div>
 
@@ -283,35 +301,35 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#eef1f5;color:#1e293
         <!-- ── Meta grid ── -->
         <div class="meta-grid">
             <div class="meta-box">
-                <div class="meta-label">Tagihan Kepada</div>
-                <div class="meta-row"><span class="mk">Nama Tamu</span><span class="mv highlight"><?php echo htmlspecialchars($inv['guest_name']); ?></span></div>
+                <div class="meta-label">Bill To</div>
+                <div class="meta-row"><span class="mk">Guest Name</span><span class="mv highlight"><?php echo htmlspecialchars($inv['guest_name']); ?></span></div>
                 <?php if ($inv['guest_phone']): ?>
-                <div class="meta-row"><span class="mk">Telepon</span><span class="mv"><?php echo htmlspecialchars($inv['guest_phone']); ?></span></div>
+                <div class="meta-row"><span class="mk">Phone</span><span class="mv"><?php echo htmlspecialchars($inv['guest_phone']); ?></span></div>
                 <?php endif; ?>
                 <?php if ($inv['room_number']): ?>
-                <div class="meta-row"><span class="mk">Kamar</span><span class="mv"><?php echo htmlspecialchars($inv['room_number']); ?></span></div>
+                <div class="meta-row"><span class="mk">Room</span><span class="mv"><?php echo htmlspecialchars($inv['room_number']); ?></span></div>
                 <?php endif; ?>
             </div>
             <div class="meta-box">
-                <div class="meta-label">Detail Invoice</div>
-                <div class="meta-row"><span class="mk">No. Invoice</span><span class="mv highlight"><?php echo htmlspecialchars($inv['invoice_number']); ?></span></div>
-                <div class="meta-row"><span class="mk">Tanggal</span><span class="mv"><?php echo date('d M Y', strtotime($inv['created_at'])); ?></span></div>
-                <div class="meta-row"><span class="mk">Metode Bayar</span><span class="mv"><?php echo ucfirst($inv['payment_method']); ?></span></div>
+                <div class="meta-label">Invoice Details</div>
+                <div class="meta-row"><span class="mk">Invoice No.</span><span class="mv highlight"><?php echo htmlspecialchars($inv['invoice_number']); ?></span></div>
+                <div class="meta-row"><span class="mk">Date</span><span class="mv"><?php echo date('d M Y', strtotime($inv['created_at'])); ?></span></div>
+                <div class="meta-row"><span class="mk">Payment Method</span><span class="mv"><?php echo ucfirst($inv['payment_method']); ?></span></div>
                 <div class="meta-row"><span class="mk">Status</span><span class="mv"><?php echo ucfirst($inv['status']); ?></span></div>
             </div>
         </div>
 
         <!-- ── Items ── -->
-        <div class="section-head"><span>Layanan / Services</span></div>
+        <div class="section-head"><span>Services</span></div>
         <table class="inv-table">
             <thead>
                 <tr>
                     <th style="width:28px">#</th>
-                    <th style="min-width:110px">Tipe</th>
-                    <th>Deskripsi</th>
+                    <th style="min-width:110px">Type</th>
+                    <th>Description</th>
                     <th class="r" style="width:42px">Qty</th>
-                    <th class="r" style="width:105px">Harga Satuan</th>
-                    <th class="r" style="width:105px">Jumlah</th>
+                    <th class="r" style="width:105px">Unit Price</th>
+                    <th class="r" style="width:105px">Amount</th>
                 </tr>
             </thead>
             <tbody>
@@ -356,12 +374,12 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#eef1f5;color:#1e293
                     <span class="tv">Rp <?php echo number_format($inv['total'],0,',','.'); ?></span>
                 </div>
                 <div class="t-row t-paid">
-                    <span class="tk"><?php echo ((float)$inv['paid_amount'] < (float)$inv['total'] && (float)$inv['paid_amount'] > 0) ? 'DP / Down Payment' : 'Dibayar'; ?></span>
+                    <span class="tk"><?php echo ((float)$inv['paid_amount'] < (float)$inv['total'] && (float)$inv['paid_amount'] > 0) ? 'Down Payment (DP)' : 'Amount Paid'; ?></span>
                     <span class="tv">Rp <?php echo number_format($inv['paid_amount'],0,',','.'); ?></span>
                 </div>
                 <?php $balance = $inv['total'] - $inv['paid_amount']; if ($balance > 0): ?>
                 <div class="t-row t-balance">
-                    <span class="tk">Sisa Tagihan</span>
+                    <span class="tk">Balance Due</span>
                     <span class="tv">Rp <?php echo number_format($balance,0,',','.'); ?></span>
                 </div>
                 <?php endif; ?>
@@ -371,8 +389,24 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#eef1f5;color:#1e293
         <!-- ── Notes ── -->
         <?php if ($inv['notes']): ?>
         <div class="notes-box">
-            <strong>Catatan</strong>
+            <strong>Notes</strong>
             <?php echo nl2br(htmlspecialchars($inv['notes'])); ?>
+        </div>
+        <?php endif; ?>
+
+        <!-- ── Payment Info ── -->
+        <?php if ($payBank || $payAccount): ?>
+        <div class="pay-info-wrap">
+            <div class="section-head" style="margin-bottom:0.65rem"><span>Payment Details</span></div>
+            <div class="pay-info-box">
+                <div class="pay-info-icon">🏦</div>
+                <div class="pay-info-body">
+                    <?php if ($payBank): ?><div class="pay-row"><span class="pk">Bank</span><span class="pv"><?php echo htmlspecialchars($payBank); ?></span></div><?php endif; ?>
+                    <?php if ($payAccount): ?><div class="pay-row"><span class="pk">Account Number</span><span class="pv acct"><?php echo htmlspecialchars($payAccount); ?></span></div><?php endif; ?>
+                    <?php if ($payName): ?><div class="pay-row"><span class="pk">Account Name</span><span class="pv"><?php echo htmlspecialchars($payName); ?></span></div><?php endif; ?>
+                    <?php if ($payNote): ?><div class="pay-note"><?php echo nl2br(htmlspecialchars($payNote)); ?></div><?php endif; ?>
+                </div>
+            </div>
         </div>
         <?php endif; ?>
 
@@ -389,8 +423,8 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#eef1f5;color:#1e293
         </div>
         <div class="foot-right">
             <span class="web"><?php echo htmlspecialchars($companyWebsite); ?></span><br>
-            Terima kasih atas kepercayaan Anda.<br>
-            <span style="font-size:0.65rem">Dokumen ini dicetak <?php echo date('d M Y H:i'); ?></span>
+            Thank you for choosing our services.<br>
+            <span style="font-size:0.65rem">Printed on <?php echo date('d M Y H:i'); ?></span>
         </div>
     </div>
 
