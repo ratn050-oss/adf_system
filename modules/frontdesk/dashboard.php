@@ -266,17 +266,17 @@ try {
     ", [$thisMonth]);
     $stats['month_revenue'] = $monthRevenueResult['total'] ?? 0;
 
-    // Also check cash_book income for this month (covers manually-added direct payments)
+    // Also check cash_book income for this month (covers all actual received payments:
+    // direct, OTA-at-checkin, manually-added entries — if it's in cash_book it was received)
     $cashbookMonthResult = $db->fetchOne("
         SELECT COALESCE(SUM(amount), 0) as total
         FROM cash_book
         WHERE transaction_type = 'income'
         AND DATE_FORMAT(transaction_date, '%Y-%m') = ?
         AND (description LIKE '%BK-%' OR description LIKE '%Reserv%' OR description LIKE '%Room%' OR description LIKE '%Hotel%')
-        AND LOWER(COALESCE(payment_method, '')) NOT IN ('agoda', 'ota', 'booking')
     ", [$thisMonth]);
     $cbTotal = $cashbookMonthResult['total'] ?? 0;
-    // Use whichever source gives a higher value
+    // cash_book is the source of truth — use whichever is higher
     if ($cbTotal > $stats['month_revenue']) {
         $stats['month_revenue'] = $cbTotal;
     }
