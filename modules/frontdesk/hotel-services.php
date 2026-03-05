@@ -142,17 +142,38 @@ function getDivisionForService(PDO $pdo, string $serviceType): int {
 
 // ── Helper: find/create 'Hotel Service' income category ───────────────────────
 function getHotelServiceCategoryId(PDO $pdo): int {
-    // Exact match
-    $row = $pdo->query("SELECT id FROM categories WHERE LOWER(category_name) = 'hotel service' AND category_type = 'income' ORDER BY id LIMIT 1")->fetch(PDO::FETCH_ASSOC);
-    if (!$row) $row = $pdo->query("SELECT id FROM categories WHERE LOWER(category_name) LIKE '%hotel service%' AND category_type = 'income' ORDER BY id LIMIT 1")->fetch(PDO::FETCH_ASSOC);
-    if ($row) return (int)$row['id'];
+    // 1. Exact match (case-insensitive)
     try {
-        $pdo->exec("INSERT INTO categories (category_name, category_type, created_at) VALUES ('Hotel Service', 'income', NOW())");
-        return (int)$pdo->lastInsertId();
-    } catch (\Throwable $e) {
-        $any = $pdo->query("SELECT id FROM categories WHERE category_type = 'income' ORDER BY id LIMIT 1")->fetch(PDO::FETCH_ASSOC);
-        return (int)($any['id'] ?? 1);
-    }
+        $row = $pdo->query("SELECT id FROM categories WHERE LOWER(category_name) = 'hotel service' LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+        if ($row) return (int)$row['id'];
+        $row = $pdo->query("SELECT id FROM categories WHERE LOWER(category_name) LIKE '%hotel service%' LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+        if ($row) return (int)$row['id'];
+    } catch (\Throwable $e1) {}
+    // 2. Try INSERT with category_type column
+    try {
+        $pdo->exec("INSERT IGNORE INTO categories (category_name, category_type, created_at) VALUES ('Hotel Service', 'income', NOW())");
+        $newId = (int)$pdo->lastInsertId();
+        if ($newId > 0) return $newId;
+        // INSERT IGNORE may have skipped a duplicate - re-select
+        $row = $pdo->query("SELECT id FROM categories WHERE LOWER(category_name) = 'hotel service' LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+        if ($row) return (int)$row['id'];
+    } catch (\Throwable $e2) {}
+    // 3. Try INSERT without category_type (older schema)
+    try {
+        $pdo->exec("INSERT IGNORE INTO categories (category_name, created_at) VALUES ('Hotel Service', NOW())");
+        $newId = (int)$pdo->lastInsertId();
+        if ($newId > 0) return $newId;
+        $row = $pdo->query("SELECT id FROM categories WHERE LOWER(category_name) = 'hotel service' LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+        if ($row) return (int)$row['id'];
+    } catch (\Throwable $e3) {}
+    // 4. Absolute fallback: first income category
+    try {
+        $row = $pdo->query("SELECT id FROM categories WHERE category_type = 'income' ORDER BY id LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+        if ($row) return (int)$row['id'];
+        $row = $pdo->query("SELECT id FROM categories ORDER BY id LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+        if ($row) return (int)$row['id'];
+    } catch (\Throwable $e4) {}
+    return 1;
 }
 
 // ── Helper: sync invoice payment to cashbook (called from process_invoice) ─────

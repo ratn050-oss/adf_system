@@ -194,16 +194,16 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#eef1f5;color:#1e293
 .notes-box strong{display:block;font-size:0.6rem;font-weight:700;color:#94a3b8;text-transform:uppercase;letter-spacing:0.1em;margin-bottom:0.25rem}
 
 /* ── Payment Info Box ─────────────────────────────────────────────── */
-.pay-info-wrap{margin-bottom:1.25rem}
-.pay-info-box{display:flex;align-items:flex-start;gap:0.85rem;background:#f0f7ff;border:1px solid #bfdbfe;border-radius:8px;padding:0.75rem 1rem}
-.pay-info-icon{font-size:1.5rem;line-height:1;flex-shrink:0;margin-top:0.1rem}
-.pay-info-body{flex:1}
-.pay-row{display:flex;align-items:baseline;gap:0.5rem;padding:0.2rem 0;font-size:0.78rem;border-bottom:1px dashed #dbeafe}
-.pay-row:last-of-type{border-bottom:none}
-.pay-row .pk{color:#1e40af;font-size:0.68rem;font-weight:700;text-transform:uppercase;letter-spacing:0.06em;min-width:110px;flex-shrink:0}
+.pay-info-wrap{margin-bottom:1rem}
+.pay-info-box{display:flex;align-items:center;gap:0.6rem;background:#f8faff;border:1px solid #dbeafe;border-radius:6px;padding:0.45rem 0.8rem}
+.pay-info-icon{font-size:1rem;line-height:1;flex-shrink:0}
+.pay-info-body{flex:1;display:flex;flex-wrap:wrap;gap:0 1.2rem;align-items:baseline}
+.pay-row{display:flex;align-items:baseline;gap:0.3rem;font-size:0.72rem}
+.pay-row .pk{color:#64748b;font-size:0.65rem;font-weight:600;text-transform:uppercase;letter-spacing:0.04em;white-space:nowrap}
+.pay-row .pk::after{content:':'}
 .pay-row .pv{color:#1e293b;font-weight:600}
-.pay-row .pv.acct{font-family:'Courier New',monospace;font-size:0.85rem;font-weight:800;color:#1a3457;letter-spacing:0.08em}
-.pay-note{margin-top:0.45rem;font-size:0.74rem;color:#1e40af;font-style:italic;padding-top:0.35rem;border-top:1px solid #bfdbfe}
+.pay-row .pv.acct{font-family:'Courier New',monospace;font-size:0.78rem;font-weight:800;color:#1a3457;letter-spacing:0.06em}
+.pay-note{font-size:0.67rem;color:#64748b;font-style:italic;width:100%;margin-top:0.1rem}
 
 /* ── Footer ───────────────────────────────────────────────────────── */
 .inv-foot{background:linear-gradient(90deg,#1a3457 0%,#2a5298 100%);padding:0.9rem 2rem;display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap}
@@ -397,14 +397,14 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#eef1f5;color:#1e293
         <!-- ── Payment Info ── -->
         <?php if ($payBank || $payAccount): ?>
         <div class="pay-info-wrap">
-            <div class="section-head" style="margin-bottom:0.65rem"><span>Payment Details</span></div>
             <div class="pay-info-box">
                 <div class="pay-info-icon">🏦</div>
                 <div class="pay-info-body">
+                    <div style="font-size:0.6rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.1em;width:100%;margin-bottom:0.2rem">Payment Details</div>
                     <?php if ($payBank): ?><div class="pay-row"><span class="pk">Bank</span><span class="pv"><?php echo htmlspecialchars($payBank); ?></span></div><?php endif; ?>
-                    <?php if ($payAccount): ?><div class="pay-row"><span class="pk">Account Number</span><span class="pv acct"><?php echo htmlspecialchars($payAccount); ?></span></div><?php endif; ?>
+                    <?php if ($payAccount): ?><div class="pay-row"><span class="pk">Account No</span><span class="pv acct"><?php echo htmlspecialchars($payAccount); ?></span></div><?php endif; ?>
                     <?php if ($payName): ?><div class="pay-row"><span class="pk">Account Name</span><span class="pv"><?php echo htmlspecialchars($payName); ?></span></div><?php endif; ?>
-                    <?php if ($payNote): ?><div class="pay-note"><?php echo nl2br(htmlspecialchars($payNote)); ?></div><?php endif; ?>
+                    <?php if ($payNote): ?><div class="pay-note"><?php echo htmlspecialchars($payNote); ?></div><?php endif; ?>
                 </div>
             </div>
         </div>
