@@ -655,17 +655,6 @@ include '../../includes/header.php';
             <div class="stat-label">Kamar Tersedia</div>
         </div>
 
-        <div class="stat-card">
-            <div class="stat-icon" style="background: rgba(245, 158, 11, 0.15); color: #f59e0b;">📊</div>
-            <div class="stat-value"><?php echo $stats['occupancy_rate']; ?>%</div>
-            <div class="stat-label">Occupancy Rate</div>
-        </div>
-
-        <div class="stat-card">
-            <div class="stat-icon" style="background: rgba(239, 68, 68, 0.15); color: #ef4444;">📈</div>
-            <div class="stat-value" style="font-size: 1.25rem;">Rp <?php echo number_format($stats['revenue_today'], 0, ',', '.'); ?></div>
-            <div class="stat-label">Revenue Today</div>
-        </div>
 
         <div class="stat-card">
             <div class="stat-icon" style="background: rgba(139, 92, 246, 0.15); color: #8b5cf6;">👨‍💼</div>
