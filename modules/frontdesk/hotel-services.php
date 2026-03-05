@@ -80,10 +80,8 @@ function syncServiceCashbook($db, $businessId, $userId, $amount, $method, $invoi
         $svcText  = implode(', ', array_unique(array_filter($svcLabels)));
         $desc     = "Hotel Services [{$invoiceNo}] {$guestName}" . ($svcText ? " | {$svcText}" : '');
 
-        // Map payment method to valid enum (matches CashbookHelper logic)
-        $methodMap = ['bank_transfer' => 'transfer', 'debit_card' => 'debit', 'credit_card' => 'credit'];
-        $allowed   = ['cash', 'transfer', 'qris', 'card', 'debit', 'credit'];
-        $cbMethod  = $methodMap[$method] ?? (in_array($method, $allowed) ? $method : 'cash');
+        // Use CashbookHelper's method which reads the actual ENUM from DB
+        $cbMethod = $helper->mapPaymentMethod($method);
 
         $divId  = $helper->getDivisionId();
         $catId  = $helper->getCategoryId();

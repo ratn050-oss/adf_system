@@ -39,12 +39,8 @@ $companyName    = $settings['company_name']    ?? 'Narayana Hotel Karimunjawa';
 $companyAddress = $settings['company_address'] ?? 'Karimunjawa, Jepara, Central Java, Indonesia';
 $companyPhone   = $settings['company_phone']   ?? '';
 $companyEmail   = $settings['company_email']   ?? '';
-$companyLogo    = null;
-$logoKey        = $settings['company_logo']    ?? '';
-if ($logoKey) {
-    $logoPath = '../../uploads/logos/' . basename($logoKey);
-    if (file_exists($logoPath)) $companyLogo = BASE_URL . '/uploads/logos/' . basename($logoKey);
-}
+// Logo intentionally omitted — using clean text header
+$companyWebsite = $settings['company_website'] ?? 'www.narayanakarimunjawa.com';
 
 $serviceLabels = [
     'motor_rental' => ['label' => 'Motor Rental', 'icon' => '🏍️'],
@@ -66,12 +62,12 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f2f5;color:#1a1a2e;fo
 .page{width:100%;max-width:760px;margin:20px auto;background:white;box-shadow:0 4px 24px rgba(0,0,0,0.12);position:relative;overflow:hidden}
 /* Header */
 .inv-head{background:linear-gradient(135deg,#1e3a5f 0%,#0d2137 100%);color:white;padding:2rem 2.5rem;display:flex;justify-content:space-between;align-items:flex-start}
-.inv-head .company-name{font-size:1.3rem;font-weight:800;letter-spacing:0.03em;margin-bottom:0.25rem}
-.inv-head .company-sub{font-size:0.78rem;opacity:0.8;line-height:1.5}
-.inv-head .inv-title{text-align:right}
-.inv-head .inv-title .word{font-size:1.7rem;font-weight:900;letter-spacing:0.1em;opacity:0.15;display:block}
-.inv-head .inv-title .num{font-size:0.95rem;font-weight:700;background:rgba(255,255,255,0.15);padding:0.3rem 0.75rem;border-radius:20px;display:inline-block;margin-top:0.5rem}
-.inv-head .logo-wrap img{height:60px;width:auto;object-fit:contain;border-radius:6px}
+.inv-head .company-name{font-size:1.4rem;font-weight:900;letter-spacing:0.04em;margin-bottom:0.2rem}
+.inv-head .company-website{font-size:0.8rem;opacity:0.7;font-style:italic;letter-spacing:0.03em;margin-bottom:0.3rem}
+.inv-head .company-sub{font-size:0.75rem;opacity:0.75;line-height:1.6}
+.inv-head .inv-title{text-align:right;flex-shrink:0}
+.inv-head .inv-title .word{font-size:1.8rem;font-weight:900;letter-spacing:0.12em;opacity:0.12;display:block}
+.inv-head .inv-title .num{font-size:0.95rem;font-weight:700;background:rgba(255,255,255,0.18);padding:0.3rem 0.8rem;border-radius:20px;display:inline-block;margin-top:0.5rem}
 /* Status banner */
 .status-banner{padding:0.55rem 2.5rem;font-size:0.8rem;font-weight:700;letter-spacing:0.04em;color:white;text-align:center}
 .st-paid{background:#10b981}.st-partial{background:#f59e0b}.st-unpaid{background:#ef4444}
@@ -140,17 +136,13 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f2f5;color:#1a1a2e;fo
 
     <!-- Header -->
     <div class="inv-head">
-        <div style="display:flex;align-items:flex-start;gap:1rem">
-            <?php if ($companyLogo): ?>
-            <div class="logo-wrap"><img src="<?php echo htmlspecialchars($companyLogo); ?>" alt="Logo"></div>
-            <?php endif; ?>
-            <div>
-                <div class="company-name"><?php echo htmlspecialchars($companyName); ?></div>
-                <div class="company-sub">
-                    <?php echo htmlspecialchars($companyAddress); ?>
-                    <?php if ($companyPhone): ?><br>📞 <?php echo htmlspecialchars($companyPhone); ?><?php endif; ?>
-                    <?php if ($companyEmail): ?><br>✉️ <?php echo htmlspecialchars($companyEmail); ?><?php endif; ?>
-                </div>
+        <div>
+            <div class="company-name"><?php echo htmlspecialchars($companyName); ?></div>
+            <div class="company-website"><?php echo htmlspecialchars($companyWebsite); ?></div>
+            <div class="company-sub">
+                <?php echo htmlspecialchars($companyAddress); ?>
+                <?php if ($companyPhone): ?><br>📞 <?php echo htmlspecialchars($companyPhone); ?><?php endif; ?>
+                <?php if ($companyEmail): ?><br>✉️ <?php echo htmlspecialchars($companyEmail); ?><?php endif; ?>
             </div>
         </div>
         <div class="inv-title">
@@ -261,6 +253,7 @@ body{font-family:'Segoe UI',Arial,sans-serif;background:#f0f2f5;color:#1a1a2e;fo
     <!-- Footer -->
     <div class="inv-foot">
         <strong><?php echo htmlspecialchars($companyName); ?></strong>
+        <span style="display:block;margin-bottom:0.3rem;color:#3b82f6;font-style:italic"><?php echo htmlspecialchars($companyWebsite); ?></span>
         Thank you for choosing our services. We look forward to serving you again!<br>
         <?php if ($companyPhone||$companyEmail): ?>
         Contact: <?php echo htmlspecialchars(implode(' | ', array_filter([$companyPhone, $companyEmail]))); ?>
