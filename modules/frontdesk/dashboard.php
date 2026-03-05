@@ -1738,23 +1738,6 @@ include '../../includes/header.php';
             <div class="stat-label">Predicted Tomorrow</div>
         </div>
 
-        <!-- Occupancy Rate -->
-        <div class="stat-card">
-            <div class="stat-icon-wrapper">📈</div>
-            <div class="stat-value" style="color: #ef4444;">
-                <?php echo $stats['occupancy_rate']; ?>%
-            </div>
-            <div class="stat-label">Occupancy Rate</div>
-        </div>
-
-        <!-- Today's Revenue -->
-        <div class="stat-card">
-            <div class="stat-icon-wrapper">💰</div>
-            <div class="stat-value" style="color: #22c55e; font-size: 1.25rem;">
-                Rp <?php echo number_format($stats['revenue_today'], 0, ',', '.'); ?>
-            </div>
-            <div class="stat-label">Revenue Today</div>
-        </div>
     </div>
 
     <!-- In-House Guests List -->
