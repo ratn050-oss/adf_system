@@ -31,7 +31,7 @@ $items = $istmt->fetchAll(PDO::FETCH_ASSOC);
 // Company settings
 $settings = [];
 try {
-    $rows = $pdo->query("SELECT setting_key, setting_value FROM settings WHERE setting_key LIKE 'company_%'")->fetchAll(PDO::FETCH_ASSOC);
+    $rows = $pdo->query("SELECT setting_key, setting_value FROM settings WHERE setting_key LIKE 'company_%' OR setting_key LIKE 'payment_info_%'")->fetchAll(PDO::FETCH_ASSOC);
     foreach ($rows as $r) { $settings[$r['setting_key']] = $r['setting_value']; }
 } catch (\Throwable $e) {}
 

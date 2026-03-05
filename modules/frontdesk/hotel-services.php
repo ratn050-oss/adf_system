@@ -1146,6 +1146,18 @@ include '../../includes/header.php';
 <script>
 const SVC_KEYS   = <?php echo json_encode(array_keys($serviceTypes)); ?>;
 const SVC_LABELS = <?php echo json_encode(array_values(array_map(fn($v) => $v['icon'].' '.$v['label'], $serviceTypes))); ?>;
+// Catalog data grouped by service_type: { motor_rental: [{name,price,unit}, ...], ... }
+const CATALOG_DATA = <?php
+    $catalogByType = [];
+    foreach ($catalogRows as $cr) {
+        $catalogByType[$cr['service_type']][] = [
+            'name'  => $cr['item_name'],
+            'price' => (float)$cr['default_price'],
+            'unit'  => $cr['unit'] ?? 'unit',
+        ];
+    }
+    echo json_encode($catalogByType);
+?>;
 
 // ── Guest mode ────────────────────────────────────────────────────────────────
 function setGuestMode(mode) {
@@ -1189,13 +1201,34 @@ function addItemRow(svc, desc, qty, price) {
     const tr = document.createElement('tr');
     tr.id = id;
     tr.innerHTML =
-        `<td><select class="iSvc" onchange="rcalc('${id}')">${buildSvcOpts(svc||'')}</select></td>`+
+        `<td><select class="iSvc" onchange="onSvcChange('${id}')">${buildSvcOpts(svc||'')}</select></td>`+
         `<td><input type="text" class="iDesc" placeholder="e.g. Honda Beat 2 days" value="${desc||''}"></td>`+
         `<td><input type="number" class="iQty" value="${qty||1}" min="0.5" step="0.5" style="width:60px" oninput="rcalc('${id}')"></td>`+
         `<td><input type="number" class="iPrice" value="${price||0}" min="0" style="width:105px" oninput="rcalc('${id}')"></td>`+
         `<td style="font-weight:700;color:#4338ca;text-align:right;white-space:nowrap" class="iTotal">Rp 0</td>`+
         `<td><button type="button" class="btn-del-row" onclick="delRow('${id}')">✕</button></td>`;
     document.getElementById('itemsBody').appendChild(tr);
+    // If no price given and catalog has entries for this service type, auto-fill
+    if (!price) onSvcChange(id, true);
+    else rcalc(id);
+}
+
+function onSvcChange(id, isNew) {
+    const tr = document.getElementById(id);
+    if (!tr) return;
+    const svc = tr.querySelector('.iSvc').value;
+    const priceInput = tr.querySelector('.iPrice');
+    const descInput  = tr.querySelector('.iDesc');
+    const items = CATALOG_DATA[svc];
+    if (items && items.length > 0) {
+        // Only auto-fill if field is still empty/zero (don't overwrite manual entry)
+        if (isNew || parseFloat(priceInput.value) === 0) {
+            priceInput.value = items[0].price;
+        }
+        if (isNew && !descInput.value.trim()) {
+            descInput.value = items[0].name;
+        }
+    }
     rcalc(id);
 }
 
@@ -1536,13 +1569,28 @@ function eAddItemRow(svc, desc, qty, price) {
     const tr3 = document.createElement('tr');
     tr3.id = id2;
     tr3.innerHTML =
-        `<td><select class="iSvc" onchange="ercalc('${id2}')">${buildSvcOpts(svc||'')}</select></td>`+
-        `<td><input type="text" class="iDesc" value="${(desc||'').replace(/"/g,'&quot;')}" placeholder="Deskripsi"></td>`+
+        `<td><select class="iSvc" onchange="eOnSvcChange('${id2}')">${buildSvcOpts(svc||'')}</select></td>`+
+        `<td><input type="text" class="iDesc" value="${(desc||'').replace(/"/g,'&quot;')}" placeholder="Description"></td>`+
         `<td><input type="number" class="iQty" value="${qty||1}" min="0.5" step="0.5" style="width:60px" oninput="ercalc('${id2}')"></td>`+
         `<td><input type="number" class="iPrice" value="${price||0}" min="0" style="width:105px" oninput="ercalc('${id2}')"></td>`+
         `<td style="font-weight:700;color:#4338ca;text-align:right;white-space:nowrap" class="iTotal">Rp 0</td>`+
         `<td><button type="button" class="btn-del-row" onclick="eDelRow('${id2}')">✕</button></td>`;
     document.getElementById('eItemsBody').appendChild(tr3);
+    if (!price) eOnSvcChange(id2, true);
+    else ercalc(id2);
+}
+
+function eOnSvcChange(id2, isNew) {
+    const tr3 = document.getElementById(id2);
+    if (!tr3) return;
+    const svc = tr3.querySelector('.iSvc').value;
+    const priceInput = tr3.querySelector('.iPrice');
+    const descInput  = tr3.querySelector('.iDesc');
+    const items = CATALOG_DATA[svc];
+    if (items && items.length > 0) {
+        if (isNew || parseFloat(priceInput.value) === 0) priceInput.value = items[0].price;
+        if (isNew && !descInput.value.trim()) descInput.value = items[0].name;
+    }
     ercalc(id2);
 }
 function eDelRow(id) { const el=document.getElementById(id); if(el)el.remove(); eRefreshTotal(); }
