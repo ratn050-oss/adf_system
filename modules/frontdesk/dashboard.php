@@ -513,7 +513,7 @@ include '../../includes/header.php';
     align-items: center;
     gap: 0.5rem;
     background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-    color: white;
+    color: #ffffff !important;
     padding: 0.65rem 1rem;
     border-radius: 12px;
     text-decoration: none;
@@ -526,6 +526,10 @@ include '../../includes/header.php';
     white-space: nowrap;
     position: relative;
     overflow: hidden;
+}
+
+.btn-premium span {
+    color: #ffffff !important;
 }
 
 .btn-premium::before {
