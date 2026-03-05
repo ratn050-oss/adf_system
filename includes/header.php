@@ -232,7 +232,7 @@ if (isset($_SESSION['user_id'])) {
                     
                     <?php if ($auth->hasPermission('frontdesk') && isModuleEnabled('frontdesk')): ?>
                     <li class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/frontdesk/') !== false && strpos($_SERVER['REQUEST_URI'], 'hotel-services.php') === false) ? 'open' : ''; ?>">
-                        <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo activeMenu('frontdesk'); ?>">
+                        <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo (strpos($_SERVER['REQUEST_URI'], 'hotel-services.php') === false) ? activeMenu('frontdesk') : ''; ?>">
                             <i data-feather="home" class="nav-icon"></i>
                             <span><?php echo __('menu.frontdesk'); ?></span>
                         </a>
