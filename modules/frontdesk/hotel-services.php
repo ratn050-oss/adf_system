@@ -616,7 +616,7 @@ $hsSettings = [];
 try {
     $settingsRows = $pdo->query("SELECT setting_key, setting_value FROM settings WHERE setting_key LIKE 'company_%'")->fetchAll(PDO::FETCH_ASSOC);
     foreach ($settingsRows as $r) { $hsSettings[$r['setting_key']] = $r['setting_value']; }
-} catch (\Throwable $e) {}}
+} catch (\Throwable $e) {}
 
 include '../../includes/header.php';
 ?>
