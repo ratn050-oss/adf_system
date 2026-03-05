@@ -84,7 +84,7 @@ try {
     ", [$today]);
     $stats['revenue_today'] = $revenueResult['total'] ?? 0;
 
-    // Room Revenue - uang aktual HANYA untuk tamu yang sudah check-in atau checkout bulan ini
+    // Room Revenue - ambil nilai TERBESAR antara paid_amount dan cash_book per booking
     $roomBookingsIdx = $db->fetchAll("
         SELECT booking_code, paid_amount
         FROM bookings
@@ -93,14 +93,19 @@ try {
     ");
     $totalRoomRevenueIdx = 0;
     foreach ($roomBookingsIdx as $bk) {
-        $cbResult = $db->fetchOne("
-            SELECT COALESCE(SUM(amount), 0) as total
-            FROM cash_book
-            WHERE transaction_type = 'income'
-            AND description LIKE ?
-        ", ['%' . $bk['booking_code'] . '%']);
-        $cbAmount = $cbResult['total'] ?? 0;
-        $totalRoomRevenueIdx += ($cbAmount > 0) ? $cbAmount : ($bk['paid_amount'] ?? 0);
+        $paidAmount = (float)($bk['paid_amount'] ?? 0);
+        $cbAmount   = 0;
+        if (!empty($bk['booking_code'])) {
+            $cbResult = $db->fetchOne("
+                SELECT COALESCE(SUM(amount), 0) as total
+                FROM cash_book
+                WHERE transaction_type = 'income'
+                AND description LIKE ?
+                AND DATE_FORMAT(transaction_date, '%Y-%m') = DATE_FORMAT(NOW(), '%Y-%m')
+            ", ['%' . $bk['booking_code'] . '%']);
+            $cbAmount = (float)($cbResult['total'] ?? 0);
+        }
+        $totalRoomRevenueIdx += max($paidAmount, $cbAmount);
     }
     $stats['inhouse_revenue'] = $totalRoomRevenueIdx;
 
