@@ -1156,7 +1156,7 @@ require_once __DIR__ . '/includes/header.php';
                         <?php if (!empty($webSettings['web_favicon'])): ?>
                         <div class="mb-2 p-3 rounded" style="background: #f8f9fa; display: flex; align-items: center; gap: 16px;">
                             <div style="width: 48px; height: 48px; border: 2px solid #dee2e6; border-radius: 8px; display: flex; align-items: center; justify-content: center; background: #fff;">
-                                <img src="../<?= htmlspecialchars($webSettings['web_favicon']) ?>" style="max-width: 32px; max-height: 32px;" alt="Favicon">
+                                <img src="<?= (strpos($webSettings['web_favicon'], 'http') === 0) ? htmlspecialchars($webSettings['web_favicon']) : '../' . htmlspecialchars($webSettings['web_favicon']) ?>" style="max-width: 32px; max-height: 32px;" alt="Favicon">
                             </div>
                             <div>
                                 <div style="font-size: 13px; color: #333; font-weight: 500;">Current Favicon</div>
@@ -1178,7 +1178,7 @@ require_once __DIR__ . '/includes/header.php';
                         <?php if (!empty($webSettings['web_logo'])): ?>
                         <div class="mb-2 p-3 rounded" style="background: #f8f9fa; display: flex; align-items: center; gap: 16px;">
                             <div style="width: 80px; height: 48px; border: 2px solid #dee2e6; border-radius: 8px; display: flex; align-items: center; justify-content: center; background: #2d2926;">
-                                <img src="../<?= htmlspecialchars($webSettings['web_logo']) ?>" style="max-width: 72px; max-height: 40px; object-fit: contain;" alt="Logo">
+                                <img src="<?= (strpos($webSettings['web_logo'], 'http') === 0) ? htmlspecialchars($webSettings['web_logo']) : '../' . htmlspecialchars($webSettings['web_logo']) ?>" style="max-width: 72px; max-height: 40px; object-fit: contain;" alt="Logo">
                             </div>
                             <div>
                                 <div style="font-size: 13px; color: #333; font-weight: 500;">Current Logo</div>
@@ -1243,7 +1243,7 @@ require_once __DIR__ . '/includes/header.php';
                         
                         <?php if (!empty($webSettings['web_hero_background'])): ?>
                         <div class="current-bg-preview mb-3" style="position: relative;">
-                            <img src="../<?= htmlspecialchars($webSettings['web_hero_background']) ?>" 
+                            <img src="<?= (strpos($webSettings['web_hero_background'], 'http') === 0) ? htmlspecialchars($webSettings['web_hero_background']) : '../' . htmlspecialchars($webSettings['web_hero_background']) ?>" 
                                  alt="Current Hero Background" 
                                  style="width: 100%; max-height: 200px; object-fit: cover; border-radius: 8px;">
                             <div class="mt-2">
@@ -1265,7 +1265,7 @@ require_once __DIR__ . '/includes/header.php';
                     </div>
                     
                     <!-- Live Preview -->
-                    <div class="preview-hero" id="heroPreview" style="--preview-primary: <?= htmlspecialchars($webSettings['web_primary_color']) ?>; --preview-accent: <?= htmlspecialchars($webSettings['web_accent_color']) ?>; <?php if (!empty($webSettings['web_hero_background'])): ?>background-image: url('../<?= htmlspecialchars($webSettings['web_hero_background']) ?>');<?php endif; ?>">
+                    <div class="preview-hero" id="heroPreview" style="--preview-primary: <?= htmlspecialchars($webSettings['web_primary_color']) ?>; --preview-accent: <?= htmlspecialchars($webSettings['web_accent_color']) ?>; <?php if (!empty($webSettings['web_hero_background'])): ?>background-image: url('<?= (strpos($webSettings['web_hero_background'], 'http') === 0) ? htmlspecialchars($webSettings['web_hero_background']) : '../' . htmlspecialchars($webSettings['web_hero_background']) ?>');<?php endif; ?>">
                         <p class="accent" id="previewAccent"><i><?= htmlspecialchars($webSettings['web_hero_accent']) ?></i></p>
                         <h3 id="previewTitle"><?= $webSettings['web_hero_title'] ?></h3>
                         <p id="previewSubtitle"><?= htmlspecialchars($webSettings['web_hero_subtitle']) ?></p>
@@ -1451,7 +1451,7 @@ require_once __DIR__ . '/includes/header.php';
                                 <?php if ($isPrimary): ?>
                                 <span style="position:absolute;top:10px;right:10px;background:#c8a45e;color:#fff;font-size:10px;padding:2px 8px;border-radius:4px;font-weight:600;z-index:1;">UTAMA</span>
                                 <?php endif; ?>
-                                <img src="../<?= htmlspecialchars($imgPath) ?>" alt="<?= $roomNames[$roomType] ?>" style="width: 100%; height: 150px; object-fit: cover; border-radius: 8px;">
+                                <img src="<?= (strpos($imgPath, 'http') === 0) ? htmlspecialchars($imgPath) : '../' . htmlspecialchars($imgPath) ?>" alt="<?= $roomNames[$roomType] ?>" style="width: 100%; height: 150px; object-fit: cover; border-radius: 8px;">
                                 <div style="display:flex; justify-content:space-between; align-items:center; margin-top: 8px; font-size: 0.85rem;">
                                     <label class="text-primary" style="cursor:pointer;">
                                         <input type="radio" name="primary_image" value="<?= htmlspecialchars($imgPath) ?>" <?= $isPrimary ? 'checked' : '' ?>>
@@ -1708,7 +1708,7 @@ require_once __DIR__ . '/includes/header.php';
                         <div class="d-flex align-items-start gap-3">
                             <?php if (!empty($dest['image'])): ?>
                             <div style="width: 120px; min-width: 120px; height: 80px; border-radius: 8px; overflow: hidden;">
-                                <img src="../<?= htmlspecialchars($dest['image']) ?>" style="width: 100%; height: 100%; object-fit: cover;" alt="">
+                                <img src="<?= (strpos($dest['image'], 'http') === 0) ? htmlspecialchars($dest['image']) : '../' . htmlspecialchars($dest['image']) ?>" style="width: 100%; height: 100%; object-fit: cover;" alt="">
                             </div>
                             <?php endif; ?>
                             <div style="flex: 1;">
