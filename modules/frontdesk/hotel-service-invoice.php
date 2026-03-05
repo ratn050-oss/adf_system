@@ -222,7 +222,7 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#eef1f5;color:#1e293
 <!-- Actions bar -->
 <div class="no-print">
     <button class="btn-print" onclick="window.print()">🖨️ Print</button>
-    <a class="btn-back" href="javascript:history.back()">← Kembali</a>
+    <button class="btn-back" onclick="window.history.length > 1 ? history.back() : window.location.href='hotel-services.php'">← Kembali</button>
     <?php if (!$isProcessed): ?>
     <button class="btn-process" id="btnProcess" onclick="processInvoice(<?php echo $inv['id']; ?>)">
         ✅ Proses Invoice
