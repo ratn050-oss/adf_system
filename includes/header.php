@@ -231,7 +231,7 @@ if (isset($_SESSION['user_id'])) {
                     <?php endif; ?>
                     
                     <?php if ($auth->hasPermission('frontdesk') && isModuleEnabled('frontdesk')): ?>
-                    <li class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/frontdesk/') !== false) ? 'open' : ''; ?>">
+                    <li class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/frontdesk/') !== false && strpos($_SERVER['REQUEST_URI'], 'hotel-services.php') === false) ? 'open' : ''; ?>">
                         <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo activeMenu('frontdesk'); ?>">
                             <i data-feather="home" class="nav-icon"></i>
                             <span><?php echo __('menu.frontdesk'); ?></span>
