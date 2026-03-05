@@ -317,6 +317,60 @@ class Auth {
     }
     
     /**
+     * Check granular permission (can_edit, can_delete, can_create) for the current user/business.
+     * Developer role always returns true.
+     */
+    private function checkGranularPerm(string $module, string $column): bool {
+        if (!$this->isLoggedIn()) return false;
+        $userRole = $_SESSION['role'] ?? 'staff';
+        if (in_array($userRole, ['developer', 'admin'])) return true;
+
+        $username = $_SESSION['username'] ?? null;
+        if (!$username) return false;
+
+        try {
+            $masterPdo = new PDO(
+                "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=utf8mb4",
+                DB_USER, DB_PASS,
+                [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+            );
+            $userRow = $masterPdo->prepare("SELECT id FROM users WHERE username = ? LIMIT 1");
+            $userRow->execute([$username]);
+            $masterUser = $userRow->fetch(PDO::FETCH_ASSOC);
+            if (!$masterUser) return false;
+
+            $activeBusinessId = $_SESSION['active_business_id'] ?? null;
+            if (!$activeBusinessId) return false;
+
+            $idToCodeMap = [
+                'bens-cafe' => 'BENSCAFE',
+                'narayana-hotel' => 'NARAYANAHOTEL',
+                'demo' => 'DEMO',
+                'cqc' => 'CQC'
+            ];
+            $businessCode = $idToCodeMap[$activeBusinessId] ?? strtoupper(str_replace('-', '', $activeBusinessId));
+            $bizRow = $masterPdo->prepare("SELECT id FROM businesses WHERE business_code = ? LIMIT 1");
+            $bizRow->execute([$businessCode]);
+            $business = $bizRow->fetch(PDO::FETCH_ASSOC);
+            if (!$business) return false;
+
+            $sql = "SELECT {$column} FROM user_menu_permissions WHERE user_id=? AND business_id=? AND menu_code=? LIMIT 1";
+            $permRow = $masterPdo->prepare($sql);
+            $permRow->execute([$masterUser['id'], $business['id'], $module]);
+            $perm = $permRow->fetch(PDO::FETCH_ASSOC);
+            return $perm && (int)$perm[$column] === 1;
+        } catch (Exception $e) {
+            error_log("⚠️ Granular perm check failed: " . $e->getMessage());
+            // On error: fallback allow for admin/manager/owner, deny for staff
+            return in_array($userRole, ['owner', 'manager']);
+        }
+    }
+
+    public function canEdit(string $module): bool   { return $this->checkGranularPerm($module, 'can_edit');   }
+    public function canDelete(string $module): bool { return $this->checkGranularPerm($module, 'can_delete'); }
+    public function canCreate(string $module): bool { return $this->checkGranularPerm($module, 'can_create'); }
+
+    /**
      * Fallback permission check based on role (for backward compatibility)
      */
     private function hasPermissionFallback($module) {

@@ -14,6 +14,13 @@ $auth = new Auth();
 $auth->requireLogin();
 $db = Database::getInstance();
 
+// ── Permission: only users with can_delete on cashbook may proceed ───────────
+if (!$auth->canDelete('cashbook')) {
+    $_SESSION['error'] = '⛔ Anda tidak memiliki izin untuk menghapus transaksi.';
+    header('Location: index.php');
+    exit;
+}
+
 $currentUser = $auth->getCurrentUser();
 $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
 

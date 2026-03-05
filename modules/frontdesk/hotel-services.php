@@ -465,6 +465,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
         }
 
         // ── UPDATE STATUS ────────────────────────────────────────────────────────
+        if ($action === 'update_status' || $action === 'update_invoice') {
+            if (!$auth->canEdit('frontdesk')) {
+                echo json_encode(['success'=>false,'message'=>'⛔ Anda tidak memiliki izin untuk mengedit.']);
+                exit;
+            }
+        }
+        if ($action === 'delete') {
+            if (!$auth->canDelete('frontdesk')) {
+                echo json_encode(['success'=>false,'message'=>'⛔ Anda tidak memiliki izin untuk menghapus.']);
+                exit;
+            }
+        }
+
         if ($action === 'update_status') {
             $id     = (int)($_POST['id'] ?? 0);
             $status = $_POST['status'] ?? '';
@@ -893,20 +906,26 @@ include '../../includes/header.php';
                 <td style="font-size:0.72rem;color:var(--text-secondary);white-space:nowrap"><?php echo date('d M Y', strtotime($inv['created_at'])); ?></td>
                 <td>
                     <div style="display:flex;gap:0.3rem;flex-wrap:wrap;min-width:160px">
+                        <?php if ($auth->canEdit('frontdesk')): ?>
                         <button class="hs-action-btn" style="background:#e0f2fe;color:#0277bd;text-decoration:none" onclick="openEditModal(<?php echo $inv['id']; ?>)">✏️ Edit</button>
+                        <?php endif; ?>
                         <a href="hotel-service-invoice.php?id=<?php echo $inv['id']; ?>" target="_blank" class="hs-action-btn" style="background:#e0f2fe;color:#0277bd;text-decoration:none">🖨️ Invoice</a>
                         <?php if ($inv['payment_status'] !== 'paid'): ?>
                         <button class="hs-action-btn" style="background:#dcfce7;color:#15803d"
                             onclick="openPayModal(<?php echo $inv['id']; ?>,<?php echo $inv['total']-$inv['paid_amount']; ?>,'<?php echo htmlspecialchars($inv['invoice_number'],ENT_QUOTES); ?>')">💳 Pay</button>
                         <?php endif; ?>
+                        <?php if ($auth->canEdit('frontdesk')): ?>
                         <select class="hs-action-btn" style="background:#f3f4f6;color:#374151"
                             onchange="updateStatus(<?php echo $inv['id']; ?>,this.value);this.blur()">
                             <?php foreach (['pending','confirmed','completed','cancelled'] as $s): ?>
                             <option value="<?php echo $s; ?>" <?php echo $inv['status']===$s?'selected':''; ?>><?php echo ucfirst($s); ?></option>
                             <?php endforeach; ?>
                         </select>
+                        <?php endif; ?>
+                        <?php if ($auth->canDelete('frontdesk')): ?>
                         <button class="hs-action-btn" style="background:#fee2e2;color:#b91c1c"
                             onclick="deleteInvoice(<?php echo $inv['id']; ?>,'<?php echo htmlspecialchars($inv['invoice_number'],ENT_QUOTES); ?>')">✕</button>
+                        <?php endif; ?>
                     </div>
                 </td>
             </tr>

@@ -1787,21 +1787,25 @@ echo getPrintCSS();
                             </td>
                             <td>
                                 <div class="cb-actions">
-                                    <?php if (isset($trans['is_editable']) && $trans['is_editable'] == 1): ?>
+                                    <?php if ($auth->canEdit('cashbook')): ?>
+                                        <?php if (isset($trans['is_editable']) && $trans['is_editable'] == 1): ?>
                                         <a href="edit.php?id=<?php echo $trans['id']; ?>" class="cb-action-btn edit" title="Edit">
                                             <i data-feather="edit-2"></i>
                                         </a>
-                                    <?php else: ?>
+                                        <?php else: ?>
                                         <span class="cb-action-btn locked" title="Dari PO">
                                             <i data-feather="lock"></i>
                                         </span>
+                                        <?php endif; ?>
                                     <?php endif; ?>
+                                    <?php if ($auth->canDelete('cashbook')): ?>
                                     <a href="delete.php?id=<?php echo $trans['id']; ?>" 
                                        onclick="return confirm('Yakin ingin menghapus transaksi ini?')" 
                                        class="cb-action-btn delete" 
                                        title="Hapus">
                                         <i data-feather="trash-2"></i>
                                     </a>
+                                    <?php endif; ?>
                                 </div>
                             </td>
                         </tr>

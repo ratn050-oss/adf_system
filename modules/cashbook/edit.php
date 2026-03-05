@@ -14,6 +14,13 @@ $auth = new Auth();
 $auth->requireLogin();
 $db = Database::getInstance();
 
+// ── Permission: only users with can_edit on cashbook may proceed ─────────────
+if (!$auth->canEdit('cashbook')) {
+    $_SESSION['error'] = '⛔ Anda tidak memiliki izin untuk mengedit transaksi.';
+    header('Location: index.php');
+    exit;
+}
+
 $currentUser = $auth->getCurrentUser();
 $pageTitle = 'Edit Transaksi Kas';
 $id = isset($_GET['id']) ? (int)$_GET['id'] : 0;
