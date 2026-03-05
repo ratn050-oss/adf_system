@@ -238,12 +238,12 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#eef1f5;color:#1e293
 
 <div class="page">
 
-<?php if (!$isProcessed): ?>
-<div class="watermark wm-unpaid">UNPAID</div>
-<?php elseif ($inv['payment_status'] === 'paid'): ?>
+<?php if ($inv['payment_status'] === 'paid'): ?>
 <div class="watermark wm-paid">PAID</div>
 <?php elseif ($inv['payment_status'] === 'partial'): ?>
 <div class="watermark wm-partial">PARTIAL</div>
+<?php else: ?>
+<div class="watermark wm-unpaid">UNPAID</div>
 <?php endif; ?>
 
     <!-- ── Header ── -->

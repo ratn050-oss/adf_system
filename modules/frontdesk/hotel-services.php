@@ -116,12 +116,18 @@ function getDivisionForService(PDO $pdo, string $serviceType): int {
         'narayana_trip' => 'Narayana Trip',
         'lain_lain'     => 'Lain-lain',
     ];
-    $name  = $nameMap[$serviceType] ?? 'Hotel Services';
-    $words = explode(' ', strtolower($name));
-    $like  = '%' . $words[0] . '%';
-    $stmt  = $pdo->prepare("SELECT id FROM divisions WHERE LOWER(division_name) LIKE ? ORDER BY id LIMIT 1");
-    $stmt->execute([$like]);
+    $name = $nameMap[$serviceType] ?? 'Hotel Services';
+    // Try exact match first, then fallback to LIKE
+    $stmt = $pdo->prepare("SELECT id FROM divisions WHERE LOWER(division_name) = LOWER(?) ORDER BY id LIMIT 1");
+    $stmt->execute([$name]);
     $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    if (!$row) {
+        $words = explode(' ', strtolower($name));
+        $like  = '%' . $words[0] . '%';
+        $stmt  = $pdo->prepare("SELECT id FROM divisions WHERE LOWER(division_name) LIKE ? ORDER BY id LIMIT 1");
+        $stmt->execute([$like]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+    }
     if ($row) { $cache[$serviceType] = (int)$row['id']; return $cache[$serviceType]; }
     try {
         $pdo->prepare("INSERT INTO divisions (division_name, is_active, created_at) VALUES (?, 1, NOW())")->execute([$name]);
@@ -134,6 +140,21 @@ function getDivisionForService(PDO $pdo, string $serviceType): int {
     return $id;
 }
 
+// ── Helper: find/create 'Hotel Service' income category ───────────────────────
+function getHotelServiceCategoryId(PDO $pdo): int {
+    // Exact match
+    $row = $pdo->query("SELECT id FROM categories WHERE LOWER(category_name) = 'hotel service' AND category_type = 'income' ORDER BY id LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+    if (!$row) $row = $pdo->query("SELECT id FROM categories WHERE LOWER(category_name) LIKE '%hotel service%' AND category_type = 'income' ORDER BY id LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+    if ($row) return (int)$row['id'];
+    try {
+        $pdo->exec("INSERT INTO categories (category_name, category_type, created_at) VALUES ('Hotel Service', 'income', NOW())");
+        return (int)$pdo->lastInsertId();
+    } catch (\Throwable $e) {
+        $any = $pdo->query("SELECT id FROM categories WHERE category_type = 'income' ORDER BY id LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+        return (int)($any['id'] ?? 1);
+    }
+}
+
 // ── Helper: sync invoice payment to cashbook (called from process_invoice) ─────
 function syncInvoiceToCashbook($db, $businessId, $userId, array $invRow, array $itemGroups, array $serviceTypes): bool {
     try {
@@ -143,9 +164,9 @@ function syncInvoiceToCashbook($db, $businessId, $userId, array $invRow, array $
         if (!$account) return false;
 
         $cbMethod  = $helper->mapPaymentMethod($invRow['payment_method']);
-        $catId     = $helper->getCategoryId();
         $hasCa     = $helper->hasCashAccountIdColumn();
         $bPdo      = $db->getConnection();
+        $catId     = getHotelServiceCategoryId($bPdo);
         $now       = date('Y-m-d H:i:s');
         $invNo     = $invRow['invoice_number'];
         $guest     = $invRow['guest_name'];
