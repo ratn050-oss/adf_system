@@ -198,24 +198,13 @@ try {
     ", [$today]);
     $stats['ota_revenue_today'] = $otaRevenueResult['total'] ?? 0;
 
-    // 9. In-House Revenue - Total paid from guests currently checked-in ONLY
+    // 9. In-House Revenue - Total final_price tagihan tamu yang sedang check-in
     $inHouseRevenueResult = $db->fetchOne("
-        SELECT COALESCE(SUM(bp.amount), 0) as total
-        FROM booking_payments bp
-        JOIN bookings b ON bp.booking_id = b.id
-        WHERE b.status = 'checked_in'
+        SELECT COALESCE(SUM(final_price), 0) as total
+        FROM bookings
+        WHERE status = 'checked_in'
     ");
     $stats['inhouse_revenue'] = $inHouseRevenueResult['total'] ?? 0;
-
-    // Fallback: use bookings.paid_amount for checked_in only
-    if ($stats['inhouse_revenue'] == 0) {
-        $fallbackRevenue = $db->fetchOne("
-            SELECT COALESCE(SUM(paid_amount), 0) as total
-            FROM bookings
-            WHERE status = 'checked_in'
-        ");
-        $stats['inhouse_revenue'] = $fallbackRevenue['total'] ?? 0;
-    }
 
     // 10. Direct Booking Payments Today (alternative source if cash_book empty)
     // EXCLUDE: OTA bookings (masuk saat check-in) dan booking yang belum check-in
@@ -1588,7 +1577,7 @@ include '../../includes/header.php';
                     </div>
                     <div style="font-size: 0.75rem; color: #6366f1; font-weight: 600; margin-bottom: 0.25rem;">In-House Revenue</div>
                     <div style="font-size: 1.1rem; font-weight: 800; color: #4f46e5;">Rp <?php echo number_format($stats['inhouse_revenue'], 0, ',', '.'); ?></div>
-                    <div style="font-size: 0.65rem; color: #818cf8; margin-top: 3px;">Tamu yang sedang check-in</div>
+                    <div style="font-size: 0.65rem; color: #818cf8; margin-top: 3px;">Total tagihan tamu check-in</div>
                 </div>
                 
                 <!-- Monthly Revenue -->

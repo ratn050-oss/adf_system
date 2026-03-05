@@ -84,24 +84,13 @@ try {
     ", [$today]);
     $stats['revenue_today'] = $revenueResult['total'] ?? 0;
 
-    // In-House Revenue (total paid from guests currently checked-in ONLY)
+    // In-House Revenue - Total tagihan (final_price) tamu yang sedang check-in
     $inHouseRevenueResult = $db->fetchOne("
-        SELECT COALESCE(SUM(bp.amount), 0) as total
-        FROM booking_payments bp
-        JOIN bookings b ON bp.booking_id = b.id
-        WHERE b.status = 'checked_in'
+        SELECT COALESCE(SUM(final_price), 0) as total
+        FROM bookings
+        WHERE status = 'checked_in'
     ");
     $stats['inhouse_revenue'] = $inHouseRevenueResult['total'] ?? 0;
-
-    // Fallback: use bookings.paid_amount for checked_in only
-    if ($stats['inhouse_revenue'] == 0) {
-        $fallbackRevenue = $db->fetchOne("
-            SELECT COALESCE(SUM(paid_amount), 0) as total
-            FROM bookings
-            WHERE status = 'checked_in'
-        ");
-        $stats['inhouse_revenue'] = $fallbackRevenue['total'] ?? 0;
-    }
 
     // Current occupancy - count all checked_in (overdue already auto-checked-out)
     $occupiedResult = $db->fetchOne("

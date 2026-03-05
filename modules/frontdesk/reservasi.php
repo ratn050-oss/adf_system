@@ -696,7 +696,7 @@ include '../../includes/header.php';
                             <?php 
                             // Calculate remaining balance
                             $remaining = $booking['final_price'] - max($booking['paid_amount'], $booking['total_paid']);
-                            if ($remaining > 0 && $booking['status'] !== 'cancelled' && $booking['status'] !== 'checked_out'): 
+                            if ($remaining > 0 && $booking['payment_status'] !== 'paid' && $booking['status'] !== 'cancelled' && $booking['status'] !== 'checked_out'): 
                             ?>
                             <button class="action-btn" style="background-color: #f59e0b; color: white; border-color: #d97706;" onclick="addPayment(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_code']); ?>', <?php echo $remaining; ?>)">
                                 💰 Pay
