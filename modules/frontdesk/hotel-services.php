@@ -107,35 +107,63 @@ $payStatusColors = ['unpaid'=>'#ef4444','partial'=>'#f59e0b','paid'=>'#10b981'];
 function getDivisionForService(PDO $pdo, string $serviceType): int {
     static $cache = [];
     if (isset($cache[$serviceType])) return $cache[$serviceType];
+
+    // Preferred division names — must match exactly what's in the DB (or close synonyms)
     $nameMap = [
-        'motor_rental'  => 'Motor Rental',
-        'laundry'       => 'Laundry',
-        'service'       => 'General Service',
-        'airport_drop'  => 'Airport Drop',
-        'harbor_drop'   => 'Harbor Drop',
-        'narayana_trip' => 'Narayana Trip',
-        'lain_lain'     => 'Lain-lain',
+        'motor_rental'  => ['Motor Rental',  'MOTOR_RENTAL',  'Motor'],
+        'laundry'       => ['Laundry',        'LAUNDRY',       'Housekeeping'],
+        'service'       => ['General Service','GEN_SERVICE',   'Hotel'],
+        'airport_drop'  => ['Airport Drop',   'AIRPORT_DROP',  'Hotel'],
+        'harbor_drop'   => ['Harbor Drop',    'HARBOR_DROP',   'Hotel'],
+        'narayana_trip' => ['Narayana Trip',  'NARAYANA_TRIP', 'Hotel'],
+        'lain_lain'     => ['Lain2',          'OTHERS',        'Hotel'],
     ];
-    $name = $nameMap[$serviceType] ?? 'Hotel Services';
-    // Try exact match first, then fallback to LIKE
-    $stmt = $pdo->prepare("SELECT id FROM divisions WHERE LOWER(division_name) = LOWER(?) ORDER BY id LIMIT 1");
-    $stmt->execute([$name]);
-    $row = $stmt->fetch(PDO::FETCH_ASSOC);
-    if (!$row) {
-        $words = explode(' ', strtolower($name));
-        $like  = '%' . $words[0] . '%';
-        $stmt  = $pdo->prepare("SELECT id FROM divisions WHERE LOWER(division_name) LIKE ? ORDER BY id LIMIT 1");
-        $stmt->execute([$like]);
+    $entry    = $nameMap[$serviceType] ?? ['Hotel Services', 'HOTEL_SVC', 'Hotel'];
+    $prefName = $entry[0]; // preferred division name
+    $prefCode = $entry[1]; // code to use when inserting
+    $fallback = $entry[2]; // fallback name if preferred doesn't exist
+
+    $resolve = function(string $name) use ($pdo): ?int {
+        $stmt = $pdo->prepare("SELECT id FROM divisions WHERE LOWER(division_name) = LOWER(?) LIMIT 1");
+        $stmt->execute([$name]);
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($row) return (int)$row['id'];
+        // Also try by division_code
+        $stmt = $pdo->prepare("SELECT id FROM divisions WHERE UPPER(division_code) = UPPER(?) LIMIT 1");
+        $stmt->execute([$name]);
+        $row = $stmt->fetch(PDO::FETCH_ASSOC);
+        return $row ? (int)$row['id'] : null;
+    };
+
+    // 1. Try preferred name exact match
+    $id = $resolve($prefName);
+    // 2. Try preferred code
+    if (!$id) $id = $resolve($prefCode);
+    // 3. Try fallback name
+    if (!$id) $id = $resolve($fallback);
+
+    // 4. INSERT new division (with all required columns)
+    if (!$id) {
+        try {
+            $stmt = $pdo->prepare(
+                "INSERT IGNORE INTO divisions (division_name, division_code, division_type, is_active, created_at)
+                 VALUES (?, ?, 'income', 1, NOW())"
+            );
+            $stmt->execute([$prefName, $prefCode]);
+            $id = (int)$pdo->lastInsertId();
+            if (!$id) $id = $resolve($prefName); // IGNORE may have hit a race condition
+        } catch (\Throwable $e) {}
     }
-    if ($row) { $cache[$serviceType] = (int)$row['id']; return $cache[$serviceType]; }
-    try {
-        $pdo->prepare("INSERT INTO divisions (division_name, is_active, created_at) VALUES (?, 1, NOW())")->execute([$name]);
-        $id = (int)$pdo->lastInsertId();
-    } catch (\Throwable $e) {
-        $any = $pdo->query("SELECT id FROM divisions ORDER BY id LIMIT 1")->fetch(PDO::FETCH_ASSOC);
-        $id = (int)($any['id'] ?? 1);
+
+    // 5. Absolute fallback: first income division, then first any division
+    if (!$id) {
+        try {
+            $row = $pdo->query("SELECT id FROM divisions WHERE division_type IN ('income','both') ORDER BY id LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+            if (!$row) $row = $pdo->query("SELECT id FROM divisions ORDER BY id LIMIT 1")->fetch(PDO::FETCH_ASSOC);
+            $id = (int)($row['id'] ?? 1);
+        } catch (\Throwable $e) { $id = 1; }
     }
+
     $cache[$serviceType] = $id;
     return $id;
 }
