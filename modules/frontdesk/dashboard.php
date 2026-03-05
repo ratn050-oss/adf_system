@@ -246,27 +246,39 @@ try {
 
     // 11. Paid This Month - actual money received: paid_amount from paid/partial bookings
     //     with check_in this month (lunas + DP direct bookings), excludes cancelled
+    // 11. Paid This Month - DIRECT BOOKINGS ONLY (not OTA)
+    //     OTA revenue is only recorded at check-in, NOT upfront
+    //     Include: walk-in, direct, front desk, phone, website (anything not OTA)
     $monthRevenueResult = $db->fetchOne("
         SELECT COALESCE(SUM(paid_amount), 0) as total
         FROM bookings
         WHERE status NOT IN ('cancelled')
         AND payment_status IN ('paid', 'partial')
         AND DATE_FORMAT(check_in_date, '%Y-%m') = ?
+        AND LOWER(COALESCE(booking_source, 'direct')) NOT LIKE '%agoda%'
+        AND LOWER(COALESCE(booking_source, 'direct')) NOT LIKE '%booking%'
+        AND LOWER(COALESCE(booking_source, 'direct')) NOT LIKE '%tiket%'
+        AND LOWER(COALESCE(booking_source, 'direct')) NOT LIKE '%traveloka%'
+        AND LOWER(COALESCE(booking_source, 'direct')) NOT LIKE '%airbnb%'
+        AND LOWER(COALESCE(booking_source, 'direct')) NOT LIKE '%expedia%'
+        AND LOWER(COALESCE(booking_source, 'direct')) NOT LIKE '%pegipegi%'
+        AND LOWER(COALESCE(booking_source, 'direct')) NOT LIKE '%ota%'
     ", [$thisMonth]);
     $stats['month_revenue'] = $monthRevenueResult['total'] ?? 0;
 
-    // Also add booking_payments records this month as supplemental source
-    $monthPaymentsResult = $db->fetchOne("
-        SELECT COALESCE(SUM(bp.amount), 0) as total
-        FROM booking_payments bp
-        JOIN bookings b ON bp.booking_id = b.id
-        WHERE DATE_FORMAT(bp.payment_date, '%Y-%m') = ?
-        AND b.status NOT IN ('cancelled')
+    // Also check cash_book income for this month (covers manually-added direct payments)
+    $cashbookMonthResult = $db->fetchOne("
+        SELECT COALESCE(SUM(amount), 0) as total
+        FROM cash_book
+        WHERE transaction_type = 'income'
+        AND DATE_FORMAT(transaction_date, '%Y-%m') = ?
+        AND (description LIKE '%BK-%' OR description LIKE '%Reserv%' OR description LIKE '%Room%' OR description LIKE '%Hotel%')
+        AND LOWER(COALESCE(payment_method, '')) NOT IN ('agoda', 'ota', 'booking')
     ", [$thisMonth]);
-    // Use whichever is higher (booking_payments may be more up-to-date)
-    $bpTotal = $monthPaymentsResult['total'] ?? 0;
-    if ($bpTotal > $stats['month_revenue']) {
-        $stats['month_revenue'] = $bpTotal;
+    $cbTotal = $cashbookMonthResult['total'] ?? 0;
+    // Use whichever source gives a higher value
+    if ($cbTotal > $stats['month_revenue']) {
+        $stats['month_revenue'] = $cbTotal;
     }
 
     // 12. Guest Data for Today
@@ -1590,7 +1602,7 @@ include '../../includes/header.php';
                     </div>
                     <div style="font-size: 0.75rem; color: #db2777; font-weight: 600; margin-bottom: 0.25rem;">Paid This Month</div>
                     <div style="font-size: 1.1rem; font-weight: 800; color: #be185d;">Rp <?php echo number_format($stats['month_revenue'], 0, ',', '.'); ?></div>
-                    <div style="font-size: 0.65rem; color: #f472b6; margin-top: 3px;">Paid + DP received this month</div>
+                    <div style="font-size: 0.65rem; color: #f472b6; margin-top: 3px;">Direct bookings only (excl. OTA)</div>
                 </div>
                 
                 <!-- Expected Revenue -->
