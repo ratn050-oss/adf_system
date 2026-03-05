@@ -319,6 +319,29 @@ try {
     ");
     $stats['guests_today'] = $guestsTodayResult;
 
+    // 13. Upcoming Reservations (next check-ins, confirmed, limit 10)
+    $upcomingReservations = $db->fetchAll("
+        SELECT 
+            b.id,
+            g.guest_name,
+            b.room_id,
+            r.room_number,
+            b.check_in_date,
+            b.check_out_date,
+            b.final_price,
+            b.booking_code,
+            b.booking_source,
+            b.payment_status
+        FROM bookings b
+        JOIN rooms r ON b.room_id = r.id
+        LEFT JOIN guests g ON b.guest_id = g.id
+        WHERE b.status = 'confirmed'
+          AND b.check_in_date >= NOW()
+        ORDER BY b.check_in_date ASC
+        LIMIT 10
+    ");
+    $stats['upcoming_reservations'] = $upcomingReservations;
+
     // 9. Checkout Guests Today - Detail list
     $checkoutGuestsResult = $db->fetchAll("
         SELECT 
@@ -1782,6 +1805,69 @@ include '../../includes/header.php';
         </div>
         <?php endif; ?>
     </div>
+
+    <!-- Upcoming Reservations -->
+    <?php if (!empty($stats['upcoming_reservations'])): ?>
+    <div class="guests-card" style="margin-top: 1.5rem;">
+        <h3>📅 Upcoming Check-ins (<?php echo count($stats['upcoming_reservations']); ?>)</h3>
+        <div style="overflow-x: auto;">
+            <table class="guests-table">
+                <thead>
+                    <tr>
+                        <th>Guest Name</th>
+                        <th>Room</th>
+                        <th>Check-in</th>
+                        <th>Check-out</th>
+                        <th>Source</th>
+                        <th>Payment</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($stats['upcoming_reservations'] as $res): ?>
+                    <?php
+                        $daysUntil = (int)floor((strtotime($res['check_in_date']) - time()) / 86400);
+                        $daysLabel = $daysUntil === 0 ? 'Today' : ($daysUntil === 1 ? 'Tomorrow' : 'In ' . $daysUntil . 'd');
+                        $daysColor = $daysUntil === 0 ? '#ef4444' : ($daysUntil <= 2 ? '#f59e0b' : '#6366f1');
+                        $isPaid = $res['payment_status'] === 'paid';
+                    ?>
+                    <tr>
+                        <td>
+                            <strong><?php echo htmlspecialchars($res['guest_name'] ?? 'Guest'); ?></strong>
+                            <?php if ($res['booking_code']): ?>
+                            <div style="font-size:0.72rem; color:#94a3b8; margin-top:2px;"><?php echo htmlspecialchars($res['booking_code']); ?></div>
+                            <?php endif; ?>
+                        </td>
+                        <td>
+                            <span class="room-badge">🚪 <?php echo htmlspecialchars($res['room_number']); ?></span>
+                        </td>
+                        <td>
+                            <div><?php echo date('d M', strtotime($res['check_in_date'])); ?></div>
+                            <div style="font-size:0.75rem; font-weight:600; color:<?php echo $daysColor; ?>"><?php echo $daysLabel; ?></div>
+                        </td>
+                        <td><?php echo date('d M', strtotime($res['check_out_date'])); ?></td>
+                        <td>
+                            <span style="font-size:0.8rem; text-transform:capitalize; color:#64748b;">
+                                <?php echo htmlspecialchars($res['booking_source'] ?? 'direct'); ?>
+                            </span>
+                        </td>
+                        <td>
+                            <?php if ($isPaid): ?>
+                            <span class="status-badge status-checked-in" style="font-size:0.75rem;">✓ Paid</span>
+                            <?php else: ?>
+                            <span class="status-badge" style="background:#fef3c7; color:#92400e; font-size:0.75rem;">⏳ Unpaid</span>
+                            <?php endif; ?>
+                        </td>
+                        <td style="font-weight:600; color:#10b981;">
+                            Rp <?php echo number_format($res['final_price'], 0, ',', '.'); ?>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+    </div>
+    <?php endif; ?>
 
 </div>
 
