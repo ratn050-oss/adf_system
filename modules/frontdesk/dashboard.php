@@ -560,15 +560,10 @@ include '../../includes/header.php';
 }
 
 .stat-card {
-    background: var(--glass-bg);
+    background: linear-gradient(135deg, #6366f1, #8b5cf6);
     backdrop-filter: blur(var(--glass-blur));
     -webkit-backdrop-filter: blur(var(--glass-blur));
-    border: 1.5px solid transparent;
-    background-image: 
-        linear-gradient(var(--glass-bg), var(--glass-bg)),
-        linear-gradient(135deg, rgba(99, 102, 241, 0.3), rgba(139, 92, 246, 0.3));
-    background-origin: border-box;
-    background-clip: padding-box, border-box;
+    border: 1.5px solid rgba(255,255,255,0.15);
     border-radius: 12px;
     padding: 1rem;
     position: relative;
@@ -598,12 +593,10 @@ include '../../includes/header.php';
 .stat-card:hover {
     transform: translateY(-6px) scale(1.02);
     box-shadow: 
-        0 12px 32px rgba(0, 0, 0, 0.12),
-        0 16px 48px rgba(99, 102, 241, 0.2),
+        0 12px 32px rgba(0, 0, 0, 0.18),
+        0 16px 48px rgba(99, 102, 241, 0.35),
         inset 0 1px 0 rgba(255, 255, 255, 0.3);
-    background-image: 
-        linear-gradient(var(--glass-bg), var(--glass-bg)),
-        linear-gradient(135deg, rgba(99, 102, 241, 0.5), rgba(139, 92, 246, 0.5));
+    background: linear-gradient(135deg, #4f46e5, #7c3aed);
 }
 
 .stat-card:hover::before {
@@ -620,8 +613,8 @@ include '../../includes/header.php';
     justify-content: center;
     font-size: 1.35rem;
     margin-bottom: 0.5rem;
-    background: var(--glass-bg);
-    border: 1px solid var(--glass-border);
+    background: rgba(255,255,255,0.15);
+    border: 1px solid rgba(255,255,255,0.25);
     position: relative;
     overflow: hidden;
 }
@@ -637,7 +630,7 @@ include '../../includes/header.php';
 .stat-value {
     font-size: 1.75rem;
     font-weight: 900;
-    color: var(--text-primary);
+    color: #ffffff;
     font-family: 'Courier New', monospace;
     line-height: 1;
     margin-bottom: 0.35rem;
@@ -645,7 +638,7 @@ include '../../includes/header.php';
 }
 
 .stat-label {
-    color: var(--text-secondary);
+    color: rgba(255, 255, 255, 0.78);
     font-size: 0.75rem;
     font-weight: 700;
     text-transform: uppercase;
@@ -1717,9 +1710,9 @@ include '../../includes/header.php';
     <!-- Statistics Widgets -->
     <div class="stats-grid">
         <!-- Total Rooms - NEW -->
-        <div class="stat-card" style="background: linear-gradient(135deg, rgba(139, 92, 246, 0.1), rgba(99, 102, 241, 0.1)); border: 2px solid rgba(139, 92, 246, 0.3);">
+        <div class="stat-card">
             <div class="stat-icon-wrapper">🏨</div>
-            <div class="stat-value" style="color: #8b5cf6;">
+            <div class="stat-value">
                 <?php echo $stats['total_rooms']; ?>
             </div>
             <div class="stat-label">Total Rooms</div>
@@ -1728,7 +1721,7 @@ include '../../includes/header.php';
         <!-- In-House Guests - CLICKABLE -->
         <a href="in-house.php" class="stat-card" style="text-decoration: none; cursor: pointer;">
             <div class="stat-icon-wrapper">👥</div>
-            <div class="stat-value" style="color: #10b981;">
+            <div class="stat-value">
                 <?php echo $stats['in_house']; ?>
             </div>
             <div class="stat-label">In-House Guests</div>
@@ -1737,7 +1730,7 @@ include '../../includes/header.php';
         <!-- Check-out Today -->
         <div class="stat-card">
             <div class="stat-icon-wrapper">👋</div>
-            <div class="stat-value" style="color: #f59e0b;">
+            <div class="stat-value">
                 <?php echo $stats['checkout_today']; ?>
             </div>
             <div class="stat-label">Check-out Today</div>
@@ -1746,7 +1739,7 @@ include '../../includes/header.php';
         <!-- Arrival Today -->
         <div class="stat-card">
             <div class="stat-icon-wrapper">➡️</div>
-            <div class="stat-value" style="color: #3b82f6;">
+            <div class="stat-value">
                 <?php echo $stats['arrival_today']; ?>
             </div>
             <div class="stat-label">Arrival Today</div>
@@ -1755,7 +1748,7 @@ include '../../includes/header.php';
         <!-- Predicted Tomorrow -->
         <div class="stat-card">
             <div class="stat-icon-wrapper">🔮</div>
-            <div class="stat-value" style="color: #8b5cf6;">
+            <div class="stat-value">
                 <?php echo $stats['predicted_tomorrow']; ?>
             </div>
             <div class="stat-label">Predicted Tomorrow</div>
