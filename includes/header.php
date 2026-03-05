@@ -293,8 +293,8 @@ if (isset($_SESSION['user_id'])) {
                     </li>
                     <?php endif; ?>
                     
-                    <!-- Sales Invoice Menu -->
-                    <?php if ($auth->hasPermission('sales_invoice') && isModuleEnabled('sales')): ?>
+                    <!-- Sales Invoice Menu (CQC only, not for hotel) -->
+                    <?php if ($auth->hasPermission('sales_invoice') && isModuleEnabled('sales') && (!defined('BUSINESS_TYPE') || BUSINESS_TYPE !== 'hotel')): ?>
                     <li class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/sales/') !== false) ? 'open' : ''; ?>">
                         <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo activeMenu('sales'); ?>">
                             <i data-feather="file-text" class="nav-icon"></i>
