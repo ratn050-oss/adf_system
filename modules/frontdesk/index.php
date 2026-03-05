@@ -84,15 +84,25 @@ try {
     ", [$today]);
     $stats['revenue_today'] = $revenueResult['total'] ?? 0;
 
-    // Room Revenue - ACTUAL received money from cash_book for room bookings this month
-    $inHouseRevenueIdxResult = $db->fetchOne("
-        SELECT COALESCE(SUM(amount), 0) as total
-        FROM cash_book
-        WHERE transaction_type = 'income'
-        AND DATE_FORMAT(transaction_date, '%Y-%m') = DATE_FORMAT(NOW(), '%Y-%m')
-        AND (description LIKE '%BK-%' OR description LIKE '%Reserv%' OR description LIKE '%Room%' OR description LIKE '%Hotel%')
+    // Room Revenue - uang aktual HANYA untuk tamu yang sudah check-in atau checkout bulan ini
+    $roomBookingsIdx = $db->fetchAll("
+        SELECT booking_code, paid_amount
+        FROM bookings
+        WHERE status = 'checked_in'
+           OR (status = 'checked_out' AND DATE_FORMAT(check_out_date, '%Y-%m') = DATE_FORMAT(NOW(), '%Y-%m'))
     ");
-    $stats['inhouse_revenue'] = $inHouseRevenueIdxResult['total'] ?? 0;
+    $totalRoomRevenueIdx = 0;
+    foreach ($roomBookingsIdx as $bk) {
+        $cbResult = $db->fetchOne("
+            SELECT COALESCE(SUM(amount), 0) as total
+            FROM cash_book
+            WHERE transaction_type = 'income'
+            AND description LIKE ?
+        ", ['%' . $bk['booking_code'] . '%']);
+        $cbAmount = $cbResult['total'] ?? 0;
+        $totalRoomRevenueIdx += ($cbAmount > 0) ? $cbAmount : ($bk['paid_amount'] ?? 0);
+    }
+    $stats['inhouse_revenue'] = $totalRoomRevenueIdx;
 
     // Current occupancy - count all checked_in (overdue already auto-checked-out)
     $occupiedResult = $db->fetchOne("
