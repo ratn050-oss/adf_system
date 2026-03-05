@@ -560,10 +560,15 @@ include '../../includes/header.php';
 }
 
 .stat-card {
-    background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    background: var(--glass-bg);
     backdrop-filter: blur(var(--glass-blur));
     -webkit-backdrop-filter: blur(var(--glass-blur));
-    border: 1.5px solid rgba(255,255,255,0.15);
+    border: 1.5px solid transparent;
+    background-image: 
+        linear-gradient(var(--glass-bg), var(--glass-bg)),
+        linear-gradient(135deg, rgba(99, 102, 241, 0.3), rgba(139, 92, 246, 0.3));
+    background-origin: border-box;
+    background-clip: padding-box, border-box;
     border-radius: 12px;
     padding: 1rem;
     position: relative;
@@ -593,10 +598,12 @@ include '../../includes/header.php';
 .stat-card:hover {
     transform: translateY(-6px) scale(1.02);
     box-shadow: 
-        0 12px 32px rgba(0, 0, 0, 0.18),
-        0 16px 48px rgba(99, 102, 241, 0.35),
+        0 12px 32px rgba(0, 0, 0, 0.12),
+        0 16px 48px rgba(99, 102, 241, 0.2),
         inset 0 1px 0 rgba(255, 255, 255, 0.3);
-    background: linear-gradient(135deg, #4f46e5, #7c3aed);
+    background-image: 
+        linear-gradient(var(--glass-bg), var(--glass-bg)),
+        linear-gradient(135deg, rgba(99, 102, 241, 0.5), rgba(139, 92, 246, 0.5));
 }
 
 .stat-card:hover::before {
@@ -613,8 +620,8 @@ include '../../includes/header.php';
     justify-content: center;
     font-size: 1.35rem;
     margin-bottom: 0.5rem;
-    background: rgba(255,255,255,0.15);
-    border: 1px solid rgba(255,255,255,0.25);
+    background: var(--glass-bg);
+    border: 1px solid var(--glass-border);
     position: relative;
     overflow: hidden;
 }
@@ -630,7 +637,7 @@ include '../../includes/header.php';
 .stat-value {
     font-size: 1.75rem;
     font-weight: 900;
-    color: #ffffff;
+    color: var(--text-primary);
     font-family: 'Courier New', monospace;
     line-height: 1;
     margin-bottom: 0.35rem;
@@ -638,7 +645,7 @@ include '../../includes/header.php';
 }
 
 .stat-label {
-    color: rgba(255, 255, 255, 0.78);
+    color: var(--text-secondary);
     font-size: 0.75rem;
     font-weight: 700;
     text-transform: uppercase;

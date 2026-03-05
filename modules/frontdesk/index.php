@@ -329,8 +329,8 @@ include '../../includes/header.php';
 }
 
 .stat-card {
-    background: linear-gradient(135deg, #6366f1, #8b5cf6);
-    border: 1.5px solid rgba(255,255,255,0.15);
+    background: var(--bg-secondary);
+    border: 2px solid var(--bg-tertiary);
     border-radius: 16px;
     padding: 1.5rem;
     position: relative;
@@ -354,9 +354,8 @@ include '../../includes/header.php';
 
 .stat-card:hover {
     transform: translateY(-8px);
-    border-color: rgba(255,255,255,0.3);
-    box-shadow: 0 20px 40px rgba(99, 102, 241, 0.35);
-    background: linear-gradient(135deg, #4f46e5, #7c3aed);
+    border-color: var(--primary-color);
+    box-shadow: 0 20px 40px rgba(0, 0, 0, 0.15);
 }
 
 .stat-icon {
@@ -373,12 +372,12 @@ include '../../includes/header.php';
 .stat-value {
     font-size: 2rem;
     font-weight: 800;
-    color: #ffffff;
+    color: var(--text-primary);
     font-family: 'Courier New', monospace;
 }
 
 .stat-label {
-    color: rgba(255, 255, 255, 0.78);
+    color: var(--text-secondary);
     font-size: 0.813rem;
     font-weight: 600;
     margin-top: 0.5rem;
