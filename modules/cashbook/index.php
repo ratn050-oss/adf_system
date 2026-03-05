@@ -1812,6 +1812,46 @@ echo getPrintCSS();
                     <?php endforeach; ?>
                 <?php endif; ?>
             </tbody>
+            <?php if (!empty($transactions)): 
+                $incomeCount  = 0; $expenseCount = 0;
+                foreach ($transactions as $t) {
+                    if ($t['transaction_type'] === 'income') $incomeCount++;
+                    else $expenseCount++;
+                }
+            ?>
+            <tfoot>
+                <tr style="background: linear-gradient(135deg, #dcfce7, #bbf7d0); border-top: 2px solid #10b981;">
+                    <td colspan="6" style="padding: 0.65rem 1rem; text-align: right; font-weight: 700; font-size: 0.82rem; color: #065f46;">
+                        ⬆️ Total Income
+                        <span style="font-weight: 400; font-size: 0.74rem; opacity: 0.8;">(<?php echo $incomeCount; ?> transactions)</span>
+                    </td>
+                    <td style="padding: 0.65rem 1rem; text-align: right; font-weight: 800; font-size: 0.95rem; color: #059669; white-space: nowrap;">
+                        <?php echo formatCurrency($totalIncome); ?>
+                    </td>
+                    <td colspan="3" style="padding: 0.65rem 0.5rem;"></td>
+                </tr>
+                <tr style="background: linear-gradient(135deg, #fee2e2, #fecaca); border-top: 1px solid #f87171;">
+                    <td colspan="6" style="padding: 0.65rem 1rem; text-align: right; font-weight: 700; font-size: 0.82rem; color: #7f1d1d;">
+                        ⬇️ Total Expense
+                        <span style="font-weight: 400; font-size: 0.74rem; opacity: 0.8;">(<?php echo $expenseCount; ?> transactions)</span>
+                    </td>
+                    <td style="padding: 0.65rem 1rem; text-align: right; font-weight: 800; font-size: 0.95rem; color: #dc2626; white-space: nowrap;">
+                        <?php echo formatCurrency($totalExpense); ?>
+                    </td>
+                    <td colspan="3" style="padding: 0.65rem 0.5rem;"></td>
+                </tr>
+                <tr style="background: linear-gradient(135deg, <?php echo $balance >= 0 ? '#eff6ff, #dbeafe' : '#fff7ed, #fed7aa'; ?>); border-top: 2px solid <?php echo $balance >= 0 ? '#3b82f6' : '#f97316'; ?>;">
+                    <td colspan="6" style="padding: 0.75rem 1rem; text-align: right; font-weight: 700; font-size: 0.85rem; color: #1e293b;">
+                        💰 Balance
+                        <span style="font-weight: 400; font-size: 0.74rem; opacity: 0.7;">(<?php echo count($transactions); ?> total)</span>
+                    </td>
+                    <td style="padding: 0.75rem 1rem; text-align: right; font-weight: 900; font-size: 1.05rem; color: <?php echo $balance >= 0 ? '#1d4ed8' : '#ea580c'; ?>; white-space: nowrap;">
+                        <?php echo formatCurrency($balance); ?>
+                    </td>
+                    <td colspan="3" style="padding: 0.75rem 0.5rem;"></td>
+                </tr>
+            </tfoot>
+            <?php endif; ?>
         </table>
     </div>
 </div>
