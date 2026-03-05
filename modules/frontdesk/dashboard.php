@@ -1601,17 +1601,6 @@ include '../../includes/header.php';
                     <div style="font-size: 1.1rem; font-weight: 800; color: #047857;">Rp <?php echo number_format($stats['revenue_today'], 0, ',', '.'); ?></div>
                 </div>
                 
-                <!-- In-House Revenue -->
-                <div style="background: linear-gradient(135deg, rgba(99, 102, 241, 0.12), rgba(139, 92, 246, 0.08)); border: 1px solid rgba(99, 102, 241, 0.3); border-radius: 10px; padding: 0.75rem;">
-                    <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">
-                        <span style="font-size: 1.25rem;">🏨</span>
-                        <span style="font-size: 0.65rem; background: rgba(99, 102, 241, 0.2); color: #6366f1; padding: 0.2rem 0.4rem; border-radius: 8px; font-weight: 600;">MONTH</span>
-                    </div>
-                    <div style="font-size: 0.75rem; color: #6366f1; font-weight: 600; margin-bottom: 0.25rem;">Room Revenue</div>
-                    <div style="font-size: 1.1rem; font-weight: 800; color: #4f46e5;">Rp <?php echo number_format($stats['inhouse_revenue'], 0, ',', '.'); ?></div>
-                    <div style="font-size: 0.65rem; color: #818cf8; margin-top: 3px;">Active guests + check-outs this month</div>
-                </div>
-                
                 <!-- Monthly Revenue -->
                 <div style="background: linear-gradient(135deg, rgba(236, 72, 153, 0.12), rgba(219, 39, 119, 0.08)); border: 1px solid rgba(236, 72, 153, 0.3); border-radius: 10px; padding: 0.75rem;">
                     <div style="display: flex; align-items: center; justify-content: space-between; margin-bottom: 0.5rem;">

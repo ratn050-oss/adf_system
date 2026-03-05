@@ -668,12 +668,6 @@ include '../../includes/header.php';
         </div>
 
         <div class="stat-card">
-            <div class="stat-icon" style="background: rgba(16, 185, 129, 0.15); color: #10b981;">🏨</div>
-            <div class="stat-value" style="font-size: 1.25rem;">Rp <?php echo number_format($stats['inhouse_revenue'], 0, ',', '.'); ?></div>
-            <div class="stat-label">Revenue In-House</div>
-        </div>
-
-        <div class="stat-card">
             <div class="stat-icon" style="background: rgba(139, 92, 246, 0.15); color: #8b5cf6;">👨‍💼</div>
             <div class="stat-value"><?php echo $stats['occupied']; ?></div>
             <div class="stat-label">Rooms Occupied</div>
