@@ -55,12 +55,19 @@ $companyWebsite = $settings['company_website'] ?? 'www.narayanakarimunjawa.com';
 $isProcessed = (bool)($inv['cashbook_synced'] ?? 0);
 
 $serviceLabels = [
-    'motor_rental' => ['label' => 'Motor Rental', 'icon' => '🏍️'],
-    'laundry'      => ['label' => 'Laundry',       'icon' => '👕'],
-    'service'      => ['label' => 'Service',       'icon' => '🔧'],
-    'airport_drop' => ['label' => 'Airport Drop',  'icon' => '✈️'],
-    'harbor_drop'  => ['label' => 'Harbor Drop',   'icon' => '⚓'],
+    'motor_rental'  => ['label' => 'Motor Rental',  'icon' => '🏍️'],
+    'laundry'       => ['label' => 'Laundry',        'icon' => '👕'],
+    'service'       => ['label' => 'Service',        'icon' => '🔧'],
+    'airport_drop'  => ['label' => 'Airport Drop',   'icon' => '✈️'],
+    'harbor_drop'   => ['label' => 'Harbor Drop',    'icon' => '⚓'],
+    'narayana_trip' => ['label' => 'Narayana Trip',  'icon' => '🚤'],
+    'lain_lain'     => ['label' => 'Lain-lain',      'icon' => '📦'],
 ];
+
+// PPN / tax info
+$taxRate   = (float)($inv['tax_rate']   ?? 0);
+$taxAmount = (float)($inv['tax_amount'] ?? 0);
+$subtotal  = $taxRate > 0 ? round($inv['total'] - $taxAmount, 2) : $inv['total'];
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -264,17 +271,27 @@ if (!$isProcessed): ?>
         <!-- Totals -->
         <div class="totals-wrap">
             <div class="totals-box">
+                <?php if ($taxRate > 0): ?>
+                <div class="totals-row">
+                    <span style="color:#64748b">Subtotal</span>
+                    <span>Rp <?php echo number_format($subtotal,0,',','.'); ?></span>
+                </div>
+                <div class="totals-row" style="background:#fff8e1">
+                    <span style="color:#92400e">PPN (<?php echo rtrim(rtrim(number_format($taxRate,2),'0'),'.'); ?>%)</span>
+                    <span style="color:#92400e;font-weight:700">Rp <?php echo number_format($taxAmount,0,',','.'); ?></span>
+                </div>
+                <?php endif; ?>
                 <div class="totals-row grand">
-                    <span>TOTAL</span>
+                    <span>GRAND TOTAL</span>
                     <span>Rp <?php echo number_format($inv['total'],0,',','.'); ?></span>
                 </div>
                 <div class="totals-row">
-                    <span>Paid</span>
+                    <span><?php echo (float)$inv['paid_amount'] < (float)$inv['total'] && (float)$inv['paid_amount'] > 0 ? 'DP / Down Payment' : 'Paid'; ?></span>
                     <span style="color:#10b981;font-weight:700">Rp <?php echo number_format($inv['paid_amount'],0,',','.'); ?></span>
                 </div>
                 <?php $balance = $inv['total'] - $inv['paid_amount']; if ($balance > 0): ?>
                 <div class="totals-row balance">
-                    <span>Balance Due</span>
+                    <span>Sisa / Balance Due</span>
                     <span>Rp <?php echo number_format($balance,0,',','.'); ?></span>
                 </div>
                 <?php endif; ?>

@@ -37,6 +37,8 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS hotel_invoices (
     payment_method  VARCHAR(20)  NOT NULL DEFAULT 'cash',
     status          ENUM('pending','confirmed','completed','cancelled') NOT NULL DEFAULT 'confirmed',
     notes           TEXT         DEFAULT NULL,
+    tax_rate        DECIMAL(5,2) NOT NULL DEFAULT 0,
+    tax_amount      DECIMAL(15,2) NOT NULL DEFAULT 0,
     created_by      INT          DEFAULT NULL,
     created_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at      DATETIME     DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
@@ -51,11 +53,20 @@ try {
 } catch (\Throwable $e) {
     try { $pdo->exec("ALTER TABLE hotel_invoices ADD COLUMN cashbook_synced TINYINT(1) NOT NULL DEFAULT 0"); } catch (\Throwable $e2) {}
 }
+// Add tax columns to existing tables
+try { $pdo->query("SELECT tax_rate FROM hotel_invoices LIMIT 1"); } catch (\Throwable $e) {
+    try { $pdo->exec("ALTER TABLE hotel_invoices ADD COLUMN tax_rate DECIMAL(5,2) NOT NULL DEFAULT 0, ADD COLUMN tax_amount DECIMAL(15,2) NOT NULL DEFAULT 0"); } catch (\Throwable $e2) {}
+}
+
+// Expand service_type ENUM for existing tables (add narayana_trip, lain_lain)
+try { $pdo->query("SELECT 1 FROM hotel_invoice_items WHERE service_type='narayana_trip' LIMIT 0"); } catch (\Throwable $e) {
+    try { $pdo->exec("ALTER TABLE hotel_invoice_items MODIFY service_type ENUM('motor_rental','laundry','service','airport_drop','harbor_drop','narayana_trip','lain_lain') NOT NULL"); } catch (\Throwable $e2) {}
+}
 
 $pdo->exec("CREATE TABLE IF NOT EXISTS hotel_invoice_items (
     id              INT AUTO_INCREMENT PRIMARY KEY,
     invoice_id      INT NOT NULL,
-    service_type    ENUM('motor_rental','laundry','service','airport_drop','harbor_drop') NOT NULL,
+    service_type    ENUM('motor_rental','laundry','service','airport_drop','harbor_drop','narayana_trip','lain_lain') NOT NULL,
     description     VARCHAR(255) DEFAULT NULL,
     quantity        DECIMAL(10,2) NOT NULL DEFAULT 1,
     unit_price      DECIMAL(15,2) NOT NULL DEFAULT 0,
@@ -67,11 +78,13 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS hotel_invoice_items (
 
 // ── Service type config ────────────────────────────────────────────────────────
 $serviceTypes = [
-    'motor_rental' => ['label' => 'Motor Rental', 'icon' => '🏍️'],
-    'laundry'      => ['label' => 'Laundry',       'icon' => '👕'],
-    'service'      => ['label' => 'Service',       'icon' => '🔧'],
-    'airport_drop' => ['label' => 'Airport Drop',  'icon' => '✈️'],
-    'harbor_drop'  => ['label' => 'Harbor Drop',   'icon' => '⚓'],
+    'motor_rental'   => ['label' => 'Motor Rental',   'icon' => '🏍️'],
+    'laundry'        => ['label' => 'Laundry',         'icon' => '👕'],
+    'service'        => ['label' => 'Service',         'icon' => '🔧'],
+    'airport_drop'   => ['label' => 'Airport Drop',    'icon' => '✈️'],
+    'harbor_drop'    => ['label' => 'Harbor Drop',     'icon' => '⚓'],
+    'narayana_trip'  => ['label' => 'Narayana Trip',   'icon' => '🚤'],
+    'lain_lain'      => ['label' => 'Lain-lain',       'icon' => '📦'],
 ];
 
 $statusColors    = ['pending'=>'#f59e0b','confirmed'=>'#3b82f6','completed'=>'#10b981','cancelled'=>'#ef4444'];
@@ -82,11 +95,13 @@ function getDivisionForService(PDO $pdo, string $serviceType): int {
     static $cache = [];
     if (isset($cache[$serviceType])) return $cache[$serviceType];
     $nameMap = [
-        'motor_rental' => 'Motor Rental',
-        'laundry'      => 'Laundry',
-        'service'      => 'General Service',
-        'airport_drop' => 'Airport Drop',
-        'harbor_drop'  => 'Harbor Drop',
+        'motor_rental'  => 'Motor Rental',
+        'laundry'       => 'Laundry',
+        'service'       => 'General Service',
+        'airport_drop'  => 'Airport Drop',
+        'harbor_drop'   => 'Harbor Drop',
+        'narayana_trip' => 'Narayana Trip',
+        'lain_lain'     => 'Lain-lain',
     ];
     $name  = $nameMap[$serviceType] ?? 'Hotel Services';
     $words = explode(' ', strtolower($name));
@@ -209,23 +224,27 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             $payMethod  = $_POST['payment_method'] ?? 'cash';
             $paidAmount = max(0, (float)($_POST['paid_amount'] ?? 0));
             $notes      = trim($_POST['notes'] ?? '');
+            $taxRate    = max(0, min(100, (float)($_POST['tax_rate'] ?? 0)));
 
             if (!$guestName) throw new Exception('Guest name is required');
 
             $items = json_decode($_POST['items'] ?? '[]', true);
             if (empty($items)) throw new Exception('At least one service item is required');
 
-            $total = 0;
+            $subtotal = 0;
             foreach ($items as &$item) {
                 $item['qty']        = max(0.5, (float)($item['qty']        ?? 1));
                 $item['unit_price'] = max(0,   (float)($item['unit_price'] ?? 0));
                 $item['total']      = round($item['qty'] * $item['unit_price'], 2);
-                $total += $item['total'];
+                $subtotal += $item['total'];
                 if (!isset($serviceTypes[$item['service_type'] ?? ''])) {
                     throw new Exception('Invalid service type');
                 }
             }
             unset($item);
+
+            $taxAmount = round($subtotal * $taxRate / 100, 2);
+            $total     = $subtotal + $taxAmount;  // grand total
 
             $paidAmount = min($paidAmount, $total);
             $remaining  = $total - $paidAmount;
@@ -240,11 +259,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             $pdo->beginTransaction();
             $pdo->prepare("INSERT INTO hotel_invoices
                 (business_id, invoice_number, booking_id, guest_name, guest_phone, room_number,
-                 total, paid_amount, payment_status, payment_method, status, notes, created_by, created_at)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())")
+                 total, paid_amount, payment_status, payment_method, status, notes,
+                 tax_rate, tax_amount, created_by, created_at)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())")
                 ->execute([$businessId, $invNo, $bookingId, $guestName, $guestPhone ?: null,
                     $roomNumber ?: null, $total, $paidAmount, $payStatus, $payMethod,
-                    'confirmed', $notes ?: null, $currentUser['id'] ?? null]);
+                    'confirmed', $notes ?: null, $taxRate, $taxAmount, $currentUser['id'] ?? null]);
             $invId = (int)$pdo->lastInsertId();
 
             $iStmt = $pdo->prepare("INSERT INTO hotel_invoice_items
@@ -491,7 +511,7 @@ include '../../includes/header.php';
     <div class="hs-topbar">
         <div>
             <h2>🛎️ Hotel Services</h2>
-            <div style="font-size:0.75rem;color:var(--text-secondary)">Motor Rental · Laundry · Service · Airport Drop · Harbor Drop</div>
+            <div style="font-size:0.75rem;color:var(--text-secondary)">Motor Rental · Laundry · Service · Airport Drop · Harbor Drop · Narayana Trip · Lain-lain</div>
         </div>
         <button class="btn-hs btn-hs-primary" onclick="openCreateModal()">+ New Invoice</button>
     </div>
@@ -513,7 +533,7 @@ include '../../includes/header.php';
         </div>
         <div style="display:flex;flex-wrap:wrap;gap:0.6rem;">
             <?php
-            $svcColors = ['motor_rental'=>'#f59e0b','laundry'=>'#3b82f6','service'=>'#10b981','airport_drop'=>'#8b5cf6','harbor_drop'=>'#06b6d4'];
+            $svcColors = ['motor_rental'=>'#f59e0b','laundry'=>'#3b82f6','service'=>'#10b981','airport_drop'=>'#8b5cf6','harbor_drop'=>'#06b6d4','narayana_trip'=>'#ec4899','lain_lain'=>'#78716c'];
             foreach ($svcRevStats as $sr):
                 $svcKey  = $sr['service_type'];
                 $svcInfo = $serviceTypes[$svcKey] ?? ['label'=>$svcKey,'icon'=>'🔹'];
@@ -663,11 +683,30 @@ include '../../includes/header.php';
   </div>
   <button type="button" class="btn-add-item" onclick="addItemRow()">+ Add Service Item</button>
 
+  <!-- PPN / Tax -->
+  <span class="sect-label">PPN / Pajak</span>
+  <div class="hs-form-row" style="margin-bottom:0.5rem">
+    <div class="hs-field">
+      <label>Tarif PPN</label>
+      <select id="fTaxRate" onchange="onTaxRateChange()">
+        <option value="0">Tanpa PPN (0%)</option>
+        <option value="5">5%</option>
+        <option value="10">10%</option>
+        <option value="11">11% (Standar)</option>
+        <option value="custom">Custom...</option>
+      </select>
+    </div>
+    <div class="hs-field" id="customTaxWrap" style="display:none">
+      <label>Persentase Custom (%)</label>
+      <input type="number" id="fTaxCustom" value="0" min="0" max="100" step="0.5" placeholder="e.g. 5.5" oninput="refreshTotal()">
+    </div>
+  </div>
+
   <!-- Payment -->
-  <span class="sect-label">Payment</span>
+  <span class="sect-label">Pembayaran / DP</span>
   <div class="hs-form-row">
     <div class="hs-field">
-      <label>Method</label>
+      <label>Metode Bayar</label>
       <select id="fPayMethod">
         <option value="cash">Cash</option>
         <option value="transfer">Transfer</option>
@@ -676,18 +715,24 @@ include '../../includes/header.php';
       </select>
     </div>
     <div class="hs-field">
-      <label>Paid Amount (Rp)</label>
-      <input type="number" id="fPaid" value="0" min="0" oninput="enforceMaxPaid()">
+      <label>DP / Down Payment (Rp)</label>
+      <input type="number" id="fPaid" value="0" min="0" oninput="enforceMaxPaid()" placeholder="0 = belum bayar">
     </div>
   </div>
   <label style="font-size:0.8rem;font-weight:600;cursor:pointer;display:flex;align-items:center;gap:0.4rem;margin-bottom:0.75rem">
-    <input type="checkbox" id="fFullPay" onchange="toggleFullPay(this.checked)"> Pay in Full
+    <input type="checkbox" id="fFullPay" onchange="toggleFullPay(this.checked)"> Bayar Penuh (Lunas)
   </label>
 
   <!-- Notes -->
   <div class="hs-field"><label>Notes</label><textarea id="fNotes" rows="2" placeholder="Special instructions..."></textarea></div>
 
-  <div class="hs-total-preview" id="totalPreview">Total: Rp 0</div>
+  <div class="hs-total-preview" id="totalPreview" style="text-align:left;line-height:1.7">
+    <div style="font-size:0.82rem;color:#6b7280">Subtotal: <span id="tpSubtotal">Rp 0</span></div>
+    <div style="font-size:0.82rem;color:#f59e0b" id="tpTaxRow" style="display:none">PPN: <span id="tpTax">Rp 0</span></div>
+    <div style="font-size:1.05rem;font-weight:800;color:#4338ca;border-top:1px solid #dde3ff;padding-top:4px;margin-top:2px">Grand Total: <span id="tpGrand">Rp 0</span></div>
+    <div style="font-size:0.82rem;color:#10b981" id="tpDpRow" style="display:none">DP Dibayar: <span id="tpDp">Rp 0</span></div>
+    <div style="font-size:0.82rem;color:#ef4444" id="tpSisaRow" style="display:none">Sisa: <span id="tpSisa">Rp 0</span></div>
+  </div>
 
   <div class="hs-modal-footer">
     <button class="btn-hs btn-hs-secondary" onclick="closeCreateModal()">Cancel</button>
@@ -794,7 +839,7 @@ function rcalc(id) {
     refreshTotal();
 }
 
-function grandTotal() {
+function subtotal() {
     let t = 0;
     document.querySelectorAll('#itemsBody tr').forEach(tr => {
         t += (parseFloat(tr.querySelector('.iQty')?.value)||0) * (parseFloat(tr.querySelector('.iPrice')?.value)||0);
@@ -802,12 +847,51 @@ function grandTotal() {
     return t;
 }
 
+function getTaxRate() {
+    const sel = document.getElementById('fTaxRate');
+    if (!sel) return 0;
+    if (sel.value === 'custom') return parseFloat(document.getElementById('fTaxCustom')?.value) || 0;
+    return parseFloat(sel.value) || 0;
+}
+
+function grandTotal() {
+    const sub = subtotal();
+    const rate = getTaxRate();
+    return sub + sub * (rate / 100);
+}
+
+function onTaxRateChange() {
+    const sel = document.getElementById('fTaxRate');
+    document.getElementById('customTaxWrap').style.display = sel.value === 'custom' ? '' : 'none';
+    refreshTotal();
+}
+
 function refreshTotal() {
-    const t = grandTotal();
-    document.getElementById('totalPreview').textContent = 'Total: Rp ' + Math.round(t).toLocaleString('id-ID');
+    const sub  = subtotal();
+    const rate = getTaxRate();
+    const tax  = sub * (rate / 100);
+    const tot  = sub + tax;
+    const dp   = parseFloat(document.getElementById('fPaid')?.value) || 0;
+    const sisa = Math.max(0, tot - dp);
+    const fmt  = v => 'Rp ' + Math.round(v).toLocaleString('id-ID');
+
+    document.getElementById('tpSubtotal').textContent = fmt(sub);
+    document.getElementById('tpGrand').textContent    = fmt(tot);
+
+    const taxRow = document.getElementById('tpTaxRow');
+    taxRow.style.display = rate > 0 ? '' : 'none';
+    document.getElementById('tpTax').textContent = `${fmt(tax)} (${rate}%)`;
+
+    const dpEl = document.getElementById('fPaid');
+    const hasDp = dpEl && parseFloat(dpEl.value) > 0;
+    document.getElementById('tpDpRow').style.display  = hasDp ? '' : 'none';
+    document.getElementById('tpSisaRow').style.display = (hasDp && sisa > 0) ? '' : 'none';
+    document.getElementById('tpDp').textContent   = fmt(dp);
+    document.getElementById('tpSisa').textContent = fmt(sisa);
+
     enforceMaxPaid();
     if (document.getElementById('fFullPay').checked)
-        document.getElementById('fPaid').value = Math.round(t);
+        document.getElementById('fPaid').value = Math.round(tot);
 }
 
 function enforceMaxPaid() {
@@ -817,6 +901,7 @@ function enforceMaxPaid() {
 
 function toggleFullPay(checked) {
     document.getElementById('fPaid').value = checked ? Math.round(grandTotal()) : 0;
+    refreshTotal();
 }
 
 // ── Open/Close ────────────────────────────────────────────────────────────────
@@ -827,6 +912,9 @@ function openCreateModal() {
     document.getElementById('fBookingId').value   = '';
     document.getElementById('fPaid').value        = 0;
     document.getElementById('fFullPay').checked   = false;
+    document.getElementById('fTaxRate').value     = '0';
+    document.getElementById('customTaxWrap').style.display = 'none';
+    if (document.getElementById('fTaxCustom')) document.getElementById('fTaxCustom').value = 0;
     document.getElementById('itemsBody').innerHTML = '';
     rowCnt = 0;
     setGuestMode('inhouse');
@@ -867,6 +955,7 @@ function submitCreate() {
     fd.append('items',          JSON.stringify(items));
     fd.append('payment_method', document.getElementById('fPayMethod').value);
     fd.append('paid_amount',    document.getElementById('fPaid').value || 0);
+    fd.append('tax_rate',       getTaxRate());
     fd.append('notes',          document.getElementById('fNotes').value.trim());
 
     fetch('hotel-services.php', {method:'POST',body:fd,credentials:'include'})
