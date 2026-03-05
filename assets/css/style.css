@@ -1228,9 +1228,8 @@ body:not([data-theme="light"]) [style*="color: rgb(0, 0, 0)"] {
     color: #e2e8f0 !important;
 }
 
-/* Exclude buttons and badges from color override */
+/* Exclude buttons from color override - but NOT badges with explicit colors */
 body[data-theme="light"] .btn,
-body[data-theme="light"] .badge,
 body[data-theme="light"] [class*="btn-"],
 body[data-theme="light"] [class*="bg-"] {
     color: inherit;
