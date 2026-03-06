@@ -274,6 +274,12 @@ if (isset($_SESSION['user_id'])) {
                                 </a>
                             </li>
                             <li class="submenu-item">
+                                <a href="<?php echo BASE_URL; ?>/modules/frontdesk/ota-payments.php" class="submenu-link <?php echo activeMenu('ota-payments.php'); ?>">
+                                    <i data-feather="credit-card" class="submenu-icon"></i>
+                                    <span>Pembayaran OTA</span>
+                                </a>
+                            </li>
+                            <li class="submenu-item">
                                 <a href="<?php echo BASE_URL; ?>/modules/frontdesk/laporan.php" class="submenu-link <?php echo activeMenu('laporan.php'); ?>">
                                     <i data-feather="file-text" class="submenu-icon"></i>
                                     <span><?php echo __('menu.reports'); ?></span>
