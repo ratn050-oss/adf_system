@@ -216,8 +216,33 @@ try {
         
         // ==========================================
         // AUTO-INSERT TO CASHBOOK SYSTEM (via Helper)
+        // DIRECT: langsung masuk kas (uang sudah diterima)
+        // OTA: SKIP - masuk kas saat tamu check-in
         // ==========================================
         
+        // Detect if OTA booking
+        $normalizedSource = strtolower(trim($originalBookingSource ?? ''));
+        $normalizedSource = str_replace(['.com', '.co.id', '.id'], '', $normalizedSource);
+        $normalizedSource = preg_replace('/[^a-z0-9]/', '', $normalizedSource);
+        $otaSources = ['agoda', 'booking', 'bookingcom', 'tiket', 'tiketcom', 'airbnb', 'ota', 'traveloka', 'pegipegi', 'expedia'];
+        $isOTA = false;
+        foreach ($otaSources as $otaKey) {
+            if (strpos($normalizedSource, $otaKey) !== false || $normalizedSource === $otaKey) {
+                $isOTA = true;
+                break;
+            }
+        }
+        // Also check mapped source
+        if ($bookingSource === 'ota') {
+            $isOTA = true;
+        }
+        
+        if ($isOTA) {
+            // OTA: JANGAN masuk kas sekarang, nanti saat check-in
+            $cashbookMessage = "Booking OTA ({$originalBookingSource}) - akan masuk buku kas saat check-in";
+            error_log("CREATE-RESERVATION: OTA booking detected ({$originalBookingSource}), SKIP cashbook sync - will sync at check-in");
+        } else {
+            // DIRECT: langsung masuk kas karena uang sudah diterima
         try {
             // Log for debugging - include session info
             error_log("CREATE-RESERVATION: Starting cashbook sync for payment #{$newPaymentId}, booking #{$bookingId}");
@@ -266,6 +291,7 @@ try {
             $cashbookMessage = "Error mencatat ke buku kas: " . $cashbookError->getMessage();
             error_log("CREATE-RESERVATION: Cashbook auto-insert error: " . $cashbookError->getMessage() . " | File: " . $cashbookError->getFile() . " | Line: " . $cashbookError->getLine());
         }
+        } // end else (direct booking)
     }
 
     $db->commit();
@@ -273,7 +299,11 @@ try {
     // Prepare success message
     $successMessage = 'Reservation created successfully';
     if ($paidAmount > 0) {
-        if ($cashbookInserted) {
+        if ($isOTA) {
+            $successMessage .= "\n\n💳 Booking OTA ({$originalBookingSource})";
+            $successMessage .= "\nPembayaran Rp " . number_format($paidAmount, 0, ',', '.') . " tercatat";
+            $successMessage .= "\n⏰ Akan masuk Buku Kas saat tamu CHECK-IN";
+        } elseif ($cashbookInserted) {
             $successMessage .= "\n\n✅ Payment tercatat di Buku Kas!";
             if ($otaFeePercent > 0) {
                 $successMessage .= "\nGross: Rp " . number_format($paidAmount, 0, ',', '.');
