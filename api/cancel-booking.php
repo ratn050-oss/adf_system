@@ -1,12 +1,12 @@
 <?php
 /**
  * CANCEL BOOKING API
- * Change booking status to 'cancelled' with refund calculation
+ * Change booking status to 'cancelled' with manual refund processing
  * 
  * Refund Policy:
- * - H+7 (> 7 days before check-in): 100% refund
- * - H-7 (1-7 days before check-in): 50% refund  
- * - H-1/No show (0-1 day before or same day): 0% refund
+ * - Manual refund only - no automatic calculation
+ * - Front desk staff must manually specify refund amount if applicable
+ * - Refund will only be processed if specifically provided in request
  */
 
 define('APP_ACCESS', true);
@@ -72,40 +72,18 @@ try {
         exit;
     }
     
-    // Calculate days until check-in
-    $today = new DateTime('today');
-    $checkInDate = new DateTime($booking['check_in_date']);
-    $interval = $today->diff($checkInDate);
-    $daysUntilCheckin = $interval->invert ? -$interval->days : $interval->days;
-    
-    // Determine refund percentage based on policy
-    $refundPercentage = 0;
-    $refundPolicy = '';
-    
-    if ($daysUntilCheckin > 7) {
-        // More than 7 days before check-in: 100% refund
-        $refundPercentage = 100;
-        $refundPolicy = 'H+7 (> 7 hari sebelum check-in): Refund 100%';
-    } elseif ($daysUntilCheckin >= 2 && $daysUntilCheckin <= 7) {
-        // 2-7 days before check-in: 50% refund
-        $refundPercentage = 50;
-        $refundPolicy = 'H-7 (2-7 hari sebelum check-in): Refund 50%';
-    } else {
-        // 0-1 day or same day: 0% refund
-        $refundPercentage = 0;
-        $refundPolicy = 'H-1/No Show (≤1 hari): Tidak ada refund';
-    }
-    
-    // Calculate refund amount based on paid amount
+    // Manual refund only - no automatic calculation
     $paidAmount = floatval($booking['paid_amount'] ?? 0);
-    $calculatedRefund = ($paidAmount * $refundPercentage) / 100;
     
-    // Use provided refund amount if valid, otherwise use calculated
+    // Use provided refund amount if valid, otherwise no refund
     if ($refundAmount !== null && $refundAmount >= 0 && $refundAmount <= $paidAmount) {
         $finalRefundAmount = $refundAmount;
     } else {
-        $finalRefundAmount = $calculatedRefund;
+        $finalRefundAmount = 0; // No refund if not manually specified
     }
+    
+    // Set policy message for manual processing
+    $refundPolicy = 'Refund Manual - Diproses oleh front desk';
     
     // Update booking status to cancelled with refund info
     $stmt = $pdo->prepare("

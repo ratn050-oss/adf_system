@@ -1,7 +1,7 @@
 <?php
 /**
  * GET REFUND PREVIEW API
- * Calculate refund amount based on cancellation policy
+ * Get booking information for manual refund processing
  */
 
 define('APP_ACCESS', true);
@@ -40,38 +40,14 @@ try {
         exit;
     }
     
-    // Calculate days until check-in
+    // Calculate days until check-in for information only
     $today = new DateTime('today');
     $checkInDate = new DateTime($booking['check_in_date']);
     $interval = $today->diff($checkInDate);
     $daysUntilCheckin = $interval->invert ? -$interval->days : $interval->days;
     
-    // Determine refund percentage based on policy
-    $refundPercentage = 0;
-    $refundPolicy = '';
-    $policyColor = '';
-    
-    if ($daysUntilCheckin > 7) {
-        // More than 7 days before check-in: 100% refund
-        $refundPercentage = 100;
-        $refundPolicy = 'H+7 (> 7 hari sebelum check-in)';
-        $policyColor = '#10b981'; // green
-    } elseif ($daysUntilCheckin >= 2 && $daysUntilCheckin <= 7) {
-        // 2-7 days before check-in: 50% refund
-        $refundPercentage = 50;
-        $refundPolicy = 'H-7 (2-7 hari sebelum check-in)';
-        $policyColor = '#f59e0b'; // orange
-    } else {
-        // 0-1 day or same day: 0% refund
-        $refundPercentage = 0;
-        $refundPolicy = 'H-1/No Show (≤ 1 hari sebelum check-in)';
-        $policyColor = '#ef4444'; // red
-    }
-    
-    // Calculate refund amount
+    // Manual refund policy - no automatic calculation
     $paidAmount = floatval($booking['paid_amount'] ?? 0);
-    $refundAmount = ($paidAmount * $refundPercentage) / 100;
-    $forfeitAmount = $paidAmount - $refundAmount;
     
     echo json_encode([
         'success' => true,
@@ -84,11 +60,11 @@ try {
             'final_price' => floatval($booking['final_price']),
             'paid_amount' => $paidAmount,
             'days_until_checkin' => $daysUntilCheckin,
-            'refund_policy' => $refundPolicy,
-            'refund_percentage' => $refundPercentage,
-            'refund_amount' => $refundAmount,
-            'forfeit_amount' => $forfeitAmount,
-            'policy_color' => $policyColor
+            'refund_policy' => 'Refund Manual - Tentukan jumlah refund',
+            'refund_percentage' => 0, // No automatic percentage
+            'refund_amount' => 0,     // No automatic refund
+            'forfeit_amount' => 0,    // No automatic forfeit calculation
+            'policy_color' => '#64748b' // neutral gray
         ]
     ]);
     

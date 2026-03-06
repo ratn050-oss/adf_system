@@ -490,6 +490,11 @@ include '../../includes/header.php';
 .refund-amount-row.forfeit {
     color: #ef4444;
 }
+.refund-amount-row.manual-note {
+    color: #64748b;
+    font-style: italic;
+    border-bottom: 2px dashed #d1d5db;
+}
 .cancel-modal-actions {
     display: flex;
     gap: 0.5rem;
@@ -1099,8 +1104,8 @@ include '../../includes/header.php';
             
             <div class="refund-policy-box" id="refundPolicyBox">
                 <div class="refund-policy-label">Kebijakan Refund</div>
-                <div class="refund-policy-value" id="refundPolicyLabel">Loading...</div>
-                <small id="refundDaysInfo"></small>
+                <div class="refund-policy-value" id="refundPolicyLabel">Manual Processing</div>
+                <small id="refundDaysInfo">Tentukan sendiri jumlah refund yang akan diberikan</small>
             </div>
             
             <div style="margin-top: 1rem;">
@@ -1108,34 +1113,34 @@ include '../../includes/header.php';
                     <span>Total Dibayar</span>
                     <span id="cancelPaidAmount">Rp 0</span>
                 </div>
-                <div class="refund-amount-row refund">
-                    <span>Refund Otomatis (<span id="refundPercentage">0</span>%)</span>
-                    <span id="cancelRefundAmount">Rp 0</span>
-                </div>
-                <div class="refund-amount-row forfeit">
-                    <span>Hangus</span>
-                    <span id="cancelForfeitAmount">Rp 0</span>
+                <div class="refund-amount-row manual-note">
+                    <span>📝 Refund Manual</span>
+                    <span style="color: #64748b; font-style: italic;">Tentukan di bawah</span>
                 </div>
             </div>
             
-            <!-- Manual Refund Input -->
-            <div style="margin-top: 1rem; padding: 1rem; background: #f0fdf4; border-radius: 8px; border: 1px solid #86efac;">
-                <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: #166534;">✏️ Input Manual Refund (Opsional)</label>
+            <!-- Manual Refund Input - Required for any refund -->
+            <div style="margin-top: 1rem; padding: 1rem; background: #fffbeb; border-radius: 8px; border: 2px solid #f59e0b;">
+                <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: #92400e;">
+                    💰 Jumlah Refund (Wajib jika ingin refund)
+                </label>
                 <div style="display: flex; gap: 0.5rem; align-items: center;">
-                    <input type="number" id="manualRefundAmount" placeholder="Nominal (Rp)" 
-                           style="flex: 2; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.9rem;"
+                    <input type="number" id="manualRefundAmount" placeholder="Nominal refund (Rp)" min="0"
+                           style="flex: 2; padding: 0.75rem; border: 1px solid #f59e0b; border-radius: 6px; font-size: 0.9rem; font-weight: 500;"
                            onchange="updateManualRefund('nominal')">
                     <span style="color: #9ca3af;">atau</span>
                     <input type="number" id="manualRefundPercent" placeholder="%" min="0" max="100"
-                           style="flex: 1; padding: 0.5rem; border: 1px solid #d1d5db; border-radius: 6px; font-size: 0.9rem;"
+                           style="flex: 1; padding: 0.75rem; border: 1px solid #f59e0b; border-radius: 6px; font-size: 0.9rem; font-weight: 500;"
                            onchange="updateManualRefund('percent')">
                     <span style="color: #9ca3af;">%</span>
                 </div>
-                <small style="color: #64748b; display: block; margin-top: 0.5rem;">Kosongkan untuk menggunakan kebijakan otomatis</small>
+                <small style="color: #92400e; display: block; margin-top: 0.75rem; font-weight: 500;">
+                    ⚠️ Kosongkan SEMUA field untuk TIDAK memberikan refund
+                </small>
             </div>
             
-            <p style="margin-top: 1rem; font-size: 0.85rem; color: #64748b;">
-                💡 Refund akan otomatis dicatat sebagai pengeluaran di Kas Besar
+            <p style="margin-top: 1rem; font-size: 0.9rem; color: #92400e; background: #fef3c7; padding: 0.75rem; border-radius: 6px;">
+                💡 <strong>Refund manual:</strong> Jika ada refund, akan dicatat sebagai pengeluaran di Kas Besar
             </p>
         </div>
         <div class="cancel-modal-actions">
@@ -1782,9 +1787,6 @@ function cancelBooking(id, bookingCode) {
             document.getElementById('cancelCheckIn').textContent = formatDateID(d.check_in_date);
             document.getElementById('cancelCheckOut').textContent = formatDateID(d.check_out_date);
             document.getElementById('cancelPaidAmount').textContent = formatRupiah(d.paid_amount);
-            document.getElementById('refundPercentage').textContent = d.refund_percentage;
-            document.getElementById('cancelRefundAmount').textContent = formatRupiah(d.refund_amount);
-            document.getElementById('cancelForfeitAmount').textContent = formatRupiah(d.forfeit_amount);
             
             // Store paid amount for manual calculation
             currentPaidAmount = d.paid_amount;
@@ -1793,21 +1795,19 @@ function cancelBooking(id, bookingCode) {
             document.getElementById('manualRefundAmount').value = '';
             document.getElementById('manualRefundPercent').value = '';
             
-            // Update policy box
+            // Update policy box for manual processing
             const policyBox = document.getElementById('refundPolicyBox');
-            policyBox.style.borderColor = d.policy_color;
-            document.getElementById('refundPolicyLabel').textContent = `${d.refund_percentage}% Refund`;
-            document.getElementById('refundPolicyLabel').style.color = d.policy_color;
-            document.getElementById('refundDaysInfo').textContent = d.refund_policy + ` (${d.days_until_checkin} hari lagi)`;
+            policyBox.style.borderColor = '#64748b'; // neutral gray
+            document.getElementById('refundPolicyLabel').textContent = 'Manual Processing';
+            document.getElementById('refundPolicyLabel').style.color = '#64748b';
+            document.getElementById('refundDaysInfo').textContent = `Tentukan sendiri jumlah refund (${d.days_until_checkin} hari menuju check-in)`;
             
-            // Enable/disable confirm button based on refund
+            // Set default button text for manual processing
             const btnConfirm = document.getElementById('btnConfirmCancel');
             if (d.paid_amount <= 0) {
                 btnConfirm.textContent = '❌ Ya, Batalkan Reservasi';
-            } else if (d.refund_amount > 0) {
-                btnConfirm.textContent = `❌ Batalkan & Refund ${formatRupiah(d.refund_amount)}`;
             } else {
-                btnConfirm.textContent = '❌ Batalkan (Tanpa Refund)';
+                btnConfirm.textContent = '❌ Batalkan Reservasi (Manual)';
             }
         } else {
             alert('Error: ' + data.message);
@@ -1835,8 +1835,6 @@ let currentPaidAmount = 0;
 function updateManualRefund(type) {
     const nominalInput = document.getElementById('manualRefundAmount');
     const percentInput = document.getElementById('manualRefundPercent');
-    const refundDisplay = document.getElementById('cancelRefundAmount');
-    const forfeitDisplay = document.getElementById('cancelForfeitAmount');
     
     let manualRefund = 0;
     
@@ -1847,25 +1845,25 @@ function updateManualRefund(type) {
     } else if (type === 'percent' && percentInput.value) {
         const percent = parseFloat(percentInput.value) || 0;
         manualRefund = (currentPaidAmount * percent) / 100;
-        // Clear nominal input
-        nominalInput.value = '';
+        // Update nominal input to show calculated amount
+        nominalInput.value = manualRefund;
+        // Clear percent input
+        percentInput.value = '';
     }
     
     // Validate max refund
     if (manualRefund > currentPaidAmount) {
         manualRefund = currentPaidAmount;
         nominalInput.value = manualRefund;
+        alert(`⚠️ Jumlah refund tidak boleh melebihi yang dibayar (${formatRupiah(currentPaidAmount)})`);
     }
     
-    const forfeit = currentPaidAmount - manualRefund;
-    
-    refundDisplay.textContent = formatRupiah(manualRefund);
-    forfeitDisplay.textContent = formatRupiah(forfeit);
-    
-    // Update button text
+    // Update button text based on refund amount
     const btn = document.getElementById('btnConfirmCancel');
     if (manualRefund > 0) {
         btn.textContent = `❌ Batalkan & Refund ${formatRupiah(manualRefund)}`;
+    } else if (nominalInput.value === '' && percentInput.value === '') {
+        btn.textContent = '❌ Batalkan (Tanpa Refund)';
     } else {
         btn.textContent = '❌ Batalkan (Tanpa Refund)';
     }
@@ -1911,12 +1909,15 @@ function confirmCancelBooking() {
         if (data.success) {
             const d = data.data;
             let msg = `✅ Reservasi ${d.booking_code} berhasil dibatalkan!\n\n`;
-            msg += `Kebijakan: ${d.refund_policy}\n`;
             if (d.refund_amount > 0) {
-                msg += `Refund: ${formatRupiah(d.refund_amount)}\n`;
+                msg += `Refund Manual: ${formatRupiah(d.refund_amount)}\n`;
                 if (d.refund_recorded) {
                     msg += `\n💰 Refund telah dicatat di Kas Besar sebagai pengeluaran`;
+                } else {
+                    msg += `\n⚠️ Catatan refund di kas: ${d.refund_error || 'Error tidak diketahui'}`;
                 }
+            } else {
+                msg += `Tanpa refund (sesuai kebijakan manual front desk)`;
             }
             alert(msg);
             closeCancelModal();
