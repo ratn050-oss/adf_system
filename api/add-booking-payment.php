@@ -44,7 +44,7 @@ try {
     }
 
     $validMethods = ['cash', 'card', 'transfer', 'qris', 'ota', 'bank_transfer', 'other', 'edc'];
-    if (!in_array($paymentMethod, $validMethods, true)) {
+    if (!in_array($paymentMethod, $validMethods, true) && strpos($paymentMethod, 'ota_') !== 0) {
         $paymentMethod = 'cash';
     }
 

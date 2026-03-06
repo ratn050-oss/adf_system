@@ -151,7 +151,7 @@ try {
                 'booking_id'   => $bookingId,
                 'amount'       => $remaining,
                 'payment_date' => date('Y-m-d H:i:s'),
-                'payment_method' => 'ota',
+                'payment_method' => 'ota_' . $normalizedSource,
                 'notes'        => 'Auto-payment check-in OTA: ' . $booking['booking_source'],
                 'processed_by' => $validUserId
             ]);
@@ -279,7 +279,7 @@ try {
                 if ($syncAmount <= 0) $syncAmount = $totalPaid;
                 if ($syncAmount <= 0) $syncAmount = (float)$booking['paid_amount'];
                 if ($syncAmount <= 0) $syncAmount = (float)$booking['final_price'];
-                $syncMethod = $isOTA ? 'ota' : 'transfer';
+                $syncMethod = $isOTA ? ('ota_' . $normalizedSource) : 'transfer';
             }
 
             $syncResult = $cashbookHelper->syncPaymentToCashbook([

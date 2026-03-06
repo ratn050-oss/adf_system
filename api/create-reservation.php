@@ -79,25 +79,26 @@ try {
         $paymentMethod = 'qris';
     }
     $allowedMethods = ['cash', 'card', 'transfer', 'qris', 'ota', 'bank_transfer', 'other'];
-    if (!in_array($paymentMethod, $allowedMethods, true)) {
+    if (!in_array($paymentMethod, $allowedMethods, true) && strpos($paymentMethod, 'ota_') !== 0) {
         $paymentMethod = 'cash';
     }
     
     // Save original booking source for OTA fee calculation
     $originalBookingSource = $bookingSource;
     
-    // Map booking source to database enum values
+    // Map booking source to database values
+    // Keep specific OTA names for tracking in cashbook
     $sourceMap = [
         'walk_in' => 'walk_in',
         'phone' => 'phone',
         'online' => 'online',
-        'agoda' => 'ota',
-        'booking' => 'ota',
-        'tiket' => 'ota',
-        'airbnb' => 'ota',
+        'agoda' => 'agoda',
+        'booking' => 'booking',
+        'tiket' => 'tiket',
+        'airbnb' => 'airbnb',
         'ota' => 'ota'
     ];
-    $bookingSource = $sourceMap[$bookingSource] ?? 'walk_in';
+    $bookingSource = $sourceMap[$bookingSource] ?? $bookingSource;
     
     // Validate dates
     $checkIn = new DateTime($checkInDate);

@@ -830,13 +830,15 @@ include '../../includes/header.php';
                 <div class="form-row-2col">
                     <div class="input-compact">
                         <label>Booking Source</label>
-                        <select id="bookingSource" name="booking_source" onchange="calculateMultiRoomTotal()">
+                        <select id="bookingSource" name="booking_source" onchange="onBookingSourceChange()">
                             <option value="walk_in">Direct (Walk-in)</option>
                             <option value="phone">Direct (Phone)</option>
+                            <option value="online">Direct Online</option>
                             <option value="agoda">Agoda</option>
                             <option value="booking">Booking.com</option>
                             <option value="tiket">Tiket.com</option>
                             <option value="airbnb">Airbnb</option>
+                            <option value="ota">OTA Lainnya</option>
                         </select>
                     </div>
                     <div class="input-compact">
@@ -845,7 +847,6 @@ include '../../includes/header.php';
                             <option value="cash">Cash</option>
                             <option value="transfer">Transfer</option>
                             <option value="qris">QRIS</option>
-                            <option value="ota">OTA</option>
                         </select>
                     </div>
                 </div>
@@ -1206,6 +1207,47 @@ foreach ($otaProviders as $key => $data) {
 ?>
 };
 
+// OTA source names for payment method labels
+var OTA_NAMES = {
+<?php 
+foreach ($otaProviders as $key => $data) {
+    echo "    '$key': '" . addslashes($data['name']) . "',\n";
+}
+?>
+};
+
+// Direct booking sources (no OTA fee)
+var DIRECT_SOURCES = ['walk_in', 'phone', 'online'];
+
+function onBookingSourceChange() {
+    const source = document.getElementById('bookingSource').value;
+    syncPaymentMethodToSource(source);
+    calculateMultiRoomTotal();
+}
+
+function syncPaymentMethodToSource(source) {
+    const paymentSelect = document.getElementById('paymentMethod');
+    const isOta = !DIRECT_SOURCES.includes(source);
+    
+    if (isOta) {
+        // OTA selected: set payment to OTA with specific name
+        const otaName = OTA_NAMES[source] || source;
+        const otaValue = 'ota_' + source; // e.g. ota_agoda, ota_booking
+        
+        paymentSelect.innerHTML = '<option value="' + otaValue + '" selected>OTA ' + otaName + '</option>';
+        paymentSelect.disabled = true;
+        paymentSelect.style.opacity = '0.7';
+    } else {
+        // Direct selected: restore normal payment options
+        paymentSelect.innerHTML = 
+            '<option value="cash">Cash</option>' +
+            '<option value="transfer">Transfer</option>' +
+            '<option value="qris">QRIS</option>';
+        paymentSelect.disabled = false;
+        paymentSelect.style.opacity = '1';
+    }
+}
+
 function filterBookings(value) {
     window.location.search = '?status=' + value;
 }
@@ -1398,6 +1440,9 @@ function calculateMultiRoomTotal() {
     
     // Calculate OTA Fee based on booking source
     const bookingSource = document.getElementById('bookingSource').value;
+    
+    // Auto-set payment method based on booking source
+    syncPaymentMethodToSource(bookingSource);
     const otaFeeRow = document.getElementById('otaFeeRow');
     const otaFeePercentDisplay = document.getElementById('otaFeePercentDisplay');
     const otaFeeAmountDisplay = document.getElementById('otaFeeAmountDisplay');

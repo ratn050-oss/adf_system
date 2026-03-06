@@ -294,6 +294,11 @@ class CashbookHelper {
         $cbMethod = strtolower($paymentMethod ?? 'cash');
         $cbMethod = $pmMap[$cbMethod] ?? $cbMethod;
         
+        // Allow ota_* formats (e.g. ota_agoda, ota_booking) to pass through
+        if (strpos($cbMethod, 'ota_') === 0) {
+            return $cbMethod;
+        }
+        
         $allowedMethods = $this->getAllowedPaymentMethods();
         if ($allowedMethods !== null && !in_array($cbMethod, $allowedMethods)) {
             $cbMethod = in_array('other', $allowedMethods) ? 'other' :
@@ -531,7 +536,8 @@ class CashbookHelper {
             // Check if this is OTA check-in (should be editable for reconciliation)
             $isOtaCheckin = $paymentData['is_ota_checkin'] ?? false;
             if ($isOtaCheckin) {
-                $description .= ' [OTA - ESTIMASI]';  // Mark as estimate, needs reconciliation
+                $otaLabel = strtoupper($bookingSource ?: 'OTA');
+                $description .= " [{$otaLabel} - ESTIMASI]";  // Mark as estimate with OTA name
             }
             
             // Map payment method
