@@ -298,39 +298,78 @@ include '../../includes/header.php';
     font-size: 0.7rem;
     font-weight: 600;
     transition: all 0.2s ease;
-    background: #6366f1 !important;
     color: #ffffff !important;
-    border: 1px solid #4f46e5;
     white-space: nowrap;
 }
 
-.action-btn:hover {
-    background: #4f46e5;
-    color: #ffffff;
-    border-color: #4338ca;
+/* View - Biru (informasi) */
+.action-btn.action-view {
+    background: #3b82f6 !important;
+    border: 1px solid #2563eb;
+}
+.action-btn.action-view:hover {
+    background: #2563eb !important;
+    border-color: #1d4ed8;
 }
 
+/* Edit - Ungu (modifikasi) */
+.action-btn.action-edit {
+    background: #8b5cf6 !important;
+    border: 1px solid #7c3aed;
+}
+.action-btn.action-edit:hover {
+    background: #7c3aed !important;
+    border-color: #6d28d9;
+}
+
+/* Invoice - Abu-abu biru (dokumen) */
+.action-btn.action-invoice {
+    background: #475569 !important;
+    border: 1px solid #334155;
+}
+.action-btn.action-invoice:hover {
+    background: #334155 !important;
+    border-color: #1e293b;
+}
+
+/* Pay - Kuning keemasan (pembayaran) */
+.action-btn.action-pay {
+    background: #eab308 !important;
+    color: #1a1a2e !important;
+    border: 1px solid #ca8a04;
+}
+.action-btn.action-pay:hover {
+    background: #ca8a04 !important;
+    border-color: #a16207;
+}
+
+/* Check-in - Hijau terang (aksi positif) */
+.action-btn.action-checkin {
+    background: #22c55e !important;
+    border: 1px solid #16a34a;
+}
+.action-btn.action-checkin:hover {
+    background: #16a34a !important;
+    border-color: #15803d;
+}
+
+/* Cancel - Oranye (peringatan) */
 .action-btn.action-cancel {
-    background: #f59e0b;
-    color: #ffffff;
-    border-color: #d97706;
+    background: #f97316 !important;
+    border: 1px solid #ea580c;
 }
-
 .action-btn.action-cancel:hover {
-    background: #d97706;
-    color: #ffffff;
-    border-color: #b45309;
+    background: #ea580c !important;
+    border-color: #c2410c;
 }
 
+/* Delete - Merah (bahaya) */
 .action-btn.action-delete {
-    background: #ef4444;
-    color: #ffffff;
-    border-color: #dc2626;
+    background: #ef4444 !important;
+    border: 1px solid #dc2626;
 }
-
 .action-btn.action-delete:hover {
-    background: #dc2626;
-    color: #ffffff;
+    background: #dc2626 !important;
     border-color: #b91c1c;
 }
 
@@ -690,13 +729,13 @@ include '../../includes/header.php';
                     <!-- Actions -->
                     <td>
                         <div class="row-actions">
-                            <button class="action-btn" style="background:#6366f1;color:#fff;border:1px solid #4f46e5;" onclick="viewBooking(<?php echo $booking['id']; ?>)">
-                                View
+                            <button class="action-btn action-view" onclick="viewBooking(<?php echo $booking['id']; ?>)">
+                                👁 View
                             </button>
-                            <button class="action-btn" style="background:#6366f1;color:#fff;border:1px solid #4f46e5;" onclick="editBooking(<?php echo $booking['id']; ?>)">
-                                Edit
+                            <button class="action-btn action-edit" onclick="editBooking(<?php echo $booking['id']; ?>)">
+                                ✏️ Edit
                             </button>
-                            <button class="action-btn" style="background-color: #6366f1; color: white; border-color: #4f46e5;" onclick="printInvoice(<?php echo $booking['id']; ?>)">
+                            <button class="action-btn action-invoice" onclick="printInvoice(<?php echo $booking['id']; ?>)">
                                 📄 Invoice
                             </button>
                             
@@ -705,23 +744,23 @@ include '../../includes/header.php';
                             $remaining = $booking['final_price'] - max($booking['paid_amount'], $booking['total_paid']);
                             if ($remaining > 0 && $booking['payment_status'] !== 'paid' && $booking['status'] !== 'cancelled' && $booking['status'] !== 'checked_out'): 
                             ?>
-                            <button class="action-btn" style="background-color: #f59e0b; color: white; border-color: #d97706;" onclick="addPayment(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_code']); ?>', <?php echo $remaining; ?>)">
+                            <button class="action-btn action-pay" onclick="addPayment(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_code']); ?>', <?php echo $remaining; ?>)">
                                 💰 Pay
                             </button>
                             <?php endif; ?>
                             
                             <?php if ($booking['status'] === 'confirmed'): ?>
-                            <button class="action-btn action-checkin" style="background-color: #10b981; color: white; border-color: #059669;" onclick="checkinBooking(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_code']); ?>')">
-                                Check-in
+                            <button class="action-btn action-checkin" onclick="checkinBooking(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_code']); ?>')">
+                                ✅ Check-in
                             </button>
                             <?php endif; ?>
 
                             <?php if ($booking['status'] !== 'checked_in' && $booking['status'] !== 'checked_out'): ?>
-                            <button class="action-btn action-cancel" style="background:#f59e0b;color:#fff;border:1px solid #d97706;" onclick="cancelBooking(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_code']); ?>')">
-                                Cancel
+                            <button class="action-btn action-cancel" onclick="cancelBooking(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_code']); ?>')">
+                                ⚠️ Cancel
                             </button>
-                            <button class="action-btn action-delete" style="background:#ef4444;color:#fff;border:1px solid #dc2626;" onclick="deleteBooking(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_code']); ?>')">
-                                Delete
+                            <button class="action-btn action-delete" onclick="deleteBooking(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_code']); ?>')">
+                                🗑️ Delete
                             </button>
                             <?php endif; ?>
                         </div>
