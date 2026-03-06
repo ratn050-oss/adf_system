@@ -256,9 +256,9 @@ try {
     
     // ==========================================
     // SYNC TO CASHBOOK:
-    // - OTA: otomatis sync saat check-in (uang masuk kas besar)
-    // - Direct bayar sekarang: sync jumlah yang baru dibayar
-    // - Direct sudah bayar sebelumnya (paid_amount > 0): sync juga saat check-in
+    // - OTA: sync saat check-in (uang baru tercatat masuk kas saat tamu datang)
+    // - Direct bayar sekarang saat check-in: sync jumlah yang baru dibayar
+    // - Direct sudah bayar sebelumnya: sudah di-sync saat pembayaran, skip (dedup di CashbookHelper)
     // ==========================================
     $cashbookSynced = false;
     $directAlreadyPaid = (!$isOTA && !$payNow && $totalPaid > 0);

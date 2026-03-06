@@ -133,12 +133,47 @@ try {
             }
         }
         
-        // Semua booking (OTA maupun Direct) TIDAK langsung masuk buku kas
-        // Pembayaran dicatat di booking_payments, masuk kas saat guest CHECK-IN setelah konfirmasi
+        // Direct booking: langsung masuk buku kas (uang sudah diterima)
+        // OTA booking: masuk buku kas saat check-in (uang dari platform belum cair)
         if ($isOTA) {
             $cashbookMessage = "Booking OTA - akan tercatat di buku kas saat check-in";
         } else {
-            $cashbookMessage = "Pembayaran tersimpan - akan tercatat di buku kas saat check-in";
+            // DIRECT: langsung sync ke buku kas karena uang sudah diterima
+            require_once '../includes/CashbookHelper.php';
+            $businessId = $_SESSION['business_id'] ?? $db->fetchOne("SELECT business_id FROM users WHERE id = ?", [$currentUser['id']])['business_id'] ?? 1;
+            $cashbookHelper = new CashbookHelper($db, $businessId, $currentUser['id'] ?? 1);
+            
+            $syncResult = $cashbookHelper->syncPaymentToCashbook([
+                'payment_id'     => null,
+                'booking_id'     => $bookingId,
+                'amount'         => $amount,
+                'payment_method' => $paymentMethod,
+                'guest_name'     => $bookingDetails['guest_name'] ?? 'Guest',
+                'booking_code'   => $bookingDetails['booking_code'] ?? '',
+                'room_number'    => $bookingDetails['room_number'] ?? '',
+                'booking_source' => $bookingDetails['booking_source'] ?? 'direct',
+                'final_price'    => $bookingDetails['final_price'] ?? 0,
+                'total_paid'     => $totalPaid,
+                'is_new_reservation' => false,
+                'is_ota_checkin' => false
+            ]);
+            
+            if ($syncResult['success']) {
+                $cashbookInserted = true;
+                $cashAccountName = $syncResult['account_name'] ?? '';
+                $cashbookMessage = "Tercatat di buku kas: " . $cashAccountName;
+                
+                // Mark payment as synced
+                if (!empty($syncResult['transaction_id'])) {
+                    try {
+                        $db->query("UPDATE booking_payments SET synced_to_cashbook = 1, cashbook_id = ? WHERE booking_id = ? ORDER BY id DESC LIMIT 1", 
+                            [$syncResult['transaction_id'], $bookingId]);
+                    } catch (\Throwable $e) {}
+                }
+            } else {
+                $cashbookMessage = "Pembayaran tersimpan, gagal sync kas: " . ($syncResult['message'] ?? 'Unknown');
+                error_log("Direct payment cashbook sync failed: " . ($syncResult['message'] ?? 'Unknown'));
+            }
         }
         
     } catch (\Throwable $cashbookError) {
@@ -149,11 +184,18 @@ try {
 
     $db->commit();
     
-    // Prepare success message - semua pembayaran masuk kas saat CHECK-IN
+    // Prepare success message
     $statusLabel = $paymentStatus === 'paid' ? 'LUNAS ✅' : 'PARTIAL - Sisa: Rp ' . number_format($remaining, 0, ',', '.');
     $successMessage = "Pembayaran tersimpan ✅";
     $successMessage .= "\nRp " . number_format($amount, 0, ',', '.') . " dicatat untuk booking " . ($bookingDetails['booking_code'] ?? '');
-    $successMessage .= "\n\n⏰ Akan masuk Buku Kas saat CHECK-IN";
+    
+    if ($isOTA) {
+        $successMessage .= "\n\n⏰ OTA - Akan masuk Buku Kas saat CHECK-IN";
+    } elseif ($cashbookInserted) {
+        $successMessage .= "\n\n💰 Langsung tercatat di Buku Kas";
+    } else {
+        $successMessage .= "\n\n⚠️ Pembayaran tersimpan, gagal sync ke buku kas";
+    }
     $successMessage .= "\nStatus: " . $statusLabel;
 
     echo json_encode([
@@ -162,8 +204,8 @@ try {
         'total_paid' => $totalPaid,
         'remaining' => $remaining,
         'payment_status' => $paymentStatus,
-        'cashbook_inserted' => false,
-        'cashbook_at_checkin' => true,
+        'cashbook_inserted' => $cashbookInserted,
+        'cashbook_at_checkin' => $isOTA,
         'is_ota' => $isOTA
     ]);
 
