@@ -47,8 +47,8 @@ try {
         exit;
     }
     
-    // Cannot delete if checked in
-    if ($booking['status'] === 'checked_in') {
+    // Cannot delete if checked in (except developer role)
+    if ($booking['status'] === 'checked_in' && $currentUser['role'] !== 'developer') {
         $pdo->rollBack();
         echo json_encode(['success' => false, 'message' => 'Cannot delete booking that is checked in']);
         exit;
@@ -57,6 +57,25 @@ try {
     // Delete breakfast orders first (foreign key constraint)
     $stmt = $pdo->prepare("DELETE FROM breakfast_orders WHERE booking_id = ?");
     $stmt->execute([$bookingId]);
+    
+    // Clean up cashbook entries linked to this booking's payments
+    $stmtPayments = $pdo->prepare("SELECT id, cashbook_id FROM booking_payments WHERE booking_id = ?");
+    $stmtPayments->execute([$bookingId]);
+    $payments = $stmtPayments->fetchAll(PDO::FETCH_ASSOC);
+    
+    foreach ($payments as $payment) {
+        if (!empty($payment['cashbook_id'])) {
+            // Delete from cash_book
+            $pdo->prepare("DELETE FROM cash_book WHERE id = ?")->execute([$payment['cashbook_id']]);
+            // Delete from cash_account_transactions if exists
+            try {
+                $masterPdo = new PDO("mysql:host=" . DB_HOST . ";dbname=" . (defined('MASTER_DB_NAME') ? MASTER_DB_NAME : DB_NAME) . ";charset=utf8mb4", DB_USER, DB_PASS, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]);
+                $masterPdo->prepare("DELETE FROM cash_account_transactions WHERE transaction_id = ?")->execute([$payment['cashbook_id']]);
+            } catch (Exception $e) {
+                error_log("Delete Booking - cleanup master cashbook error: " . $e->getMessage());
+            }
+        }
+    }
     
     // Delete booking payments
     $stmt = $pdo->prepare("DELETE FROM booking_payments WHERE booking_id = ?");

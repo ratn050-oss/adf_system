@@ -762,6 +762,10 @@ include '../../includes/header.php';
                             <button class="action-btn action-delete" onclick="deleteBooking(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_code']); ?>')">
                                 🗑️ Delete
                             </button>
+                            <?php elseif ($currentUser['role'] === 'developer'): ?>
+                            <button class="action-btn action-delete" onclick="deleteBooking(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_code']); ?>')">
+                                🗑️ Delete
+                            </button>
                             <?php endif; ?>
                         </div>
                     </td>
