@@ -145,17 +145,15 @@ try {
     }
 
     if ($isOTA && !$payNow) {
-        // OTA: Record pembayaran untuk tracking, TAPI uang belum masuk kas hotel
-        // Uang baru masuk saat OTA transfer ke hotel (biasanya H+7/H+14)
+        // OTA: otomatis catat pembayaran saat check-in (uang masuk kas)
         if ($remaining > 0) {
             $db->insert('booking_payments', [
                 'booking_id'   => $bookingId,
                 'amount'       => $remaining,
                 'payment_date' => date('Y-m-d H:i:s'),
-                'payment_method' => 'ota_pending', // Mark as pending, bukan 'ota'
-                'notes'        => 'OTA booking - uang belum diterima hotel (pending transfer dari ' . $booking['booking_source'] . ')',
-                'processed_by' => $validUserId,
-                'synced_to_cashbook' => 0  // Explicitly mark as not synced
+                'payment_method' => 'ota',
+                'notes'        => 'Auto-payment check-in OTA: ' . $booking['booking_source'],
+                'processed_by' => $validUserId
             ]);
         }
     } elseif (!$isOTA && !$payNow) {
@@ -258,32 +256,30 @@ try {
     
     // ==========================================
     // SYNC TO CASHBOOK:
-    // - OTA: TIDAK sync saat check-in (uang belum masuk hotel)  
+    // - OTA: otomatis sync saat check-in (uang masuk kas besar)
     // - Direct bayar sekarang: sync jumlah yang baru dibayar
     // - Direct sudah bayar sebelumnya (paid_amount > 0): sync juga saat check-in
     // ==========================================
     $cashbookSynced = false;
     $directAlreadyPaid = (!$isOTA && !$payNow && $totalPaid > 0);
-    
-    // OTA TIDAK masuk cashbook saat check-in karena uang belum diterima hotel
-    if (!$isOTA && ($payNow || $directAlreadyPaid)) {
+    if ($isOTA || $payNow || $directAlreadyPaid) {
         try {
             require_once '../includes/CashbookHelper.php';
             $cashbookHelper = new CashbookHelper($db, $_SESSION['business_id'] ?? 1, $validUserId ?? 1);
 
             if ($payNow && $payAmount > 0) {
-                // Direct bayar sekarang: sync jumlah yang baru dibayar
+                // Direct/OTA bayar sekarang: sync jumlah yang baru dibayar
                 $syncAmount = $payAmount;
                 $syncMethod = $payMethod;
             } else {
-                // Direct yang sudah bayar sebelumnya: sync total yang sudah dibayar
-                $totalPayment = $db->fetchOne("SELECT COALESCE(SUM(amount), 0) as total FROM booking_payments WHERE booking_id = ? AND payment_method != 'ota_pending'", [$bookingId]);
+                // OTA atau direct yang sudah bayar sebelumnya: sync total yang sudah dibayar
+                $totalPayment = $db->fetchOne("SELECT COALESCE(SUM(amount), 0) as total FROM booking_payments WHERE booking_id = ?", [$bookingId]);
                 $syncAmount = (float)$totalPayment['total'];
-                // Fallback: gunakan paid_amount dari bookings (lebih reliable) - tapi pastikan bukan OTA pending
+                // Fallback: gunakan paid_amount dari bookings
                 if ($syncAmount <= 0) $syncAmount = $totalPaid;
                 if ($syncAmount <= 0) $syncAmount = (float)$booking['paid_amount'];
                 if ($syncAmount <= 0) $syncAmount = (float)$booking['final_price'];
-                $syncMethod = 'transfer'; // Direct booking always transfer/cash
+                $syncMethod = $isOTA ? 'ota' : 'transfer';
             }
 
             $syncResult = $cashbookHelper->syncPaymentToCashbook([
@@ -298,7 +294,7 @@ try {
                 'final_price'    => $booking['final_price'],
                 'total_paid'     => $totalPaid,
                 'is_new_reservation' => false,
-                'is_ota_checkin' => false  // Always false now since OTA doesn't sync at check-in
+                'is_ota_checkin' => $isOTA
             ]);
 
             $cashbookSynced = $syncResult['success'];
@@ -322,9 +318,9 @@ try {
     if ($cashbookSynced) {
         $syncedAmt = ($payNow && $payAmount > 0) ? $payAmount : $totalPaid;
         $successMessage .= "\n\n✅ Rp " . number_format($syncedAmt, 0, ',', '.') . " tercatat di Buku Kas";
-    } elseif ($isOTA && !$payNow) {
-        $successMessage .= "\n\n💳 Booking OTA - uang akan masuk saat OTA transfer ke hotel";
-        $successMessage .= "\n⚠️ Belum tercatat di buku kas (tunggu transfer dari " . $booking['booking_source'] . ")";
+        if ($isOTA && !$payNow) {
+            $successMessage .= "\n💳 OTA (" . $booking['booking_source'] . ") - otomatis masuk kas saat check-in";
+        }
     } elseif ($payNow && !$cashbookSynced) {
         $successMessage .= "\n\n⚠️ Pembayaran tersimpan namun gagal sync ke buku kas";
     } elseif (!$payNow && $remaining > 0) {
