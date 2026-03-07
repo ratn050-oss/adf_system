@@ -16,15 +16,25 @@ $pdo = agent_auth_check();
 
 try {
     // Ambil semua setting web_* dari hotel DB
-    $stmt = $pdo->query("SELECT setting_key, setting_value FROM settings WHERE setting_key LIKE 'web_%' ORDER BY setting_key");
+    $stmt = $pdo->query("SELECT setting_key, setting_value FROM settings WHERE setting_key LIKE 'web_%' OR setting_key LIKE 'agent_%' ORDER BY setting_key");
     $settings = [];
     foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $r) {
         $settings[$r['setting_key']] = $r['setting_value'];
     }
 
-    // Ambil tipe kamar + harga
-    $stmt2 = $pdo->query("SELECT type_name, base_price, description, max_occupancy, bed_type FROM room_types ORDER BY base_price ASC");
-    $roomTypes = $stmt2->fetchAll(PDO::FETCH_ASSOC);
+    // Ambil tipe kamar + harga (kolom aman yang pasti ada)
+    try {
+        $stmt2 = $pdo->query("SELECT type_name, base_price,
+            COALESCE(description, '') as description,
+            COALESCE(max_occupancy, 2) as max_occupancy,
+            COALESCE(bed_type, '') as bed_type
+            FROM room_types ORDER BY base_price ASC");
+        $roomTypes = $stmt2->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        // Fallback jika kolom tidak ada
+        $stmt2 = $pdo->query("SELECT type_name, base_price FROM room_types ORDER BY base_price ASC");
+        $roomTypes = $stmt2->fetchAll(PDO::FETCH_ASSOC);
+    }
 
     // Jumlah kamar tersedia
     $stmt3 = $pdo->query("SELECT COUNT(*) as total FROM rooms WHERE status != 'maintenance'");
@@ -52,6 +62,6 @@ try {
     ]);
 
 } catch (Exception $e) {
-    http_response_code(500);
-    echo json_encode(['success' => false, 'error' => 'Server error']);
+    // Return 200 agar n8n bisa baca pesan error
+    echo json_encode(['success' => false, 'error' => $e->getMessage()]);
 }
