@@ -42,8 +42,46 @@ try {
     $textParts[] = "Total kamar: " . ($totalRooms['total'] ?? 0);
     $textParts[] = "Tipe kamar:";
     foreach ($roomTypes as $rt) {
-        $textParts[] = "- {$rt['type_name']}: Rp " . number_format($rt['base_price'], 0, ',', '.') . "/malam";
+        $textParts[] = "- {$rt['type_name']}: Rp " . number_format($rt['base_price'], 0, ',', '.') . "/malam (max {$rt['max_occupancy']} orang)";
     }
+
+    // Info layanan/services
+    $services = [
+        'transport' => [
+            ['name' => 'Antar jemput Bandara (sekali jalan)', 'price' => 'Rp 350.000'],
+            ['name' => 'Antar ke Pelabuhan (sekali jalan)', 'price' => 'Rp 65.000'],
+            ['name' => 'Jemput saat Check-in', 'price' => 'GRATIS'],
+        ],
+        'facilities' => [
+            'Swimming Pool (gratis untuk tamu)',
+            'Restoran',
+            'Breakfast included (sudah termasuk sarapan)',
+            'Sunset Spot di Ben\'s Cafe',
+        ],
+        'activities' => [
+            'Rental Motor',
+            'Rental Mobil',
+            'Trip Laut (snorkeling, island hopping)',
+        ],
+        'in_house_support' => [
+            'phone' => '081228338380',
+            'note' => 'Untuk tamu yang sudah check-in, hubungi nomor ini untuk komplain atau bantuan maintenance hotel'
+        ],
+    ];
+
+    $textParts[] = "\nTransportasi:";
+    foreach ($services['transport'] as $t) {
+        $textParts[] = "- {$t['name']}: {$t['price']}";
+    }
+    $textParts[] = "\nFasilitas:";
+    foreach ($services['facilities'] as $f) {
+        $textParts[] = "- {$f}";
+    }
+    $textParts[] = "\nAktivitas:";
+    foreach ($services['activities'] as $a) {
+        $textParts[] = "- {$a}";
+    }
+    $textParts[] = "\nKomplain/Maintenance (tamu in-house): hubungi {$services['in_house_support']['phone']}";
 
     echo json_encode([
         'success' => true,
@@ -65,6 +103,7 @@ try {
         ],
         'room_types' => $roomTypes,
         'total_rooms' => (int)($totalRooms['total'] ?? 0),
+        'services' => $services,
     ]);
 
 } catch (Exception $e) {
