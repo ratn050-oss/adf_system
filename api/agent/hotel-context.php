@@ -22,19 +22,12 @@ try {
         $settings[$r['setting_key']] = $r['setting_value'];
     }
 
-    // Ambil tipe kamar + harga (kolom aman yang pasti ada)
-    try {
-        $stmt2 = $pdo->query("SELECT type_name, base_price,
-            COALESCE(description, '') as description,
-            COALESCE(max_occupancy, 2) as max_occupancy,
-            COALESCE(bed_type, '') as bed_type
-            FROM room_types ORDER BY base_price ASC");
-        $roomTypes = $stmt2->fetchAll(PDO::FETCH_ASSOC);
-    } catch (Exception $e) {
-        // Fallback jika kolom tidak ada
-        $stmt2 = $pdo->query("SELECT type_name, base_price FROM room_types ORDER BY base_price ASC");
-        $roomTypes = $stmt2->fetchAll(PDO::FETCH_ASSOC);
-    }
+    // Ambil tipe kamar + harga (hanya kolom yang pasti ada)
+    $stmt2 = $pdo->query("SELECT type_name, base_price,
+        COALESCE(description, '') as description,
+        COALESCE(max_occupancy, 2) as max_occupancy
+        FROM room_types ORDER BY base_price ASC");
+    $roomTypes = $stmt2->fetchAll(PDO::FETCH_ASSOC);
 
     // Jumlah kamar tersedia
     $stmt3 = $pdo->query("SELECT COUNT(*) as total FROM rooms WHERE status != 'maintenance'");

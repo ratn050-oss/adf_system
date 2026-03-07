@@ -42,30 +42,17 @@ try {
     $stmt->execute([$checkOut, $checkIn]);
     $bookedIds = array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'room_id');
 
-    // Semua kamar aktif beserta tipe (defensive COALESCE)
-    try {
-        $sql = "SELECT r.id, r.room_number, COALESCE(r.floor_number,'') as floor_number,
-                    rt.type_name, rt.base_price,
-                    COALESCE(rt.max_occupancy, 2) as max_occupancy,
-                    COALESCE(rt.bed_type, '') as bed_type,
-                    COALESCE(rt.description, '') as description
-             FROM rooms r
-             LEFT JOIN room_types rt ON r.room_type_id = rt.id
-             WHERE r.status != 'maintenance'
-             ORDER BY rt.base_price ASC, r.room_number ASC";
-        $stmt2 = $pdo->prepare($sql);
-        $stmt2->execute();
-    } catch (Exception $e) {
-        $sql = "SELECT r.id, r.room_number, '' as floor_number,
-                    rt.type_name, rt.base_price,
-                    2 as max_occupancy, '' as bed_type, '' as description
-             FROM rooms r
-             LEFT JOIN room_types rt ON r.room_type_id = rt.id
-             WHERE r.status != 'maintenance'
-             ORDER BY rt.base_price ASC, r.room_number ASC";
-        $stmt2 = $pdo->prepare($sql);
-        $stmt2->execute();
-    }
+    // Semua kamar aktif beserta tipe — hanya gunakan kolom yang pasti ada
+    $sql = "SELECT r.id, r.room_number,
+                rt.type_name, rt.base_price,
+                COALESCE(rt.max_occupancy, 2) as max_occupancy,
+                COALESCE(rt.description, '') as description
+         FROM rooms r
+         LEFT JOIN room_types rt ON r.room_type_id = rt.id
+         WHERE r.status != 'maintenance'
+         ORDER BY rt.base_price ASC, r.room_number ASC";
+    $stmt2 = $pdo->prepare($sql);
+    $stmt2->execute();
     $allRooms = $stmt2->fetchAll(PDO::FETCH_ASSOC);
 
     $available = [];
@@ -78,13 +65,10 @@ try {
         $available[] = [
             'room_id'         => (int)$room['id'],
             'room_number'     => $room['room_number'],
-            'floor'           => $room['floor_number'],
             'type'            => $room['type_name'],
-            'bed_type'        => $room['bed_type'],
             'max_occupancy'   => (int)$room['max_occupancy'],
             'price_per_night' => (int)$room['base_price'],
             'total_price'     => (int)$room['base_price'] * $totalNights,
-            'description'     => $room['description'],
         ];
     }
 
@@ -98,7 +82,6 @@ try {
                 'available_count' => 0,
                 'price_per_night' => $r['price_per_night'],
                 'total_price'     => $r['total_price'],
-                'bed_type'        => $r['bed_type'],
                 'max_occupancy'   => $r['max_occupancy'],
             ];
         }
