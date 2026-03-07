@@ -15,12 +15,9 @@ header('Content-Type: application/json');
 error_reporting(0); ini_set('display_errors', 0);
 
 define('APP_ACCESS', true);
-require_once '../../config/config.php';
-require_once '../../config/database.php';
 require_once '_auth.php';
 
-$db = Database::getInstance();
-agent_auth_check($db);
+$pdo = agent_auth_check();
 
 try {
     $raw  = file_get_contents('php://input');
@@ -63,15 +60,14 @@ try {
     // Cari booking_id jika ada booking_code
     $refId = 0;
     if ($bookingCode) {
-        $bk = $db->fetchOne("SELECT id FROM bookings WHERE booking_code = ?", [$bookingCode]);
+        $stmtBk = $pdo->prepare("SELECT id FROM bookings WHERE booking_code = ?");
+        $stmtBk->execute([$bookingCode]);
+        $bk = $stmtBk->fetch(PDO::FETCH_ASSOC);
         if ($bk) $refId = (int)$bk['id'];
     }
 
-    $db->query(
-        "INSERT INTO notifications (title, message, type, reference_id, is_read, created_at)
-         VALUES (?, ?, ?, ?, 0, NOW())",
-        ["$icon $title", $fullMessage, $type, $refId]
-    );
+    $pdo->prepare("INSERT INTO notifications (title, message, type, reference_id, is_read, created_at) VALUES (?, ?, ?, ?, 0, NOW())")
+        ->execute(["$icon $title", $fullMessage, $type, $refId]);
 
     echo json_encode([
         'success' => true,

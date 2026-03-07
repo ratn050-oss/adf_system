@@ -10,36 +10,25 @@ header('Content-Type: application/json');
 error_reporting(0); ini_set('display_errors', 0);
 
 define('APP_ACCESS', true);
-require_once '../../config/config.php';
-require_once '../../config/database.php';
 require_once '_auth.php';
 
-$db = Database::getInstance();
-agent_auth_check($db);
+$pdo = agent_auth_check();
 
 try {
-    // Ambil semua setting web_* dari DB
-    $rows = $db->fetchAll(
-        "SELECT setting_key, setting_value FROM settings WHERE setting_key LIKE 'web_%' ORDER BY setting_key",
-        []
-    );
+    // Ambil semua setting web_* dari hotel DB
+    $stmt = $pdo->query("SELECT setting_key, setting_value FROM settings WHERE setting_key LIKE 'web_%' ORDER BY setting_key");
     $settings = [];
-    foreach ($rows as $r) {
+    foreach ($stmt->fetchAll(PDO::FETCH_ASSOC) as $r) {
         $settings[$r['setting_key']] = $r['setting_value'];
     }
 
     // Ambil tipe kamar + harga
-    $roomTypes = $db->fetchAll(
-        "SELECT type_name, base_price, description, max_occupancy, bed_type
-         FROM room_types ORDER BY base_price ASC",
-        []
-    );
+    $stmt2 = $pdo->query("SELECT type_name, base_price, description, max_occupancy, bed_type FROM room_types ORDER BY base_price ASC");
+    $roomTypes = $stmt2->fetchAll(PDO::FETCH_ASSOC);
 
-    // Jumlah kamar tersedia (tidak maintenance)
-    $totalRooms = $db->fetchOne(
-        "SELECT COUNT(*) as total FROM rooms WHERE status != 'maintenance'",
-        []
-    );
+    // Jumlah kamar tersedia
+    $stmt3 = $pdo->query("SELECT COUNT(*) as total FROM rooms WHERE status != 'maintenance'");
+    $totalRooms = $stmt3->fetch(PDO::FETCH_ASSOC);
 
     echo json_encode([
         'success' => true,

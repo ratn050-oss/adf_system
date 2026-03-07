@@ -11,12 +11,9 @@ header('Content-Type: application/json');
 error_reporting(0); ini_set('display_errors', 0);
 
 define('APP_ACCESS', true);
-require_once '../../config/config.php';
-require_once '../../config/database.php';
 require_once '_auth.php';
 
-$db = Database::getInstance();
-agent_auth_check($db);
+$pdo = agent_auth_check();
 
 try {
     $code  = trim($_GET['code']  ?? '');
@@ -29,31 +26,26 @@ try {
     }
 
     if ($code) {
-        $booking = $db->fetchOne(
-            "SELECT b.*, g.guest_name, g.phone, g.email,
+        $stmt = $pdo->prepare("SELECT b.*, g.guest_name, g.phone, g.email,
                     r.room_number, rt.type_name, rt.color_code
              FROM bookings b
              LEFT JOIN guests g ON b.guest_id = g.id
              LEFT JOIN rooms r ON b.room_id = r.id
              LEFT JOIN room_types rt ON r.room_type_id = rt.id
-             WHERE b.booking_code = ?
-             LIMIT 1",
-            [$code]
-        );
+             WHERE b.booking_code = ? LIMIT 1");
+        $stmt->execute([$code]);
+        $booking = $stmt->fetch(PDO::FETCH_ASSOC);
     } else {
-        // Cari semua booking dari nomor telepon ini (booking terbaru dulu)
-        $booking = $db->fetchOne(
-            "SELECT b.*, g.guest_name, g.phone, g.email,
+        $stmt = $pdo->prepare("SELECT b.*, g.guest_name, g.phone, g.email,
                     r.room_number, rt.type_name, rt.color_code
              FROM bookings b
              LEFT JOIN guests g ON b.guest_id = g.id
              LEFT JOIN rooms r ON b.room_id = r.id
              LEFT JOIN room_types rt ON r.room_type_id = rt.id
              WHERE g.phone LIKE ?
-             ORDER BY b.created_at DESC
-             LIMIT 1",
-            ['%' . preg_replace('/\D/', '', $phone) . '%']
-        );
+             ORDER BY b.created_at DESC LIMIT 1");
+        $stmt->execute(['%' . preg_replace('/\D/', '', $phone) . '%']);
+        $booking = $stmt->fetch(PDO::FETCH_ASSOC);
     }
 
     if (!$booking) {

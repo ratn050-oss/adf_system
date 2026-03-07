@@ -15,12 +15,9 @@ header('Content-Type: application/json');
 error_reporting(0); ini_set('display_errors', 0);
 
 define('APP_ACCESS', true);
-require_once '../../config/config.php';
-require_once '../../config/database.php';
 require_once '_auth.php';
 
-$db = Database::getInstance();
-agent_auth_check($db);
+$pdo = agent_auth_check();
 
 try {
     // Baca body JSON
@@ -62,12 +59,11 @@ try {
     $totalNights = $ciDate->diff($coDate)->days;
 
     // Cek kamar exist & ambil harga
-    $room = $db->fetchOne(
-        "SELECT r.id, r.room_number, rt.type_name, rt.base_price
+    $stmt = $pdo->prepare("SELECT r.id, r.room_number, rt.type_name, rt.base_price
          FROM rooms r LEFT JOIN room_types rt ON r.room_type_id = rt.id
-         WHERE r.id = ? AND r.status != 'maintenance'",
-        [$roomId]
-    );
+         WHERE r.id = ? AND r.status != 'maintenance'");
+    $stmt->execute([$roomId]);
+    $room = $stmt->fetch(PDO::FETCH_ASSOC);
     if (!$room) {
         http_response_code(400);
         echo json_encode(['success' => false, 'error' => 'Kamar tidak ditemukan atau sedang maintenance']);
@@ -75,12 +71,11 @@ try {
     }
 
     // Cek availability
-    $conflict = $db->fetchOne(
-        "SELECT id FROM bookings
+    $stmt2 = $pdo->prepare("SELECT id FROM bookings
          WHERE room_id = ? AND check_in_date < ? AND check_out_date > ?
-         AND status IN ('pending','confirmed','checked_in')",
-        [$roomId, $checkOut, $checkIn]
-    );
+         AND status IN ('pending','confirmed','checked_in')");
+    $stmt2->execute([$roomId, $checkOut, $checkIn]);
+    $conflict = $stmt2->fetch(PDO::FETCH_ASSOC);
     if ($conflict) {
         echo json_encode(['success' => false, 'error' => 'Kamar sudah dipesan untuk tanggal tersebut']);
         exit;
@@ -91,56 +86,48 @@ try {
     $finalPrice = $totalPrice;
 
     // Insert / temukan guest
-    $existingGuest = $db->fetchOne(
-        "SELECT id FROM guests WHERE phone = ? LIMIT 1",
-        [$phone]
-    );
+    $stmtG = $pdo->prepare("SELECT id FROM guests WHERE phone = ? LIMIT 1");
+    $stmtG->execute([$phone]);
+    $existingGuest = $stmtG->fetch(PDO::FETCH_ASSOC);
     if ($existingGuest) {
         $guestId = $existingGuest['id'];
     } else {
-        $db->query(
-            "INSERT INTO guests (guest_name, phone, email, id_card_number, created_at)
-             VALUES (?, ?, ?, ?, NOW())",
-            [$guestName, $phone, $email, 'AGENT-' . date('YmdHis')]
-        );
-        $guestId = $db->getConnection()->lastInsertId();
+        $pdo->prepare("INSERT INTO guests (guest_name, phone, email, id_card_number, created_at) VALUES (?, ?, ?, ?, NOW())")
+            ->execute([$guestName, $phone, $email, 'AGENT-' . date('YmdHis')]);
+        $guestId = $pdo->lastInsertId();
     }
 
     // Generate booking code
     do {
         $bookingCode = 'BK-' . date('Ymd') . '-' . str_pad(rand(1, 9999), 4, '0', STR_PAD_LEFT);
-        $exists = $db->fetchOne("SELECT id FROM bookings WHERE booking_code = ?", [$bookingCode]);
-    } while ($exists);
+        $chk = $pdo->prepare("SELECT id FROM bookings WHERE booking_code = ?");
+        $chk->execute([$bookingCode]);
+    } while ($chk->fetch());
 
-    $db->query(
-        "INSERT INTO bookings (
+    $pdo->prepare("INSERT INTO bookings (
             booking_code, guest_id, room_id,
             check_in_date, check_out_date, total_nights,
             adults, children,
             room_price, total_price, discount, final_price,
             booking_source, status, payment_status, paid_amount,
             special_request, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, 'whatsapp', 'confirmed', 'unpaid', 0, ?, NOW())",
-        [
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 0, ?, 'whatsapp', 'confirmed', 'unpaid', 0, ?, NOW())")
+        ->execute([
             $bookingCode, $guestId, $roomId,
             $checkIn, $checkOut, $totalNights,
             $adults, $children,
             $roomPrice, $totalPrice, $finalPrice,
             $specialReq
-        ]
-    );
-    $bookingId = $db->getConnection()->lastInsertId();
+        ]);
+    $bookingId = $pdo->lastInsertId();
 
     // Kirim notif ke front desk
-    $db->query(
-        "INSERT INTO notifications (title, message, type, reference_id, is_read, created_at)
-         VALUES (?, ?, 'new_booking', ?, 0, NOW())",
-        [
+    $pdo->prepare("INSERT INTO notifications (title, message, type, reference_id, is_read, created_at) VALUES (?, ?, 'new_booking', ?, 0, NOW())")
+        ->execute([
             '📱 Booking Baru via AI Agent',
             "Tamu: $guestName | Kamar: {$room['room_number']} | Check-in: $checkIn | Kode: $bookingCode",
             $bookingId
-        ]
-    );
+        ]);
 
     echo json_encode([
         'success'      => true,

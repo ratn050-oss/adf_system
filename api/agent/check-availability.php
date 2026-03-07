@@ -11,12 +11,9 @@ header('Content-Type: application/json');
 error_reporting(0); ini_set('display_errors', 0);
 
 define('APP_ACCESS', true);
-require_once '../../config/config.php';
-require_once '../../config/database.php';
 require_once '_auth.php';
 
-$db = Database::getInstance();
-agent_auth_check($db);
+$pdo = agent_auth_check();
 
 try {
     $checkIn  = trim($_GET['check_in']  ?? '');
@@ -40,25 +37,22 @@ try {
     $totalNights = $ciDate->diff($coDate)->days;
 
     // Kamar yang sudah dipesan di rentang ini
-    $booked = $db->fetchAll(
-        "SELECT DISTINCT room_id FROM bookings
+    $stmt = $pdo->prepare("SELECT DISTINCT room_id FROM bookings
          WHERE check_in_date < ? AND check_out_date > ?
-         AND status IN ('pending','confirmed','checked_in')",
-        [$checkOut, $checkIn]
-    );
-    $bookedIds = array_column($booked, 'room_id');
+         AND status IN ('pending','confirmed','checked_in')");
+    $stmt->execute([$checkOut, $checkIn]);
+    $bookedIds = array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'room_id');
 
     // Semua kamar aktif beserta tipe
-    $allRooms = $db->fetchAll(
-        "SELECT r.id, r.room_number, r.floor_number,
+    $stmt2 = $pdo->prepare("SELECT r.id, r.room_number, r.floor_number,
                 rt.type_name, rt.base_price, rt.max_occupancy, rt.bed_type,
                 rt.description
          FROM rooms r
          LEFT JOIN room_types rt ON r.room_type_id = rt.id
          WHERE r.status != 'maintenance'
-         ORDER BY rt.base_price ASC, r.room_number ASC",
-        []
-    );
+         ORDER BY rt.base_price ASC, r.room_number ASC");
+    $stmt2->execute();
+    $allRooms = $stmt2->fetchAll(PDO::FETCH_ASSOC);
 
     $available = [];
     foreach ($allRooms as $room) {
