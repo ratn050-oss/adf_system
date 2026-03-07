@@ -41,11 +41,31 @@ $webSettings = [
     // Destinations (JSON array of destination objects)
     'web_destinations'       => '[]',
 
-    // Hero Section
-    'web_hero_accent'       => 'Welcome to Paradise',
-    'web_hero_title'        => 'Experience Karimunjawa<br>Like Never Before',
-    'web_hero_subtitle'     => 'An exclusive island retreat where tropical luxury meets the pristine beauty of the Java Sea',
-    'web_hero_background'   => '', // Path to hero background image
+    // Hero — Home
+    'web_hero_accent'              => 'Welcome to Paradise',
+    'web_hero_title'               => 'Experience Karimunjawa<br>Like Never Before',
+    'web_hero_subtitle'            => 'An exclusive island retreat where tropical luxury meets the pristine beauty of the Java Sea',
+    'web_hero_background'          => '',
+    // Hero — Rooms
+    'web_hero_rooms_background'    => '',
+    'web_hero_rooms_eyebrow'       => 'Accommodations',
+    'web_hero_rooms_title'         => 'Our Rooms',
+    'web_hero_rooms_subtitle'      => 'Thoughtfully designed spaces where island comfort meets refined elegance.',
+    // Hero — Activities
+    'web_hero_act_background'      => 'https://images.unsplash.com/photo-1589308078059-be1415eab4c3?w=1920&q=80',
+    'web_hero_act_eyebrow'         => 'Karimunjawa Islands',
+    'web_hero_act_title'           => 'Things to Do During Your Island Stay',
+    'web_hero_act_subtitle'        => 'Karimunjawa is more than a destination — it\'s a world of its own.',
+    // Hero — Destinations
+    'web_hero_dest_background'     => '',
+    'web_hero_dest_eyebrow'        => 'Explore the Archipelago',
+    'web_hero_dest_title'          => 'Discover Karimunjawa',
+    'web_hero_dest_subtitle'       => 'Explore the islands, reefs, and shores that make Karimunjawa unforgettable.',
+    // Hero — Contact
+    'web_hero_contact_background'  => '',
+    'web_hero_contact_eyebrow'     => 'Get in Touch',
+    'web_hero_contact_title'       => 'Contact Us',
+    'web_hero_contact_subtitle'    => 'We\'d love to hear from you. Reach out and let us help plan your stay.'
     
     // Contact & Social
     'web_whatsapp'          => '6281222228590',
@@ -282,37 +302,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     
     elseif ($action === 'save_hero') {
         $redirectTab = 'hero';
-        // DEBUG LOG - temporary
-        $debugLog = [];
-        $debugLog[] = "save_hero triggered at " . date('H:i:s');
-        $debugLog[] = "POST data: " . json_encode($_POST);
         
-        $fields = ['web_hero_accent', 'web_hero_title', 'web_hero_subtitle'];
-        foreach ($fields as $key) {
-            if (isset($_POST[$key])) {
-                $val = trim($_POST[$key]);
-                $debugLog[] = "Saving $key = '$val'";
-                $stmt = $webDb->prepare("INSERT INTO settings (setting_key, setting_value, setting_type, description) 
+        // Save all text fields that start with web_hero_ and exist in $webSettings
+        foreach ($_POST as $key => $rawVal) {
+            if (strpos($key, 'web_hero_') === 0 && array_key_exists($key, $webSettings)) {
+                $val = trim($rawVal);
+                $stmt = $webDb->prepare("INSERT INTO settings (setting_key, setting_value, setting_type, description)
                             VALUES (?, ?, 'text', ?) ON DUPLICATE KEY UPDATE setting_value = ?");
                 $stmt->execute([$key, $val, 'Website Hero: ' . str_replace('web_hero_', '', $key), $val]);
                 $webSettings[$key] = $val;
-                $debugLog[] = "Rows affected: " . $stmt->rowCount();
-            } else {
-                $debugLog[] = "KEY NOT FOUND IN POST: $key";
             }
         }
         
-        // Verify save
-        $verifyStmt = $webDb->query("SELECT setting_key, setting_value FROM settings WHERE setting_key LIKE 'web_hero_%'");
-        $verifyRows = $verifyStmt->fetchAll(PDO::FETCH_ASSOC);
-        $debugLog[] = "After save DB check: " . json_encode($verifyRows);
+        $success = 'Hero berhasil disimpan! ✅';
         
-        // Write debug log
-        file_put_contents(dirname(dirname(__FILE__)) . '/debug_hero_save.log', implode("\n", $debugLog) . "\n\n", FILE_APPEND);
-        
-        $success = 'Hero section berhasil disimpan! ✅';
-        
-        // Handle hero background image upload
+        // Handle home hero background image upload
         if (isset($_FILES['web_hero_background']) && $_FILES['web_hero_background']['error'] === UPLOAD_ERR_OK) {
             $fileInfo = pathinfo($_FILES['web_hero_background']['name']);
             $allowedExts = ['jpg', 'jpeg', 'png', 'webp'];
@@ -988,6 +992,22 @@ require_once __DIR__ . '/includes/header.php';
         padding: 8px;
         background: #f8f9fa;
     }
+
+    .hero-page-tab {
+        padding: 7px 18px;
+        border: 1.5px solid #dee2e6;
+        background: white;
+        border-radius: 8px;
+        font-size: 0.82rem;
+        font-weight: 600;
+        cursor: pointer;
+        color: #6c757d;
+        transition: all 0.18s;
+    }
+    .hero-page-tab:hover { border-color: #6f42c1; color: #6f42c1; }
+    .hero-page-tab.active { background: #6f42c1; border-color: #6f42c1; color: white; }
+    .hero-page-panel { display: none; }
+    .hero-page-panel.active { display: block; }
 </style>
 
 <div class="container-fluid py-4">
@@ -1203,80 +1223,205 @@ require_once __DIR__ . '/includes/header.php';
     
     <!-- ============== HERO TAB ============== -->
     <div class="tab-content <?= $activeTab === 'hero' ? 'active' : '' ?>" id="tab-hero">
+
+        <!-- Per-page sub-tabs -->
+        <div style="display:flex;gap:6px;flex-wrap:wrap;margin-bottom:20px;">
+            <button class="hero-page-tab active" data-page="home"><i class="bi bi-house me-1"></i>Home</button>
+            <button class="hero-page-tab" data-page="rooms"><i class="bi bi-door-open me-1"></i>Rooms</button>
+            <button class="hero-page-tab" data-page="activities"><i class="bi bi-water me-1"></i>Activities</button>
+            <button class="hero-page-tab" data-page="destinations"><i class="bi bi-geo-alt me-1"></i>Destinations</button>
+            <button class="hero-page-tab" data-page="contact"><i class="bi bi-telephone me-1"></i>Contact</button>
+        </div>
+
+        <!-- ---- HOME ---- -->
+        <div class="hero-page-panel active" id="hero-panel-home">
         <div class="settings-card">
             <div class="settings-card-header">
-                <div class="icon" style="background: rgba(0,123,255,0.15); color: #007bff;">
-                    <i class="bi bi-image-fill"></i>
-                </div>
-                <div>
-                    <h5>Hero Section</h5>
-                    <small>Customize the main banner on the homepage</small>
-                </div>
+                <div class="icon" style="background:rgba(0,123,255,0.15);color:#007bff;"><i class="bi bi-house-fill"></i></div>
+                <div><h5>Home Page Hero</h5><small>Banner utama yang dilihat tamu pertama kali</small></div>
             </div>
             <div class="settings-card-body">
                 <form method="POST" enctype="multipart/form-data">
                     <input type="hidden" name="action" value="save_hero">
-                    
-                    <div class="mb-3">
-                        <label class="form-label">Accent Text</label>
-                        <input type="text" name="web_hero_accent" class="form-control" value="<?= htmlspecialchars($webSettings['web_hero_accent']) ?>" id="heroAccent">
-                        <div class="form-text">Small italic text above the title</div>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Accent / Eyebrow</label>
+                            <input type="text" name="web_hero_accent" class="form-control" value="<?= htmlspecialchars($webSettings['web_hero_accent']) ?>" id="heroAccent">
+                            <div class="form-text">Teks kecil di atas judul</div>
+                        </div>
+                        <div class="col-md-8 mb-3">
+                            <label class="form-label">Title <small class="text-muted">(gunakan &lt;br&gt; untuk baris baru, &lt;em&gt; untuk miring)</small></label>
+                            <input type="text" name="web_hero_title" class="form-control" value="<?= htmlspecialchars($webSettings['web_hero_title']) ?>" id="heroTitle">
+                        </div>
                     </div>
-                    
                     <div class="mb-3">
-                        <label class="form-label">Hero Title</label>
-                        <input type="text" name="web_hero_title" class="form-control" value="<?= htmlspecialchars($webSettings['web_hero_title']) ?>" id="heroTitle">
-                        <div class="form-text">Main heading. Use &lt;br&gt; for line breaks.</div>
-                    </div>
-                    
-                    <div class="mb-3">
-                        <label class="form-label">Hero Subtitle</label>
+                        <label class="form-label">Subtitle</label>
                         <textarea name="web_hero_subtitle" class="form-control" rows="2" id="heroSubtitle"><?= htmlspecialchars($webSettings['web_hero_subtitle']) ?></textarea>
-                        <div class="form-text">Description paragraph below the title</div>
                     </div>
-                    
                     <hr>
-                    
-                    <!-- Hero Background Image -->
                     <div class="mb-3">
-                        <label class="form-label"><i class="bi bi-image me-1"></i>Hero Background Image</label>
-                        
+                        <label class="form-label"><i class="bi bi-image me-1"></i>Background Image</label>
                         <?php if (!empty($webSettings['web_hero_background'])): ?>
-                        <div class="current-bg-preview mb-3" style="position: relative;">
-                            <img src="<?= (strpos($webSettings['web_hero_background'], 'http') === 0) ? htmlspecialchars($webSettings['web_hero_background']) : '../' . htmlspecialchars($webSettings['web_hero_background']) ?>" 
-                                 alt="Current Hero Background" 
-                                 style="width: 100%; max-height: 200px; object-fit: cover; border-radius: 8px;">
+                        <div class="current-bg-preview mb-3">
+                            <img src="<?= (strpos($webSettings['web_hero_background'], 'http') === 0) ? htmlspecialchars($webSettings['web_hero_background']) : '../' . htmlspecialchars($webSettings['web_hero_background']) ?>" style="width:100%;max-height:180px;object-fit:cover;border-radius:8px;" alt="">
                             <div class="mt-2">
-                                <button type="button" class="btn btn-sm btn-danger" onclick="removeBackground()">
-                                    <i class="bi bi-trash me-1"></i>Remove Background
-                                </button>
+                                <button type="button" class="btn btn-sm btn-danger" onclick="removeBackground()"><i class="bi bi-trash me-1"></i>Remove</button>
                                 <input type="hidden" name="remove_background" id="removeBackgroundInput" value="0">
                             </div>
                         </div>
                         <?php endif; ?>
-                        
                         <input type="file" name="web_hero_background" class="form-control" accept="image/jpeg,image/jpg,image/png,image/webp">
-                        <div class="form-text">
-                            Upload hero background image (JPG, PNG, WEBP). Recommended size: 1920x1080px. 
-                            <?php if (!empty($webSettings['web_hero_background'])): ?>
-                                Leave empty to keep current image.
-                            <?php endif; ?>
-                        </div>
+                        <div class="form-text">Upload foto (JPG/PNG/WEBP). Recommended: 1920×1080px. <?= !empty($webSettings['web_hero_background']) ? 'Biarkan kosong untuk mempertahankan gambar saat ini.' : '' ?></div>
                     </div>
-                    
-                    <!-- Live Preview -->
-                    <div class="preview-hero" id="heroPreview" style="--preview-primary: <?= htmlspecialchars($webSettings['web_primary_color']) ?>; --preview-accent: <?= htmlspecialchars($webSettings['web_accent_color']) ?>; <?php if (!empty($webSettings['web_hero_background'])): ?>background-image: url('<?= (strpos($webSettings['web_hero_background'], 'http') === 0) ? htmlspecialchars($webSettings['web_hero_background']) : '../' . htmlspecialchars($webSettings['web_hero_background']) ?>');<?php endif; ?>">
+                    <div class="preview-hero mb-3" id="heroPreview" style="--preview-primary:<?= htmlspecialchars($webSettings['web_primary_color']) ?>;--preview-accent:<?= htmlspecialchars($webSettings['web_accent_color']) ?>;<?php if(!empty($webSettings['web_hero_background'])): ?>background-image:url('<?= (strpos($webSettings['web_hero_background'],'http')===0)?htmlspecialchars($webSettings['web_hero_background']):'../' . htmlspecialchars($webSettings['web_hero_background']) ?>');<?php endif; ?>">
                         <p class="accent" id="previewAccent"><i><?= htmlspecialchars($webSettings['web_hero_accent']) ?></i></p>
                         <h3 id="previewTitle"><?= $webSettings['web_hero_title'] ?></h3>
                         <p id="previewSubtitle"><?= htmlspecialchars($webSettings['web_hero_subtitle']) ?></p>
                     </div>
-                    
-                    <button type="submit" class="btn btn-primary w-100 mt-3">
-                        <i class="bi bi-check-lg me-1"></i>Save Hero Section
-                    </button>
+                    <button type="submit" class="btn btn-primary w-100"><i class="bi bi-check-lg me-1"></i>Save Home Hero</button>
                 </form>
             </div>
         </div>
+        </div>
+
+        <!-- ---- ROOMS ---- -->
+        <div class="hero-page-panel" id="hero-panel-rooms">
+        <div class="settings-card">
+            <div class="settings-card-header">
+                <div class="icon" style="background:rgba(255,193,7,0.15);color:#ffc107;"><i class="bi bi-door-open-fill"></i></div>
+                <div><h5>Rooms Page Hero</h5><small>Banner halaman Rooms & Accommodations</small></div>
+            </div>
+            <div class="settings-card-body">
+                <form method="POST">
+                    <input type="hidden" name="action" value="save_hero">
+                    <div class="mb-3">
+                        <label class="form-label">Background Image URL</label>
+                        <input type="text" name="web_hero_rooms_background" class="form-control" value="<?= htmlspecialchars($webSettings['web_hero_rooms_background']) ?>" placeholder="https://images.unsplash.com/...">
+                        <div class="form-text">Paste URL foto. Biarkan kosong untuk tampilan default.</div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Eyebrow</label>
+                            <input type="text" name="web_hero_rooms_eyebrow" class="form-control" value="<?= htmlspecialchars($webSettings['web_hero_rooms_eyebrow']) ?>">
+                        </div>
+                        <div class="col-md-8 mb-3">
+                            <label class="form-label">Title</label>
+                            <input type="text" name="web_hero_rooms_title" class="form-control" value="<?= htmlspecialchars($webSettings['web_hero_rooms_title']) ?>">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Subtitle</label>
+                        <textarea name="web_hero_rooms_subtitle" class="form-control" rows="2"><?= htmlspecialchars($webSettings['web_hero_rooms_subtitle']) ?></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100"><i class="bi bi-check-lg me-1"></i>Save Rooms Hero</button>
+                </form>
+            </div>
+        </div>
+        </div>
+
+        <!-- ---- ACTIVITIES ---- -->
+        <div class="hero-page-panel" id="hero-panel-activities">
+        <div class="settings-card">
+            <div class="settings-card-header">
+                <div class="icon" style="background:rgba(23,162,184,0.15);color:#17a2b8;"><i class="bi bi-water"></i></div>
+                <div><h5>Activities Page Hero</h5><small>Banner halaman Activities & Experiences</small></div>
+            </div>
+            <div class="settings-card-body">
+                <form method="POST">
+                    <input type="hidden" name="action" value="save_hero">
+                    <div class="mb-3">
+                        <label class="form-label">Background Image URL</label>
+                        <input type="text" name="web_hero_act_background" class="form-control" value="<?= htmlspecialchars($webSettings['web_hero_act_background']) ?>" placeholder="https://images.unsplash.com/...">
+                        <div class="form-text">Paste URL foto.</div>
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Eyebrow</label>
+                            <input type="text" name="web_hero_act_eyebrow" class="form-control" value="<?= htmlspecialchars($webSettings['web_hero_act_eyebrow']) ?>">
+                        </div>
+                        <div class="col-md-8 mb-3">
+                            <label class="form-label">Title <small class="text-muted">(&lt;br&gt; untuk baris baru)</small></label>
+                            <input type="text" name="web_hero_act_title" class="form-control" value="<?= htmlspecialchars($webSettings['web_hero_act_title']) ?>">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Subtitle</label>
+                        <textarea name="web_hero_act_subtitle" class="form-control" rows="2"><?= htmlspecialchars($webSettings['web_hero_act_subtitle']) ?></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100"><i class="bi bi-check-lg me-1"></i>Save Activities Hero</button>
+                </form>
+            </div>
+        </div>
+        </div>
+
+        <!-- ---- DESTINATIONS ---- -->
+        <div class="hero-page-panel" id="hero-panel-destinations">
+        <div class="settings-card">
+            <div class="settings-card-header">
+                <div class="icon" style="background:rgba(40,167,69,0.15);color:#28a745;"><i class="bi bi-geo-alt-fill"></i></div>
+                <div><h5>Destinations Page Hero</h5><small>Banner halaman Destinations</small></div>
+            </div>
+            <div class="settings-card-body">
+                <form method="POST">
+                    <input type="hidden" name="action" value="save_hero">
+                    <div class="mb-3">
+                        <label class="form-label">Background Image URL</label>
+                        <input type="text" name="web_hero_dest_background" class="form-control" value="<?= htmlspecialchars($webSettings['web_hero_dest_background']) ?>" placeholder="https://...">
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Eyebrow</label>
+                            <input type="text" name="web_hero_dest_eyebrow" class="form-control" value="<?= htmlspecialchars($webSettings['web_hero_dest_eyebrow']) ?>">
+                        </div>
+                        <div class="col-md-8 mb-3">
+                            <label class="form-label">Title</label>
+                            <input type="text" name="web_hero_dest_title" class="form-control" value="<?= htmlspecialchars($webSettings['web_hero_dest_title']) ?>">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Subtitle</label>
+                        <textarea name="web_hero_dest_subtitle" class="form-control" rows="2"><?= htmlspecialchars($webSettings['web_hero_dest_subtitle']) ?></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100"><i class="bi bi-check-lg me-1"></i>Save Destinations Hero</button>
+                </form>
+            </div>
+        </div>
+        </div>
+
+        <!-- ---- CONTACT ---- -->
+        <div class="hero-page-panel" id="hero-panel-contact">
+        <div class="settings-card">
+            <div class="settings-card-header">
+                <div class="icon" style="background:rgba(232,62,140,0.15);color:#e83e8c;"><i class="bi bi-telephone-fill"></i></div>
+                <div><h5>Contact Page Hero</h5><small>Banner halaman Contact</small></div>
+            </div>
+            <div class="settings-card-body">
+                <form method="POST">
+                    <input type="hidden" name="action" value="save_hero">
+                    <div class="mb-3">
+                        <label class="form-label">Background Image URL</label>
+                        <input type="text" name="web_hero_contact_background" class="form-control" value="<?= htmlspecialchars($webSettings['web_hero_contact_background']) ?>" placeholder="https://...">
+                    </div>
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Eyebrow</label>
+                            <input type="text" name="web_hero_contact_eyebrow" class="form-control" value="<?= htmlspecialchars($webSettings['web_hero_contact_eyebrow']) ?>">
+                        </div>
+                        <div class="col-md-8 mb-3">
+                            <label class="form-label">Title</label>
+                            <input type="text" name="web_hero_contact_title" class="form-control" value="<?= htmlspecialchars($webSettings['web_hero_contact_title']) ?>">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Subtitle</label>
+                        <textarea name="web_hero_contact_subtitle" class="form-control" rows="2"><?= htmlspecialchars($webSettings['web_hero_contact_subtitle']) ?></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100"><i class="bi bi-check-lg me-1"></i>Save Contact Hero</button>
+                </form>
+            </div>
+        </div>
+        </div>
+
     </div>
     
     <!-- ============== CONTACT TAB ============== -->
@@ -1764,13 +1909,23 @@ document.querySelectorAll('.settings-tab').forEach(tab => {
     });
 });
 
-// Hero live preview
+// Hero per-page sub-tab switching
+document.querySelectorAll('.hero-page-tab').forEach(tab => {
+    tab.addEventListener('click', function() {
+        document.querySelectorAll('.hero-page-tab').forEach(t => t.classList.remove('active'));
+        document.querySelectorAll('.hero-page-panel').forEach(p => p.classList.remove('active'));
+        this.classList.add('active');
+        document.getElementById('hero-panel-' + this.dataset.page).classList.add('active');
+    });
+});
+
+// Home hero live preview
 ['heroAccent', 'heroTitle', 'heroSubtitle'].forEach(id => {
     const el = document.getElementById(id);
     if (el) {
         el.addEventListener('input', function() {
             if (id === 'heroAccent') document.getElementById('previewAccent').innerHTML = '<i>' + this.value + '</i>';
-            if (id === 'heroTitle') document.getElementById('previewTitle').innerHTML = this.value;
+            if (id === 'heroTitle')  document.getElementById('previewTitle').innerHTML  = this.value;
             if (id === 'heroSubtitle') document.getElementById('previewSubtitle').textContent = this.value;
         });
     }
