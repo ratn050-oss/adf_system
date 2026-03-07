@@ -381,7 +381,57 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $webSettings['web_hero_background'] = '';
         }
         
-        // success already set above with debug info
+        // Handle per-page hero background uploads (rooms, act, dest, contact)
+        $heroPageUploads = [
+            'rooms'   => 'web_hero_rooms_background',
+            'act'     => 'web_hero_act_background',
+            'dest'    => 'web_hero_dest_background',
+            'contact' => 'web_hero_contact_background',
+        ];
+        foreach ($heroPageUploads as $pageSlug => $settingKey) {
+            if (isset($_FILES[$settingKey]) && $_FILES[$settingKey]['error'] === UPLOAD_ERR_OK) {
+                $fileInfo = pathinfo($_FILES[$settingKey]['name']);
+                $allowedExts = ['jpg', 'jpeg', 'png', 'webp'];
+                if (in_array(strtolower($fileInfo['extension']), $allowedExts)) {
+                    $localFilename = 'hero-' . $pageSlug . '-bg-' . time() . '.' . $fileInfo['extension'];
+                    $cloudinary = CloudinaryHelper::getInstance();
+                    $uploadResult = $cloudinary->smartUpload(
+                        $_FILES[$settingKey],
+                        'uploads/hero',
+                        $localFilename,
+                        'hero',
+                        'hero_' . $pageSlug . '_background'
+                    );
+                    if ($uploadResult['success']) {
+                        $storedValue = $uploadResult['is_cloud'] ? $uploadResult['url'] : 'uploads/hero/' . $localFilename;
+                        $stmt = $webDb->prepare("INSERT INTO settings (setting_key, setting_value, setting_type, description)
+                                    VALUES (?, ?, 'text', ?) ON DUPLICATE KEY UPDATE setting_value = ?");
+                        $stmt->execute([$settingKey, $storedValue, 'Website Hero Background: ' . $pageSlug, $storedValue]);
+                        $webSettings[$settingKey] = $storedValue;
+                        if (!$uploadResult['is_cloud']) {
+                            $websiteUploadDir = $websitePublicDir . '/uploads/hero/';
+                            if (!is_dir($websiteUploadDir)) mkdir($websiteUploadDir, 0755, true);
+                            $srcDir = dirname(dirname(__FILE__)) . '/uploads/hero/';
+                            @copy($srcDir . $localFilename, $websiteUploadDir . $localFilename);
+                        }
+                    }
+                }
+            }
+            // Handle remove
+            $removeKey = 'remove_' . $pageSlug . '_background';
+            if (isset($_POST[$removeKey]) && $_POST[$removeKey] === '1') {
+                $oldBg = $webSettings[$settingKey] ?? '';
+                if ($oldBg && strpos($oldBg, 'http') !== 0) {
+                    $f1 = dirname(dirname(__FILE__)) . '/' . $oldBg;
+                    $f2 = $websitePublicDir . '/' . $oldBg;
+                    if (file_exists($f1)) unlink($f1);
+                    if (file_exists($f2)) @unlink($f2);
+                }
+                $stmt = $webDb->prepare("INSERT INTO settings (setting_key, setting_value) VALUES (?, '') ON DUPLICATE KEY UPDATE setting_value = ''");
+                $stmt->execute([$settingKey]);
+                $webSettings[$settingKey] = '';
+            }
+        }
     }
     
     elseif ($action === 'save_contact') {
@@ -1292,12 +1342,21 @@ require_once __DIR__ . '/includes/header.php';
                 <div><h5>Rooms Page Hero</h5><small>Banner halaman Rooms & Accommodations</small></div>
             </div>
             <div class="settings-card-body">
-                <form method="POST">
+                <form method="POST" enctype="multipart/form-data">
                     <input type="hidden" name="action" value="save_hero">
                     <div class="mb-3">
-                        <label class="form-label">Background Image URL</label>
-                        <input type="text" name="web_hero_rooms_background" class="form-control" value="<?= htmlspecialchars($webSettings['web_hero_rooms_background']) ?>" placeholder="https://images.unsplash.com/...">
-                        <div class="form-text">Paste URL foto. Biarkan kosong untuk tampilan default.</div>
+                        <label class="form-label"><i class="bi bi-image me-1"></i>Background Image</label>
+                        <?php if (!empty($webSettings['web_hero_rooms_background'])): ?>
+                        <div class="current-bg-preview mb-3">
+                            <img src="<?= (strpos($webSettings['web_hero_rooms_background'], 'http') === 0) ? htmlspecialchars($webSettings['web_hero_rooms_background']) : '../' . htmlspecialchars($webSettings['web_hero_rooms_background']) ?>" style="width:100%;max-height:180px;object-fit:cover;border-radius:8px;" alt="">
+                            <div class="mt-2">
+                                <button type="button" class="btn btn-sm btn-danger" onclick="this.nextElementSibling.value='1';this.closest('.current-bg-preview').style.opacity='0.4';"><i class="bi bi-trash me-1"></i>Remove</button>
+                                <input type="hidden" name="remove_rooms_background" value="0">
+                            </div>
+                        </div>
+                        <?php endif; ?>
+                        <input type="file" name="web_hero_rooms_background" class="form-control" accept="image/jpeg,image/jpg,image/png,image/webp">
+                        <div class="form-text">Upload foto (JPG/PNG/WEBP). Recommended: 1920×1080px.<?= !empty($webSettings['web_hero_rooms_background']) ? ' Biarkan kosong untuk mempertahankan gambar saat ini.' : '' ?></div>
                     </div>
                     <div class="row">
                         <div class="col-md-4 mb-3">
@@ -1327,12 +1386,21 @@ require_once __DIR__ . '/includes/header.php';
                 <div><h5>Activities Page Hero</h5><small>Banner halaman Activities & Experiences</small></div>
             </div>
             <div class="settings-card-body">
-                <form method="POST">
+                <form method="POST" enctype="multipart/form-data">
                     <input type="hidden" name="action" value="save_hero">
                     <div class="mb-3">
-                        <label class="form-label">Background Image URL</label>
-                        <input type="text" name="web_hero_act_background" class="form-control" value="<?= htmlspecialchars($webSettings['web_hero_act_background']) ?>" placeholder="https://images.unsplash.com/...">
-                        <div class="form-text">Paste URL foto.</div>
+                        <label class="form-label"><i class="bi bi-image me-1"></i>Background Image</label>
+                        <?php if (!empty($webSettings['web_hero_act_background'])): ?>
+                        <div class="current-bg-preview mb-3">
+                            <img src="<?= (strpos($webSettings['web_hero_act_background'], 'http') === 0) ? htmlspecialchars($webSettings['web_hero_act_background']) : '../' . htmlspecialchars($webSettings['web_hero_act_background']) ?>" style="width:100%;max-height:180px;object-fit:cover;border-radius:8px;" alt="">
+                            <div class="mt-2">
+                                <button type="button" class="btn btn-sm btn-danger" onclick="this.nextElementSibling.value='1';this.closest('.current-bg-preview').style.opacity='0.4';"><i class="bi bi-trash me-1"></i>Remove</button>
+                                <input type="hidden" name="remove_act_background" value="0">
+                            </div>
+                        </div>
+                        <?php endif; ?>
+                        <input type="file" name="web_hero_act_background" class="form-control" accept="image/jpeg,image/jpg,image/png,image/webp">
+                        <div class="form-text">Upload foto (JPG/PNG/WEBP). Recommended: 1920×1080px.<?= !empty($webSettings['web_hero_act_background']) ? ' Biarkan kosong untuk mempertahankan gambar saat ini.' : '' ?></div>
                     </div>
                     <div class="row">
                         <div class="col-md-4 mb-3">
@@ -1362,11 +1430,21 @@ require_once __DIR__ . '/includes/header.php';
                 <div><h5>Destinations Page Hero</h5><small>Banner halaman Destinations</small></div>
             </div>
             <div class="settings-card-body">
-                <form method="POST">
+                <form method="POST" enctype="multipart/form-data">
                     <input type="hidden" name="action" value="save_hero">
                     <div class="mb-3">
-                        <label class="form-label">Background Image URL</label>
-                        <input type="text" name="web_hero_dest_background" class="form-control" value="<?= htmlspecialchars($webSettings['web_hero_dest_background']) ?>" placeholder="https://...">
+                        <label class="form-label"><i class="bi bi-image me-1"></i>Background Image</label>
+                        <?php if (!empty($webSettings['web_hero_dest_background'])): ?>
+                        <div class="current-bg-preview mb-3">
+                            <img src="<?= (strpos($webSettings['web_hero_dest_background'], 'http') === 0) ? htmlspecialchars($webSettings['web_hero_dest_background']) : '../' . htmlspecialchars($webSettings['web_hero_dest_background']) ?>" style="width:100%;max-height:180px;object-fit:cover;border-radius:8px;" alt="">
+                            <div class="mt-2">
+                                <button type="button" class="btn btn-sm btn-danger" onclick="this.nextElementSibling.value='1';this.closest('.current-bg-preview').style.opacity='0.4';"><i class="bi bi-trash me-1"></i>Remove</button>
+                                <input type="hidden" name="remove_dest_background" value="0">
+                            </div>
+                        </div>
+                        <?php endif; ?>
+                        <input type="file" name="web_hero_dest_background" class="form-control" accept="image/jpeg,image/jpg,image/png,image/webp">
+                        <div class="form-text">Upload foto (JPG/PNG/WEBP). Recommended: 1920×1080px.<?= !empty($webSettings['web_hero_dest_background']) ? ' Biarkan kosong untuk mempertahankan gambar saat ini.' : '' ?></div>
                     </div>
                     <div class="row">
                         <div class="col-md-4 mb-3">
@@ -1396,11 +1474,21 @@ require_once __DIR__ . '/includes/header.php';
                 <div><h5>Contact Page Hero</h5><small>Banner halaman Contact</small></div>
             </div>
             <div class="settings-card-body">
-                <form method="POST">
+                <form method="POST" enctype="multipart/form-data">
                     <input type="hidden" name="action" value="save_hero">
                     <div class="mb-3">
-                        <label class="form-label">Background Image URL</label>
-                        <input type="text" name="web_hero_contact_background" class="form-control" value="<?= htmlspecialchars($webSettings['web_hero_contact_background']) ?>" placeholder="https://...">
+                        <label class="form-label"><i class="bi bi-image me-1"></i>Background Image</label>
+                        <?php if (!empty($webSettings['web_hero_contact_background'])): ?>
+                        <div class="current-bg-preview mb-3">
+                            <img src="<?= (strpos($webSettings['web_hero_contact_background'], 'http') === 0) ? htmlspecialchars($webSettings['web_hero_contact_background']) : '../' . htmlspecialchars($webSettings['web_hero_contact_background']) ?>" style="width:100%;max-height:180px;object-fit:cover;border-radius:8px;" alt="">
+                            <div class="mt-2">
+                                <button type="button" class="btn btn-sm btn-danger" onclick="this.nextElementSibling.value='1';this.closest('.current-bg-preview').style.opacity='0.4';"><i class="bi bi-trash me-1"></i>Remove</button>
+                                <input type="hidden" name="remove_contact_background" value="0">
+                            </div>
+                        </div>
+                        <?php endif; ?>
+                        <input type="file" name="web_hero_contact_background" class="form-control" accept="image/jpeg,image/jpg,image/png,image/webp">
+                        <div class="form-text">Upload foto (JPG/PNG/WEBP). Recommended: 1920×1080px.<?= !empty($webSettings['web_hero_contact_background']) ? ' Biarkan kosong untuk mempertahankan gambar saat ini.' : '' ?></div>
                     </div>
                     <div class="row">
                         <div class="col-md-4 mb-3">
