@@ -106,6 +106,11 @@ $webSettings = [
     'web_max_advance_days'  => '365',
     'web_min_stay_nights'   => '1',
     'web_booking_notice'    => 'Payment is due upon arrival at the hotel. Free cancellation up to 24 hours before check-in.',
+
+    // AI Agent (n8n)
+    'agent_api_key'         => '',
+    'agent_system_prompt'   => '',
+    'agent_enabled'         => '0',
 ];
 
 // Connect to hotel database for website settings
@@ -494,6 +499,29 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $success = 'Appearance settings saved!';
     }
     
+    elseif ($action === 'save_agent') {
+        $redirectTab = 'agent';
+        // Regenerate key jika diminta
+        if (!empty($_POST['regenerate_key'])) {
+            $newKey = 'nryn-' . bin2hex(random_bytes(20));
+            $stmt = $webDb->prepare("INSERT INTO settings (setting_key, setting_value, setting_type, description)
+                        VALUES ('agent_api_key', ?, 'text', 'AI Agent API Key') ON DUPLICATE KEY UPDATE setting_value = ?");
+            $stmt->execute([$newKey, $newKey]);
+            $webSettings['agent_api_key'] = $newKey;
+        }
+        // Simpan system prompt & toggle
+        foreach (['agent_system_prompt', 'agent_enabled'] as $key) {
+            if (isset($_POST[$key])) {
+                $val = trim($_POST[$key]);
+                $stmt = $webDb->prepare("INSERT INTO settings (setting_key, setting_value, setting_type, description)
+                            VALUES (?, ?, 'text', ?) ON DUPLICATE KEY UPDATE setting_value = ?");
+                $stmt->execute([$key, $val, 'AI Agent: ' . $key, $val]);
+                $webSettings[$key] = $val;
+            }
+        }
+        $success = 'AI Agent settings disimpan! ✅';
+    }
+
     elseif ($action === 'save_booking') {
         $redirectTab = 'booking';
         $fields = ['web_max_advance_days', 'web_min_stay_nights', 'web_booking_notice'];
@@ -1168,6 +1196,7 @@ require_once __DIR__ . '/includes/header.php';
         <button class="settings-tab <?= $activeTab === 'appearance' ? 'active' : '' ?>" data-tab="appearance"><i class="bi bi-palette me-1"></i>Appearance</button>
         <button class="settings-tab <?= $activeTab === 'booking' ? 'active' : '' ?>" data-tab="booking"><i class="bi bi-calendar-check me-1"></i>Booking</button>
         <button class="settings-tab <?= $activeTab === 'destinations' ? 'active' : '' ?>" data-tab="destinations"><i class="bi bi-geo-alt me-1"></i>Destinations</button>
+        <button class="settings-tab <?= $activeTab === 'agent' ? 'active' : '' ?>" data-tab="agent"><i class="bi bi-robot me-1"></i>AI Agent</button>
     </div>
     
     <!-- ============== GENERAL TAB ============== -->
@@ -1980,6 +2009,80 @@ require_once __DIR__ . '/includes/header.php';
                     </button>
                 </form>
                 <?php endif; ?>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============== AI AGENT TAB ============== -->
+    <div class="tab-content <?= $activeTab === 'agent' ? 'active' : '' ?>" id="tab-agent">
+        <div class="settings-card">
+            <div class="settings-card-header">
+                <div class="icon" style="background:rgba(111,66,193,0.15);color:#6f42c1;"><i class="bi bi-robot"></i></div>
+                <div><h5>AI Agent — n8n Integration</h5><small>Konfigurasi API untuk WhatsApp AI agent via n8n</small></div>
+            </div>
+            <div class="settings-card-body">
+
+                <!-- API Key -->
+                <div class="mb-4 p-3" style="background:#f8f9fa;border-radius:10px;border:1.5px solid #e9ecef;">
+                    <label class="form-label fw-bold"><i class="bi bi-key me-1"></i>API Key</label>
+                    <?php if (!empty($webSettings['agent_api_key'])): ?>
+                    <div class="input-group mb-2">
+                        <input type="text" class="form-control font-monospace" value="<?= htmlspecialchars($webSettings['agent_api_key']) ?>" id="agentKeyDisplay" readonly>
+                        <button class="btn btn-outline-secondary" type="button" onclick="navigator.clipboard.writeText(document.getElementById('agentKeyDisplay').value);this.innerHTML='<i class=\'bi bi-check\'>  </i>Copied';setTimeout(()=>this.innerHTML='<i class=\'bi bi-clipboard\'></i> Copy',2000);"><i class="bi bi-clipboard"></i> Copy</button>
+                    </div>
+                    <?php else: ?>
+                    <div class="alert alert-warning"><i class="bi bi-exclamation-triangle me-1"></i>Belum ada API key. Generate key terlebih dahulu.</div>
+                    <?php endif; ?>
+                    <form method="POST">
+                        <input type="hidden" name="action" value="save_agent">
+                        <input type="hidden" name="regenerate_key" value="1">
+                        <button type="submit" class="btn btn-outline-primary btn-sm" onclick="return confirm('Generate API key baru? Key lama tidak bisa dipakai lagi.')">
+                            <i class="bi bi-arrow-clockwise me-1"></i><?= empty($webSettings['agent_api_key']) ? 'Generate API Key' : 'Regenerate Key' ?>
+                        </button>
+                    </form>
+                </div>
+
+                <!-- Endpoints Info -->
+                <?php
+                $baseUrl = ($isProduction ? 'https://adfsystem.online' : 'http://localhost/narayanakarimunjawa/adf_system') . '/api/agent';
+                ?>
+                <div class="mb-4">
+                    <label class="form-label fw-bold"><i class="bi bi-plug me-1"></i>Endpoint URL untuk n8n Tools</label>
+                    <div class="table-responsive">
+                        <table class="table table-sm table-bordered" style="font-size:0.82rem;">
+                            <thead class="table-light"><tr><th>Tool Name</th><th>Method</th><th>URL</th><th>Fungsi</th></tr></thead>
+                            <tbody>
+                                <tr><td><code>hotel_context</code></td><td><span class="badge bg-primary">GET</span></td><td><code><?= $baseUrl ?>/hotel-context.php</code></td><td>Info hotel, harga kamar, jam CI/CO</td></tr>
+                                <tr><td><code>check_availability</code></td><td><span class="badge bg-primary">GET</span></td><td><code><?= $baseUrl ?>/check-availability.php</code></td><td>Cek kamar tersedia by tanggal</td></tr>
+                                <tr><td><code>get_booking</code></td><td><span class="badge bg-primary">GET</span></td><td><code><?= $baseUrl ?>/get-booking.php</code></td><td>Status booking by kode/HP tamu</td></tr>
+                                <tr><td><code>create_booking</code></td><td><span class="badge bg-success">POST</span></td><td><code><?= $baseUrl ?>/create-booking.php</code></td><td>Buat reservasi baru</td></tr>
+                                <tr><td><code>notify_frontdesk</code></td><td><span class="badge bg-success">POST</span></td><td><code><?= $baseUrl ?>/notify-frontdesk.php</code></td><td>Kirim notif ke dashboard</td></tr>
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="alert alert-info mt-2" style="font-size:0.82rem;">
+                        <i class="bi bi-info-circle me-1"></i>
+                        Semua request wajib sertakan header: <code>X-Agent-Key: &lt;api_key&gt;</code>
+                    </div>
+                </div>
+
+                <!-- System Prompt & Toggle -->
+                <form method="POST">
+                    <input type="hidden" name="action" value="save_agent">
+                    <div class="mb-3">
+                        <label class="form-label fw-bold"><i class="bi bi-chat-text me-1"></i>System Prompt</label>
+                        <textarea name="agent_system_prompt" class="form-control font-monospace" rows="8" placeholder="Contoh: Kamu adalah asisten hotel Narayana Karimunjawa. Jawab pertanyaan tamu dengan ramah dalam Bahasa Indonesia. Jangan pernah menjanjikan hal yang tidak ada di data hotel..."><?= htmlspecialchars($webSettings['agent_system_prompt']) ?></textarea>
+                        <div class="form-text">Prompt ini bisa di-copy ke n8n AI Agent node sebagai System Message.</div>
+                    </div>
+                    <div class="mb-3">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" name="agent_enabled" value="1" id="agentEnabled" <?= $webSettings['agent_enabled'] === '1' ? 'checked' : '' ?>>
+                            <label class="form-check-label" for="agentEnabled">Agent Aktif</label>
+                        </div>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100"><i class="bi bi-check-lg me-1"></i>Save AI Agent Settings</button>
+                </form>
+
             </div>
         </div>
     </div>
