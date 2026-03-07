@@ -15,6 +15,68 @@ require_once '_auth.php';
 
 $pdo = agent_auth_check();
 
+/**
+ * Parsing tanggal yang fleksibel — terima berbagai format dari AI.
+ * Support: YYYY-MM-DD, DD-MM-YYYY, DD/MM/YYYY, MM/DD/YYYY, natural language, dll.
+ */
+function agent_parse_date($input) {
+    $input = trim($input);
+    if (!$input) return null;
+
+    // Bulan Indonesia → angka
+    $bulanMap = [
+        'januari' => 1, 'februari' => 2, 'maret' => 3, 'april' => 4,
+        'mei' => 5, 'juni' => 6, 'juli' => 7, 'agustus' => 8,
+        'september' => 9, 'oktober' => 10, 'november' => 11, 'desember' => 12,
+        'jan' => 1, 'feb' => 2, 'mar' => 3, 'apr' => 4,
+        'may' => 5, 'jun' => 6, 'jul' => 7, 'aug' => 8, 'ags' => 8,
+        'sep' => 9, 'oct' => 10, 'okt' => 10, 'nov' => 11, 'dec' => 12, 'des' => 12,
+    ];
+
+    // 1. Standard: YYYY-MM-DD
+    if (preg_match('/^(\d{4})-(\d{1,2})-(\d{1,2})$/', $input, $m)) {
+        return DateTime::createFromFormat('Y-m-d', sprintf('%04d-%02d-%02d', $m[1], $m[2], $m[3]));
+    }
+
+    // 2. DD-MM-YYYY atau DD/MM/YYYY
+    if (preg_match('/^(\d{1,2})[-\/](\d{1,2})[-\/](\d{4})$/', $input, $m)) {
+        return DateTime::createFromFormat('Y-m-d', sprintf('%04d-%02d-%02d', $m[3], $m[2], $m[1]));
+    }
+
+    // 3. "23 Maret 2026" atau "23 March 2026"
+    if (preg_match('/^(\d{1,2})\s+(\w+)\s+(\d{4})$/i', $input, $m)) {
+        $day = (int)$m[1];
+        $monthStr = strtolower($m[2]);
+        $year = (int)$m[3];
+        $month = $bulanMap[$monthStr] ?? null;
+        if (!$month) {
+            // coba PHP strtotime untuk bulan Inggris
+            $ts = strtotime($input);
+            return $ts ? (new DateTime())->setTimestamp($ts) : null;
+        }
+        return DateTime::createFromFormat('Y-m-d', sprintf('%04d-%02d-%02d', $year, $month, $day));
+    }
+
+    // 4. "March 23, 2026"
+    if (preg_match('/^(\w+)\s+(\d{1,2}),?\s+(\d{4})$/i', $input, $m)) {
+        $ts = strtotime($input);
+        return $ts ? (new DateTime())->setTimestamp($ts) : null;
+    }
+
+    // 5. YYYY/MM/DD
+    if (preg_match('/^(\d{4})\/(\d{1,2})\/(\d{1,2})$/', $input, $m)) {
+        return DateTime::createFromFormat('Y-m-d', sprintf('%04d-%02d-%02d', $m[1], $m[2], $m[3]));
+    }
+
+    // 6. Fallback: coba strtotime PHP
+    $ts = strtotime($input);
+    if ($ts && $ts > 0) {
+        return (new DateTime())->setTimestamp($ts);
+    }
+
+    return null;
+}
+
 try {
     $checkIn   = trim($_GET['check_in']  ?? '');
     $checkOut  = trim($_GET['check_out'] ?? '');
@@ -25,14 +87,22 @@ try {
         exit;
     }
 
-    // Validasi format
-    $ciDate = DateTime::createFromFormat('Y-m-d', $checkIn);
-    $coDate = DateTime::createFromFormat('Y-m-d', $checkOut);
-    if (!$ciDate || !$coDate || $coDate <= $ciDate) {
-        echo json_encode(['success' => false, 'error' => 'Tanggal tidak valid atau check_out harus setelah check_in']);
+    // Smart date parsing — terima berbagai format
+    $ciDate = agent_parse_date($checkIn);
+    $coDate = agent_parse_date($checkOut);
+
+    if (!$ciDate || !$coDate) {
+        echo json_encode(['success' => false, 'error' => "Format tanggal tidak dikenali. check_in='$checkIn', check_out='$checkOut'. Gunakan format YYYY-MM-DD."]);
+        exit;
+    }
+    if ($coDate <= $ciDate) {
+        echo json_encode(['success' => false, 'error' => "check_out ({$coDate->format('Y-m-d')}) harus setelah check_in ({$ciDate->format('Y-m-d')})"]);
         exit;
     }
 
+    // Normalize ke YYYY-MM-DD
+    $checkIn  = $ciDate->format('Y-m-d');
+    $checkOut = $coDate->format('Y-m-d');
     $totalNights = $ciDate->diff($coDate)->days;
 
     // Kamar yang sudah dipesan di rentang ini
