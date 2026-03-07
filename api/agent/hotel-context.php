@@ -40,8 +40,21 @@ try {
     $stmt3 = $pdo->query("SELECT COUNT(*) as total FROM rooms WHERE status != 'maintenance'");
     $totalRooms = $stmt3->fetch(PDO::FETCH_ASSOC);
 
+    // Buat ringkasan teks untuk AI
+    $hotelName = $settings['web_site_name'] ?? 'Narayana Karimunjawa';
+    $textParts = ["{$hotelName}"];
+    if (!empty($settings['web_address'])) $textParts[] = "Alamat: " . $settings['web_address'];
+    if (!empty($settings['web_whatsapp'])) $textParts[] = "WhatsApp: " . $settings['web_whatsapp'];
+    $textParts[] = "Check-in: " . ($settings['web_checkin_time'] ?? '14:00') . ", Check-out: " . ($settings['web_checkout_time'] ?? '12:00');
+    $textParts[] = "Total kamar: " . ($totalRooms['total'] ?? 0);
+    $textParts[] = "Tipe kamar:";
+    foreach ($roomTypes as $rt) {
+        $textParts[] = "- {$rt['type_name']}: Rp " . number_format($rt['base_price'], 0, ',', '.') . "/malam";
+    }
+
     echo json_encode([
         'success' => true,
+        'text_summary' => implode("\n", $textParts),
         'hotel' => [
             'name'           => $settings['web_site_name']    ?? 'Narayana Karimunjawa',
             'tagline'        => $settings['web_tagline']       ?? '',

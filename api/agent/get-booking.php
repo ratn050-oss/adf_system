@@ -66,9 +66,7 @@ try {
         'unpaid'  => 'Belum Bayar',
     ];
 
-    echo json_encode([
-        'success' => true,
-        'booking' => [
+    $b = [
             'booking_code'   => $booking['booking_code'],
             'guest_name'     => $booking['guest_name'],
             'phone'          => $booking['phone'],
@@ -90,7 +88,21 @@ try {
             'special_request'=> $booking['special_request'] ?? '',
             'booking_source' => $booking['booking_source'],
             'created_at'     => $booking['created_at'],
-        ]
+        ];
+
+    // Ringkasan teks untuk AI
+    $textSummary = "Booking {$b['booking_code']}:\n"
+        . "- Tamu: {$b['guest_name']} ({$b['phone']})\n"
+        . "- Kamar: {$b['room_number']} ({$b['room_type']})\n"
+        . "- Check-in: {$b['check_in']}, Check-out: {$b['check_out']} ({$b['total_nights']} malam)\n"
+        . "- Status: {$b['status_label']}\n"
+        . "- Total: Rp " . number_format($b['final_price'], 0, ',', '.') . ", Dibayar: Rp " . number_format($b['paid_amount'], 0, ',', '.') . ", Sisa: Rp " . number_format($b['remaining'], 0, ',', '.') . "\n"
+        . "- Pembayaran: {$b['payment_label']}";
+
+    echo json_encode([
+        'success'      => true,
+        'text_summary' => $textSummary,
+        'booking'      => $b,
     ]);
 
 } catch (Exception $e) {
