@@ -65,7 +65,7 @@ $webSettings = [
     'web_hero_contact_background'  => '',
     'web_hero_contact_eyebrow'     => 'Get in Touch',
     'web_hero_contact_title'       => 'Contact Us',
-    'web_hero_contact_subtitle'    => 'We\'d love to hear from you. Reach out and let us help plan your stay.'
+    'web_hero_contact_subtitle'    => 'We\'d love to hear from you. Reach out and let us help plan your stay.',
     
     // Contact & Social
     'web_whatsapp'          => '6281222228590',
