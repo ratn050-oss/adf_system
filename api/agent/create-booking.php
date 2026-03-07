@@ -32,7 +32,6 @@ try {
     $required = ['guest_name', 'phone', 'room_id', 'check_in_date', 'check_out_date'];
     foreach ($required as $f) {
         if (empty($body[$f])) {
-            http_response_code(400);
             echo json_encode(['success' => false, 'error' => "Field '$f' wajib diisi"]);
             exit;
         }
@@ -52,7 +51,6 @@ try {
     $ciDate = new DateTime($checkIn);
     $coDate = new DateTime($checkOut);
     if ($coDate <= $ciDate) {
-        http_response_code(400);
         echo json_encode(['success' => false, 'error' => 'check_out harus setelah check_in']);
         exit;
     }
@@ -65,7 +63,6 @@ try {
     $stmt->execute([$roomId]);
     $room = $stmt->fetch(PDO::FETCH_ASSOC);
     if (!$room) {
-        http_response_code(400);
         echo json_encode(['success' => false, 'error' => 'Kamar tidak ditemukan atau sedang maintenance']);
         exit;
     }

@@ -27,7 +27,6 @@ try {
     $message = trim($body['message'] ?? '');
 
     if (!$title || !$message) {
-        http_response_code(400);
         echo json_encode(['success' => false, 'error' => 'Field title dan message wajib diisi']);
         exit;
     }

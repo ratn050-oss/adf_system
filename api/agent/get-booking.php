@@ -20,7 +20,6 @@ try {
     $phone = trim($_GET['phone'] ?? '');
 
     if (!$code && !$phone) {
-        http_response_code(400);
         echo json_encode(['success' => false, 'error' => 'Parameter code atau phone wajib diisi']);
         exit;
     }

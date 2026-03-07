@@ -20,7 +20,6 @@ try {
     $checkOut = trim($_GET['check_out'] ?? '');
 
     if (!$checkIn || !$checkOut) {
-        http_response_code(400);
         echo json_encode(['success' => false, 'error' => 'Parameter check_in dan check_out wajib diisi (format YYYY-MM-DD)']);
         exit;
     }
@@ -29,7 +28,6 @@ try {
     $ciDate = DateTime::createFromFormat('Y-m-d', $checkIn);
     $coDate = DateTime::createFromFormat('Y-m-d', $checkOut);
     if (!$ciDate || !$coDate || $coDate <= $ciDate) {
-        http_response_code(400);
         echo json_encode(['success' => false, 'error' => 'Tanggal tidak valid atau check_out harus setelah check_in']);
         exit;
     }
