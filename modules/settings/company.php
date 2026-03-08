@@ -160,11 +160,13 @@ include '../../includes/header.php';
                 <label class="form-label">Logo Perusahaan (<?php echo BUSINESS_NAME; ?>)</label>
                 <?php if (!empty($currentSettings['company_logo'])): ?>
                     <?php 
+                    $isCloudLogo = (strpos($currentSettings['company_logo'], 'http') === 0);
                     $logoPath = '../../uploads/logos/' . $currentSettings['company_logo'];
-                    if (file_exists($logoPath)): 
+                    if ($isCloudLogo || file_exists($logoPath)): 
+                        $logoDisplaySrc = $isCloudLogo ? $currentSettings['company_logo'] : BASE_URL . '/uploads/logos/' . $currentSettings['company_logo'];
                     ?>
                     <div style="margin-bottom: 0.75rem;">
-                        <img src="<?php echo BASE_URL; ?>/uploads/logos/<?php echo htmlspecialchars($currentSettings['company_logo']); ?>" 
+                        <img src="<?php echo htmlspecialchars($logoDisplaySrc); ?>" 
                              alt="Current Logo" 
                              style="max-width: 200px; max-height: 80px; border-radius: var(--radius-md); border: 1px solid var(--bg-tertiary); padding: 0.5rem; background: white;"
                              onerror="this.style.display='none'">

@@ -184,20 +184,27 @@ function formatInvDateGen($date) {
 $configPath = defined('ROOT_PATH') ? ROOT_PATH : dirname(dirname(__DIR__));
 $logoPath = '';
 $logoExists = false;
-$possibleLogos = [
-    $companyLogo, 
-    'logos/' . $companyLogo, 
-    'logos/' . strtolower(str_replace(' ', '_', $companyName)) . '_logo.png',
-    'logos/' . strtolower(str_replace(' ', '_', $companyName)) . '.png',
-    'logos/default_logo.png'
-];
-foreach ($possibleLogos as $logo) {
-    if (!$logo) continue;
-    $fullPath = $configPath . '/uploads/' . $logo;
-    if (file_exists($fullPath)) {
-        $logoExists = true;
-        $logoPath = BASE_URL . '/uploads/' . $logo;
-        break;
+
+// Check if companyLogo is already a Cloudinary URL
+if ($companyLogo && strpos($companyLogo, 'http') === 0) {
+    $logoExists = true;
+    $logoPath = $companyLogo;
+} else {
+    $possibleLogos = [
+        $companyLogo, 
+        'logos/' . $companyLogo, 
+        'logos/' . strtolower(str_replace(' ', '_', $companyName)) . '_logo.png',
+        'logos/' . strtolower(str_replace(' ', '_', $companyName)) . '.png',
+        'logos/default_logo.png'
+    ];
+    foreach ($possibleLogos as $logo) {
+        if (!$logo) continue;
+        $fullPath = $configPath . '/uploads/' . $logo;
+        if (file_exists($fullPath)) {
+            $logoExists = true;
+            $logoPath = BASE_URL . '/uploads/' . $logo;
+            break;
+        }
     }
 }
 ?>

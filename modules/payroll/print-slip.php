@@ -38,8 +38,8 @@ if ($businessId) {
     $logoResult = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = ?", 
         ['invoice_logo_' . $businessId]);
     if ($logoResult && !empty($logoResult['setting_value'])) {
-        // invoice_logo is stored as filename only, need to add path
-        $logoPath = 'uploads/logos/' . $logoResult['setting_value'];
+        $logoVal = $logoResult['setting_value'];
+        $logoPath = (strpos($logoVal, 'http') === 0) ? $logoVal : 'uploads/logos/' . $logoVal;
     }
 }
 
@@ -47,7 +47,8 @@ if ($businessId) {
 if (!$logoPath) {
     $logoResult = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'invoice_logo'");
     if ($logoResult && !empty($logoResult['setting_value'])) {
-        $logoPath = 'uploads/logos/' . $logoResult['setting_value'];
+        $logoVal = $logoResult['setting_value'];
+        $logoPath = (strpos($logoVal, 'http') === 0) ? $logoVal : 'uploads/logos/' . $logoVal;
     }
 }
 

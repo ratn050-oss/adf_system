@@ -84,13 +84,15 @@ try {
     $logoResult = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = ?", 
         ['invoice_logo_' . $businessId]);
     if ($logoResult && !empty($logoResult['setting_value'])) {
-        $companyLogoUrl = BASE_URL . '/uploads/logos/' . $logoResult['setting_value'];
+        $logoVal = $logoResult['setting_value'];
+        $companyLogoUrl = (strpos($logoVal, 'http') === 0) ? $logoVal : BASE_URL . '/uploads/logos/' . $logoVal;
     }
     // Priority 2: Global invoice_logo
     if (!$companyLogoUrl) {
         $logoResult = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'invoice_logo'");
         if ($logoResult && !empty($logoResult['setting_value'])) {
-            $companyLogoUrl = BASE_URL . '/uploads/logos/' . $logoResult['setting_value'];
+            $logoVal = $logoResult['setting_value'];
+            $companyLogoUrl = (strpos($logoVal, 'http') === 0) ? $logoVal : BASE_URL . '/uploads/logos/' . $logoVal;
         }
     }
     // Priority 3: company_logo

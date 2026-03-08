@@ -82,6 +82,7 @@ foreach ($settingsResult as $setting) {
         $bizId = str_replace('company_logo_', '', $setting['setting_key']);
         if ($bizId === ($_SESSION['selected_business_id'] ?? '')) {
             $companySettings['logo'] = $setting['setting_value'];
+            $companySettings['logo_is_url'] = (strpos($setting['setting_value'], 'http') === 0);
         }
     } else {
         $key = str_replace('company_', '', $setting['setting_key']);
@@ -392,7 +393,8 @@ if (empty($companySettings['name'])) {
         <div class="invoice-header">
             <div class="logo-section">
                 <?php if (!empty($companySettings['logo'])): ?>
-                    <img src="<?php echo BASE_URL; ?>/uploads/logos/<?php echo htmlspecialchars($companySettings['logo']); ?>" 
+                    <?php $logoSrc = (!empty($companySettings['logo_is_url'])) ? $companySettings['logo'] : BASE_URL . '/uploads/logos/' . $companySettings['logo']; ?>
+                    <img src="<?php echo htmlspecialchars($logoSrc); ?>" 
                          alt="Company Logo"
                          onerror="this.style.display='none'">
                 <?php else: ?>

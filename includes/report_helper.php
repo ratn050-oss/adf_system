@@ -61,9 +61,21 @@ function generateReportHeader($title, $subtitle = '', $dateRange = '', $logoPath
     $logoHtml = '';
     
     // Logo should be a browser-accessible URL, not a filesystem path
-    if ($displayLogo && (strpos($displayLogo, 'http') === 0 || strpos($displayLogo, '/') === 0)) {
-        // It's already a URL or absolute web path - use as-is
+    if ($displayLogo && strpos($displayLogo, 'http') === 0) {
+        // Cloudinary or external URL - use as-is
         $logoHtml = '<img src="' . htmlspecialchars($displayLogo) . '" alt="Logo" style="width: 120px; height: 120px; object-fit: contain;">';
+    } elseif ($displayLogo && strpos($displayLogo, '/') === 0) {
+        // Absolute web path - use as-is
+        $logoHtml = '<img src="' . htmlspecialchars($displayLogo) . '" alt="Logo" style="width: 120px; height: 120px; object-fit: contain;">';
+    } elseif ($displayLogo) {
+        // Relative path - convert to full URL
+        $localPath = __DIR__ . '/../' . ltrim($displayLogo, '/');
+        if (file_exists($localPath)) {
+            $logoUrl = (defined('BASE_URL') ? BASE_URL : '') . '/' . ltrim($displayLogo, '/');
+            $logoHtml = '<img src="' . htmlspecialchars($logoUrl) . '" alt="Logo" style="width: 120px; height: 120px; object-fit: contain;">';
+        } else {
+            $logoHtml = '<div style="width: 120px; height: 120px; font-size: 64px; display: flex; align-items: center; justify-content: center;">' . $company['icon'] . '</div>';
+        }
     } else {
         // Fallback to icon emoji
         $logoHtml = '<div style="width: 120px; height: 120px; font-size: 64px; display: flex; align-items: center; justify-content: center;">' . $company['icon'] . '</div>';

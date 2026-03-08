@@ -115,9 +115,21 @@ if (isset($_GET['delete_invoice_logo']) && $_GET['delete_invoice_logo'] === '1')
     $currentLogo = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = :key", 
         ['key' => $settingKey]);
     if ($currentLogo) {
-        $uploadDir = BASE_PATH . '/uploads/logos/';
-        if (file_exists($uploadDir . $currentLogo['setting_value'])) {
-            unlink($uploadDir . $currentLogo['setting_value']);
+        $logoVal = $currentLogo['setting_value'];
+        if (strpos($logoVal, 'http') === 0) {
+            // Cloudinary URL - delete from Cloudinary
+            try {
+                $cloudinary = CloudinaryHelper::getInstance();
+                $cloudinary->delete($logoVal);
+            } catch (Exception $e) {
+                error_log('Cloudinary delete error: ' . $e->getMessage());
+            }
+        } else {
+            // Local file
+            $uploadDir = BASE_PATH . '/uploads/logos/';
+            if (file_exists($uploadDir . $logoVal)) {
+                unlink($uploadDir . $logoVal);
+            }
         }
         
         $db->query("DELETE FROM settings WHERE setting_key = :key", 
@@ -184,9 +196,12 @@ include '../../includes/header.php';
                         <?php 
                             $invoiceLogo = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = :key", 
                                 ['key' => 'invoice_logo_' . ACTIVE_BUSINESS_ID]);
-                            if ($invoiceLogo && file_exists(BASE_PATH . '/uploads/logos/' . $invoiceLogo['setting_value'])): 
+                            $invoiceLogoVal = $invoiceLogo ? $invoiceLogo['setting_value'] : '';
+                            $isCloudUrl = ($invoiceLogoVal && strpos($invoiceLogoVal, 'http') === 0);
+                            if ($invoiceLogo && ($isCloudUrl || file_exists(BASE_PATH . '/uploads/logos/' . $invoiceLogoVal))): 
+                                $invoiceLogoSrc = $isCloudUrl ? $invoiceLogoVal : BASE_URL . '/uploads/logos/' . $invoiceLogoVal;
                         ?>
-                            <img src="<?php echo BASE_URL; ?>/uploads/logos/<?php echo $invoiceLogo['setting_value']; ?>" 
+                            <img src="<?php echo htmlspecialchars($invoiceLogoSrc); ?>" 
                                  style="max-width: 100%; max-height: 100%; object-fit: contain;" alt="Invoice Logo">
                         <?php else: ?>
                             <div style="text-align: center; color: var(--text-muted);">
@@ -317,9 +332,11 @@ include '../../includes/header.php';
                         $displayLogo = null;
                         
                         if ($invoiceLogo && !empty($invoiceLogo['setting_value'])) {
-                            $displayLogo = BASE_URL . '/uploads/logos/' . $invoiceLogo['setting_value'];
+                            $val = $invoiceLogo['setting_value'];
+                            $displayLogo = (strpos($val, 'http') === 0) ? $val : BASE_URL . '/uploads/logos/' . $val;
                         } elseif (!empty($settings['company_logo'])) {
-                            $displayLogo = BASE_URL . '/uploads/logos/' . $settings['company_logo'];
+                            $val = $settings['company_logo'];
+                            $displayLogo = (strpos($val, 'http') === 0) ? $val : BASE_URL . '/uploads/logos/' . $val;
                         }
                         ?>
                         

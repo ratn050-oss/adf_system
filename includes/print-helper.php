@@ -37,7 +37,8 @@ function printHeader($db, $displayCompanyName, $businessIcon, $businessType, $ti
     }
     
     // Convert relative path to absolute if needed
-    if ($logoPath && strpos($logoPath, 'http') !== 0) {
+    $isCloudinaryUrl = ($logoPath && strpos($logoPath, 'http') === 0);
+    if ($logoPath && !$isCloudinaryUrl) {
         $testPath = __DIR__ . '/../' . ltrim($logoPath, '/');
         if (file_exists($testPath)) {
             $logoPath = $testPath;
@@ -48,7 +49,9 @@ function printHeader($db, $displayCompanyName, $businessIcon, $businessType, $ti
     ?>
     <div class="print-header">
         <div class="print-header-left">
-            <?php if ($logoPath && file_exists($logoPath)): ?>
+            <?php if ($isCloudinaryUrl): ?>
+                <img src="<?php echo htmlspecialchars($logoPath); ?>" class="print-logo" alt="Logo">
+            <?php elseif ($logoPath && file_exists($logoPath)): ?>
                 <img src="<?php echo $logoPath; ?>" class="print-logo" alt="Logo">
             <?php else: ?>
                 <div style="width: 60px; height: 60px; margin: 0 auto; background: linear-gradient(135deg, #6366f1, #8b5cf6); border-radius: 0.35rem; display: flex; align-items: center; justify-content: center; font-size: 2rem; color: white;">
