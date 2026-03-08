@@ -1914,6 +1914,15 @@ echo getPrintCSS();
 </div>
 <?php endif; ?>
 
+<!-- Spin animation for loading state -->
+<style>
+@keyframes spin-anim { from { transform: rotate(0deg); } to { transform: rotate(360deg); } }
+.spin-icon { animation: spin-anim 1s linear infinite; }
+</style>
+
+<!-- html2pdf.js for PDF generation -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
 <!-- JavaScript for Print Handling -->
 <script>
     // Check if print parameter is in URL
@@ -2062,77 +2071,150 @@ echo getPrintCSS();
     }
 
     /**
-     * Send WhatsApp - Formats the report as text and opens WhatsApp
-     * Same data as the print version, formatted for WhatsApp readability
+     * Send WhatsApp - Generates PDF from print preview and shares via WhatsApp
+     * Design is exactly the same as Cetak PDF / Print preview
      */
     function sendWhatsApp() {
-        // Build WhatsApp text from PHP-generated data
-        var companyName = <?php echo json_encode($displayCompanyName); ?>;
-        var periodText = <?php echo json_encode($periodText); ?>;
-        var totalIncome = <?php echo json_encode(formatCurrency($totalIncome)); ?>;
-        var totalExpense = <?php echo json_encode(formatCurrency($totalExpense)); ?>;
-        var balance = <?php echo json_encode(formatCurrency($balance)); ?>;
-        var printTitle = <?php echo json_encode($printTitle); ?>;
-        var transactionCount = <?php echo count($transactions); ?>;
+        var btn = event.currentTarget;
+        var originalHTML = btn.innerHTML;
+        btn.disabled = true;
+        btn.innerHTML = '<span style="display:inline-flex;align-items:center;gap:0.5rem;"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="spin-icon"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg> Generating PDF...</span>';
 
-        var text = '*' + companyName + '*\n';
-        text += '*' + printTitle + '*\n';
-        text += 'Periode: ' + periodText + '\n';
-        text += '━━━━━━━━━━━━━━━━━━\n\n';
+        // Create a temporary container with print content + styling
+        var container = document.createElement('div');
+        container.innerHTML = document.getElementById('printSection').innerHTML;
+        container.style.cssText = 'width: 800px; padding: 1.5rem; font-family: Segoe UI, Arial, sans-serif; background: white; color: #111827;';
 
-        text += '📊 *RINGKASAN*\n';
-        text += '✅ Total Pemasukan: *' + totalIncome + '*\n';
-        text += '❌ Total Pengeluaran: *' + totalExpense + '*\n';
-        text += '💰 Saldo: *' + balance + '*\n';
-        text += '📋 Jumlah Transaksi: ' + transactionCount + '\n';
-        text += '━━━━━━━━━━━━━━━━━━\n\n';
+        // Apply inline styles for pdf rendering
+        var style = document.createElement('style');
+        style.textContent = `
+            .print-header { display: table; width: 100%; margin-bottom: 1rem; border-bottom: 2px solid #111827; padding-bottom: 1rem; }
+            .print-header-left { display: table-cell; width: 12%; vertical-align: middle; text-align: center; }
+            .print-header-center { display: table-cell; width: 76%; vertical-align: middle; text-align: center; padding: 0 1rem; }
+            .print-header-right { display: table-cell; width: 12%; vertical-align: middle; text-align: right; }
+            .print-logo { width: 65px; height: 65px; object-fit: contain; }
+            .print-company-name { font-size: 1.4rem; font-weight: 800; color: #111827; margin: 0 0 0.1rem 0; }
+            .print-company-type { display: none; }
+            .print-title { font-size: 1rem; font-weight: 700; color: #111827; margin: 0.5rem 0 0.2rem 0; text-transform: uppercase; letter-spacing: 1px; }
+            .print-period { font-size: 0.85rem; color: #6b7280; margin: 0; }
+            .print-summary { display: flex; gap: 0; margin-bottom: 1rem; border: 1px solid #d1d5db; border-radius: 6px; overflow: hidden; }
+            .print-summary-card { flex: 1; padding: 0.6rem 0.75rem; text-align: center; border-right: 1px solid #d1d5db; }
+            .print-summary-card:last-child { border-right: none; }
+            .print-summary-label { font-size: 0.7rem; color: #6b7280; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.15rem; }
+            .print-summary-value { font-size: 1.05rem; font-weight: 800; color: #111827; }
+            .print-summary-value.income { color: #059669; }
+            .print-summary-value.expense { color: #dc2626; }
+            .print-summary-value.balance { color: #111827; }
+            table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+            thead { background: #111827; color: white; }
+            th { padding: 0.45rem 0.5rem; font-weight: 600; font-size: 0.68rem; border: 1px solid #111827; text-transform: uppercase; letter-spacing: 0.3px; text-align: left; color: white; }
+            td { padding: 0.35rem 0.5rem; border: 1px solid #e5e7eb; font-size: 0.75rem; line-height: 1.3; }
+            tbody tr:nth-child(even) { background: #f9fafb; }
+            tfoot td { border-color: #d1d5db; }
+            .badge { display: inline-block; padding: 0.15rem 0.4rem; border-radius: 3px; font-size: 0.65rem; font-weight: 700; }
+            .badge.income { background: #d1fae5; color: #065f46; }
+            .badge.expense { background: #fee2e2; color: #991b1b; }
+            .print-footer { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #d1d5db; display: flex; justify-content: space-around; text-align: center; }
+            .print-footer-item { flex: 1; }
+            .print-footer-label { font-size: 0.75rem; color: #6b7280; margin-bottom: 2.5rem; }
+            .print-footer-line { border-top: 1px solid #111827; width: 70%; margin: 0 auto 0.3rem auto; }
+            .print-footer-text { font-size: 0.8rem; color: #111827; font-weight: 600; }
+        `;
+        container.prepend(style);
 
-        text += '📝 *DETAIL TRANSAKSI*\n\n';
+        // Temporarily add to DOM (needed for html2pdf to render)
+        container.style.position = 'fixed';
+        container.style.left = '-9999px';
+        container.style.top = '0';
+        document.body.appendChild(container);
 
-        <?php 
-        $waNo = 0;
-        $waLastDate = '';
-        $waLines = [];
-        foreach ($transactions as $trans) {
-            $waNo++;
-            $currentTrDate = date('d/m/Y', strtotime($trans['transaction_date']));
-            $waTime = isset($trans['transaction_time']) ? date('H:i', strtotime($trans['transaction_time'])) : '-';
-            $waType = $trans['transaction_type'] === 'income' ? '⬆️ MASUK' : '⬇️ KELUAR';
-            $waAmount = formatCurrency($trans['amount']);
-            $waDiv = $trans['division_name'];
-            $waCat = $trans['category_name'];
-            $waDesc = $trans['description'] ?: '-';
-            // Strip CQC tags from description
-            $waDesc = trim(preg_replace('/\[CQC_PROJECT:\d+\]\s*/', '', $waDesc));
-            $waDesc = trim(preg_replace('/\[OPERATIONAL_OFFICE\]\s*/', '', $waDesc));
-            if (empty($waDesc)) $waDesc = '-';
-            $waMethod = strtoupper($trans['payment_method'] ?? '-');
-            
-            // Date separator
-            if ($currentTrDate !== $waLastDate) {
-                $waLines[] = '📅 *' . $currentTrDate . '*';
-                $waLastDate = $currentTrDate;
+        var fileName = <?php echo json_encode(
+            'Buku-Kas-' . $displayCompanyName . '-' . 
+            (!empty($filterMonth) ? $filterMonth : (!empty($filterDate) ? $filterDate : date('Y-m-d')))
+        ); ?> + '.pdf';
+        // Sanitize filename
+        fileName = fileName.replace(/[^a-zA-Z0-9._\-]/g, '_');
+
+        var opt = {
+            margin:       [8, 10, 8, 10],
+            filename:     fileName,
+            image:        { type: 'jpeg', quality: 0.95 },
+            html2canvas:  { scale: 2, useCORS: true, logging: false, letterRendering: true },
+            jsPDF:        { unit: 'mm', format: 'a4', orientation: 'portrait' }
+        };
+
+        html2pdf().set(opt).from(container).outputPdf('blob').then(function(pdfBlob) {
+            // Remove temp container
+            document.body.removeChild(container);
+
+            var pdfFile = new File([pdfBlob], fileName, { type: 'application/pdf' });
+
+            // Try Web Share API (works on mobile - direct to WhatsApp)
+            if (navigator.canShare && navigator.canShare({ files: [pdfFile] })) {
+                navigator.share({
+                    title: <?php echo json_encode($printTitle . ' - ' . $displayCompanyName); ?>,
+                    text: <?php echo json_encode($printTitle . ' - Periode: ' . $periodText); ?>,
+                    files: [pdfFile]
+                }).then(function() {
+                    // Shared successfully
+                }).catch(function(err) {
+                    if (err.name !== 'AbortError') {
+                        // Fallback: download PDF
+                        downloadAndPromptWhatsApp(pdfBlob, fileName);
+                    }
+                });
+            } else {
+                // Desktop fallback: download PDF + prompt to share
+                downloadAndPromptWhatsApp(pdfBlob, fileName);
             }
-            
-            $waLines[] = $waNo . '. ' . $waType . ' | ' . $waAmount;
-            $waLines[] = '   ' . $waCat . ' (' . $waDiv . ')';
-            $waLines[] = '   ' . $waMethod . ' | ' . $waTime;
-            if ($waDesc !== '-') {
-                $waLines[] = '   📌 ' . $waDesc;
+
+            // Restore button
+            btn.disabled = false;
+            btn.innerHTML = originalHTML;
+            if (typeof feather !== 'undefined') feather.replace();
+        }).catch(function(err) {
+            document.body.removeChild(container);
+            btn.disabled = false;
+            btn.innerHTML = originalHTML;
+            if (typeof feather !== 'undefined') feather.replace();
+            alert('Gagal membuat PDF: ' + err.message);
+        });
+    }
+
+    /**
+     * Fallback for desktop: Download PDF then open WhatsApp Web
+     */
+    function downloadAndPromptWhatsApp(pdfBlob, fileName) {
+        // Download the PDF
+        var url = URL.createObjectURL(pdfBlob);
+        var a = document.createElement('a');
+        a.href = url;
+        a.download = fileName;
+        document.body.appendChild(a);
+        a.click();
+        document.body.removeChild(a);
+        setTimeout(function() { URL.revokeObjectURL(url); }, 5000);
+
+        // Open WhatsApp with message to attach the downloaded PDF
+        var caption = <?php echo json_encode(
+            $printTitle . "\n" .
+            $displayCompanyName . "\n" .
+            'Periode: ' . $periodText . "\n" .
+            '━━━━━━━━━━━━━━━━━━' . "\n" .
+            '✅ Pemasukan: ' . formatCurrency($totalIncome) . "\n" .
+            '❌ Pengeluaran: ' . formatCurrency($totalExpense) . "\n" .
+            '💰 Saldo: ' . formatCurrency($balance) . "\n" .
+            '━━━━━━━━━━━━━━━━━━' . "\n" .
+            '📎 File PDF terlampir'
+        ); ?>;
+        var waUrl = 'https://wa.me/?text=' + encodeURIComponent(caption);
+        
+        // Small delay so download starts first
+        setTimeout(function() {
+            if (confirm('PDF berhasil di-download!\n\nBuka WhatsApp untuk mengirim?\nLampirkan file: ' + fileName)) {
+                window.open(waUrl, '_blank');
             }
-            $waLines[] = '';
-        }
-        ?>
-
-        text += <?php echo json_encode(implode("\n", $waLines)); ?>;
-
-        text += '\n━━━━━━━━━━━━━━━━━━\n';
-        text += '🖨️ Dicetak: <?php echo date('d/m/Y H:i'); ?>\n';
-        text += '👤 Oleh: <?php echo htmlspecialchars($currentUser['full_name'] ?? 'Admin'); ?>';
-
-        // Encode and open WhatsApp
-        var encoded = encodeURIComponent(text);
-        window.open('https://wa.me/?text=' + encoded, '_blank');
+        }, 800);
     }
     
     feather.replace();
