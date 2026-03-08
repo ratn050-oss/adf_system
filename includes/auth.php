@@ -220,11 +220,7 @@ class Auth {
             return false;
         }
         
-        // Developer role has full access to everything
         $userRole = $_SESSION['role'] ?? 'staff';
-        if ($userRole === 'developer') {
-            return true;
-        }
         
         // Get username from session
         $username = $_SESSION['username'] ?? null;
@@ -248,6 +244,7 @@ class Auth {
             
             if (!$masterUser) {
                 // User not in master database, fallback to role-based
+                if ($userRole === 'developer') return true;
                 return $this->hasPermissionFallback($module);
             }
             
@@ -258,6 +255,7 @@ class Auth {
             
             // If no active business set, fallback (shouldn't happen after login)
             if (!$activeBusinessId) {
+                if ($userRole === 'developer') return true;
                 error_log("⚠️ FALLBACK: No active_business_id in session for user {$username} (ID {$masterId})");
                 error_log("Session active_business_id = " . var_export($_SESSION['active_business_id'] ?? 'MISSING', true));
                 return $this->hasPermissionFallback($module);
@@ -279,11 +277,29 @@ class Auth {
             
             if (!$business) {
                 // Business not found, fallback
+                if ($userRole === 'developer') return true;
                 error_log("Warning: Business not found for code {$businessCode}");
                 return $this->hasPermissionFallback($module);
             }
             
             $businessId = $business['id'];
+            
+            // For developers: check if permissions have been configured for this business
+            // If no entries exist at all, grant full access (backward compatible)
+            if ($userRole === 'developer') {
+                $countStmt = $masterPdo->prepare("
+                    SELECT COUNT(*) as total
+                    FROM user_menu_permissions
+                    WHERE user_id = ? AND business_id = ?
+                ");
+                $countStmt->execute([$masterId, $businessId]);
+                $countResult = $countStmt->fetch(PDO::FETCH_ASSOC);
+                
+                if (!$countResult || (int)$countResult['total'] === 0) {
+                    // No permissions configured yet for this developer+business, grant full access
+                    return true;
+                }
+            }
             
             // Check permission in master database
             // Query directly using menu_code (no JOIN needed)
@@ -318,12 +334,12 @@ class Auth {
     
     /**
      * Check granular permission (can_edit, can_delete, can_create) for the current user/business.
-     * Developer role always returns true.
+     * Developer role respects configured permissions per business (falls back to allow-all if unconfigured).
      */
     private function checkGranularPerm(string $module, string $column): bool {
         if (!$this->isLoggedIn()) return false;
         $userRole = $_SESSION['role'] ?? 'staff';
-        if (in_array($userRole, ['developer', 'admin'])) return true;
+        if ($userRole === 'admin') return true;
 
         $username = $_SESSION['username'] ?? null;
         if (!$username) return false;
@@ -337,10 +353,10 @@ class Auth {
             $userRow = $masterPdo->prepare("SELECT id FROM users WHERE username = ? LIMIT 1");
             $userRow->execute([$username]);
             $masterUser = $userRow->fetch(PDO::FETCH_ASSOC);
-            if (!$masterUser) return false;
+            if (!$masterUser) return ($userRole === 'developer');
 
             $activeBusinessId = $_SESSION['active_business_id'] ?? null;
-            if (!$activeBusinessId) return false;
+            if (!$activeBusinessId) return ($userRole === 'developer');
 
             $idToCodeMap = [
                 'bens-cafe' => 'BENSCAFE',
@@ -352,7 +368,17 @@ class Auth {
             $bizRow = $masterPdo->prepare("SELECT id FROM businesses WHERE business_code = ? LIMIT 1");
             $bizRow->execute([$businessCode]);
             $business = $bizRow->fetch(PDO::FETCH_ASSOC);
-            if (!$business) return false;
+            if (!$business) return ($userRole === 'developer');
+
+            // For developers: if no permissions configured for this business, allow all
+            if ($userRole === 'developer') {
+                $countStmt = $masterPdo->prepare("SELECT COUNT(*) as total FROM user_menu_permissions WHERE user_id = ? AND business_id = ?");
+                $countStmt->execute([$masterUser['id'], $business['id']]);
+                $countResult = $countStmt->fetch(PDO::FETCH_ASSOC);
+                if (!$countResult || (int)$countResult['total'] === 0) {
+                    return true;
+                }
+            }
 
             $sql = "SELECT {$column} FROM user_menu_permissions WHERE user_id=? AND business_id=? AND menu_code=? LIMIT 1";
             $permRow = $masterPdo->prepare($sql);
@@ -361,8 +387,8 @@ class Auth {
             return $perm && (int)$perm[$column] === 1;
         } catch (Exception $e) {
             error_log("⚠️ Granular perm check failed: " . $e->getMessage());
-            // On error: fallback allow for admin/manager/owner, deny for staff
-            return in_array($userRole, ['owner', 'manager']);
+            // On error: fallback allow for developer/admin/manager/owner, deny for staff
+            return in_array($userRole, ['developer', 'owner', 'manager']);
         }
     }
 
