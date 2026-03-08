@@ -127,25 +127,75 @@ try {
         // Occupancy rate
         $stats['occupancy'] = $stats['total_rooms'] > 0 ? round(($stats['occupied'] / $stats['total_rooms']) * 100) : 0;
 
-        // Today's revenue (from booking_payments)
-        // FIXED: Only count payments from checked_in/checked_out bookings
-        // OTA payments should only count when guest has checked in
+        // Revenue from cash_book (source of truth - matches Buku Kas Besar in system)
+        // Exclude owner capital/modal entries for accurate business revenue
+        $hasCashBook = false;
         try {
-            $stmt = $pdo->prepare("
-                SELECT COALESCE(SUM(bp.amount), 0) as total
-                FROM booking_payments bp
-                JOIN bookings b ON bp.booking_id = b.id
-                WHERE DATE(bp.payment_date) = ?
-                AND b.status IN ('checked_in', 'checked_out')
-            ");
-            $stmt->execute([$today]);
-            $stats['today_revenue'] = (float)$stmt->fetchColumn();
-        } catch (Exception $e) {
-            $stats['today_revenue'] = 0;
+            $cbCheck = $pdo->query("SHOW TABLES LIKE 'cash_book'");
+            $hasCashBook = $cbCheck->rowCount() > 0;
+        } catch (Exception $e) {}
+
+        if ($hasCashBook) {
+            // Build exclusion clause for modal/capital entries
+            $revenueExclude = "";
+            try {
+                // Check if cash_account_id column exists
+                $colCheck = $pdo->query("SHOW COLUMNS FROM cash_book LIKE 'cash_account_id'");
+                if ($colCheck && $colCheck->rowCount() > 0) {
+                    // Get master DB connection for cash_accounts
+                    $masterPdoRev = new PDO(
+                        "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=utf8mb4",
+                        DB_USER, DB_PASS, [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
+                    );
+                    // Get business ID from master
+                    $bizStmt = $masterPdoRev->prepare("SELECT id FROM businesses WHERE database_name = ? LIMIT 1");
+                    $bizStmt->execute([$activeConfig['database'] ?? '']);
+                    $bizRow = $bizStmt->fetch(PDO::FETCH_ASSOC);
+                    $numBizId = $bizRow ? (int)$bizRow['id'] : null;
+                    
+                    if ($numBizId) {
+                        $capStmt = $masterPdoRev->prepare("SELECT id FROM cash_accounts WHERE business_id = ? AND account_type = 'owner_capital'");
+                        $capStmt->execute([$numBizId]);
+                        $capitalAccIds = $capStmt->fetchAll(PDO::FETCH_COLUMN);
+                        if (!empty($capitalAccIds)) {
+                            $revenueExclude .= " AND (cash_account_id IS NULL OR cash_account_id NOT IN (" . implode(',', array_map('intval', $capitalAccIds)) . "))";
+                        }
+                    }
+                }
+                
+                // Exclude modal/transfer categories
+                $catStmt = $pdo->query("SELECT id FROM categories WHERE LOWER(category_name) LIKE '%modal%' OR LOWER(category_name) LIKE '%transfer%dana%' OR LOWER(category_name) LIKE '%capital%'");
+                $excludeCats = $catStmt->fetchAll(PDO::FETCH_COLUMN);
+                if (!empty($excludeCats)) {
+                    $revenueExclude .= " AND (category_id IS NULL OR category_id NOT IN (" . implode(',', array_map('intval', $excludeCats)) . "))";
+                }
+                
+                // Exclude by description patterns
+                $revenueExclude .= " AND (LOWER(description) NOT LIKE '%modal operasional%' AND LOWER(description) NOT LIKE '%transfer dana%' AND LOWER(description) NOT LIKE '%setoran modal%')";
+            } catch (Exception $e) {
+                // If exclusion logic fails, continue without exclusions
+            }
+
+            // Today's revenue from cash_book
+            try {
+                $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount), 0) FROM cash_book WHERE DATE(transaction_date) = ? AND transaction_type = 'income'" . $revenueExclude);
+                $stmt->execute([$today]);
+                $stats['today_revenue'] = (float)$stmt->fetchColumn();
+            } catch (Exception $e) {
+                $stats['today_revenue'] = 0;
+            }
+
+            // This month's revenue from cash_book
+            try {
+                $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount), 0) FROM cash_book WHERE DATE_FORMAT(transaction_date, '%Y-%m') = ? AND transaction_type = 'income'" . $revenueExclude);
+                $stmt->execute([$thisMonth]);
+                $stats['month_revenue'] = (float)$stmt->fetchColumn();
+            } catch (Exception $e) {
+                $stats['month_revenue'] = 0;
+            }
         }
 
-        // In-House Revenue (total paid from CHECKED-IN guests only)
-        // FIXED: Only count checked_in, not confirmed (OTA belum masuk kas sampai check-in)
+        // In-House Revenue (total from currently checked-in guests)
         try {
             $stmt = $pdo->query("
                 SELECT COALESCE(SUM(bp.amount), 0) as total
@@ -166,34 +216,6 @@ try {
             }
         } catch (Exception $e) {
             $stats['inhouse_revenue'] = 0;
-        }
-
-        // Monthly revenue - only from checked_in or checked_out bookings
-        // FIXED: confirmed (belum check-in) tidak termasuk
-        try {
-            $stmt = $pdo->prepare("
-                SELECT COALESCE(SUM(bp.amount), 0) as total
-                FROM booking_payments bp
-                JOIN bookings b ON bp.booking_id = b.id
-                WHERE DATE_FORMAT(bp.payment_date, '%Y-%m') = ?
-                AND b.status IN ('checked_in', 'checked_out')
-            ");
-            $stmt->execute([$thisMonth]);
-            $stats['month_revenue'] = (float)$stmt->fetchColumn();
-            
-            // Fallback: use bookings.paid_amount for this month
-            if ($stats['month_revenue'] == 0) {
-                $stmt = $pdo->prepare("
-                    SELECT COALESCE(SUM(paid_amount), 0) as total
-                    FROM bookings
-                    WHERE DATE_FORMAT(created_at, '%Y-%m') = ?
-                    AND status IN ('checked_in', 'checked_out')
-                ");
-                $stmt->execute([$thisMonth]);
-                $stats['month_revenue'] = (float)$stmt->fetchColumn();
-            }
-        } catch (Exception $e) {
-            $stats['month_revenue'] = 0;
         }
 
         // In-house guests list

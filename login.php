@@ -55,6 +55,16 @@ try {
     // Settings table might not exist yet, continue without background
 }
 
+// Read saved credentials from cookies (works on iPhone Safari unlike localStorage)
+$savedUser = '';
+$savedCred = '';
+$isRemembered = false;
+if (!empty($_COOKIE['adf_remember']) && !empty($_COOKIE['adf_saved_user']) && !empty($_COOKIE['adf_saved_cred'])) {
+    $savedUser = base64_decode($_COOKIE['adf_saved_user']);
+    $savedCred = base64_decode($_COOKIE['adf_saved_cred']);
+    $isRemembered = true;
+}
+
 // If already logged in, redirect to dashboard
 // But allow POST login_type=owner to re-login as owner
 if ($auth->isLoggedIn() && !isPost()) {
@@ -71,7 +81,24 @@ if ($auth->isLoggedIn() && !isPost()) {
 if (isPost()) {
     $username = sanitize(getPost('username'));
     $password = getPost('password');
+    $rememberMe = isset($_POST['remember_me']);
     $loginType = getPost('login_type') ?? 'normal'; // owner or normal
+    
+    // Handle remember me cookies
+    if ($rememberMe && $username && $password) {
+        $cookieExpiry = time() + (30 * 24 * 60 * 60); // 30 days
+        $cookiePath = parse_url(BASE_URL, PHP_URL_PATH) ?: '/';
+        $isSecure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
+        setcookie('adf_remember', '1', $cookieExpiry, $cookiePath, '', $isSecure, true);
+        setcookie('adf_saved_user', base64_encode($username), $cookieExpiry, $cookiePath, '', $isSecure, true);
+        setcookie('adf_saved_cred', base64_encode($password), $cookieExpiry, $cookiePath, '', $isSecure, true);
+    } else {
+        // Clear cookies if not checked
+        $cookiePath = parse_url(BASE_URL, PHP_URL_PATH) ?: '/';
+        setcookie('adf_remember', '', time() - 3600, $cookiePath);
+        setcookie('adf_saved_user', '', time() - 3600, $cookiePath);
+        setcookie('adf_saved_cred', '', time() - 3600, $cookiePath);
+    }
     
     // Check if business specified via URL parameter
     $forcedBusiness = isset($_GET['biz']) ? sanitize($_GET['biz']) : null;
@@ -767,23 +794,23 @@ if (isset($_GET['biz'])) {
                 </div>
             <?php endif; ?>
             
-            <form method="POST" action="">
+            <form method="POST" action="" autocomplete="on">
                 <div class="form-group">
                     <label class="form-label">Username</label>
-                    <input type="text" name="username" class="form-control" placeholder="Masukkan username" required autofocus>
+                    <input type="text" name="username" autocomplete="username" class="form-control" placeholder="Masukkan username" required autofocus value="<?= htmlspecialchars($savedUser) ?>">
                 </div>
                 
                 <div class="form-group">
                     <label class="form-label">Password</label>
                     <div class="password-wrapper">
-                        <input type="password" name="password" id="loginPassword" class="form-control" placeholder="Masukkan password" required style="padding-right: 45px;">
+                        <input type="password" name="password" id="loginPassword" autocomplete="current-password" class="form-control" placeholder="Masukkan password" required style="padding-right: 45px;" value="<?= htmlspecialchars($savedCred) ?>">
                         <span class="password-toggle" onclick="togglePassword('loginPassword', this)">👁️</span>
                     </div>
                 </div>
                 
                 <div class="remember-me-wrapper" onclick="document.getElementById('rememberMe').click();">
-                    <input type="checkbox" name="remember_me" id="rememberMe" onclick="event.stopPropagation();">
-                    <label for="rememberMe">💾 Simpan Password (Auto Login)</label>
+                    <input type="checkbox" name="remember_me" id="rememberMe" onclick="event.stopPropagation();" <?= $isRemembered ? 'checked' : '' ?>>
+                    <label for="rememberMe"><?= $isRemembered ? '✅ Password Tersimpan - Langsung Login!' : '💾 Simpan Password (Auto Login)' ?></label>
                 </div>
                 
                 <div class="login-buttons">
@@ -829,29 +856,40 @@ if (isset($_GET['biz'])) {
         document.querySelector('.btn-primary').focus();
     }
     
-    // Save credentials to localStorage
+    // Remember me - credentials saved via PHP cookies (works on iPhone Safari)
     document.addEventListener('DOMContentLoaded', function() {
-        const form = document.querySelector('form');
-        const usernameInput = document.querySelector('input[name="username"]');
-        const passwordInput = document.querySelector('input[name="password"]');
         const rememberCheckbox = document.getElementById('rememberMe');
         const rememberWrapper = document.querySelector('.remember-me-wrapper');
         const rememberLabel = rememberWrapper.querySelector('label');
         
-        // Load saved credentials
-        const savedUsername = localStorage.getItem('saved_username');
-        const savedPassword = localStorage.getItem('saved_password');
-        const rememberMe = localStorage.getItem('remember_me') === 'true';
-        
-        if (rememberMe && savedUsername && savedPassword) {
-            usernameInput.value = savedUsername;
-            passwordInput.value = savedPassword;
-            rememberCheckbox.checked = true;
-            // Show saved indicator
+        // If credentials were pre-filled by PHP (from cookies), show saved state
+        const isSaved = <?= $isRemembered ? 'true' : 'false' ?>;
+        if (isSaved) {
             rememberWrapper.style.background = 'rgba(16, 185, 129, 0.15)';
             rememberWrapper.style.borderColor = 'rgba(16, 185, 129, 0.35)';
-            rememberLabel.innerHTML = '✅ Password Tersimpan - Langsung Login!';
             rememberLabel.style.color = '#34d399';
+        }
+        
+        // Also migrate from localStorage if cookies are empty (one-time migration)
+        if (!isSaved) {
+            try {
+                const lsUser = localStorage.getItem('saved_username');
+                const lsPass = localStorage.getItem('saved_password');
+                const lsRemember = localStorage.getItem('remember_me') === 'true';
+                if (lsRemember && lsUser && lsPass) {
+                    document.querySelector('input[name="username"]').value = lsUser;
+                    document.querySelector('input[name="password"]').value = lsPass;
+                    rememberCheckbox.checked = true;
+                    rememberWrapper.style.background = 'rgba(16, 185, 129, 0.15)';
+                    rememberWrapper.style.borderColor = 'rgba(16, 185, 129, 0.35)';
+                    rememberLabel.innerHTML = '✅ Password Tersimpan - Langsung Login!';
+                    rememberLabel.style.color = '#34d399';
+                }
+                // Clean up old localStorage
+                localStorage.removeItem('saved_username');
+                localStorage.removeItem('saved_password');
+                localStorage.removeItem('remember_me');
+            } catch(e) {}
         }
         
         // Update label when checkbox changes
@@ -866,19 +904,6 @@ if (isset($_GET['biz'])) {
                 rememberLabel.style.color = '#e2e8f0';
                 rememberWrapper.style.background = 'rgba(99, 102, 241, 0.1)';
                 rememberWrapper.style.borderColor = 'rgba(99, 102, 241, 0.2)';
-            }
-        });
-        
-        // Save on form submit
-        form.addEventListener('submit', function() {
-            if (rememberCheckbox.checked) {
-                localStorage.setItem('saved_username', usernameInput.value);
-                localStorage.setItem('saved_password', passwordInput.value);
-                localStorage.setItem('remember_me', 'true');
-            } else {
-                localStorage.removeItem('saved_username');
-                localStorage.removeItem('saved_password');
-                localStorage.removeItem('remember_me');
             }
         });
     });
