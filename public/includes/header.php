@@ -29,7 +29,7 @@
             
             <ul class="navbar-menu">
                 <li><a href="<?php echo baseUrl(); ?>" class="nav-link">Home</a></li>
-                <li><a href="<?php echo baseUrl('rooms.php'); ?>" class="nav-link">Rooms & Rates</a></li>
+                <li><a href="<?php echo baseUrl(); ?>#rooms" class="nav-link">Rooms & Rates</a></li>
                 <li><a href="<?php echo baseUrl('booking.php'); ?>" class="nav-link booking-btn">Book Now</a></li>
             </ul>
             
@@ -43,7 +43,7 @@
     <div class="mobile-menu" id="mobileMenu">
         <ul>
             <li><a href="<?php echo baseUrl(); ?>">Home</a></li>
-            <li><a href="<?php echo baseUrl('rooms.php'); ?>">Rooms & Rates</a></li>
+            <li><a href="<?php echo baseUrl(); ?>#rooms">Rooms & Rates</a></li>
             <li><a href="<?php echo baseUrl('booking.php'); ?>" class="btn-mobile-booking">Book Now</a></li>
         </ul>
     </div>

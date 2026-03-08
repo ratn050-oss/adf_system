@@ -111,7 +111,7 @@ usort($destinations, function($a, $b) { return ($a['order'] ?? 0) - ($b['order']
 </section>
 
 <!-- ROOM SHOWCASE - Featured Luxury Rooms -->
-<section class="luxury-rooms">
+<section class="luxury-rooms" id="rooms">
     <div class="container">
         <div class="section-header">
             <h2>Our Exclusive Room Collection</h2>

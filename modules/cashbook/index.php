@@ -1478,9 +1478,9 @@ echo getPrintCSS();
             <a href="add.php" class="btn btn-primary">
                 <i data-feather="plus" style="width: 16px; height: 16px;"></i> Tambah Transaksi
             </a>
-            <a href="index.php?<?php echo http_build_query(array_merge($_GET, ['print' => '1'])); ?>" target="_blank" class="btn btn-secondary">
+            <button type="button" onclick="cetakPDF()" class="btn btn-secondary" style="display: flex; align-items: center; gap: 0.5rem;">
                 <i data-feather="printer" style="width: 16px; height: 16px;"></i> Cetak PDF
-            </a>
+            </button>
         </div>
     </div>
     
@@ -1551,6 +1551,14 @@ echo getPrintCSS();
                     <i data-feather="x" style="width: 16px; height: 16px;"></i> 
                     <span>Reset</span>
                 </a>
+                <button type="button" onclick="cetakPDF()" class="cqc-btn-filter" style="background: #3b82f6; color: #fff; flex: 0 0 auto; padding: 0 1.25rem;">
+                    <i data-feather="printer" style="width: 16px; height: 16px;"></i>
+                    <span>Cetak PDF</span>
+                </button>
+                <button type="button" onclick="sendWhatsApp()" class="cqc-btn-filter" style="background: #25d366; color: #fff; flex: 0 0 auto; padding: 0 1.25rem;">
+                    <i data-feather="message-circle" style="width: 16px; height: 16px;"></i>
+                    <span>Send WhatsApp</span>
+                </button>
             </div>
         </div>
     </form>
@@ -1621,6 +1629,14 @@ echo getPrintCSS();
                 <i data-feather="x" style="width: 16px; height: 16px;"></i> 
                 <span>Reset</span>
             </a>
+            <button type="button" onclick="cetakPDF()" class="btn btn-primary" style="flex: 0 0 auto; display: flex; align-items: center; justify-content: center; gap: 0.5rem; height: 40px; padding: 0 1.25rem; background: #3b82f6 !important; color: #fff !important;">
+                <i data-feather="printer" style="width: 16px; height: 16px;"></i>
+                <span>Cetak PDF</span>
+            </button>
+            <button type="button" onclick="sendWhatsApp()" class="btn btn-primary" style="flex: 0 0 auto; display: flex; align-items: center; justify-content: center; gap: 0.5rem; height: 40px; padding: 0 1.25rem; background: #25d366 !important; color: #fff !important;">
+                <i data-feather="message-circle" style="width: 16px; height: 16px;"></i>
+                <span>Send WhatsApp</span>
+            </button>
         </div>
     </form>
     <?php endif; ?>
@@ -1976,6 +1992,147 @@ echo getPrintCSS();
     } else {
         // Hide print section for screen
         document.getElementById('printSection').style.display = 'none';
+    }
+    
+    /**
+     * Cetak PDF - Opens print dialog directly from current page
+     * Uses the existing printSection content without reloading the page
+     * This fixes the slow loading issue since it doesn't re-run auto-sync
+     */
+    function cetakPDF() {
+        var printContent = document.getElementById('printSection').innerHTML;
+        var printWindow = window.open('', '_blank', 'width=900,height=700');
+        printWindow.document.write('<html><head><title>Cetak Buku Kas Besar</title>');
+        printWindow.document.write('<style>');
+        printWindow.document.write(`
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { background: white; font-family: 'Segoe UI', Arial, sans-serif; padding: 2rem 1.5rem; max-width: 900px; margin: 0 auto; }
+            .print-header {
+                display: table; width: 100%;
+                margin-bottom: 1rem; border-bottom: 2px solid #111827; padding-bottom: 1rem;
+            }
+            .print-header-left { display: table-cell; width: 12%; vertical-align: middle; text-align: center; }
+            .print-header-center { display: table-cell; width: 76%; vertical-align: middle; text-align: center; padding: 0 1rem; }
+            .print-header-right { display: table-cell; width: 12%; vertical-align: middle; text-align: right; }
+            .print-logo { width: 65px; height: 65px; object-fit: contain; }
+            .print-company-name { font-size: 1.4rem; font-weight: 800; color: #111827; margin: 0 0 0.1rem 0; }
+            .print-company-type { display: none; }
+            .print-title { font-size: 1rem; font-weight: 700; color: #111827; margin: 0.5rem 0 0.2rem 0; text-transform: uppercase; letter-spacing: 1px; }
+            .print-period { font-size: 0.85rem; color: #6b7280; margin: 0; }
+            .print-summary {
+                display: flex; gap: 0; margin-bottom: 1rem;
+                border: 1px solid #d1d5db; border-radius: 6px; overflow: hidden;
+            }
+            .print-summary-card { flex: 1; padding: 0.6rem 0.75rem; text-align: center; border-right: 1px solid #d1d5db; }
+            .print-summary-card:last-child { border-right: none; }
+            .print-summary-label { font-size: 0.7rem; color: #6b7280; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; margin-bottom: 0.15rem; }
+            .print-summary-value { font-size: 1.05rem; font-weight: 800; color: #111827; }
+            .print-summary-value.income { color: #059669; }
+            .print-summary-value.expense { color: #dc2626; }
+            .print-summary-value.balance { color: #111827; }
+            table { width: 100%; border-collapse: collapse; font-size: 0.8rem; }
+            thead { background: #111827; color: white; }
+            th { padding: 0.45rem 0.5rem; font-weight: 600; font-size: 0.7rem; border: 1px solid #111827; text-transform: uppercase; letter-spacing: 0.3px; text-align: left; }
+            td { padding: 0.35rem 0.5rem; border: 1px solid #e5e7eb; font-size: 0.78rem; line-height: 1.3; }
+            tbody tr:nth-child(even) { background: #f9fafb; }
+            tfoot td { border-color: #d1d5db; }
+            .badge { display: inline-block; padding: 0.15rem 0.4rem; border-radius: 3px; font-size: 0.65rem; font-weight: 700; }
+            .badge.income { background: #d1fae5; color: #065f46; }
+            .badge.expense { background: #fee2e2; color: #991b1b; }
+            .print-footer { margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #d1d5db; display: flex; justify-content: space-around; text-align: center; }
+            .print-footer-item { flex: 1; }
+            .print-footer-label { font-size: 0.75rem; color: #6b7280; margin-bottom: 2.5rem; }
+            .print-footer-line { border-top: 1px solid #111827; width: 70%; margin: 0 auto 0.3rem auto; }
+            .print-footer-text { font-size: 0.8rem; color: #111827; font-weight: 600; }
+            @media print {
+                * { -webkit-print-color-adjust: exact; print-color-adjust: exact; color-adjust: exact; }
+                body { padding: 0; }
+                @page { margin: 0.4in 0.5in; size: A4; }
+            }
+        `);
+        printWindow.document.write('</style></head><body>');
+        printWindow.document.write(printContent);
+        printWindow.document.write('</body></html>');
+        printWindow.document.close();
+        printWindow.focus();
+        // Trigger print after content is rendered
+        printWindow.onload = function() {
+            printWindow.print();
+        };
+    }
+
+    /**
+     * Send WhatsApp - Formats the report as text and opens WhatsApp
+     * Same data as the print version, formatted for WhatsApp readability
+     */
+    function sendWhatsApp() {
+        // Build WhatsApp text from PHP-generated data
+        var companyName = <?php echo json_encode($displayCompanyName); ?>;
+        var periodText = <?php echo json_encode($periodText); ?>;
+        var totalIncome = <?php echo json_encode(formatCurrency($totalIncome)); ?>;
+        var totalExpense = <?php echo json_encode(formatCurrency($totalExpense)); ?>;
+        var balance = <?php echo json_encode(formatCurrency($balance)); ?>;
+        var printTitle = <?php echo json_encode($printTitle); ?>;
+        var transactionCount = <?php echo count($transactions); ?>;
+
+        var text = '*' + companyName + '*\n';
+        text += '*' + printTitle + '*\n';
+        text += 'Periode: ' + periodText + '\n';
+        text += '━━━━━━━━━━━━━━━━━━\n\n';
+
+        text += '📊 *RINGKASAN*\n';
+        text += '✅ Total Pemasukan: *' + totalIncome + '*\n';
+        text += '❌ Total Pengeluaran: *' + totalExpense + '*\n';
+        text += '💰 Saldo: *' + balance + '*\n';
+        text += '📋 Jumlah Transaksi: ' + transactionCount + '\n';
+        text += '━━━━━━━━━━━━━━━━━━\n\n';
+
+        text += '📝 *DETAIL TRANSAKSI*\n\n';
+
+        <?php 
+        $waNo = 0;
+        $waLastDate = '';
+        $waLines = [];
+        foreach ($transactions as $trans) {
+            $waNo++;
+            $currentTrDate = date('d/m/Y', strtotime($trans['transaction_date']));
+            $waTime = isset($trans['transaction_time']) ? date('H:i', strtotime($trans['transaction_time'])) : '-';
+            $waType = $trans['transaction_type'] === 'income' ? '⬆️ MASUK' : '⬇️ KELUAR';
+            $waAmount = formatCurrency($trans['amount']);
+            $waDiv = $trans['division_name'];
+            $waCat = $trans['category_name'];
+            $waDesc = $trans['description'] ?: '-';
+            // Strip CQC tags from description
+            $waDesc = trim(preg_replace('/\[CQC_PROJECT:\d+\]\s*/', '', $waDesc));
+            $waDesc = trim(preg_replace('/\[OPERATIONAL_OFFICE\]\s*/', '', $waDesc));
+            if (empty($waDesc)) $waDesc = '-';
+            $waMethod = strtoupper($trans['payment_method'] ?? '-');
+            
+            // Date separator
+            if ($currentTrDate !== $waLastDate) {
+                $waLines[] = '📅 *' . $currentTrDate . '*';
+                $waLastDate = $currentTrDate;
+            }
+            
+            $waLines[] = $waNo . '. ' . $waType . ' | ' . $waAmount;
+            $waLines[] = '   ' . $waCat . ' (' . $waDiv . ')';
+            $waLines[] = '   ' . $waMethod . ' | ' . $waTime;
+            if ($waDesc !== '-') {
+                $waLines[] = '   📌 ' . $waDesc;
+            }
+            $waLines[] = '';
+        }
+        ?>
+
+        text += <?php echo json_encode(implode("\n", $waLines)); ?>;
+
+        text += '\n━━━━━━━━━━━━━━━━━━\n';
+        text += '🖨️ Dicetak: <?php echo date('d/m/Y H:i'); ?>\n';
+        text += '👤 Oleh: <?php echo htmlspecialchars($currentUser['full_name'] ?? 'Admin'); ?>';
+
+        // Encode and open WhatsApp
+        var encoded = encodeURIComponent(text);
+        window.open('https://wa.me/?text=' + encoded, '_blank');
     }
     
     feather.replace();
