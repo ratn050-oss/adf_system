@@ -196,19 +196,18 @@ elseif ($activeStep === 'permissions') {
             $menuCode = $_POST['menu_code'];
             $permission = $_POST['permission'];
             
-            // Update or insert permission
-            $stmt = $pdo->prepare("INSERT INTO user_menu_permissions (user_id, business_id, menu_code, can_view, can_create, can_edit, can_delete) 
-                                  VALUES (?, ?, ?, ?, ?, ?, ?) 
-                                  ON DUPLICATE KEY UPDATE 
-                                  can_view=?, can_create=?, can_edit=?, can_delete=?");
-            
             $permissions = ['can_view' => 1, 'can_create' => 0, 'can_edit' => 0, 'can_delete' => 0];
             if ($permission === 'view') $permissions = ['can_view' => 1, 'can_create' => 0, 'can_edit' => 0, 'can_delete' => 0];
             if ($permission === 'create') $permissions = ['can_view' => 1, 'can_create' => 1, 'can_edit' => 1, 'can_delete' => 0];
             if ($permission === 'all') $permissions = ['can_view' => 1, 'can_create' => 1, 'can_edit' => 1, 'can_delete' => 1];
             
+            // Delete existing permission for this specific menu, then insert
+            $delStmt = $pdo->prepare("DELETE FROM user_menu_permissions WHERE user_id = ? AND business_id = ? AND menu_code = ?");
+            $delStmt->execute([$selectedUserId, $businessId, $menuCode]);
+            
+            $stmt = $pdo->prepare("INSERT INTO user_menu_permissions (user_id, business_id, menu_code, can_view, can_create, can_edit, can_delete) 
+                                  VALUES (?, ?, ?, ?, ?, ?, ?)");
             $stmt->execute([$selectedUserId, $businessId, $menuCode, 
-                           $permissions['can_view'], $permissions['can_create'], $permissions['can_edit'], $permissions['can_delete'],
                            $permissions['can_view'], $permissions['can_create'], $permissions['can_edit'], $permissions['can_delete']]);
             
             $_SESSION['success_message'] = '✅ Permission updated!';
@@ -227,10 +226,20 @@ elseif ($activeStep === 'permissions') {
     $stmt->execute([$selectedUserId]);
     $userBusinesses = $stmt->fetchAll(PDO::FETCH_ASSOC);
     
-    // Menu list
-    $menus = ['dashboard' => 'Dashboard', 'cashbook' => 'Cashbook', 'divisions' => 'Divisions', 
-              'frontdesk' => 'Frontdesk', 'procurement' => 'Procurement', 'sales' => 'Sales', 
-              'reports' => 'Reports', 'settings' => 'Settings', 'users' => 'Users'];
+    // Menu list - load from database
+    $menuRows = $pdo->query("SELECT menu_code, menu_name FROM menu_items WHERE is_active = 1 ORDER BY menu_order")->fetchAll(PDO::FETCH_ASSOC);
+    $menus = [];
+    foreach ($menuRows as $mr) {
+        $menus[$mr['menu_code']] = $mr['menu_name'];
+    }
+    if (empty($menus)) {
+        // Fallback if menu_items table is empty
+        $menus = ['dashboard' => 'Dashboard', 'cashbook' => 'Buku Kas Besar', 'divisions' => 'Kelola Divisi', 
+            'frontdesk' => 'Frontdesk', 'sales_invoice' => 'Sales Invoice', 'procurement' => 'PO & SHOOP',
+            'bills' => 'Tagihan', 'reports' => 'Reports', 'investor' => 'Investor', 'project' => 'Project',
+            'cqc-projects' => 'CQC Projects', 'database' => 'Database Master', 'finance' => 'Manajemen Keuangan',
+            'settings' => 'Pengaturan', 'payroll' => 'Payroll', 'owner' => 'Owner Monitoring'];
+    }
 }
 
 ?>

@@ -247,18 +247,29 @@ if ($section === 'user-setup') {
                         $permissions = ['can_view' => 1, 'can_create' => 1, 'can_edit' => 1, 'can_delete' => 1];
                     }
                     
-                    // Get all menus
-                    $menus = ['dashboard', 'cashbook', 'divisions', 'frontdesk', 'procurement', 'sales', 'reports', 'settings', 'users'];
+                    // Get all active menus enabled for this business from database
+                    $menuStmt = $pdo->prepare("
+                        SELECT m.menu_code FROM menu_items m
+                        JOIN business_menu_config bmc ON m.id = bmc.menu_id
+                        WHERE bmc.business_id = ? AND bmc.is_enabled = 1 AND m.is_active = 1
+                    ");
+                    $menuStmt->execute([$businessId]);
+                    $menus = $menuStmt->fetchAll(PDO::FETCH_COLUMN);
                     
-                    // Update all menu permissions for this business
+                    if (empty($menus)) {
+                        // Fallback: get all active menus
+                        $menus = $pdo->query("SELECT menu_code FROM menu_items WHERE is_active = 1")->fetchAll(PDO::FETCH_COLUMN);
+                    }
+                    
+                    // Delete existing permissions for this user+business, then insert fresh
+                    $delStmt = $pdo->prepare("DELETE FROM user_menu_permissions WHERE user_id = ? AND business_id = ?");
+                    $delStmt->execute([$selectedUserId, $businessId]);
+                    
                     $stmt = $pdo->prepare("INSERT INTO user_menu_permissions (user_id, business_id, menu_code, can_view, can_create, can_edit, can_delete) 
-                                          VALUES (?, ?, ?, ?, ?, ?, ?) 
-                                          ON DUPLICATE KEY UPDATE 
-                                          can_view=?, can_create=?, can_edit=?, can_delete=?");
+                                          VALUES (?, ?, ?, ?, ?, ?, ?)");
                     
                     foreach ($menus as $menu) {
                         $stmt->execute([$selectedUserId, $businessId, $menu, 
-                                       $permissions['can_view'], $permissions['can_create'], $permissions['can_edit'], $permissions['can_delete'],
                                        $permissions['can_view'], $permissions['can_create'], $permissions['can_edit'], $permissions['can_delete']]);
                     }
                     
@@ -278,10 +289,20 @@ if ($section === 'user-setup') {
             $stmt->execute([$selectedUserId]);
             $userBusinesses = $stmt->fetchAll(PDO::FETCH_ASSOC);
             
-            // Menu list
-            $menus = ['dashboard' => 'Dashboard', 'cashbook' => 'Cashbook', 'divisions' => 'Divisions', 
-                      'frontdesk' => 'Frontdesk', 'procurement' => 'Procurement', 'sales' => 'Sales', 
-                      'reports' => 'Reports', 'settings' => 'Settings', 'users' => 'Users'];
+            // Menu list - load from database
+            $menuRows = $pdo->query("SELECT menu_code, menu_name FROM menu_items WHERE is_active = 1 ORDER BY menu_order")->fetchAll(PDO::FETCH_ASSOC);
+            $menus = [];
+            foreach ($menuRows as $mr) {
+                $menus[$mr['menu_code']] = $mr['menu_name'];
+            }
+            if (empty($menus)) {
+                // Fallback if menu_items table is empty
+                $menus = ['dashboard' => 'Dashboard', 'cashbook' => 'Buku Kas Besar', 'divisions' => 'Kelola Divisi', 
+                    'frontdesk' => 'Frontdesk', 'sales_invoice' => 'Sales Invoice', 'procurement' => 'PO & SHOOP',
+                    'bills' => 'Tagihan', 'reports' => 'Reports', 'investor' => 'Investor', 'project' => 'Project',
+                    'cqc-projects' => 'CQC Projects', 'database' => 'Database Master', 'finance' => 'Manajemen Keuangan',
+                    'settings' => 'Pengaturan', 'payroll' => 'Payroll', 'owner' => 'Owner Monitoring'];
+            }
         }
     }
 } else {

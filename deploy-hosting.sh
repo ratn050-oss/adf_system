@@ -100,6 +100,19 @@ CREATE TABLE IF NOT EXISTS user_menu_permissions (
     FOREIGN KEY (business_id) REFERENCES businesses(id) ON DELETE CASCADE
 ) CHARACTER SET utf8mb4 COLLATE utf8mb4_unicode_ci;
 
+-- Ensure unique constraint exists (for existing tables created before this was added)
+-- First remove any duplicates, keeping the latest entry
+DELETE p1 FROM user_menu_permissions p1
+INNER JOIN user_menu_permissions p2
+WHERE p1.id < p2.id AND p1.user_id = p2.user_id AND p1.business_id = p2.business_id AND p1.menu_code = p2.menu_code;
+
+-- Add unique key if it doesn't exist (ignore error if already exists)
+SET @exists = (SELECT COUNT(*) FROM information_schema.STATISTICS WHERE table_schema = DATABASE() AND table_name = 'user_menu_permissions' AND index_name = 'unique_perm');
+SET @sql = IF(@exists = 0, 'ALTER TABLE user_menu_permissions ADD UNIQUE KEY unique_perm (user_id, business_id, menu_code)', 'SELECT 1');
+PREPARE stmt FROM @sql;
+EXECUTE stmt;
+DEALLOCATE PREPARE stmt;
+
 -- Insert system roles
 INSERT IGNORE INTO roles (role_name, role_code, is_system_role) VALUES
     ('Admin', 'admin', 1),
@@ -147,11 +160,19 @@ CROSS JOIN (
     UNION SELECT 'cashbook'
     UNION SELECT 'divisions'
     UNION SELECT 'frontdesk'
-    UNION SELECT 'sales'
+    UNION SELECT 'sales_invoice'
     UNION SELECT 'procurement'
+    UNION SELECT 'bills'
     UNION SELECT 'reports'
     UNION SELECT 'settings'
-    UNION SELECT 'users'
+    UNION SELECT 'investor'
+    UNION SELECT 'project'
+    UNION SELECT 'payroll'
+    UNION SELECT 'finance'
+    UNION SELECT 'owner'
+    UNION SELECT 'database'
+    UNION SELECT 'cqc-projects'
+    UNION SELECT 'admin'
 ) m
 WHERE u.username = 'sandra';
 

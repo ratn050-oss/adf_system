@@ -123,7 +123,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $businessPdo) {
                             // 3. CREATE PERMISSION ENTRIES in MASTER database
                             // Get all menus enabled for this business
                             $menuStmt = $masterPdo->prepare("
-                                SELECT m.id FROM menu_items m
+                                SELECT m.id, m.menu_code FROM menu_items m
                                 JOIN business_menu_config bmc ON m.id = bmc.menu_id
                                 WHERE bmc.business_id = ? AND bmc.is_enabled = 1
                             ");
@@ -132,13 +132,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $businessPdo) {
                             
                             // Insert permission for each menu (only for THIS business)
                             $permStmt = $masterPdo->prepare("
-                                INSERT INTO user_menu_permissions (user_id, business_id, menu_id, can_view, can_create, can_edit, can_delete)
-                                VALUES (?, ?, ?, 1, 1, 1, 1)
+                                INSERT INTO user_menu_permissions (user_id, business_id, menu_id, menu_code, can_view, can_create, can_edit, can_delete)
+                                VALUES (?, ?, ?, ?, 1, 1, 1, 1)
                             ");
                             
                             foreach ($menus as $menu) {
                                 try {
-                                    $permStmt->execute([$masterUserId, $selectedBusinessId, $menu['id']]);
+                                    $permStmt->execute([$masterUserId, $selectedBusinessId, $menu['id'], $menu['menu_code']]);
                                 } catch (Exception $e) {
                                     // Skip if menu already exists for user
                                 }
