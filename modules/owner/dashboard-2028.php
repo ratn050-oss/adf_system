@@ -1347,8 +1347,48 @@ else { $healthStatus = 'Perlu Perhatian'; $healthEmoji = '🔴'; }
         }
         
         /* AI Health Section */
+        <?php
+        // Dynamic color scheme based on health score
+        if ($healthScore >= 80) {
+            $aiBg = 'linear-gradient(135deg, #d1fae5 0%, #a7f3d0 100%)';
+            $aiBadgeBg = '#10b981';
+            $aiTitleColor = '#065f46';
+            $aiContentColor = '#064e3b';
+            $aiScoreLabelColor = '#065f46';
+            $aiSectionTitleColor = '#065f46';
+            $aiBorderTint = 'rgba(6, 95, 70, 0.1)';
+            $aiTrackBg = 'rgba(6, 95, 70, 0.15)';
+        } elseif ($healthScore >= 65) {
+            $aiBg = 'linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%)';
+            $aiBadgeBg = '#3b82f6';
+            $aiTitleColor = '#1e3a5f';
+            $aiContentColor = '#1e3a5f';
+            $aiScoreLabelColor = '#1e3a5f';
+            $aiSectionTitleColor = '#1e3a5f';
+            $aiBorderTint = 'rgba(30, 58, 95, 0.1)';
+            $aiTrackBg = 'rgba(30, 58, 95, 0.15)';
+        } elseif ($healthScore >= 50) {
+            $aiBg = 'linear-gradient(135deg, #fef3c7 0%, #fde68a 100%)';
+            $aiBadgeBg = '#f59e0b';
+            $aiTitleColor = '#92400e';
+            $aiContentColor = '#78350f';
+            $aiScoreLabelColor = '#78350f';
+            $aiSectionTitleColor = '#92400e';
+            $aiBorderTint = 'rgba(146, 64, 14, 0.1)';
+            $aiTrackBg = 'rgba(146, 64, 14, 0.15)';
+        } else {
+            $aiBg = 'linear-gradient(135deg, #fee2e2 0%, #fecaca 100%)';
+            $aiBadgeBg = '#ef4444';
+            $aiTitleColor = '#7f1d1d';
+            $aiContentColor = '#7f1d1d';
+            $aiScoreLabelColor = '#7f1d1d';
+            $aiSectionTitleColor = '#7f1d1d';
+            $aiBorderTint = 'rgba(127, 29, 29, 0.1)';
+            $aiTrackBg = 'rgba(127, 29, 29, 0.15)';
+        }
+        ?>
         .ai-card {
-            background: linear-gradient(135deg, #fef3c7 0%, #fde68a 100%);
+            background: <?= $aiBg ?>;
             border-radius: 16px;
             padding: 20px;
             margin-bottom: 20px;
@@ -1368,7 +1408,7 @@ else { $healthStatus = 'Perlu Perhatian'; $healthEmoji = '🔴'; }
         }
         
         .ai-badge {
-            background: #f59e0b;
+            background: <?= $aiBadgeBg ?>;
             color: white;
             font-size: 9px;
             padding: 3px 8px;
@@ -1379,7 +1419,7 @@ else { $healthStatus = 'Perlu Perhatian'; $healthEmoji = '🔴'; }
         .ai-title {
             font-size: 14px;
             font-weight: 600;
-            color: #92400e;
+            color: <?= $aiTitleColor ?>;
         }
         
         .ai-score {
@@ -1397,13 +1437,13 @@ else { $healthStatus = 'Perlu Perhatian'; $healthEmoji = '🔴'; }
         
         .ai-score-label {
             font-size: 9px;
-            color: #78350f;
+            color: <?= $aiScoreLabelColor ?>;
             text-transform: uppercase;
         }
         
         .ai-content {
             font-size: 13px;
-            color: #78350f;
+            color: <?= $aiContentColor ?>;
             line-height: 1.6;
         }
         
@@ -1413,7 +1453,7 @@ else { $healthStatus = 'Perlu Perhatian'; $healthEmoji = '🔴'; }
             font-size: 11px;
             font-weight: 700;
             text-transform: uppercase;
-            color: #92400e;
+            color: <?= $aiSectionTitleColor ?>;
             margin: 12px 0 6px;
             letter-spacing: 0.5px;
         }
@@ -1422,7 +1462,7 @@ else { $healthStatus = 'Perlu Perhatian'; $healthEmoji = '🔴'; }
             font-size: 12px;
             line-height: 1.5;
             padding: 6px 0;
-            border-bottom: 1px solid rgba(146, 64, 14, 0.1);
+            border-bottom: 1px solid <?= $aiBorderTint ?>;
         }
         .ai-alert-item:last-child { border-bottom: none; }
         
@@ -1435,7 +1475,7 @@ else { $healthStatus = 'Perlu Perhatian'; $healthEmoji = '🔴'; }
         }
         .ai-expense-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
         .ai-expense-amount { font-weight: 600; white-space: nowrap; }
-        .ai-expense-track { flex: 0 0 60px; height: 4px; background: rgba(146,64,14,0.15); border-radius: 2px; overflow: hidden; }
+        .ai-expense-track { flex: 0 0 60px; height: 4px; background: <?= $aiTrackBg ?>; border-radius: 2px; overflow: hidden; }
         .ai-expense-fill { height: 100%; border-radius: 2px; background: #ef4444; }
         
         /* Summary Card */
