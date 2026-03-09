@@ -975,7 +975,7 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
         }
         
         .kas-table th {
-            background: rgba(255,255,255,0.05);
+            background: rgb(20, 28, 46);
             padding: 8px 10px;
             text-align: left;
             font-weight: 600;
@@ -984,6 +984,7 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
             color: #9ca3af;
             position: sticky;
             top: 0;
+            z-index: 10;
         }
         
         .kas-table td {
@@ -2164,25 +2165,6 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
         </div>
         
         <?php if (!$isCQC): // Only show for non-CQC businesses ?>
-        <!-- Summary -->
-        <div class="summary-card">
-            <div class="summary-title">Monthly Performance</div>
-            <div class="summary-row">
-                <span>Total Revenue</span>
-                <span style="color:var(--success)"><?= rp($stats['month_income']) ?></span>
-            </div>
-            <div class="summary-row">
-                <span>Total Expense</span>
-                <span style="color:var(--danger)"><?= rp($stats['month_expense']) ?></span>
-            </div>
-            <div class="summary-row total">
-                <span>Net Profit</span>
-                <span style="color:<?= $netProfit >= 0 ? 'var(--success)' : 'var(--danger)' ?>">
-                    <?= $netProfit >= 0 ? '+' : '' ?><?= rp($netProfit) ?>
-                </span>
-            </div>
-        </div>
-        
         <!-- Recent Transactions -->
         <div class="tx-card">
             <div class="tx-title">⚡ Recent Transactions</div>
