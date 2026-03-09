@@ -265,8 +265,10 @@ try {
     $stmt = $pdo->query("SELECT COUNT(*) FROM cash_book");
     $stats['total_transactions'] = (int)$stmt->fetchColumn();
     
-    // Recent transactions - SAME AS SYSTEM DASHBOARD (include division_name, category_name)
-    $stmt = $pdo->query("
+    // ============================================
+    // CASH FLOW - All transactions for current month (like Buku Kas Besar)
+    // ============================================
+    $stmt = $pdo->prepare("
         SELECT 
             cb.id, cb.transaction_date, cb.description, cb.transaction_type, cb.amount, cb.payment_method,
             d.division_name,
@@ -274,10 +276,81 @@ try {
         FROM cash_book cb
         LEFT JOIN divisions d ON cb.division_id = d.id
         LEFT JOIN categories c ON cb.category_id = c.id
-        ORDER BY cb.transaction_date DESC, cb.id DESC 
-        LIMIT 10
+        WHERE DATE_FORMAT(cb.transaction_date, '%Y-%m') = ?
+        ORDER BY cb.transaction_date DESC, cb.id DESC
     ");
+    $stmt->execute([$thisMonth]);
     $transactions = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    
+    // Cash flow totals
+    $cfTotalIncome = 0;
+    $cfTotalExpense = 0;
+    foreach ($transactions as $tx) {
+        if ($tx['transaction_type'] === 'income') $cfTotalIncome += $tx['amount'];
+        else $cfTotalExpense += $tx['amount'];
+    }
+    $cfBalance = $cfTotalIncome - $cfTotalExpense;
+
+    // ============================================
+    // AI HEALTH - Enhanced data for smart analysis
+    // ============================================
+    
+    // Previous month income/expense for growth comparison
+    $lastMonth = date('Y-m', strtotime('-1 month'));
+    $stmt = $pdo->prepare("
+        SELECT 
+            COALESCE(SUM(CASE WHEN transaction_type = 'income' THEN amount ELSE 0 END), 0) as income,
+            COALESCE(SUM(CASE WHEN transaction_type = 'expense' THEN amount ELSE 0 END), 0) as expense
+        FROM cash_book 
+        WHERE DATE_FORMAT(transaction_date, '%Y-%m') = ?" . $fullExclude);
+    $stmt->execute([$lastMonth]);
+    $prevMonthData = $stmt->fetch(PDO::FETCH_ASSOC);
+    $prevIncome = (float)($prevMonthData['income'] ?? 0);
+    $prevExpense = (float)($prevMonthData['expense'] ?? 0);
+    $incomeGrowth = $prevIncome > 0 ? (($stats['month_income'] - $prevIncome) / $prevIncome) * 100 : 0;
+    
+    // Occupancy data
+    $occupancyRate = 0;
+    $totalRooms = 0;
+    $occupiedRooms = 0;
+    try {
+        $roomStmt = $pdo->query("SELECT COUNT(*) as total, COUNT(CASE WHEN status = 'occupied' THEN 1 END) as occupied FROM frontdesk_rooms");
+        $roomData = $roomStmt->fetch(PDO::FETCH_ASSOC);
+        $totalRooms = (int)($roomData['total'] ?? 0);
+        $occupiedRooms = (int)($roomData['occupied'] ?? 0);
+        $occupancyRate = $totalRooms > 0 ? ($occupiedRooms / $totalRooms) * 100 : 0;
+    } catch (Exception $e) {}
+    
+    // Cash flow last 7 days
+    $avgDailyFlow = 0;
+    try {
+        $flowStmt = $pdo->query("
+            SELECT SUM(CASE WHEN transaction_type = 'income' THEN amount ELSE -amount END) as net_flow,
+                   COUNT(DISTINCT DATE(transaction_date)) as days
+            FROM cash_book 
+            WHERE transaction_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+        ");
+        $flowData = $flowStmt->fetch(PDO::FETCH_ASSOC);
+        $days = max(1, (int)($flowData['days'] ?? 1));
+        $avgDailyFlow = (float)($flowData['net_flow'] ?? 0) / $days;
+    } catch (Exception $e) {}
+    
+    // Top expense categories this month
+    $topExpenseCategories = [];
+    try {
+        $stmt = $pdo->prepare("
+            SELECT c.category_name, COALESCE(SUM(cb.amount), 0) as total
+            FROM cash_book cb
+            LEFT JOIN categories c ON cb.category_id = c.id
+            WHERE cb.transaction_type = 'expense' AND DATE_FORMAT(cb.transaction_date, '%Y-%m') = ?
+            GROUP BY cb.category_id, c.category_name
+            HAVING total > 0
+            ORDER BY total DESC
+            LIMIT 5
+        ");
+        $stmt->execute([$thisMonth]);
+        $topExpenseCategories = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {}
     
 } catch (Exception $e) {
     $error = $e->getMessage();
@@ -476,6 +549,101 @@ function rp($num) {
 $netProfit = $stats['month_income'] - $stats['month_expense'];
 $netToday = $stats['today_income'] - $stats['today_expense'];
 $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['month_income']) * 100 : 0;
+$profitMargin = $stats['month_income'] > 0 ? ($netProfit / $stats['month_income']) * 100 : 0;
+
+// ============================================
+// AI HEALTH SCORING (5-factor, 0-100)
+// ============================================
+$healthScore = 0;
+
+// Factor 1: Profit Margin (30 pts)
+if ($profitMargin >= 30) $healthScore += 30;
+elseif ($profitMargin >= 20) $healthScore += 25;
+elseif ($profitMargin >= 10) $healthScore += 20;
+elseif ($profitMargin >= 5) $healthScore += 15;
+elseif ($profitMargin >= 0) $healthScore += 10;
+
+// Factor 2: Income Growth (25 pts)
+if ($incomeGrowth >= 15) $healthScore += 25;
+elseif ($incomeGrowth >= 10) $healthScore += 20;
+elseif ($incomeGrowth >= 5) $healthScore += 15;
+elseif ($incomeGrowth >= 0) $healthScore += 10;
+else $healthScore += 5;
+
+// Factor 3: Expense Control (20 pts)
+if ($expenseRatio <= 50) $healthScore += 20;
+elseif ($expenseRatio <= 60) $healthScore += 16;
+elseif ($expenseRatio <= 70) $healthScore += 12;
+elseif ($expenseRatio <= 80) $healthScore += 8;
+else $healthScore += 4;
+
+// Factor 4: Occupancy (15 pts)
+if ($occupancyRate >= 80) $healthScore += 15;
+elseif ($occupancyRate >= 70) $healthScore += 12;
+elseif ($occupancyRate >= 60) $healthScore += 9;
+elseif ($occupancyRate >= 50) $healthScore += 6;
+else $healthScore += 3;
+
+// Factor 5: Cash Flow Stability (10 pts)
+if ($avgDailyFlow > 0) $healthScore += 10;
+elseif ($avgDailyFlow >= -100000) $healthScore += 5;
+
+// AI Alerts & Recommendations
+$aiAlerts = [];
+$aiStrengths = [];
+
+// Top expense warning
+if (!empty($topExpenseCategories)) {
+    $topCat = $topExpenseCategories[0];
+    $topPct = $stats['month_expense'] > 0 ? ($topCat['total'] / $stats['month_expense']) * 100 : 0;
+    if ($topPct > 30) {
+        $aiAlerts[] = '⚠️ <strong>' . htmlspecialchars($topCat['category_name'] ?? 'Unknown') . '</strong> menyerap ' . number_format($topPct, 0) . '% total pengeluaran (' . rp($topCat['total']) . '). Evaluasi apakah bisa dioptimalkan.';
+    }
+}
+
+// Expense ratio warning
+if ($expenseRatio > 75) {
+    $aiAlerts[] = '🔴 Rasio biaya ' . number_format($expenseRatio, 1) . '% dari pendapatan. Perlu segera kurangi pengeluaran atau tingkatkan revenue.';
+} elseif ($expenseRatio > 60) {
+    $aiAlerts[] = '🟠 Rasio biaya ' . number_format($expenseRatio, 1) . '% — cukup tinggi. Pantau agar tidak naik lebih jauh.';
+}
+
+// Income growth
+if ($incomeGrowth < -10) {
+    $aiAlerts[] = '📉 Pendapatan turun ' . number_format(abs($incomeGrowth), 1) . '% dari bulan lalu. Perlu strategi marketing atau promosi.';
+} elseif ($incomeGrowth < 0) {
+    $aiAlerts[] = '📉 Pendapatan sedikit turun ' . number_format(abs($incomeGrowth), 1) . '% dari bulan lalu.';
+}
+
+// Occupancy
+if ($totalRooms > 0 && $occupancyRate < 50) {
+    $aiAlerts[] = '🏨 Occupancy hanya ' . number_format($occupancyRate, 0) . '%. Tingkatkan listing OTA dan promosi.';
+}
+
+// Cash flow
+if ($avgDailyFlow < 0) {
+    $aiAlerts[] = '💸 Cash flow harian negatif (avg ' . rp(abs($avgDailyFlow)) . '/hari). Perhatikan arus kas.';
+}
+
+// Strengths
+if ($profitMargin >= 25) {
+    $aiStrengths[] = '✅ Profit margin sangat baik (' . number_format($profitMargin, 1) . '%)';
+}
+if ($incomeGrowth > 10) {
+    $aiStrengths[] = '✅ Pertumbuhan pendapatan +' . number_format($incomeGrowth, 1) . '%';
+}
+if ($expenseRatio < 50) {
+    $aiStrengths[] = '✅ Kontrol biaya excellent (' . number_format($expenseRatio, 1) . '%)';
+}
+if ($totalRooms > 0 && $occupancyRate >= 80) {
+    $aiStrengths[] = '✅ Occupancy tinggi ' . number_format($occupancyRate, 0) . '%';
+}
+
+// Health status text
+if ($healthScore >= 80) { $healthStatus = 'Sangat Sehat'; $healthEmoji = '🟢'; }
+elseif ($healthScore >= 65) { $healthStatus = 'Sehat'; $healthEmoji = '🟡'; }
+elseif ($healthScore >= 50) { $healthStatus = 'Cukup'; $healthEmoji = '🟠'; }
+else { $healthStatus = 'Perlu Perhatian'; $healthEmoji = '🔴'; }
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -1224,7 +1392,7 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
         .ai-score-value {
             font-size: 20px;
             font-weight: 700;
-            color: <?= $expenseRatio < 50 ? '#10b981' : ($expenseRatio < 70 ? '#f59e0b' : '#f43f5e') ?>;
+            color: <?= $healthScore >= 80 ? '#10b981' : ($healthScore >= 65 ? '#3b82f6' : ($healthScore >= 50 ? '#f59e0b' : '#f43f5e')) ?>;
         }
         
         .ai-score-label {
@@ -1238,6 +1406,37 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
             color: #78350f;
             line-height: 1.6;
         }
+        
+        .ai-status { font-size: 13px; margin-bottom: 10px; }
+        
+        .ai-section-title {
+            font-size: 11px;
+            font-weight: 700;
+            text-transform: uppercase;
+            color: #92400e;
+            margin: 12px 0 6px;
+            letter-spacing: 0.5px;
+        }
+        
+        .ai-alert-item {
+            font-size: 12px;
+            line-height: 1.5;
+            padding: 6px 0;
+            border-bottom: 1px solid rgba(146, 64, 14, 0.1);
+        }
+        .ai-alert-item:last-child { border-bottom: none; }
+        
+        .ai-expense-bar {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 6px;
+            font-size: 11px;
+        }
+        .ai-expense-name { flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .ai-expense-amount { font-weight: 600; white-space: nowrap; }
+        .ai-expense-track { flex: 0 0 60px; height: 4px; background: rgba(146,64,14,0.15); border-radius: 2px; overflow: hidden; }
+        .ai-expense-fill { height: 100%; border-radius: 2px; background: #ef4444; }
         
         /* Summary Card */
         .summary-card {
@@ -2145,42 +2344,95 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
                     <span class="ai-title">Business Health</span>
                 </div>
                 <div class="ai-score">
-                    <div class="ai-score-value"><?= number_format(100 - $expenseRatio, 0) ?></div>
+                    <div class="ai-score-value"><?= number_format($healthScore, 0) ?></div>
                     <div class="ai-score-label">Score</div>
                 </div>
             </div>
             <div class="ai-content">
-                <?php
-                if ($expenseRatio < 50) {
-                    echo "🟢 <strong>Excellent!</strong> Expense ratio " . number_format($expenseRatio, 1) . "% of income. Very healthy finances with high profit margin.";
-                } elseif ($expenseRatio < 70) {
-                    echo "🟡 <strong>Good.</strong> Expense ratio " . number_format($expenseRatio, 1) . "% of income. Maintain operational efficiency.";
-                } elseif ($expenseRatio < 90) {
-                    echo "🟠 <strong>Warning.</strong> Expense ratio " . number_format($expenseRatio, 1) . "% of income. Need to optimize expenses to improve margin.";
-                } else {
-                    echo "🔴 <strong>Critical!</strong> Expense ratio " . number_format($expenseRatio, 1) . "% of income. Immediately evaluate expenses and revenue strategy.";
-                }
+                <div class="ai-status">
+                    <?= $healthEmoji ?> <strong><?= $healthStatus ?></strong> — Profit margin <?= number_format($profitMargin, 1) ?>%, rasio biaya <?= number_format($expenseRatio, 1) ?>%<?= $prevIncome > 0 ? ', growth ' . ($incomeGrowth >= 0 ? '+' : '') . number_format($incomeGrowth, 1) . '%' : '' ?>
+                </div>
+
+                <?php if (!empty($topExpenseCategories)): ?>
+                <div class="ai-section-title">💰 Pengeluaran Terbesar</div>
+                <?php 
+                $maxExp = $topExpenseCategories[0]['total'];
+                foreach (array_slice($topExpenseCategories, 0, 5) as $cat): 
+                    $pct = $maxExp > 0 ? ($cat['total'] / $maxExp) * 100 : 0;
                 ?>
+                <div class="ai-expense-bar">
+                    <span class="ai-expense-name"><?= htmlspecialchars($cat['category_name'] ?? 'Lainnya') ?></span>
+                    <span class="ai-expense-track"><span class="ai-expense-fill" style="width:<?= $pct ?>%"></span></span>
+                    <span class="ai-expense-amount"><?= rp($cat['total']) ?></span>
+                </div>
+                <?php endforeach; ?>
+                <?php endif; ?>
+
+                <?php if (!empty($aiAlerts)): ?>
+                <div class="ai-section-title">⚠️ Peringatan</div>
+                <?php foreach ($aiAlerts as $alert): ?>
+                <div class="ai-alert-item"><?= $alert ?></div>
+                <?php endforeach; ?>
+                <?php endif; ?>
+
+                <?php if (!empty($aiStrengths)): ?>
+                <div class="ai-section-title">💪 Kekuatan</div>
+                <?php foreach ($aiStrengths as $str): ?>
+                <div class="ai-alert-item"><?= $str ?></div>
+                <?php endforeach; ?>
+                <?php endif; ?>
             </div>
         </div>
         
         <?php if (!$isCQC): // Only show for non-CQC businesses ?>
-        <!-- Recent Transactions -->
+        <!-- Cash Flow Bulan Ini -->
         <div class="tx-card">
-            <div class="tx-title">⚡ Recent Transactions</div>
+            <div class="tx-title" style="justify-content:space-between;">
+                <span>📊 Cash Flow — <?= strftime('%B %Y') ?: date('F Y') ?></span>
+                <span style="font-size:11px;font-weight:400;color:var(--text-muted)"><?= count($transactions) ?> transaksi</span>
+            </div>
+            
+            <!-- Summary Row -->
+            <div style="display:flex;gap:8px;margin-bottom:14px;">
+                <div style="flex:1;background:rgba(16,185,129,0.08);border-radius:10px;padding:10px 12px;text-align:center;">
+                    <div style="font-size:10px;color:var(--success);font-weight:600;text-transform:uppercase;margin-bottom:2px;">Masuk</div>
+                    <div style="font-size:13px;font-weight:700;color:var(--success);"><?= rp($cfTotalIncome) ?></div>
+                </div>
+                <div style="flex:1;background:rgba(244,63,94,0.08);border-radius:10px;padding:10px 12px;text-align:center;">
+                    <div style="font-size:10px;color:var(--danger);font-weight:600;text-transform:uppercase;margin-bottom:2px;">Keluar</div>
+                    <div style="font-size:13px;font-weight:700;color:var(--danger);"><?= rp($cfTotalExpense) ?></div>
+                </div>
+                <div style="flex:1;background:rgba(99,102,241,0.08);border-radius:10px;padding:10px 12px;text-align:center;">
+                    <div style="font-size:10px;color:var(--accent);font-weight:600;text-transform:uppercase;margin-bottom:2px;">Saldo</div>
+                    <div style="font-size:13px;font-weight:700;color:<?= $cfBalance >= 0 ? 'var(--success)' : 'var(--danger)' ?>;"><?= ($cfBalance >= 0 ? '+' : '') . rp($cfBalance) ?></div>
+                </div>
+            </div>
+
+            <!-- Transaction List -->
+            <div style="max-height:400px;overflow-y:auto;">
             <ul class="tx-list">
-                <?php foreach ($transactions as $tx): 
+                <?php 
+                $lastDate = '';
+                foreach ($transactions as $tx): 
                     $method = strtolower(trim($tx['payment_method'] ?? 'other'));
                     $methodClass = in_array($method, ['cash','transfer','tf','qr','debit','edc']) ? $method : 'other';
                     $methodLabel = strtoupper($method === 'transfer' ? 'TF' : $method);
+                    $txDate = date('d/m/Y', strtotime($tx['transaction_date']));
+                    $showDateSep = ($txDate !== $lastDate);
+                    $lastDate = $txDate;
                 ?>
+                <?php if ($showDateSep): ?>
+                <li style="padding:8px 0 4px;font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid var(--border);">
+                    📅 <?= date('d M Y', strtotime($tx['transaction_date'])) ?>
+                </li>
+                <?php endif; ?>
                 <li class="tx-item">
                     <div style="min-width:0;flex:1;">
                         <div class="tx-desc">
                             <?= htmlspecialchars(($tx['division_name'] ?? 'Umum') . ' - ' . ($tx['category_name'] ?? $tx['description'] ?? '-')) ?>
                             <span class="tx-method <?= $methodClass ?>"><?= $methodLabel ?></span>
                         </div>
-                        <div class="tx-date"><?= date('d/m/Y', strtotime($tx['transaction_date'])) ?></div>
+                        <div class="tx-date"><?= htmlspecialchars($tx['description'] ?? '') ?></div>
                     </div>
                     <div class="tx-amount <?= $tx['transaction_type'] ?>">
                         <?= $tx['transaction_type'] === 'income' ? '+' : '-' ?><?= rp($tx['amount']) ?>
@@ -2188,9 +2440,10 @@ $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['
                 </li>
                 <?php endforeach; ?>
                 <?php if (empty($transactions)): ?>
-                <li class="tx-item" style="justify-content:center;color:var(--text-muted)">No transactions yet</li>
+                <li class="tx-item" style="justify-content:center;color:var(--text-muted)">Belum ada transaksi bulan ini</li>
                 <?php endif; ?>
             </ul>
+            </div>
         </div>
         <?php endif; // end if (!$isCQC) ?>
 
