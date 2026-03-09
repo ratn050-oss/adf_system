@@ -25,13 +25,13 @@ try {
     $packages = [];
 }
 
-// Load web settings from database (destinations, footer logo, etc.)
+// Load web settings from database (destinations, footer logo, hero, etc.)
 $webSettingsData = [];
 try {
     // Check if settings table exists first
     $tableCheck = $db->fetchOne("SHOW TABLES LIKE 'settings'");
     if ($tableCheck) {
-        $settingsRows = $db->fetchAll("SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('web_destinations', 'web_footer_logo', 'web_footer_text', 'web_footer_show_logo', 'web_logo', 'web_site_name', 'web_instagram', 'web_whatsapp')");
+        $settingsRows = $db->fetchAll("SELECT setting_key, setting_value FROM settings WHERE setting_key LIKE 'web_%'");
         foreach ($settingsRows as $sr) {
             $webSettingsData[$sr['setting_key']] = $sr['setting_value'];
         }
@@ -49,24 +49,57 @@ $destinations = array_filter($destinations, function($d) { return !empty($d['act
 // Sort by order
 usort($destinations, function($a, $b) { return ($a['order'] ?? 0) - ($b['order'] ?? 0); });
 
+// Hero settings
+$heroAccent   = $webSettingsData['web_hero_accent'] ?? 'Karimunjawa, Indonesia';
+$heroTitle    = $webSettingsData['web_hero_title'] ?? 'Experience Karimunjawa<br>Like Never Before';
+$heroSubtitle = $webSettingsData['web_hero_subtitle'] ?? 'An exclusive island retreat where tropical luxury meets the pristine beauty of the Java Sea';
+$heroBg       = $webSettingsData['web_hero_background'] ?? '';
+$heroCards    = json_decode($webSettingsData['web_hero_cards'] ?? '[]', true) ?: [];
+
 ?>
 <?php include './includes/header.php'; ?>
 
-<!-- HERO SECTION - Full Screen with Background Image -->
-<section class="luxury-hero">
-    <div class="hero-overlay"></div>
+<!-- HERO SECTION - Fullscreen with Room Cards -->
+<section class="luxury-hero" <?php if ($heroBg): ?>style="background-image: url('<?php echo (strpos($heroBg, 'http') === 0) ? htmlspecialchars($heroBg) : htmlspecialchars($heroBg); ?>');"<?php endif; ?>>
     <div class="hero-content-luxury">
-        <div class="destination-card">
-            <h1 class="destination-title">Karimunjawa</h1>
-            <p class="destination-subtitle">TROPICAL PARADISE IN CENTRAL JAVA, INDONESIA</p>
-            <p class="destination-description">
-                Discover the most exclusive island retreat with pristine beaches, 
-                crystal-clear waters, and world-class accommodations
-            </p>
-            <a href="<?php echo baseUrl('booking.php'); ?>" class="btn-luxury btn-primary">
-                BOOK YOUR ESCAPE
-            </a>
+        <div class="hero-left">
+            <p class="hero-eyebrow">&mdash; <?php echo htmlspecialchars($heroAccent); ?></p>
+            <h1 class="hero-title"><?php echo $heroTitle; ?></h1>
+            <p class="hero-subtitle"><?php echo htmlspecialchars($heroSubtitle); ?></p>
+            <div class="hero-actions">
+                <a href="<?php echo baseUrl('booking.php'); ?>" class="btn-luxury btn-primary">
+                    <i data-feather="map-pin" style="width:16px;height:16px;margin-right:6px;"></i> DISCOVER LOCATION
+                </a>
+            </div>
         </div>
+        <?php if (!empty($heroCards)): ?>
+        <div class="hero-right">
+            <div class="hero-cards-row">
+                <?php foreach ($heroCards as $ci => $card): ?>
+                <?php if (empty($card['title'])) continue; ?>
+                <div class="hero-room-card <?php echo $ci === 0 ? 'active' : ''; ?>">
+                    <?php if (!empty($card['image'])): ?>
+                    <img src="<?php echo (strpos($card['image'], 'http') === 0) ? htmlspecialchars($card['image']) : htmlspecialchars($card['image']); ?>" alt="<?php echo htmlspecialchars($card['title']); ?>" class="hero-card-img">
+                    <?php else: ?>
+                    <div class="hero-card-img hero-card-placeholder"></div>
+                    <?php endif; ?>
+                    <div class="hero-card-overlay">
+                        <span class="hero-card-sub"><?php echo htmlspecialchars($card['subtitle'] ?? ''); ?></span>
+                        <span class="hero-card-title"><?php echo htmlspecialchars($card['title']); ?></span>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+            </div>
+            <div class="hero-cards-nav">
+                <button class="hero-nav-btn" onclick="heroSlide(-1)"><i data-feather="chevron-left"></i></button>
+                <button class="hero-nav-btn" onclick="heroSlide(1)"><i data-feather="chevron-right"></i></button>
+                <div class="hero-progress">
+                    <div class="hero-progress-bar"></div>
+                </div>
+                <span class="hero-counter">0<?php echo min(count(array_filter($heroCards, function($c){ return !empty($c['title']); })), 1); ?></span>
+            </div>
+        </div>
+        <?php endif; ?>
     </div>
 </section>
 

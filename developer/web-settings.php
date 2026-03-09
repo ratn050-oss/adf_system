@@ -46,6 +46,8 @@ $webSettings = [
     'web_hero_title'               => 'Experience Karimunjawa<br>Like Never Before',
     'web_hero_subtitle'            => 'An exclusive island retreat where tropical luxury meets the pristine beauty of the Java Sea',
     'web_hero_background'          => '',
+    // Hero Cards (JSON array of room cards displayed on hero)
+    'web_hero_cards'               => '[]',
     // Hero — Rooms
     'web_hero_rooms_background'    => '',
     'web_hero_rooms_eyebrow'       => 'Accommodations',
@@ -437,6 +439,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 $webSettings[$settingKey] = '';
             }
         }
+    }
+    
+    elseif ($action === 'save_hero_cards') {
+        $redirectTab = 'hero';
+        $cards = [];
+        $cardTitles = $_POST['hero_card_title'] ?? [];
+        $cardSubtitles = $_POST['hero_card_subtitle'] ?? [];
+        $cardImages = $_POST['hero_card_image'] ?? []; // existing image URLs
+        
+        for ($i = 0; $i < count($cardTitles); $i++) {
+            $title = trim($cardTitles[$i] ?? '');
+            $subtitle = trim($cardSubtitles[$i] ?? '');
+            $image = trim($cardImages[$i] ?? '');
+            
+            // Handle new image upload for this card
+            if (isset($_FILES['hero_card_image_file']['name'][$i]) && $_FILES['hero_card_image_file']['error'][$i] === UPLOAD_ERR_OK) {
+                $fileInfo = pathinfo($_FILES['hero_card_image_file']['name'][$i]);
+                $allowedExts = ['jpg', 'jpeg', 'png', 'webp'];
+                if (in_array(strtolower($fileInfo['extension']), $allowedExts)) {
+                    $localFilename = 'hero-card-' . $i . '-' . time() . '.' . $fileInfo['extension'];
+                    $tmpFile = [
+                        'name' => $_FILES['hero_card_image_file']['name'][$i],
+                        'type' => $_FILES['hero_card_image_file']['type'][$i],
+                        'tmp_name' => $_FILES['hero_card_image_file']['tmp_name'][$i],
+                        'error' => $_FILES['hero_card_image_file']['error'][$i],
+                        'size' => $_FILES['hero_card_image_file']['size'][$i],
+                    ];
+                    $cloudinary = CloudinaryHelper::getInstance();
+                    $uploadResult = $cloudinary->smartUpload(
+                        $tmpFile, 'uploads/hero', $localFilename, 'hero', 'hero_card_' . $i
+                    );
+                    if ($uploadResult['success']) {
+                        $image = $uploadResult['is_cloud'] ? $uploadResult['url'] : 'uploads/hero/' . $localFilename;
+                    }
+                }
+            }
+            
+            if ($title) {
+                $cards[] = ['title' => $title, 'subtitle' => $subtitle, 'image' => $image];
+            }
+        }
+        
+        $cardsJson = json_encode($cards);
+        $stmt = $webDb->prepare("INSERT INTO settings (setting_key, setting_value, setting_type, description) 
+                    VALUES ('web_hero_cards', ?, 'text', 'Hero Room Cards') ON DUPLICATE KEY UPDATE setting_value = ?");
+        $stmt->execute([$cardsJson, $cardsJson]);
+        $webSettings['web_hero_cards'] = $cardsJson;
+        $success = 'Hero room cards saved! ✅';
     }
     
     elseif ($action === 'save_contact') {
@@ -1358,6 +1408,55 @@ require_once __DIR__ . '/includes/header.php';
                         <p id="previewSubtitle"><?= htmlspecialchars($webSettings['web_hero_subtitle']) ?></p>
                     </div>
                     <button type="submit" class="btn btn-primary w-100"><i class="bi bi-check-lg me-1"></i>Save Home Hero</button>
+                </form>
+            </div>
+        </div>
+        </div>
+
+        <!-- ---- HERO ROOM CARDS ---- -->
+        <div class="hero-page-panel" id="hero-panel-home">
+        <div class="settings-card mt-3">
+            <div class="settings-card-header">
+                <div class="icon" style="background:rgba(13,202,240,0.15);color:#0dcaf0;"><i class="bi bi-grid-3x3-gap-fill"></i></div>
+                <div><h5>Hero Room Cards</h5><small>Kartu room type yang muncul di sebelah kanan hero (max 3)</small></div>
+            </div>
+            <div class="settings-card-body">
+                <?php $heroCards = json_decode($webSettings['web_hero_cards'] ?? '[]', true) ?: []; ?>
+                <form method="POST" enctype="multipart/form-data">
+                    <input type="hidden" name="action" value="save_hero_cards">
+                    <div id="heroCardsContainer">
+                        <?php 
+                        // Ensure at least 3 card slots
+                        while (count($heroCards) < 3) { $heroCards[] = ['title' => '', 'subtitle' => '', 'image' => '']; }
+                        foreach ($heroCards as $ci => $card): 
+                        ?>
+                        <div class="card mb-3 border" style="border-radius:10px;">
+                            <div class="card-body">
+                                <div class="d-flex justify-content-between align-items-center mb-2">
+                                    <strong>Card <?= $ci + 1 ?></strong>
+                                    <?php if (!empty($card['image'])): ?>
+                                    <img src="<?= (strpos($card['image'], 'http') === 0) ? htmlspecialchars($card['image']) : '../' . htmlspecialchars($card['image']) ?>" style="width:60px;height:40px;object-fit:cover;border-radius:6px;" alt="">
+                                    <?php endif; ?>
+                                </div>
+                                <div class="row g-2 mb-2">
+                                    <div class="col-md-5">
+                                        <label class="form-label" style="font-size:12px;">Title</label>
+                                        <input type="text" name="hero_card_title[]" class="form-control form-control-sm" value="<?= htmlspecialchars($card['title'] ?? '') ?>" placeholder="e.g. Deluxe Ocean Suite">
+                                    </div>
+                                    <div class="col-md-7">
+                                        <label class="form-label" style="font-size:12px;">Subtitle</label>
+                                        <input type="text" name="hero_card_subtitle[]" class="form-control form-control-sm" value="<?= htmlspecialchars($card['subtitle'] ?? '') ?>" placeholder="e.g. Karimunjawa, Indonesia">
+                                    </div>
+                                </div>
+                                <input type="hidden" name="hero_card_image[]" value="<?= htmlspecialchars($card['image'] ?? '') ?>">
+                                <label class="form-label" style="font-size:12px;">Image</label>
+                                <input type="file" name="hero_card_image_file[]" class="form-control form-control-sm" accept="image/jpeg,image/jpg,image/png,image/webp">
+                                <div class="form-text">JPG/PNG/WEBP. Recommended: 400×500px portrait.</div>
+                            </div>
+                        </div>
+                        <?php endforeach; ?>
+                    </div>
+                    <button type="submit" class="btn btn-primary w-100"><i class="bi bi-check-lg me-1"></i>Save Hero Cards</button>
                 </form>
             </div>
         </div>
