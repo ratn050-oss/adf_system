@@ -779,8 +779,8 @@ foreach ($projects as $proj) {
         /* Chart Card - Premium Modern Design */
         .chart-card {
             background: #ffffff;
-            border-radius: 20px;
-            padding: 28px 24px;
+            border-radius: 16px;
+            padding: 20px;
             box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06), 0 1px 4px rgba(0, 0, 0, 0.04);
             border: 1px solid rgba(0, 0, 0, 0.06);
             margin-bottom: 24px;
@@ -788,13 +788,14 @@ foreach ($projects as $proj) {
         
         .chart-layout {
             display: flex;
+            flex-direction: column;
             align-items: center;
-            gap: 32px;
+            gap: 16px;
         }
         
         .chart-wrapper {
-            width: 200px;
-            height: 200px;
+            width: 180px;
+            height: 180px;
             flex-shrink: 0;
             position: relative;
         }
@@ -808,36 +809,35 @@ foreach ($projects as $proj) {
             z-index: 2;
         }
         .chart-center-label .center-title {
-            font-size: 10px;
+            font-size: 9px;
             font-weight: 600;
             color: #94a3b8;
             text-transform: uppercase;
             letter-spacing: 0.08em;
         }
         .chart-center-label .center-value {
-            font-size: 16px;
+            font-size: 13px;
             font-weight: 800;
             color: #1e293b;
             letter-spacing: -0.03em;
-            margin-top: 2px;
+            margin-top: 1px;
         }
         
         .chart-legend {
-            flex: 1;
+            width: 100%;
             display: flex;
             flex-direction: column;
-            gap: 6px;
-            min-width: 0;
+            gap: 0;
         }
         
         .legend-item {
             display: flex;
             align-items: center;
-            gap: 10px;
-            padding: 10px 12px;
-            border-radius: 10px;
+            gap: 8px;
+            padding: 6px 8px;
+            border-radius: 6px;
             cursor: pointer;
-            transition: background 0.2s ease;
+            transition: background 0.15s ease;
             user-select: none;
         }
         
@@ -850,23 +850,23 @@ foreach ($projects as $proj) {
         }
         
         .legend-rank {
-            width: 22px;
-            height: 22px;
-            border-radius: 6px;
+            width: 16px;
+            height: 16px;
+            border-radius: 4px;
             background: #f1f5f9;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 11px;
+            font-size: 9px;
             font-weight: 700;
-            color: #64748b;
+            color: #94a3b8;
             flex-shrink: 0;
         }
         
         .legend-color {
-            width: 12px;
-            height: 12px;
-            border-radius: 4px;
+            width: 8px;
+            height: 8px;
+            border-radius: 2px;
             flex-shrink: 0;
         }
         
@@ -879,13 +879,13 @@ foreach ($projects as $proj) {
             display: flex;
             justify-content: space-between;
             align-items: baseline;
-            margin-bottom: 5px;
+            margin-bottom: 3px;
         }
         
         .legend-name {
-            font-size: 13px;
+            font-size: 11px;
             font-weight: 600;
-            color: #334155;
+            color: #475569;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
@@ -893,49 +893,35 @@ foreach ($projects as $proj) {
         }
         
         .legend-amount {
-            font-size: 12px;
+            font-size: 11px;
             font-weight: 700;
             color: #1e293b;
             white-space: nowrap;
-            margin-left: 8px;
+            margin-left: 6px;
         }
         
         .legend-bar-track {
             width: 100%;
-            height: 4px;
+            height: 3px;
             background: #f1f5f9;
-            border-radius: 4px;
+            border-radius: 3px;
             overflow: hidden;
         }
         
         .legend-bar-fill {
             height: 100%;
-            border-radius: 4px;
+            border-radius: 3px;
             transition: width 1s cubic-bezier(0.22, 1, 0.36, 1);
         }
         
         .legend-percent {
-            font-size: 11px;
+            font-size: 10px;
             font-weight: 600;
             color: #94a3b8;
             white-space: nowrap;
-            min-width: 38px;
+            min-width: 32px;
             text-align: right;
             flex-shrink: 0;
-        }
-        
-        @media (max-width: 520px) {
-            .chart-layout {
-                flex-direction: column;
-                gap: 20px;
-            }
-            .chart-wrapper {
-                width: 180px;
-                height: 180px;
-            }
-            .chart-center-label .center-value {
-                font-size: 14px;
-            }
         }
         
         /* Division Detail Modal */
