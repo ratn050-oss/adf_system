@@ -776,206 +776,166 @@ foreach ($projects as $proj) {
             margin-bottom: 2px;
         }
         
-        /* Chart Card - 2028 Premium Elegant Digital Design */
+        /* Chart Card - Premium Modern Design */
         .chart-card {
-            background: linear-gradient(180deg, #ffffff 0%, #f8fafc 50%, #f0f4ff 100%);
-            border-radius: 24px;
-            padding: 24px;
-            box-shadow: 
-                0 20px 60px rgba(102, 126, 234, 0.15),
-                0 8px 24px rgba(102, 126, 234, 0.08),
-                0 2px 8px rgba(0, 0, 0, 0.03),
-                inset 0 1px 0 rgba(255, 255, 255, 0.9);
-            border: 1px solid rgba(102, 126, 234, 0.12);
+            background: #ffffff;
+            border-radius: 20px;
+            padding: 28px 24px;
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06), 0 1px 4px rgba(0, 0, 0, 0.04);
+            border: 1px solid rgba(0, 0, 0, 0.06);
             margin-bottom: 24px;
-            position: relative;
-            overflow: hidden;
-            backdrop-filter: blur(10px);
         }
         
-        .chart-card::before {
-            content: '';
-            position: absolute;
-            top: -40%;
-            right: -40%;
-            width: 280px;
-            height: 280px;
-            background: radial-gradient(circle, rgba(102, 126, 234, 0.15) 0%, transparent 70%);
-            pointer-events: none;
-            animation: floatGradient 8s ease-in-out infinite;
-        }
-        
-        .chart-card::after {
-            content: '';
-            position: absolute;
-            bottom: -30%;
-            left: -30%;
-            width: 240px;
-            height: 240px;
-            background: radial-gradient(circle, rgba(118, 75, 162, 0.08) 0%, transparent 70%);
-            pointer-events: none;
-            animation: floatGradient 10s ease-in-out infinite reverse;
-        }
-        
-        @keyframes floatGradient {
-            0%, 100% { transform: translate(0, 0); }
-            50% { transform: translate(10px, -10px); }
+        .chart-layout {
+            display: flex;
+            align-items: center;
+            gap: 32px;
         }
         
         .chart-wrapper {
-            width: 100%;
-            max-width: 300px;
-            height: 300px;
-            margin: 0 auto 28px;
+            width: 200px;
+            height: 200px;
+            flex-shrink: 0;
             position: relative;
-            z-index: 2;
-            filter: drop-shadow(0 12px 32px rgba(102, 126, 234, 0.2));
-            animation: scaleIn 0.8s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
         }
         
-        @keyframes scaleIn {
-            from {
-                opacity: 0;
-                transform: scale(0.9) translateY(20px);
-            }
-            to {
-                opacity: 1;
-                transform: scale(1) translateY(0);
-            }
+        .chart-center-label {
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            text-align: center;
+            pointer-events: none;
+            z-index: 2;
+        }
+        .chart-center-label .center-title {
+            font-size: 10px;
+            font-weight: 600;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 0.08em;
+        }
+        .chart-center-label .center-value {
+            font-size: 16px;
+            font-weight: 800;
+            color: #1e293b;
+            letter-spacing: -0.03em;
+            margin-top: 2px;
         }
         
         .chart-legend {
+            flex: 1;
             display: flex;
             flex-direction: column;
-            gap: 12px;
-            position: relative;
-            z-index: 1;
+            gap: 6px;
+            min-width: 0;
         }
         
         .legend-item {
             display: flex;
             align-items: center;
-            gap: 14px;
-            padding: 14px 16px;
-            background: linear-gradient(135deg, rgba(255, 255, 255, 0.95) 0%, rgba(248, 250, 252, 0.85) 100%);
-            border-radius: 14px;
-            border: 1px solid rgba(102, 126, 234, 0.15);
-            transition: all 0.4s cubic-bezier(0.34, 1.56, 0.64, 1);
+            gap: 10px;
+            padding: 10px 12px;
+            border-radius: 10px;
             cursor: pointer;
-            position: relative;
-            overflow: hidden;
-            backdrop-filter: blur(8px);
+            transition: background 0.2s ease;
             user-select: none;
         }
         
-        .legend-item::before {
-            content: '';
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(135deg, rgba(102, 126, 234, 0.08) 0%, rgba(118, 75, 162, 0.03) 100%);
-            opacity: 0;
-            transition: opacity 0.4s ease;
-            z-index: 0;
-        }
-        
-        .legend-item::after {
-            content: '';
-            position: absolute;
-            top: -50%;
-            right: -50%;
-            width: 100%;
-            height: 100%;
-            background: radial-gradient(circle, rgba(255, 255, 255, 0.5) 0%, transparent 70%);
-            opacity: 0;
-            transition: opacity 0.4s ease;
-            pointer-events: none;
-        }
-        
         .legend-item:hover {
-            transform: translateY(-4px) translateX(4px) scale(1.02);
-            box-shadow: 
-                0 16px 40px rgba(102, 126, 234, 0.2),
-                0 8px 20px rgba(102, 126, 234, 0.1),
-                0 2px 8px rgba(0, 0, 0, 0.06);
-            border-color: rgba(102, 126, 234, 0.4);
-        }
-        
-        .legend-item:hover::before {
-            opacity: 1;
-        }
-        
-        .legend-item:hover::after {
-            opacity: 0.5;
+            background: #f8fafc;
         }
         
         .legend-item:active {
-            transform: translateY(-2px) translateX(2px) scale(0.98);
+            background: #f1f5f9;
+        }
+        
+        .legend-rank {
+            width: 22px;
+            height: 22px;
+            border-radius: 6px;
+            background: #f1f5f9;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 11px;
+            font-weight: 700;
+            color: #64748b;
+            flex-shrink: 0;
         }
         
         .legend-color {
-            width: 16px;
-            height: 16px;
-            border-radius: 6px;
+            width: 12px;
+            height: 12px;
+            border-radius: 4px;
             flex-shrink: 0;
-            box-shadow: 
-                0 4px 12px rgba(0, 0, 0, 0.2),
-                inset 0 1px 0 rgba(255, 255, 255, 0.4);
-            position: relative;
-            z-index: 1;
-            transition: all 0.3s ease;
-        }
-        
-        .legend-item:hover .legend-color {
-            transform: scale(1.15) rotate(5deg);
-            box-shadow: 
-                0 6px 16px rgba(0, 0, 0, 0.25),
-                inset 0 1px 0 rgba(255, 255, 255, 0.5);
         }
         
         .legend-info {
             flex: 1;
+            min-width: 0;
+        }
+        
+        .legend-top-row {
             display: flex;
             justify-content: space-between;
-            align-items: center;
-            position: relative;
-            z-index: 1;
-            gap: 12px;
+            align-items: baseline;
+            margin-bottom: 5px;
         }
         
         .legend-name {
-            font-size: 14px;
-            font-weight: 700;
-            color: var(--text);
-            letter-spacing: -0.02em;
+            font-size: 13px;
+            font-weight: 600;
+            color: #334155;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
             text-transform: capitalize;
         }
         
-        .legend-details {
-            display: flex;
-            flex-direction: column;
-            align-items: flex-end;
-            gap: 4px;
-            margin-left: auto;
+        .legend-amount {
+            font-size: 12px;
+            font-weight: 700;
+            color: #1e293b;
+            white-space: nowrap;
+            margin-left: 8px;
         }
         
-        .legend-amount {
-            font-size: 13px;
-            font-weight: 800;
-            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
-            -webkit-background-clip: text;
-            -webkit-text-fill-color: transparent;
-            background-clip: text;
-            letter-spacing: -0.01em;
+        .legend-bar-track {
+            width: 100%;
+            height: 4px;
+            background: #f1f5f9;
+            border-radius: 4px;
+            overflow: hidden;
+        }
+        
+        .legend-bar-fill {
+            height: 100%;
+            border-radius: 4px;
+            transition: width 1s cubic-bezier(0.22, 1, 0.36, 1);
         }
         
         .legend-percent {
             font-size: 11px;
-            color: var(--text-muted);
             font-weight: 600;
-            letter-spacing: -0.01em;
+            color: #94a3b8;
+            white-space: nowrap;
+            min-width: 38px;
+            text-align: right;
+            flex-shrink: 0;
+        }
+        
+        @media (max-width: 520px) {
+            .chart-layout {
+                flex-direction: column;
+                gap: 20px;
+            }
+            .chart-wrapper {
+                width: 180px;
+                height: 180px;
+            }
+            .chart-center-label .center-value {
+                font-size: 14px;
+            }
         }
         
         /* Division Detail Modal */
@@ -1217,31 +1177,44 @@ foreach ($projects as $proj) {
         </div>
         
         <div class="chart-card">
-            <div class="chart-wrapper">
-                <canvas id="divisionBreakdownChart"></canvas>
-            </div>
-            <div class="chart-legend">
-                <?php 
-                arsort($divisionBreakdown);
-                $totalDivision = array_sum($divisionBreakdown);
-                $colors = ['#3b82f6', '#8b5cf6', '#ec4899', '#f59e0b', '#10b981', '#14b8a6', '#f97316', '#6366f1'];
-                $index = 0;
-                foreach ($divisionBreakdown as $divName => $divAmount): 
-                    $percentage = $totalDivision > 0 ? round(($divAmount / $totalDivision) * 100, 1) : 0;
-                    $color = $colors[$index % count($colors)];
-                    $index++;
-                ?>
-                <div class="legend-item" onclick="showDivisionDetail('<?= htmlspecialchars($divName, ENT_QUOTES) ?>', '<?= $color ?>')">
-                    <div class="legend-color" style="background: <?= $color ?>"></div>
-                    <div class="legend-info">
-                        <div class="legend-name"><?= htmlspecialchars($divName) ?></div>
-                        <div class="legend-details">
-                            <span class="legend-amount"><?= rpFull($divAmount) ?></span>
-                            <span class="legend-percent"><?= $percentage ?>%</span>
-                        </div>
+            <div class="chart-layout">
+                <div class="chart-wrapper">
+                    <canvas id="divisionBreakdownChart"></canvas>
+                    <div class="chart-center-label">
+                        <div class="center-title">Total</div>
+                        <div class="center-value"><?php
+                            arsort($divisionBreakdown);
+                            $totalDivision = array_sum($divisionBreakdown);
+                            echo rpFull($totalDivision);
+                        ?></div>
                     </div>
                 </div>
-                <?php endforeach; ?>
+                <div class="chart-legend">
+                    <?php 
+                    $colors = ['#4f46e5', '#7c3aed', '#db2777', '#ea580c', '#059669', '#0891b2', '#d97706', '#6366f1', '#0d9488', '#be123c', '#4338ca', '#15803d'];
+                    $index = 0;
+                    foreach ($divisionBreakdown as $divName => $divAmount): 
+                        $percentage = $totalDivision > 0 ? round(($divAmount / $totalDivision) * 100, 1) : 0;
+                        $color = $colors[$index % count($colors)];
+                        $rank = $index + 1;
+                        $index++;
+                    ?>
+                    <div class="legend-item" onclick="showDivisionDetail('<?= htmlspecialchars($divName, ENT_QUOTES) ?>', '<?= $color ?>')">
+                        <div class="legend-rank"><?= $rank ?></div>
+                        <div class="legend-color" style="background: <?= $color ?>"></div>
+                        <div class="legend-info">
+                            <div class="legend-top-row">
+                                <span class="legend-name"><?= htmlspecialchars($divName) ?></span>
+                                <span class="legend-amount"><?= rpFull($divAmount) ?></span>
+                            </div>
+                            <div class="legend-bar-track">
+                                <div class="legend-bar-fill" style="width: <?= $percentage ?>%; background: <?= $color ?>"></div>
+                            </div>
+                        </div>
+                        <div class="legend-percent"><?= $percentage ?>%</div>
+                    </div>
+                    <?php endforeach; ?>
+                </div>
             </div>
         </div>
         
@@ -1456,17 +1429,10 @@ foreach ($projects as $proj) {
         
         const divisionCtx = document.getElementById('divisionBreakdownChart');
         if (divisionCtx) {
-            console.log('Division chart canvas found');
-            // Premium 2028 color palette with gradients
             const divisionColors = [
-                '#667eea', // Primary purple
-                '#764ba2', // Dark purple
-                '#f093fb', // Pink
-                '#4facfe', // Blue
-                '#00f2fe', // Cyan
-                '#43e97b', // Green
-                '#fa709a', // Red
-                '#feca57'  // Yellow
+                '#4f46e5', '#7c3aed', '#db2777', '#ea580c',
+                '#059669', '#0891b2', '#d97706', '#6366f1',
+                '#0d9488', '#be123c', '#4338ca', '#15803d'
             ];
             const divisionLabels = <?= json_encode(array_keys($divisionBreakdown), JSON_UNESCAPED_UNICODE) ?>;
             const divisionData = <?= json_encode(array_values($divisionBreakdown)) ?>;
@@ -1479,83 +1445,63 @@ foreach ($projects as $proj) {
                         datasets: [{
                             data: divisionData,
                             backgroundColor: divisionColors.slice(0, divisionLabels.length),
-                            borderWidth: 5,
+                            borderWidth: 3,
                             borderColor: '#ffffff',
-                            hoverOffset: 14,
-                            hoverBorderWidth: 6,
-                            hoverBorderColor: '#667eea',
+                            hoverOffset: 8,
+                            hoverBorderWidth: 3,
+                            hoverBorderColor: '#e2e8f0',
+                            spacing: 2,
+                            borderRadius: 4,
                         }]
                     },
-                options: {
-                    responsive: true,
-                    maintainAspectRatio: true,
-                    plugins: {
-                        legend: {
-                            display: false
-                        },
-                        tooltip: {
-                            enabled: true,
-                            backgroundColor: 'rgba(0, 0, 0, 0.9)',
-                            padding: 18,
-                            cornerRadius: 14,
-                            titleFont: {
-                                size: 15,
-                                weight: 'bold',
-                                family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
-                            },
-                            bodyFont: {
-                                size: 14,
-                                family: '-apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif'
-                            },
-                            titleMarginBottom: 12,
-                            bodySpacing: 8,
-                            displayColors: true,
-                            boxWidth: 14,
-                            boxHeight: 14,
-                            boxPadding: 8,
-                            borderColor: 'rgba(102, 126, 234, 0.3)',
-                            borderWidth: 1,
-                            callbacks: {
-                                label: function(ctx) {
-                                    const val = ctx.parsed;
-                                    const total = ctx.dataset.data.reduce((a,b) => a+b, 0);
-                                    const pct = ((val/total)*100).toFixed(1);
-                                    return '💰 Rp ' + val.toLocaleString('id-ID') + ' (' + pct + '%)';
-                                },
-                                afterLabel: function(ctx) {
-                                    const division = divisionLabels[ctx.dataIndex];
-                                    const items = divisionDetailsData[division] || [];
-                                    return '\\n👆 ' + items.length + ' transactions\\n🔍 Click for details';
+                    options: {
+                        responsive: true,
+                        maintainAspectRatio: true,
+                        plugins: {
+                            legend: { display: false },
+                            tooltip: {
+                                enabled: true,
+                                backgroundColor: '#1e293b',
+                                padding: 14,
+                                cornerRadius: 10,
+                                titleFont: { size: 13, weight: '600', family: 'system-ui, -apple-system, sans-serif' },
+                                bodyFont: { size: 12, family: 'system-ui, -apple-system, sans-serif' },
+                                titleMarginBottom: 8,
+                                displayColors: true,
+                                boxWidth: 10,
+                                boxHeight: 10,
+                                boxPadding: 6,
+                                callbacks: {
+                                    label: function(ctx) {
+                                        const val = ctx.parsed;
+                                        const total = ctx.dataset.data.reduce((a,b) => a+b, 0);
+                                        const pct = ((val/total)*100).toFixed(1);
+                                        return 'Rp ' + val.toLocaleString('id-ID') + ' (' + pct + '%)';
+                                    },
+                                    afterLabel: function(ctx) {
+                                        const division = divisionLabels[ctx.dataIndex];
+                                        const items = divisionDetailsData[division] || [];
+                                        return items.length + ' transaksi — tap untuk detail';
+                                    }
                                 }
                             }
+                        },
+                        cutout: '52%',
+                        animation: { animateRotate: true, duration: 1200, easing: 'easeOutQuart' },
+                        onClick: (event, activeElements) => {
+                            if (activeElements.length > 0) {
+                                const index = activeElements[0].index;
+                                showDivisionDetail(divisionLabels[index], divisionColors[index]);
+                            }
+                        },
+                        onHover: (event, activeElements) => {
+                            event.native.target.style.cursor = activeElements.length > 0 ? 'pointer' : 'default';
                         }
-                    },
-                    cutout: '70%',
-                    animation: {
-                        animateRotate: true,
-                        animateScale: true,
-                        duration: 1800,
-                        easing: 'easeInOutCubic'
-                    },
-                    onClick: (event, activeElements) => {
-                        if (activeElements.length > 0) {
-                            const index = activeElements[0].index;
-                            const divisionName = divisionLabels[index];
-                            const color = divisionColors[index];
-                            showDivisionDetail(divisionName, color);
-                        }
-                    },
-                    onHover: (event, activeElements) => {
-                        event.native.target.style.cursor = activeElements.length > 0 ? 'pointer' : 'default';
                     }
-                }
-            });
-            console.log('Division chart created successfully');
+                });
             } catch (error) {
-                console.error('Error creating division chart:', error);
+                console.error('Division chart error:', error);
             }
-        } else {
-            console.error('Division chart canvas not found');
         }
         
         // Division Detail Functions
