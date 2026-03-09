@@ -2388,7 +2388,11 @@ else { $healthStatus = 'Perlu Perhatian'; $healthEmoji = '🔴'; }
         <!-- Cash Flow Bulan Ini -->
         <div class="tx-card">
             <div class="tx-title" style="justify-content:space-between;">
-                <span>📊 Cash Flow — <?= strftime('%B %Y') ?: date('F Y') ?></span>
+                <?php
+                    $bulanIndo = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+                    $monthLabel = $bulanIndo[(int)date('n') - 1] . ' ' . date('Y');
+                ?>
+                <span>📊 Cash Flow — <?= $monthLabel ?></span>
                 <span style="font-size:11px;font-weight:400;color:var(--text-muted)"><?= count($transactions) ?> transaksi</span>
             </div>
             
