@@ -485,6 +485,7 @@ elseif ($activeTab === 'ota_fees') {
     } catch (Exception $e) {
         error_log("Load booking sources error: " . $e->getMessage());
     }
+}
 
 include '../../includes/header.php';
 ?>
