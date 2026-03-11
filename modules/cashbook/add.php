@@ -419,9 +419,12 @@ if (isPost()) {
                     $investorProjectId = intval(getPost('project_id'));
                     if ($sourceType === 'owner_project' && $transactionType === 'expense') {
                         try {
+                            // Commit current transaction first (DDL causes implicit commit anyway)
+                            $db->commit();
+                            
                             $pdo = $db->getConnection();
                             
-                            // Ensure projects table exists
+                            // Ensure projects table exists (DDL - outside transaction)
                             $pdo->exec("CREATE TABLE IF NOT EXISTS projects (
                                 id INT AUTO_INCREMENT PRIMARY KEY, project_name VARCHAR(150) NOT NULL, project_code VARCHAR(50),
                                 description TEXT, budget_idr DECIMAL(15,2) DEFAULT 0,
@@ -430,7 +433,7 @@ if (isPost()) {
                                 created_by INT, INDEX idx_status (status)
                             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
                             
-                            // Ensure project_expenses table exists
+                            // Ensure project_expenses table exists (DDL - outside transaction)
                             $pdo->exec("CREATE TABLE IF NOT EXISTS project_expenses (
                                 id INT AUTO_INCREMENT PRIMARY KEY, project_id INT NOT NULL, category_id INT,
                                 amount DECIMAL(15,2) NOT NULL, description TEXT, division_name VARCHAR(100),
@@ -439,9 +442,8 @@ if (isPost()) {
                                 INDEX idx_project (project_id), INDEX idx_date (expense_date)
                             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
                             
-                            // Add cash_book_id column if not exists
+                            // Add columns if not exists (DDL - outside transaction)
                             try { $pdo->exec("ALTER TABLE project_expenses ADD COLUMN cash_book_id INT NULL"); } catch (Exception $ignore) {}
-                            // Add division_name column if not exists
                             try { $pdo->exec("ALTER TABLE project_expenses ADD COLUMN division_name VARCHAR(100)"); } catch (Exception $ignore) {}
                             
                             // If no project selected, auto-create/use "Proyek Umum"
@@ -470,8 +472,17 @@ if (isPost()) {
                             $peStmt = $pdo->prepare("INSERT INTO project_expenses (project_id, amount, description, division_name, expense_date, created_by, cash_book_id) VALUES (?, ?, ?, ?, ?, ?, ?)");
                             $peStmt->execute([$investorProjectId, $amount, ($description ?: $categoryName), $divName, $transactionDate, $_SESSION['user_id'], $transactionId]);
                             error_log("PROJECT SYNC: Cashbook #{$transactionId} -> project_expenses for project #{$investorProjectId}, Amount: {$amount}");
+                            
+                            // Success - redirect directly (transaction already committed)
+                            setFlash('success', 'Transaksi berhasil ditambahkan! 🏗️ Tersinkron ke Proyek.');
+                            redirect(BASE_URL . '/modules/cashbook/index.php');
+                            exit;
                         } catch (Exception $e) {
                             error_log('Investor project expense sync error: ' . $e->getMessage());
+                            // Cash book already committed, just log sync failure
+                            setFlash('success', 'Transaksi berhasil, tapi sync ke proyek gagal: ' . $e->getMessage());
+                            redirect(BASE_URL . '/modules/cashbook/index.php');
+                            exit;
                         }
                     }
                     
