@@ -173,6 +173,30 @@
             --form-hover-border: #AAAAAA;
         }
 
+        body.theme-ocean {
+            --gold: #C8A951;
+            --gold-light: #E0C97A;
+            --gold-dim: rgba(200,169,81,0.12);
+            --dark: #091B2A;
+            --surface: #0B2138;
+            --text: #D4E4F1;
+            --text-dim: #7A9BB8;
+            --body-bg: #061420;
+            --border-outer: #C8A951;
+            --border-inner: #C8A951;
+            --corner-color: #C8A951;
+            --menu-title-color: #EAF2F8;
+            --leader-color: #163A55;
+            --footer-color: #537D9B;
+            --heading-line-color: #C8A951;
+            --form-bg: #0D2540;
+            --form-border: #163A55;
+            --form-item-bg: #0B2138;
+            --form-input-bg: #081A2C;
+            --form-btn-color: #7A9BB8;
+            --form-hover-border: #C8A951;
+        }
+
         * { margin: 0; padding: 0; box-sizing: border-box; }
 
         body {
@@ -954,7 +978,8 @@
             { id: 'navy',    name: 'Royal Navy',     bg: '#0A1628', accent: '#B8860B', text: '#C8D6E5', sub: '#6B7F99' },
             { id: 'emerald', name: 'Garden Emerald', bg: '#FAFDF7', accent: '#2D8B56', text: '#1A3C2A', sub: '#5A7D68' },
             { id: 'rose',    name: 'Ros\u00e9 Blush',      bg: '#FFF8F6', accent: '#9B2D4E', text: '#3D1F2B', sub: '#8A6070' },
-            { id: 'marble',  name: 'White Marble',   bg: '#FFFFFF', accent: '#666666', text: '#2D2D2D', sub: '#777777' }
+            { id: 'marble',  name: 'White Marble',   bg: '#FFFFFF', accent: '#666666', text: '#2D2D2D', sub: '#777777' },
+            { id: 'ocean',   name: 'Ocean Blue',      bg: '#0B2138', accent: '#C8A951', text: '#D4E4F1', sub: '#7A9BB8' }
         ];
         themes.forEach(function(t) {
             var sel = (currentTheme === t.id) ? ' selected' : '';
@@ -1203,7 +1228,7 @@
     }
 
     // ==================== THEME ====================
-    var THEME_LIST = ['dark', 'light', 'navy', 'emerald', 'rose', 'marble'];
+    var THEME_LIST = ['dark', 'light', 'navy', 'emerald', 'rose', 'marble', 'ocean'];
     var currentTheme = localStorage.getItem('narayana_menu_theme') || 'dark';
 
     function applyTheme(theme) {
