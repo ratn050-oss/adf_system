@@ -32,11 +32,15 @@ $pageTitle = 'Calendar Booking';
 // ============================================
 $otaFees = [
     'direct' => 0,
+    'walk_in' => 0,
+    'phone' => 0,
+    'online' => 0,
     'agoda' => 15,
     'booking' => 12,
     'tiket' => 10,
     'traveloka' => 15,
-    'airbnb' => 3
+    'airbnb' => 3,
+    'ota' => 10
 ];
 try {
     // Attempt to fetch from settings table if exists
@@ -3252,24 +3256,62 @@ window.updateSourceDetails = function() {
     const pmOtaBtn = document.getElementById('pm-ota'); // The new hidden OTA button
     const otaSources = ['agoda', 'booking', 'tiket', 'traveloka', 'airbnb', 'ota'];
     
+    const paidAmountInput = document.getElementById('paidAmount');
+    const payAllBtn = document.querySelector('.btn-pay-all');
+    const pmSelect = document.getElementById('paymentMethod');
+    
     if (otaSources.includes(currentSource)) {
-        // Source is an OTA
+        // Source is an OTA: set payment method to ota_<source>
+        const otaValue = 'ota_' + currentSource;
+        const otaNames = {'agoda':'Agoda','booking':'Booking.com','tiket':'Tiket.com','traveloka':'Traveloka','airbnb':'Airbnb','ota':'OTA Lainnya'};
+        const otaLabel = otaNames[currentSource] || currentSource;
+        
+        if (pmSelect) {
+            pmSelect.innerHTML = '<option value="' + otaValue + '" selected>OTA ' + otaLabel + '</option>';
+            pmSelect.disabled = true;
+            pmSelect.style.opacity = '0.7';
+        }
         if (pmOtaBtn) {
-            pmOtaBtn.style.display = 'flex'; // Show the button
-            pmOtaBtn.click(); // Auto-click to select it
+            pmOtaBtn.style.display = 'flex';
+            pmOtaBtn.click();
+        }
+        
+        // OTA: disable Pay All & paid amount (OTA pays later at check-in)
+        if (paidAmountInput) {
+            paidAmountInput.value = 0;
+            paidAmountInput.disabled = true;
+            paidAmountInput.style.opacity = '0.5';
+        }
+        if (payAllBtn) {
+            payAllBtn.disabled = true;
+            payAllBtn.style.opacity = '0.5';
+            payAllBtn.style.cursor = 'not-allowed';
+            payAllBtn.title = 'OTA: pembayaran masuk saat check-in';
         }
     } else {
-        // Source is NOT an OTA (Direct/Walk-in)
-        if (pmOtaBtn) {
-            pmOtaBtn.style.display = 'none'; // Hide the button
+        // Source is NOT an OTA (Direct/Walk-in): restore normal payment options
+        if (pmSelect) {
+            pmSelect.innerHTML = 
+                '<option value="cash">Cash</option>' +
+                '<option value="transfer">Transfer</option>' +
+                '<option value="qris">QRIS</option>';
+            pmSelect.disabled = false;
+            pmSelect.style.opacity = '1';
         }
-        // Switch back to Cash if OTA was selected
-        const pmElement = document.getElementById('paymentMethod');
-        const currentPm = pmElement ? pmElement.value : '';
-        if (currentPm === 'ota') {
-             // Find cash button and click it
-             const cashBtn = document.querySelector('.pm-item[onclick*="cash"]');
-             if (cashBtn) cashBtn.click();
+        if (pmOtaBtn) {
+            pmOtaBtn.style.display = 'none';
+        }
+        
+        // Direct: enable Pay All & paid amount
+        if (paidAmountInput) {
+            paidAmountInput.disabled = false;
+            paidAmountInput.style.opacity = '1';
+        }
+        if (payAllBtn) {
+            payAllBtn.disabled = false;
+            payAllBtn.style.opacity = '1';
+            payAllBtn.style.cursor = 'pointer';
+            payAllBtn.title = 'Pay Full Amount';
         }
     }
     
@@ -4377,9 +4419,12 @@ document.addEventListener('DOMContentLoaded', function() {
                         <select id="bookingSource" name="booking_source" onchange="updateSourceDetails()">
                             <option value="walk_in">Direct (Walk-in)</option>
                             <option value="phone">Direct (Phone)</option>
+                            <option value="online">Direct Online</option>
                             <option value="agoda">Agoda</option>
                             <option value="booking">Booking.com</option>
                             <option value="tiket">Tiket.com</option>
+                            <option value="airbnb">Airbnb</option>
+                            <option value="ota">OTA Lainnya</option>
                         </select>
                     </div>
                     <div class="input-compact">

@@ -1227,6 +1227,8 @@ function onBookingSourceChange() {
 
 function syncPaymentMethodToSource(source) {
     const paymentSelect = document.getElementById('paymentMethod');
+    const paidAmountInput = document.getElementById('paidAmount');
+    const payAllBtn = document.querySelector('.btn-pay-all');
     const isOta = !DIRECT_SOURCES.includes(source);
     
     if (isOta) {
@@ -1237,6 +1239,19 @@ function syncPaymentMethodToSource(source) {
         paymentSelect.innerHTML = '<option value="' + otaValue + '" selected>OTA ' + otaName + '</option>';
         paymentSelect.disabled = true;
         paymentSelect.style.opacity = '0.7';
+        
+        // OTA: disable Pay All & paid amount (OTA pays later at check-in)
+        if (paidAmountInput) {
+            paidAmountInput.value = 0;
+            paidAmountInput.disabled = true;
+            paidAmountInput.style.opacity = '0.5';
+        }
+        if (payAllBtn) {
+            payAllBtn.disabled = true;
+            payAllBtn.style.opacity = '0.5';
+            payAllBtn.style.cursor = 'not-allowed';
+            payAllBtn.title = 'OTA: pembayaran masuk saat check-in';
+        }
     } else {
         // Direct selected: restore normal payment options
         paymentSelect.innerHTML = 
@@ -1245,6 +1260,18 @@ function syncPaymentMethodToSource(source) {
             '<option value="qris">QRIS</option>';
         paymentSelect.disabled = false;
         paymentSelect.style.opacity = '1';
+        
+        // Direct: enable Pay All & paid amount
+        if (paidAmountInput) {
+            paidAmountInput.disabled = false;
+            paidAmountInput.style.opacity = '1';
+        }
+        if (payAllBtn) {
+            payAllBtn.disabled = false;
+            payAllBtn.style.opacity = '1';
+            payAllBtn.style.cursor = 'pointer';
+            payAllBtn.title = 'Pay Full Amount';
+        }
     }
 }
 
