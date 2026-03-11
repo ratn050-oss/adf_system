@@ -417,9 +417,20 @@ if (isPost()) {
                     
                     // INVESTOR PROJECT: Sync expense to project_expenses table
                     $investorProjectId = intval(getPost('project_id'));
-                    if ($investorProjectId > 0 && $sourceType === 'owner_project' && $transactionType === 'expense') {
+                    if ($sourceType === 'owner_project' && $transactionType === 'expense') {
                         try {
                             $pdo = $db->getConnection();
+                            
+                            // Ensure projects table exists
+                            $pdo->exec("CREATE TABLE IF NOT EXISTS projects (
+                                id INT AUTO_INCREMENT PRIMARY KEY, project_name VARCHAR(150) NOT NULL, project_code VARCHAR(50),
+                                description TEXT, budget_idr DECIMAL(15,2) DEFAULT 0,
+                                status ENUM('planning','ongoing','on_hold','completed','cancelled') DEFAULT 'planning',
+                                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                                created_by INT, INDEX idx_status (status)
+                            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+                            
+                            // Ensure project_expenses table exists
                             $pdo->exec("CREATE TABLE IF NOT EXISTS project_expenses (
                                 id INT AUTO_INCREMENT PRIMARY KEY, project_id INT NOT NULL, category_id INT,
                                 amount DECIMAL(15,2) NOT NULL, description TEXT, division_name VARCHAR(100),
@@ -430,6 +441,23 @@ if (isPost()) {
                             
                             // Add cash_book_id column if not exists
                             try { $pdo->exec("ALTER TABLE project_expenses ADD COLUMN cash_book_id INT NULL"); } catch (Exception $ignore) {}
+                            // Add division_name column if not exists
+                            try { $pdo->exec("ALTER TABLE project_expenses ADD COLUMN division_name VARCHAR(100)"); } catch (Exception $ignore) {}
+                            
+                            // If no project selected, auto-create/use "Proyek Umum"
+                            if ($investorProjectId <= 0) {
+                                $defStmt = $pdo->prepare("SELECT id FROM projects WHERE project_code = 'UMUM' LIMIT 1");
+                                $defStmt->execute();
+                                $defaultProject = $defStmt->fetch(PDO::FETCH_ASSOC);
+                                if ($defaultProject) {
+                                    $investorProjectId = (int)$defaultProject['id'];
+                                } else {
+                                    $createStmt = $pdo->prepare("INSERT INTO projects (project_name, project_code, description, budget_idr, status, created_by) VALUES (?, ?, ?, ?, ?, ?)");
+                                    $createStmt->execute(['Proyek Umum', 'UMUM', 'Proyek default untuk pengeluaran proyek dari kas besar', 0, 'ongoing', $_SESSION['user_id'] ?? null]);
+                                    $investorProjectId = (int)$pdo->lastInsertId();
+                                    error_log("PROJECT AUTO-CREATE: Created default 'Proyek Umum' with ID #{$investorProjectId}");
+                                }
+                            }
                             
                             // Get division name for project_expenses
                             $divName = '';
