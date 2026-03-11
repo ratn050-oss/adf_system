@@ -122,7 +122,8 @@ try {
             // - OTA: ONLY sync when booking status = checked_in or checked_out
             // This prevents OTA payments from entering kas before check-in!
             // ============================================
-            $otaSources = "'agoda', 'booking', 'booking.com', 'tiket', 'tiket.com', 'traveloka', 'airbnb', 'expedia', 'pegipegi', 'ota'";
+            // OTA detection using LIKE (substring match) - consistent with PHP-side detection
+            // This prevents OTA variants like 'Booking Com', 'agoda_direct' etc from being treated as direct
             
             if ($hasSyncCol) {
                 $unsyncedPayments = $db->fetchAll("
@@ -134,8 +135,17 @@ try {
                     LEFT JOIN rooms r ON b.room_id = r.id
                     WHERE bp.synced_to_cashbook = 0 
                     AND (
-                        -- Direct Booking: sync anytime
-                        (LOWER(COALESCE(b.booking_source,'')) NOT IN ({$otaSources}) AND LOWER(COALESCE(b.booking_source,'')) NOT LIKE '%ota%')
+                        -- Direct Booking: sync anytime (source does NOT contain any OTA keyword)
+                        (
+                            LOWER(COALESCE(b.booking_source,'')) NOT LIKE '%agoda%'
+                            AND LOWER(COALESCE(b.booking_source,'')) NOT LIKE '%booking%'
+                            AND LOWER(COALESCE(b.booking_source,'')) NOT LIKE '%tiket%'
+                            AND LOWER(COALESCE(b.booking_source,'')) NOT LIKE '%traveloka%'
+                            AND LOWER(COALESCE(b.booking_source,'')) NOT LIKE '%airbnb%'
+                            AND LOWER(COALESCE(b.booking_source,'')) NOT LIKE '%expedia%'
+                            AND LOWER(COALESCE(b.booking_source,'')) NOT LIKE '%pegipegi%'
+                            AND LOWER(COALESCE(b.booking_source,'')) NOT LIKE '%ota%'
+                        )
                         OR
                         -- OTA: only sync if checked_in or checked_out
                         (b.status IN ('checked_in', 'checked_out'))
@@ -152,8 +162,17 @@ try {
                     LEFT JOIN rooms r ON b.room_id = r.id
                     WHERE bp.payment_date >= DATE_SUB(NOW(), INTERVAL 60 DAY) 
                     AND (
-                        -- Direct Booking: sync anytime
-                        (LOWER(COALESCE(b.booking_source,'')) NOT IN ({$otaSources}) AND LOWER(COALESCE(b.booking_source,'')) NOT LIKE '%ota%')
+                        -- Direct Booking: sync anytime (source does NOT contain any OTA keyword)
+                        (
+                            LOWER(COALESCE(b.booking_source,'')) NOT LIKE '%agoda%'
+                            AND LOWER(COALESCE(b.booking_source,'')) NOT LIKE '%booking%'
+                            AND LOWER(COALESCE(b.booking_source,'')) NOT LIKE '%tiket%'
+                            AND LOWER(COALESCE(b.booking_source,'')) NOT LIKE '%traveloka%'
+                            AND LOWER(COALESCE(b.booking_source,'')) NOT LIKE '%airbnb%'
+                            AND LOWER(COALESCE(b.booking_source,'')) NOT LIKE '%expedia%'
+                            AND LOWER(COALESCE(b.booking_source,'')) NOT LIKE '%pegipegi%'
+                            AND LOWER(COALESCE(b.booking_source,'')) NOT LIKE '%ota%'
+                        )
                         OR
                         -- OTA: only sync if checked_in or checked_out
                         (b.status IN ('checked_in', 'checked_out'))
