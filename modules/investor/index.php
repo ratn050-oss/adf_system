@@ -1831,6 +1831,63 @@ include $base_path . '/includes/header.php';
     background: #ef4444;
     color: white;
 }
+
+/* Tab Navigation */
+.tab-nav {
+    display: flex;
+    gap: 0.25rem;
+    margin-bottom: 1.5rem;
+    border-bottom: 2px solid var(--border-color);
+    padding-bottom: 0;
+    overflow-x: auto;
+    -webkit-overflow-scrolling: touch;
+}
+
+.tab-btn {
+    padding: 0.75rem 1.25rem;
+    border: none;
+    background: none;
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-muted);
+    cursor: pointer;
+    border-bottom: 3px solid transparent;
+    transition: all 0.2s ease;
+    white-space: nowrap;
+    margin-bottom: -2px;
+}
+
+.tab-btn:hover {
+    color: #6366f1;
+    background: rgba(99, 102, 241, 0.05);
+    border-radius: 6px 6px 0 0;
+}
+
+.tab-btn.active {
+    color: #6366f1;
+    border-bottom-color: #6366f1;
+}
+
+.tab-panel {
+    display: none;
+}
+
+.tab-panel.active {
+    display: block;
+    animation: tabFadeIn 0.25s ease;
+}
+
+@keyframes tabFadeIn {
+    from { opacity: 0; transform: translateY(6px); }
+    to { opacity: 1; transform: translateY(0); }
+}
+
+@media (max-width: 768px) {
+    .tab-btn {
+        padding: 0.6rem 0.9rem;
+        font-size: 0.8rem;
+    }
+}
 </style>
 
 <div class="investor-page">
@@ -1893,6 +1950,17 @@ include $base_path . '/includes/header.php';
             <div class="value" style="color:#d97706">Rp <?= number_format($total_all_expenses, 0, ',', '.') ?></div>
         </div>
     </div>
+
+    <!-- Tab Navigation -->
+    <div class="tab-nav">
+        <button class="tab-btn active" onclick="switchTab('ringkasan')" data-tab="ringkasan">📊 Ringkasan</button>
+        <button class="tab-btn" onclick="switchTab('proyek')" data-tab="proyek">🏗️ Proyek</button>
+        <button class="tab-btn" onclick="switchTab('tagihan')" data-tab="tagihan">📋 Tagihan</button>
+        <button class="tab-btn" onclick="switchTab('investor')" data-tab="investor">👥 Investor</button>
+    </div>
+
+    <!-- Tab: Ringkasan -->
+    <div id="tab-ringkasan" class="tab-panel active">
 
     <!-- Charts Section -->
     <div class="charts-section">
@@ -1988,6 +2056,11 @@ include $base_path . '/includes/header.php';
             </div>
         </div>
     </div>
+
+    </div><!-- /tab: ringkasan -->
+
+    <!-- Tab: Proyek -->
+    <div id="tab-proyek" class="tab-panel">
 
     <!-- Projects Section -->
     <div class="projects-section">
@@ -2144,6 +2217,11 @@ include $base_path . '/includes/header.php';
         <?php endif; ?>
     </div>
 
+    </div><!-- /tab: proyek -->
+
+    <!-- Tab: Tagihan -->
+    <div id="tab-tagihan" class="tab-panel">
+
     <!-- Bills Section -->
     <div class="bills-section">
         <div class="section-header">
@@ -2269,6 +2347,11 @@ include $base_path . '/includes/header.php';
         </div>
     </div>
 
+    </div><!-- /tab: tagihan -->
+
+    <!-- Tab: Investor -->
+    <div id="tab-investor" class="tab-panel">
+
     <!-- Investor List -->
     <div class="section-header">
         <h2 class="section-title">
@@ -2348,6 +2431,8 @@ include $base_path . '/includes/header.php';
         
         <?php include "deposits-history.php"; ?>
     </div>
+
+    </div><!-- /tab: investor -->
 </div>
 
 <!-- Modal: Investor Transaction History -->
@@ -2723,6 +2808,14 @@ include $base_path . '/includes/header.php';
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
 <script src="deposits-script.js"></script>
 <script>
+// ====== TAB NAVIGATION ======
+function switchTab(tabId) {
+    document.querySelectorAll('.tab-panel').forEach(function(p) { p.classList.remove('active'); });
+    document.querySelectorAll('.tab-btn').forEach(function(b) { b.classList.remove('active'); });
+    document.getElementById('tab-' + tabId).classList.add('active');
+    document.querySelector('.tab-btn[data-tab="' + tabId + '"]').classList.add('active');
+}
+
 // ====== GLOBAL FUNCTIONS ======
 // Currency Formatter for IDR
 function formatCurrency(value) {
