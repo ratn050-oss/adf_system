@@ -166,13 +166,13 @@ try {
             foreach ($unsyncedPayments as $payment) {
                 try {
                     // ============================================
-                    // FIX: Enhanced duplicate prevention
-                    // Check if ANY entry exists for this booking code (regardless of amount/date)
-                    // This prevents duplicates from check-in + auto-sync
+                    // FIX: Payment-level duplicate prevention
+                    // Check by booking_code AND payment_id to allow multiple payments per booking
                     // ============================================
+                    $dedupDesc = '%' . $payment['booking_code'] . '%';
                     $existingEntry = $db->fetchOne(
-                        "SELECT id FROM cash_book WHERE description LIKE ? AND transaction_type = 'income' LIMIT 1",
-                        ['%' . $payment['booking_code'] . '%']
+                        "SELECT id FROM cash_book WHERE description LIKE ? AND ABS(amount - ?) < 1 AND transaction_type = 'income' LIMIT 1",
+                        [$dedupDesc, $payment['amount']]
                     );
                     if ($existingEntry) {
                         // Mark as synced even if entry already exists (prevent retry loop)
@@ -185,14 +185,35 @@ try {
                     // Fallback dedup if no sync column (legacy support)
                     if (!$hasSyncCol) {
                         $existingLegacy = $db->fetchOne("SELECT id FROM cash_book WHERE description LIKE ? AND ABS(amount - ?) < 1 AND transaction_type = 'income' LIMIT 1",
-                            ['%' . $payment['booking_code'] . '%', $payment['amount']]);
+                            [$dedupDesc, $payment['amount']]);
                         if ($existingLegacy) continue;
                     }
 
+                    // Calculate OTA fee using booking_source with per-OTA fee rates
                     $netAmount = (float)$payment['amount'];
-                    if (in_array(strtolower($payment['payment_method']), ['ota', 'agoda', 'booking'])) {
-                        $feeStmt = $masterDb->prepare("SELECT setting_value FROM settings WHERE setting_key = 'ota_fee_other_ota'");
-                        $feeStmt->execute();
+                    $bookingSource = strtolower(trim($payment['booking_source'] ?? ''));
+                    $normalizedSrc = str_replace(['.com', '.co.id', '.id'], '', $bookingSource);
+                    $normalizedSrc = preg_replace('/[^a-z0-9]/', '', $normalizedSrc);
+                    $otaFeeMap = [
+                        'agoda' => 'ota_fee_agoda',
+                        'booking' => 'ota_fee_booking_com', 'bookingcom' => 'ota_fee_booking_com',
+                        'tiket' => 'ota_fee_tiket_com', 'tiketcom' => 'ota_fee_tiket_com',
+                        'airbnb' => 'ota_fee_airbnb',
+                        'traveloka' => 'ota_fee_traveloka',
+                        'expedia' => 'ota_fee_expedia',
+                        'pegipegi' => 'ota_fee_other_ota',
+                        'ota' => 'ota_fee_other_ota'
+                    ];
+                    $feeSettingKey = null;
+                    foreach ($otaFeeMap as $otaKey => $settingKey) {
+                        if (strpos($normalizedSrc, $otaKey) !== false || $normalizedSrc === $otaKey) {
+                            $feeSettingKey = $settingKey;
+                            break;
+                        }
+                    }
+                    if ($feeSettingKey) {
+                        $feeStmt = $masterDb->prepare("SELECT setting_value FROM settings WHERE setting_key = ?");
+                        $feeStmt->execute([$feeSettingKey]);
                         $feeQuery = $feeStmt->fetch(PDO::FETCH_ASSOC);
                         if ($feeQuery && (float)($feeQuery['setting_value'] ?? 0) > 0) {
                             $netAmount = $payment['amount'] - ($payment['amount'] * (float)$feeQuery['setting_value'] / 100);

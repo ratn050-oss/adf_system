@@ -193,9 +193,9 @@ try {
         $syncCount = 0;
         foreach ($payments as $pmt) {
             try {
-            // ALWAYS dedup: check if ANY entry exists for this booking_code + payment
-            $exists = $db->fetchOne("SELECT id FROM cash_book WHERE description LIKE ? AND transaction_type = 'income' LIMIT 1",
-                ['%' . $booking['booking_code'] . '%']);
+            // Payment-level dedup: check by booking_code AND amount to allow multiple payments
+            $exists = $db->fetchOne("SELECT id FROM cash_book WHERE description LIKE ? AND ABS(amount - ?) < 1 AND transaction_type = 'income' LIMIT 1",
+                ['%' . $booking['booking_code'] . '%', $pmt['amount']]);
             if ($exists) {
                 // Mark as synced if possible
                 if ($hasSyncCol) {
@@ -204,11 +204,31 @@ try {
                 continue;
             }
 
-            // Calculate net amount (OTA fee)
+            // Calculate net amount using booking_source with per-OTA fee rates
             $netAmt = (float)$pmt['amount'];
-            if (in_array(strtolower($pmt['payment_method']), ['ota', 'agoda', 'booking'])) {
-                $feeStmt = $masterDb->prepare("SELECT setting_value FROM settings WHERE setting_key = 'ota_fee_other_ota'");
-                $feeStmt->execute();
+            $bookingSrc = strtolower(trim($booking['booking_source'] ?? ''));
+            $normalizedSrc = str_replace(['.com', '.co.id', '.id'], '', $bookingSrc);
+            $normalizedSrc = preg_replace('/[^a-z0-9]/', '', $normalizedSrc);
+            $otaFeeMap = [
+                'agoda' => 'ota_fee_agoda',
+                'booking' => 'ota_fee_booking_com', 'bookingcom' => 'ota_fee_booking_com',
+                'tiket' => 'ota_fee_tiket_com', 'tiketcom' => 'ota_fee_tiket_com',
+                'airbnb' => 'ota_fee_airbnb',
+                'traveloka' => 'ota_fee_traveloka',
+                'expedia' => 'ota_fee_expedia',
+                'pegipegi' => 'ota_fee_other_ota',
+                'ota' => 'ota_fee_other_ota'
+            ];
+            $feeSettingKey = null;
+            foreach ($otaFeeMap as $otaKey => $settingKey) {
+                if (strpos($normalizedSrc, $otaKey) !== false || $normalizedSrc === $otaKey) {
+                    $feeSettingKey = $settingKey;
+                    break;
+                }
+            }
+            if ($feeSettingKey) {
+                $feeStmt = $masterDb->prepare("SELECT setting_value FROM settings WHERE setting_key = ?");
+                $feeStmt->execute([$feeSettingKey]);
                 $feeQ = $feeStmt->fetch(PDO::FETCH_ASSOC);
                 if ($feeQ && (float)$feeQ['setting_value'] > 0) {
                     $netAmt = $pmt['amount'] - ($pmt['amount'] * (float)$feeQ['setting_value'] / 100);

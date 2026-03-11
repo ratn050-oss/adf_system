@@ -475,10 +475,11 @@ class CashbookHelper {
             // ---- DEDUP CHECK: prevent duplicate cash_book entries ----
             $bookingCode = $paymentData['booking_code'] ?? '';
             if ($bookingCode) {
+                // Payment-level dedup: check by booking_code AND amount
                 $existingEntry = $this->db->fetchOne("
                     SELECT id FROM cash_book 
-                    WHERE description LIKE ? AND transaction_type = 'income' LIMIT 1
-                ", ['%' . $bookingCode . '%']);
+                    WHERE description LIKE ? AND ABS(amount - ?) < 1 AND transaction_type = 'income' LIMIT 1
+                ", ['%' . $bookingCode . '%', $paymentData['amount']]);
                 if ($existingEntry) {
                     $result['success'] = true;
                     $result['transaction_id'] = $existingEntry['id'];
@@ -646,18 +647,28 @@ class CashbookHelper {
         $result = ['synced' => 0, 'errors' => 0, 'details' => []];
         
         try {
-            // Get unsynced payments
+            // Get unsynced payments (OTA only when checked_in/checked_out)
+            $otaSources = ['agoda', 'booking', 'bookingcom', 'tiket', 'tiketcom', 'airbnb', 'traveloka', 'expedia', 'pegipegi', 'ota'];
+            $otaPlaceholders = implode(',', array_fill(0, count($otaSources), '?'));
             $unsyncedPayments = $this->db->fetchAll("
                 SELECT bp.id as payment_id, bp.booking_id, bp.amount, bp.payment_method, 
                        bp.payment_date, b.booking_code, b.booking_source, b.final_price,
-                       g.guest_name, r.room_number
+                       b.status as booking_status, g.guest_name, r.room_number
                 FROM booking_payments bp
                 JOIN bookings b ON bp.booking_id = b.id
                 LEFT JOIN guests g ON b.guest_id = g.id
                 LEFT JOIN rooms r ON b.room_id = r.id
                 WHERE bp.synced_to_cashbook = 0
+                AND (
+                    -- Direct Booking: sync anytime
+                    (LOWER(COALESCE(b.booking_source,'')) NOT IN ({$otaPlaceholders})
+                     AND LOWER(COALESCE(b.booking_source,'')) NOT LIKE '%ota%')
+                    OR
+                    -- OTA: only sync if checked_in or checked_out
+                    (b.status IN ('checked_in', 'checked_out'))
+                )
                 ORDER BY bp.id ASC
-            ");
+            ", $otaSources);
             
             foreach ($unsyncedPayments as $payment) {
                 // Get total paid for this booking
