@@ -1146,45 +1146,15 @@ include '../../includes/header.php';
                 <p><strong>Check-out:</strong> <span id="cancelCheckOut">-</span></p>
             </div>
             
-            <div class="refund-policy-box" id="refundPolicyBox">
-                <div class="refund-policy-label">Kebijakan Refund</div>
-                <div class="refund-policy-value" id="refundPolicyLabel">Manual Processing</div>
-                <small id="refundDaysInfo">Tentukan sendiri jumlah refund yang akan diberikan</small>
-            </div>
-            
             <div style="margin-top: 1rem;">
                 <div class="refund-amount-row">
                     <span>Total Dibayar</span>
                     <span id="cancelPaidAmount">Rp 0</span>
                 </div>
-                <div class="refund-amount-row manual-note">
-                    <span>📝 Refund Manual</span>
-                    <span style="color: #64748b; font-style: italic;">Tentukan di bawah</span>
-                </div>
-            </div>
-            
-            <!-- Manual Refund Input - Required for any refund -->
-            <div style="margin-top: 1rem; padding: 1rem; background: #fffbeb; border-radius: 8px; border: 2px solid #f59e0b;">
-                <label style="display: block; font-weight: 600; margin-bottom: 0.5rem; color: #92400e;">
-                    💰 Jumlah Refund (Wajib jika ingin refund)
-                </label>
-                <div style="display: flex; gap: 0.5rem; align-items: center;">
-                    <input type="number" id="manualRefundAmount" placeholder="Nominal refund (Rp)" min="0"
-                           style="flex: 2; padding: 0.75rem; border: 1px solid #f59e0b; border-radius: 6px; font-size: 0.9rem; font-weight: 500;"
-                           onchange="updateManualRefund('nominal')">
-                    <span style="color: #9ca3af;">atau</span>
-                    <input type="number" id="manualRefundPercent" placeholder="%" min="0" max="100"
-                           style="flex: 1; padding: 0.75rem; border: 1px solid #f59e0b; border-radius: 6px; font-size: 0.9rem; font-weight: 500;"
-                           onchange="updateManualRefund('percent')">
-                    <span style="color: #9ca3af;">%</span>
-                </div>
-                <small style="color: #92400e; display: block; margin-top: 0.75rem; font-weight: 500;">
-                    ⚠️ Kosongkan SEMUA field untuk TIDAK memberikan refund
-                </small>
             </div>
             
             <p style="margin-top: 1rem; font-size: 0.9rem; color: #92400e; background: #fef3c7; padding: 0.75rem; border-radius: 6px;">
-                💡 <strong>Refund manual:</strong> Jika ada refund, akan dicatat sebagai pengeluaran di Kas Besar
+                💡 <strong>Catatan:</strong> Reservasi akan dibatalkan. Jika perlu refund, lakukan manual melalui menu Kas Besar (pengeluaran).
             </p>
         </div>
         <div class="cancel-modal-actions">
@@ -1886,13 +1856,11 @@ function openPaymentModal(bookingId, bookingCode, remainingAmount) {
 }
 
 function cancelBooking(id, bookingCode) {
-    // Show loading
     document.getElementById('cancelBookingModal').classList.add('active');
     document.getElementById('cancelBookingCode').textContent = bookingCode;
     document.getElementById('cancelGuestName').textContent = 'Loading...';
     document.getElementById('cancelBookingId').value = id;
     
-    // Fetch refund preview
     fetch(`../../api/get-refund-preview.php?booking_id=${id}`)
     .then(response => response.json())
     .then(data => {
@@ -1902,35 +1870,13 @@ function cancelBooking(id, bookingCode) {
             document.getElementById('cancelCheckIn').textContent = formatDateID(d.check_in_date);
             document.getElementById('cancelCheckOut').textContent = formatDateID(d.check_out_date);
             document.getElementById('cancelPaidAmount').textContent = formatRupiah(d.paid_amount);
-            
-            // Store paid amount for manual calculation
-            currentPaidAmount = d.paid_amount;
-            
-            // Clear manual input fields
-            document.getElementById('manualRefundAmount').value = '';
-            document.getElementById('manualRefundPercent').value = '';
-            
-            // Update policy box for manual processing
-            const policyBox = document.getElementById('refundPolicyBox');
-            policyBox.style.borderColor = '#64748b'; // neutral gray
-            document.getElementById('refundPolicyLabel').textContent = 'Manual Processing';
-            document.getElementById('refundPolicyLabel').style.color = '#64748b';
-            document.getElementById('refundDaysInfo').textContent = `Tentukan sendiri jumlah refund (${d.days_until_checkin} hari menuju check-in)`;
-            
-            // Set default button text for manual processing
-            const btnConfirm = document.getElementById('btnConfirmCancel');
-            if (d.paid_amount <= 0) {
-                btnConfirm.textContent = '❌ Ya, Batalkan Reservasi';
-            } else {
-                btnConfirm.textContent = '❌ Batalkan Reservasi (Manual)';
-            }
         } else {
             alert('Error: ' + data.message);
             closeCancelModal();
         }
     })
     .catch(error => {
-        alert('Error loading refund data: ' + error.message);
+        alert('Error loading data: ' + error.message);
         closeCancelModal();
     });
 }
@@ -1938,63 +1884,6 @@ function cancelBooking(id, bookingCode) {
 function closeCancelModal() {
     document.getElementById('cancelBookingModal').classList.remove('active');
     document.getElementById('cancelBookingId').value = '';
-    // Clear manual inputs
-    document.getElementById('manualRefundAmount').value = '';
-    document.getElementById('manualRefundPercent').value = '';
-    currentPaidAmount = 0;
-}
-
-// Store paid amount for manual calculation
-let currentPaidAmount = 0;
-
-function updateManualRefund(type) {
-    const nominalInput = document.getElementById('manualRefundAmount');
-    const percentInput = document.getElementById('manualRefundPercent');
-    
-    let manualRefund = 0;
-    
-    if (type === 'nominal' && nominalInput.value) {
-        manualRefund = parseFloat(nominalInput.value) || 0;
-        // Clear percent input
-        percentInput.value = '';
-    } else if (type === 'percent' && percentInput.value) {
-        const percent = parseFloat(percentInput.value) || 0;
-        manualRefund = (currentPaidAmount * percent) / 100;
-        // Update nominal input to show calculated amount
-        nominalInput.value = manualRefund;
-        // Clear percent input
-        percentInput.value = '';
-    }
-    
-    // Validate max refund
-    if (manualRefund > currentPaidAmount) {
-        manualRefund = currentPaidAmount;
-        nominalInput.value = manualRefund;
-        alert(`⚠️ Jumlah refund tidak boleh melebihi yang dibayar (${formatRupiah(currentPaidAmount)})`);
-    }
-    
-    // Update button text based on refund amount
-    const btn = document.getElementById('btnConfirmCancel');
-    if (manualRefund > 0) {
-        btn.textContent = `❌ Batalkan & Refund ${formatRupiah(manualRefund)}`;
-    } else if (nominalInput.value === '' && percentInput.value === '') {
-        btn.textContent = '❌ Batalkan (Tanpa Refund)';
-    } else {
-        btn.textContent = '❌ Batalkan (Tanpa Refund)';
-    }
-}
-
-function getManualRefundAmount() {
-    const nominalInput = document.getElementById('manualRefundAmount');
-    const percentInput = document.getElementById('manualRefundPercent');
-    
-    if (nominalInput.value) {
-        return parseFloat(nominalInput.value) || null;
-    } else if (percentInput.value) {
-        const percent = parseFloat(percentInput.value) || 0;
-        return (currentPaidAmount * percent) / 100;
-    }
-    return null; // Use auto calculation
 }
 
 function confirmCancelBooking() {
@@ -2005,36 +1894,15 @@ function confirmCancelBooking() {
     btn.disabled = true;
     btn.textContent = 'Processing...';
     
-    // Get manual refund if set
-    const manualRefund = getManualRefundAmount();
-    const requestBody = { booking_id: bookingId };
-    if (manualRefund !== null) {
-        requestBody.refund_amount = manualRefund;
-    }
-    
     fetch('../../api/cancel-booking.php', {
         method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(requestBody)
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ booking_id: bookingId })
     })
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            const d = data.data;
-            let msg = `✅ Reservasi ${d.booking_code} berhasil dibatalkan!\n\n`;
-            if (d.refund_amount > 0) {
-                msg += `Refund Manual: ${formatRupiah(d.refund_amount)}\n`;
-                if (d.refund_recorded) {
-                    msg += `\n💰 Refund telah dicatat di Kas Besar sebagai pengeluaran`;
-                } else {
-                    msg += `\n⚠️ Catatan refund di kas: ${d.refund_error || 'Error tidak diketahui'}`;
-                }
-            } else {
-                msg += `Tanpa refund (sesuai kebijakan manual front desk)`;
-            }
-            alert(msg);
+            alert(`✅ Reservasi ${data.data.booking_code} berhasil dibatalkan!\n\nJika perlu refund, lakukan manual melalui menu Kas Besar.`);
             closeCancelModal();
             location.reload();
         } else {
@@ -2058,36 +1926,6 @@ function formatDateID(dateStr) {
 
 function formatRupiah(amount) {
     return 'Rp ' + parseInt(amount || 0).toLocaleString('id-ID');
-}
-
-function cancelBookingOld(id, bookingCode) {
-    // Old function kept for reference
-    if (!confirm(`Yakin ingin CANCEL reservasi ${bookingCode}?\n\nStatus akan berubah menjadi CANCELLED`)) {
-        return;
-    }
-    
-    fetch('../../api/cancel-booking.php', {
-        method: 'POST',
-        headers: {
-            'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({
-            booking_id: id
-        })
-    })
-    .then(response => response.json())
-    .then(data => {
-        if (data.success) {
-            alert('Reservasi berhasil di-CANCEL');
-            location.reload();
-        } else {
-            alert('Error: ' + data.message);
-        }
-    })
-    .catch(error => {
-        alert('Error: ' + error.message);
-        console.error('Error:', error);
-    });
 }
 
 function deleteBooking(id, bookingCode) {
