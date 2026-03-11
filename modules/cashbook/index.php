@@ -185,6 +185,23 @@ try {
             foreach ($unsyncedPayments as $payment) {
                 try {
                     // ============================================
+                    // DOUBLE-SAFETY: PHP-level OTA gate
+                    // Even if SQL filter misses, block OTA before check-in
+                    // ============================================
+                    $srcCheck = strtolower(trim($payment['booking_source'] ?? ''));
+                    $srcNorm = str_replace(['.com', '.co.id', '.id'], '', $srcCheck);
+                    $srcNorm = preg_replace('/[^a-z0-9]/', '', $srcNorm);
+                    $otaKeywords = ['agoda','booking','bookingcom','tiket','tiketcom','traveloka','airbnb','expedia','pegipegi','ota'];
+                    $isOtaPayment = false;
+                    foreach ($otaKeywords as $kw) {
+                        if (strpos($srcNorm, $kw) !== false) { $isOtaPayment = true; break; }
+                    }
+                    if ($isOtaPayment && !in_array($payment['booking_status'], ['checked_in', 'checked_out'])) {
+                        // OTA but not checked in yet — skip, do NOT sync
+                        continue;
+                    }
+
+                    // ============================================
                     // FIX: Payment-level duplicate prevention
                     // Check by booking_code AND payment_id to allow multiple payments per booking
                     // ============================================
