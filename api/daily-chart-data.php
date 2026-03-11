@@ -22,8 +22,8 @@ $date = isset($_GET['date']) ? $_GET['date'] : date('Y-m-d');
 $transData = $db->fetchAll(
     "SELECT 
         HOUR(transaction_time) as hour,
-        SUM(CASE WHEN transaction_type = 'income' THEN amount ELSE 0 END) as income,
-        SUM(CASE WHEN transaction_type = 'expense' THEN amount ELSE 0 END) as expense
+        SUM(CASE WHEN transaction_type = 'income' AND (source_type IS NULL OR source_type NOT IN ('owner_fund','owner_project')) THEN amount ELSE 0 END) as income,
+        SUM(CASE WHEN transaction_type = 'expense' AND (source_type IS NULL OR source_type != 'owner_project') THEN amount ELSE 0 END) as expense
     FROM cash_book
     WHERE DATE(transaction_date) = :date
     GROUP BY HOUR(transaction_time)

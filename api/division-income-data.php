@@ -29,7 +29,7 @@ try {
 // Build exclusion filter for owner fund (not hotel income)
 $ownerFundFilter = '';
 if ($hasSourceTypeCol) {
-    $ownerFundFilter = " AND (cb.source_type IS NULL OR cb.source_type != 'owner_fund')";
+    $ownerFundFilter = " AND (cb.source_type IS NULL OR cb.source_type NOT IN ('owner_fund','owner_project'))";
 }
 
 // Get income data by division for the selected month (excluding owner fund)

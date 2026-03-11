@@ -35,6 +35,24 @@ $pageSubtitle = $hasProjectModule ? 'Catat pemasukan & pengeluaran proyek solar 
 // Get divisions and categories
 $divisions = $db->fetchAll("SELECT * FROM divisions WHERE is_active = 1 ORDER BY division_name");
 
+// Load investor projects (for non-hotel expense linking)
+$investorProjects = [];
+if ($isHotel) {
+    try {
+        $pdo = $db->getConnection();
+        $pdo->exec("CREATE TABLE IF NOT EXISTS projects (
+            id INT AUTO_INCREMENT PRIMARY KEY, project_name VARCHAR(150) NOT NULL, project_code VARCHAR(50),
+            description TEXT, budget_idr DECIMAL(15,2) DEFAULT 0,
+            status ENUM('planning','ongoing','on_hold','completed','cancelled') DEFAULT 'planning',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            created_by INT
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        $investorProjects = $pdo->query("SELECT id, project_name, project_code, status FROM projects WHERE status IN ('planning','ongoing','on_hold') ORDER BY project_name")->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        $investorProjects = [];
+    }
+}
+
 // Project Module: Load projects and expense categories (only if module enabled)
 $cqcProjects = [];
 $cqcCategories = [];
@@ -130,10 +148,12 @@ if (isPost()) {
             // ============================================
             $sourceType = 'manual';
             
-            // Check if source_type is explicitly set (from "Input dari Bu Sita" button)
+            // Check if source_type is explicitly set
             $explicitSourceType = sanitize(getPost('source_type'));
             if ($explicitSourceType === 'owner_fund') {
                 $sourceType = 'owner_fund';
+            } elseif ($explicitSourceType === 'owner_project') {
+                $sourceType = 'owner_project';
             }
             // For CQC with project module: use cqc_income_type field
             elseif ($hasProjectModule && $transactionType === 'income') {
@@ -147,8 +167,9 @@ if (isPost()) {
             
             // NOTE: source_type is determined by:
             // 1. Explicit owner_fund from "Input dari Bu Sita" button
-            // 2. CQC topup_owner for contractor businesses
-            // 3. Default 'manual' for regular income
+            // 2. Explicit owner_project from project expense toggle
+            // 3. CQC topup_owner for contractor businesses
+            // 4. Default 'manual' for regular income
 
             $data = [
                 'transaction_date' => $transactionDate,
@@ -392,6 +413,38 @@ if (isPost()) {
                         }
                     } else {
                         error_log("WARNING: cash_account_id is empty, skipping cash account transaction");
+                    }
+                    
+                    // INVESTOR PROJECT: Sync expense to project_expenses table
+                    $investorProjectId = intval(getPost('project_id'));
+                    if ($investorProjectId > 0 && $sourceType === 'owner_project' && $transactionType === 'expense') {
+                        try {
+                            $pdo = $db->getConnection();
+                            $pdo->exec("CREATE TABLE IF NOT EXISTS project_expenses (
+                                id INT AUTO_INCREMENT PRIMARY KEY, project_id INT NOT NULL, category_id INT,
+                                amount DECIMAL(15,2) NOT NULL, description TEXT, division_name VARCHAR(100),
+                                expense_date DATE, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, created_by INT,
+                                cash_book_id INT NULL,
+                                INDEX idx_project (project_id), INDEX idx_date (expense_date)
+                            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+                            
+                            // Add cash_book_id column if not exists
+                            try { $pdo->exec("ALTER TABLE project_expenses ADD COLUMN cash_book_id INT NULL"); } catch (Exception $ignore) {}
+                            
+                            // Get division name for project_expenses
+                            $divName = '';
+                            if ($divisionId) {
+                                $divStmt = $pdo->prepare("SELECT division_name FROM divisions WHERE id = ?");
+                                $divStmt->execute([$divisionId]);
+                                $divName = $divStmt->fetchColumn() ?: '';
+                            }
+                            
+                            $peStmt = $pdo->prepare("INSERT INTO project_expenses (project_id, amount, description, division_name, expense_date, created_by, cash_book_id) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                            $peStmt->execute([$investorProjectId, $amount, ($description ?: $categoryName), $divName, $transactionDate, $_SESSION['user_id'], $transactionId]);
+                            error_log("PROJECT SYNC: Cashbook #{$transactionId} -> project_expenses for project #{$investorProjectId}, Amount: {$amount}");
+                        } catch (Exception $e) {
+                            error_log('Investor project expense sync error: ' . $e->getMessage());
+                        }
                     }
                     
                     // CQC: Also save to cqc_project_expenses if project selected (expense only)
@@ -759,6 +812,28 @@ include '../../includes/header.php';
                     <label class="form-label" style="font-size: 0.813rem; font-weight: 600; margin-bottom: 0.3rem;">Kategori/Nama <span style="color: var(--danger);">*</span></label>
                     <input type="text" name="category_name" class="form-control" style="height: 34px; font-size: 0.813rem;" placeholder="Nama kategori atau nama item" required>
                 </div>
+                
+                <?php if ($isHotel && !empty($investorProjects)): ?>
+                <!-- Project Expense Toggle -->
+                <div class="compact-form-group" id="projectExpenseGroup">
+                    <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 0.5rem 0.75rem; background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3); border-radius: 8px; transition: all 0.2s;" id="projectToggleLabel">
+                        <input type="checkbox" id="isProjectExpense" name="is_project_expense" value="1" onchange="toggleProjectExpense()" style="width: 16px; height: 16px; accent-color: #f59e0b;">
+                        <span style="font-size: 0.813rem; font-weight: 600; color: #92400e;">🏗️ Pengeluaran Proyek (bukan beban hotel)</span>
+                    </label>
+                    <div id="projectSelectWrapper" style="display: none; margin-top: 0.4rem;">
+                        <select name="project_id" id="projectSelect" class="form-control" style="height: 34px; font-size: 0.813rem;">
+                            <option value="">-- Pilih Proyek --</option>
+                            <?php foreach ($investorProjects as $proj): ?>
+                            <option value="<?php echo $proj['id']; ?>">
+                                <?php echo htmlspecialchars(($proj['project_code'] ? $proj['project_code'] . ' - ' : '') . $proj['project_name']); ?>
+                            </option>
+                            <?php endforeach; ?>
+                        </select>
+                        <div style="font-size: 0.72rem; color: #f59e0b; margin-top: 0.25rem;">⚠️ Transaksi ini tidak masuk laporan P&L hotel, tapi tercatat di menu Investor & Proyek</div>
+                    </div>
+                    <input type="hidden" name="source_type" id="sourceTypeHidden" value="">
+                </div>
+                <?php endif; ?>
                 <?php endif; ?>
                 
                 <!-- Amount -->
@@ -1236,6 +1311,43 @@ document.getElementById('transactionForm').addEventListener('submit', function()
 
 // Initialize on load
 toggleCQCSections();
+<?php endif; ?>
+
+// ============================================
+// PROJECT EXPENSE TOGGLE (NON-HOTEL EXPENSE)
+// ============================================
+<?php if ($isHotel && !empty($investorProjects)): ?>
+const projectDivisionKeywords = ['proyek', 'projek', 'project', 'konstruksi', 'renovasi', 'pembangunan', 'bangunan'];
+
+function toggleProjectExpense() {
+    const checked = document.getElementById('isProjectExpense').checked;
+    const wrapper = document.getElementById('projectSelectWrapper');
+    const label = document.getElementById('projectToggleLabel');
+    const sourceField = document.getElementById('sourceTypeHidden');
+    
+    wrapper.style.display = checked ? 'block' : 'none';
+    label.style.background = checked ? 'rgba(245,158,11,0.25)' : 'rgba(245,158,11,0.1)';
+    label.style.borderColor = checked ? '#f59e0b' : 'rgba(245,158,11,0.3)';
+    sourceField.value = checked ? 'owner_project' : '';
+    
+    if (!checked) {
+        document.getElementById('projectSelect').value = '';
+    }
+}
+
+// Auto-detect project division
+const divisionSelect = document.getElementById('division_id');
+if (divisionSelect) {
+    divisionSelect.addEventListener('change', function() {
+        const text = this.options[this.selectedIndex]?.text?.toLowerCase() || '';
+        const isProjectDiv = projectDivisionKeywords.some(kw => text.includes(kw));
+        const checkbox = document.getElementById('isProjectExpense');
+        if (checkbox && isProjectDiv && !checkbox.checked) {
+            checkbox.checked = true;
+            toggleProjectExpense();
+        }
+    });
+}
 <?php endif; ?>
 
 // ============================================

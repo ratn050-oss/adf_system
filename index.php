@@ -133,8 +133,8 @@ try {
 }
 
 if ($hasSourceTypeCol) {
-    // Use source_type to exclude owner fund
-    $excludeOwnerCapital = " AND (source_type IS NULL OR source_type != 'owner_fund')";
+    // Use source_type to exclude owner fund AND project expenses (not hotel P&L)
+    $excludeOwnerCapital = " AND (source_type IS NULL OR source_type NOT IN ('owner_fund','owner_project'))";
 } elseif ($hasCashAccountIdCol && !empty($ownerCapitalAccountIds)) {
     // Fallback: only exclude owner_capital accounts (not petty cash)
     $excludeOwnerCapital = " AND (cash_account_id IS NULL OR cash_account_id NOT IN (" . implode(',', $ownerCapitalAccountIds) . "))";
@@ -463,8 +463,8 @@ $recentTransactions = $db->fetchAll(
 // Exclude owner fund from division income chart (not hotel profit)
 $divisionIncomeFilter = '';
 if ($hasSourceTypeCol) {
-    // Exclude owner_fund using source_type
-    $divisionIncomeFilter = " AND (cb.source_type IS NULL OR cb.source_type != 'owner_fund')";
+    // Exclude owner_fund and owner_project using source_type
+    $divisionIncomeFilter = " AND (cb.source_type IS NULL OR cb.source_type NOT IN ('owner_fund','owner_project'))";
 } elseif ($hasCashAccountIdCol && !empty($ownerCapitalAccountIds)) {
     // Fallback: exclude owner_capital accounts
     $divisionIncomeFilter = " AND (cb.cash_account_id IS NULL OR cb.cash_account_id NOT IN (" . implode(',', $ownerCapitalAccountIds) . "))";
@@ -498,6 +498,7 @@ $expenseDivisionData = $db->fetchAll(
     LEFT JOIN cash_book cb ON d.id = cb.division_id 
         AND cb.transaction_type = 'expense'
         AND DATE_FORMAT(cb.transaction_date, '%Y-%m') = :month
+        AND (cb.source_type IS NULL OR cb.source_type != 'owner_project')
     WHERE d.is_active = 1
     GROUP BY d.id, d.division_name, d.division_code
     HAVING total > 0
@@ -524,12 +525,12 @@ for ($i = 1; $i <= $daysInMonth; $i++) {
 // Get actual transaction data for the month
 // IMPORTANT: Exclude owner capital ONLY from income (not from expense!)
 // ALL BUSINESSES: Exclude owner_fund (kas operasional top-up from owner = NOT real income)
-$ownerFundFilter = " AND (source_type IS NULL OR source_type != 'owner_fund')";
+$ownerFundFilter = " AND (source_type IS NULL OR source_type NOT IN ('owner_fund','owner_project'))";
 $transData = $db->fetchAll(
     "SELECT 
         DATE(transaction_date) as date,
         SUM(CASE WHEN transaction_type = 'income'" . $excludeOwnerCapital . $ownerFundFilter . " THEN amount ELSE 0 END) as income,
-        SUM(CASE WHEN transaction_type = 'expense' THEN amount ELSE 0 END) as expense
+        SUM(CASE WHEN transaction_type = 'expense' AND (source_type IS NULL OR source_type != 'owner_project') THEN amount ELSE 0 END) as expense
     FROM cash_book
     WHERE DATE_FORMAT(transaction_date, '%Y-%m') = :month
     GROUP BY DATE(transaction_date)
@@ -1393,8 +1394,9 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
                             if ($tx['source_type'] === 'owner_fund') $sourceLabel = 'Owner Fund';
                             elseif ($tx['source_type'] === 'invoice_payment') $sourceLabel = 'Invoice';
                         }
-                        if (!$isIncome && $isProject) $sourceLabel = 'Proyek';
-                        if (!$isIncome && !$isProject) $sourceLabel = 'Office';
+                        if (!$isIncome && isset($tx['source_type']) && $tx['source_type'] === 'owner_project') $sourceLabel = 'Proyek';
+                        elseif (!$isIncome && $isProject) $sourceLabel = 'Proyek';
+                        elseif (!$isIncome && !$isProject) $sourceLabel = 'Office';
                     ?>
                     <tr style="background: <?php echo $rowBg; ?>; border-bottom: 1px solid #f1f5f9; transition: background 0.1s;" onmouseover="this.style.background='#fffbeb'" onmouseout="this.style.background='<?php echo $rowBg; ?>'">
                         <td style="padding: 9px 10px; white-space: nowrap;">

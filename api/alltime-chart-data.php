@@ -18,8 +18,8 @@ $db = Database::getInstance();
 $transData = $db->fetchAll(
     "SELECT 
         YEAR(transaction_date) as year,
-        SUM(CASE WHEN transaction_type = 'income' THEN amount ELSE 0 END) as income,
-        SUM(CASE WHEN transaction_type = 'expense' THEN amount ELSE 0 END) as expense
+        SUM(CASE WHEN transaction_type = 'income' AND (source_type IS NULL OR source_type NOT IN ('owner_fund','owner_project')) THEN amount ELSE 0 END) as income,
+        SUM(CASE WHEN transaction_type = 'expense' AND (source_type IS NULL OR source_type != 'owner_project') THEN amount ELSE 0 END) as expense
     FROM cash_book
     GROUP BY YEAR(transaction_date)
     ORDER BY year ASC"

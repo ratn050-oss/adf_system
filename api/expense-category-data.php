@@ -26,6 +26,7 @@ $expenseCategoryData = $db->fetchAll(
     LEFT JOIN cash_book cb ON c.id = cb.category_id 
         AND cb.transaction_type = 'expense'
         AND DATE_FORMAT(cb.transaction_date, '%Y-%m') = :month
+        AND (cb.source_type IS NULL OR cb.source_type != 'owner_project')
     GROUP BY c.id, c.category_name
     HAVING total > 0
     ORDER BY total DESC",

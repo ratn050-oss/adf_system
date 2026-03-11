@@ -37,6 +37,7 @@ try {
         LEFT JOIN cash_book cb ON d.id = cb.division_id 
             AND cb.transaction_type = 'expense'
             AND DATE_FORMAT(cb.transaction_date, '%Y-%m') = ?
+            AND (cb.source_type IS NULL OR cb.source_type != 'owner_project')
         WHERE d.is_active = 1
         GROUP BY d.id, d.division_name, d.division_code
         HAVING total > 0

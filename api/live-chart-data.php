@@ -61,8 +61,8 @@ for ($i = 1; $i <= $daysInMonth; $i++) {
 $transData = $db->fetchAll(
     "SELECT 
         DATE(transaction_date) as date,
-        SUM(CASE WHEN transaction_type = 'income'{$ownerCapitalExcludeCondition} AND (source_type IS NULL OR source_type != 'owner_fund') THEN amount ELSE 0 END) as income,
-        SUM(CASE WHEN transaction_type = 'expense' THEN amount ELSE 0 END) as expense
+        SUM(CASE WHEN transaction_type = 'income'{$ownerCapitalExcludeCondition} AND (source_type IS NULL OR source_type NOT IN ('owner_fund','owner_project')) THEN amount ELSE 0 END) as income,
+        SUM(CASE WHEN transaction_type = 'expense' AND (source_type IS NULL OR source_type != 'owner_project') THEN amount ELSE 0 END) as expense
     FROM cash_book
     WHERE DATE_FORMAT(transaction_date, '%Y-%m') = :month
     GROUP BY DATE(transaction_date)

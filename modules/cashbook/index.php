@@ -524,6 +524,10 @@ foreach ($transactions as $trans) {
         }
     } else {
         $totalExpense += $trans['amount'];
+        // Separate project expenses (not hotel operational)
+        if (isset($trans['source_type']) && $trans['source_type'] === 'owner_project') {
+            $totalProjectExpense += $trans['amount'];
+        }
         // Contractor businesses: Separate office vs project expenses
         if ($isContractor) {
             $desc = $trans['description'] ?? '';
