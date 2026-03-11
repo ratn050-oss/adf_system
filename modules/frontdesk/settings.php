@@ -315,69 +315,176 @@ elseif ($activeTab === 'breakfast_menu') {
     }
 }
 
-// ==================== OTA FEES MANAGEMENT ====================
+// ==================== OTA FEES & BOOKING SOURCES MANAGEMENT ====================
 elseif ($activeTab === 'ota_fees') {
+    // Auto-create booking_sources table if not exists
+    try {
+        $pdo->exec("
+            CREATE TABLE IF NOT EXISTS booking_sources (
+                id INT AUTO_INCREMENT PRIMARY KEY,
+                source_key VARCHAR(50) NOT NULL UNIQUE,
+                source_name VARCHAR(100) NOT NULL,
+                source_type ENUM('direct','ota','biro') NOT NULL DEFAULT 'ota',
+                fee_percent DECIMAL(5,2) NOT NULL DEFAULT 0,
+                icon VARCHAR(10) DEFAULT '🌐',
+                is_active TINYINT(1) NOT NULL DEFAULT 1,
+                sort_order INT NOT NULL DEFAULT 0,
+                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4
+        ");
+        
+        // Seed defaults if table is empty
+        $countStmt = $pdo->query("SELECT COUNT(*) as cnt FROM booking_sources");
+        $count = $countStmt->fetch(PDO::FETCH_ASSOC)['cnt'];
+        if ($count == 0) {
+            $defaults = [
+                ['walk_in', 'Walk-in', 'direct', 0, '🚶', 1],
+                ['phone', 'Phone Booking', 'direct', 0, '📞', 2],
+                ['online', 'Direct Online', 'direct', 0, '💻', 3],
+                ['agoda', 'Agoda', 'ota', 15, '🏨', 10],
+                ['booking', 'Booking.com', 'ota', 12, '📱', 11],
+                ['tiket', 'Tiket.com', 'ota', 10, '✈️', 12],
+                ['traveloka', 'Traveloka', 'ota', 15, '🎫', 13],
+                ['airbnb', 'Airbnb', 'ota', 3, '🏠', 14],
+                ['expedia', 'Expedia', 'ota', 15, '🗺️', 15],
+                ['pegipegi', 'PegiPegi', 'ota', 10, '🧳', 16],
+                ['ota', 'OTA Lainnya', 'ota', 10, '🌐', 99],
+            ];
+            $seedStmt = $pdo->prepare("INSERT INTO booking_sources (source_key, source_name, source_type, fee_percent, icon, sort_order) VALUES (?, ?, ?, ?, ?, ?)");
+            foreach ($defaults as $d) {
+                $seedStmt->execute($d);
+            }
+            // Also sync fee % to settings table
+            $feeStmt = $pdo->prepare("INSERT INTO settings (setting_key, setting_value, setting_type) VALUES (?, ?, 'number') ON DUPLICATE KEY UPDATE setting_value=?");
+            foreach ($defaults as $d) {
+                $sk = 'ota_fee_' . str_replace(['.', '-', ' '], '_', strtolower($d[1]));
+                // Use the known mapping for standard keys
+                $keyMap = ['agoda'=>'ota_fee_agoda','booking'=>'ota_fee_booking_com','tiket'=>'ota_fee_tiket_com',
+                           'traveloka'=>'ota_fee_traveloka','airbnb'=>'ota_fee_airbnb','expedia'=>'ota_fee_expedia',
+                           'pegipegi'=>'ota_fee_other_ota','ota'=>'ota_fee_other_ota'];
+                if (isset($keyMap[$d[0]])) $sk = $keyMap[$d[0]];
+                $feeStmt->execute([$sk, $d[3], $d[3]]);
+            }
+        }
+    } catch (Exception $e) {
+        error_log("booking_sources table creation error: " . $e->getMessage());
+    }
+    
     if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         try {
             if ($_POST['action'] === 'update_fee') {
-                $provider = isset($_POST['provider']) ? trim($_POST['provider']) : '';
-                $feePercentage = isset($_POST['fee_percentage']) ? intval($_POST['fee_percentage']) : 0;
+                $sourceId = (int)($_POST['source_id'] ?? 0);
+                $feePercent = (float)($_POST['fee_percentage'] ?? 0);
+                if ($feePercent < 0 || $feePercent > 100) throw new Exception("Fee harus antara 0-100%");
                 
-                // Validate
-                if (empty($provider)) {
-                    throw new Exception("Provider tidak boleh kosong");
+                $stmt = $pdo->prepare("UPDATE booking_sources SET fee_percent = ? WHERE id = ?");
+                $stmt->execute([$feePercent, $sourceId]);
+                
+                // Also sync to settings table
+                $src = $pdo->prepare("SELECT source_key FROM booking_sources WHERE id = ?");
+                $src->execute([$sourceId]);
+                $srcRow = $src->fetch(PDO::FETCH_ASSOC);
+                if ($srcRow) {
+                    $keyMap = ['agoda'=>'ota_fee_agoda','booking'=>'ota_fee_booking_com','bookingcom'=>'ota_fee_booking_com',
+                               'tiket'=>'ota_fee_tiket_com','tiketcom'=>'ota_fee_tiket_com','traveloka'=>'ota_fee_traveloka',
+                               'airbnb'=>'ota_fee_airbnb','expedia'=>'ota_fee_expedia','pegipegi'=>'ota_fee_other_ota','ota'=>'ota_fee_other_ota'];
+                    $sk = $keyMap[$srcRow['source_key']] ?? ('ota_fee_' . $srcRow['source_key']);
+                    $syncStmt = $pdo->prepare("INSERT INTO settings (setting_key, setting_value, setting_type) VALUES (?, ?, 'number') ON DUPLICATE KEY UPDATE setting_value=?");
+                    $syncStmt->execute([$sk, $feePercent, $feePercent]);
                 }
+                $message = "✓ Fee berhasil diupdate!";
                 
-                if ($feePercentage < 0 || $feePercentage > 100) {
-                    throw new Exception("Fee harus antara 0-100%");
+            } elseif ($_POST['action'] === 'add_source') {
+                $sourceName = trim($_POST['source_name'] ?? '');
+                $sourceKey = trim($_POST['source_key'] ?? '');
+                $sourceType = $_POST['source_type'] ?? 'ota';
+                $feePercent = (float)($_POST['fee_percentage'] ?? 0);
+                $icon = trim($_POST['icon'] ?? '🌐');
+                
+                if (empty($sourceName)) throw new Exception("Nama sumber tidak boleh kosong");
+                if (empty($sourceKey)) {
+                    $sourceKey = strtolower(preg_replace('/[^a-z0-9]/', '_', strtolower($sourceName)));
+                    $sourceKey = preg_replace('/_+/', '_', trim($sourceKey, '_'));
                 }
+                if ($feePercent < 0 || $feePercent > 100) throw new Exception("Fee harus antara 0-100%");
+                if (!in_array($sourceType, ['direct','ota','biro'])) throw new Exception("Tipe tidak valid");
                 
-                $settingKey = 'ota_fee_' . strtolower(str_replace([' ', '_', '-'], '_', $provider));
+                // Check duplicate
+                $chk = $pdo->prepare("SELECT id FROM booking_sources WHERE source_key = ?");
+                $chk->execute([$sourceKey]);
+                if ($chk->fetch()) throw new Exception("Source key '$sourceKey' sudah ada");
                 
-                // Use correct column name: setting_type not type
-                $stmt = $pdo->prepare("INSERT INTO settings (setting_key, setting_value, setting_type) 
-                                     VALUES (?, ?, ?) 
-                                     ON DUPLICATE KEY UPDATE setting_value=?, updated_at=NOW()");
-                $stmt->execute([
-                    $settingKey,
-                    $feePercentage,
-                    'number',
-                    $feePercentage
-                ]);
+                $maxOrder = $pdo->query("SELECT MAX(sort_order) as mx FROM booking_sources")->fetch(PDO::FETCH_ASSOC)['mx'] ?? 0;
                 
-                $message = "✓ Fee OTA untuk " . htmlspecialchars($provider) . " berhasil diupdate menjadi " . $feePercentage . "%!";
+                $stmt = $pdo->prepare("INSERT INTO booking_sources (source_key, source_name, source_type, fee_percent, icon, sort_order) VALUES (?, ?, ?, ?, ?, ?)");
+                $stmt->execute([$sourceKey, $sourceName, $sourceType, $feePercent, $icon, $maxOrder + 1]);
                 
-                // Log untuk debug
-                error_log("OTA Fee Updated: $settingKey = $feePercentage%");
+                // Sync to settings table
+                $sk = 'ota_fee_' . $sourceKey;
+                $syncStmt = $pdo->prepare("INSERT INTO settings (setting_key, setting_value, setting_type) VALUES (?, ?, 'number') ON DUPLICATE KEY UPDATE setting_value=?");
+                $syncStmt->execute([$sk, $feePercent, $feePercent]);
+                
+                $message = "✓ Sumber booking '" . htmlspecialchars($sourceName) . "' berhasil ditambahkan!";
+                
+            } elseif ($_POST['action'] === 'edit_source') {
+                $sourceId = (int)($_POST['source_id'] ?? 0);
+                $sourceName = trim($_POST['source_name'] ?? '');
+                $sourceType = $_POST['source_type'] ?? 'ota';
+                $feePercent = (float)($_POST['fee_percentage'] ?? 0);
+                $icon = trim($_POST['icon'] ?? '🌐');
+                
+                if (empty($sourceName)) throw new Exception("Nama sumber tidak boleh kosong");
+                if ($feePercent < 0 || $feePercent > 100) throw new Exception("Fee harus antara 0-100%");
+                
+                $stmt = $pdo->prepare("UPDATE booking_sources SET source_name = ?, source_type = ?, fee_percent = ?, icon = ? WHERE id = ?");
+                $stmt->execute([$sourceName, $sourceType, $feePercent, $icon, $sourceId]);
+                
+                // Sync fee to settings
+                $src = $pdo->prepare("SELECT source_key FROM booking_sources WHERE id = ?");
+                $src->execute([$sourceId]);
+                $srcRow = $src->fetch(PDO::FETCH_ASSOC);
+                if ($srcRow) {
+                    $keyMap = ['agoda'=>'ota_fee_agoda','booking'=>'ota_fee_booking_com','tiket'=>'ota_fee_tiket_com',
+                               'traveloka'=>'ota_fee_traveloka','airbnb'=>'ota_fee_airbnb','expedia'=>'ota_fee_expedia',
+                               'pegipegi'=>'ota_fee_other_ota','ota'=>'ota_fee_other_ota'];
+                    $sk = $keyMap[$srcRow['source_key']] ?? ('ota_fee_' . $srcRow['source_key']);
+                    $syncStmt = $pdo->prepare("INSERT INTO settings (setting_key, setting_value, setting_type) VALUES (?, ?, 'number') ON DUPLICATE KEY UPDATE setting_value=?");
+                    $syncStmt->execute([$sk, $feePercent, $feePercent]);
+                }
+                $message = "✓ Sumber booking berhasil diupdate!";
+                
+            } elseif ($_POST['action'] === 'delete_source') {
+                $sourceId = (int)($_POST['source_id'] ?? 0);
+                // Don't allow deleting core sources
+                $src = $pdo->prepare("SELECT source_key FROM booking_sources WHERE id = ?");
+                $src->execute([$sourceId]);
+                $srcRow = $src->fetch(PDO::FETCH_ASSOC);
+                $coreSources = ['walk_in','phone','online','agoda','booking','tiket','airbnb','ota'];
+                if ($srcRow && in_array($srcRow['source_key'], $coreSources)) {
+                    throw new Exception("Sumber bawaan tidak bisa dihapus, tapi bisa dinonaktifkan");
+                }
+                $pdo->prepare("DELETE FROM booking_sources WHERE id = ?")->execute([$sourceId]);
+                $message = "✓ Sumber booking berhasil dihapus!";
+                
+            } elseif ($_POST['action'] === 'toggle_source') {
+                $sourceId = (int)($_POST['source_id'] ?? 0);
+                $pdo->prepare("UPDATE booking_sources SET is_active = NOT is_active WHERE id = ?")->execute([$sourceId]);
+                $message = "✓ Status sumber booking berhasil diubah!";
             }
         } catch (Exception $e) {
             $error = "❌ Error: " . $e->getMessage();
-            error_log("OTA Fee Error: " . $e->getMessage());
         }
     }
     
-    // Get OTA fees from settings or use defaults
-    $otaFees = [
-        'Direct' => 0,
-        'Phone Booking' => 0,
-        'Online Direct' => 0,
-        'Agoda' => 15,
-        'Booking.com' => 12,
-        'Tiket.com' => 10,
-        'Airbnb' => 3,
-        'Other OTA' => 10
-    ];
-    
-    // Try to load from database
+    // Load all booking sources
+    $bookingSources = [];
     try {
-        $stmt = $pdo->query("SELECT setting_key, setting_value FROM settings WHERE setting_key LIKE 'ota_fee_%'");
-        while ($row = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            $provider = str_replace(['ota_fee_', '_'], ['', ' '], $row['setting_key']);
-            $provider = ucwords($provider);
-            $otaFees[$provider] = (int)$row['setting_value'];
-        }
-    } catch (Exception $e) {}
-}
+        $stmt = $pdo->query("SELECT * FROM booking_sources ORDER BY source_type ASC, sort_order ASC, source_name ASC");
+        $bookingSources = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {
+        error_log("Load booking sources error: " . $e->getMessage());
+    }
 
 include '../../includes/header.php';
 ?>
@@ -1121,87 +1228,205 @@ include '../../includes/header.php';
 
     <?php endif; ?>
 
-    <!-- ==================== OTA FEES TAB ==================== -->
+    <!-- ==================== OTA FEES & BOOKING SOURCES TAB ==================== -->
     <?php if ($activeTab === 'ota_fees'): ?>
     
+    <!-- ADD NEW SOURCE FORM -->
     <div class="form-card">
-        <h2 style="margin-top: 0; color: var(--primary);">💰 Configure OTA Commission Fees</h2>
+        <h2 style="margin-top: 0; color: var(--primary);">➕ Tambah Sumber Booking Baru</h2>
         <p style="color: var(--text-secondary); margin-top: 0.5rem;">
-            Atur persentase komisi untuk setiap OTA. Fee ini akan otomatis dikurangi dari harga booking (Net Income = Harga - Fee).
+            Tambahkan OTA baru, biro perjalanan, atau sumber booking lain beserta persentase komisi/fee-nya.
+        </p>
+        <form method="POST" style="margin-top: 1rem;">
+            <input type="hidden" name="action" value="add_source">
+            <div style="display: grid; grid-template-columns: auto 1fr 1fr auto auto auto; gap: 1rem; align-items: end;">
+                <div class="form-group" style="margin: 0;">
+                    <label class="form-label">Icon</label>
+                    <input type="text" name="icon" value="🌐" class="form-input" style="width: 60px; text-align: center; font-size: 1.3rem;" maxlength="5">
+                </div>
+                <div class="form-group" style="margin: 0;">
+                    <label class="form-label">Nama Sumber</label>
+                    <input type="text" name="source_name" class="form-input" placeholder="Contoh: Traveloka, Biro XYZ" required>
+                </div>
+                <div class="form-group" style="margin: 0;">
+                    <label class="form-label">Tipe</label>
+                    <select name="source_type" class="form-input">
+                        <option value="ota">OTA</option>
+                        <option value="biro">Biro / Agen</option>
+                        <option value="direct">Direct (tanpa fee)</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin: 0;">
+                    <label class="form-label">Fee %</label>
+                    <input type="number" name="fee_percentage" value="0" min="0" max="100" step="0.5" class="form-input" style="width: 80px; text-align: center;">
+                </div>
+                <div class="form-group" style="margin: 0;">
+                    <label class="form-label">Key (opsional)</label>
+                    <input type="text" name="source_key" class="form-input" placeholder="auto" style="width: 120px;" pattern="[a-z0-9_]*" title="Huruf kecil, angka, underscore saja">
+                </div>
+                <div class="form-group" style="margin: 0;">
+                    <label class="form-label">&nbsp;</label>
+                    <button type="submit" class="btn btn-success" style="white-space: nowrap;">➕ Tambah</button>
+                </div>
+            </div>
+        </form>
+    </div>
+
+    <!-- EXISTING BOOKING SOURCES -->
+    <div class="form-card">
+        <h2 style="margin-top: 0; color: var(--primary);">💰 Booking Sources & OTA Fees</h2>
+        <p style="color: var(--text-secondary); margin-top: 0.5rem;">
+            Atur sumber booking dan persentase komisi. Fee otomatis dikurangi dari harga booking di buku kas.
         </p>
 
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(300px, 1fr)); gap: 2rem; margin-top: 2rem;">
-            <?php foreach ($otaFees as $provider => $fee): ?>
-            <div style="background: rgba(99, 102, 241, 0.1); border: 1px solid var(--border-color); border-radius: 12px; padding: 1.5rem;">
-                <form method="POST" style="display: flex; flex-direction: column; gap: 1rem;">
-                    <input type="hidden" name="action" value="update_fee">
-                    <input type="hidden" name="provider" value="<?php echo htmlspecialchars($provider); ?>">
-                    
-                    <div>
-                        <h3 style="margin: 0 0 0.5rem 0; color: var(--text-primary);">
-                            <?php echo htmlspecialchars($provider); ?>
+        <?php 
+        $grouped = ['direct' => [], 'ota' => [], 'biro' => []];
+        foreach ($bookingSources as $src) {
+            $grouped[$src['source_type']][] = $src;
+        }
+        $typeLabels = ['direct' => '🚶 Direct (Tanpa Fee)', 'ota' => '🌐 Online Travel Agency (OTA)', 'biro' => '🏢 Biro / Agen Perjalanan'];
+        ?>
+        
+        <?php foreach ($typeLabels as $type => $label): ?>
+        <?php if (!empty($grouped[$type])): ?>
+        <h3 style="margin: 2rem 0 1rem 0; color: var(--text-primary); font-size: 1.1rem; border-bottom: 2px solid var(--border-color); padding-bottom: 0.5rem;">
+            <?php echo $label; ?>
+        </h3>
+        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); gap: 1.5rem;">
+            <?php foreach ($grouped[$type] as $src): ?>
+            <div id="source-card-<?php echo $src['id']; ?>" style="background: <?php echo $src['is_active'] ? 'rgba(99, 102, 241, 0.1)' : 'rgba(150, 150, 150, 0.1)'; ?>; border: 1px solid var(--border-color); border-radius: 12px; padding: 1.25rem; opacity: <?php echo $src['is_active'] ? '1' : '0.6'; ?>; transition: all 0.3s;">
+                
+                <!-- View Mode -->
+                <div id="view-<?php echo $src['id']; ?>">
+                    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem;">
+                        <h3 style="margin: 0; color: var(--text-primary); font-size: 1.05rem;">
+                            <?php echo htmlspecialchars($src['icon'] . ' ' . $src['source_name']); ?>
                         </h3>
-                        <p style="margin: 0; font-size: 0.85rem; color: var(--text-secondary);">
-                            <?php 
-                            if ($fee === 0) {
-                                echo 'Tidak ada komisi';
-                            } else {
-                                echo 'Komisi: ' . $fee . '%';
-                            }
-                            ?>
-                        </p>
-                    </div>
-
-                    <div class="form-group" style="margin: 0;">
-                        <label class="form-label">Commission Fee (%)</label>
                         <div style="display: flex; gap: 0.5rem;">
-                            <input type="range" name="fee_percentage" min="0" max="30" step="1" 
-                                   value="<?php echo $fee; ?>" class="form-input" 
-                                   onchange="updateFeeDisplay(this)"
-                                   style="flex: 1; padding: 0.5rem;">
-                            <input type="number" name="fee_percentage_display" min="0" max="30" step="1" 
-                                   value="<?php echo $fee; ?>" class="form-input" 
-                                   style="width: 80px; text-align: center;" readonly>
-                            <span style="display: flex; align-items: center; color: var(--text-secondary); font-weight: 700;">%</span>
+                            <?php if (!$src['is_active']): ?>
+                                <span style="background: rgba(239,68,68,0.2); color: #ef4444; padding: 2px 8px; border-radius: 8px; font-size: 0.75rem;">Nonaktif</span>
+                            <?php endif; ?>
+                            <span style="background: rgba(99,102,241,0.2); color: var(--primary); padding: 2px 8px; border-radius: 8px; font-size: 0.75rem;">
+                                <?php echo strtoupper($src['source_type']); ?>
+                            </span>
                         </div>
                     </div>
+                    
+                    <div style="display: flex; align-items: center; gap: 0.75rem; margin-bottom: 1rem;">
+                        <span style="font-size: 2rem; font-weight: 800; color: <?php echo $src['fee_percent'] > 0 ? '#ef4444' : '#10b981'; ?>;">
+                            <?php echo number_format($src['fee_percent'], 1); ?>%
+                        </span>
+                        <span style="color: var(--text-secondary); font-size: 0.85rem;">
+                            komisi/fee
+                        </span>
+                    </div>
+                    
+                    <!-- Quick Fee Update -->
+                    <form method="POST" style="display: flex; gap: 0.5rem; margin-bottom: 0.75rem;">
+                        <input type="hidden" name="action" value="update_fee">
+                        <input type="hidden" name="source_id" value="<?php echo $src['id']; ?>">
+                        <input type="range" min="0" max="30" step="0.5" 
+                               value="<?php echo $src['fee_percent']; ?>" 
+                               oninput="document.getElementById('feeNum<?php echo $src['id']; ?>').value=this.value"
+                               style="flex: 1;">
+                        <input type="number" id="feeNum<?php echo $src['id']; ?>" name="fee_percentage" min="0" max="100" step="0.5"
+                               value="<?php echo $src['fee_percent']; ?>" 
+                               oninput="this.previousElementSibling.value=this.value"
+                               style="width: 65px; text-align: center; padding: 4px; border: 1px solid var(--border-color); border-radius: 6px; background: transparent; color: var(--text-primary);">
+                        <span style="display: flex; align-items: center; color: var(--text-secondary); font-weight: 700;">%</span>
+                        <button type="submit" class="btn btn-success" style="padding: 4px 12px; font-size: 0.85rem;">✓</button>
+                    </form>
 
-                    <button type="submit" class="btn btn-success" style="margin-top: 0.5rem;">✓ Update Fee</button>
-                </form>
+                    <!-- Action Buttons -->
+                    <div style="display: flex; gap: 0.5rem; border-top: 1px solid var(--border-color); padding-top: 0.75rem;">
+                        <button type="button" onclick="showEditMode(<?php echo $src['id']; ?>)" class="btn" style="flex: 1; padding: 6px; font-size: 0.8rem; background: rgba(99,102,241,0.2); color: var(--primary); border: none; border-radius: 6px; cursor: pointer;">
+                            ✏️ Edit
+                        </button>
+                        <form method="POST" style="flex: 0;">
+                            <input type="hidden" name="action" value="toggle_source">
+                            <input type="hidden" name="source_id" value="<?php echo $src['id']; ?>">
+                            <button type="submit" class="btn" style="padding: 6px 12px; font-size: 0.8rem; background: rgba(245,158,11,0.2); color: #f59e0b; border: none; border-radius: 6px; cursor: pointer;" title="<?php echo $src['is_active'] ? 'Nonaktifkan' : 'Aktifkan'; ?>">
+                                <?php echo $src['is_active'] ? '🔒' : '🔓'; ?>
+                            </button>
+                        </form>
+                        <?php 
+                        $coreSources = ['walk_in','phone','online','agoda','booking','tiket','airbnb','ota'];
+                        if (!in_array($src['source_key'], $coreSources)): 
+                        ?>
+                        <form method="POST" style="flex: 0;" onsubmit="return confirm('Hapus sumber booking <?php echo htmlspecialchars($src['source_name']); ?>?')">
+                            <input type="hidden" name="action" value="delete_source">
+                            <input type="hidden" name="source_id" value="<?php echo $src['id']; ?>">
+                            <button type="submit" class="btn" style="padding: 6px 12px; font-size: 0.8rem; background: rgba(239,68,68,0.2); color: #ef4444; border: none; border-radius: 6px; cursor: pointer;">🗑️</button>
+                        </form>
+                        <?php endif; ?>
+                    </div>
+                </div>
+                
+                <!-- Edit Mode (hidden by default) -->
+                <div id="edit-<?php echo $src['id']; ?>" style="display: none;">
+                    <form method="POST">
+                        <input type="hidden" name="action" value="edit_source">
+                        <input type="hidden" name="source_id" value="<?php echo $src['id']; ?>">
+                        <div style="display: flex; flex-direction: column; gap: 0.75rem;">
+                            <div style="display: flex; gap: 0.5rem;">
+                                <div style="flex: 0 0 60px;">
+                                    <label style="font-size: 0.75rem; color: var(--text-secondary);">Icon</label>
+                                    <input type="text" name="icon" value="<?php echo htmlspecialchars($src['icon']); ?>" class="form-input" style="text-align: center; font-size: 1.2rem;" maxlength="5">
+                                </div>
+                                <div style="flex: 1;">
+                                    <label style="font-size: 0.75rem; color: var(--text-secondary);">Nama</label>
+                                    <input type="text" name="source_name" value="<?php echo htmlspecialchars($src['source_name']); ?>" class="form-input" required>
+                                </div>
+                            </div>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <div style="flex: 1;">
+                                    <label style="font-size: 0.75rem; color: var(--text-secondary);">Tipe</label>
+                                    <select name="source_type" class="form-input">
+                                        <option value="direct" <?php echo $src['source_type']==='direct'?'selected':''; ?>>Direct</option>
+                                        <option value="ota" <?php echo $src['source_type']==='ota'?'selected':''; ?>>OTA</option>
+                                        <option value="biro" <?php echo $src['source_type']==='biro'?'selected':''; ?>>Biro / Agen</option>
+                                    </select>
+                                </div>
+                                <div style="flex: 0 0 100px;">
+                                    <label style="font-size: 0.75rem; color: var(--text-secondary);">Fee %</label>
+                                    <input type="number" name="fee_percentage" value="<?php echo $src['fee_percent']; ?>" min="0" max="100" step="0.5" class="form-input" style="text-align: center;">
+                                </div>
+                            </div>
+                            <div style="display: flex; gap: 0.5rem;">
+                                <button type="submit" class="btn btn-success" style="flex: 1;">✓ Simpan</button>
+                                <button type="button" onclick="hideEditMode(<?php echo $src['id']; ?>)" class="btn" style="padding: 8px 16px; background: rgba(150,150,150,0.2); color: var(--text-secondary); border: none; border-radius: 6px; cursor: pointer;">Batal</button>
+                            </div>
+                        </div>
+                    </form>
+                </div>
             </div>
             <?php endforeach; ?>
         </div>
+        <?php endif; ?>
+        <?php endforeach; ?>
     </div>
 
+    <!-- Fee Calculation Info -->
     <div class="form-card" style="background: rgba(16, 185, 129, 0.1); border-color: rgba(16, 185, 129, 0.3);">
-        <h3 style="margin-top: 0; color: #6ee7b7;">📊 Fee Calculation Example</h3>
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 1.5rem;">
-            <div>
-                <p style="margin: 0 0 0.5rem 0; color: var(--text-secondary); font-size: 0.9rem;">Agoda (15% fee)</p>
-                <div style="background: rgba(99, 102, 241, 0.1); padding: 1rem; border-radius: 8px;">
-                    <p style="margin: 0.5rem 0; color: var(--text-primary);"><strong>Harga Kamar:</strong> Rp 500.000</p>
-                    <p style="margin: 0.5rem 0; color: var(--text-secondary); font-size: 0.85rem;">Fee (15%): Rp 75.000</p>
-                    <p style="margin: 0.5rem 0; color: #6ee7b7;"><strong>Net Income:</strong> Rp 425.000</p>
-                </div>
-            </div>
-            <div>
-                <p style="margin: 0 0 0.5rem 0; color: var(--text-secondary); font-size: 0.9rem;">Booking.com (12% fee)</p>
-                <div style="background: rgba(99, 102, 241, 0.1); padding: 1rem; border-radius: 8px;">
-                    <p style="margin: 0.5rem 0; color: var(--text-primary);"><strong>Harga Kamar:</strong> Rp 500.000</p>
-                    <p style="margin: 0.5rem 0; color: var(--text-secondary); font-size: 0.85rem;">Fee (12%): Rp 60.000</p>
-                    <p style="margin: 0.5rem 0; color: #6ee7b7;"><strong>Net Income:</strong> Rp 440.000</p>
-                </div>
-            </div>
-            <div>
-                <p style="margin: 0 0 0.5rem 0; color: var(--text-secondary); font-size: 0.9rem;">Direct (0% fee)</p>
-                <div style="background: rgba(99, 102, 241, 0.1); padding: 1rem; border-radius: 8px;">
-                    <p style="margin: 0.5rem 0; color: var(--text-primary);"><strong>Harga Kamar:</strong> Rp 500.000</p>
-                    <p style="margin: 0.5rem 0; color: var(--text-secondary); font-size: 0.85rem;">Fee (0%): Rp 0</p>
-                    <p style="margin: 0.5rem 0; color: #6ee7b7;"><strong>Net Income:</strong> Rp 500.000</p>
-                </div>
-            </div>
-        </div>
+        <h3 style="margin-top: 0; color: #6ee7b7;">📊 Cara Kerja Fee</h3>
+        <ul style="color: var(--text-secondary); line-height: 2; margin: 0.5rem 0 0 0; padding-left: 1.2rem;">
+            <li><strong>OTA & Biro</strong>: Fee otomatis dikurangi dari total harga saat masuk buku kas. Contoh: Harga Rp 500.000, Fee 15% = Net Income Rp 425.000</li>
+            <li><strong>Direct</strong>: Tidak ada potongan fee. 100% masuk buku kas.</li>
+            <li><strong>Booking OTA</strong>: Pembayaran baru masuk buku kas saat tamu <strong>check-in</strong>.</li>
+            <li><strong>Tambah Sumber</strong>: Anda bisa tambahkan biro perjalanan lokal dengan fee tetap (contoh: Biro ABC fee 8%).</li>
+        </ul>
     </div>
+
+    <script>
+    function showEditMode(id) {
+        document.getElementById('view-' + id).style.display = 'none';
+        document.getElementById('edit-' + id).style.display = 'block';
+    }
+    function hideEditMode(id) {
+        document.getElementById('edit-' + id).style.display = 'none';
+        document.getElementById('view-' + id).style.display = 'block';
+    }
+    </script>
 
     <?php endif; ?>
 
@@ -1434,13 +1659,6 @@ document.getElementById('editBreakfastModal')?.addEventListener('click', functio
     }
 });
 
-function updateFeeDisplay(element) {
-    const value = element.value;
-    const display = element.parentElement.querySelector('input[name="fee_percentage_display"]');
-    if (display) {
-        display.value = value;
-    }
-}
 </script>
 
 <?php include '../../includes/footer.php'; ?>
