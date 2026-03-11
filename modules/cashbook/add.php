@@ -813,13 +813,14 @@ include '../../includes/header.php';
                     <input type="text" name="category_name" class="form-control" style="height: 34px; font-size: 0.813rem;" placeholder="Nama kategori atau nama item" required>
                 </div>
                 
-                <?php if ($isHotel && !empty($investorProjects)): ?>
+                <?php if ($isHotel): ?>
                 <!-- Project Expense Toggle -->
                 <div class="compact-form-group" id="projectExpenseGroup">
                     <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 0.5rem 0.75rem; background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3); border-radius: 8px; transition: all 0.2s;" id="projectToggleLabel">
                         <input type="checkbox" id="isProjectExpense" name="is_project_expense" value="1" onchange="toggleProjectExpense()" style="width: 16px; height: 16px; accent-color: #f59e0b;">
                         <span style="font-size: 0.813rem; font-weight: 600; color: #92400e;">🏗️ Pengeluaran Proyek (bukan beban hotel)</span>
                     </label>
+                    <?php if (!empty($investorProjects)): ?>
                     <div id="projectSelectWrapper" style="display: none; margin-top: 0.4rem;">
                         <select name="project_id" id="projectSelect" class="form-control" style="height: 34px; font-size: 0.813rem;">
                             <option value="">-- Pilih Proyek --</option>
@@ -829,8 +830,9 @@ include '../../includes/header.php';
                             </option>
                             <?php endforeach; ?>
                         </select>
-                        <div style="font-size: 0.72rem; color: #f59e0b; margin-top: 0.25rem;">⚠️ Transaksi ini tidak masuk laporan P&L hotel, tapi tercatat di menu Investor & Proyek</div>
                     </div>
+                    <?php endif; ?>
+                    <div id="projectExpenseNote" style="display: none; font-size: 0.72rem; color: #f59e0b; margin-top: 0.25rem;">⚠️ Transaksi ini tidak masuk laporan P&L hotel, tapi tercatat di menu Investor & Proyek</div>
                     <input type="hidden" name="source_type" id="sourceTypeHidden" value="">
                 </div>
                 <?php endif; ?>
@@ -1316,7 +1318,7 @@ toggleCQCSections();
 // ============================================
 // PROJECT EXPENSE TOGGLE (NON-HOTEL EXPENSE)
 // ============================================
-<?php if ($isHotel && !empty($investorProjects)): ?>
+<?php if ($isHotel): ?>
 const projectDivisionKeywords = ['proyek', 'projek', 'project', 'konstruksi', 'renovasi', 'pembangunan', 'bangunan'];
 
 function toggleProjectExpense() {
@@ -1324,14 +1326,17 @@ function toggleProjectExpense() {
     const wrapper = document.getElementById('projectSelectWrapper');
     const label = document.getElementById('projectToggleLabel');
     const sourceField = document.getElementById('sourceTypeHidden');
+    const note = document.getElementById('projectExpenseNote');
     
-    wrapper.style.display = checked ? 'block' : 'none';
+    if (wrapper) wrapper.style.display = checked ? 'block' : 'none';
+    if (note) note.style.display = checked ? 'block' : 'none';
     label.style.background = checked ? 'rgba(245,158,11,0.25)' : 'rgba(245,158,11,0.1)';
     label.style.borderColor = checked ? '#f59e0b' : 'rgba(245,158,11,0.3)';
     sourceField.value = checked ? 'owner_project' : '';
     
-    if (!checked) {
-        document.getElementById('projectSelect').value = '';
+    const projectSelect = document.getElementById('projectSelect');
+    if (!checked && projectSelect) {
+        projectSelect.value = '';
     }
 }
 
