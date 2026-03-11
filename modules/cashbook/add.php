@@ -604,7 +604,7 @@ include '../../includes/header.php';
 }
 </style>
 
-<form method="POST" id="transactionForm" onsubmit="return validateForm('transactionForm')">
+<form method="POST" id="transactionForm" onsubmit="return handleFormSubmit(event)">
     <!-- Main Form Container -->
     <div class="card" style="max-width: 920px; margin: 0 auto 0.75rem;">
         <div class="<?php echo $isCQC ? 'cqc-form-header' : ''; ?>" style="padding: 0.875rem 1rem; border-bottom: 1px solid var(--bg-tertiary); <?php echo !$isCQC ? 'background: linear-gradient(135deg, var(--primary-color)15, var(--bg-secondary));' : 'border-radius: 12px 12px 0 0;'; ?>">
@@ -1237,6 +1237,121 @@ document.getElementById('transactionForm').addEventListener('submit', function()
 // Initialize on load
 toggleCQCSections();
 <?php endif; ?>
+
+// ============================================
+// DUPLICATE TRANSACTION CHECK
+// ============================================
+let dupCheckBypassed = false;
+
+function handleFormSubmit(e) {
+    e.preventDefault();
+    
+    if (!validateForm('transactionForm')) return false;
+    if (dupCheckBypassed) {
+        dupCheckBypassed = false;
+        document.getElementById('transactionForm').submit();
+        return true;
+    }
+
+    const form = document.getElementById('transactionForm');
+    const date = form.querySelector('[name=transaction_date]').value;
+    const rawAmount = form.querySelector('[name=amount]').value;
+    const amount = rawAmount.replace(/[.,]/g, '');
+    const category = form.querySelector('[name=category_name]').value;
+    const description = form.querySelector('[name=description]')?.value || '';
+    const type = form.querySelector('input[name=transaction_type]:checked')?.value || '';
+
+    if (!amount || parseFloat(amount) <= 0 || !category) {
+        form.submit();
+        return true;
+    }
+
+    const params = new URLSearchParams({ date, amount, category, description, type });
+    
+    fetch('../../api/check-duplicate-transaction.php?' + params)
+    .then(r => r.json())
+    .then(data => {
+        if (data.success && data.count > 0) {
+            showDuplicateWarning(data.duplicates, rawAmount, category);
+        } else {
+            form.submit();
+        }
+    })
+    .catch(() => {
+        // If check fails, allow submit anyway
+        form.submit();
+    });
+
+    return false;
+}
+
+function showDuplicateWarning(duplicates, amount, category) {
+    // Remove existing modal if any
+    const existing = document.getElementById('dupWarningModal');
+    if (existing) existing.remove();
+
+    let rows = '';
+    duplicates.forEach(d => {
+        const time = d.transaction_time ? d.transaction_time.substring(0,5) : '-';
+        const amt = parseInt(d.amount).toLocaleString('id-ID');
+        const cat = d.category_name || '-';
+        const desc = d.description ? (d.description.length > 40 ? d.description.substring(0,40) + '...' : d.description) : '-';
+        rows += `<tr>
+            <td style="padding:8px; border-bottom:1px solid #333;">${time}</td>
+            <td style="padding:8px; border-bottom:1px solid #333;">${cat}</td>
+            <td style="padding:8px; border-bottom:1px solid #333; text-align:right; font-weight:700;">Rp ${amt}</td>
+            <td style="padding:8px; border-bottom:1px solid #333; font-size:0.8rem;">${desc}</td>
+        </tr>`;
+    });
+
+    const modal = document.createElement('div');
+    modal.id = 'dupWarningModal';
+    modal.innerHTML = `
+    <div style="position:fixed; inset:0; background:rgba(0,0,0,0.7); z-index:9999; display:flex; align-items:center; justify-content:center; padding:1rem;">
+        <div style="background:#1e1e2e; border:2px solid #f59e0b; border-radius:16px; max-width:560px; width:100%; box-shadow:0 20px 60px rgba(0,0,0,0.5);">
+            <div style="padding:1.25rem; border-bottom:1px solid #333; display:flex; align-items:center; gap:0.75rem;">
+                <span style="font-size:2rem;">⚠️</span>
+                <div>
+                    <h3 style="margin:0; color:#fbbf24; font-size:1.1rem;">Transaksi Serupa Terdeteksi!</h3>
+                    <p style="margin:0.25rem 0 0; color:#94a3b8; font-size:0.85rem;">
+                        Ada ${duplicates.length} transaksi dengan nominal & kategori sama hari ini
+                    </p>
+                </div>
+            </div>
+            <div style="padding:1rem; max-height:300px; overflow-y:auto;">
+                <table style="width:100%; border-collapse:collapse; font-size:0.85rem; color:#e2e8f0;">
+                    <thead>
+                        <tr style="color:#94a3b8; font-size:0.75rem; text-transform:uppercase;">
+                            <th style="padding:6px 8px; text-align:left;">Jam</th>
+                            <th style="padding:6px 8px; text-align:left;">Kategori</th>
+                            <th style="padding:6px 8px; text-align:right;">Nominal</th>
+                            <th style="padding:6px 8px; text-align:left;">Keterangan</th>
+                        </tr>
+                    </thead>
+                    <tbody>${rows}</tbody>
+                </table>
+            </div>
+            <div style="padding:1rem; border-top:1px solid #333; display:flex; gap:0.75rem; justify-content:flex-end;">
+                <button onclick="document.getElementById('dupWarningModal').remove()" 
+                    style="padding:0.6rem 1.25rem; background:#374151; color:#e2e8f0; border:none; border-radius:8px; font-weight:600; cursor:pointer; font-size:0.9rem;">
+                    ✏️ Cek Ulang
+                </button>
+                <button onclick="submitDespiteDuplicate()" 
+                    style="padding:0.6rem 1.25rem; background:#dc2626; color:white; border:none; border-radius:8px; font-weight:600; cursor:pointer; font-size:0.9rem;">
+                    ✓ Tetap Simpan
+                </button>
+            </div>
+        </div>
+    </div>`;
+    document.body.appendChild(modal);
+}
+
+function submitDespiteDuplicate() {
+    const modal = document.getElementById('dupWarningModal');
+    if (modal) modal.remove();
+    dupCheckBypassed = true;
+    document.getElementById('transactionForm').dispatchEvent(new Event('submit'));
+}
 </script>
 
 <?php include '../../includes/footer.php'; ?>
