@@ -97,7 +97,7 @@ header('Content-Type: text/html; charset=utf-8');
     <style>
         @page {
             size: A4 portrait;
-            margin: 12mm 15mm 18mm 15mm;
+            margin: 10mm 10mm 15mm 10mm;
         }
         
         * {
@@ -111,9 +111,8 @@ header('Content-Type: text/html; charset=utf-8');
             font-size: 11pt;
             line-height: 1.4;
             color: #1e293b;
-            width: 210mm;
-            min-height: 297mm;
-            padding: 2mm 0;
+            max-width: 190mm;
+            margin: 0 auto;
         }
         
         /* Header */
@@ -130,25 +129,25 @@ header('Content-Type: text/html; charset=utf-8');
         .header-left {
             display: flex;
             align-items: center;
-            gap: 8px;
+            gap: 12px;
         }
         
         .report-logo {
-            width: 50px;
-            height: 50px;
-            border-radius: 8px;
+            width: 64px;
+            height: 64px;
+            border-radius: 10px;
             object-fit: contain;
         }
         
         .report-logo-icon {
-            width: 50px;
-            height: 50px;
-            border-radius: 8px;
+            width: 64px;
+            height: 64px;
+            border-radius: 10px;
             background: #eef2ff;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.5rem;
+            font-size: 2rem;
         }
         
         .hotel-name {
@@ -305,7 +304,7 @@ header('Content-Type: text/html; charset=utf-8');
             bottom: 0;
             left: 0;
             right: 0;
-            margin: 0 15mm 6mm 15mm;
+            margin: 0 10mm 5mm 10mm;
             font-size: 8pt;
             color: #999;
             text-align: center;
@@ -324,8 +323,10 @@ header('Content-Type: text/html; charset=utf-8');
             body {
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
+                max-width: 100%;
+                width: 100%;
             }
-            .room-tag {
+            .room-tag, .stat-item, th {
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
             }
@@ -353,7 +354,7 @@ header('Content-Type: text/html; charset=utf-8');
             </div>
         </div>
         <div>
-            <div class="report-title">Laporan Harian</div>
+            <div class="report-title">Daily Report</div>
             <div class="report-date"><?php echo $todayDisplay; ?></div>
         </div>
     </div>
@@ -559,8 +560,8 @@ header('Content-Type: text/html; charset=utf-8');
 
     <!-- Footer -->
     <div class="print-footer">
-        <div><span class="sys">✓ Dicetak dari ADF System — Narayana Hotel © 2026</span></div>
-        <div style="font-size: 6pt; color: #bbb; margin-top: 1px;">Dicetak oleh: <?php echo htmlspecialchars($currentUser['full_name'] ?? $printerName); ?> | <?php echo $printTime; ?></div>
+        <div><span class="sys">✓ Printed from ADF System — Narayana Hotel © 2026</span></div>
+        <div style="font-size: 6pt; color: #bbb; margin-top: 1px;">Printed by: <?php echo htmlspecialchars($currentUser['full_name'] ?? $printerName); ?> | <?php echo $printTime; ?></div>
     </div>
 
     <script>
