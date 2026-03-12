@@ -220,7 +220,7 @@ include '../../includes/header.php';
 .rpt-table tbody tr:hover { background: #f8fafc; }
 [data-theme="dark"] .rpt-table tbody tr:hover { background: #1e293b; }
 
-.room-tag { display: inline-block; background: #4f46e5; color: #fff; padding: 0.1rem 0.4rem; border-radius: 4px; font-weight: 600; font-size: 0.7rem; min-width: 28px; text-align: center; }
+.room-tag { display: inline-block; background: #4f46e5; color: #fff !important; padding: 0.1rem 0.4rem; border-radius: 4px; font-weight: 600; font-size: 0.7rem; min-width: 28px; text-align: center; }
 [data-theme="dark"] .room-tag { background: #6366f1; }
 
 .pay-badge { display: inline-block; padding: 0.1rem 0.35rem; border-radius: 3px; font-size: 0.62rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; }
