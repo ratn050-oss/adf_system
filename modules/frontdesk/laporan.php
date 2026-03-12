@@ -533,7 +533,11 @@ include '../../includes/header.php';
 
 <script>
 function exportToPDF() {
-    window.open('export-daily-report.php', '_blank');
+    var w = window.open('export-daily-report.php', '_blank');
+    if (!w || w.closed) {
+        // Popup blocked - open in same tab
+        window.location.href = 'export-daily-report.php';
+    }
 }
 
 function deleteBreakfastOrder(id, guestName) {
