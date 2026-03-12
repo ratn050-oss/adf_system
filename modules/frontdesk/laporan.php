@@ -574,37 +574,36 @@ function shareToWhatsApp() {
 
     var fileName = 'Daily-Report-' + <?php echo json_encode(date('Y-m-d')); ?> + '.pdf';
 
-    // Create hidden iframe to load the export page
+    // Create iframe to load the export page
     var iframe = document.createElement('iframe');
     iframe.style.position = 'fixed';
-    iframe.style.left = '0';
+    iframe.style.left = '-2000px';
     iframe.style.top = '0';
-    iframe.style.width = '210mm';
-    iframe.style.height = '297mm';
-    iframe.style.opacity = '0';
-    iframe.style.pointerEvents = 'none';
-    iframe.style.zIndex = '-1';
+    iframe.style.width = '900px';
+    iframe.style.height = '1200px';
+    iframe.style.border = 'none';
     iframe.src = 'export-daily-report.php?noprint=1';
     
     document.body.appendChild(iframe);
 
     iframe.onload = function() {
-        // Wait a bit for images/fonts to load
+        // Wait for images/fonts to load
         setTimeout(function() {
             var iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-            var content = iframeDoc.body;
+            var content = iframeDoc.documentElement;
 
             var opt = {
-                margin: [10, 10, 10, 10],
+                margin: 0,
                 filename: fileName,
-                image: { type: 'jpeg', quality: 0.98 },
+                image: { type: 'jpeg', quality: 0.95 },
                 html2canvas: { 
                     scale: 2, 
                     useCORS: true, 
                     backgroundColor: '#ffffff',
+                    scrollX: 0,
                     scrollY: 0,
-                    windowWidth: 794,
-                    windowHeight: 1123
+                    width: 900,
+                    windowWidth: 900
                 },
                 jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
             };
