@@ -592,7 +592,7 @@ function shareToWhatsApp() {
     text += `*🍳 BREAKFAST ORDERS (${<?php echo count($breakfastOrders); ?>})*\n`;
     <?php foreach ($breakfastOrders as $order): ?>
     text += `• ${<?php echo json_encode($order['breakfast_time']); ?>} - Room ${<?php echo json_encode($order['room_number']); ?>} - ${<?php echo json_encode($order['guest_name']); ?>}\n`;
-    text += `  Pax: ${<?php echo $order['total_pax']; ?>} | ${<?php echo $order['location'] === 'restaurant' ? 'Restaurant' : ($order['location'] === 'take_away' ? 'Take Away' : 'Room Service'); ?>}\n`;
+    text += `  Pax: ${<?php echo $order['total_pax']; ?>} | <?php echo $order['location'] === 'restaurant' ? 'Restaurant' : ($order['location'] === 'take_away' ? 'Take Away' : 'Room Service'); ?>\n`;
     text += `  Menu:\n`;
     <?php foreach ($order['menu_items'] as $item): ?>
     text += `   - ${<?php echo $item['quantity']; ?>}x ${<?php echo json_encode($item['menu_name']); ?>}\n`;
