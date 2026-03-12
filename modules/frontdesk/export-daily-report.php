@@ -544,12 +544,12 @@ header('Content-Type: text/html; charset=utf-8');
             <span class="sec-count"><?php echo count($breakfastOrders); ?></span>
         </div>
         <table>
-            <thead><tr><th>Time</th><th>Room</th><th>Guest</th><th>Pax</th><th>Location</th><th>Menu</th></tr></thead>
+            <thead><tr><th>Room</th><th>Time</th><th>Guest</th><th>Pax</th><th>Location</th><th>Menu</th></tr></thead>
             <tbody>
                 <?php foreach ($breakfastOrders as $order): ?>
                 <tr>
-                    <td><?php echo date('H:i', strtotime($order['breakfast_time'])); ?></td>
                     <td><span class="room-tag"><?php echo htmlspecialchars($order['room_number']); ?></span></td>
+                    <td><?php echo date('H:i', strtotime($order['breakfast_time'])); ?></td>
                     <td><?php echo htmlspecialchars($order['guest_name']); ?></td>
                     <td><?php echo $order['total_pax']; ?></td>
                     <td><span class="loc-tag"><?php echo $order['location'] === 'restaurant' ? '🍽️ Restaurant' : ($order['location'] === 'take_away' ? '🥡 Take Away' : '🚪 Room Service'); ?></span></td>
