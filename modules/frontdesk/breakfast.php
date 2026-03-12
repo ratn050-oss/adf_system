@@ -51,7 +51,65 @@ if (!empty($_SESSION['user_id'])) {
 // ==================== HANDLE BREAKFAST ORDER ====================
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     try {
-        if ($_POST['action'] === 'create_order') {
+        if ($_POST['action'] === 'update_order') {
+            if (!$validUserId) {
+                throw new Exception("❌ Sistem error: User tidak ditemukan di database.");
+            }
+            $editId = (int)($_POST['edit_id'] ?? 0);
+            if ($editId <= 0) throw new Exception("❌ ID order tidak valid");
+            
+            if (empty($_POST['guest_name']) || empty($_POST['total_pax']) || empty($_POST['breakfast_time']) || empty($_POST['breakfast_date'])) {
+                throw new Exception("❌ Semua field wajib harus diisi");
+            }
+            if (empty($_POST['menu_items']) || !is_array($_POST['menu_items'])) {
+                throw new Exception("❌ Pilih minimal 1 menu item");
+            }
+            
+            $menuItems = [];
+            $totalPrice = 0;
+            foreach ($_POST['menu_items'] as $menuId) {
+                $qty = (int)($_POST['menu_qty'][$menuId] ?? 1);
+                if ($qty > 0) {
+                    $menuStmt = $pdo->prepare("SELECT menu_name, price, is_free FROM breakfast_menus WHERE id = ?");
+                    $menuStmt->execute([$menuId]);
+                    $menu = $menuStmt->fetch(PDO::FETCH_ASSOC);
+                    if ($menu) {
+                        $menuItems[] = [
+                            'menu_id' => $menuId,
+                            'menu_name' => $menu['menu_name'],
+                            'quantity' => $qty,
+                            'price' => $menu['price'],
+                            'is_free' => $menu['is_free']
+                        ];
+                        if (!$menu['is_free']) $totalPrice += ($menu['price'] * $qty);
+                    }
+                }
+            }
+            if (count($menuItems) === 0) throw new Exception("❌ No valid menu items selected");
+            
+            $stmt = $pdo->prepare("UPDATE breakfast_orders SET 
+                booking_id=?, guest_name=?, room_number=?, total_pax=?, breakfast_time=?, 
+                breakfast_date=?, location=?, menu_items=?, special_requests=?, total_price=?
+                WHERE id=?");
+            $stmt->execute([
+                !empty($_POST['booking_id']) ? (int)$_POST['booking_id'] : null,
+                trim($_POST['guest_name']),
+                !empty($_POST['room_number']) ? trim($_POST['room_number']) : null,
+                (int)$_POST['total_pax'],
+                $_POST['breakfast_time'],
+                $_POST['breakfast_date'],
+                $_POST['location'] ?? 'restaurant',
+                json_encode($menuItems),
+                !empty($_POST['special_requests']) ? trim($_POST['special_requests']) : null,
+                $totalPrice,
+                $editId
+            ]);
+            
+            $message = "✅ Order #$editId berhasil diupdate!";
+            header('Location: ' . $_SERVER['PHP_SELF']);
+            exit;
+            
+        } elseif ($_POST['action'] === 'create_order') {
             // Validate user exists
             if (!$validUserId) {
                 throw new Exception("❌ Sistem error: User tidak ditemukan di database. Hubungi administrator.");
@@ -171,6 +229,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     } catch (Exception $e) {
         $error = "❌ Error: " . $e->getMessage();
         error_log("Breakfast Order Error: " . $e->getMessage());
+    }
+}
+
+// ==================== EDIT MODE ====================
+$editOrder = null;
+$editMenuIds = [];
+$editMenuQty = [];
+if (!empty($_GET['edit'])) {
+    $editId = (int)$_GET['edit'];
+    $editOrder = $db->fetchOne("SELECT * FROM breakfast_orders WHERE id = ?", [$editId]);
+    if ($editOrder) {
+        $items = json_decode($editOrder['menu_items'], true) ?: [];
+        foreach ($items as $item) {
+            $editMenuIds[] = $item['menu_id'];
+            $editMenuQty[$item['menu_id']] = $item['quantity'];
+        }
     }
 }
 
@@ -706,7 +780,10 @@ include '../../includes/header.php';
         <!-- Form -->
         <div class="bf-form-card">
             <form method="POST" action="" id="breakfastOrderForm">
-                <input type="hidden" name="action" value="create_order">
+                <input type="hidden" name="action" value="<?php echo $editOrder ? 'update_order' : 'create_order'; ?>">
+                <?php if ($editOrder): ?>
+                <input type="hidden" name="edit_id" value="<?php echo $editOrder['id']; ?>">
+                <?php endif; ?>
                 
                 <!-- Guest Info Section -->
                 <div class="bf-form-section">
@@ -719,7 +796,8 @@ include '../../includes/header.php';
                                 <?php foreach ($inHouseGuests as $guest): ?>
                                 <option value="<?php echo $guest['booking_id']; ?>" 
                                         data-name="<?php echo htmlspecialchars($guest['guest_name']); ?>"
-                                        data-room="<?php echo htmlspecialchars($guest['room_number']); ?>">
+                                        data-room="<?php echo htmlspecialchars($guest['room_number']); ?>"
+                                        <?php echo ($editOrder && $editOrder['booking_id'] == $guest['booking_id']) ? 'selected' : ''; ?>>
                                     Room <?php echo $guest['room_number']; ?> - <?php echo htmlspecialchars($guest['guest_name']); ?>
                                 </option>
                                 <?php endforeach; ?>
@@ -729,11 +807,11 @@ include '../../includes/header.php';
                     <div class="bf-form-row">
                         <div class="bf-form-group">
                             <label class="bf-label">Guest Name *</label>
-                            <input type="text" name="guest_name" id="guest_name" class="bf-input" required>
+                            <input type="text" name="guest_name" id="guest_name" class="bf-input" required value="<?php echo $editOrder ? htmlspecialchars($editOrder['guest_name']) : ''; ?>">
                         </div>
                         <div class="bf-form-group">
                             <label class="bf-label">Room Number</label>
-                            <input type="text" name="room_number" id="room_number" class="bf-input">
+                            <input type="text" name="room_number" id="room_number" class="bf-input" value="<?php echo $editOrder ? htmlspecialchars($editOrder['room_number']) : ''; ?>">
                         </div>
                     </div>
                 </div>
@@ -744,15 +822,15 @@ include '../../includes/header.php';
                     <div class="bf-form-row">
                         <div class="bf-form-group">
                             <label class="bf-label">Total Pax *</label>
-                            <input type="number" name="total_pax" id="total_pax" class="bf-input" min="1" max="20" required>
+                            <input type="number" name="total_pax" id="total_pax" class="bf-input" min="1" max="20" required value="<?php echo $editOrder ? (int)$editOrder['total_pax'] : ''; ?>">
                         </div>
                         <div class="bf-form-group">
                             <label class="bf-label">Time *</label>
-                            <input type="time" name="breakfast_time" id="breakfast_time" class="bf-input" required>
+                            <input type="time" name="breakfast_time" id="breakfast_time" class="bf-input" required value="<?php echo $editOrder ? $editOrder['breakfast_time'] : ''; ?>">
                         </div>
                         <div class="bf-form-group">
                             <label class="bf-label">Date *</label>
-                            <input type="date" name="breakfast_date" id="breakfast_date" class="bf-input" value="<?php echo $today; ?>" required>
+                            <input type="date" name="breakfast_date" id="breakfast_date" class="bf-input" value="<?php echo $editOrder ? $editOrder['breakfast_date'] : $today; ?>" required>
                         </div>
                     </div>
                     <div class="bf-form-row">
@@ -760,15 +838,15 @@ include '../../includes/header.php';
                             <label class="bf-label">Location *</label>
                             <div class="bf-radio-group">
                                 <label class="bf-radio-label">
-                                    <input type="radio" name="location" value="restaurant" checked>
+                                    <input type="radio" name="location" value="restaurant" <?php echo (!$editOrder || $editOrder['location'] === 'restaurant') ? 'checked' : ''; ?>>
                                     🍽️ Restaurant
                                 </label>
                                 <label class="bf-radio-label">
-                                    <input type="radio" name="location" value="room_service">
+                                    <input type="radio" name="location" value="room_service" <?php echo ($editOrder && $editOrder['location'] === 'room_service') ? 'checked' : ''; ?>>
                                     🛏️ Room Service
                                 </label>
                                 <label class="bf-radio-label">
-                                    <input type="radio" name="location" value="take_away">
+                                    <input type="radio" name="location" value="take_away" <?php echo ($editOrder && $editOrder['location'] === 'take_away') ? 'checked' : ''; ?>>
                                     🥡 Take Away
                                 </label>
                             </div>
@@ -787,7 +865,7 @@ include '../../includes/header.php';
                             <?php foreach ($freeMenus as $menu): ?>
                             <div class="bf-menu-item">
                                 <label class="bf-menu-checkbox">
-                                    <input type="checkbox" name="menu_items[]" value="<?php echo $menu['id']; ?>">
+                                    <input type="checkbox" name="menu_items[]" value="<?php echo $menu['id']; ?>" <?php echo in_array($menu['id'], $editMenuIds) ? 'checked' : ''; ?>>
                                     <div class="bf-menu-info">
                                         <div class="bf-menu-name"><?php echo htmlspecialchars($menu['menu_name']); ?></div>
                                         <span class="bf-menu-cat"><?php echo $menu['category']; ?></span>
@@ -795,7 +873,7 @@ include '../../includes/header.php';
                                 </label>
                                 <div class="bf-menu-qty">
                                     <span style="font-size: 0.7rem; color: var(--text-muted);">Qty:</span>
-                                    <input type="number" name="menu_qty[<?php echo $menu['id']; ?>]" min="1" max="20" value="1" class="bf-qty-input">
+                                    <input type="number" name="menu_qty[<?php echo $menu['id']; ?>]" min="1" max="20" value="<?php echo $editMenuQty[$menu['id']] ?? 1; ?>" class="bf-qty-input">
                                 </div>
                             </div>
                             <?php endforeach; ?>
@@ -810,7 +888,7 @@ include '../../includes/header.php';
                             <?php foreach ($paidMenus as $menu): ?>
                             <div class="bf-menu-item">
                                 <label class="bf-menu-checkbox">
-                                    <input type="checkbox" name="menu_items[]" value="<?php echo $menu['id']; ?>">
+                                    <input type="checkbox" name="menu_items[]" value="<?php echo $menu['id']; ?>" <?php echo in_array($menu['id'], $editMenuIds) ? 'checked' : ''; ?>>
                                     <div class="bf-menu-info">
                                         <div class="bf-menu-name"><?php echo htmlspecialchars($menu['menu_name']); ?></div>
                                         <div class="bf-menu-price">Rp <?php echo number_format($menu['price'], 0, ',', '.'); ?></div>
@@ -819,7 +897,7 @@ include '../../includes/header.php';
                                 </label>
                                 <div class="bf-menu-qty">
                                     <span style="font-size: 0.7rem; color: var(--text-muted);">Qty:</span>
-                                    <input type="number" name="menu_qty[<?php echo $menu['id']; ?>]" min="1" max="20" value="1" class="bf-qty-input">
+                                    <input type="number" name="menu_qty[<?php echo $menu['id']; ?>]" min="1" max="20" value="<?php echo $editMenuQty[$menu['id']] ?? 1; ?>" class="bf-qty-input">
                                 </div>
                             </div>
                             <?php endforeach; ?>
@@ -832,12 +910,16 @@ include '../../includes/header.php';
                 <div class="bf-form-section">
                     <div class="bf-form-title">📝 Notes</div>
                     <textarea name="special_requests" id="special_requests" class="bf-textarea" 
-                              placeholder="Allergies, special preparation, etc."></textarea>
+                              placeholder="Allergies, special preparation, etc."><?php echo $editOrder ? htmlspecialchars($editOrder['special_requests']) : ''; ?></textarea>
                 </div>
 
                 <div class="bf-actions">
-                    <button type="submit" class="bf-btn-submit">✓ Create Order</button>
+                    <button type="submit" class="bf-btn-submit"><?php echo $editOrder ? '✓ Update Order' : '✓ Create Order'; ?></button>
+                    <?php if ($editOrder): ?>
+                    <a href="breakfast.php" class="bf-btn-reset" style="text-decoration:none; text-align:center;">✕ Cancel Edit</a>
+                    <?php else: ?>
                     <button type="reset" class="bf-btn-reset">↺ Reset</button>
+                    <?php endif; ?>
                 </div>
             </form>
         </div>

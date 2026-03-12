@@ -169,47 +169,49 @@ include '../../includes/header.php';
 .laporan-container { max-width: 900px; margin: 0 auto; padding: 1rem 1.5rem; }
 
 .action-buttons { display: flex; gap: 0.5rem; justify-content: flex-end; margin-bottom: 1rem; }
-.action-buttons .btn { padding: 0.4rem 1rem; border: none; border-radius: 6px; font-weight: 500; font-size: 0.8rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.35rem; transition: opacity 0.2s; }
-.action-buttons .btn:hover { opacity: 0.85; }
-.btn-pdf { background: #4f46e5; color: #fff; }
-.btn-print { background: #374151; color: #fff; }
-.btn-wa { background: #25d366; color: #fff; }
+.action-buttons .btn { padding: 0.4rem 1rem; border: none; border-radius: 6px; font-weight: 600; font-size: 0.8rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.35rem; transition: all 0.2s; }
+.action-buttons .btn:hover { transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
+.btn-pdf { background: #e0e7ff; color: #3730a3; }
+.btn-print { background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1 !important; }
+.btn-wa { background: #dcfce7; color: #166534; }
 
-.report-header { display: flex; justify-content: space-between; align-items: flex-end; padding-bottom: 0.6rem; border-bottom: 2px solid #1e293b; margin-bottom: 1rem; }
-[data-theme="dark"] .report-header { border-bottom-color: #475569; }
+.report-header { display: flex; justify-content: space-between; align-items: flex-end; padding-bottom: 0.6rem; border-bottom: 2px solid #4f46e5; margin-bottom: 1rem; }
+[data-theme="dark"] .report-header { border-bottom-color: #6366f1; }
 .report-header-left .hotel-name { font-size: 1.1rem; font-weight: 700; color: #1e293b; margin: 0; }
 [data-theme="dark"] .report-header-left .hotel-name { color: #e2e8f0; }
 .report-header-left .hotel-detail { font-size: 0.65rem; color: #64748b; line-height: 1.4; margin-top: 2px; }
 .report-header-right { text-align: right; }
-.report-header-right .report-title { font-size: 0.75rem; font-weight: 700; color: #1e293b; letter-spacing: 1px; text-transform: uppercase; margin: 0; }
-[data-theme="dark"] .report-header-right .report-title { color: #e2e8f0; }
+.report-header-right .report-title { font-size: 0.75rem; font-weight: 700; color: #4f46e5; letter-spacing: 1px; text-transform: uppercase; margin: 0; }
+[data-theme="dark"] .report-header-right .report-title { color: #818cf8; }
 .report-header-right .report-date { font-size: 0.7rem; color: #64748b; margin-top: 2px; }
 
 .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.6rem; margin-bottom: 1.25rem; }
-.stat-item { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.65rem 0.5rem; text-align: center; }
+.stat-item { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 0.75rem 0.5rem; text-align: center; transition: all 0.2s; }
+.stat-item:hover { border-color: #c7d2fe; background: #eef2ff; }
 [data-theme="dark"] .stat-item { background: #1e293b; border-color: #334155; }
-.stat-item .stat-val { font-size: 1.4rem; font-weight: 800; color: #1e293b; line-height: 1; }
-[data-theme="dark"] .stat-item .stat-val { color: #f1f5f9; }
+[data-theme="dark"] .stat-item:hover { border-color: #4f46e5; background: #1e1b4b; }
+.stat-item .stat-val { font-size: 1.5rem; font-weight: 800; color: #4f46e5; line-height: 1; }
+[data-theme="dark"] .stat-item .stat-val { color: #818cf8; }
 .stat-item .stat-lbl { font-size: 0.6rem; color: #94a3b8; font-weight: 500; margin-top: 0.2rem; text-transform: uppercase; letter-spacing: 0.5px; }
 
 .rpt-section { margin-bottom: 0.75rem; }
-.rpt-section-head { display: flex; align-items: center; justify-content: space-between; padding: 0.4rem 0; border-bottom: 1px solid #cbd5e1; margin-bottom: 0.35rem; }
+.rpt-section-head { display: flex; align-items: center; justify-content: space-between; padding: 0.4rem 0; border-bottom: 1px solid #e2e8f0; margin-bottom: 0.35rem; }
 [data-theme="dark"] .rpt-section-head { border-bottom-color: #475569; }
 .rpt-section-head .sec-title { font-size: 0.8rem; font-weight: 700; color: #1e293b; margin: 0; display: flex; align-items: center; gap: 0.35rem; }
 [data-theme="dark"] .rpt-section-head .sec-title { color: #e2e8f0; }
-.rpt-section-head .sec-count { font-size: 0.65rem; font-weight: 600; color: #64748b; background: #f1f5f9; padding: 0.15rem 0.5rem; border-radius: 10px; }
-[data-theme="dark"] .rpt-section-head .sec-count { background: #334155; color: #94a3b8; }
+.rpt-section-head .sec-count { font-size: 0.65rem; font-weight: 600; color: #4f46e5; background: #eef2ff; padding: 0.15rem 0.5rem; border-radius: 10px; }
+[data-theme="dark"] .rpt-section-head .sec-count { background: #312e81; color: #a5b4fc; }
 
 .rpt-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
-.rpt-table th { background: #f1f5f9; padding: 0.35rem 0.5rem; text-align: left; font-weight: 600; font-size: 0.68rem; color: #475569; border-bottom: 1px solid #e2e8f0; text-transform: uppercase; letter-spacing: 0.3px; }
+.rpt-table th { background: #f8fafc; padding: 0.35rem 0.5rem; text-align: left; font-weight: 600; font-size: 0.68rem; color: #64748b; border-bottom: 1px solid #e2e8f0; text-transform: uppercase; letter-spacing: 0.3px; }
 [data-theme="dark"] .rpt-table th { background: #1e293b; color: #94a3b8; border-bottom-color: #334155; }
 .rpt-table td { padding: 0.35rem 0.5rem; border-bottom: 1px solid #f1f5f9; color: #334155; font-size: 0.78rem; }
 [data-theme="dark"] .rpt-table td { border-bottom-color: #1e293b; color: #cbd5e1; }
 .rpt-table tbody tr:hover { background: #f8fafc; }
 [data-theme="dark"] .rpt-table tbody tr:hover { background: #1e293b; }
 
-.room-tag { display: inline-block; background: #1e293b; color: #fff; padding: 0.1rem 0.4rem; border-radius: 4px; font-weight: 600; font-size: 0.7rem; min-width: 28px; text-align: center; }
-[data-theme="dark"] .room-tag { background: #4f46e5; }
+.room-tag { display: inline-block; background: #4f46e5; color: #fff; padding: 0.1rem 0.4rem; border-radius: 4px; font-weight: 600; font-size: 0.7rem; min-width: 28px; text-align: center; }
+[data-theme="dark"] .room-tag { background: #6366f1; }
 
 .pay-badge { display: inline-block; padding: 0.1rem 0.35rem; border-radius: 3px; font-size: 0.62rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; }
 .pay-paid { background: #dcfce7; color: #166534; }
@@ -234,6 +236,15 @@ include '../../includes/header.php';
 
 .empty-msg { text-align: center; padding: 1rem; color: #94a3b8; font-size: 0.78rem; font-style: italic; }
 
+.bf-act { display: inline-flex; gap: 4px; }
+.bf-act button { border: none; padding: 0.15rem 0.4rem; border-radius: 3px; font-size: 0.65rem; cursor: pointer; font-weight: 500; transition: all 0.15s; }
+.bf-act .bf-edit { background: #e0e7ff; color: #3730a3; }
+.bf-act .bf-edit:hover { background: #c7d2fe; }
+.bf-act .bf-del { background: #fee2e2; color: #991b1b; }
+.bf-act .bf-del:hover { background: #fecaca; }
+[data-theme="dark"] .bf-act .bf-edit { background: rgba(99,102,241,0.2); color: #a5b4fc; }
+[data-theme="dark"] .bf-act .bf-del { background: rgba(239,68,68,0.2); color: #fca5a5; }
+
 .print-footer { display: none; }
 
 @media print {
@@ -241,6 +252,7 @@ include '../../includes/header.php';
     .laporan-container, .laporan-container * { visibility: visible; }
     .laporan-container { position: absolute; left: 0; top: 0; width: 100%; max-width: 100%; padding: 12mm 15mm; }
     .action-buttons { display: none !important; }
+    .bf-act { display: none !important; }
     .stat-item { background: #f8fafc !important; border: 1px solid #d1d5db !important; }
     .rpt-table th { background: #f3f4f6 !important; }
     .room-tag { background: #1e293b !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
@@ -460,10 +472,10 @@ include '../../includes/header.php';
             <span class="sec-count"><?php echo count($breakfastOrders); ?></span>
         </div>
         <table class="rpt-table">
-            <thead><tr><th>Time</th><th>Room</th><th>Guest</th><th>Pax</th><th>Location</th><th>Menu</th></tr></thead>
+            <thead><tr><th>Time</th><th>Room</th><th>Guest</th><th>Pax</th><th>Location</th><th>Menu</th><th class="bf-act-col">Action</th></tr></thead>
             <tbody>
                 <?php foreach ($breakfastOrders as $order): ?>
-                <tr>
+                <tr id="bf-row-<?php echo $order['id']; ?>">
                     <td><?php echo date('H:i', strtotime($order['breakfast_time'])); ?></td>
                     <td><span class="room-tag"><?php echo htmlspecialchars($order['room_number']); ?></span></td>
                     <td><?php echo htmlspecialchars($order['guest_name']); ?></td>
@@ -476,6 +488,12 @@ include '../../includes/header.php';
                             <?php endforeach; ?>
                         </ul>
                     </td>
+                    <td>
+                        <div class="bf-act">
+                            <button class="bf-edit" onclick="editBreakfastOrder(<?php echo $order['id']; ?>)" title="Edit">✏️</button>
+                            <button class="bf-del" onclick="deleteBreakfastOrder(<?php echo $order['id']; ?>, '<?php echo htmlspecialchars(addslashes($order['guest_name'])); ?>')" title="Delete">🗑️</button>
+                        </div>
+                    </td>
                 </tr>
                 <?php endforeach; ?>
             </tbody>
@@ -486,8 +504,30 @@ include '../../includes/header.php';
 
 <script>
 function exportToPDF() {
-    // Open export PDF page in new window
     window.open('export-daily-report.php', '_blank');
+}
+
+function deleteBreakfastOrder(id, guestName) {
+    if (!confirm('Hapus order breakfast untuk ' + guestName + '?')) return;
+    fetch('../../api/breakfast-order-action.php', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({action: 'delete', id: id})
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            document.getElementById('bf-row-' + id)?.remove();
+            showNotification('Order breakfast dihapus', 'success');
+        } else {
+            showNotification(data.message || 'Gagal menghapus', 'error');
+        }
+    })
+    .catch(() => showNotification('Gagal menghapus', 'error'));
+}
+
+function editBreakfastOrder(id) {
+    window.location.href = 'breakfast.php?edit=' + id;
 }
 
 function shareToWhatsApp() {
