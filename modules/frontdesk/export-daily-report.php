@@ -179,6 +179,14 @@ header('Content-Type: text/html; charset=utf-8');
             margin-top: 2px;
         }
         
+        .report-printer {
+            font-size: 7.5pt;
+            color: #94a3b8;
+            text-align: right;
+            margin-top: 3px;
+            font-style: italic;
+        }
+        
         /* Stats Row */
         .stats-row {
             display: grid;
@@ -356,6 +364,7 @@ header('Content-Type: text/html; charset=utf-8');
         <div>
             <div class="report-title">Daily Report</div>
             <div class="report-date"><?php echo $todayDisplay; ?></div>
+            <div class="report-printer">Printed by: <?php echo htmlspecialchars($currentUser['full_name'] ?? $printerName); ?></div>
         </div>
     </div>
 
