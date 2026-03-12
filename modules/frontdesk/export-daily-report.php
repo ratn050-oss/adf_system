@@ -132,16 +132,16 @@ header('Content-Type: text/html; charset=utf-8');
         }
         
         .report-logo {
-            width: 80px;
-            height: 80px;
-            border-radius: 12px;
+            width: 96px;
+            height: 96px;
+            border-radius: 14px;
             object-fit: contain;
         }
         
         .report-logo-icon {
-            width: 80px;
-            height: 80px;
-            border-radius: 12px;
+            width: 96px;
+            height: 96px;
+            border-radius: 14px;
             background: #eef2ff;
             display: flex;
             align-items: center;
