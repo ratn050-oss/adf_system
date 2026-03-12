@@ -108,11 +108,12 @@ header('Content-Type: text/html; charset=utf-8');
         
         body {
             font-family: 'Segoe UI', Arial, sans-serif;
-            font-size: 8.5pt;
-            line-height: 1.35;
+            font-size: 11pt;
+            line-height: 1.4;
             color: #1e293b;
             width: 210mm;
             min-height: 297mm;
+            padding: 2mm 0;
         }
         
         /* Header */
@@ -133,38 +134,38 @@ header('Content-Type: text/html; charset=utf-8');
         }
         
         .report-logo {
-            width: 42px;
-            height: 42px;
+            width: 50px;
+            height: 50px;
             border-radius: 8px;
             object-fit: contain;
         }
         
         .report-logo-icon {
-            width: 42px;
-            height: 42px;
+            width: 50px;
+            height: 50px;
             border-radius: 8px;
             background: #eef2ff;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 1.3rem;
+            font-size: 1.5rem;
         }
         
         .hotel-name {
-            font-size: 13pt;
+            font-size: 16pt;
             font-weight: 700;
             color: #1e293b;
             margin-bottom: 2px;
         }
         
         .hotel-detail {
-            font-size: 7pt;
+            font-size: 9pt;
             color: #64748b;
             line-height: 1.4;
         }
         
         .report-title {
-            font-size: 9pt;
+            font-size: 12pt;
             font-weight: 700;
             color: #4f46e5;
             letter-spacing: 0.5px;
@@ -173,7 +174,7 @@ header('Content-Type: text/html; charset=utf-8');
         }
         
         .report-date {
-            font-size: 8pt;
+            font-size: 10pt;
             color: #64748b;
             text-align: right;
             margin-top: 2px;
@@ -191,29 +192,29 @@ header('Content-Type: text/html; charset=utf-8');
             background: #f8fafc;
             border: 1px solid #e2e8f0;
             border-radius: 5px;
-            padding: 6px 4px;
+            padding: 8px 6px;
             text-align: center;
         }
         
         .stat-val {
-            font-size: 14pt;
+            font-size: 18pt;
             font-weight: 800;
             color: #4f46e5;
             line-height: 1;
         }
         
         .stat-lbl {
-            font-size: 6pt;
+            font-size: 8pt;
             color: #94a3b8;
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.4px;
-            margin-top: 2px;
+            margin-top: 3px;
         }
         
         /* Section */
         .rpt-section {
-            margin-bottom: 10px;
+            margin-bottom: 14px;
             page-break-inside: avoid;
         }
         
@@ -221,24 +222,24 @@ header('Content-Type: text/html; charset=utf-8');
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 4px 0;
+            padding: 5px 0;
             border-bottom: 1px solid #cbd5e1;
-            margin-bottom: 4px;
+            margin-bottom: 5px;
         }
         
         .sec-title {
-            font-size: 9pt;
+            font-size: 11pt;
             font-weight: 700;
             color: #1e293b;
             margin: 0;
         }
         
         .sec-count {
-            font-size: 7pt;
+            font-size: 9pt;
             font-weight: 600;
             color: #4f46e5;
             background: #eef2ff;
-            padding: 1px 6px;
+            padding: 2px 8px;
             border-radius: 8px;
         }
         
@@ -250,10 +251,10 @@ header('Content-Type: text/html; charset=utf-8');
         
         th {
             background: #f1f5f9;
-            padding: 3px 5px;
+            padding: 5px 8px;
             text-align: left;
             font-weight: 600;
-            font-size: 7pt;
+            font-size: 9pt;
             color: #475569;
             border-bottom: 1px solid #e2e8f0;
             text-transform: uppercase;
@@ -261,9 +262,9 @@ header('Content-Type: text/html; charset=utf-8');
         }
         
         td {
-            padding: 3px 5px;
+            padding: 5px 8px;
             border-bottom: 1px solid #f1f5f9;
-            font-size: 8pt;
+            font-size: 10.5pt;
             color: #334155;
         }
         
@@ -272,19 +273,19 @@ header('Content-Type: text/html; charset=utf-8');
         .room-tag {
             display: inline-block;
             background: #4f46e5;
-            color: #fff;
-            padding: 1px 5px;
-            border-radius: 3px;
+            color: #fff !important;
+            padding: 2px 7px;
+            border-radius: 4px;
             font-weight: 600;
-            font-size: 7.5pt;
+            font-size: 10pt;
         }
         
-        .pay-paid { color: #16a34a; font-weight: 600; font-size: 7pt; text-transform: uppercase; }
-        .pay-unpaid { color: #dc2626; font-weight: 600; font-size: 7pt; text-transform: uppercase; }
-        .pay-partial { color: #d97706; font-weight: 600; font-size: 7pt; text-transform: uppercase; }
+        .pay-paid { color: #16a34a; font-weight: 600; font-size: 9.5pt; text-transform: uppercase; }
+        .pay-unpaid { color: #dc2626; font-weight: 600; font-size: 9.5pt; text-transform: uppercase; }
+        .pay-partial { color: #d97706; font-weight: 600; font-size: 9.5pt; text-transform: uppercase; }
         
         .loc-tag {
-            font-size: 7pt;
+            font-size: 9.5pt;
             font-weight: 500;
         }
         
@@ -292,11 +293,11 @@ header('Content-Type: text/html; charset=utf-8');
             list-style: none;
             padding: 0;
             margin: 0;
-            font-size: 7.5pt;
+            font-size: 10pt;
         }
         
-        .menu-list li { padding: 0; }
-        .menu-list .qty { font-weight: 600; color: #4f46e5; margin-right: 2px; }
+        .menu-list li { padding: 1px 0; }
+        .menu-list .qty { font-weight: 600; color: #4f46e5; margin-right: 3px; }
         
         /* Print Footer */
         .print-footer {
@@ -305,17 +306,18 @@ header('Content-Type: text/html; charset=utf-8');
             left: 0;
             right: 0;
             margin: 0 15mm 6mm 15mm;
-            font-size: 6.5pt;
+            font-size: 8pt;
             color: #999;
             text-align: center;
             border-top: 1px dashed #e5e7eb;
-            padding-top: 4px;
+            padding-top: 5px;
         }
         
         .print-footer .sys {
             font-weight: 600;
             color: #4f46e5;
             letter-spacing: 0.3px;
+            font-size: 8.5pt;
         }
         
         @media print {
