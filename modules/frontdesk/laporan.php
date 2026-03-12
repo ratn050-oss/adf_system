@@ -572,56 +572,80 @@ function shareToWhatsApp() {
     btn.innerHTML = '⏳ Generating PDF...';
     btn.disabled = true;
 
-    // Hide buttons & bf-act during PDF capture
-    var actionBtns = document.querySelector('.action-buttons');
-    var bfActs = document.querySelectorAll('.bf-act');
-    actionBtns.style.display = 'none';
-    bfActs.forEach(function(e) { e.style.display = 'none'; });
-
-    var el = document.querySelector('.laporan-container');
     var fileName = 'Daily-Report-' + <?php echo json_encode(date('Y-m-d')); ?> + '.pdf';
 
-    var opt = {
-        margin: [8, 8, 12, 8],
-        filename: fileName,
-        image: { type: 'jpeg', quality: 0.98 },
-        html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff', scrollY: 0, windowWidth: 900 },
-        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-    };
+    // Fetch the same export page used by Export PDF
+    fetch('export-daily-report.php?noprint=1')
+        .then(function(res) { return res.text(); })
+        .then(function(html) {
+            // Create hidden container with export HTML
+            var container = document.createElement('div');
+            container.style.position = 'absolute';
+            container.style.left = '-9999px';
+            container.style.top = '0';
+            container.style.width = '210mm';
+            container.style.background = '#fff';
+            
+            // Extract body content and styles
+            var parser = new DOMParser();
+            var doc = parser.parseFromString(html, 'text/html');
+            
+            // Remove the auto-print script
+            doc.querySelectorAll('script').forEach(function(s) { s.remove(); });
+            
+            // Get style and body
+            var styles = doc.querySelectorAll('style');
+            var body = doc.body;
+            
+            styles.forEach(function(s) { container.appendChild(s.cloneNode(true)); });
+            while (body.firstChild) {
+                container.appendChild(body.firstChild);
+            }
+            
+            document.body.appendChild(container);
 
-    html2pdf().set(opt).from(el).outputPdf('blob').then(function(pdfBlob) {
-        // Restore buttons
-        actionBtns.style.display = '';
-        bfActs.forEach(function(e) { e.style.display = ''; });
-        btn.innerHTML = origText;
-        btn.disabled = false;
-        
-        var file = new File([pdfBlob], fileName, { type: 'application/pdf' });
+            var opt = {
+                margin: [10, 10, 10, 10],
+                filename: fileName,
+                image: { type: 'jpeg', quality: 0.98 },
+                html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff', scrollY: 0 },
+                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+            };
 
-        // Try Web Share API (works on mobile)
-        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-            navigator.share({
-                title: 'Daily Report',
-                text: 'Daily Report - ' + <?php echo json_encode($todayDisplay); ?>,
-                files: [file]
-            }).catch(function() {});
-        } else {
-            // Fallback: download PDF then user can share
-            var url = URL.createObjectURL(pdfBlob);
-            var a = document.createElement('a');
-            a.href = url;
-            a.download = fileName;
-            a.click();
-            URL.revokeObjectURL(url);
-            alert('PDF berhasil di-download. Silakan share manual lewat WhatsApp.');
-        }
-    }).catch(function(err) {
-        actionBtns.style.display = '';
-        bfActs.forEach(function(e) { e.style.display = ''; });
-        btn.innerHTML = origText;
-        btn.disabled = false;
-        alert('Gagal generate PDF: ' + err.message);
-    });
+            html2pdf().set(opt).from(container).outputPdf('blob').then(function(pdfBlob) {
+                document.body.removeChild(container);
+                btn.innerHTML = origText;
+                btn.disabled = false;
+                
+                var file = new File([pdfBlob], fileName, { type: 'application/pdf' });
+
+                if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                    navigator.share({
+                        title: 'Daily Report',
+                        text: 'Daily Report - ' + <?php echo json_encode($todayDisplay); ?>,
+                        files: [file]
+                    }).catch(function() {});
+                } else {
+                    var url = URL.createObjectURL(pdfBlob);
+                    var a = document.createElement('a');
+                    a.href = url;
+                    a.download = fileName;
+                    a.click();
+                    URL.revokeObjectURL(url);
+                    alert('PDF berhasil di-download. Silakan share manual lewat WhatsApp.');
+                }
+            }).catch(function(err) {
+                if (document.body.contains(container)) document.body.removeChild(container);
+                btn.innerHTML = origText;
+                btn.disabled = false;
+                alert('Gagal generate PDF: ' + err.message);
+            });
+        })
+        .catch(function(err) {
+            btn.innerHTML = origText;
+            btn.disabled = false;
+            alert('Gagal mengambil data laporan: ' + err.message);
+        });
 }
 </script>
 

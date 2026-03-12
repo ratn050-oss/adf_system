@@ -573,11 +573,12 @@ header('Content-Type: text/html; charset=utf-8');
         <div style="font-size: 6pt; color: #bbb; margin-top: 1px;">Printed by: <?php echo htmlspecialchars($currentUser['full_name'] ?? $printerName); ?> | <?php echo $printTime; ?></div>
     </div>
 
+    <?php if (empty($_GET['noprint'])): ?>
     <script>
-        // Auto print when page loads
         window.onload = function() {
             window.print();
         };
     </script>
+    <?php endif; ?>
 </body>
 </html>
