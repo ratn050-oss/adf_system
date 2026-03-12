@@ -574,77 +574,76 @@ function shareToWhatsApp() {
 
     var fileName = 'Daily-Report-' + <?php echo json_encode(date('Y-m-d')); ?> + '.pdf';
 
-    // Create iframe to load the export page
-    var iframe = document.createElement('iframe');
-    iframe.style.position = 'fixed';
-    iframe.style.left = '-2000px';
-    iframe.style.top = '0';
-    iframe.style.width = '900px';
-    iframe.style.height = '1200px';
-    iframe.style.border = 'none';
-    iframe.src = 'export-daily-report.php?noprint=1';
-    
-    document.body.appendChild(iframe);
+    // Fetch the export page HTML
+    fetch('export-daily-report.php?noprint=1')
+        .then(function(res) { return res.text(); })
+        .then(function(html) {
+            // Create iframe with srcdoc (self-contained HTML)
+            var iframe = document.createElement('iframe');
+            iframe.style.position = 'fixed';
+            iframe.style.left = '0';
+            iframe.style.top = '0';
+            iframe.style.width = '100vw';
+            iframe.style.height = '100vh';
+            iframe.style.opacity = '0.01';
+            iframe.style.zIndex = '99999';
+            iframe.srcdoc = html;
+            
+            document.body.appendChild(iframe);
 
-    iframe.onload = function() {
-        // Wait for images/fonts to load
-        setTimeout(function() {
-            var iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-            var content = iframeDoc.documentElement;
+            iframe.onload = function() {
+                setTimeout(function() {
+                    var iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
 
-            var opt = {
-                margin: 0,
-                filename: fileName,
-                image: { type: 'jpeg', quality: 0.95 },
-                html2canvas: { 
-                    scale: 2, 
-                    useCORS: true, 
-                    backgroundColor: '#ffffff',
-                    scrollX: 0,
-                    scrollY: 0,
-                    width: 900,
-                    windowWidth: 900
-                },
-                jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                    var opt = {
+                        margin: 0,
+                        filename: fileName,
+                        image: { type: 'jpeg', quality: 0.95 },
+                        html2canvas: { 
+                            scale: 2, 
+                            useCORS: true, 
+                            backgroundColor: '#ffffff',
+                            logging: false
+                        },
+                        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+                    };
+
+                    html2pdf().set(opt).from(iframeDoc.body).outputPdf('blob').then(function(pdfBlob) {
+                        document.body.removeChild(iframe);
+                        btn.innerHTML = origText;
+                        btn.disabled = false;
+                        
+                        var file = new File([pdfBlob], fileName, { type: 'application/pdf' });
+
+                        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+                            navigator.share({
+                                title: 'Daily Report',
+                                text: 'Daily Report - ' + <?php echo json_encode($todayDisplay); ?>,
+                                files: [file]
+                            }).catch(function() {});
+                        } else {
+                            var url = URL.createObjectURL(pdfBlob);
+                            var a = document.createElement('a');
+                            a.href = url;
+                            a.download = fileName;
+                            a.click();
+                            URL.revokeObjectURL(url);
+                            alert('PDF berhasil di-download. Silakan share manual lewat WhatsApp.');
+                        }
+                    }).catch(function(err) {
+                        document.body.removeChild(iframe);
+                        btn.innerHTML = origText;
+                        btn.disabled = false;
+                        alert('Gagal generate PDF: ' + err.message);
+                    });
+                }, 800);
             };
-
-            html2pdf().set(opt).from(content).outputPdf('blob').then(function(pdfBlob) {
-                document.body.removeChild(iframe);
-                btn.innerHTML = origText;
-                btn.disabled = false;
-                
-                var file = new File([pdfBlob], fileName, { type: 'application/pdf' });
-
-                if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-                    navigator.share({
-                        title: 'Daily Report',
-                        text: 'Daily Report - ' + <?php echo json_encode($todayDisplay); ?>,
-                        files: [file]
-                    }).catch(function() {});
-                } else {
-                    var url = URL.createObjectURL(pdfBlob);
-                    var a = document.createElement('a');
-                    a.href = url;
-                    a.download = fileName;
-                    a.click();
-                    URL.revokeObjectURL(url);
-                    alert('PDF berhasil di-download. Silakan share manual lewat WhatsApp.');
-                }
-            }).catch(function(err) {
-                document.body.removeChild(iframe);
-                btn.innerHTML = origText;
-                btn.disabled = false;
-                alert('Gagal generate PDF: ' + err.message);
-            });
-        }, 500);
-    };
-
-    iframe.onerror = function() {
-        document.body.removeChild(iframe);
-        btn.innerHTML = origText;
-        btn.disabled = false;
-        alert('Gagal memuat halaman laporan');
-    };
+        })
+        .catch(function(err) {
+            btn.innerHTML = origText;
+            btn.disabled = false;
+            alert('Gagal memuat laporan: ' + err.message);
+        });
 }
 </script>
 
