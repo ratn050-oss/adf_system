@@ -254,7 +254,18 @@ header('Content-Type: text/html; charset=utf-8');
         table {
             width: 100%;
             border-collapse: collapse;
+            table-layout: fixed;
         }
+        
+        /* Consistent guest table columns */
+        .guest-table col.col-room { width: 9%; }
+        .guest-table col.col-guest { width: 28%; }
+        .guest-table col.col-code { width: 18%; }
+        .guest-table col.col-in { width: 12%; }
+        .guest-table col.col-out { width: 12%; }
+        .guest-table col.col-info { width: 21%; }
+        
+        .guest-phone { font-size: 7.5pt; color: #94a3b8; display: block; }
         
         th {
             background: #f1f5f9;
@@ -395,8 +406,9 @@ header('Content-Type: text/html; charset=utf-8');
             <span class="sec-title">👥 In-House Guests</span>
             <span class="sec-count"><?php echo count($inHouseGuests); ?></span>
         </div>
-        <table>
-            <thead><tr><th>Room</th><th>Guest</th><th>Code</th><th>In</th><th>Out</th><th>Payment</th></tr></thead>
+        <table class="guest-table">
+            <colgroup><col class="col-room"><col class="col-guest"><col class="col-code"><col class="col-in"><col class="col-out"><col class="col-info"></colgroup>
+            <thead><tr><th>Room</th><th>Guest</th><th>Code</th><th>In</th><th>Out</th><th>Info</th></tr></thead>
             <tbody>
                 <?php foreach ($inHouseGuests as $g): ?>
                 <tr>
@@ -420,15 +432,18 @@ header('Content-Type: text/html; charset=utf-8');
             <span class="sec-title">📥 Check-in Today</span>
             <span class="sec-count"><?php echo count($checkInToday); ?></span>
         </div>
-        <table>
-            <thead><tr><th>Room</th><th>Guest</th><th>Code</th><th>Out</th></tr></thead>
+        <table class="guest-table">
+            <colgroup><col class="col-room"><col class="col-guest"><col class="col-code"><col class="col-in"><col class="col-out"><col class="col-info"></colgroup>
+            <thead><tr><th>Room</th><th>Guest</th><th>Code</th><th>In</th><th>Out</th><th>Info</th></tr></thead>
             <tbody>
                 <?php foreach ($checkInToday as $g): ?>
                 <tr>
                     <td><span class="room-tag"><?php echo htmlspecialchars($g['room_number']); ?></span></td>
                     <td><?php echo htmlspecialchars($g['guest_name']); ?></td>
                     <td><?php echo htmlspecialchars($g['booking_code']); ?></td>
+                    <td><?php echo date('d M', strtotime($g['check_in_date'])); ?></td>
                     <td><?php echo date('d M', strtotime($g['check_out_date'])); ?></td>
+                    <td>-</td>
                 </tr>
                 <?php endforeach; ?>
             </tbody>
@@ -443,8 +458,9 @@ header('Content-Type: text/html; charset=utf-8');
             <span class="sec-title">📤 Check-out Today</span>
             <span class="sec-count"><?php echo count($checkOutToday); ?></span>
         </div>
-        <table>
-            <thead><tr><th>Room</th><th>Guest</th><th>Code</th><th>In</th><th>Out</th></tr></thead>
+        <table class="guest-table">
+            <colgroup><col class="col-room"><col class="col-guest"><col class="col-code"><col class="col-in"><col class="col-out"><col class="col-info"></colgroup>
+            <thead><tr><th>Room</th><th>Guest</th><th>Code</th><th>In</th><th>Out</th><th>Info</th></tr></thead>
             <tbody>
                 <?php foreach ($checkOutToday as $g): ?>
                 <tr>
@@ -453,6 +469,7 @@ header('Content-Type: text/html; charset=utf-8');
                     <td><?php echo htmlspecialchars($g['booking_code']); ?></td>
                     <td><?php echo date('d M', strtotime($g['check_in_date'])); ?></td>
                     <td><?php echo date('d M', strtotime($g['check_out_date'])); ?></td>
+                    <td>-</td>
                 </tr>
                 <?php endforeach; ?>
             </tbody>
@@ -467,17 +484,18 @@ header('Content-Type: text/html; charset=utf-8');
             <span class="sec-title">📅 Check-in Tomorrow</span>
             <span class="sec-count"><?php echo count($checkInTomorrow); ?></span>
         </div>
-        <table>
-            <thead><tr><th>Room</th><th>Guest</th><th>Phone</th><th>Code</th><th>In</th><th>Out</th></tr></thead>
+        <table class="guest-table">
+            <colgroup><col class="col-room"><col class="col-guest"><col class="col-code"><col class="col-in"><col class="col-out"><col class="col-info"></colgroup>
+            <thead><tr><th>Room</th><th>Guest</th><th>Code</th><th>In</th><th>Out</th><th>Info</th></tr></thead>
             <tbody>
                 <?php foreach ($checkInTomorrow as $g): ?>
                 <tr>
                     <td><span class="room-tag"><?php echo htmlspecialchars($g['room_number']); ?></span></td>
-                    <td><?php echo htmlspecialchars($g['guest_name']); ?></td>
-                    <td><?php echo htmlspecialchars($g['phone'] ?: '-'); ?></td>
+                    <td><?php echo htmlspecialchars($g['guest_name']); ?><?php if (!empty($g['phone'])): ?><span class="guest-phone"><?php echo htmlspecialchars($g['phone']); ?></span><?php endif; ?></td>
                     <td><?php echo htmlspecialchars($g['booking_code']); ?></td>
                     <td><?php echo date('d M', strtotime($g['check_in_date'])); ?></td>
                     <td><?php echo date('d M', strtotime($g['check_out_date'])); ?></td>
+                    <td>-</td>
                 </tr>
                 <?php endforeach; ?>
             </tbody>
@@ -492,17 +510,18 @@ header('Content-Type: text/html; charset=utf-8');
             <span class="sec-title">📤 Check-out Tomorrow</span>
             <span class="sec-count"><?php echo count($checkOutTomorrow); ?></span>
         </div>
-        <table>
-            <thead><tr><th>Room</th><th>Guest</th><th>Phone</th><th>Code</th><th>In</th><th>Out</th></tr></thead>
+        <table class="guest-table">
+            <colgroup><col class="col-room"><col class="col-guest"><col class="col-code"><col class="col-in"><col class="col-out"><col class="col-info"></colgroup>
+            <thead><tr><th>Room</th><th>Guest</th><th>Code</th><th>In</th><th>Out</th><th>Info</th></tr></thead>
             <tbody>
                 <?php foreach ($checkOutTomorrow as $g): ?>
                 <tr>
                     <td><span class="room-tag"><?php echo htmlspecialchars($g['room_number']); ?></span></td>
-                    <td><?php echo htmlspecialchars($g['guest_name']); ?></td>
-                    <td><?php echo htmlspecialchars($g['phone'] ?: '-'); ?></td>
+                    <td><?php echo htmlspecialchars($g['guest_name']); ?><?php if (!empty($g['phone'])): ?><span class="guest-phone"><?php echo htmlspecialchars($g['phone']); ?></span><?php endif; ?></td>
                     <td><?php echo htmlspecialchars($g['booking_code']); ?></td>
                     <td><?php echo date('d M', strtotime($g['check_in_date'])); ?></td>
                     <td><?php echo date('d M', strtotime($g['check_out_date'])); ?></td>
+                    <td>-</td>
                 </tr>
                 <?php endforeach; ?>
             </tbody>
@@ -517,18 +536,18 @@ header('Content-Type: text/html; charset=utf-8');
             <span class="sec-title">✈️ Arrival Tomorrow</span>
             <span class="sec-count"><?php echo count($arrivalTomorrow); ?></span>
         </div>
-        <table>
-            <thead><tr><th>Room</th><th>Guest</th><th>Phone</th><th>Code</th><th>Pax</th><th>In</th><th>Out</th></tr></thead>
+        <table class="guest-table">
+            <colgroup><col class="col-room"><col class="col-guest"><col class="col-code"><col class="col-in"><col class="col-out"><col class="col-info"></colgroup>
+            <thead><tr><th>Room</th><th>Guest</th><th>Code</th><th>In</th><th>Out</th><th>Info</th></tr></thead>
             <tbody>
                 <?php foreach ($arrivalTomorrow as $g): ?>
                 <tr>
                     <td><span class="room-tag"><?php echo htmlspecialchars($g['room_number']); ?></span></td>
-                    <td><?php echo htmlspecialchars($g['guest_name']); ?></td>
-                    <td><?php echo htmlspecialchars($g['phone'] ?: '-'); ?></td>
+                    <td><?php echo htmlspecialchars($g['guest_name']); ?><?php if (!empty($g['phone'])): ?><span class="guest-phone"><?php echo htmlspecialchars($g['phone']); ?></span><?php endif; ?></td>
                     <td><?php echo htmlspecialchars($g['booking_code']); ?></td>
-                    <td><?php echo $g['guest_count'] ?: '1'; ?></td>
                     <td><?php echo date('d M', strtotime($g['check_in_date'])); ?></td>
                     <td><?php echo date('d M', strtotime($g['check_out_date'])); ?></td>
+                    <td><?php echo ($g['guest_count'] ?: '1'); ?> pax</td>
                 </tr>
                 <?php endforeach; ?>
             </tbody>
