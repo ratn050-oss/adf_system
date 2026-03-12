@@ -175,15 +175,25 @@ include '../../includes/header.php';
 .btn-print { background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1 !important; }
 .btn-wa { background: #dcfce7; color: #166534; }
 
-.report-header { display: flex; justify-content: space-between; align-items: flex-end; padding-bottom: 0.6rem; border-bottom: 2px solid #4f46e5; margin-bottom: 1rem; }
+.report-header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 0.6rem; border-bottom: 2px solid #4f46e5; margin-bottom: 1rem; gap: 0.75rem; }
 [data-theme="dark"] .report-header { border-bottom-color: #6366f1; }
+.report-header-left { display: flex; align-items: center; gap: 0.75rem; }
+.report-logo { width: 48px; height: 48px; border-radius: 10px; object-fit: contain; flex-shrink: 0; }
+.report-logo-icon { width: 48px; height: 48px; border-radius: 10px; background: #eef2ff; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; flex-shrink: 0; }
+[data-theme="dark"] .report-logo-icon { background: #312e81; }
 .report-header-left .hotel-name { font-size: 1.1rem; font-weight: 700; color: #1e293b; margin: 0; }
 [data-theme="dark"] .report-header-left .hotel-name { color: #e2e8f0; }
 .report-header-left .hotel-detail { font-size: 0.65rem; color: #64748b; line-height: 1.4; margin-top: 2px; }
-.report-header-right { text-align: right; }
+.report-header-right { text-align: right; flex-shrink: 0; }
 .report-header-right .report-title { font-size: 0.75rem; font-weight: 700; color: #4f46e5; letter-spacing: 1px; text-transform: uppercase; margin: 0; }
 [data-theme="dark"] .report-header-right .report-title { color: #818cf8; }
 .report-header-right .report-date { font-size: 0.7rem; color: #64748b; margin-top: 2px; }
+
+.report-stamp { text-align: center; margin-top: 1.25rem; padding-top: 0.75rem; border-top: 1px dashed #e2e8f0; }
+[data-theme="dark"] .report-stamp { border-top-color: #334155; }
+.report-stamp .stamp-line { font-size: 0.6rem; color: #94a3b8; line-height: 1.6; }
+.report-stamp .stamp-system { font-weight: 600; color: #4f46e5; font-size: 0.6rem; letter-spacing: 0.5px; }
+[data-theme="dark"] .report-stamp .stamp-system { color: #818cf8; }
 
 .stats-row { display: grid; grid-template-columns: repeat(4, 1fr); gap: 0.6rem; margin-bottom: 1.25rem; }
 .stat-item { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 0.75rem 0.5rem; text-align: center; transition: all 0.2s; }
@@ -255,8 +265,11 @@ include '../../includes/header.php';
     .bf-act { display: none !important; }
     .stat-item { background: #f8fafc !important; border: 1px solid #d1d5db !important; }
     .rpt-table th { background: #f3f4f6 !important; }
-    .room-tag { background: #1e293b !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .room-tag { background: #4f46e5 !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     .pay-badge, .loc-tag { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .report-logo { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .report-stamp { border-top: 1px dashed #d1d5db !important; }
+    .report-stamp .stamp-system { color: #4f46e5 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     .rpt-section { page-break-inside: avoid; }
     .print-footer { display: block; position: fixed; bottom: 8mm; right: 12mm; font-size: 7pt; color: #999; text-align: right; }
     .print-footer .sys { font-weight: 600; color: #4f46e5; }
@@ -283,11 +296,20 @@ include '../../includes/header.php';
     <!-- Report Header -->
     <div class="report-header">
         <div class="report-header-left">
-            <div class="hotel-name"><?php echo htmlspecialchars($company['name']); ?></div>
-            <div class="hotel-detail">
-                <?php if ($company['address']): echo htmlspecialchars($company['address']); endif; ?>
-                <?php if ($company['phone']): ?> | Tel: <?php echo htmlspecialchars($company['phone']); ?><?php endif; ?>
-                <?php if ($company['email']): ?> | <?php echo htmlspecialchars($company['email']); ?><?php endif; ?>
+            <?php
+            $logoUrl = $company['invoice_logo'] ?? $company['logo'] ?? null;
+            if ($logoUrl): ?>
+            <img src="<?php echo htmlspecialchars($logoUrl); ?>" alt="Logo" class="report-logo">
+            <?php else: ?>
+            <div class="report-logo-icon"><?php echo $company['icon']; ?></div>
+            <?php endif; ?>
+            <div>
+                <div class="hotel-name"><?php echo htmlspecialchars($company['name']); ?></div>
+                <div class="hotel-detail">
+                    <?php if ($company['address']): echo htmlspecialchars($company['address']); endif; ?>
+                    <?php if ($company['phone']): ?> | Tel: <?php echo htmlspecialchars($company['phone']); ?><?php endif; ?>
+                    <?php if ($company['email']): ?> | <?php echo htmlspecialchars($company['email']); ?><?php endif; ?>
+                </div>
             </div>
         </div>
         <div class="report-header-right">
@@ -500,6 +522,13 @@ include '../../includes/header.php';
         </table>
     </div>
     <?php endif; ?>
+
+    <!-- Report Stamp -->
+    <div class="report-stamp">
+        <div class="stamp-line">Dicetak oleh: <strong><?php echo htmlspecialchars($currentUser['full_name'] ?? $currentUser['username'] ?? 'Staff'); ?></strong></div>
+        <div class="stamp-system">Dicetak dari ADF System — Narayana Hotel © 2026</div>
+        <div class="stamp-line"><?php echo date('d M Y, H:i'); ?> WIB</div>
+    </div>
 </div>
 
 <script>
@@ -578,8 +607,8 @@ function shareToWhatsApp() {
 
 <!-- Print Footer Watermark -->
 <div class="print-footer">
-    <div><span class="sys">✓ Printed by ADF System</span></div>
-    <div style="font-size: 6pt; color: #ccc; margin-top: 2px;">Generated: <?php echo date('d M Y H:i'); ?></div>
+    <div><span class="sys">✓ Dicetak dari ADF System — Narayana Hotel</span></div>
+    <div style="font-size: 6pt; color: #ccc; margin-top: 2px;">Oleh: <?php echo htmlspecialchars($currentUser['full_name'] ?? $currentUser['username'] ?? 'Staff'); ?> | <?php echo date('d M Y H:i'); ?></div>
 </div>
 
 <?php include '../../includes/footer.php'; ?>

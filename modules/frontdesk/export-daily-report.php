@@ -116,10 +116,35 @@ header('Content-Type: text/html; charset=utf-8');
         .report-header {
             display: flex;
             justify-content: space-between;
-            align-items: flex-end;
+            align-items: center;
             padding-bottom: 8px;
-            border-bottom: 2px solid #1e293b;
+            border-bottom: 2px solid #4f46e5;
             margin-bottom: 12px;
+            gap: 8px;
+        }
+        
+        .header-left {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        
+        .report-logo {
+            width: 42px;
+            height: 42px;
+            border-radius: 8px;
+            object-fit: contain;
+        }
+        
+        .report-logo-icon {
+            width: 42px;
+            height: 42px;
+            border-radius: 8px;
+            background: #eef2ff;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.3rem;
         }
         
         .hotel-name {
@@ -138,7 +163,7 @@ header('Content-Type: text/html; charset=utf-8');
         .report-title {
             font-size: 9pt;
             font-weight: 700;
-            color: #1e293b;
+            color: #4f46e5;
             letter-spacing: 0.5px;
             text-transform: uppercase;
             text-align: right;
@@ -170,7 +195,7 @@ header('Content-Type: text/html; charset=utf-8');
         .stat-val {
             font-size: 14pt;
             font-weight: 800;
-            color: #1e293b;
+            color: #4f46e5;
             line-height: 1;
         }
         
@@ -208,8 +233,8 @@ header('Content-Type: text/html; charset=utf-8');
         .sec-count {
             font-size: 7pt;
             font-weight: 600;
-            color: #64748b;
-            background: #f1f5f9;
+            color: #4f46e5;
+            background: #eef2ff;
             padding: 1px 6px;
             border-radius: 8px;
         }
@@ -243,7 +268,7 @@ header('Content-Type: text/html; charset=utf-8');
         
         .room-tag {
             display: inline-block;
-            background: #1e293b;
+            background: #4f46e5;
             color: #fff;
             padding: 1px 5px;
             border-radius: 3px;
@@ -274,19 +299,20 @@ header('Content-Type: text/html; charset=utf-8');
         .print-footer {
             position: fixed;
             bottom: 0;
+            left: 0;
             right: 0;
-            margin-right: 15mm;
-            margin-bottom: 6mm;
+            margin: 0 15mm 6mm 15mm;
             font-size: 6.5pt;
             color: #999;
-            text-align: right;
-            border-top: 1px solid #e5e7eb;
-            padding-top: 3px;
+            text-align: center;
+            border-top: 1px dashed #e5e7eb;
+            padding-top: 4px;
         }
         
         .print-footer .sys {
             font-weight: 600;
             color: #4f46e5;
+            letter-spacing: 0.3px;
         }
         
         @media print {
@@ -304,12 +330,21 @@ header('Content-Type: text/html; charset=utf-8');
 <body>
     <!-- Header -->
     <div class="report-header">
-        <div>
-            <div class="hotel-name"><?php echo htmlspecialchars($company['name']); ?></div>
-            <div class="hotel-detail">
-                <?php if ($company['address']): echo htmlspecialchars($company['address']); endif; ?>
-                <?php if ($company['phone']): ?> | Tel: <?php echo htmlspecialchars($company['phone']); ?><?php endif; ?>
-                <?php if ($company['email']): ?> | <?php echo htmlspecialchars($company['email']); ?><?php endif; ?>
+        <div class="header-left">
+            <?php
+            $logoUrl = $company['invoice_logo'] ?? $company['logo'] ?? null;
+            if ($logoUrl): ?>
+            <img src="<?php echo htmlspecialchars($logoUrl); ?>" alt="Logo" class="report-logo">
+            <?php else: ?>
+            <div class="report-logo-icon"><?php echo $company['icon']; ?></div>
+            <?php endif; ?>
+            <div>
+                <div class="hotel-name"><?php echo htmlspecialchars($company['name']); ?></div>
+                <div class="hotel-detail">
+                    <?php if ($company['address']): echo htmlspecialchars($company['address']); endif; ?>
+                    <?php if ($company['phone']): ?> | Tel: <?php echo htmlspecialchars($company['phone']); ?><?php endif; ?>
+                    <?php if ($company['email']): ?> | <?php echo htmlspecialchars($company['email']); ?><?php endif; ?>
+                </div>
             </div>
         </div>
         <div>
@@ -519,8 +554,8 @@ header('Content-Type: text/html; charset=utf-8');
 
     <!-- Footer -->
     <div class="print-footer">
-        <div><span class="sys">✓ ADF System</span></div>
-        <div style="font-size: 6pt; color: #bbb; margin-top: 1px;">Printer: <?php echo htmlspecialchars($printerName); ?> | <?php echo $printTime; ?></div>
+        <div><span class="sys">✓ Dicetak dari ADF System — Narayana Hotel © 2026</span></div>
+        <div style="font-size: 6pt; color: #bbb; margin-top: 1px;">Dicetak oleh: <?php echo htmlspecialchars($currentUser['full_name'] ?? $printerName); ?> | <?php echo $printTime; ?></div>
     </div>
 
     <script>
