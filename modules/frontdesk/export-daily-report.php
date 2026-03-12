@@ -108,8 +108,8 @@ header('Content-Type: text/html; charset=utf-8');
         
         body {
             font-family: 'Segoe UI', Arial, sans-serif;
-            font-size: 11pt;
-            line-height: 1.4;
+            font-size: 10pt;
+            line-height: 1.35;
             color: #1e293b;
             max-width: 190mm;
             margin: 0 auto;
@@ -120,51 +120,51 @@ header('Content-Type: text/html; charset=utf-8');
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding-bottom: 8px;
+            padding-bottom: 10px;
             border-bottom: 2px solid #4f46e5;
-            margin-bottom: 12px;
-            gap: 8px;
+            margin-bottom: 10px;
         }
         
         .header-left {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 10px;
         }
         
         .report-logo {
-            width: 64px;
-            height: 64px;
-            border-radius: 10px;
+            width: 80px;
+            height: 80px;
+            border-radius: 12px;
             object-fit: contain;
         }
         
         .report-logo-icon {
-            width: 64px;
-            height: 64px;
-            border-radius: 10px;
+            width: 80px;
+            height: 80px;
+            border-radius: 12px;
             background: #eef2ff;
             display: flex;
             align-items: center;
             justify-content: center;
-            font-size: 2rem;
+            font-size: 2.5rem;
         }
         
         .hotel-name {
-            font-size: 16pt;
+            font-size: 15pt;
             font-weight: 700;
             color: #1e293b;
-            margin-bottom: 2px;
+            margin-bottom: 1px;
         }
         
         .hotel-detail {
-            font-size: 9pt;
+            font-size: 7.5pt;
             color: #64748b;
-            line-height: 1.4;
+            line-height: 1.25;
+            max-width: 320px;
         }
         
         .report-title {
-            font-size: 12pt;
+            font-size: 11pt;
             font-weight: 700;
             color: #4f46e5;
             letter-spacing: 0.5px;
@@ -173,7 +173,7 @@ header('Content-Type: text/html; charset=utf-8');
         }
         
         .report-date {
-            font-size: 10pt;
+            font-size: 9pt;
             color: #64748b;
             text-align: right;
             margin-top: 2px;
@@ -191,29 +191,29 @@ header('Content-Type: text/html; charset=utf-8');
             background: #f8fafc;
             border: 1px solid #e2e8f0;
             border-radius: 5px;
-            padding: 8px 6px;
+            padding: 7px 5px;
             text-align: center;
         }
         
         .stat-val {
-            font-size: 18pt;
+            font-size: 16pt;
             font-weight: 800;
             color: #4f46e5;
             line-height: 1;
         }
         
         .stat-lbl {
-            font-size: 8pt;
+            font-size: 7pt;
             color: #94a3b8;
             font-weight: 600;
             text-transform: uppercase;
             letter-spacing: 0.4px;
-            margin-top: 3px;
+            margin-top: 2px;
         }
         
         /* Section */
         .rpt-section {
-            margin-bottom: 14px;
+            margin-bottom: 12px;
             page-break-inside: avoid;
         }
         
@@ -221,24 +221,24 @@ header('Content-Type: text/html; charset=utf-8');
             display: flex;
             align-items: center;
             justify-content: space-between;
-            padding: 5px 0;
+            padding: 4px 0;
             border-bottom: 1px solid #cbd5e1;
-            margin-bottom: 5px;
+            margin-bottom: 4px;
         }
         
         .sec-title {
-            font-size: 11pt;
+            font-size: 10pt;
             font-weight: 700;
             color: #1e293b;
             margin: 0;
         }
         
         .sec-count {
-            font-size: 9pt;
+            font-size: 8pt;
             font-weight: 600;
             color: #4f46e5;
             background: #eef2ff;
-            padding: 2px 8px;
+            padding: 1px 7px;
             border-radius: 8px;
         }
         
@@ -250,10 +250,10 @@ header('Content-Type: text/html; charset=utf-8');
         
         th {
             background: #f1f5f9;
-            padding: 5px 8px;
+            padding: 4px 6px;
             text-align: left;
             font-weight: 600;
-            font-size: 9pt;
+            font-size: 8pt;
             color: #475569;
             border-bottom: 1px solid #e2e8f0;
             text-transform: uppercase;
@@ -261,9 +261,9 @@ header('Content-Type: text/html; charset=utf-8');
         }
         
         td {
-            padding: 5px 8px;
+            padding: 4px 6px;
             border-bottom: 1px solid #f1f5f9;
-            font-size: 10.5pt;
+            font-size: 9.5pt;
             color: #334155;
         }
         
@@ -273,18 +273,18 @@ header('Content-Type: text/html; charset=utf-8');
             display: inline-block;
             background: #4f46e5;
             color: #fff !important;
-            padding: 2px 7px;
+            padding: 2px 6px;
             border-radius: 4px;
             font-weight: 600;
-            font-size: 10pt;
+            font-size: 9pt;
         }
         
-        .pay-paid { color: #16a34a; font-weight: 600; font-size: 9.5pt; text-transform: uppercase; }
-        .pay-unpaid { color: #dc2626; font-weight: 600; font-size: 9.5pt; text-transform: uppercase; }
-        .pay-partial { color: #d97706; font-weight: 600; font-size: 9.5pt; text-transform: uppercase; }
+        .pay-paid { color: #16a34a; font-weight: 600; font-size: 8.5pt; text-transform: uppercase; }
+        .pay-unpaid { color: #dc2626; font-weight: 600; font-size: 8.5pt; text-transform: uppercase; }
+        .pay-partial { color: #d97706; font-weight: 600; font-size: 8.5pt; text-transform: uppercase; }
         
         .loc-tag {
-            font-size: 9.5pt;
+            font-size: 8.5pt;
             font-weight: 500;
         }
         
@@ -292,7 +292,7 @@ header('Content-Type: text/html; charset=utf-8');
             list-style: none;
             padding: 0;
             margin: 0;
-            font-size: 10pt;
+            font-size: 9pt;
         }
         
         .menu-list li { padding: 1px 0; }
