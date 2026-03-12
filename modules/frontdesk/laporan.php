@@ -221,9 +221,11 @@ include '../../includes/header.php';
 
 .loc-tag { display: inline-block; padding: 0.1rem 0.35rem; border-radius: 3px; font-size: 0.62rem; font-weight: 500; }
 .loc-restaurant { background: #ede9fe; color: #5b21b6; }
-.loc-room { background: #e0e7ff; color: #3730a3; }
+.loc-room_service { background: #e0e7ff; color: #3730a3; }
+.loc-take_away { background: #fef3c7; color: #92400e; }
 [data-theme="dark"] .loc-restaurant { background: rgba(139,92,246,0.2); color: #a78bfa; }
-[data-theme="dark"] .loc-room { background: rgba(99,102,241,0.2); color: #818cf8; }
+[data-theme="dark"] .loc-room_service { background: rgba(99,102,241,0.2); color: #818cf8; }
+[data-theme="dark"] .loc-take_away { background: rgba(245,158,11,0.2); color: #fcd34d; }
 
 .menu-list { list-style: none; padding: 0; margin: 0; font-size: 0.72rem; }
 .menu-list li { padding: 1px 0; }
@@ -452,7 +454,7 @@ include '../../includes/header.php';
 
     <!-- Breakfast Orders -->
     <?php if (count($breakfastOrders) > 0): ?>
-    <div class="rpt-section">
+    <div class="rpt-section" style="margin-top: 1rem; border-top: 2px solid #1e293b; padding-top: 0.75rem;">
         <div class="rpt-section-head">
             <h3 class="sec-title">🍳 Breakfast Orders</h3>
             <span class="sec-count"><?php echo count($breakfastOrders); ?></span>
@@ -466,7 +468,7 @@ include '../../includes/header.php';
                     <td><span class="room-tag"><?php echo htmlspecialchars($order['room_number']); ?></span></td>
                     <td><?php echo htmlspecialchars($order['guest_name']); ?></td>
                     <td><?php echo $order['total_pax']; ?></td>
-                    <td><span class="loc-tag loc-<?php echo $order['location']; ?>"><?php echo $order['location'] === 'restaurant' ? '🍽️ Restaurant' : '🚪 Room'; ?></span></td>
+                    <td><span class="loc-tag loc-<?php echo $order['location']; ?>"><?php echo $order['location'] === 'restaurant' ? '🍽️ Restaurant' : ($order['location'] === 'take_away' ? '🥡 Take Away' : '🚪 Room Service'); ?></span></td>
                     <td>
                         <ul class="menu-list">
                             <?php foreach ($order['menu_items'] as $item): ?>
@@ -517,7 +519,7 @@ function shareToWhatsApp() {
     text += `*🍳 BREAKFAST ORDERS (${<?php echo count($breakfastOrders); ?>})*\n`;
     <?php foreach ($breakfastOrders as $order): ?>
     text += `• ${<?php echo json_encode($order['breakfast_time']); ?>} - Room ${<?php echo json_encode($order['room_number']); ?>} - ${<?php echo json_encode($order['guest_name']); ?>}\n`;
-    text += `  Pax: ${<?php echo $order['total_pax']; ?>} | ${<?php echo $order['location'] === 'restaurant' ? 'Restaurant' : 'Room Service'; ?>}\n`;
+    text += `  Pax: ${<?php echo $order['total_pax']; ?>} | ${<?php echo $order['location'] === 'restaurant' ? 'Restaurant' : ($order['location'] === 'take_away' ? 'Take Away' : 'Room Service'); ?>}\n`;
     text += `  Menu:\n`;
     <?php foreach ($order['menu_items'] as $item): ?>
     text += `   - ${<?php echo $item['quantity']; ?>}x ${<?php echo json_encode($item['menu_name']); ?>}\n`;

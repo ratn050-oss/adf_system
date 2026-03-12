@@ -502,7 +502,7 @@ header('Content-Type: text/html; charset=utf-8');
                     <td><span class="room-tag"><?php echo htmlspecialchars($order['room_number']); ?></span></td>
                     <td><?php echo htmlspecialchars($order['guest_name']); ?></td>
                     <td><?php echo $order['total_pax']; ?></td>
-                    <td><span class="loc-tag"><?php echo $order['location'] === 'restaurant' ? '🍽️ Restaurant' : '🚪 Room'; ?></span></td>
+                    <td><span class="loc-tag"><?php echo $order['location'] === 'restaurant' ? '🍽️ Restaurant' : ($order['location'] === 'take_away' ? '🥡 Take Away' : '🚪 Room Service'); ?></span></td>
                     <td>
                         <ul class="menu-list">
                             <?php foreach ($order['menu_items'] as $item): ?>

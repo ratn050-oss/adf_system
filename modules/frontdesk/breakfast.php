@@ -66,7 +66,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 total_pax INT NOT NULL,
                 breakfast_time TIME NOT NULL,
                 breakfast_date DATE NOT NULL,
-                location ENUM('restaurant', 'room_service') DEFAULT 'restaurant',
+                location ENUM('restaurant', 'room_service', 'take_away') DEFAULT 'restaurant',
                 menu_items TEXT COMMENT 'JSON array of menu items with quantities',
                 special_requests TEXT,
                 total_price DECIMAL(10,2) DEFAULT 0.00,
@@ -78,6 +78,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 INDEX idx_date (breakfast_date),
                 INDEX idx_status (order_status)
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+            // Add take_away to location enum if not exists
+            try {
+                $pdo->exec("ALTER TABLE breakfast_orders MODIFY COLUMN location ENUM('restaurant', 'room_service', 'take_away') DEFAULT 'restaurant'");
+            } catch (Exception $e) { /* already updated */ }
             
             // ===== VALIDATION =====
             // Validate required fields
@@ -762,6 +767,10 @@ include '../../includes/header.php';
                                     <input type="radio" name="location" value="room_service">
                                     🛏️ Room Service
                                 </label>
+                                <label class="bf-radio-label">
+                                    <input type="radio" name="location" value="take_away">
+                                    🥡 Take Away
+                                </label>
                             </div>
                         </div>
                     </div>
@@ -870,6 +879,7 @@ include '../../includes/header.php';
                 <?php if (!empty($order['room_number']) || !empty($order['actual_room'])): ?>
                 <div class="bf-order-room">🛏️ Room <?php echo htmlspecialchars($order['room_number'] ?: $order['actual_room']); ?></div>
                 <?php endif; ?>
+                <div class="bf-order-room"><?php echo $order['location'] === 'restaurant' ? '🍽️ Restaurant' : ($order['location'] === 'take_away' ? '🥡 Take Away' : '🚪 Room Service'); ?></div>
                 <div class="bf-order-menus">
                     <?php foreach (array_slice($order['menu_items'], 0, 3) as $item): ?>
                     <span class="bf-order-menu-tag">
