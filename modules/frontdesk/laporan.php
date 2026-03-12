@@ -303,12 +303,12 @@ include '../../includes/header.php';
     </div>
 
     <!-- In-House Guests -->
+    <?php if (count($inHouseGuests) > 0): ?>
     <div class="rpt-section">
         <div class="rpt-section-head">
             <h3 class="sec-title">👥 In-House Guests</h3>
             <span class="sec-count"><?php echo count($inHouseGuests); ?></span>
         </div>
-        <?php if (count($inHouseGuests) > 0): ?>
         <table class="rpt-table">
             <thead><tr><th>Room</th><th>Guest</th><th>Code</th><th>In</th><th>Out</th><th>Payment</th></tr></thead>
             <tbody>
@@ -324,18 +324,16 @@ include '../../includes/header.php';
                 <?php endforeach; ?>
             </tbody>
         </table>
-        <?php else: ?>
-        <div class="empty-msg">Tidak ada tamu in-house</div>
-        <?php endif; ?>
     </div>
+    <?php endif; ?>
 
     <!-- Check-in Today -->
+    <?php if (count($checkInToday) > 0): ?>
     <div class="rpt-section">
         <div class="rpt-section-head">
             <h3 class="sec-title">📥 Check-in Today</h3>
             <span class="sec-count"><?php echo count($checkInToday); ?></span>
         </div>
-        <?php if (count($checkInToday) > 0): ?>
         <table class="rpt-table">
             <thead><tr><th>Room</th><th>Guest</th><th>Code</th><th>Out</th></tr></thead>
             <tbody>
@@ -349,18 +347,16 @@ include '../../includes/header.php';
                 <?php endforeach; ?>
             </tbody>
         </table>
-        <?php else: ?>
-        <div class="empty-msg">Tidak ada check-in hari ini</div>
-        <?php endif; ?>
     </div>
+    <?php endif; ?>
 
     <!-- Check-out Today -->
+    <?php if (count($checkOutToday) > 0): ?>
     <div class="rpt-section">
         <div class="rpt-section-head">
             <h3 class="sec-title">📤 Check-out Today</h3>
             <span class="sec-count"><?php echo count($checkOutToday); ?></span>
         </div>
-        <?php if (count($checkOutToday) > 0): ?>
         <table class="rpt-table">
             <thead><tr><th>Room</th><th>Guest</th><th>Code</th><th>In</th><th>Out</th></tr></thead>
             <tbody>
@@ -375,18 +371,16 @@ include '../../includes/header.php';
                 <?php endforeach; ?>
             </tbody>
         </table>
-        <?php else: ?>
-        <div class="empty-msg">Tidak ada check-out hari ini</div>
-        <?php endif; ?>
     </div>
+    <?php endif; ?>
 
     <!-- Check-in Tomorrow -->
+    <?php if (count($checkInTomorrow) > 0): ?>
     <div class="rpt-section">
         <div class="rpt-section-head">
             <h3 class="sec-title">📅 Check-in Tomorrow</h3>
             <span class="sec-count"><?php echo count($checkInTomorrow); ?></span>
         </div>
-        <?php if (count($checkInTomorrow) > 0): ?>
         <table class="rpt-table">
             <thead><tr><th>Room</th><th>Guest</th><th>Phone</th><th>Code</th><th>In</th><th>Out</th></tr></thead>
             <tbody>
@@ -402,18 +396,16 @@ include '../../includes/header.php';
                 <?php endforeach; ?>
             </tbody>
         </table>
-        <?php else: ?>
-        <div class="empty-msg">Tidak ada check-in besok</div>
-        <?php endif; ?>
     </div>
+    <?php endif; ?>
 
     <!-- Check-out Tomorrow -->
+    <?php if (count($checkOutTomorrow) > 0): ?>
     <div class="rpt-section">
         <div class="rpt-section-head">
             <h3 class="sec-title">📤 Check-out Tomorrow</h3>
             <span class="sec-count"><?php echo count($checkOutTomorrow); ?></span>
         </div>
-        <?php if (count($checkOutTomorrow) > 0): ?>
         <table class="rpt-table">
             <thead><tr><th>Room</th><th>Guest</th><th>Phone</th><th>Code</th><th>In</th><th>Out</th></tr></thead>
             <tbody>
@@ -429,18 +421,16 @@ include '../../includes/header.php';
                 <?php endforeach; ?>
             </tbody>
         </table>
-        <?php else: ?>
-        <div class="empty-msg">Tidak ada check-out besok</div>
-        <?php endif; ?>
     </div>
+    <?php endif; ?>
 
     <!-- Arrival Tomorrow -->
+    <?php if (count($arrivalTomorrow) > 0): ?>
     <div class="rpt-section">
         <div class="rpt-section-head">
             <h3 class="sec-title">✈️ Arrival Tomorrow</h3>
             <span class="sec-count"><?php echo count($arrivalTomorrow); ?></span>
         </div>
-        <?php if (count($arrivalTomorrow) > 0): ?>
         <table class="rpt-table">
             <thead><tr><th>Room</th><th>Guest</th><th>Phone</th><th>Code</th><th>Pax</th><th>In</th><th>Out</th></tr></thead>
             <tbody>
@@ -457,18 +447,16 @@ include '../../includes/header.php';
                 <?php endforeach; ?>
             </tbody>
         </table>
-        <?php else: ?>
-        <div class="empty-msg">Tidak ada arrival besok</div>
-        <?php endif; ?>
     </div>
+    <?php endif; ?>
 
     <!-- Breakfast Orders -->
+    <?php if (count($breakfastOrders) > 0): ?>
     <div class="rpt-section">
         <div class="rpt-section-head">
             <h3 class="sec-title">🍳 Breakfast Orders</h3>
             <span class="sec-count"><?php echo count($breakfastOrders); ?></span>
         </div>
-        <?php if (count($breakfastOrders) > 0): ?>
         <table class="rpt-table">
             <thead><tr><th>Time</th><th>Room</th><th>Guest</th><th>Pax</th><th>Location</th><th>Menu</th></tr></thead>
             <tbody>
@@ -490,10 +478,8 @@ include '../../includes/header.php';
                 <?php endforeach; ?>
             </tbody>
         </table>
-        <?php else: ?>
-        <div class="empty-msg">Tidak ada order breakfast hari ini</div>
-        <?php endif; ?>
     </div>
+    <?php endif; ?>
 </div>
 
 <script>

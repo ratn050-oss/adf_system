@@ -93,8 +93,8 @@ header('Content-Type: text/html; charset=utf-8');
     <title>Daily Report - <?php echo $todayDisplay; ?></title>
     <style>
         @page {
-            size: A4;
-            margin: 15mm;
+            size: A4 portrait;
+            margin: 12mm 15mm 18mm 15mm;
         }
         
         * {
@@ -105,64 +105,170 @@ header('Content-Type: text/html; charset=utf-8');
         
         body {
             font-family: 'Segoe UI', Arial, sans-serif;
-            font-size: 9pt;
-            line-height: 1.4;
-            color: #333;
+            font-size: 8.5pt;
+            line-height: 1.35;
+            color: #1e293b;
+            width: 210mm;
+            min-height: 297mm;
         }
         
-        /* Header Layout - Clean & Professional */
+        /* Header */
         .report-header {
             display: flex;
             justify-content: space-between;
-            align-items: flex-start;
-            margin-bottom: 20px;
-            padding-bottom: 15px;
-            border-bottom: 3px solid #6366f1;
+            align-items: flex-end;
+            padding-bottom: 8px;
+            border-bottom: 2px solid #1e293b;
+            margin-bottom: 12px;
         }
         
-        .company-info {
-            flex: 1;
-        }
-        
-        .company-name {
-            font-size: 18pt;
+        .hotel-name {
+            font-size: 13pt;
             font-weight: 700;
-            color: #1f2937;
-            margin-bottom: 4px;
-            letter-spacing: -0.5px;
-        }
-        
-        .company-details {
-            font-size: 8pt;
-            color: #666;
-            line-height: 1.6;
-        }
-        
-        .report-info {
-            text-align: right;
-            min-width: 200px;
-        }
-        
-        .report-label {
-            font-size: 8pt;
-            color: #999;
+            color: #1e293b;
             margin-bottom: 2px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
+        }
+        
+        .hotel-detail {
+            font-size: 7pt;
+            color: #64748b;
+            line-height: 1.4;
         }
         
         .report-title {
-            font-size: 14pt;
+            font-size: 9pt;
             font-weight: 700;
-            color: #6366f1;
-            margin-bottom: 5px;
+            color: #1e293b;
+            letter-spacing: 0.5px;
+            text-transform: uppercase;
+            text-align: right;
         }
         
         .report-date {
-            font-size: 9pt;
-            color: #666;
-            font-weight: 600;
+            font-size: 8pt;
+            color: #64748b;
+            text-align: right;
+            margin-top: 2px;
         }
+        
+        /* Stats Row */
+        .stats-row {
+            display: grid;
+            grid-template-columns: repeat(4, 1fr);
+            gap: 6px;
+            margin-bottom: 14px;
+        }
+        
+        .stat-item {
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 5px;
+            padding: 6px 4px;
+            text-align: center;
+        }
+        
+        .stat-val {
+            font-size: 14pt;
+            font-weight: 800;
+            color: #1e293b;
+            line-height: 1;
+        }
+        
+        .stat-lbl {
+            font-size: 6pt;
+            color: #94a3b8;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.4px;
+            margin-top: 2px;
+        }
+        
+        /* Section */
+        .rpt-section {
+            margin-bottom: 10px;
+            page-break-inside: avoid;
+        }
+        
+        .rpt-section-head {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 4px 0;
+            border-bottom: 1px solid #cbd5e1;
+            margin-bottom: 4px;
+        }
+        
+        .sec-title {
+            font-size: 9pt;
+            font-weight: 700;
+            color: #1e293b;
+            margin: 0;
+        }
+        
+        .sec-count {
+            font-size: 7pt;
+            font-weight: 600;
+            color: #64748b;
+            background: #f1f5f9;
+            padding: 1px 6px;
+            border-radius: 8px;
+        }
+        
+        /* Table */
+        table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+        
+        th {
+            background: #f1f5f9;
+            padding: 3px 5px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 7pt;
+            color: #475569;
+            border-bottom: 1px solid #e2e8f0;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+        }
+        
+        td {
+            padding: 3px 5px;
+            border-bottom: 1px solid #f1f5f9;
+            font-size: 8pt;
+            color: #334155;
+        }
+        
+        tr:hover { background: #f8fafc; }
+        
+        .room-tag {
+            display: inline-block;
+            background: #1e293b;
+            color: #fff;
+            padding: 1px 5px;
+            border-radius: 3px;
+            font-weight: 600;
+            font-size: 7.5pt;
+        }
+        
+        .pay-paid { color: #16a34a; font-weight: 600; font-size: 7pt; text-transform: uppercase; }
+        .pay-unpaid { color: #dc2626; font-weight: 600; font-size: 7pt; text-transform: uppercase; }
+        .pay-partial { color: #d97706; font-weight: 600; font-size: 7pt; text-transform: uppercase; }
+        
+        .loc-tag {
+            font-size: 7pt;
+            font-weight: 500;
+        }
+        
+        .menu-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            font-size: 7.5pt;
+        }
+        
+        .menu-list li { padding: 0; }
+        .menu-list .qty { font-weight: 600; color: #4f46e5; margin-right: 2px; }
         
         /* Print Footer */
         .print-footer {
@@ -170,140 +276,17 @@ header('Content-Type: text/html; charset=utf-8');
             bottom: 0;
             right: 0;
             margin-right: 15mm;
-            margin-bottom: 8mm;
-            font-size: 7pt;
+            margin-bottom: 6mm;
+            font-size: 6.5pt;
             color: #999;
             text-align: right;
-        }
-        
-        .print-footer .system-name {
-            font-weight: 600;
-            color: #6366f1;
-        }
-        
-        /* Stats Container - Compact & Clean */
-        .stats-container {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
-            gap: 6px;
-            margin-bottom: 18px;
-            border: 1px solid #e5e7eb;
-            border-radius: 6px;
-            padding: 6px;
-            background: #f9fafb;
-        }
-        
-        .stat-box {
-            text-align: center;
-            padding: 6px;
-            border: 1px solid #e5e7eb;
-            border-radius: 5px;
-            background: white;
-        }
-        
-        .stat-label {
-            font-size: 7pt;
-            color: #666;
-            margin-bottom: 2px;
-            font-weight: 600;
-        }
-        
-        .stat-value {
-            font-size: 13pt;
-            font-weight: 700;
-            color: #6366f1;
-        }
-        
-        .stat-icon {
-            font-size: 13pt;
-            margin-bottom: 1px;
-        }
-        
-        .section {
-            margin-bottom: 12px;
-            page-break-inside: avoid;
-        }
-        
-        .section-header {
-            background: linear-gradient(135deg, rgba(99, 102, 241, 0.85) 0%, rgba(139, 92, 246, 0.85) 100%);
-            color: white;
-            padding: 6px 10px;
-            border-radius: 5px;
-            margin-bottom: 6px;
-            font-size: 10pt;
-            font-weight: 700;
-        }
-        
-        table {
-            width: 100%;
-            border-collapse: collapse;
-            margin-bottom: 3px;
-        }
-        
-        th {
-            background: #f3f4f6;
-            padding: 5px;
-            text-align: left;
-            font-size: 8pt;
-            font-weight: 600;
-            border: 1px solid #e5e7eb;
-        }
-        
-        td {
-            padding: 4px 5px;
-            border: 1px solid #e5e7eb;
-            font-size: 8pt;
-        }
-        
-        tr:nth-child(even) {
-            background: #f9fafb;
-        }
-        
-        .room-badge {
-            background: #6366f1;
-            color: white;
-            padding: 2px 6px;
-            border-radius: 4px;
-            font-weight: 600;
-            font-size: 8pt;
-        }
-        
-        .status-paid { color: #10b981; font-weight: 600; }
-        .status-unpaid { color: #ef4444; font-weight: 600; }
-        .status-partial { color: #f59e0b; font-weight: 600; }
-        
-        .menu-list {
-            list-style: none;
-            padding: 0;
-            margin: 0;
-            font-size: 8pt;
-        }
-        
-        .menu-item {
-            padding: 1px 0;
-        }
-        
-        .menu-qty {
-            color: #6366f1;
-            font-weight: 600;
-            margin-right: 3px;
-        }
-        
-        .empty-state {
-            text-align: center;
-            padding: 10px;
-            color: #999;
-            font-style: italic;
-            font-size: 9pt;
-        }
-        
-        .footer {
-            margin-top: 20px;
-            padding-top: 10px;
             border-top: 1px solid #e5e7eb;
-            text-align: center;
-            font-size: 8pt;
-            color: #666;
+            padding-top: 3px;
+        }
+        
+        .print-footer .sys {
+            font-weight: 600;
+            color: #4f46e5;
         }
         
         @media print {
@@ -311,288 +294,219 @@ header('Content-Type: text/html; charset=utf-8');
                 -webkit-print-color-adjust: exact;
                 print-color-adjust: exact;
             }
+            .room-tag {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
         }
     </style>
 </head>
 <body>
-    <!-- Header without Logo -->
+    <!-- Header -->
     <div class="report-header">
-        <div class="company-info" style="padding-left: 0;">
-            <div class="company-name"><?php echo htmlspecialchars($company['name']); ?></div>
-            <div class="company-details">
-                <?php if ($company['address']): ?>
-                    <?php echo htmlspecialchars($company['address']); ?><br>
-                <?php endif; ?>
-                <?php if ($company['phone']): ?>
-                    Tel: <?php echo htmlspecialchars($company['phone']); ?>
-                <?php endif; ?>
-                <?php if ($company['email']): ?>
-                    | Email: <?php echo htmlspecialchars($company['email']); ?>
-                <?php endif; ?>
+        <div>
+            <div class="hotel-name"><?php echo htmlspecialchars($company['name']); ?></div>
+            <div class="hotel-detail">
+                <?php if ($company['address']): echo htmlspecialchars($company['address']); endif; ?>
+                <?php if ($company['phone']): ?> | Tel: <?php echo htmlspecialchars($company['phone']); ?><?php endif; ?>
+                <?php if ($company['email']): ?> | <?php echo htmlspecialchars($company['email']); ?><?php endif; ?>
             </div>
         </div>
-        <div class="report-info">
-            <div class="report-label">Laporan:</div>
-            <div class="report-title">DAILY REPORT</div>
+        <div>
+            <div class="report-title">Laporan Harian</div>
             <div class="report-date"><?php echo $todayDisplay; ?></div>
         </div>
     </div>
 
-    <!-- Stats Container - Horizontal -->
-    <div class="stats-container">
-        <div class="stat-box">
-            <div class="stat-icon">🏨</div>
-            <div class="stat-value"><?php echo $occupancyRate; ?>%</div>
-            <div class="stat-label">Occupancy</div>
+    <!-- Stats -->
+    <div class="stats-row">
+        <div class="stat-item">
+            <div class="stat-val"><?php echo $occupancyRate; ?>%</div>
+            <div class="stat-lbl">Occupancy</div>
         </div>
-        <div class="stat-box">
-            <div class="stat-icon">👥</div>
-            <div class="stat-value"><?php echo count($inHouseGuests); ?></div>
-            <div class="stat-label">In House</div>
+        <div class="stat-item">
+            <div class="stat-val"><?php echo count($inHouseGuests); ?></div>
+            <div class="stat-lbl">In House</div>
         </div>
-        <div class="stat-box">
-            <div class="stat-icon">📥</div>
-            <div class="stat-value"><?php echo count($checkInToday); ?></div>
-            <div class="stat-label">Check-in Today</div>
+        <div class="stat-item">
+            <div class="stat-val"><?php echo count($checkInToday); ?></div>
+            <div class="stat-lbl">Check-in</div>
         </div>
-        <div class="stat-box">
-            <div class="stat-icon">📤</div>
-            <div class="stat-value"><?php echo count($checkOutToday); ?></div>
-            <div class="stat-label">Check-out Today</div>
+        <div class="stat-item">
+            <div class="stat-val"><?php echo count($checkOutToday); ?></div>
+            <div class="stat-lbl">Check-out</div>
         </div>
     </div>
 
     <!-- In-House Guests -->
-    <div class="section">
-        <div class="section-header">👥 In-House Guests (<?php echo count($inHouseGuests); ?>)</div>
-        
-        <?php if (count($inHouseGuests) > 0): ?>
+    <?php if (count($inHouseGuests) > 0): ?>
+    <div class="rpt-section">
+        <div class="rpt-section-head">
+            <span class="sec-title">👥 In-House Guests</span>
+            <span class="sec-count"><?php echo count($inHouseGuests); ?></span>
+        </div>
         <table>
-            <thead>
-                <tr>
-                    <th>Room</th>
-                    <th>Guest Name</th>
-                    <th>Booking Code</th>
-                    <th>Check-in</th>
-                    <th>Check-out</th>
-                    <th>Payment</th>
-                </tr>
-            </thead>
+            <thead><tr><th>Room</th><th>Guest</th><th>Code</th><th>In</th><th>Out</th><th>Payment</th></tr></thead>
             <tbody>
-                <?php foreach ($inHouseGuests as $guest): ?>
+                <?php foreach ($inHouseGuests as $g): ?>
                 <tr>
-                    <td><span class="room-badge"><?php echo $guest['room_number']; ?></span></td>
-                    <td><?php echo $guest['guest_name']; ?></td>
-                    <td><?php echo $guest['booking_code']; ?></td>
-                    <td><?php echo date('d M', strtotime($guest['check_in_date'])); ?></td>
-                    <td><?php echo date('d M', strtotime($guest['check_out_date'])); ?></td>
-                    <td><span class="status-<?php echo $guest['payment_status']; ?>"><?php echo strtoupper($guest['payment_status']); ?></span></td>
+                    <td><span class="room-tag"><?php echo htmlspecialchars($g['room_number']); ?></span></td>
+                    <td><?php echo htmlspecialchars($g['guest_name']); ?></td>
+                    <td><?php echo htmlspecialchars($g['booking_code']); ?></td>
+                    <td><?php echo date('d M', strtotime($g['check_in_date'])); ?></td>
+                    <td><?php echo date('d M', strtotime($g['check_out_date'])); ?></td>
+                    <td><span class="pay-<?php echo $g['payment_status']; ?>"><?php echo strtoupper($g['payment_status']); ?></span></td>
                 </tr>
                 <?php endforeach; ?>
             </tbody>
         </table>
-        <?php else: ?>
-        <div class="empty-state">No in-house guests</div>
-        <?php endif; ?>
     </div>
+    <?php endif; ?>
 
     <!-- Check-in Today -->
-    <div class="section">
-        <div class="section-header">📥 Check-in Today (<?php echo count($checkInToday); ?>)</div>
-        
-        <?php if (count($checkInToday) > 0): ?>
+    <?php if (count($checkInToday) > 0): ?>
+    <div class="rpt-section">
+        <div class="rpt-section-head">
+            <span class="sec-title">📥 Check-in Today</span>
+            <span class="sec-count"><?php echo count($checkInToday); ?></span>
+        </div>
         <table>
-            <thead>
-                <tr>
-                    <th>Room</th>
-                    <th>Guest Name</th>
-                    <th>Booking Code</th>
-                    <th>Check-out</th>
-                </tr>
-            </thead>
+            <thead><tr><th>Room</th><th>Guest</th><th>Code</th><th>Out</th></tr></thead>
             <tbody>
-                <?php foreach ($checkInToday as $guest): ?>
+                <?php foreach ($checkInToday as $g): ?>
                 <tr>
-                    <td><span class="room-badge"><?php echo $guest['room_number']; ?></span></td>
-                    <td><?php echo $guest['guest_name']; ?></td>
-                    <td><?php echo $guest['booking_code']; ?></td>
-                    <td><?php echo date('d M', strtotime($guest['check_out_date'])); ?></td>
+                    <td><span class="room-tag"><?php echo htmlspecialchars($g['room_number']); ?></span></td>
+                    <td><?php echo htmlspecialchars($g['guest_name']); ?></td>
+                    <td><?php echo htmlspecialchars($g['booking_code']); ?></td>
+                    <td><?php echo date('d M', strtotime($g['check_out_date'])); ?></td>
                 </tr>
                 <?php endforeach; ?>
             </tbody>
         </table>
-        <?php else: ?>
-        <div class="empty-state">No check-in today</div>
-        <?php endif; ?>
     </div>
+    <?php endif; ?>
 
     <!-- Check-out Today -->
-    <div class="section">
-        <div class="section-header">📤 Check-out Today (<?php echo count($checkOutToday); ?>)</div>
-        
-        <?php if (count($checkOutToday) > 0): ?>
+    <?php if (count($checkOutToday) > 0): ?>
+    <div class="rpt-section">
+        <div class="rpt-section-head">
+            <span class="sec-title">📤 Check-out Today</span>
+            <span class="sec-count"><?php echo count($checkOutToday); ?></span>
+        </div>
         <table>
-            <thead>
-                <tr>
-                    <th>Room</th>
-                    <th>Guest Name</th>
-                    <th>Booking Code</th>
-                    <th>Check-in</th>
-                    <th>Check-out</th>
-                </tr>
-            </thead>
+            <thead><tr><th>Room</th><th>Guest</th><th>Code</th><th>In</th><th>Out</th></tr></thead>
             <tbody>
-                <?php foreach ($checkOutToday as $guest): ?>
+                <?php foreach ($checkOutToday as $g): ?>
                 <tr>
-                    <td><span class="room-badge"><?php echo $guest['room_number']; ?></span></td>
-                    <td><?php echo $guest['guest_name']; ?></td>
-                    <td><?php echo $guest['booking_code']; ?></td>
-                    <td><?php echo date('d M', strtotime($guest['check_in_date'])); ?></td>
-                    <td><?php echo date('d M', strtotime($guest['check_out_date'])); ?></td>
+                    <td><span class="room-tag"><?php echo htmlspecialchars($g['room_number']); ?></span></td>
+                    <td><?php echo htmlspecialchars($g['guest_name']); ?></td>
+                    <td><?php echo htmlspecialchars($g['booking_code']); ?></td>
+                    <td><?php echo date('d M', strtotime($g['check_in_date'])); ?></td>
+                    <td><?php echo date('d M', strtotime($g['check_out_date'])); ?></td>
                 </tr>
                 <?php endforeach; ?>
             </tbody>
         </table>
-        <?php else: ?>
-        <div class="empty-state">No check-out today</div>
-        <?php endif; ?>
     </div>
+    <?php endif; ?>
 
     <!-- Check-in Tomorrow -->
-    <div class="section">
-        <div class="section-header">📅 Check-in Tomorrow (<?php echo count($checkInTomorrow); ?>)</div>
-        
-        <?php if (count($checkInTomorrow) > 0): ?>
+    <?php if (count($checkInTomorrow) > 0): ?>
+    <div class="rpt-section">
+        <div class="rpt-section-head">
+            <span class="sec-title">📅 Check-in Tomorrow</span>
+            <span class="sec-count"><?php echo count($checkInTomorrow); ?></span>
+        </div>
         <table>
-            <thead>
-                <tr>
-                    <th>Room</th>
-                    <th>Guest Name</th>
-                    <th>Phone</th>
-                    <th>Booking Code</th>
-                    <th>Check-in</th>
-                    <th>Check-out</th>
-                </tr>
-            </thead>
+            <thead><tr><th>Room</th><th>Guest</th><th>Phone</th><th>Code</th><th>In</th><th>Out</th></tr></thead>
             <tbody>
-                <?php foreach ($checkInTomorrow as $guest): ?>
+                <?php foreach ($checkInTomorrow as $g): ?>
                 <tr>
-                    <td><span class="room-badge"><?php echo $guest['room_number']; ?></span></td>
-                    <td><?php echo $guest['guest_name']; ?></td>
-                    <td><?php echo $guest['phone'] ?: '-'; ?></td>
-                    <td><?php echo $guest['booking_code']; ?></td>
-                    <td><?php echo date('d M', strtotime($guest['check_in_date'])); ?></td>
-                    <td><?php echo date('d M', strtotime($guest['check_out_date'])); ?></td>
+                    <td><span class="room-tag"><?php echo htmlspecialchars($g['room_number']); ?></span></td>
+                    <td><?php echo htmlspecialchars($g['guest_name']); ?></td>
+                    <td><?php echo htmlspecialchars($g['phone'] ?: '-'); ?></td>
+                    <td><?php echo htmlspecialchars($g['booking_code']); ?></td>
+                    <td><?php echo date('d M', strtotime($g['check_in_date'])); ?></td>
+                    <td><?php echo date('d M', strtotime($g['check_out_date'])); ?></td>
                 </tr>
                 <?php endforeach; ?>
             </tbody>
         </table>
-        <?php else: ?>
-        <div class="empty-state">No check-in tomorrow</div>
-        <?php endif; ?>
     </div>
+    <?php endif; ?>
 
     <!-- Check-out Tomorrow -->
-    <div class="section">
-        <div class="section-header">📤 Check-out Tomorrow (<?php echo count($checkOutTomorrow); ?>)</div>
-        
-        <?php if (count($checkOutTomorrow) > 0): ?>
+    <?php if (count($checkOutTomorrow) > 0): ?>
+    <div class="rpt-section">
+        <div class="rpt-section-head">
+            <span class="sec-title">📤 Check-out Tomorrow</span>
+            <span class="sec-count"><?php echo count($checkOutTomorrow); ?></span>
+        </div>
         <table>
-            <thead>
-                <tr>
-                    <th>Room</th>
-                    <th>Guest Name</th>
-                    <th>Phone</th>
-                    <th>Booking Code</th>
-                    <th>Check-in</th>
-                    <th>Check-out</th>
-                </tr>
-            </thead>
+            <thead><tr><th>Room</th><th>Guest</th><th>Phone</th><th>Code</th><th>In</th><th>Out</th></tr></thead>
             <tbody>
-                <?php foreach ($checkOutTomorrow as $guest): ?>
+                <?php foreach ($checkOutTomorrow as $g): ?>
                 <tr>
-                    <td><span class="room-badge"><?php echo $guest['room_number']; ?></span></td>
-                    <td><?php echo $guest['guest_name']; ?></td>
-                    <td><?php echo $guest['phone'] ?: '-'; ?></td>
-                    <td><?php echo $guest['booking_code']; ?></td>
-                    <td><?php echo date('d M', strtotime($guest['check_in_date'])); ?></td>
-                    <td><?php echo date('d M', strtotime($guest['check_out_date'])); ?></td>
+                    <td><span class="room-tag"><?php echo htmlspecialchars($g['room_number']); ?></span></td>
+                    <td><?php echo htmlspecialchars($g['guest_name']); ?></td>
+                    <td><?php echo htmlspecialchars($g['phone'] ?: '-'); ?></td>
+                    <td><?php echo htmlspecialchars($g['booking_code']); ?></td>
+                    <td><?php echo date('d M', strtotime($g['check_in_date'])); ?></td>
+                    <td><?php echo date('d M', strtotime($g['check_out_date'])); ?></td>
                 </tr>
                 <?php endforeach; ?>
             </tbody>
         </table>
-        <?php else: ?>
-        <div class="empty-state">No check-out tomorrow</div>
-        <?php endif; ?>
     </div>
+    <?php endif; ?>
 
     <!-- Arrival Tomorrow -->
-    <div class="section">
-        <div class="section-header">✈️ Arrival Tomorrow - Reservations (<?php echo count($arrivalTomorrow); ?>)</div>
-        
-        <?php if (count($arrivalTomorrow) > 0): ?>
+    <?php if (count($arrivalTomorrow) > 0): ?>
+    <div class="rpt-section">
+        <div class="rpt-section-head">
+            <span class="sec-title">✈️ Arrival Tomorrow</span>
+            <span class="sec-count"><?php echo count($arrivalTomorrow); ?></span>
+        </div>
         <table>
-            <thead>
-                <tr>
-                    <th>Room</th>
-                    <th>Guest Name</th>
-                    <th>Phone</th>
-                    <th>Booking Code</th>
-                    <th>Pax</th>
-                    <th>Check-in</th>
-                    <th>Check-out</th>
-                </tr>
-            </thead>
+            <thead><tr><th>Room</th><th>Guest</th><th>Phone</th><th>Code</th><th>Pax</th><th>In</th><th>Out</th></tr></thead>
             <tbody>
-                <?php foreach ($arrivalTomorrow as $guest): ?>
+                <?php foreach ($arrivalTomorrow as $g): ?>
                 <tr>
-                    <td><span class="room-badge"><?php echo $guest['room_number']; ?></span></td>
-                    <td><?php echo $guest['guest_name']; ?></td>
-                    <td><?php echo $guest['phone'] ?: '-'; ?></td>
-                    <td><?php echo $guest['booking_code']; ?></td>
-                    <td><?php echo $guest['guest_count'] ?: '1'; ?> pax</td>
-                    <td><?php echo date('d M', strtotime($guest['check_in_date'])); ?></td>
-                    <td><?php echo date('d M', strtotime($guest['check_out_date'])); ?></td>
+                    <td><span class="room-tag"><?php echo htmlspecialchars($g['room_number']); ?></span></td>
+                    <td><?php echo htmlspecialchars($g['guest_name']); ?></td>
+                    <td><?php echo htmlspecialchars($g['phone'] ?: '-'); ?></td>
+                    <td><?php echo htmlspecialchars($g['booking_code']); ?></td>
+                    <td><?php echo $g['guest_count'] ?: '1'; ?></td>
+                    <td><?php echo date('d M', strtotime($g['check_in_date'])); ?></td>
+                    <td><?php echo date('d M', strtotime($g['check_out_date'])); ?></td>
                 </tr>
                 <?php endforeach; ?>
             </tbody>
         </table>
-        <?php else: ?>
-        <div class="empty-state">No arrival tomorrow</div>
-        <?php endif; ?>
     </div>
+    <?php endif; ?>
 
     <!-- Breakfast Orders -->
-    <div class="section">
-        <div class="section-header">🍳 Breakfast Orders Today (<?php echo count($breakfastOrders); ?>)</div>
-        
-        <?php if (count($breakfastOrders) > 0): ?>
+    <?php if (count($breakfastOrders) > 0): ?>
+    <div class="rpt-section">
+        <div class="rpt-section-head">
+            <span class="sec-title">🍳 Breakfast Orders</span>
+            <span class="sec-count"><?php echo count($breakfastOrders); ?></span>
+        </div>
         <table>
-            <thead>
-                <tr>
-                    <th>Time</th>
-                    <th>Room</th>
-                    <th>Guest Name</th>
-                    <th>Pax</th>
-                    <th>Location</th>
-                    <th>Menu</th>
-                </tr>
-            </thead>
+            <thead><tr><th>Time</th><th>Room</th><th>Guest</th><th>Pax</th><th>Location</th><th>Menu</th></tr></thead>
             <tbody>
                 <?php foreach ($breakfastOrders as $order): ?>
                 <tr>
                     <td><?php echo date('H:i', strtotime($order['breakfast_time'])); ?></td>
-                    <td><span class="room-badge"><?php echo $order['room_number']; ?></span></td>
-                    <td><?php echo $order['guest_name']; ?></td>
-                    <td><?php echo $order['total_pax']; ?> pax</td>
-                    <td><?php echo $order['location'] === 'restaurant' ? '🍽️ Restaurant' : '🚪 Room'; ?></td>
+                    <td><span class="room-tag"><?php echo htmlspecialchars($order['room_number']); ?></span></td>
+                    <td><?php echo htmlspecialchars($order['guest_name']); ?></td>
+                    <td><?php echo $order['total_pax']; ?></td>
+                    <td><span class="loc-tag"><?php echo $order['location'] === 'restaurant' ? '🍽️ Restaurant' : '🚪 Room'; ?></span></td>
                     <td>
                         <ul class="menu-list">
                             <?php foreach ($order['menu_items'] as $item): ?>
-                            <li class="menu-item">
-                                <span class="menu-qty">x<?php echo $item['quantity']; ?></span>
-                                <span><?php echo $item['menu_name']; ?></span>
-                            </li>
+                            <li><span class="qty">x<?php echo $item['quantity']; ?></span> <?php echo htmlspecialchars($item['menu_name']); ?></li>
                             <?php endforeach; ?>
                         </ul>
                     </td>
@@ -600,17 +514,13 @@ header('Content-Type: text/html; charset=utf-8');
                 <?php endforeach; ?>
             </tbody>
         </table>
-        <?php else: ?>
-        <div class="empty-state">No breakfast orders today</div>
-        <?php endif; ?>
     </div>
+    <?php endif; ?>
 
-    <!-- Footer with Watermark -->
+    <!-- Footer -->
     <div class="print-footer">
-        <div style="margin-bottom: 4px; border-top: 1px solid #e5e7eb; padding-top: 4px;">
-            <div><span class="system-name">✓ Printed by ADF System</span></div>
-            <div style="font-size: 6pt; color: #bbb; margin-top: 2px;">Printer: <?php echo htmlspecialchars($printerName); ?> | <?php echo $printTime; ?></div>
-        </div>
+        <div><span class="sys">✓ ADF System</span></div>
+        <div style="font-size: 6pt; color: #bbb; margin-top: 1px;">Printer: <?php echo htmlspecialchars($printerName); ?> | <?php echo $printTime; ?></div>
     </div>
 
     <script>
