@@ -574,46 +574,43 @@ function shareToWhatsApp() {
 
     var fileName = 'Daily-Report-' + <?php echo json_encode(date('Y-m-d')); ?> + '.pdf';
 
-    // Fetch the same export page used by Export PDF
-    fetch('export-daily-report.php?noprint=1')
-        .then(function(res) { return res.text(); })
-        .then(function(html) {
-            // Create hidden container with export HTML
-            var container = document.createElement('div');
-            container.style.position = 'absolute';
-            container.style.left = '-9999px';
-            container.style.top = '0';
-            container.style.width = '210mm';
-            container.style.background = '#fff';
-            
-            // Extract body content and styles
-            var parser = new DOMParser();
-            var doc = parser.parseFromString(html, 'text/html');
-            
-            // Remove the auto-print script
-            doc.querySelectorAll('script').forEach(function(s) { s.remove(); });
-            
-            // Get style and body
-            var styles = doc.querySelectorAll('style');
-            var body = doc.body;
-            
-            styles.forEach(function(s) { container.appendChild(s.cloneNode(true)); });
-            while (body.firstChild) {
-                container.appendChild(body.firstChild);
-            }
-            
-            document.body.appendChild(container);
+    // Create hidden iframe to load the export page
+    var iframe = document.createElement('iframe');
+    iframe.style.position = 'fixed';
+    iframe.style.left = '0';
+    iframe.style.top = '0';
+    iframe.style.width = '210mm';
+    iframe.style.height = '297mm';
+    iframe.style.opacity = '0';
+    iframe.style.pointerEvents = 'none';
+    iframe.style.zIndex = '-1';
+    iframe.src = 'export-daily-report.php?noprint=1';
+    
+    document.body.appendChild(iframe);
+
+    iframe.onload = function() {
+        // Wait a bit for images/fonts to load
+        setTimeout(function() {
+            var iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
+            var content = iframeDoc.body;
 
             var opt = {
                 margin: [10, 10, 10, 10],
                 filename: fileName,
                 image: { type: 'jpeg', quality: 0.98 },
-                html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff', scrollY: 0 },
+                html2canvas: { 
+                    scale: 2, 
+                    useCORS: true, 
+                    backgroundColor: '#ffffff',
+                    scrollY: 0,
+                    windowWidth: 794,
+                    windowHeight: 1123
+                },
                 jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
             };
 
-            html2pdf().set(opt).from(container).outputPdf('blob').then(function(pdfBlob) {
-                document.body.removeChild(container);
+            html2pdf().set(opt).from(content).outputPdf('blob').then(function(pdfBlob) {
+                document.body.removeChild(iframe);
                 btn.innerHTML = origText;
                 btn.disabled = false;
                 
@@ -635,17 +632,20 @@ function shareToWhatsApp() {
                     alert('PDF berhasil di-download. Silakan share manual lewat WhatsApp.');
                 }
             }).catch(function(err) {
-                if (document.body.contains(container)) document.body.removeChild(container);
+                document.body.removeChild(iframe);
                 btn.innerHTML = origText;
                 btn.disabled = false;
                 alert('Gagal generate PDF: ' + err.message);
             });
-        })
-        .catch(function(err) {
-            btn.innerHTML = origText;
-            btn.disabled = false;
-            alert('Gagal mengambil data laporan: ' + err.message);
-        });
+        }, 500);
+    };
+
+    iframe.onerror = function() {
+        document.body.removeChild(iframe);
+        btn.innerHTML = origText;
+        btn.disabled = false;
+        alert('Gagal memuat halaman laporan');
+    };
 }
 </script>
 
