@@ -171,9 +171,9 @@ include '../../includes/header.php';
 .action-buttons { display: flex; gap: 0.5rem; justify-content: flex-end; margin-bottom: 1rem; }
 .action-buttons .btn { padding: 0.4rem 1rem; border: none; border-radius: 6px; font-weight: 600; font-size: 0.8rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.35rem; transition: all 0.2s; }
 .action-buttons .btn:hover { transform: translateY(-1px); box-shadow: 0 2px 8px rgba(0,0,0,0.15); }
-.btn-pdf { background: #e0e7ff; color: #3730a3; }
-.btn-print { background: #f1f5f9; color: #334155; border: 1px solid #cbd5e1 !important; }
-.btn-wa { background: #dcfce7; color: #166534; }
+.btn-pdf { background: #c7d2fe; color: #312e81; }
+.btn-print { background: #e2e8f0; color: #1e293b; border: 1px solid #94a3b8 !important; }
+.btn-wa { background: #bbf7d0; color: #14532d; }
 
 .report-header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 0.6rem; border-bottom: 2px solid #4f46e5; margin-bottom: 1rem; gap: 0.75rem; }
 [data-theme="dark"] .report-header { border-bottom-color: #6366f1; }
@@ -531,11 +531,11 @@ include '../../includes/header.php';
     </div>
 </div>
 
+<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script>
 function exportToPDF() {
     var w = window.open('export-daily-report.php', '_blank');
     if (!w || w.closed) {
-        // Popup blocked - open in same tab
         window.location.href = 'export-daily-report.php';
     }
 }
@@ -564,48 +564,78 @@ function editBreakfastOrder(id) {
 }
 
 function shareToWhatsApp() {
-    // Build report text
-    let text = `*DAILY REPORT - FRONTDESK*\n`;
-    text += `📅 ${<?php echo json_encode($todayDisplay); ?>}\n\n`;
+    var btn = document.querySelector('.btn-wa');
+    var origText = btn.innerHTML;
+    btn.innerHTML = '⏳ Generating PDF...';
+    btn.disabled = true;
+
+    // Clone the report container for PDF generation
+    var el = document.querySelector('.laporan-container');
+    var clone = el.cloneNode(true);
     
-    text += `*📊 OCCUPANCY*\n`;
-    text += `Rate: ${<?php echo $occupancyRate; ?>}%\n`;
-    text += `In House: ${<?php echo count($inHouseGuests); ?>} guests\n\n`;
+    // Remove action buttons and edit/delete buttons from clone
+    clone.querySelectorAll('.action-buttons, .bf-act').forEach(function(e) { e.remove(); });
     
-    <?php if (count($checkInToday) > 0): ?>
-    text += `*📥 CHECK-IN HARI INI (${<?php echo count($checkInToday); ?>})*\n`;
-    <?php foreach ($checkInToday as $guest): ?>
-    text += `• Room ${<?php echo json_encode($guest['room_number']); ?>} - ${<?php echo json_encode($guest['guest_name']); ?>}\n`;
-    <?php endforeach; ?>
-    text += `\n`;
-    <?php endif; ?>
-    
-    <?php if (count($checkOutToday) > 0): ?>
-    text += `*📤 CHECK-OUT HARI INI (${<?php echo count($checkOutToday); ?>})*\n`;
-    <?php foreach ($checkOutToday as $guest): ?>
-    text += `• Room ${<?php echo json_encode($guest['room_number']); ?>} - ${<?php echo json_encode($guest['guest_name']); ?>}\n`;
-    <?php endforeach; ?>
-    text += `\n`;
-    <?php endif; ?>
-    
-    <?php if (count($breakfastOrders) > 0): ?>
-    text += `*🍳 BREAKFAST ORDERS (${<?php echo count($breakfastOrders); ?>})*\n`;
-    <?php foreach ($breakfastOrders as $order): ?>
-    text += `• ${<?php echo json_encode($order['breakfast_time']); ?>} - Room ${<?php echo json_encode($order['room_number']); ?>} - ${<?php echo json_encode($order['guest_name']); ?>}\n`;
-    text += `  Pax: ${<?php echo $order['total_pax']; ?>} | <?php echo $order['location'] === 'restaurant' ? 'Restaurant' : ($order['location'] === 'take_away' ? 'Take Away' : 'Room Service'); ?>\n`;
-    text += `  Menu:\n`;
-    <?php foreach ($order['menu_items'] as $item): ?>
-    text += `   - ${<?php echo $item['quantity']; ?>}x ${<?php echo json_encode($item['menu_name']); ?>}\n`;
-    <?php endforeach; ?>
-    <?php endforeach; ?>
-    <?php endif; ?>
-    
-    // Encode for WhatsApp
-    const encoded = encodeURIComponent(text);
-    const whatsappURL = `https://wa.me/?text=${encoded}`;
-    
-    // Open WhatsApp
-    window.open(whatsappURL, '_blank');
+    // Make stamp visible in clone
+    var stamp = clone.querySelector('.report-stamp');
+    if (stamp) stamp.style.display = 'block';
+
+    // Temporarily append clone off-screen for rendering
+    clone.style.position = 'absolute';
+    clone.style.left = '-9999px';
+    clone.style.top = '0';
+    clone.style.width = '800px';
+    clone.style.background = '#fff';
+    clone.style.padding = '20px 30px';
+    document.body.appendChild(clone);
+
+    var fileName = 'Daily-Report-' + <?php echo json_encode(date('Y-m-d')); ?> + '.pdf';
+
+    var opt = {
+        margin: [5, 5, 10, 5],
+        filename: fileName,
+        image: { type: 'jpeg', quality: 0.95 },
+        html2canvas: { scale: 2, useCORS: true, backgroundColor: '#ffffff' },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
+    };
+
+    html2pdf().set(opt).from(clone).outputPdf('blob').then(function(pdfBlob) {
+        document.body.removeChild(clone);
+        
+        var file = new File([pdfBlob], fileName, { type: 'application/pdf' });
+
+        // Try Web Share API (works on mobile)
+        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
+            navigator.share({
+                title: 'Daily Report',
+                text: 'Daily Report - ' + <?php echo json_encode($todayDisplay); ?>,
+                files: [file]
+            }).then(function() {
+                btn.innerHTML = origText;
+                btn.disabled = false;
+            }).catch(function() {
+                btn.innerHTML = origText;
+                btn.disabled = false;
+            });
+        } else {
+            // Fallback: download PDF
+            var url = URL.createObjectURL(pdfBlob);
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = fileName;
+            a.click();
+            URL.revokeObjectURL(url);
+            
+            btn.innerHTML = origText;
+            btn.disabled = false;
+            alert('PDF berhasil di-download. Silakan share manual lewat WhatsApp.');
+        }
+    }).catch(function(err) {
+        if (document.body.contains(clone)) document.body.removeChild(clone);
+        btn.innerHTML = origText;
+        btn.disabled = false;
+        alert('Gagal generate PDF: ' + err.message);
+    });
 }
 </script>
 
