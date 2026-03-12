@@ -473,6 +473,46 @@ if (isPost()) {
                             $peStmt->execute([$investorProjectId, $amount, ($description ?: $categoryName), $divName, $transactionDate, $_SESSION['user_id'], $transactionId]);
                             error_log("PROJECT SYNC: Cashbook #{$transactionId} -> project_expenses for project #{$investorProjectId}, Amount: {$amount}");
                             
+                            // Auto-sync to project_salaries if division is "Gaji"
+                            if (stripos($divName, 'gaji') !== false || stripos($divName, 'salary') !== false) {
+                                try {
+                                    // Ensure tables exist
+                                    $pdo->exec("CREATE TABLE IF NOT EXISTS project_workers (
+                                        id INT AUTO_INCREMENT PRIMARY KEY, project_id INT NOT NULL,
+                                        name VARCHAR(100) NOT NULL, role VARCHAR(100) DEFAULT 'Tukang',
+                                        daily_rate DECIMAL(15,2) DEFAULT 0, phone VARCHAR(20),
+                                        status ENUM('active','inactive') DEFAULT 'active',
+                                        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+                                    $pdo->exec("CREATE TABLE IF NOT EXISTS project_salaries (
+                                        id INT AUTO_INCREMENT PRIMARY KEY, project_id INT NOT NULL,
+                                        worker_id INT NOT NULL, period_type ENUM('weekly','monthly') DEFAULT 'weekly',
+                                        period_label VARCHAR(50), daily_rate DECIMAL(15,2) DEFAULT 0,
+                                        overtime_per_day DECIMAL(15,2) DEFAULT 0, other_per_day DECIMAL(15,2) DEFAULT 0,
+                                        total_days INT DEFAULT 0, total_salary DECIMAL(15,2) DEFAULT 0,
+                                        status ENUM('draft','submitted','approved','paid') DEFAULT 'draft',
+                                        notes TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, created_by INT
+                                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+                                    
+                                    // Find or create default worker for this project
+                                    $wStmt = $pdo->prepare("SELECT id FROM project_workers WHERE project_id = ? AND name = 'Gaji dari Kas' LIMIT 1");
+                                    $wStmt->execute([$investorProjectId]);
+                                    $workerId = $wStmt->fetchColumn();
+                                    if (!$workerId) {
+                                        $wIns = $pdo->prepare("INSERT INTO project_workers (project_id, name, role, daily_rate) VALUES (?, 'Gaji dari Kas', 'Kas Besar', 0)");
+                                        $wIns->execute([$investorProjectId]);
+                                        $workerId = (int)$pdo->lastInsertId();
+                                    }
+                                    
+                                    $salStmt = $pdo->prepare("INSERT INTO project_salaries (project_id, worker_id, period_type, period_label, daily_rate, total_days, total_salary, status, notes, created_by) VALUES (?, ?, 'monthly', ?, ?, 1, ?, 'submitted', ?, ?)");
+                                    $periodLabel = date('F Y', strtotime($transactionDate));
+                                    $salStmt->execute([$investorProjectId, $workerId, $periodLabel, $amount, $amount, ($description ?: $categoryName), $_SESSION['user_id'] ?? null]);
+                                    error_log("GAJI SYNC: Cashbook #{$transactionId} -> project_salaries for project #{$investorProjectId}, Amount: {$amount}");
+                                } catch (Exception $gajiErr) {
+                                    error_log("GAJI SYNC ERROR: " . $gajiErr->getMessage());
+                                }
+                            }
+                            
                             // Success - redirect directly (transaction already committed)
                             setFlash('success', 'Transaksi berhasil ditambahkan! 🏗️ Tersinkron ke Proyek.');
                             redirect(BASE_URL . '/modules/cashbook/index.php');

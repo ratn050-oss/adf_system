@@ -37,6 +37,11 @@ try {
     $customBg = $loginBgSetting['setting_value'] ?? null;
     $bgUrl = $customBg ? $cl->getDisplayUrl($customBg, 'uploads/backgrounds/') : null;
     
+    // Fallback: use Cloudinary hero background if no custom background set
+    if (!$bgUrl) {
+        $bgUrl = 'https://res.cloudinary.com/dpdmut9ls/image/upload/v1772739188/adf_system/website/hero/ombs61riq165vcwenxy1.png';
+    }
+    
     $loginLogoSetting = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'login_logo'");
     $loginLogo = $loginLogoSetting['setting_value'] ?? null;
     $loginLogoUrl = $loginLogo ? $cl->getDisplayUrl($loginLogo, 'uploads/logos/') : null;

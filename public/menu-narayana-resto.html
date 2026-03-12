@@ -174,27 +174,27 @@
         }
 
         body.theme-ocean {
-            --gold: #C8A951;
-            --gold-light: #E0C97A;
-            --gold-dim: rgba(200,169,81,0.12);
-            --dark: #091B2A;
-            --surface: #0B2138;
-            --text: #D4E4F1;
-            --text-dim: #7A9BB8;
-            --body-bg: #061420;
-            --border-outer: #C8A951;
-            --border-inner: #C8A951;
-            --corner-color: #C8A951;
-            --menu-title-color: #EAF2F8;
-            --leader-color: #163A55;
-            --footer-color: #537D9B;
-            --heading-line-color: #C8A951;
-            --form-bg: #0D2540;
-            --form-border: #163A55;
-            --form-item-bg: #0B2138;
-            --form-input-bg: #081A2C;
-            --form-btn-color: #7A9BB8;
-            --form-hover-border: #C8A951;
+            --gold: #D4B45C;
+            --gold-light: #E8D080;
+            --gold-dim: rgba(212,180,92,0.12);
+            --dark: #245E8A;
+            --surface: #2B6A9C;
+            --text: #FFFFFF;
+            --text-dim: #D6E8F4;
+            --body-bg: #1E5580;
+            --border-outer: #D4B45C;
+            --border-inner: #D4B45C;
+            --corner-color: #D4B45C;
+            --menu-title-color: #FFFFFF;
+            --leader-color: #3878A8;
+            --footer-color: #C8DFF0;
+            --heading-line-color: #D4B45C;
+            --form-bg: #25608E;
+            --form-border: #3878A8;
+            --form-item-bg: #2B6A9C;
+            --form-input-bg: #225889;
+            --form-btn-color: #D6E8F4;
+            --form-hover-border: #D4B45C;
         }
 
         * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -634,7 +634,7 @@
         <div class="corner corner-br"></div>
 
         <div id="menuLogo" style="text-align:center;margin-bottom:10px;display:none;">
-            <img id="menuLogoImg" src="" alt="Logo" style="width:70px;height:70px;border-radius:50%;object-fit:cover;border:1.5px solid var(--gold);opacity:0.8;">
+            <img id="menuLogoImg" src="" alt="Logo" style="width:133px;height:133px;border-radius:50%;object-fit:cover;border:2px solid var(--gold);opacity:0.9;">
         </div>
 
         <div class="logo-title">Narayana</div>
@@ -708,46 +708,48 @@
         {
             id: 'appetizers', heading: 'Appetizers', sub: '', formTitle: 'Appetizers', page: 1,
             items: [
-                { name: 'Golden Prawn Tempura', desc: 'Crispy battered fresh ocean prawns served with our signature dipping sauce.', price: '' },
-                { name: 'Signature Chicken Wings', desc: 'Slow-roasted wings, caramelized with our secret blend of spices.', price: '' },
-                { name: 'Classic Bitterballen', desc: 'Traditional Dutch-style crispy meat croquettes served with a tangy mustard dip.', price: '' },
-                { name: 'Gourmet Onion Rings', desc: 'Crispy battered sweet onions accompanied by homemade tartar sauce.', price: '' },
-                { name: 'Classic French Fries', desc: 'Crispy golden fries served with your choice of premium dips.', price: '' }
+                { name: 'Prawn Tempura', desc: 'Fresh Deep Fried prawn served with Bangkok sauce', price: 'Rp 70.000' },
+                { name: 'Chicken Wings', desc: 'Grilled chicken wings served with french fries and sauce', price: 'Rp 60.000' },
+                { name: 'Bitterballen', desc: 'Deep fried homemade Dutch meat ball served with mustard', price: 'Rp 60.000' },
+                { name: 'Onion Rings', desc: 'Deep fried Onion served with ketchup and mayonnaise', price: 'Rp 45.000' },
+                { name: 'French Fries', desc: 'Deep Fried French Fries served with ketchup and mayonnaise', price: 'Rp 35.000' }
             ]
         },
         {
             id: 'asian', heading: 'Asian Signatures', sub: '', formTitle: 'Asian Signatures', page: 1,
             items: [
-                { name: 'Narayana Signature Nasi Goreng', desc: 'Authentic Indonesian fried rice with traditional crackers, pickles & premium toppings:\n- Braised Beef Ribs (Iga)\n- Grilled Chicken (Ayam)\n- Fresh Catch Seafood', price: '' },
-                { name: 'Wok-Tossed Mie Goreng', desc: 'Traditional stir-fried egg noodles with fresh vegetables, premium meat, and sweet soy sauce.', price: '' },
-                { name: 'Premium Oxtail Soup', desc: 'Slow-cooked tender oxtail in a rich aromatic spiced broth. Served with steamed rice, crackers & green chili sambal.', price: '' }
+                { name: 'Nasi Goreng Ayam', desc: 'Nasi goreng dengan ayam, ceplok dan kerupuk', price: 'Rp 95.000' },
+                { name: 'Nasi Goreng Iga', desc: 'Nasi goreng dengan potongan iga dan telur ceplok, kerupuk', price: 'Rp 95.000' },
+                { name: 'Nasi Goreng seafood', desc: 'Nasi goreng dengan potongan ikan, cumi-cumi, udang, telur ceplok, udang tempura, kerupuk', price: 'Rp 70.000' },
+                { name: 'Mie Goreng', desc: 'Mie goreng dengan sayur, ayam, sosis, kerupuk dan telur ceplok', price: 'Rp 55.000' },
+                { name: 'Oxtail Soup', desc: 'Slow Cooked Oxtail with Broth, Vegetable, Served with Steam Rice, Sambal and Emping crackers', price: 'Rp 85.000' }
             ]
         },
         {
             id: 'western_soups', heading: 'Western Classics', sub: '\u2014 Soups & Mains \u2014', formTitle: 'Western Classics \u2014 Soups & Mains', page: 2,
             items: [
-                { name: 'Creamy Mushroom Soup', desc: 'Velvety wild mushroom soup served warm with toasted garlic bread.', price: '' },
-                { name: 'Grilled Chicken Pesto', desc: 'Juicy grilled chicken breast coated in fresh basil pesto, with roasted seasonal vegetables.', price: '' },
-                { name: 'Herb-Roasted Grilled Chicken', desc: 'Mediterranean herb-marinated chicken with creamy mashed potatoes and savory gravy.', price: '' },
-                { name: 'Premium Bratwurst Sausage', desc: 'Jumbo grilled bratwurst with herb potatoes, sauerkraut, and whole-grain mustard.', price: '' },
-                { name: 'Chicken / Beef Wrap', desc: 'Spiced chicken or beef in a warm tortilla with fresh greens and our signature sauce.', price: '' }
+                { name: 'Creamy Mushroom Soup', desc: 'Homemade cream sauce, mushroom, egg and parmesan cheese', price: 'Rp 65.000' },
+                { name: 'Grilled Chicken Pesto', desc: 'Homemade pesto, mushroom, grilled chicken and parmesan cheese', price: 'Rp 80.000' },
+                { name: 'Grilled Chicken', desc: 'Grilled chicken breast, served with sauteed vegetable and mushroom sauce', price: 'Rp 90.000' },
+                { name: 'Bratwurst Sausage', desc: 'Beef / Chicken 2 grilled sausage served with French fries and sautéed vegetable', price: 'Rp 80.000' },
+                { name: 'Chicken / Beef Wrap', desc: 'Grilled beef / chicken wrapped in homemade bread with lettuce, onion and served with French Fries', price: 'Rp 90.000' }
             ]
         },
         {
             id: 'western_pasta', heading: '', sub: '\u2014 Pasta & Burgers \u2014', formTitle: 'Western Classics \u2014 Pasta & Burgers', page: 2,
             items: [
-                { name: 'Creamy Mushroom Pasta', desc: 'Al dente pasta in a rich creamy mushroom sauce with grated Parmesan cheese.', price: '' },
-                { name: 'Spaghetti Aglio e Olio', desc: 'Classic Italian pasta saut\u00e9ed in olive oil, roasted garlic, chili flakes & fresh parsley.', price: '' },
-                { name: 'Fettuccine Carbonara', desc: 'Silky cream sauce with smoked beef, egg yolk, and cracked black pepper over fettuccine.', price: '' },
-                { name: 'The Narayana Classic Hamburger', desc: 'Char-grilled pure beef patty, melted cheese, fresh lettuce & tomato in a toasted brioche bun.', price: '' }
+                { name: 'Creamy Mushroom', desc: 'Homemade cream sauce, mushroom, egg and parmesan cheese', price: 'Rp 65.000' },
+                { name: 'Aglio e Olio', desc: 'Smoked beef, garlic, chilli flakes, olive oil and Parmesan cheese', price: 'Rp 70.000' },
+                { name: 'Carbonara', desc: 'Homemade cream sauce, smoked beef, egg and Parmesan cheese', price: 'Rp 75.000' },
+                { name: 'Classics Hamburger', desc: '200Gram of pure Australian beef, freshly sliced vegetable and served with French Fries', price: 'Rp 95.000' }
             ]
         },
         {
             id: 'desserts', heading: 'Decadent Desserts', sub: '', formTitle: 'Decadent Desserts', page: 2,
             items: [
-                { name: 'Melted Chocolate Lava Cake', desc: 'Warm baked chocolate cake with a molten center, served with premium vanilla ice cream.', price: '' },
-                { name: 'Classic Cr\u00e8me Br\u00fbl\u00e9e', desc: 'Rich vanilla custard topped with a perfectly caramelized, crisp sugar crust.', price: '' },
-                { name: 'Nutella Almond Waffle', desc: 'Crispy Belgian waffle drizzled with Nutella and topped with toasted almonds.', price: '' }
+                { name: 'Melted Chocolate Lava Cake', desc: 'Fresh homemade chocolate cake with melted chocolate served with Vanilla Gelato ice cream', price: 'Rp 70.000' },
+                { name: 'Classic Cr\u00e8me Br\u00fbl\u00e9e', desc: 'Sweet custard base topped with a layer of hardened caramelized sugar on top', price: 'Rp 55.000' },
+                { name: 'Nutella Almond Waffle', desc: 'Homemade fresh waffle with Nutella chocolate and roasted almond served with 1 scoop of selected Gelato ice cream', price: 'Rp 60.000' }
             ]
         },
         {
@@ -979,7 +981,7 @@
             { id: 'emerald', name: 'Garden Emerald', bg: '#FAFDF7', accent: '#2D8B56', text: '#1A3C2A', sub: '#5A7D68' },
             { id: 'rose',    name: 'Ros\u00e9 Blush',      bg: '#FFF8F6', accent: '#9B2D4E', text: '#3D1F2B', sub: '#8A6070' },
             { id: 'marble',  name: 'White Marble',   bg: '#FFFFFF', accent: '#666666', text: '#2D2D2D', sub: '#777777' },
-            { id: 'ocean',   name: 'Ocean Blue',      bg: '#0B2138', accent: '#C8A951', text: '#D4E4F1', sub: '#7A9BB8' }
+            { id: 'ocean',   name: 'Ocean Blue',      bg: '#2B6A9C', accent: '#D4B45C', text: '#FFFFFF', sub: '#D6E8F4' }
         ];
         themes.forEach(function(t) {
             var sel = (currentTheme === t.id) ? ' selected' : '';
@@ -1002,7 +1004,7 @@
         html += '<div class="form-section">';
         html += '<div class="form-section-title">Logo Resto</div>';
         html += '<div style="display:flex;align-items:center;gap:16px;">';
-        html += '<div id="logoPreviewBox" style="width:70px;height:70px;border-radius:50%;border:2px dashed var(--form-hover-border);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;background:var(--form-input-bg);">';
+        html += '<div id="logoPreviewBox" style="width:133px;height:133px;border-radius:50%;border:2px dashed var(--form-hover-border);display:flex;align-items:center;justify-content:center;overflow:hidden;flex-shrink:0;background:var(--form-input-bg);">';
         html += '<img id="logoPreviewImg" src="" alt="" style="width:100%;height:100%;object-fit:cover;display:none;">';
         html += '<span id="logoPlaceholder" style="font-size:24px;color:var(--form-btn-color);">&#128247;</span>';
         html += '</div>';
