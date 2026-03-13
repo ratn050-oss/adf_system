@@ -424,44 +424,44 @@ function formatRupiah($amount) {
         </div>
         
         <!-- Daily Cash Summary (Same as Dashboard) -->
-        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px;">
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 14px;">
             <!-- Start Cash -->
-            <div style="background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); padding: 12px 15px; border-radius: 10px; border: 1px solid #e2e8f0;">
-                <div style="font-size: 10px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 5px;">Start Cash (<?php echo date('M'); ?>)</div>
-                <div style="font-size: 18px; font-weight: 700; color: #334155; font-family: Georgia, serif;"><?php echo formatRupiah($startKasHariIni); ?></div>
+            <div style="background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); padding: 7px 10px; border-radius: 7px; border: 1px solid #e2e8f0;">
+                <div style="font-size: 8.5px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 2px;">Start Cash (<?php echo date('M'); ?>)</div>
+                <div style="font-size: 14px; font-weight: 600; color: #334155; font-family: 'Segoe UI', Arial, sans-serif;"><?php echo formatRupiah($startKasHariIni); ?></div>
             </div>
             <!-- Cash Available -->
-            <div style="background: linear-gradient(135deg, <?php echo $cashAvailable >= 0 ? '#ecfdf5' : '#fef2f2'; ?> 0%, <?php echo $cashAvailable >= 0 ? '#d1fae5' : '#fee2e2'; ?> 100%); padding: 12px 15px; border-radius: 10px; border: 1px solid <?php echo $cashAvailable >= 0 ? '#a7f3d0' : '#fecaca'; ?>;">
-                <div style="font-size: 10px; color: <?php echo $cashAvailable >= 0 ? '#047857' : '#b91c1c'; ?>; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 5px;">Cash Available</div>
-                <div style="font-size: 18px; font-weight: 700; color: <?php echo $cashAvailable >= 0 ? '#059669' : '#dc2626'; ?>; font-family: Georgia, serif;"><?php echo formatRupiah($cashAvailable); ?></div>
+            <div style="background: linear-gradient(135deg, <?php echo $cashAvailable >= 0 ? '#ecfdf5' : '#fef2f2'; ?> 0%, <?php echo $cashAvailable >= 0 ? '#d1fae5' : '#fee2e2'; ?> 100%); padding: 7px 10px; border-radius: 7px; border: 1px solid <?php echo $cashAvailable >= 0 ? '#a7f3d0' : '#fecaca'; ?>;">
+                <div style="font-size: 8.5px; color: <?php echo $cashAvailable >= 0 ? '#047857' : '#b91c1c'; ?>; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 2px;">Cash Available</div>
+                <div style="font-size: 14px; font-weight: 600; color: <?php echo $cashAvailable >= 0 ? '#059669' : '#dc2626'; ?>; font-family: 'Segoe UI', Arial, sans-serif;"><?php echo formatRupiah($cashAvailable); ?></div>
             </div>
         </div>
-        
+
         <!-- Detail Cards: Owner Transfer, Owner + Guest, Expense -->
-        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 25px;">
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 7px; margin-bottom: 15px;">
             <!-- Owner Transfer -->
-            <div style="background: #fff; padding: 12px; border-radius: 8px; border: 1px solid #e5e7eb; text-align: center;">
-                <div style="width: 36px; height: 36px; border-radius: 8px; background: linear-gradient(135deg, #fbbf24, #f59e0b); display: inline-flex; align-items: center; justify-content: center; margin-bottom: 8px;">
-                    <span style="font-size: 16px;">💵</span>
+            <div style="background: #fff; padding: 7px; border-radius: 6px; border: 1px solid #e5e7eb; text-align: center;">
+                <div style="width: 22px; height: 22px; border-radius: 6px; background: linear-gradient(135deg, #fbbf24, #f59e0b); display: inline-flex; align-items: center; justify-content: center; margin-bottom: 4px;">
+                    <span style="font-size: 12px;">💵</span>
                 </div>
-                <div style="font-size: 9px; color: #9ca3af; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px;">Owner Transfer</div>
-                <div style="font-size: 14px; font-weight: 700; color: #1f2937; font-family: Georgia, serif;"><?php echo formatRupiah($ownerTransferThisMonth); ?></div>
+                <div style="font-size: 7px; color: #9ca3af; font-weight: 600; text-transform: uppercase; letter-spacing: 0.2px;">Owner Transfer</div>
+                <div style="font-size: 11px; font-weight: 600; color: #1f2937; font-family: 'Segoe UI', Arial, sans-serif;"><?php echo formatRupiah($ownerTransferThisMonth); ?></div>
             </div>
             <!-- Owner + Guest -->
-            <div style="background: #fff; padding: 12px; border-radius: 8px; border: 1px solid #e5e7eb; text-align: center;">
-                <div style="width: 36px; height: 36px; border-radius: 8px; background: linear-gradient(135deg, #34d399, #10b981); display: inline-flex; align-items: center; justify-content: center; margin-bottom: 8px;">
-                    <span style="font-size: 16px;">⬆️</span>
+            <div style="background: #fff; padding: 7px; border-radius: 6px; border: 1px solid #e5e7eb; text-align: center;">
+                <div style="width: 22px; height: 22px; border-radius: 6px; background: linear-gradient(135deg, #34d399, #10b981); display: inline-flex; align-items: center; justify-content: center; margin-bottom: 4px;">
+                    <span style="font-size: 12px;">⬆️</span>
                 </div>
-                <div style="font-size: 9px; color: #9ca3af; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px;">Owner + Guest</div>
-                <div style="font-size: 14px; font-weight: 700; color: #059669; font-family: Georgia, serif;"><?php echo formatRupiah($totalOperationalIncome + $guestCashIncome); ?></div>
+                <div style="font-size: 7px; color: #9ca3af; font-weight: 600; text-transform: uppercase; letter-spacing: 0.2px;">Owner + Guest</div>
+                <div style="font-size: 11px; font-weight: 600; color: #059669; font-family: 'Segoe UI', Arial, sans-serif;"><?php echo formatRupiah($totalOperationalIncome + $guestCashIncome); ?></div>
             </div>
             <!-- Expense -->
-            <div style="background: #fff; padding: 12px; border-radius: 8px; border: 1px solid #e5e7eb; text-align: center;">
-                <div style="width: 36px; height: 36px; border-radius: 8px; background: linear-gradient(135deg, #f87171, #ef4444); display: inline-flex; align-items: center; justify-content: center; margin-bottom: 8px;">
-                    <span style="font-size: 16px;">⬇️</span>
+            <div style="background: #fff; padding: 7px; border-radius: 6px; border: 1px solid #e5e7eb; text-align: center;">
+                <div style="width: 22px; height: 22px; border-radius: 6px; background: linear-gradient(135deg, #f87171, #ef4444); display: inline-flex; align-items: center; justify-content: center; margin-bottom: 4px;">
+                    <span style="font-size: 12px;">⬇️</span>
                 </div>
-                <div style="font-size: 9px; color: #9ca3af; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px;">Expense</div>
-                <div style="font-size: 14px; font-weight: 700; color: #dc2626; font-family: Georgia, serif;"><?php echo formatRupiah($totalOperationalExpense); ?></div>
+                <div style="font-size: 7px; color: #9ca3af; font-weight: 600; text-transform: uppercase; letter-spacing: 0.2px;">Expense</div>
+                <div style="font-size: 11px; font-weight: 600; color: #dc2626; font-family: 'Segoe UI', Arial, sans-serif;"><?php echo formatRupiah($totalOperationalExpense); ?></div>
             </div>
         </div>
         
