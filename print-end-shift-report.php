@@ -67,16 +67,20 @@ $capitalAccounts = [];
 $pettyCashAccounts = [];
 
 try {
-    // Get business ID from selected business
-    $businessId = $selectedBusinessId;
+    // Get business ID using proper function (same as dashboard)
+    $businessId = getMasterBusinessId();
+    
+    // Create direct PDO connection to master database
+    $masterPdo = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
+    $masterPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     
     // Get ALL owner_capital account IDs from MASTER database
-    $stmt = $masterDb->getConnection()->prepare("SELECT id FROM cash_accounts WHERE business_id = ? AND account_type = 'owner_capital'");
+    $stmt = $masterPdo->prepare("SELECT id FROM cash_accounts WHERE business_id = ? AND account_type = 'owner_capital'");
     $stmt->execute([$businessId]);
     $capitalAccounts = $stmt->fetchAll(PDO::FETCH_COLUMN);
     
     // Get ALL cash (Petty Cash) account IDs from MASTER database
-    $stmt = $masterDb->getConnection()->prepare("SELECT id FROM cash_accounts WHERE business_id = ? AND account_type = 'cash'");
+    $stmt = $masterPdo->prepare("SELECT id FROM cash_accounts WHERE business_id = ? AND account_type = 'cash'");
     $stmt->execute([$businessId]);
     $pettyCashAccounts = $stmt->fetchAll(PDO::FETCH_COLUMN);
 } catch (\Throwable $e) {
