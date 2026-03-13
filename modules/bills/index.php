@@ -730,6 +730,9 @@ include '../../includes/header.php';
             <p style="font-size: 0.72rem; color: var(--text-muted); margin: 0.2rem 0 0;">Kelola tagihan rutin bulanan - listrik, pajak, wifi, kendaraan, PO & lainnya</p>
         </div>
         <div class="bills-header-actions">
+            <a href="<?= BASE_URL ?>/modules/bills/laporan.php" class="btn" style="background: linear-gradient(135deg, #10b981, #059669); color: white;">
+                <i data-feather="file-text"></i> Laporan Pencairan
+            </a>
             <a href="<?= BASE_URL ?>/modules/bills/templates.php" class="btn" style="background: var(--bg-tertiary); color: var(--text-secondary);">
                 <i data-feather="settings"></i> Template
             </a>
