@@ -25,30 +25,30 @@ try {
     $date = $_GET['date'] ?? date('Y-m-d');
     
     if ($bookingId) {
-        // Get orders for specific booking
+        // Get orders for specific booking (include manual orders)
         $query = "SELECT bo.*, 
                          b.booking_code,
-                         g.guest_name,
-                         r.room_number
+                         COALESCE(g.guest_name, bo.guest_name) AS guest_name,
+                         COALESCE(r.room_number, bo.room_number) AS room_number
                   FROM breakfast_orders bo
-                  INNER JOIN bookings b ON bo.booking_id = b.id
-                  INNER JOIN guests g ON b.guest_id = g.id
-                  INNER JOIN rooms r ON b.room_id = r.id
-                  WHERE bo.booking_id = ?
+                  LEFT JOIN bookings b ON bo.booking_id = b.id
+                  LEFT JOIN guests g ON b.guest_id = g.id
+                  LEFT JOIN rooms r ON b.room_id = r.id
+                  WHERE (bo.booking_id = ? OR (bo.booking_id IS NULL AND bo.guest_name IS NOT NULL))
                   ORDER BY bo.breakfast_date DESC, bo.breakfast_time DESC";
         $orders = $db->fetchAll($query, [$bookingId]);
     } else {
-        // Get all orders for today
+        // Get all orders for today (include manual orders)
         $query = "SELECT bo.*, 
                          b.booking_code,
-                         g.guest_name,
-                         r.room_number
+                         COALESCE(g.guest_name, bo.guest_name) AS guest_name,
+                         COALESCE(r.room_number, bo.room_number) AS room_number
                   FROM breakfast_orders bo
-                  INNER JOIN bookings b ON bo.booking_id = b.id
-                  INNER JOIN guests g ON b.guest_id = g.id
-                  INNER JOIN rooms r ON b.room_id = r.id
+                  LEFT JOIN bookings b ON bo.booking_id = b.id
+                  LEFT JOIN guests g ON b.guest_id = g.id
+                  LEFT JOIN rooms r ON b.room_id = r.id
                   WHERE bo.breakfast_date = ?
-                  ORDER BY bo.breakfast_time ASC, r.room_number ASC";
+                  ORDER BY bo.breakfast_time ASC, room_number ASC";
         $orders = $db->fetchAll($query, [$date]);
     }
     
