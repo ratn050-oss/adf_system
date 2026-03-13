@@ -77,7 +77,7 @@ include '../../includes/header.php';
 
 <style>
 /* ===== LAPORAN PENCAIRAN - ELEGANT DESIGN ===== */
-.laporan-container { max-width: 900px; margin: 0 auto; padding: 1rem 1.5rem; }
+.laporan-container { max-width: 100%; margin: 0 auto; padding: 1rem 0.5rem; }
 
 .action-buttons { display: flex; gap: 0.5rem; justify-content: flex-end; margin-bottom: 1rem; flex-wrap: wrap; }
 .action-buttons .btn { padding: 0.45rem 1.1rem; border: none; border-radius: 8px; font-weight: 700; font-size: 0.8rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.4rem; transition: all 0.2s; color: #fff; letter-spacing: 0.3px; text-decoration: none; }
@@ -475,85 +475,6 @@ include '../../includes/header.php';
                 📱 Kirim WA
             </button>
         </div>
-    </div>
-
-    <!-- Print Area -->
-    <div class="print-area" id="printArea">
-        <div class="print-header">
-            <div style="display:flex;align-items:center;gap:0.75rem">
-                <?php if ($logoUrl): ?>
-                <img src="<?php echo htmlspecialchars($logoUrl); ?>" alt="Logo" class="print-logo">
-                <?php else: ?>
-                <div class="print-logo-icon"><?php echo $company['icon']; ?></div>
-                <?php endif; ?>
-                <div>
-                    <div class="print-company"><?php echo htmlspecialchars($company['name']); ?></div>
-                    <div class="print-address">
-                        <?php if ($company['address']): echo htmlspecialchars($company['address']); endif; ?>
-                        <?php if ($company['phone']): ?> | Tel: <?php echo htmlspecialchars($company['phone']); ?><?php endif; ?>
-                        <?php if ($company['email']): ?> | <?php echo htmlspecialchars($company['email']); ?><?php endif; ?>
-                    </div>
-                </div>
-            </div>
-            <div class="print-title-box">
-                <div class="print-doc-title">Pengajuan Pencairan Dana</div>
-                <div class="print-doc-date">Pembayaran Tagihan Bulanan</div>
-            </div>
-        </div>
-
-        <div class="print-meta">
-            <div><strong>Periode:</strong> <?= date('F Y', strtotime($filterMonth . '-01')) ?></div>
-            <div><strong>Tanggal:</strong> <?= date('d M Y') ?></div>
-        </div>
-
-        <table class="print-table">
-            <thead>
-                <tr>
-                    <th style="width:30px" class="text-center">No</th>
-                    <th>Tagihan</th>
-                    <th>Kategori</th>
-                    <th>Jatuh Tempo</th>
-                    <th>No. Rekening/ID</th>
-                    <th class="text-right">Nominal</th>
-                </tr>
-            </thead>
-            <tbody id="printTableBody">
-                <!-- Filled by JS -->
-            </tbody>
-            <tfoot>
-                <tr>
-                    <td colspan="5" class="text-right"><strong>TOTAL PENCAIRAN</strong></td>
-                    <td class="text-right" id="printTotal">Rp 0</td>
-                </tr>
-            </tfoot>
-        </table>
-
-        <div class="print-note">
-            <strong>Catatan:</strong> Mohon pencairan dana untuk pembayaran tagihan di atas. Dana akan digunakan untuk operasional bisnis sesuai dengan tagihan yang tertera.
-        </div>
-
-        <div class="signature-row">
-            <div class="signature-box">
-                <div class="sig-title">Diajukan oleh,</div>
-                <div class="sig-line"><?= htmlspecialchars($currentUser['full_name'] ?? $currentUser['username'] ?? 'Staff') ?></div>
-            </div>
-            <div class="signature-box">
-                <div class="sig-title">Disetujui oleh,</div>
-                <div class="sig-line">Owner</div>
-            </div>
-        </div>
-
-        <div class="print-footer">
-            Dicetak dari <span class="sys">ADF System</span> — <?= htmlspecialchars($company['name']) ?> © <?= date('Y') ?>
-            <br><?= date('d M Y, H:i') ?> WIB
-        </div>
-    </div>
-
-    <!-- Report Stamp (for screen) -->
-    <div class="report-stamp">
-        <div class="stamp-line">Dicetak oleh: <strong><?= htmlspecialchars($currentUser['full_name'] ?? $currentUser['username'] ?? 'User') ?></strong></div>
-        <div class="stamp-line">Dicetak dari <span class="stamp-system">ADF System</span> — <?= htmlspecialchars($company['name']) ?> © <?= date('Y') ?></div>
-        <div class="stamp-line"><?= date('d M Y, H:i') ?> WIB</div>
     </div>
 
     <?php endif; ?>
