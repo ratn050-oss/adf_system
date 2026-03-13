@@ -47,6 +47,9 @@ try {
     if ($deletedCount > 0) {
         error_log("Auto-cleaned $deletedCount duplicate breakfast orders for $today");
     }
+    
+    // Update existing rows that don't have order_hash
+    $pdo->exec("UPDATE breakfast_orders SET order_hash = MD5(CONCAT(guest_name, breakfast_date, breakfast_time, menu_items)) WHERE order_hash IS NULL OR order_hash = ''");
 } catch (Exception $e) {
     error_log("Cleanup error: " . $e->getMessage());
 }

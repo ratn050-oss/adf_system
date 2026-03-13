@@ -42,6 +42,7 @@ if (!empty($_SESSION['flash_error'])) {
 
 // ==================== AUTO-CLEANUP DUPLICATES ON PAGE LOAD ====================
 try {
+    // First, delete duplicates
     $cleanupQuery = "
         DELETE bo1 FROM breakfast_orders bo1
         INNER JOIN breakfast_orders bo2 
@@ -54,6 +55,9 @@ try {
     ";
     $cleanStmt = $pdo->prepare($cleanupQuery);
     $cleanStmt->execute([$today]);
+    
+    // Update existing rows that don't have order_hash
+    $pdo->exec("UPDATE breakfast_orders SET order_hash = MD5(CONCAT(guest_name, breakfast_date, breakfast_time, menu_items)) WHERE order_hash IS NULL OR order_hash = ''");
 } catch (Exception $e) {
     error_log("Breakfast cleanup error: " . $e->getMessage());
 }
@@ -259,45 +263,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $roomNumbers = [$roomNumbers];
             }
             
-            // === STRICT DUPLICATE CHECK ===
-            // Check if EXACT same order exists (guest + date + time + menu)
-            $menuJson = json_encode($menuItems);
-            $dupCheck = $pdo->prepare("SELECT id FROM breakfast_orders 
-                WHERE guest_name = ? AND breakfast_date = ? AND breakfast_time = ? 
-                AND menu_items = ?");
-            $dupCheck->execute([trim($_POST['guest_name']), $_POST['breakfast_date'], $_POST['breakfast_time'], $menuJson]);
+            // === CREATE UNIQUE INDEX TO PREVENT DUPLICATES AT DATABASE LEVEL ===
+            try {
+                $pdo->exec("ALTER TABLE breakfast_orders ADD COLUMN order_hash VARCHAR(32)");
+            } catch (Exception $e) { /* Column already exists */ }
+            try {
+                $pdo->exec("CREATE UNIQUE INDEX idx_order_unique ON breakfast_orders (order_hash)");
+            } catch (Exception $e) { /* Index already exists */ }
             
-            if ($dupCheck->fetch()) {
-                $_SESSION['flash_message'] = "⚠️ Order untuk " . htmlspecialchars(trim($_POST['guest_name'])) . " dengan menu yang sama sudah ada.";
+            // === INSERT with database-level uniqueness ===
+            $menuJson = json_encode($menuItems);
+            $orderHash = md5(trim($_POST['guest_name']) . $_POST['breakfast_date'] . $_POST['breakfast_time'] . $menuJson);
+            
+            try {
+                $stmt = $pdo->prepare("INSERT INTO breakfast_orders 
+                    (booking_id, guest_name, room_number, total_pax, breakfast_time, breakfast_date, location, 
+                     menu_items, special_requests, total_price, created_by, order_hash) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                $stmt->execute([
+                    !empty($_POST['booking_id']) ? (int)$_POST['booking_id'] : null,
+                    trim($_POST['guest_name']),
+                    json_encode($roomNumbers),
+                    (int)$_POST['total_pax'],
+                    $_POST['breakfast_time'],
+                    $_POST['breakfast_date'],
+                    $_POST['location'] ?? 'restaurant',
+                    $menuJson,
+                    !empty($_POST['special_requests']) ? trim($_POST['special_requests']) : null,
+                    $totalPrice,
+                    $validUserId,
+                    $orderHash
+                ]);
+                
+                $lastOrderId = $pdo->lastInsertId();
+                
+                $itemscount = count($menuItems);
+                $guestName = trim($_POST['guest_name']);
+                $_SESSION['flash_message'] = "✅ Berhasil! Pesanan untuk <strong>" . htmlspecialchars($guestName) . "</strong> tersimpan (ID #$lastOrderId)";
                 header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?'));
                 exit;
+                
+            } catch (PDOException $dupEx) {
+                // Error code 23000 is duplicate key violation
+                if ($dupEx->getCode() == 23000 || strpos($dupEx->getMessage(), 'Duplicate') !== false) {
+                    $_SESSION['flash_message'] = "⚠️ Order untuk " . htmlspecialchars(trim($_POST['guest_name'])) . " sudah ada.";
+                    header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?'));
+                    exit;
+                }
+                throw $dupEx; // Re-throw if it's a different error
             }
-            
-            $stmt = $pdo->prepare("INSERT INTO breakfast_orders 
-                (booking_id, guest_name, room_number, total_pax, breakfast_time, breakfast_date, location, 
-                 menu_items, special_requests, total_price, created_by) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-            $stmt->execute([
-                !empty($_POST['booking_id']) ? (int)$_POST['booking_id'] : null,
-                trim($_POST['guest_name']),
-                json_encode($roomNumbers),
-                (int)$_POST['total_pax'],
-                $_POST['breakfast_time'],
-                $_POST['breakfast_date'],
-                $_POST['location'] ?? 'restaurant',
-                json_encode($menuItems),
-                !empty($_POST['special_requests']) ? trim($_POST['special_requests']) : null,
-                $totalPrice,
-                $validUserId
-            ]);
-            
-            $lastOrderId = $pdo->lastInsertId();
-            
-            $itemscount = count($menuItems);
-            $guestName = trim($_POST['guest_name']);
-            $_SESSION['flash_message'] = "✅ Berhasil! Pesanan untuk <strong>" . htmlspecialchars($guestName) . "</strong> tersimpan (ID #$lastOrderId)";
-            header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?'));
-            exit;
         }
     } catch (Exception $e) {
         $error = "❌ Error: " . $e->getMessage();
