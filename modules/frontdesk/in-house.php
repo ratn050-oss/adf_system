@@ -694,7 +694,7 @@ function displayBreakfastOrders(orders, guestName) {
                 <div style="display: flex; justify-content: space-between; align-items: start; margin-bottom: 0.75rem;">
                     <div>
                         <div style="font-weight: 600; color: var(--primary);">${formattedDate} ${formattedTime}</div>
-                        <div style="font-size: 0.9rem; color: var(--text-secondary);">Room ${order.room_number} • ${order.total_pax} pax</div>
+                        <div style="font-size: 0.9rem; color: var(--text-secondary);">Room ${(() => { try { const r = JSON.parse(order.room_number); return Array.isArray(r) ? r.join(', ') : order.room_number; } catch(e) { return order.room_number || '-'; } })()} • ${order.total_pax} pax</div>
                     </div>
                     <span style="padding: 0.25rem 0.75rem; border-radius: 8px; font-size: 0.85rem; font-weight: 600; ${order.location === 'restaurant' ? 'background: rgba(99, 102, 241, 0.2); color: #6366f1;' : 'background: rgba(139, 92, 246, 0.2); color: #8b5cf6;'}">
                         ${order.location === 'restaurant' ? '🍽️ Restaurant' : '🚪 Room'}

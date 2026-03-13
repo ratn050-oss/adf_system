@@ -30,6 +30,16 @@ $today = date('Y-m-d');
 $message = '';
 $error = '';
 
+// ==================== FLASH MESSAGE (PRG Pattern) ====================
+if (!empty($_SESSION['flash_message'])) {
+    $message = $_SESSION['flash_message'];
+    unset($_SESSION['flash_message']);
+}
+if (!empty($_SESSION['flash_error'])) {
+    $error = $_SESSION['flash_error'];
+    unset($_SESSION['flash_error']);
+}
+
 // ==================== VALIDATE USER ID ====================
 // Check if current user exists in database before using in FK constraints
 $validUserId = null;
@@ -226,14 +236,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             
             $lastOrderId = $pdo->lastInsertId();
             
-            // Build detailed message
+            // Build detailed message & redirect (PRG pattern to prevent duplicates)
             $itemscount = count($menuItems);
             $guestName = trim($_POST['guest_name']);
-            $message = "✅ Berhasil! Pesanan sarapan untuk <strong>$guestName</strong> ($itemscount item menu) telah tersimpan dengan ID #$lastOrderId";
-            
-            // Don't redirect - show success and keep form visible for more entries
-            // header('Location: ' . $_SERVER['PHP_SELF']);
-            // exit;
+            $_SESSION['flash_message'] = "✅ Berhasil! Pesanan sarapan untuk <strong>" . htmlspecialchars($guestName) . "</strong> ($itemscount item menu) telah tersimpan dengan ID #$lastOrderId";
+            header('Location: ' . $_SERVER['PHP_SELF']);
+            exit;
         }
     } catch (Exception $e) {
         $error = "❌ Error: " . $e->getMessage();
@@ -245,6 +253,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 $editOrder = null;
 $editMenuIds = [];
 $editMenuQty = [];
+$editRooms = [];
 if (!empty($_GET['edit'])) {
     $editId = (int)$_GET['edit'];
     $editOrder = $db->fetchOne("SELECT * FROM breakfast_orders WHERE id = ?", [$editId]);
@@ -254,6 +263,9 @@ if (!empty($_GET['edit'])) {
             $editMenuIds[] = $item['menu_id'];
             $editMenuQty[$item['menu_id']] = $item['quantity'];
         }
+        // Decode room_number JSON array for edit mode
+        $decoded = json_decode($editOrder['room_number'], true);
+        $editRooms = is_array($decoded) ? $decoded : ($editOrder['room_number'] ? [$editOrder['room_number']] : []);
     }
 }
 
@@ -763,6 +775,119 @@ include '../../includes/header.php';
     .bf-menu-grid { grid-template-columns: 1fr; }
     .bf-radio-group { flex-direction: column; }
 }
+
+/* Multi-select Guest/Room Dropdown */
+.bf-guest-multiselect {
+    position: relative;
+}
+
+.bf-multiselect-toggle {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.55rem 0.65rem;
+    border-radius: 6px;
+    background: var(--bg-primary);
+    border: 1px solid var(--bg-tertiary);
+    color: var(--text-primary);
+    font-size: 0.85rem;
+    cursor: pointer;
+    transition: border-color 0.2s;
+    min-height: 38px;
+}
+
+.bf-multiselect-toggle:hover {
+    border-color: var(--primary-color);
+}
+
+.bf-multiselect-toggle.active {
+    border-color: var(--primary-color);
+    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
+}
+
+.bf-multiselect-dropdown {
+    display: none;
+    position: absolute;
+    top: 100%;
+    left: 0;
+    right: 0;
+    background: var(--bg-secondary);
+    border: 1px solid var(--primary-color);
+    border-radius: 0 0 8px 8px;
+    max-height: 250px;
+    overflow-y: auto;
+    z-index: 100;
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
+}
+
+.bf-multiselect-dropdown.show {
+    display: block;
+}
+
+.bf-guest-option {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.6rem 0.75rem;
+    cursor: pointer;
+    font-size: 0.82rem;
+    color: var(--text-primary);
+    border-bottom: 1px solid var(--bg-tertiary);
+    transition: background 0.15s;
+}
+
+.bf-guest-option:last-child {
+    border-bottom: none;
+}
+
+.bf-guest-option:hover {
+    background: rgba(99, 102, 241, 0.1);
+}
+
+.bf-guest-option input[type="checkbox"] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+    flex-shrink: 0;
+}
+
+.bf-guest-option.checked {
+    background: rgba(16, 185, 129, 0.1);
+}
+
+/* Room Tags */
+.bf-room-tags {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 0.35rem;
+    margin-top: 0.5rem;
+}
+
+.bf-room-tag {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.3rem 0.6rem;
+    background: rgba(99, 102, 241, 0.15);
+    border: 1px solid rgba(99, 102, 241, 0.3);
+    border-radius: 20px;
+    font-size: 0.72rem;
+    font-weight: 600;
+    color: var(--primary-color);
+}
+
+.bf-room-tag .remove-room {
+    cursor: pointer;
+    font-size: 0.85rem;
+    line-height: 1;
+    opacity: 0.7;
+    transition: opacity 0.15s;
+}
+
+.bf-room-tag .remove-room:hover {
+    opacity: 1;
+    color: #ef4444;
+}
 </style>
 
 <div class="bf-container">
@@ -799,28 +924,40 @@ include '../../includes/header.php';
                     <div class="bf-form-title">👤 Guest Information</div>
                     <div class="bf-form-row">
                         <div class="bf-form-group" style="grid-column: span 2;">
-                            <label class="bf-label">Select Guest (In House)</label>
-                            <select name="booking_id" id="guest_select" class="bf-input" onchange="fillGuestInfo(this)">
-                                <option value="">-- Walk-in / Manual --</option>
-                                <?php foreach ($inHouseGuests as $guest): ?>
-                                <option value="<?php echo $guest['booking_id']; ?>" 
-                                        data-name="<?php echo htmlspecialchars($guest['guest_name']); ?>"
-                                        data-room="<?php echo htmlspecialchars($guest['room_number']); ?>"
-                                        <?php echo ($editOrder && $editOrder['booking_id'] == $guest['booking_id']) ? 'selected' : ''; ?>>
-                                    Room <?php echo $guest['room_number']; ?> - <?php echo htmlspecialchars($guest['guest_name']); ?>
-                                </option>
-                                <?php endforeach; ?>
-                            </select>
+                            <label class="bf-label">Pilih Kamar Tamu (bisa lebih dari 1)</label>
+                            <div class="bf-guest-multiselect" id="guestMultiselect">
+                                <div class="bf-multiselect-toggle" id="guestToggle" onclick="toggleGuestDropdown()">
+                                    <span id="guestSelectLabel">-- Pilih Kamar / Walk-in --</span>
+                                    <span style="font-size: 0.7rem;">▼</span>
+                                </div>
+                                <div class="bf-multiselect-dropdown" id="guestDropdown">
+                                    <?php foreach ($inHouseGuests as $guest): ?>
+                                    <label class="bf-guest-option">
+                                        <input type="checkbox" class="guest-checkbox" 
+                                               value="<?php echo $guest['booking_id']; ?>"
+                                               data-name="<?php echo htmlspecialchars($guest['guest_name']); ?>"
+                                               data-room="<?php echo htmlspecialchars($guest['room_number']); ?>"
+                                               <?php echo (in_array($guest['room_number'], $editRooms)) ? 'checked' : ''; ?>
+                                               onchange="updateSelectedGuests()">
+                                        <span>🛏️ Room <?php echo $guest['room_number']; ?> — <?php echo htmlspecialchars($guest['guest_name']); ?></span>
+                                    </label>
+                                    <?php endforeach; ?>
+                                    <?php if (empty($inHouseGuests)): ?>
+                                    <div style="padding: 1rem; text-align: center; color: var(--text-muted); font-size: 0.8rem;">Tidak ada tamu in-house</div>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                            <div id="selectedRoomTags" class="bf-room-tags"></div>
+                            <input type="hidden" name="booking_id" id="booking_id" value="<?php echo $editOrder ? (int)$editOrder['booking_id'] : ''; ?>">
+                            <div id="roomInputsContainer"></div>
                         </div>
                     </div>
                     <div class="bf-form-row">
-                        <div class="bf-form-group">
-                            <label class="bf-label">Guest Name *</label>
-                            <input type="text" name="guest_name" id="guest_name" class="bf-input" required value="<?php echo $editOrder ? htmlspecialchars($editOrder['guest_name']) : ''; ?>">
-                        </div>
-                        <div class="bf-form-group">
-                            <label class="bf-label">Room Number</label>
-                            <input type="text" name="room_number" id="room_number" class="bf-input" value="<?php echo $editOrder ? htmlspecialchars($editOrder['room_number']) : ''; ?>">
+                        <div class="bf-form-group" style="grid-column: span 2;">
+                            <label class="bf-label">Nama Tamu *</label>
+                            <input type="text" name="guest_name" id="guest_name" class="bf-input" required 
+                                   placeholder="Otomatis terisi saat pilih kamar, atau ketik manual"
+                                   value="<?php echo $editOrder ? htmlspecialchars($editOrder['guest_name']) : ''; ?>">
                         </div>
                     </div>
                 </div>
@@ -967,8 +1104,15 @@ include '../../includes/header.php';
                     <span class="bf-order-pax"><?php echo $order['total_pax']; ?> pax</span>
                 </div>
                 <div class="bf-order-guest"><?php echo htmlspecialchars($order['guest_name']); ?></div>
-                <?php if (!empty($order['room_number']) || !empty($order['actual_room'])): ?>
-                <div class="bf-order-room">🛏️ Room <?php echo htmlspecialchars($order['room_number'] ?: $order['actual_room']); ?></div>
+                <?php 
+                    $roomDisplay = $order['room_number'] ?: $order['actual_room'];
+                    $decodedRooms = json_decode($roomDisplay, true);
+                    if (is_array($decodedRooms)) {
+                        $roomDisplay = implode(', ', $decodedRooms);
+                    }
+                ?>
+                <?php if (!empty($roomDisplay)): ?>
+                <div class="bf-order-room">🛏️ Room <?php echo htmlspecialchars($roomDisplay); ?></div>
                 <?php endif; ?>
                 <div class="bf-order-room"><?php echo $order['location'] === 'restaurant' ? '🍽️ Restaurant' : ($order['location'] === 'take_away' ? '🥡 Take Away' : '🚪 Room Service'); ?></div>
                 <div class="bf-order-menus">
@@ -1005,96 +1149,179 @@ include '../../includes/header.php';
 </div>
 
 <script>
-function fillGuestInfo(select) {
-    const option = select.options[select.selectedIndex];
-    if (option.value) {
-        document.getElementById('guest_name').value = option.dataset.name || '';
-        document.getElementById('room_number').value = option.dataset.room || '';
+// ==================== MULTI-SELECT GUEST/ROOM ====================
+let guestDropdownOpen = false;
+
+function toggleGuestDropdown() {
+    const dropdown = document.getElementById('guestDropdown');
+    const toggle = document.getElementById('guestToggle');
+    guestDropdownOpen = !guestDropdownOpen;
+    dropdown.classList.toggle('show', guestDropdownOpen);
+    toggle.classList.toggle('active', guestDropdownOpen);
+}
+
+// Close dropdown when clicking outside
+document.addEventListener('click', function(e) {
+    const multiselect = document.getElementById('guestMultiselect');
+    if (multiselect && !multiselect.contains(e.target)) {
+        guestDropdownOpen = false;
+        document.getElementById('guestDropdown').classList.remove('show');
+        document.getElementById('guestToggle').classList.remove('active');
+    }
+});
+
+function updateSelectedGuests() {
+    const checkboxes = document.querySelectorAll('.guest-checkbox:checked');
+    const names = [];
+    const rooms = [];
+    let firstBookingId = '';
+
+    // Update option styling
+    document.querySelectorAll('.guest-option-item, .bf-guest-option').forEach(opt => opt.classList.remove('checked'));
+
+    checkboxes.forEach(function(cb, idx) {
+        cb.closest('.bf-guest-option').classList.add('checked');
+        const name = cb.dataset.name;
+        const room = cb.dataset.room;
+        if (name && names.indexOf(name) === -1) names.push(name);
+        if (room) rooms.push(room);
+        if (idx === 0) firstBookingId = cb.value;
+    });
+
+    // Update label
+    const label = document.getElementById('guestSelectLabel');
+    if (rooms.length === 0) {
+        label.textContent = '-- Pilih Kamar / Walk-in --';
+    } else if (rooms.length === 1) {
+        label.textContent = 'Room ' + rooms[0] + ' — ' + names[0];
     } else {
-        document.getElementById('guest_name').value = '';
-        document.getElementById('room_number').value = '';
+        label.textContent = rooms.length + ' kamar dipilih (Room ' + rooms.join(', ') + ')';
+    }
+
+    // Update guest name
+    document.getElementById('guest_name').value = names.join(', ');
+
+    // Update booking_id (first selected)
+    document.getElementById('booking_id').value = firstBookingId;
+
+    // Render room tags
+    renderRoomTags(rooms, checkboxes);
+
+    // Create hidden inputs for room_number[]
+    const container = document.getElementById('roomInputsContainer');
+    container.innerHTML = '';
+    rooms.forEach(function(room) {
+        const input = document.createElement('input');
+        input.type = 'hidden';
+        input.name = 'room_number[]';
+        input.value = room;
+        container.appendChild(input);
+    });
+
+    // Auto-calculate total pax (1 per room as default suggestion)
+    const paxInput = document.getElementById('total_pax');
+    if (rooms.length > 0 && (!paxInput.value || paxInput.dataset.autoset === '1')) {
+        paxInput.value = rooms.length;
+        paxInput.dataset.autoset = '1';
+    }
+    if (rooms.length === 0) {
+        paxInput.dataset.autoset = '0';
     }
 }
 
-function toggleQuantity(checkbox) {
-    const menuItem = checkbox.closest('.bf-menu-item');
-    const qtyDiv = menuItem.querySelector('.bf-menu-qty');
-    
-    if (checkbox.checked) {
-        qtyDiv.style.display = 'flex';
-    } else {
-        qtyDiv.style.display = 'none';
-    }
+function renderRoomTags(rooms, checkboxes) {
+    const container = document.getElementById('selectedRoomTags');
+    container.innerHTML = '';
+    rooms.forEach(function(room, idx) {
+        const tag = document.createElement('span');
+        tag.className = 'bf-room-tag';
+        tag.innerHTML = '🛏️ Room ' + room + ' <span class="remove-room" onclick="removeRoom(' + idx + ')">&times;</span>';
+        container.appendChild(tag);
+    });
 }
 
-/**
- * CLEANER FORM VALIDATION
- * Validate form before submission
- */
+function removeRoom(idx) {
+    const checkboxes = document.querySelectorAll('.guest-checkbox:checked');
+    const arr = Array.from(checkboxes);
+    if (arr[idx]) {
+        arr[idx].checked = false;
+    }
+    updateSelectedGuests();
+}
+
+// ==================== FORM VALIDATION ====================
 function validateBreakfastForm(e) {
     const guestName = document.getElementById('guest_name').value.trim();
     const totalPax = document.getElementById('total_pax').value.trim();
     const breakfastTime = document.getElementById('breakfast_time').value.trim();
     const breakfastDate = document.getElementById('breakfast_date').value.trim();
-    
-    // Validate required fields
+
     if (!guestName) {
-        alert('❌ Guest name harus diisi!');
+        alert('❌ Nama tamu harus diisi!');
         document.getElementById('guest_name').focus();
         e.preventDefault();
         return false;
     }
-    
+
     if (!totalPax || parseInt(totalPax) < 1) {
         alert('❌ Total pax harus diisi (minimal 1)!');
         document.getElementById('total_pax').focus();
         e.preventDefault();
         return false;
     }
-    
+
     if (!breakfastTime) {
-        alert('❌ Breakfast time harus diisi!');
+        alert('❌ Waktu sarapan harus diisi!');
         document.getElementById('breakfast_time').focus();
         e.preventDefault();
         return false;
     }
-    
+
     if (!breakfastDate) {
-        alert('❌ Breakfast date harus diisi!');
+        alert('❌ Tanggal sarapan harus diisi!');
         document.getElementById('breakfast_date').focus();
         e.preventDefault();
         return false;
     }
-    
-    // Check that at least one menu item is selected
+
     const selectedMenus = document.querySelectorAll('input[name="menu_items[]"]:checked');
-    
     if (selectedMenus.length === 0) {
-        alert('❌ PILIH MINIMAL 1 MENU ITEM!\n\nSelect menu dari "Complimentary Breakfast" atau "Extra Items"');
+        alert('❌ PILIH MINIMAL 1 MENU ITEM!\n\nPilih menu dari "Complimentary Breakfast" atau "Extra Items"');
         e.preventDefault();
         return false;
     }
-    
-    console.log('✅ Validation PASSED. ' + selectedMenus.length + ' menu items selected. Form akan di-submit...');
-    return true; // Allow form to submit
+
+    // Ensure room_number hidden inputs exist if rooms were selected
+    const roomInputs = document.querySelectorAll('input[name="room_number[]"]');
+    // If no rooms selected via checkboxes, that's okay (walk-in)
+
+    return true;
 }
 
-// Attach validation to form
+// ==================== INIT ====================
 document.addEventListener('DOMContentLoaded', function() {
     const form = document.getElementById('breakfastOrderForm');
     if (form) {
         form.addEventListener('submit', validateBreakfastForm);
-        console.log('✅ breakfast form validation attached');
-    } else {
-        console.error('❌ Form dengan ID breakfastOrderForm tidak ditemukan!');
     }
-});
 
-// Auto-scroll to error messages
-window.addEventListener('load', function() {
-    const errorMsg = document.querySelector('.message.error');
-    if (errorMsg) {
-        errorMsg.scrollIntoView({ behavior: 'smooth', block: 'center' });
+    // If in edit mode, initialize selected guests from pre-checked checkboxes
+    const preChecked = document.querySelectorAll('.guest-checkbox:checked');
+    if (preChecked.length > 0) {
+        updateSelectedGuests();
+        // Don't override guest_name from edit data
+        const editName = document.getElementById('guest_name').dataset.editvalue;
+        if (editName) {
+            document.getElementById('guest_name').value = editName;
+        }
+    }
+
+    // Mark pax as manually set if user changes it
+    const paxInput = document.getElementById('total_pax');
+    if (paxInput) {
+        paxInput.addEventListener('input', function() {
+            this.dataset.autoset = '0';
+        });
     }
 });
 </script>

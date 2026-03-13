@@ -128,14 +128,14 @@ try {
     $breakfastQuery = "SELECT 
             bo.*,
             b.booking_code,
-            g.guest_name,
-            r.room_number
+            COALESCE(g.guest_name, bo.guest_name) AS guest_name,
+            COALESCE(r.room_number, bo.room_number) AS room_number
         FROM breakfast_orders bo
-        INNER JOIN bookings b ON bo.booking_id = b.id
-        INNER JOIN guests g ON b.guest_id = g.id
-        INNER JOIN rooms r ON b.room_id = r.id
+        LEFT JOIN bookings b ON bo.booking_id = b.id
+        LEFT JOIN guests g ON b.guest_id = g.id
+        LEFT JOIN rooms r ON b.room_id = r.id
         WHERE bo.breakfast_date = ?
-        ORDER BY bo.breakfast_time ASC, r.room_number ASC";
+        ORDER BY bo.breakfast_time ASC";
     $breakfastOrders = $db->fetchAll($breakfastQuery, [$today]);
     
     // Decode menu items
@@ -464,7 +464,11 @@ include '../../includes/header.php';
                 <?php foreach ($breakfastOrders as $order): ?>
                 <tr id="bf-row-<?php echo $order['id']; ?>">
                     <td><?php echo date('H:i', strtotime($order['breakfast_time'])); ?></td>
-                    <td><span class="room-tag"><?php echo htmlspecialchars($order['room_number']); ?></span></td>
+                    <td><span class="room-tag"><?php 
+                        $roomVal = $order['room_number'];
+                        $decodedR = json_decode($roomVal, true);
+                        echo htmlspecialchars(is_array($decodedR) ? implode(', ', $decodedR) : $roomVal);
+                    ?></span></td>
                     <td><?php echo htmlspecialchars($order['guest_name']); ?></td>
                     <td><?php echo $order['total_pax']; ?></td>
                     <td><span class="loc-tag loc-<?php echo $order['location']; ?>"><?php echo $order['location'] === 'restaurant' ? '🍽️ Restaurant' : ($order['location'] === 'take_away' ? '🥡 Take Away' : '🚪 Room Service'); ?></span></td>

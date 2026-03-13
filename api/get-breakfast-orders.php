@@ -52,9 +52,14 @@ try {
         $orders = $db->fetchAll($query, [$date]);
     }
     
-    // Decode menu_items JSON
+    // Decode JSON fields
     foreach ($orders as &$order) {
         $order['menu_items'] = json_decode($order['menu_items'], true);
+        // Decode room_number JSON array for display
+        $decodedRoom = json_decode($order['room_number'], true);
+        if (is_array($decodedRoom)) {
+            $order['room_number'] = implode(', ', $decodedRoom);
+        }
     }
     
     echo json_encode([
