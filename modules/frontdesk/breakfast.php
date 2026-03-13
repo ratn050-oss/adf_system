@@ -60,16 +60,27 @@ if (!empty($_SESSION['user_id'])) {
 
 // ==================== HANDLE BREAKFAST ORDER ====================
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
-    // === ANTI-DUPLICATE: Validate form token ===
+    // === ANTI-DUPLICATE LAYER 1: Session submission lock ===
+    $lastSubmitTime = $_SESSION['bf_last_submit_time'] ?? 0;
+    $currentTime = microtime(true);
+    
+    if ($currentTime - $lastSubmitTime < 3) {
+        // Block submissions within 3 seconds of each other
+        $_SESSION['flash_message'] = "⚠️ Mohon tunggu beberapa detik sebelum submit lagi.";
+        header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?'));
+        exit;
+    }
+    // Mark submission time IMMEDIATELY
+    $_SESSION['bf_last_submit_time'] = $currentTime;
+    
+    // === ANTI-DUPLICATE LAYER 2: Form token ===
     $formToken = $_POST['_form_token'] ?? '';
     $sessionToken = $_SESSION['bf_form_token'] ?? '';
     
     if (empty($formToken) || $formToken !== $sessionToken) {
-        // Token mismatch = duplicate submission or expired, redirect silently
         header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?'));
         exit;
     }
-    // Consume token so it can't be reused
     unset($_SESSION['bf_form_token']);
     
     try {
@@ -235,35 +246,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $roomNumbers = [$roomNumbers];
             }
             
-            // === ANTI-DUPLICATE: Check for identical recent order ===
-            $dupCheck = $pdo->prepare("SELECT id FROM breakfast_orders 
-                WHERE guest_name = ? AND breakfast_date = ? AND breakfast_time = ? AND created_at >= DATE_SUB(NOW(), INTERVAL 2 MINUTE)");
-            $dupCheck->execute([trim($_POST['guest_name']), $_POST['breakfast_date'], $_POST['breakfast_time']]);
-            if ($dupCheck->fetch()) {
-                $_SESSION['flash_message'] = "⚠️ Order untuk tamu ini sudah ada (dibuat kurang dari 2 menit lalu). Tidak dibuat ulang.";
-                header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?'));
-                exit;
+            // === ANTI-DUPLICATE LAYER 3: Database transaction with lock ===
+            $pdo->beginTransaction();
+            
+            try {
+                // Lock the table for this guest+date+time combination
+                $dupCheck = $pdo->prepare("SELECT id FROM breakfast_orders 
+                    WHERE guest_name = ? AND breakfast_date = ? AND breakfast_time = ? 
+                    AND created_at >= DATE_SUB(NOW(), INTERVAL 5 MINUTE) 
+                    FOR UPDATE");
+                $dupCheck->execute([trim($_POST['guest_name']), $_POST['breakfast_date'], $_POST['breakfast_time']]);
+                
+                if ($dupCheck->fetch()) {
+                    $pdo->rollBack();
+                    $_SESSION['flash_message'] = "⚠️ Order untuk tamu " . htmlspecialchars(trim($_POST['guest_name'])) . " sudah ada. Tidak dibuat ulang.";
+                    header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?'));
+                    exit;
+                }
+                
+                $stmt = $pdo->prepare("INSERT INTO breakfast_orders 
+                    (booking_id, guest_name, room_number, total_pax, breakfast_time, breakfast_date, location, 
+                     menu_items, special_requests, total_price, created_by) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                $stmt->execute([
+                    !empty($_POST['booking_id']) ? (int)$_POST['booking_id'] : null,
+                    trim($_POST['guest_name']),
+                    json_encode($roomNumbers),
+                    (int)$_POST['total_pax'],
+                    $_POST['breakfast_time'],
+                    $_POST['breakfast_date'],
+                    $_POST['location'] ?? 'restaurant',
+                    json_encode($menuItems),
+                    !empty($_POST['special_requests']) ? trim($_POST['special_requests']) : null,
+                    $totalPrice,
+                    $validUserId
+                ]);
+                
+                $lastOrderId = $pdo->lastInsertId();
+                $pdo->commit();
+                
+            } catch (Exception $e) {
+                $pdo->rollBack();
+                throw $e;
             }
-            
-            $stmt = $pdo->prepare("INSERT INTO breakfast_orders 
-                (booking_id, guest_name, room_number, total_pax, breakfast_time, breakfast_date, location, 
-                 menu_items, special_requests, total_price, created_by) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-            $orderId = $stmt->execute([
-                !empty($_POST['booking_id']) ? (int)$_POST['booking_id'] : null,
-                trim($_POST['guest_name']),
-                json_encode($roomNumbers),
-                (int)$_POST['total_pax'],
-                $_POST['breakfast_time'],
-                $_POST['breakfast_date'],
-                $_POST['location'] ?? 'restaurant',
-                json_encode($menuItems),
-                !empty($_POST['special_requests']) ? trim($_POST['special_requests']) : null,
-                $totalPrice,
-                $validUserId
-            ]);
-            
-            $lastOrderId = $pdo->lastInsertId();
             
             // Build detailed message & redirect (PRG pattern to prevent duplicates)
             $itemscount = count($menuItems);
@@ -1412,12 +1437,20 @@ function validateBreakfastForm(e) {
     const roomInputs = document.querySelectorAll('input[name="room_number[]"]');
     // If no rooms selected via checkboxes, that's okay (walk-in)
 
-    // === ANTI-DUPLICATE: Disable submit button ===
+    // === ANTI-DUPLICATE: Disable submit button IMMEDIATELY on click ===
     const submitBtn = document.querySelector('.bf-btn-submit');
     if (submitBtn) {
         submitBtn.disabled = true;
-        submitBtn.textContent = '⏳ Menyimpan...';
+        submitBtn.innerHTML = '⏳ Menyimpan...';
         submitBtn.style.opacity = '0.6';
+        submitBtn.style.pointerEvents = 'none';
+    }
+    
+    // Also disable form to prevent any resubmission
+    const form = document.getElementById('breakfastOrderForm');
+    if (form) {
+        form.style.pointerEvents = 'none';
+        form.style.opacity = '0.7';
     }
 
     return true;
