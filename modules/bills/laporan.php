@@ -222,6 +222,31 @@ include '../../includes/header.php';
 .supplier-form .btn-add-supplier { background: #f59e0b; color: #fff; border: none; padding: 0.45rem 1rem; border-radius: 6px; font-size: 0.78rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
 .supplier-form .btn-add-supplier:hover { background: #d97706; }
 
+/* Category with Add Button */
+.category-wrapper { display: flex; gap: 0.35rem; align-items: flex-end; }
+.category-wrapper select { flex: 1; }
+.btn-add-cat { background: #78350f; color: #fff; border: none; width: 32px; height: 32px; border-radius: 6px; font-size: 1rem; cursor: pointer; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+.btn-add-cat:hover { background: #92400e; }
+[data-theme="dark"] .btn-add-cat { background: #fcd34d; color: #78350f; }
+
+/* Add Category Modal */
+.cat-modal-overlay { display: none; position: fixed; top: 0; left: 0; right: 0; bottom: 0; background: rgba(0,0,0,0.5); z-index: 9999; align-items: center; justify-content: center; }
+.cat-modal-overlay.show { display: flex; }
+.cat-modal { background: #fff; border-radius: 12px; padding: 1.25rem; width: 90%; max-width: 360px; box-shadow: 0 10px 40px rgba(0,0,0,0.2); }
+[data-theme="dark"] .cat-modal { background: #1e293b; }
+.cat-modal-title { font-size: 0.9rem; font-weight: 700; color: #1e293b; margin: 0 0 1rem; display: flex; align-items: center; gap: 0.4rem; }
+[data-theme="dark"] .cat-modal-title { color: #e2e8f0; }
+.cat-modal .form-group { margin-bottom: 0.75rem; }
+.cat-modal .form-group label { display: block; font-size: 0.72rem; font-weight: 600; color: #64748b; margin-bottom: 0.25rem; }
+.cat-modal .form-group input, .cat-modal .form-group select { width: 100%; padding: 0.5rem 0.65rem; border: 1px solid #e2e8f0; border-radius: 6px; font-size: 0.78rem; background: #fff; color: #1e293b; }
+[data-theme="dark"] .cat-modal .form-group input, [data-theme="dark"] .cat-modal .form-group select { background: #334155; border-color: #475569; color: #e2e8f0; }
+.cat-modal-actions { display: flex; gap: 0.5rem; margin-top: 1rem; }
+.cat-modal-actions .btn { flex: 1; padding: 0.5rem; border: none; border-radius: 6px; font-size: 0.78rem; font-weight: 600; cursor: pointer; }
+.cat-modal-actions .btn-cancel { background: #e2e8f0; color: #64748b; }
+.cat-modal-actions .btn-cancel:hover { background: #cbd5e1; }
+.cat-modal-actions .btn-save { background: #f59e0b; color: #fff; }
+.cat-modal-actions .btn-save:hover { background: #d97706; }
+
 /* Added Supplier List */
 .added-suppliers { margin-top: 0.75rem; }
 .added-suppliers .supplier-item { display: flex; align-items: center; justify-content: space-between; background: #fff; border: 1px solid #fcd34d; border-radius: 8px; padding: 0.5rem 0.75rem; margin-bottom: 0.4rem; gap: 0.5rem; }
@@ -317,12 +342,17 @@ include '../../includes/header.php';
             </div>
             <div class="form-group">
                 <label>Kategori</label>
-                <select id="supplierCategory">
-                    <option value="food">🍽️ Makanan/Bahan</option>
-                    <option value="grocery">🛒 Belanja Harian</option>
-                    <option value="supply">📦 Perlengkapan</option>
-                    <option value="other">📋 Lainnya</option>
-                </select>
+                <div class="category-wrapper">
+                    <select id="supplierCategory">
+                        <option value="food">🍽️ Makanan/Bahan</option>
+                        <option value="grocery">🛒 Belanja Harian</option>
+                        <option value="supply">📦 Perlengkapan</option>
+                        <option value="transport">🚗 Transport</option>
+                        <option value="gas">⛽ BBM/Gas</option>
+                        <option value="other">📋 Lainnya</option>
+                    </select>
+                    <button type="button" class="btn-add-cat" onclick="openCategoryModal()" title="Tambah Kategori">+</button>
+                </div>
             </div>
             <div class="form-group">
                 <label>Nominal (Rp)</label>
@@ -334,6 +364,39 @@ include '../../includes/header.php';
         </div>
         <div class="added-suppliers" id="addedSuppliersList">
             <!-- Dynamically filled -->
+        </div>
+    </div>
+
+    <!-- Add Category Modal -->
+    <div class="cat-modal-overlay" id="catModal">
+        <div class="cat-modal">
+            <div class="cat-modal-title">➕ Tambah Kategori Baru</div>
+            <div class="form-group">
+                <label>Nama Kategori</label>
+                <input type="text" id="newCatName" placeholder="Contoh: Laundry">
+            </div>
+            <div class="form-group">
+                <label>Icon/Emoji</label>
+                <select id="newCatIcon">
+                    <option value="🍽️">🍽️ Makanan</option>
+                    <option value="🛒">🛒 Belanja</option>
+                    <option value="📦">📦 Paket</option>
+                    <option value="🚗">🚗 Kendaraan</option>
+                    <option value="⛽">⛽ BBM</option>
+                    <option value="🧹">🧹 Kebersihan</option>
+                    <option value="🔧">🔧 Perbaikan</option>
+                    <option value="💡">💡 Listrik</option>
+                    <option value="📱">📱 Komunikasi</option>
+                    <option value="🏥">🏥 Kesehatan</option>
+                    <option value="👕">👕 Laundry</option>
+                    <option value="🎨">🎨 Dekorasi</option>
+                    <option value="📋">📋 Lainnya</option>
+                </select>
+            </div>
+            <div class="cat-modal-actions">
+                <button type="button" class="btn btn-cancel" onclick="closeCategoryModal()">Batal</button>
+                <button type="button" class="btn btn-save" onclick="saveNewCategory()">Simpan</button>
+            </div>
         </div>
     </div>
 
@@ -560,8 +623,60 @@ const supplierCategories = {
     'food': { label: 'Makanan/Bahan', icon: '🍽️', color: '#ef4444' },
     'grocery': { label: 'Belanja Harian', icon: '🛒', color: '#f59e0b' },
     'supply': { label: 'Perlengkapan', icon: '📦', color: '#3b82f6' },
+    'transport': { label: 'Transport', icon: '🚗', color: '#06b6d4' },
+    'gas': { label: 'BBM/Gas', icon: '⛽', color: '#f97316' },
     'other': { label: 'Lainnya', icon: '📋', color: '#64748b' }
 };
+
+// Category Modal Functions
+function openCategoryModal() {
+    document.getElementById('catModal').classList.add('show');
+    document.getElementById('newCatName').value = '';
+    document.getElementById('newCatName').focus();
+}
+
+function closeCategoryModal() {
+    document.getElementById('catModal').classList.remove('show');
+}
+
+function saveNewCategory() {
+    const name = document.getElementById('newCatName').value.trim();
+    const icon = document.getElementById('newCatIcon').value;
+    
+    if (!name) {
+        alert('Masukkan nama kategori!');
+        document.getElementById('newCatName').focus();
+        return;
+    }
+    
+    // Create unique key
+    const key = 'custom_' + Date.now();
+    
+    // Add to supplierCategories
+    supplierCategories[key] = {
+        label: name,
+        icon: icon,
+        color: '#64748b'
+    };
+    
+    // Add to dropdown
+    const select = document.getElementById('supplierCategory');
+    const option = document.createElement('option');
+    option.value = key;
+    option.textContent = icon + ' ' + name;
+    select.appendChild(option);
+    
+    // Select the new category
+    select.value = key;
+    
+    // Close modal
+    closeCategoryModal();
+}
+
+// Close modal on overlay click
+document.getElementById('catModal')?.addEventListener('click', function(e) {
+    if (e.target === this) closeCategoryModal();
+});
 
 // Add supplier bill
 function addSupplierBill() {
@@ -584,7 +699,7 @@ function addSupplierBill() {
         return;
     }
     
-    const catInfo = supplierCategories[category];
+    const catInfo = supplierCategories[category] || supplierCategories['other'];
     const supplier = {
         id: 'supplier_' + supplierIdCounter++,
         name: name,
