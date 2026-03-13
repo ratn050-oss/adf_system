@@ -815,12 +815,12 @@ if ($trialStatus) {
                 </div>
             </div>
             <div style="padding: 0.75rem; background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(16, 185, 129, 0.05)); border-radius: 8px; border-left: 4px solid var(--success);">
-                <div style="font-size: 0.75rem; color: var(--success); font-weight: 600; margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.05em;"><?php echo $isCQC ? 'Kas Besar (Invoice)' : 'Total Pemasukan'; ?></div>
+                <div style="font-size: 0.75rem; color: var(--success); font-weight: 600; margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.05em;"><?php echo $isCQC ? 'Saldo Kas Besar General' : 'Total Pemasukan'; ?></div>
                 <div id="totalIncome" style="font-size: 1.5rem; font-weight: 800; color: var(--success);">
                     <?php 
                     $totalIncome = array_sum(array_column($dailyData, 'income'));
-                    // CQC: Show invoice income minus petty cash transfers (money remaining in Kas Besar)
-                    $displayIncome = $isCQC ? ($totalIncome - ($cqcPettyCashTransfers ?? 0)) : $totalIncome;
+                    // CQC: Show invoice income minus petty cash transfers and bank expenses (money remaining in Kas Besar)
+                    $displayIncome = $isCQC ? ($totalIncome - ($cqcPettyCashTransfers ?? 0) - ($cqcExpenseFromBank ?? 0)) : $totalIncome;
                     echo formatCurrency($displayIncome);
                     ?>
                 </div>
