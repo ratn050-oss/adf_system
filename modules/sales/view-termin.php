@@ -624,7 +624,7 @@ foreach ($possibleLogos as $logoInfo) {
             font-size: 9px;
             color: var(--gray-500);
             font-weight: 500;
-            margin-bottom: 60px;
+            margin-bottom: 72px;
         }
         
         .sig-block .line {

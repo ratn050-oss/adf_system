@@ -372,7 +372,7 @@ if ($companyLogo && strpos($companyLogo, 'http') === 0) {
         /* Signatures */
         .signatures { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; margin-top: 20px; padding: 0 30px; }
         .sig-block { text-align: center; }
-        .sig-block .role { font-size: 9px; color: var(--gray-500); font-weight: 500; margin-bottom: 60px; }
+        .sig-block .role { font-size: 9px; color: var(--gray-500); font-weight: 500; margin-bottom: 72px; }
         .sig-block .line { border-top: 1px solid var(--navy); padding-top: 8px; }
         .sig-block .name { font-size: 10px; font-weight: 700; color: var(--navy); }
         
