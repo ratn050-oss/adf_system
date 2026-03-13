@@ -783,7 +783,7 @@ include '../../includes/header.php';
 <!-- Stats Cards -->
 <div class="bills-stats">
     <div class="bills-stat-card pending">
-        <div class="bills-stat-label">Belum Dibayar</div>
+        <div class="bills-stat-label">Perkiraan Tagihan</div>
         <div class="bills-stat-value"><?= formatCurrency($totalPending) ?></div>
         <div class="bills-stat-count"><?= $countPending ?> tagihan</div>
     </div>
@@ -915,6 +915,13 @@ include '../../includes/header.php';
                             <a href="<?= BASE_URL ?>/modules/bills/edit-record.php?id=<?= $bill['id'] ?>" class="bill-action-btn edit" title="Edit">
                                 <i data-feather="edit-2"></i>
                             </a>
+                            <?php if ($bill['status'] !== 'paid'): ?>
+                            <a href="<?= BASE_URL ?>/modules/bills/edit-record.php?id=<?= $bill['id'] ?>&delete=1" 
+                               class="bill-action-btn delete" title="Hapus"
+                               onclick="return confirm('Hapus tagihan ini?');">
+                                <i data-feather="trash-2"></i>
+                            </a>
+                            <?php endif; ?>
                         </div>
                     </td>
                 </tr>

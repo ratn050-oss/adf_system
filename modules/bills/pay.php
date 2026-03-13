@@ -177,7 +177,7 @@ try {
         'cashbook_id' => $cashbookId,
         'notes' => $notes,
         'paid_by' => $currentUser['id'] ?? null
-    ], 'id = ?', [$recordId]);
+    ], 'id = :id', ['id' => $recordId]);
     
     $db->commit();
     

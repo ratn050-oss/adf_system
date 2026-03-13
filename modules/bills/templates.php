@@ -44,7 +44,7 @@ if (isset($_GET['toggle']) && is_numeric($_GET['toggle'])) {
         $tpl = $db->fetchOne("SELECT is_active FROM bill_templates WHERE id = ?", [$togId]);
         if ($tpl) {
             $newStatus = $tpl['is_active'] ? 0 : 1;
-            $db->update('bill_templates', ['is_active' => $newStatus], 'id = ?', [$togId]);
+            $db->update('bill_templates', ['is_active' => $newStatus], 'id = :id', ['id' => $togId]);
             setFlash('success', 'Template ' . ($newStatus ? 'diaktifkan' : 'dinonaktifkan'));
         }
     } catch (Exception $e) {
@@ -78,7 +78,7 @@ if (isPost()) {
     } else {
         try {
             if ($editId) {
-                $db->update('bill_templates', $data, 'id = ?', [$editId]);
+                $db->update('bill_templates', $data, 'id = :id', ['id' => $editId]);
                 setFlash('success', 'Template "' . $data['bill_name'] . '" berhasil diperbarui');
             } else {
                 $data['created_by'] = $currentUser['id'] ?? 1;

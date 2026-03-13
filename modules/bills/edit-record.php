@@ -48,7 +48,7 @@ if (isset($_GET['delete'])) {
         setFlash('error', 'Tidak bisa menghapus tagihan yang sudah dibayar');
     } else {
         try {
-            $db->delete('bill_records', 'id = ?', [$recordId]);
+            $db->delete('bill_records', 'id = :id', ['id' => $recordId]);
             setFlash('success', 'Tagihan berhasil dihapus');
         } catch (Exception $e) {
             setFlash('error', 'Gagal menghapus: ' . $e->getMessage());
@@ -64,7 +64,7 @@ if (isset($_GET['unpay']) && $record['status'] === 'paid') {
         
         // Delete cashbook entry if exists
         if ($record['cashbook_id']) {
-            $db->delete('cash_book', 'id = ?', [$record['cashbook_id']]);
+            $db->delete('cash_book', 'id = :id', ['id' => $record['cashbook_id']]);
         }
         
         // Revert bill to pending/overdue
@@ -76,7 +76,7 @@ if (isset($_GET['unpay']) && $record['status'] === 'paid') {
             'payment_method' => null,
             'cashbook_id' => null,
             'paid_by' => null,
-        ], 'id = ?', [$recordId]);
+        ], 'id = :id', ['id' => $recordId]);
         
         $db->commit();
         setFlash('success', 'Pembayaran tagihan "' . $record['bill_name'] . '" berhasil dibatalkan');
@@ -107,7 +107,7 @@ if (isPost()) {
         setFlash('error', 'Nominal dan jatuh tempo wajib diisi');
     } else {
         try {
-            $db->update('bill_records', $data, 'id = ?', [$recordId]);
+            $db->update('bill_records', $data, 'id = :id', ['id' => $recordId]);
             setFlash('success', 'Tagihan "' . $record['bill_name'] . '" berhasil diperbarui');
             redirect(BASE_URL . '/modules/bills/');
         } catch (Exception $e) {
