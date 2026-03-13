@@ -153,7 +153,7 @@ include '../../includes/header.php';
 
 <style>
 /* ===== LAPORAN HARIAN - ELEGANT COMPACT ===== */
-.laporan-container { max-width: 900px; margin: 0 auto; padding: 1rem 1.5rem; }
+.laporan-container { max-width: 100%; margin: 0 auto; padding: 1rem 0.5rem; }
 
 .action-buttons { display: flex; gap: 0.5rem; justify-content: flex-end; margin-bottom: 1rem; }
 .action-buttons .btn { padding: 0.45rem 1.1rem; border: none; border-radius: 8px; font-weight: 700; font-size: 0.8rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.4rem; transition: all 0.2s; color: #fff; letter-spacing: 0.3px; }
@@ -266,7 +266,7 @@ include '../../includes/header.php';
 }
 
 @media (max-width: 640px) {
-    .laporan-container { padding: 0.75rem; }
+    .laporan-container { padding: 0.5rem; }
     .stats-row { grid-template-columns: repeat(2, 1fr); }
     .report-header { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
     .report-header-right { text-align: left; }
