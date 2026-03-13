@@ -1010,7 +1010,7 @@ include '../../includes/header.php';
     <div class="bf-layout">
         <!-- Form -->
         <div class="bf-form-card">
-            <form method="POST" action="" id="breakfastOrderForm">
+            <form method="POST" action="" id="breakfastOrderForm" autocomplete="off">
                 <input type="hidden" name="action" value="<?php echo $editOrder ? 'update_order' : 'create_order'; ?>">
                 <?php 
                 // Generate unique form token to prevent duplicate submission
@@ -1430,15 +1430,52 @@ document.addEventListener('DOMContentLoaded', function() {
         form.addEventListener('submit', validateBreakfastForm);
     }
 
-    // If in edit mode, initialize selected guests from pre-checked checkboxes
-    const preChecked = document.querySelectorAll('.guest-checkbox:checked');
-    if (preChecked.length > 0) {
-        updateSelectedGuests();
-        // Don't override guest_name from edit data
-        const editName = document.getElementById('guest_name').dataset.editvalue;
-        if (editName) {
-            document.getElementById('guest_name').value = editName;
+    const isEditMode = <?php echo $editOrder ? 'true' : 'false'; ?>;
+
+    if (isEditMode) {
+        // Edit mode: initialize selected guests from pre-checked checkboxes
+        const preChecked = document.querySelectorAll('.guest-checkbox:checked');
+        if (preChecked.length > 0) {
+            updateSelectedGuests();
         }
+        // Preserve edit guest name
+        document.getElementById('guest_name').value = <?php echo $editOrder ? json_encode($editOrder['guest_name']) : '""'; ?>;
+    } else {
+        // === CREATE MODE: Force-reset form to prevent browser cache ===
+        // Uncheck ALL guest checkboxes
+        document.querySelectorAll('.guest-checkbox').forEach(function(cb) {
+            cb.checked = false;
+        });
+        // Clear guest info
+        document.getElementById('guest_name').value = '';
+        document.getElementById('booking_id').value = '';
+        document.getElementById('roomInputsContainer').innerHTML = '';
+        document.getElementById('selectedRoomTags').innerHTML = '';
+        document.getElementById('guestSelectLabel').textContent = '-- Pilih Kamar / Walk-in --';
+        
+        // Clear pax & time (keep date as today)
+        document.getElementById('total_pax').value = '';
+        document.getElementById('breakfast_time').value = '';
+        
+        // Uncheck ALL menu checkboxes
+        document.querySelectorAll('input[name="menu_items[]"]').forEach(function(cb) {
+            cb.checked = false;
+        });
+        // Reset all qty to 1
+        document.querySelectorAll('.bf-qty-input').forEach(function(inp) {
+            inp.value = 1;
+        });
+        // Clear all menu notes
+        document.querySelectorAll('.bf-note-input').forEach(function(inp) {
+            inp.value = '';
+        });
+        // Clear special requests
+        var sr = document.getElementById('special_requests');
+        if (sr) sr.value = '';
+        
+        // Reset location to restaurant
+        var restRadio = document.querySelector('input[name="location"][value="restaurant"]');
+        if (restRadio) restRadio.checked = true;
     }
 
     // Mark pax as manually set if user changes it
