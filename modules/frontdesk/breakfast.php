@@ -40,9 +40,9 @@ if (!empty($_SESSION['flash_error'])) {
     unset($_SESSION['flash_error']);
 }
 
-// ==================== AUTO-CLEANUP DUPLICATES ON PAGE LOAD ====================
+// ==================== AUTO-CLEANUP ALL DUPLICATES ON PAGE LOAD ====================
 try {
-    // First, delete duplicates
+    // Delete ALL duplicates (not just today) - keep the one with lowest ID
     $cleanupQuery = "
         DELETE bo1 FROM breakfast_orders bo1
         INNER JOIN breakfast_orders bo2 
@@ -51,13 +51,17 @@ try {
            AND bo1.breakfast_time = bo2.breakfast_time
            AND bo1.menu_items = bo2.menu_items
            AND bo1.id > bo2.id
-        WHERE bo1.breakfast_date = ?
     ";
-    $cleanStmt = $pdo->prepare($cleanupQuery);
-    $cleanStmt->execute([$today]);
+    $pdo->exec($cleanupQuery);
     
-    // Update existing rows that don't have order_hash
+    // Add order_hash column if not exists
+    try { $pdo->exec("ALTER TABLE breakfast_orders ADD COLUMN order_hash VARCHAR(32)"); } catch (Exception $e) {}
+    
+    // Update all rows without order_hash
     $pdo->exec("UPDATE breakfast_orders SET order_hash = MD5(CONCAT(guest_name, breakfast_date, breakfast_time, menu_items)) WHERE order_hash IS NULL OR order_hash = ''");
+    
+    // Try to add unique index (will fail silently if exists)
+    try { $pdo->exec("ALTER TABLE breakfast_orders ADD UNIQUE INDEX idx_order_unique (order_hash)"); } catch (Exception $e) {}
 } catch (Exception $e) {
     error_log("Breakfast cleanup error: " . $e->getMessage());
 }
@@ -263,18 +267,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $roomNumbers = [$roomNumbers];
             }
             
-            // === CREATE UNIQUE INDEX TO PREVENT DUPLICATES AT DATABASE LEVEL ===
-            try {
-                $pdo->exec("ALTER TABLE breakfast_orders ADD COLUMN order_hash VARCHAR(32)");
-            } catch (Exception $e) { /* Column already exists */ }
-            try {
-                $pdo->exec("CREATE UNIQUE INDEX idx_order_unique ON breakfast_orders (order_hash)");
-            } catch (Exception $e) { /* Index already exists */ }
-            
-            // === INSERT with database-level uniqueness ===
+            // === DUPLICATE CHECK FIRST ===
             $menuJson = json_encode($menuItems);
             $orderHash = md5(trim($_POST['guest_name']) . $_POST['breakfast_date'] . $_POST['breakfast_time'] . $menuJson);
             
+            // Check if this exact order already exists
+            $checkStmt = $pdo->prepare("SELECT id FROM breakfast_orders WHERE order_hash = ? OR (guest_name = ? AND breakfast_date = ? AND breakfast_time = ? AND menu_items = ?)");
+            $checkStmt->execute([$orderHash, trim($_POST['guest_name']), $_POST['breakfast_date'], $_POST['breakfast_time'], $menuJson]);
+            if ($checkStmt->fetch()) {
+                $_SESSION['flash_message'] = "⚠️ Order untuk " . htmlspecialchars(trim($_POST['guest_name'])) . " sudah ada!";
+                header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?'));
+                exit;
+            }
+            
+            // === INSERT ===
             try {
                 $stmt = $pdo->prepare("INSERT INTO breakfast_orders 
                     (booking_id, guest_name, room_number, total_pax, breakfast_time, breakfast_date, location, 

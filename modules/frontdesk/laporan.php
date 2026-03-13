@@ -31,6 +31,8 @@ $todayDisplay = date('l, d F Y');
 // Simpan yang ID paling kecil (paling awal dibuat)
 try {
     $pdo = $db->getConnection();
+    
+    // Delete ALL duplicates (not just today)
     $cleanupQuery = "
         DELETE bo1 FROM breakfast_orders bo1
         INNER JOIN breakfast_orders bo2 
@@ -39,17 +41,17 @@ try {
            AND bo1.breakfast_time = bo2.breakfast_time
            AND bo1.menu_items = bo2.menu_items
            AND bo1.id > bo2.id
-        WHERE bo1.breakfast_date = ?
     ";
-    $cleanStmt = $pdo->prepare($cleanupQuery);
-    $cleanStmt->execute([$today]);
-    $deletedCount = $cleanStmt->rowCount();
-    if ($deletedCount > 0) {
-        error_log("Auto-cleaned $deletedCount duplicate breakfast orders for $today");
-    }
+    $pdo->exec($cleanupQuery);
     
-    // Update existing rows that don't have order_hash
+    // Add order_hash column if not exists
+    try { $pdo->exec("ALTER TABLE breakfast_orders ADD COLUMN order_hash VARCHAR(32)"); } catch (Exception $e) {}
+    
+    // Update all rows without order_hash
     $pdo->exec("UPDATE breakfast_orders SET order_hash = MD5(CONCAT(guest_name, breakfast_date, breakfast_time, menu_items)) WHERE order_hash IS NULL OR order_hash = ''");
+    
+    // Try to add unique index
+    try { $pdo->exec("ALTER TABLE breakfast_orders ADD UNIQUE INDEX idx_order_unique (order_hash)"); } catch (Exception $e) {}
 } catch (Exception $e) {
     error_log("Cleanup error: " . $e->getMessage());
 }
