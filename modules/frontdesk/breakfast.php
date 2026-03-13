@@ -167,7 +167,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 id INT PRIMARY KEY AUTO_INCREMENT,
                 booking_id INT NULL,
                 guest_name VARCHAR(100) NOT NULL,
-                room_number VARCHAR(20),
+                room_number TEXT,
                 total_pax INT NOT NULL,
                 breakfast_time TIME NOT NULL,
                 breakfast_date DATE NOT NULL,
@@ -187,6 +187,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             // Add take_away to location enum if not exists
             try {
                 $pdo->exec("ALTER TABLE breakfast_orders MODIFY COLUMN location ENUM('restaurant', 'room_service', 'take_away') DEFAULT 'restaurant'");
+            } catch (Exception $e) { /* already updated */ }
+            
+            // Upgrade room_number to TEXT for JSON storage
+            try {
+                $pdo->exec("ALTER TABLE breakfast_orders MODIFY COLUMN room_number TEXT");
             } catch (Exception $e) { /* already updated */ }
             
             // ===== VALIDATION =====
