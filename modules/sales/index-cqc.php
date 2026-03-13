@@ -760,6 +760,15 @@ include '../../includes/header.php';
                                     <a href="edit-quotation.php?id=<?php echo $quot['id']; ?>" class="cqc-action-btn" title="Edit" style="background: #f1f5f9; color: #475569;">
                                         ✏️
                                     </a>
+                                    <?php if ($quot['status'] !== 'approved'): ?>
+                                    <button type="button" class="cqc-action-btn" title="ACC - Terima & Buat Proyek" style="background: #22c55e; color: white; font-weight: 700;" onclick="accQuotation(<?php echo $quot['id']; ?>, '<?php echo addslashes($quot['quote_number']); ?>')">
+                                        ✓ ACC
+                                    </button>
+                                    <?php else: ?>
+                                    <span class="cqc-action-btn" style="background: #dcfce7; color: #166534; cursor: default;">
+                                        ✓
+                                    </span>
+                                    <?php endif; ?>
                                     <a href="create-termin.php?from_quotation=<?php echo $quot['id']; ?>" class="cqc-action-btn" title="Buat Invoice Termin 1 dari Quotation" style="background: #e8f5e9; color: #2e7d32; font-size: 13px;" onclick="return confirm('Buat Invoice Termin 1 dari Quotation <?php echo addslashes($quot['quote_number']); ?>?')">
                                         🧾
                                     </a>
@@ -853,6 +862,33 @@ function deleteGeneralInvoice(id, invoiceNum) {
 function deleteQuotation(id, quoteNum) {
     if (confirm('⚠️ Hapus quotation ' + quoteNum + '?\n\nData akan dihapus permanen!')) {
         window.location.href = 'delete-quotation.php?id=' + id;
+    }
+}
+
+function accQuotation(id, quoteNum) {
+    if (confirm('✅ ACC Quotation ' + quoteNum + '?\n\n• Status quotation akan berubah menjadi "Disetujui"\n• Proyek baru akan dibuat otomatis dari data quotation ini\n• Data customer akan ditambahkan ke database\n\nLanjutkan?')) {
+        // Show loading state
+        const btn = event.target;
+        btn.disabled = true;
+        btn.innerHTML = '⏳';
+        
+        fetch('acc-quotation.php?id=' + id)
+            .then(response => response.json())
+            .then(data => {
+                if (data.success) {
+                    alert('✅ Sukses!\n\n• Quotation telah di-ACC\n• Proyek baru telah dibuat: ' + (data.project_code || ''));
+                    window.location.reload();
+                } else {
+                    alert('❌ Gagal: ' + (data.message || 'Terjadi kesalahan'));
+                    btn.disabled = false;
+                    btn.innerHTML = '✓ ACC';
+                }
+            })
+            .catch(error => {
+                alert('❌ Error: ' + error.message);
+                btn.disabled = false;
+                btn.innerHTML = '✓ ACC';
+            });
     }
 }
 

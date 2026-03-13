@@ -297,6 +297,20 @@ function ensureCQCQuotationTable($pdo) {
         }
         // Patch status ENUM to include 'approved'
         $pdo->exec("ALTER TABLE cqc_quotations MODIFY COLUMN status ENUM('draft','sent','approved','rejected','expired') DEFAULT 'draft'");
+        
+        // Add project-related columns for quotation as main entry point
+        if ($pdo->query("SHOW COLUMNS FROM cqc_quotations LIKE 'project_name'")->rowCount() === 0) {
+            $pdo->exec("ALTER TABLE cqc_quotations ADD COLUMN project_name VARCHAR(200) AFTER subject");
+        }
+        if ($pdo->query("SHOW COLUMNS FROM cqc_quotations LIKE 'project_location'")->rowCount() === 0) {
+            $pdo->exec("ALTER TABLE cqc_quotations ADD COLUMN project_location TEXT AFTER project_name");
+        }
+        if ($pdo->query("SHOW COLUMNS FROM cqc_quotations LIKE 'solar_capacity_kwp'")->rowCount() === 0) {
+            $pdo->exec("ALTER TABLE cqc_quotations ADD COLUMN solar_capacity_kwp DECIMAL(10,2) DEFAULT 0 AFTER project_location");
+        }
+        if ($pdo->query("SHOW COLUMNS FROM cqc_quotations LIKE 'project_id'")->rowCount() === 0) {
+            $pdo->exec("ALTER TABLE cqc_quotations ADD COLUMN project_id INT NULL AFTER id");
+        }
     } catch (Exception $e) {}
     
     return true;

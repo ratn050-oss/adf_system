@@ -69,6 +69,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 client_phone = ?,
                 client_email = ?,
                 subject = ?,
+                project_name = ?,
+                project_location = ?,
+                solar_capacity_kwp = ?,
                 subtotal = ?,
                 discount_type = ?,
                 discount_value = ?,
@@ -101,6 +104,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $_POST['client_phone'],
             $_POST['client_email'],
             $_POST['subject'],
+            trim($_POST['project_name'] ?? ''),
+            trim($_POST['project_location'] ?? ''),
+            floatval($_POST['solar_capacity_kwp'] ?? 0),
             $subtotal,
             $discountType,
             $discountValue,
@@ -359,6 +365,34 @@ include '../../includes/header.php';
             <label class="form-label">Alamat</label>
             <textarea name="client_address" id="clientAddress" class="form-textarea" rows="2"><?php echo htmlspecialchars($quotation['client_address'] ?? ''); ?></textarea>
         </div>
+        
+        <div class="section-title">☀️ Informasi Proyek</div>
+        
+        <div class="form-row">
+            <div class="form-group">
+                <label class="form-label">Nama Proyek *</label>
+                <input type="text" name="project_name" class="form-input" value="<?php echo htmlspecialchars($quotation['project_name'] ?? ''); ?>" required placeholder="Contoh: Solar Panel PT. ABC">
+            </div>
+            <div class="form-group">
+                <label class="form-label">Kapasitas (KWp)</label>
+                <input type="number" name="solar_capacity_kwp" class="form-input" value="<?php echo htmlspecialchars($quotation['solar_capacity_kwp'] ?? ''); ?>" step="0.1" min="0" placeholder="3.5">
+            </div>
+        </div>
+        
+        <div class="form-group">
+            <label class="form-label">Lokasi Proyek *</label>
+            <input type="text" name="project_location" class="form-input" value="<?php echo htmlspecialchars($quotation['project_location'] ?? ''); ?>" required placeholder="Alamat lengkap lokasi proyek">
+        </div>
+        
+        <?php if ($quotation['status'] !== 'approved'): ?>
+        <p style="margin: 10px 0 0 0; font-size: 12px; color: #64748b;">
+            <strong>💡 Info:</strong> Data proyek di atas akan otomatis membuat proyek baru saat quotation di-ACC oleh klien.
+        </p>
+        <?php else: ?>
+        <p style="margin: 10px 0 0 0; font-size: 12px; color: #22c55e;">
+            <strong>✅ ACC:</strong> Quotation ini sudah di-ACC dan proyek telah dibuat.
+        </p>
+        <?php endif; ?>
         
         <div class="section-title">📦 Item Penawaran</div>
         

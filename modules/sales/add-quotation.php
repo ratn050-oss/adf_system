@@ -93,17 +93,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         
         $totalAmount = $afterDiscount + $ppnAmt;
         
+        // Get project fields
+        $projectName = trim($_POST['project_name'] ?? '');
+        $projectLocation = trim($_POST['project_location'] ?? '');
+        $solarCapacityKwp = floatval($_POST['solar_capacity_kwp'] ?? 0);
+        
         // Insert quotation
         $stmt = $pdo->prepare("
             INSERT INTO cqc_quotations 
             (quote_number, quote_date, valid_until, client_name, client_attn, client_phone, client_email, client_address, 
-             subject, notes, terms_conditions,
+             subject, project_name, project_location, solar_capacity_kwp, notes, terms_conditions,
              subtotal, discount_percentage, discount_amount, ppn_percentage, ppn_amount, total_amount, created_by)
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
         ");
         $stmt->execute([
             $quoteNumber, $quoteDate, $validUntil, $clientName, $clientAttn, $clientPhone, $clientEmail, $clientAddress,
-            $subject, $notes, $termsConditions,
+            $subject, $projectName, $projectLocation, $solarCapacityKwp, $notes, $termsConditions,
             $subtotal, $discountPct, $discountAmt, $ppnPct, $ppnAmt, $totalAmount, 
             $_SESSION['user_id'] ?? 1
         ]);
@@ -287,6 +292,31 @@ include '../../includes/header.php';
                         <input type="email" name="client_email" id="client_email" placeholder="email@example.com">
                     </div>
                 </div>
+            </div>
+        </div>
+        
+        <!-- Project Info (for auto-create project when ACC) -->
+        <div class="card">
+            <div class="card-head">☀️ Informasi Proyek</div>
+            <div class="card-body">
+                <div class="form-grid">
+                    <div class="form-group">
+                        <label>Nama Proyek *</label>
+                        <input type="text" name="project_name" id="project_name" required placeholder="Contoh: Solar Panel PT. ABC">
+                    </div>
+                    <div class="form-group">
+                        <label>Kapasitas (KWp)</label>
+                        <input type="number" name="solar_capacity_kwp" step="0.1" min="0" placeholder="3.5">
+                        <small style="color: #64748b; font-size: 11px;">Kilowatt Peak</small>
+                    </div>
+                    <div class="form-group" style="grid-column: span 2;">
+                        <label>Lokasi Proyek *</label>
+                        <input type="text" name="project_location" id="project_location" required placeholder="Alamat lengkap lokasi proyek">
+                    </div>
+                </div>
+                <p style="margin: 10px 0 0 0; font-size: 12px; color: #64748b;">
+                    <strong>💡 Info:</strong> Data proyek di atas akan otomatis membuat proyek baru saat quotation di-ACC oleh klien.
+                </p>
             </div>
         </div>
         
