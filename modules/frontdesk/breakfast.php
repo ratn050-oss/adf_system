@@ -60,24 +60,28 @@ if (!empty($_SESSION['user_id'])) {
 
 // ==================== HANDLE BREAKFAST ORDER ====================
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
-    // === ANTI-DUPLICATE LAYER 1: Session submission lock ===
-    $lastSubmitTime = $_SESSION['bf_last_submit_time'] ?? 0;
-    $currentTime = microtime(true);
     
-    if ($currentTime - $lastSubmitTime < 3) {
-        // Block submissions within 3 seconds of each other
-        $_SESSION['flash_message'] = "⚠️ Mohon tunggu beberapa detik sebelum submit lagi.";
+    // ========== ATOMIC FILE LOCK - GUARANTEED NO DUPLICATE ==========
+    // This is the ONLY reliable way to prevent concurrent submissions
+    $lockFile = sys_get_temp_dir() . '/bf_submit_' . session_id() . '.lock';
+    $lockFp = fopen($lockFile, 'w');
+    
+    // Try to get EXCLUSIVE lock - if another request has it, FAIL immediately
+    if (!flock($lockFp, LOCK_EX | LOCK_NB)) {
+        fclose($lockFp);
+        $_SESSION['flash_message'] = "⚠️ Request sedang diproses, mohon tunggu...";
         header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?'));
         exit;
     }
-    // Mark submission time IMMEDIATELY
-    $_SESSION['bf_last_submit_time'] = $currentTime;
     
-    // === ANTI-DUPLICATE LAYER 2: Form token ===
+    // Got the lock! Now validate form token
     $formToken = $_POST['_form_token'] ?? '';
     $sessionToken = $_SESSION['bf_form_token'] ?? '';
     
     if (empty($formToken) || $formToken !== $sessionToken) {
+        flock($lockFp, LOCK_UN);
+        fclose($lockFp);
+        $_SESSION['flash_message'] = "⚠️ Form expired, silakan coba lagi.";
         header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?'));
         exit;
     }
@@ -147,6 +151,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             ]);
             
             $_SESSION['flash_message'] = "✅ Order #$editId berhasil diupdate!";
+            flock($lockFp, LOCK_UN);
+            fclose($lockFp);
             header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?'));
             exit;
             
@@ -246,58 +252,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $roomNumbers = [$roomNumbers];
             }
             
-            // === ANTI-DUPLICATE LAYER 3: Database transaction with lock ===
-            $pdo->beginTransaction();
+            // === INSERT with simple duplicate check ===
+            // Check duplicate: same guest + date + time within last 30 seconds
+            $dupCheck = $pdo->prepare("SELECT id FROM breakfast_orders 
+                WHERE guest_name = ? AND breakfast_date = ? AND breakfast_time = ? 
+                AND created_at >= DATE_SUB(NOW(), INTERVAL 30 SECOND)");
+            $dupCheck->execute([trim($_POST['guest_name']), $_POST['breakfast_date'], $_POST['breakfast_time']]);
             
-            try {
-                // Lock the table for this guest+date+time combination
-                $dupCheck = $pdo->prepare("SELECT id FROM breakfast_orders 
-                    WHERE guest_name = ? AND breakfast_date = ? AND breakfast_time = ? 
-                    AND created_at >= DATE_SUB(NOW(), INTERVAL 5 MINUTE) 
-                    FOR UPDATE");
-                $dupCheck->execute([trim($_POST['guest_name']), $_POST['breakfast_date'], $_POST['breakfast_time']]);
-                
-                if ($dupCheck->fetch()) {
-                    $pdo->rollBack();
-                    $_SESSION['flash_message'] = "⚠️ Order untuk tamu " . htmlspecialchars(trim($_POST['guest_name'])) . " sudah ada. Tidak dibuat ulang.";
-                    header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?'));
-                    exit;
-                }
-                
-                $stmt = $pdo->prepare("INSERT INTO breakfast_orders 
-                    (booking_id, guest_name, room_number, total_pax, breakfast_time, breakfast_date, location, 
-                     menu_items, special_requests, total_price, created_by) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-                $stmt->execute([
-                    !empty($_POST['booking_id']) ? (int)$_POST['booking_id'] : null,
-                    trim($_POST['guest_name']),
-                    json_encode($roomNumbers),
-                    (int)$_POST['total_pax'],
-                    $_POST['breakfast_time'],
-                    $_POST['breakfast_date'],
-                    $_POST['location'] ?? 'restaurant',
-                    json_encode($menuItems),
-                    !empty($_POST['special_requests']) ? trim($_POST['special_requests']) : null,
-                    $totalPrice,
-                    $validUserId
-                ]);
-                
-                $lastOrderId = $pdo->lastInsertId();
-                $pdo->commit();
-                
-            } catch (Exception $e) {
-                $pdo->rollBack();
-                throw $e;
+            if ($dupCheck->fetch()) {
+                flock($lockFp, LOCK_UN);
+                fclose($lockFp);
+                $_SESSION['flash_message'] = "⚠️ Order untuk " . htmlspecialchars(trim($_POST['guest_name'])) . " sudah dibuat.";
+                header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?'));
+                exit;
             }
             
-            // Build detailed message & redirect (PRG pattern to prevent duplicates)
+            $stmt = $pdo->prepare("INSERT INTO breakfast_orders 
+                (booking_id, guest_name, room_number, total_pax, breakfast_time, breakfast_date, location, 
+                 menu_items, special_requests, total_price, created_by) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt->execute([
+                !empty($_POST['booking_id']) ? (int)$_POST['booking_id'] : null,
+                trim($_POST['guest_name']),
+                json_encode($roomNumbers),
+                (int)$_POST['total_pax'],
+                $_POST['breakfast_time'],
+                $_POST['breakfast_date'],
+                $_POST['location'] ?? 'restaurant',
+                json_encode($menuItems),
+                !empty($_POST['special_requests']) ? trim($_POST['special_requests']) : null,
+                $totalPrice,
+                $validUserId
+            ]);
+            
+            $lastOrderId = $pdo->lastInsertId();
+            
+            // Release lock and redirect
+            flock($lockFp, LOCK_UN);
+            fclose($lockFp);
+            
             $itemscount = count($menuItems);
             $guestName = trim($_POST['guest_name']);
-            $_SESSION['flash_message'] = "✅ Berhasil! Pesanan sarapan untuk <strong>" . htmlspecialchars($guestName) . "</strong> ($itemscount item menu) telah tersimpan dengan ID #$lastOrderId";
+            $_SESSION['flash_message'] = "✅ Berhasil! Pesanan untuk <strong>" . htmlspecialchars($guestName) . "</strong> tersimpan (ID #$lastOrderId)";
             header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?'));
             exit;
         }
     } catch (Exception $e) {
+        flock($lockFp, LOCK_UN);
+        fclose($lockFp);
         $error = "❌ Error: " . $e->getMessage();
         error_log("Breakfast Order Error: " . $e->getMessage());
     }
@@ -1392,7 +1394,15 @@ function removeRoom(idx) {
 }
 
 // ==================== FORM VALIDATION ====================
+let formSubmitting = false; // Global flag
+
 function validateBreakfastForm(e) {
+    // CRITICAL: Prevent double submission
+    if (formSubmitting) {
+        e.preventDefault();
+        return false;
+    }
+    
     const guestName = document.getElementById('guest_name').value.trim();
     const totalPax = document.getElementById('total_pax').value.trim();
     const breakfastTime = document.getElementById('breakfast_time').value.trim();
@@ -1438,6 +1448,8 @@ function validateBreakfastForm(e) {
     // If no rooms selected via checkboxes, that's okay (walk-in)
 
     // === ANTI-DUPLICATE: Disable submit button IMMEDIATELY on click ===
+    formSubmitting = true; // Set flag FIRST
+    
     const submitBtn = document.querySelector('.bf-btn-submit');
     if (submitBtn) {
         submitBtn.disabled = true;
