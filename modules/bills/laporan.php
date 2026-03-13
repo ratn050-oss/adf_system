@@ -176,9 +176,7 @@ include '../../includes/header.php';
 .report-stamp .stamp-system { font-weight: 600; color: #4f46e5; font-size: 0.6rem; letter-spacing: 0.5px; }
 [data-theme="dark"] .report-stamp .stamp-system { color: #818cf8; }
 
-/* Print Area */
-.print-area { display: none; }
-.print-area.show { display: block; background: #fff; color: #1a1a2e; padding: 1.5rem; border-radius: 12px; margin-top: 1.25rem; border: 1px solid #e2e8f0; }
+/* Print Area */\n.print-area { display: none; }\n.print-area.show { display: block; background: #fff; color: #1a1a2e; padding: 1.5rem; border-radius: 12px; margin-top: 1.25rem; border: 1px solid #e2e8f0; }
 
 .print-area .print-header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 0.75rem; border-bottom: 2px solid #4f46e5; margin-bottom: 1rem; gap: 0.75rem; }
 .print-area .print-logo { width: 52px; height: 52px; border-radius: 10px; object-fit: contain; }
@@ -210,6 +208,34 @@ include '../../includes/header.php';
 .print-area .print-footer { text-align: center; margin-top: 1.5rem; padding-top: 0.75rem; border-top: 1px dashed #e2e8f0; font-size: 0.6rem; color: #94a3b8; }
 .print-area .print-footer .sys { font-weight: 600; color: #4f46e5; }
 
+/* Supplier Quick Add */
+.supplier-add-box { background: linear-gradient(135deg, #fef3c7, #fde68a); border: 1px solid #fcd34d; border-radius: 12px; padding: 1rem 1.25rem; margin-bottom: 1.25rem; }
+[data-theme="dark"] .supplier-add-box { background: linear-gradient(135deg, #422006, #78350f); border-color: #92400e; }
+.supplier-add-box .box-title { font-size: 0.85rem; font-weight: 700; color: #92400e; margin: 0 0 0.75rem; display: flex; align-items: center; gap: 0.4rem; }
+[data-theme="dark"] .supplier-add-box .box-title { color: #fcd34d; }
+.supplier-form { display: flex; gap: 0.5rem; flex-wrap: wrap; align-items: flex-end; }
+.supplier-form .form-group { flex: 1; min-width: 150px; }
+.supplier-form .form-group label { display: block; font-size: 0.68rem; font-weight: 600; color: #78350f; margin-bottom: 0.25rem; }
+[data-theme="dark"] .supplier-form .form-group label { color: #fde68a; }
+.supplier-form input, .supplier-form select { width: 100%; padding: 0.45rem 0.6rem; border: 1px solid #fcd34d; border-radius: 6px; font-size: 0.78rem; background: #fff; color: #1e293b; }
+[data-theme="dark"] .supplier-form input, [data-theme="dark"] .supplier-form select { background: #1e293b; border-color: #92400e; color: #e2e8f0; }
+.supplier-form .btn-add-supplier { background: #f59e0b; color: #fff; border: none; padding: 0.45rem 1rem; border-radius: 6px; font-size: 0.78rem; font-weight: 600; cursor: pointer; white-space: nowrap; }
+.supplier-form .btn-add-supplier:hover { background: #d97706; }
+
+/* Added Supplier List */
+.added-suppliers { margin-top: 0.75rem; }
+.added-suppliers .supplier-item { display: flex; align-items: center; justify-content: space-between; background: #fff; border: 1px solid #fcd34d; border-radius: 8px; padding: 0.5rem 0.75rem; margin-bottom: 0.4rem; gap: 0.5rem; }
+[data-theme="dark"] .added-suppliers .supplier-item { background: #1e293b; border-color: #92400e; }
+.supplier-item .supplier-check { width: 16px; height: 16px; accent-color: #f59e0b; cursor: pointer; }
+.supplier-item .supplier-info { flex: 1; }
+.supplier-item .supplier-name { font-size: 0.78rem; font-weight: 600; color: #1e293b; }
+[data-theme="dark"] .supplier-item .supplier-name { color: #e2e8f0; }
+.supplier-item .supplier-cat { font-size: 0.65rem; color: #78350f; }
+[data-theme="dark"] .supplier-item .supplier-cat { color: #fcd34d; }
+.supplier-item .supplier-amount { font-size: 0.85rem; font-weight: 700; color: #d97706; }
+.supplier-item .btn-remove { background: #fee2e2; color: #dc2626; border: none; padding: 0.25rem 0.5rem; border-radius: 4px; font-size: 0.65rem; cursor: pointer; }
+.supplier-item .btn-remove:hover { background: #fecaca; }
+
 /* Empty State */
 .empty-state { text-align: center; padding: 3rem 1rem; color: #94a3b8; }
 .empty-state-icon { font-size: 3rem; margin-bottom: 0.75rem; opacity: 0.5; }
@@ -219,12 +245,12 @@ include '../../includes/header.php';
 /* Print Styles */
 @media print {
     body * { visibility: hidden; }
-    .print-area, .print-area * { visibility: visible; }
-    .print-area { position: absolute; left: 0; top: 0; width: 100%; padding: 12mm 15mm; background: white !important; }
+    .print-area.show, .print-area.show * { visibility: visible; }
+    .print-area.show { position: absolute; left: 0; top: 0; width: 100%; padding: 12mm 15mm; background: white !important; }
     .print-area .print-table th { background: #f3f4f6 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     .print-area .print-logo-icon { background: #eef2ff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
     .print-area .print-note { background: #f8fafc !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
-    .action-buttons, .filter-bar, .summary-box { display: none !important; }
+    .action-buttons, .filter-bar, .summary-box, .supplier-add-box { display: none !important; }
 }
 
 @media (max-width: 640px) {
@@ -281,13 +307,71 @@ include '../../includes/header.php';
         </button>
     </form>
 
-    <?php if (empty($bills)): ?>
-    <!-- Empty State -->
-    <div class="empty-state">
-        <div class="empty-state-icon">✅</div>
-        <div class="empty-state-text">Tidak ada tagihan yang perlu dibayar</div>
-        <div class="empty-state-sub">Semua tagihan periode <?= date('F Y', strtotime($filterMonth . '-01')) ?> sudah lunas</div>
+    <!-- Quick Add Supplier Bills -->
+    <div class="supplier-add-box">
+        <div class="box-title">🛒 Tambah Tagihan Belanja / Supplier</div>
+        <div class="supplier-form">
+            <div class="form-group" style="flex:2">
+                <label>Nama Supplier / Toko</label>
+                <input type="text" id="supplierName" placeholder="Contoh: Toko Sembako Pak Joko">
+            </div>
+            <div class="form-group">
+                <label>Kategori</label>
+                <select id="supplierCategory">
+                    <option value="food">🍽️ Makanan/Bahan</option>
+                    <option value="grocery">🛒 Belanja Harian</option>
+                    <option value="supply">📦 Perlengkapan</option>
+                    <option value="other">📋 Lainnya</option>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Nominal (Rp)</label>
+                <input type="number" id="supplierAmount" placeholder="0" min="0">
+            </div>
+            <button type="button" class="btn-add-supplier" onclick="addSupplierBill()">
+                ➕ Tambah
+            </button>
+        </div>
+        <div class="added-suppliers" id="addedSuppliersList">
+            <!-- Dynamically filled -->
+        </div>
     </div>
+
+    <?php if (empty($bills)): ?>
+    <!-- Empty State for Template Bills -->
+    <div class="rpt-section" style="margin-top: 1rem;">
+        <div class="rpt-section-head">
+            <h3 class="sec-title">📋 Tagihan Rutin</h3>
+        </div>
+        <div class="empty-state" style="padding: 1.5rem;">
+            <div class="empty-state-icon">✅</div>
+            <div class="empty-state-text">Tidak ada tagihan rutin yang perlu dibayar</div>
+            <div class="empty-state-sub">Semua tagihan periode <?= date('F Y', strtotime($filterMonth . '-01')) ?> sudah lunas</div>
+        </div>
+    </div>
+
+    <!-- Summary Box (still show for supplier bills) -->
+    <div class="summary-box">
+        <div class="summary-info">
+            <div class="summary-item">
+                <div class="sum-label">Jumlah Tagihan</div>
+                <div class="sum-value" id="selectedCount">0</div>
+            </div>
+            <div class="summary-item">
+                <div class="sum-label">Total Pengajuan</div>
+                <div class="sum-value" id="selectedTotal">Rp 0</div>
+            </div>
+        </div>
+        <div class="summary-actions">
+            <button type="button" class="btn btn-generate" onclick="generateReport()" id="btnGenerate" disabled>
+                📄 Cetak Laporan
+            </button>
+            <button type="button" class="btn btn-wa" onclick="shareWhatsApp()" id="btnWa" disabled>
+                📱 Kirim WA
+            </button>
+        </div>
+    </div>
+
     <?php else: ?>
 
     <!-- Stats -->
@@ -473,24 +557,195 @@ include '../../includes/header.php';
     </div>
 
     <?php endif; ?>
+
+    <!-- Print Area (moved outside if-else so it works for supplier-only cases too) -->
+    <div class="print-area" id="printArea2">
+        <div class="print-header">
+            <div style="display:flex;align-items:center;gap:0.75rem">
+                <?php if ($logoUrl): ?>
+                <img src="<?php echo htmlspecialchars($logoUrl); ?>" alt="Logo" class="print-logo">
+                <?php else: ?>
+                <div class="print-logo-icon"><?php echo $company['icon']; ?></div>
+                <?php endif; ?>
+                <div>
+                    <div class="print-company"><?php echo htmlspecialchars($company['name']); ?></div>
+                    <div class="print-address">
+                        <?php if ($company['address']): echo htmlspecialchars($company['address']); endif; ?>
+                        <?php if ($company['phone']): ?> | Tel: <?php echo htmlspecialchars($company['phone']); ?><?php endif; ?>
+                        <?php if ($company['email']): ?> | <?php echo htmlspecialchars($company['email']); ?><?php endif; ?>
+                    </div>
+                </div>
+            </div>
+            <div class="print-title-box">
+                <div class="print-doc-title">Pengajuan Pencairan Dana</div>
+                <div class="print-doc-date">Pembayaran Tagihan</div>
+            </div>
+        </div>
+
+        <div class="print-meta">
+            <div><strong>Periode:</strong> <?= date('F Y', strtotime($filterMonth . '-01')) ?></div>
+            <div><strong>Tanggal:</strong> <?= date('d M Y') ?></div>
+        </div>
+
+        <table class="print-table">
+            <thead>
+                <tr>
+                    <th style="width:30px" class="text-center">No</th>
+                    <th>Tagihan</th>
+                    <th>Kategori</th>
+                    <th>Keterangan</th>
+                    <th class="text-right">Nominal</th>
+                </tr>
+            </thead>
+            <tbody id="printTableBody2">
+                <!-- Filled by JS -->
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="4" class="text-right"><strong>TOTAL PENCAIRAN</strong></td>
+                    <td class="text-right" id="printTotal2">Rp 0</td>
+                </tr>
+            </tfoot>
+        </table>
+
+        <div class="print-note">
+            <strong>Catatan:</strong> Mohon pencairan dana untuk pembayaran tagihan di atas. Dana akan digunakan untuk operasional bisnis sesuai dengan tagihan yang tertera.
+        </div>
+
+        <div class="signature-row">
+            <div class="signature-box">
+                <div class="sig-title">Diajukan oleh,</div>
+                <div class="sig-line"><?= htmlspecialchars($currentUser['full_name'] ?? $currentUser['username'] ?? 'Staff') ?></div>
+            </div>
+            <div class="signature-box">
+                <div class="sig-title">Disetujui oleh,</div>
+                <div class="sig-line">Owner</div>
+            </div>
+        </div>
+
+        <div class="print-footer">
+            Dicetak dari <span class="sys">ADF System</span> — <?= htmlspecialchars($company['name']) ?> © <?= date('Y') ?>
+            <br><?= date('d M Y, H:i') ?> WIB
+        </div>
+    </div>
 </div>
 
 <script>
 let selectedBills = [];
+let addedSuppliers = [];
+let supplierIdCounter = 1;
+
+const supplierCategories = {
+    'food': { label: 'Makanan/Bahan', icon: '🍽️', color: '#ef4444' },
+    'grocery': { label: 'Belanja Harian', icon: '🛒', color: '#f59e0b' },
+    'supply': { label: 'Perlengkapan', icon: '📦', color: '#3b82f6' },
+    'other': { label: 'Lainnya', icon: '📋', color: '#64748b' }
+};
+
+// Add supplier bill
+function addSupplierBill() {
+    const nameInput = document.getElementById('supplierName');
+    const categoryInput = document.getElementById('supplierCategory');
+    const amountInput = document.getElementById('supplierAmount');
+    
+    const name = nameInput.value.trim();
+    const category = categoryInput.value;
+    const amount = parseInt(amountInput.value) || 0;
+    
+    if (!name) {
+        alert('Masukkan nama supplier/toko!');
+        nameInput.focus();
+        return;
+    }
+    if (amount <= 0) {
+        alert('Masukkan nominal tagihan!');
+        amountInput.focus();
+        return;
+    }
+    
+    const catInfo = supplierCategories[category];
+    const supplier = {
+        id: 'supplier_' + supplierIdCounter++,
+        name: name,
+        vendor: name,
+        account: '-',
+        due: '<?= date('d M Y') ?>',
+        amount: amount,
+        status: 'supplier',
+        category: catInfo.label,
+        icon: catInfo.icon,
+        isSupplier: true
+    };
+    
+    addedSuppliers.push(supplier);
+    renderSupplierList();
+    updateSelection();
+    
+    // Clear inputs
+    nameInput.value = '';
+    amountInput.value = '';
+    nameInput.focus();
+}
+
+// Remove supplier bill
+function removeSupplierBill(id) {
+    addedSuppliers = addedSuppliers.filter(s => s.id !== id);
+    renderSupplierList();
+    updateSelection();
+}
+
+// Toggle supplier selection
+function toggleSupplier(id) {
+    const supplier = addedSuppliers.find(s => s.id === id);
+    if (supplier) {
+        supplier.selected = !supplier.selected;
+        updateSelection();
+    }
+}
+
+// Render supplier list
+function renderSupplierList() {
+    const container = document.getElementById('addedSuppliersList');
+    if (addedSuppliers.length === 0) {
+        container.innerHTML = '';
+        return;
+    }
+    
+    let html = '';
+    addedSuppliers.forEach(s => {
+        const checked = s.selected !== false ? 'checked' : '';
+        html += `<div class="supplier-item">
+            <input type="checkbox" class="supplier-check" ${checked} onchange="toggleSupplier('${s.id}')">
+            <div class="supplier-info">
+                <div class="supplier-name">${s.name}</div>
+                <div class="supplier-cat">${s.icon} ${s.category}</div>
+            </div>
+            <div class="supplier-amount">Rp ${s.amount.toLocaleString('id-ID')}</div>
+            <button type="button" class="btn-remove" onclick="removeSupplierBill('${s.id}')">✕ Hapus</button>
+        </div>`;
+    });
+    container.innerHTML = html;
+}
 
 function toggleSelectAll(checkbox) {
     const items = document.querySelectorAll('.bill-item');
     items.forEach(item => {
         item.checked = checkbox.checked;
     });
+    // Also toggle supplier items
+    addedSuppliers.forEach(s => {
+        s.selected = checkbox.checked;
+    });
+    renderSupplierList();
     updateSelection();
 }
 
 function updateSelection() {
     selectedBills = [];
-    const items = document.querySelectorAll('.bill-item:checked');
     let total = 0;
     
+    // Get checked template bills
+    const items = document.querySelectorAll('.bill-item:checked');
     items.forEach(item => {
         selectedBills.push({
             id: item.dataset.id,
@@ -501,9 +756,18 @@ function updateSelection() {
             amount: parseInt(item.dataset.amount),
             status: item.dataset.status,
             category: item.dataset.category,
-            icon: item.dataset.icon
+            icon: item.dataset.icon,
+            isSupplier: false
         });
         total += parseInt(item.dataset.amount);
+    });
+    
+    // Add selected supplier bills
+    addedSuppliers.forEach(s => {
+        if (s.selected !== false) {
+            selectedBills.push(s);
+            total += s.amount;
+        }
     });
     
     document.getElementById('selectedCount').textContent = selectedBills.length;
@@ -511,8 +775,8 @@ function updateSelection() {
     
     const btnGenerate = document.getElementById('btnGenerate');
     const btnWa = document.getElementById('btnWa');
-    btnGenerate.disabled = selectedBills.length === 0;
-    btnWa.disabled = selectedBills.length === 0;
+    if (btnGenerate) btnGenerate.disabled = selectedBills.length === 0;
+    if (btnWa) btnWa.disabled = selectedBills.length === 0;
     
     // Update row highlight
     document.querySelectorAll('.rpt-table tbody tr').forEach(row => {
@@ -527,7 +791,11 @@ function updateSelection() {
     // Update selectAll checkbox
     const allItems = document.querySelectorAll('.bill-item');
     const checkedItems = document.querySelectorAll('.bill-item:checked');
-    document.getElementById('selectAll').checked = allItems.length > 0 && allItems.length === checkedItems.length;
+    const selectAllEl = document.getElementById('selectAll');
+    if (selectAllEl) {
+        const allSupplierSelected = addedSuppliers.length === 0 || addedSuppliers.every(s => s.selected !== false);
+        selectAllEl.checked = allItems.length > 0 && allItems.length === checkedItems.length && allSupplierSelected;
+    }
 }
 
 function generateReport() {
@@ -536,12 +804,14 @@ function generateReport() {
         return;
     }
     
-    const tbody = document.getElementById('printTableBody');
+    // Use printArea2 which is outside the if-else block
+    const tbody = document.getElementById('printTableBody2');
     let html = '';
     let total = 0;
     
     selectedBills.forEach((bill, idx) => {
         total += bill.amount;
+        const keterangan = bill.isSupplier ? 'Belanja Supplier' : `Jatuh tempo: ${bill.due}`;
         html += `<tr>
             <td class="text-center">${idx + 1}</td>
             <td>
@@ -549,20 +819,19 @@ function generateReport() {
                 <div class="bill-vendor">${bill.vendor}</div>
             </td>
             <td>${bill.icon} ${bill.category}</td>
-            <td>${bill.due}</td>
-            <td>${bill.account}</td>
+            <td>${keterangan}</td>
             <td class="text-right">Rp ${bill.amount.toLocaleString('id-ID')}</td>
         </tr>`;
     });
     
     tbody.innerHTML = html;
-    document.getElementById('printTotal').textContent = 'Rp ' + total.toLocaleString('id-ID');
+    document.getElementById('printTotal2').textContent = 'Rp ' + total.toLocaleString('id-ID');
     
     // Show print area
-    document.getElementById('printArea').classList.add('show');
+    document.getElementById('printArea2').classList.add('show');
     
     // Scroll to print area
-    document.getElementById('printArea').scrollIntoView({ behavior: 'smooth' });
+    document.getElementById('printArea2').scrollIntoView({ behavior: 'smooth' });
     
     // Trigger print after a short delay
     setTimeout(() => {
@@ -586,11 +855,13 @@ function shareWhatsApp() {
     
     selectedBills.forEach((bill, idx) => {
         total += bill.amount;
-        const statusIcon = bill.status === 'overdue' ? '🔴' : '🟡';
+        const statusIcon = bill.isSupplier ? '🛒' : (bill.status === 'overdue' ? '🔴' : '🟡');
         message += `*${idx + 1}. ${bill.name}*\n`;
         message += `   ${bill.icon} ${bill.category}\n`;
         message += `   ${statusIcon} Rp ${bill.amount.toLocaleString('id-ID')}\n`;
-        message += `   📆 Jatuh tempo: ${bill.due}\n`;
+        if (!bill.isSupplier) {
+            message += `   📆 Jatuh tempo: ${bill.due}\n`;
+        }
         if (bill.account && bill.account !== '-') {
             message += `   🏦 No: ${bill.account}\n`;
         }
