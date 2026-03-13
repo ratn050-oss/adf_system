@@ -26,36 +26,6 @@ $pageTitle = 'Laporan Harian';
 $today = date('Y-m-d');
 $todayDisplay = date('l, d F Y');
 
-// ============ AUTO-CLEAN DUPLICATE BREAKFAST ORDERS ============
-// Hapus duplikat: row dengan guest_name, breakfast_date, breakfast_time, menu_items yang sama
-// Simpan yang ID paling kecil (paling awal dibuat)
-try {
-    $pdo = $db->getConnection();
-    
-    // Delete ALL duplicates (not just today)
-    $cleanupQuery = "
-        DELETE bo1 FROM breakfast_orders bo1
-        INNER JOIN breakfast_orders bo2 
-        ON bo1.guest_name = bo2.guest_name 
-           AND bo1.breakfast_date = bo2.breakfast_date 
-           AND bo1.breakfast_time = bo2.breakfast_time
-           AND bo1.menu_items = bo2.menu_items
-           AND bo1.id > bo2.id
-    ";
-    $pdo->exec($cleanupQuery);
-    
-    // Add order_hash column if not exists
-    try { $pdo->exec("ALTER TABLE breakfast_orders ADD COLUMN order_hash VARCHAR(32)"); } catch (Exception $e) {}
-    
-    // Update all rows without order_hash
-    $pdo->exec("UPDATE breakfast_orders SET order_hash = MD5(CONCAT(guest_name, breakfast_date, breakfast_time, menu_items)) WHERE order_hash IS NULL OR order_hash = ''");
-    
-    // Try to add unique index
-    try { $pdo->exec("ALTER TABLE breakfast_orders ADD UNIQUE INDEX idx_order_unique (order_hash)"); } catch (Exception $e) {}
-} catch (Exception $e) {
-    error_log("Cleanup error: " . $e->getMessage());
-}
-
 // Get company info
 $company = getCompanyInfo();
 
@@ -487,7 +457,6 @@ include '../../includes/header.php';
         <div class="rpt-section-head">
             <h3 class="sec-title">🍳 Breakfast Orders</h3>
             <span class="sec-count"><?php echo count($breakfastOrders); ?></span>
-            <button type="button" onclick="cleanupDuplicates()" style="margin-left:10px;padding:3px 8px;font-size:11px;background:#ef4444;color:#fff;border:none;border-radius:4px;cursor:pointer;" title="Hapus data duplikat">🧹 Clean</button>
         </div>
         <table class="rpt-table">
             <thead><tr><th>Time</th><th>Room</th><th>Guest</th><th>Pax</th><th>Location</th><th>Menu</th><th class="bf-act-col">Action</th></tr></thead>
@@ -560,26 +529,6 @@ function deleteBreakfastOrder(id, guestName) {
 
 function editBreakfastOrder(id) {
     window.location.href = 'breakfast.php?edit=' + id;
-}
-
-function cleanupDuplicates() {
-    if (!confirm('Hapus semua data breakfast duplikat hari ini?\n\nDuplikat = data dengan tamu, tanggal, jam, dan menu yang sama.')) return;
-    
-    fetch('../../api/breakfast-order-action.php', {
-        method: 'POST',
-        headers: {'Content-Type': 'application/json'},
-        body: JSON.stringify({action: 'cleanup_duplicates', date: '<?php echo $today; ?>'})
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (data.success) {
-            showNotification(data.message || 'Duplikat dihapus', 'success');
-            setTimeout(() => location.reload(), 1000);
-        } else {
-            showNotification(data.message || 'Gagal membersihkan duplikat', 'error');
-        }
-    })
-    .catch(() => showNotification('Gagal menghubungi server', 'error'));
 }
 
 function shareToWhatsApp() {

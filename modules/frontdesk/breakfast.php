@@ -40,30 +40,13 @@ if (!empty($_SESSION['flash_error'])) {
     unset($_SESSION['flash_error']);
 }
 
-// ==================== AUTO-CLEANUP ALL DUPLICATES ON PAGE LOAD ====================
+// ==================== NO AUTO-CLEANUP - Data is sacred ====================
+// Just ensure the table structure is correct
 try {
-    // Delete ALL duplicates (not just today) - keep the one with lowest ID
-    $cleanupQuery = "
-        DELETE bo1 FROM breakfast_orders bo1
-        INNER JOIN breakfast_orders bo2 
-        ON bo1.guest_name = bo2.guest_name 
-           AND bo1.breakfast_date = bo2.breakfast_date 
-           AND bo1.breakfast_time = bo2.breakfast_time
-           AND bo1.menu_items = bo2.menu_items
-           AND bo1.id > bo2.id
-    ";
-    $pdo->exec($cleanupQuery);
-    
-    // Add order_hash column if not exists
+    // Add order_hash column if not exists (for future use)
     try { $pdo->exec("ALTER TABLE breakfast_orders ADD COLUMN order_hash VARCHAR(32)"); } catch (Exception $e) {}
-    
-    // Update all rows without order_hash
-    $pdo->exec("UPDATE breakfast_orders SET order_hash = MD5(CONCAT(guest_name, breakfast_date, breakfast_time, menu_items)) WHERE order_hash IS NULL OR order_hash = ''");
-    
-    // Try to add unique index (will fail silently if exists)
-    try { $pdo->exec("ALTER TABLE breakfast_orders ADD UNIQUE INDEX idx_order_unique (order_hash)"); } catch (Exception $e) {}
 } catch (Exception $e) {
-    error_log("Breakfast cleanup error: " . $e->getMessage());
+    error_log("Breakfast init error: " . $e->getMessage());
 }
 
 // ==================== VALIDATE USER ID ====================
@@ -267,57 +250,33 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $roomNumbers = [$roomNumbers];
             }
             
-            // === DUPLICATE CHECK FIRST ===
             $menuJson = json_encode($menuItems);
-            $orderHash = md5(trim($_POST['guest_name']) . $_POST['breakfast_date'] . $_POST['breakfast_time'] . $menuJson);
             
-            // Check if this exact order already exists
-            $checkStmt = $pdo->prepare("SELECT id FROM breakfast_orders WHERE order_hash = ? OR (guest_name = ? AND breakfast_date = ? AND breakfast_time = ? AND menu_items = ?)");
-            $checkStmt->execute([$orderHash, trim($_POST['guest_name']), $_POST['breakfast_date'], $_POST['breakfast_time'], $menuJson]);
-            if ($checkStmt->fetch()) {
-                $_SESSION['flash_message'] = "⚠️ Order untuk " . htmlspecialchars(trim($_POST['guest_name'])) . " sudah ada!";
-                header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?'));
-                exit;
-            }
+            // === SIMPLE INSERT - token already validated above ===
+            $stmt = $pdo->prepare("INSERT INTO breakfast_orders 
+                (booking_id, guest_name, room_number, total_pax, breakfast_time, breakfast_date, location, 
+                 menu_items, special_requests, total_price, created_by) 
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+            $stmt->execute([
+                !empty($_POST['booking_id']) ? (int)$_POST['booking_id'] : null,
+                trim($_POST['guest_name']),
+                json_encode($roomNumbers),
+                (int)$_POST['total_pax'],
+                $_POST['breakfast_time'],
+                $_POST['breakfast_date'],
+                $_POST['location'] ?? 'restaurant',
+                $menuJson,
+                !empty($_POST['special_requests']) ? trim($_POST['special_requests']) : null,
+                $totalPrice,
+                $validUserId
+            ]);
             
-            // === INSERT ===
-            try {
-                $stmt = $pdo->prepare("INSERT INTO breakfast_orders 
-                    (booking_id, guest_name, room_number, total_pax, breakfast_time, breakfast_date, location, 
-                     menu_items, special_requests, total_price, created_by, order_hash) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-                $stmt->execute([
-                    !empty($_POST['booking_id']) ? (int)$_POST['booking_id'] : null,
-                    trim($_POST['guest_name']),
-                    json_encode($roomNumbers),
-                    (int)$_POST['total_pax'],
-                    $_POST['breakfast_time'],
-                    $_POST['breakfast_date'],
-                    $_POST['location'] ?? 'restaurant',
-                    $menuJson,
-                    !empty($_POST['special_requests']) ? trim($_POST['special_requests']) : null,
-                    $totalPrice,
-                    $validUserId,
-                    $orderHash
-                ]);
-                
-                $lastOrderId = $pdo->lastInsertId();
-                
-                $itemscount = count($menuItems);
-                $guestName = trim($_POST['guest_name']);
-                $_SESSION['flash_message'] = "✅ Berhasil! Pesanan untuk <strong>" . htmlspecialchars($guestName) . "</strong> tersimpan (ID #$lastOrderId)";
-                header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?'));
-                exit;
-                
-            } catch (PDOException $dupEx) {
-                // Error code 23000 is duplicate key violation
-                if ($dupEx->getCode() == 23000 || strpos($dupEx->getMessage(), 'Duplicate') !== false) {
-                    $_SESSION['flash_message'] = "⚠️ Order untuk " . htmlspecialchars(trim($_POST['guest_name'])) . " sudah ada.";
-                    header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?'));
-                    exit;
-                }
-                throw $dupEx; // Re-throw if it's a different error
-            }
+            $lastOrderId = $pdo->lastInsertId();
+            
+            $guestName = trim($_POST['guest_name']);
+            $_SESSION['flash_message'] = "✅ Berhasil! Pesanan untuk <strong>" . htmlspecialchars($guestName) . "</strong> tersimpan (ID #$lastOrderId)";
+            header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?'));
+            exit;
         }
     } catch (Exception $e) {
         $error = "❌ Error: " . $e->getMessage();
