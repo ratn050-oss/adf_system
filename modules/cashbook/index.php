@@ -446,8 +446,13 @@ if (!empty($filterDivision) && $filterDivision !== 'all') {
 }
 
 if (!empty($filterPayment) && $filterPayment !== 'all') {
-    $whereClauses[] = "cb.payment_method = :payment";
-    $params['payment'] = $filterPayment;
+    if ($filterPayment === 'ota_all') {
+        // Filter all OTA payments
+        $whereClauses[] = "cb.payment_method LIKE 'OTA %'";
+    } else {
+        $whereClauses[] = "cb.payment_method = :payment";
+        $params['payment'] = $filterPayment;
+    }
 }
 
 if (!empty($filterUser) && $filterUser !== 'all') {
@@ -1300,7 +1305,15 @@ echo getPrintCSS();
         'debit' => 'Transaksi Debit/Kartu',
         'qr' => 'Transaksi QR Code',
         'edc' => 'Transaksi EDC',
-        'other' => 'Transaksi Lainnya'
+        'other' => 'Transaksi Lainnya',
+        'ota_all' => 'Transaksi OTA (Semua)',
+        'OTA tiket.com' => 'Transaksi OTA tiket.com',
+        'OTA Agoda' => 'Transaksi OTA Agoda',
+        'OTA Booking.com' => 'Transaksi OTA Booking.com',
+        'OTA Traveloka' => 'Transaksi OTA Traveloka',
+        'OTA Airbnb' => 'Transaksi OTA Airbnb',
+        'OTA Expedia' => 'Transaksi OTA Expedia',
+        'OTA Pegipegi' => 'Transaksi OTA Pegipegi'
     ];
     if (!empty($filterPayment) && $filterPayment !== 'all') {
         $printTitle = strtoupper($paymentLabels[$filterPayment] ?? 'Transaksi ' . ucfirst($filterPayment));
@@ -1680,11 +1693,23 @@ echo getPrintCSS();
             <label class="form-label" style="font-size: 0.75rem; margin-bottom: 0.25rem;">Jenis Pembayaran</label>
             <select name="payment" class="form-control" style="height: 38px; font-size: 0.875rem;">
                 <option value="all" <?php echo ($filterPayment === 'all' || empty($filterPayment)) ? 'selected' : ''; ?>>Semua</option>
-                <option value="cash" <?php echo $filterPayment === 'cash' ? 'selected' : ''; ?>>Cash</option>
-                <option value="debit" <?php echo $filterPayment === 'debit' ? 'selected' : ''; ?>>Debit</option>
-                <option value="transfer" <?php echo $filterPayment === 'transfer' ? 'selected' : ''; ?>>Transfer</option>
-                <option value="qr" <?php echo $filterPayment === 'qr' ? 'selected' : ''; ?>>QR Code</option>
-                <option value="edc" <?php echo $filterPayment === 'edc' ? 'selected' : ''; ?>>EDC</option>
+                <optgroup label="Umum">
+                    <option value="cash" <?php echo $filterPayment === 'cash' ? 'selected' : ''; ?>>Cash</option>
+                    <option value="debit" <?php echo $filterPayment === 'debit' ? 'selected' : ''; ?>>Debit</option>
+                    <option value="transfer" <?php echo $filterPayment === 'transfer' ? 'selected' : ''; ?>>Transfer</option>
+                    <option value="qr" <?php echo $filterPayment === 'qr' ? 'selected' : ''; ?>>QR Code</option>
+                    <option value="edc" <?php echo $filterPayment === 'edc' ? 'selected' : ''; ?>>EDC</option>
+                </optgroup>
+                <optgroup label="OTA (Online Travel Agent)">
+                    <option value="ota_all" <?php echo $filterPayment === 'ota_all' ? 'selected' : ''; ?>>🌐 Semua OTA</option>
+                    <option value="OTA tiket.com" <?php echo $filterPayment === 'OTA tiket.com' ? 'selected' : ''; ?>>tiket.com</option>
+                    <option value="OTA Agoda" <?php echo $filterPayment === 'OTA Agoda' ? 'selected' : ''; ?>>Agoda</option>
+                    <option value="OTA Booking.com" <?php echo $filterPayment === 'OTA Booking.com' ? 'selected' : ''; ?>>Booking.com</option>
+                    <option value="OTA Traveloka" <?php echo $filterPayment === 'OTA Traveloka' ? 'selected' : ''; ?>>Traveloka</option>
+                    <option value="OTA Airbnb" <?php echo $filterPayment === 'OTA Airbnb' ? 'selected' : ''; ?>>Airbnb</option>
+                    <option value="OTA Expedia" <?php echo $filterPayment === 'OTA Expedia' ? 'selected' : ''; ?>>Expedia</option>
+                    <option value="OTA Pegipegi" <?php echo $filterPayment === 'OTA Pegipegi' ? 'selected' : ''; ?>>Pegipegi</option>
+                </optgroup>
                 <option value="other" <?php echo $filterPayment === 'other' ? 'selected' : ''; ?>>Lainnya</option>
             </select>
         </div>
