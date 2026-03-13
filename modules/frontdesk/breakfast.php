@@ -87,6 +87,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             }
             if (count($menuItems) === 0) throw new Exception("❌ No valid menu items selected");
             
+            // Handle multiple room_number as array
+            $roomNumbers = isset($_POST['room_number']) ? $_POST['room_number'] : [];
+            if (!is_array($roomNumbers)) {
+                $roomNumbers = [$roomNumbers];
+            }
             $stmt = $pdo->prepare("UPDATE breakfast_orders SET 
                 booking_id=?, guest_name=?, room_number=?, total_pax=?, breakfast_time=?, 
                 breakfast_date=?, location=?, menu_items=?, special_requests=?, total_price=?
@@ -94,7 +99,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $stmt->execute([
                 !empty($_POST['booking_id']) ? (int)$_POST['booking_id'] : null,
                 trim($_POST['guest_name']),
-                !empty($_POST['room_number']) ? trim($_POST['room_number']) : null,
+                json_encode($roomNumbers),
                 (int)$_POST['total_pax'],
                 $_POST['breakfast_time'],
                 $_POST['breakfast_date'],
@@ -196,15 +201,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             }
             
             // Insert order
+            // Handle multiple room_number as array
+            $roomNumbers = isset($_POST['room_number']) ? $_POST['room_number'] : [];
+            if (!is_array($roomNumbers)) {
+                $roomNumbers = [$roomNumbers];
+            }
             $stmt = $pdo->prepare("INSERT INTO breakfast_orders 
                 (booking_id, guest_name, room_number, total_pax, breakfast_time, breakfast_date, location, 
                  menu_items, special_requests, total_price, created_by) 
                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-            
             $orderId = $stmt->execute([
                 !empty($_POST['booking_id']) ? (int)$_POST['booking_id'] : null,
                 trim($_POST['guest_name']),
-                !empty($_POST['room_number']) ? trim($_POST['room_number']) : null,
+                json_encode($roomNumbers),
                 (int)$_POST['total_pax'],
                 $_POST['breakfast_time'],
                 $_POST['breakfast_date'],
