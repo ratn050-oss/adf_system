@@ -40,6 +40,24 @@ if (!empty($_SESSION['flash_error'])) {
     unset($_SESSION['flash_error']);
 }
 
+// ==================== AUTO-CLEANUP DUPLICATES ON PAGE LOAD ====================
+try {
+    $cleanupQuery = "
+        DELETE bo1 FROM breakfast_orders bo1
+        INNER JOIN breakfast_orders bo2 
+        ON bo1.guest_name = bo2.guest_name 
+           AND bo1.breakfast_date = bo2.breakfast_date 
+           AND bo1.breakfast_time = bo2.breakfast_time
+           AND bo1.menu_items = bo2.menu_items
+           AND bo1.id > bo2.id
+        WHERE bo1.breakfast_date = ?
+    ";
+    $cleanStmt = $pdo->prepare($cleanupQuery);
+    $cleanStmt->execute([$today]);
+} catch (Exception $e) {
+    error_log("Breakfast cleanup error: " . $e->getMessage());
+}
+
 // ==================== VALIDATE USER ID ====================
 // Check if current user exists in database before using in FK constraints
 $validUserId = null;
@@ -61,30 +79,16 @@ if (!empty($_SESSION['user_id'])) {
 // ==================== HANDLE BREAKFAST ORDER ====================
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     
-    // ========== ATOMIC FILE LOCK - GUARANTEED NO DUPLICATE ==========
-    // This is the ONLY reliable way to prevent concurrent submissions
-    $lockFile = sys_get_temp_dir() . '/bf_submit_' . session_id() . '.lock';
-    $lockFp = fopen($lockFile, 'w');
-    
-    // Try to get EXCLUSIVE lock - if another request has it, FAIL immediately
-    if (!flock($lockFp, LOCK_EX | LOCK_NB)) {
-        fclose($lockFp);
-        $_SESSION['flash_message'] = "⚠️ Request sedang diproses, mohon tunggu...";
-        header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?'));
-        exit;
-    }
-    
-    // Got the lock! Now validate form token
+    // ========== SIMPLE TOKEN CHECK ==========
     $formToken = $_POST['_form_token'] ?? '';
     $sessionToken = $_SESSION['bf_form_token'] ?? '';
     
     if (empty($formToken) || $formToken !== $sessionToken) {
-        flock($lockFp, LOCK_UN);
-        fclose($lockFp);
         $_SESSION['flash_message'] = "⚠️ Form expired, silakan coba lagi.";
         header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?'));
         exit;
     }
+    // Clear token immediately to prevent resubmit
     unset($_SESSION['bf_form_token']);
     
     try {
@@ -151,8 +155,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             ]);
             
             $_SESSION['flash_message'] = "✅ Order #$editId berhasil diupdate!";
-            flock($lockFp, LOCK_UN);
-            fclose($lockFp);
             header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?'));
             exit;
             
@@ -257,17 +259,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $roomNumbers = [$roomNumbers];
             }
             
-            // === INSERT with simple duplicate check ===
-            // Check duplicate: same guest + date + time within last 30 seconds
+            // === STRICT DUPLICATE CHECK ===
+            // Check if EXACT same order exists (guest + date + time + menu)
+            $menuJson = json_encode($menuItems);
             $dupCheck = $pdo->prepare("SELECT id FROM breakfast_orders 
                 WHERE guest_name = ? AND breakfast_date = ? AND breakfast_time = ? 
-                AND created_at >= DATE_SUB(NOW(), INTERVAL 30 SECOND)");
-            $dupCheck->execute([trim($_POST['guest_name']), $_POST['breakfast_date'], $_POST['breakfast_time']]);
+                AND menu_items = ?");
+            $dupCheck->execute([trim($_POST['guest_name']), $_POST['breakfast_date'], $_POST['breakfast_time'], $menuJson]);
             
             if ($dupCheck->fetch()) {
-                flock($lockFp, LOCK_UN);
-                fclose($lockFp);
-                $_SESSION['flash_message'] = "⚠️ Order untuk " . htmlspecialchars(trim($_POST['guest_name'])) . " sudah dibuat.";
+                $_SESSION['flash_message'] = "⚠️ Order untuk " . htmlspecialchars(trim($_POST['guest_name'])) . " dengan menu yang sama sudah ada.";
                 header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?'));
                 exit;
             }
@@ -292,10 +293,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             
             $lastOrderId = $pdo->lastInsertId();
             
-            // Release lock and redirect
-            flock($lockFp, LOCK_UN);
-            fclose($lockFp);
-            
             $itemscount = count($menuItems);
             $guestName = trim($_POST['guest_name']);
             $_SESSION['flash_message'] = "✅ Berhasil! Pesanan untuk <strong>" . htmlspecialchars($guestName) . "</strong> tersimpan (ID #$lastOrderId)";
@@ -303,8 +300,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             exit;
         }
     } catch (Exception $e) {
-        flock($lockFp, LOCK_UN);
-        fclose($lockFp);
         $error = "❌ Error: " . $e->getMessage();
         error_log("Breakfast Order Error: " . $e->getMessage());
     }
