@@ -55,8 +55,123 @@ $businessDb = Database::switchDatabase($business['database_name']);
 // Get today's date
 $today = date('Y-m-d');
 $todayDisplay = date('d F Y');
+$thisMonth = date('Y-m');
+$firstDayOfMonth = date('Y-m-01');
 
-// Get today's transactions from cash_book
+// ============================================
+// Daily Cash Calculation (Same as Dashboard)
+// ============================================
+
+// Get cash account IDs (grouped by type)
+$capitalAccounts = [];
+$pettyCashAccounts = [];
+
+try {
+    // Check if cash_accounts table exists
+    $cashAccounts = $businessDb->fetchAll("SELECT id, account_type FROM cash_accounts WHERE is_active = 1");
+    foreach ($cashAccounts as $acc) {
+        if (in_array($acc['account_type'], ['owner_capital', 'modal_owner'])) {
+            $capitalAccounts[] = $acc['id'];
+        } elseif (in_array($acc['account_type'], ['petty_cash', 'kas_operasional', 'kas_kecil'])) {
+            $pettyCashAccounts[] = $acc['id'];
+        }
+    }
+} catch (\Throwable $e) {
+    // Table might not exist
+}
+
+$hasCashAccountIdCol = true;
+try {
+    $businessDb->getConnection()->query("SELECT cash_account_id FROM cash_book LIMIT 1");
+} catch (\Throwable $e) {
+    $hasCashAccountIdCol = false;
+}
+
+// Initialize values
+$startKasHariIni = 0;
+$ownerTransferThisMonth = 0;
+$totalOperationalIncome = 0;
+$totalOperationalExpense = 0;
+$totalOperationalCash = 0;
+$guestCashIncome = 0;
+
+// Calculate Start Cash (balance at end of LAST month)
+if ($hasCashAccountIdCol && (!empty($capitalAccounts) || !empty($pettyCashAccounts))) {
+    $allAccIds = array_merge($capitalAccounts, $pettyCashAccounts);
+    $placeholders = implode(',', array_fill(0, count($allAccIds), '?'));
+    
+    // Start Cash = balance before this month
+    $qStart = "SELECT 
+        COALESCE(SUM(CASE WHEN transaction_type='income' THEN amount ELSE 0 END),0) -
+        COALESCE(SUM(CASE WHEN transaction_type='expense' THEN amount ELSE 0 END),0) as bal
+        FROM cash_book WHERE cash_account_id IN ($placeholders) AND transaction_date < ?";
+    $pStart = array_merge($allAccIds, [$firstDayOfMonth]);
+    $rStart = $businessDb->fetchOne($qStart, $pStart);
+    $startKasHariIni = $rStart['bal'] ?? 0;
+    
+    // Owner Transfer THIS MONTH (income to operational accounts)
+    $qOwner = "SELECT COALESCE(SUM(amount), 0) as total
+        FROM cash_book WHERE cash_account_id IN ($placeholders) 
+        AND transaction_type = 'income'
+        AND DATE_FORMAT(transaction_date, '%Y-%m') = ?";
+    $pOwner = array_merge($allAccIds, [$thisMonth]);
+    $rOwner = $businessDb->fetchOne($qOwner, $pOwner);
+    $ownerTransferThisMonth = $rOwner['total'] ?? 0;
+    
+    // Total Expense THIS MONTH
+    $qExp = "SELECT COALESCE(SUM(amount), 0) as total
+        FROM cash_book WHERE cash_account_id IN ($placeholders) 
+        AND transaction_type = 'expense'
+        AND DATE_FORMAT(transaction_date, '%Y-%m') = ?";
+    $pExp = array_merge($allAccIds, [$thisMonth]);
+    $rExp = $businessDb->fetchOne($qExp, $pExp);
+    $totalOperationalExpense = $rExp['total'] ?? 0;
+    
+    // Total Income THIS MONTH from operational accounts
+    $totalOperationalIncome = $ownerTransferThisMonth;
+    
+    // Current Balance (operational accounts)
+    $qBal = "SELECT 
+        COALESCE(SUM(CASE WHEN transaction_type='income' THEN amount ELSE 0 END),0) -
+        COALESCE(SUM(CASE WHEN transaction_type='expense' THEN amount ELSE 0 END),0) as bal
+        FROM cash_book WHERE cash_account_id IN ($placeholders) AND DATE_FORMAT(transaction_date, '%Y-%m') = ?";
+    $pBal = array_merge($allAccIds, [$thisMonth]);
+    $rBal = $businessDb->fetchOne($qBal, $pBal);
+    $totalOperationalCash = $startKasHariIni + ($rBal['bal'] ?? 0);
+}
+
+// Guest Cash Income (cash payments NOT from owner accounts)
+$excludeAccountIds = array_merge($capitalAccounts ?? [], $pettyCashAccounts ?? []);
+if (!empty($excludeAccountIds)) {
+    $excludePlaceholders = implode(',', array_fill(0, count($excludeAccountIds), '?'));
+    $cashIncomeResult = $businessDb->fetchOne(
+        "SELECT COALESCE(SUM(amount), 0) as total 
+         FROM cash_book 
+         WHERE transaction_type = 'income' 
+         AND payment_method = 'cash'
+         AND (cash_account_id IS NULL OR cash_account_id NOT IN ($excludePlaceholders))
+         AND DATE_FORMAT(transaction_date, '%Y-%m') = ?",
+        array_merge($excludeAccountIds, [$thisMonth])
+    );
+    $guestCashIncome = $cashIncomeResult['total'] ?? 0;
+} else {
+    $cashIncomeResult = $businessDb->fetchOne(
+        "SELECT COALESCE(SUM(amount), 0) as total 
+         FROM cash_book 
+         WHERE transaction_type = 'income' 
+         AND payment_method = 'cash'
+         AND DATE_FORMAT(transaction_date, '%Y-%m') = ?",
+        [$thisMonth]
+    );
+    $guestCashIncome = $cashIncomeResult['total'] ?? 0;
+}
+
+// Cash Available = Operational Cash + Guest Cash
+$cashAvailable = $totalOperationalCash + $guestCashIncome;
+
+// ============================================
+// Today's Transactions (for detail table)
+// ============================================
 $transactionsQuery = "
     SELECT 
         cb.id,
@@ -77,7 +192,7 @@ $transactionsQuery = "
 
 $transactions = $businessDb->fetchAll($transactionsQuery, [$today]);
 
-// Calculate totals
+// Calculate today's totals
 $totalIncome = 0;
 $totalExpense = 0;
 $incomeTransactions = [];
@@ -92,19 +207,6 @@ foreach ($transactions as $trans) {
         $expenseTransactions[] = $trans;
     }
 }
-
-$netBalance = $totalIncome - $totalExpense;
-
-// Get opening balance (sum of all transactions before today)
-$openingBalanceQuery = "
-    SELECT COALESCE(SUM(CASE WHEN transaction_type = 'income' THEN amount ELSE -amount END), 0) as opening_balance
-    FROM cash_book
-    WHERE transaction_date < ?
-";
-$openingBalanceResult = $businessDb->fetchOne($openingBalanceQuery, [$today]);
-$openingBalance = $openingBalanceResult['opening_balance'] ?? 0;
-
-$closingBalance = $openingBalance + $netBalance;
 
 // Currency format function
 function formatRupiah($amount) {
@@ -308,30 +410,52 @@ function formatRupiah($amount) {
         <!-- Header -->
         <div class="header">
             <h1><?php echo htmlspecialchars($business['business_name']); ?></h1>
-            <h2>LAPORAN CASH HARIAN (END SHIFT)</h2>
+            <h2>💰 DAILY CASH - <?php echo strtoupper(date('M Y')); ?></h2>
             <p><strong>Tanggal:</strong> <?php echo $todayDisplay; ?> | <strong>Waktu Cetak:</strong> <?php echo date('H:i:s'); ?></p>
             <p><strong>Operator:</strong> <?php echo htmlspecialchars($operatorName); ?></p>
         </div>
         
-        <!-- Summary Cash Harian -->
-        <table class="summary-table" style="margin-bottom: 25px;">
-            <tr>
-                <td>💰 Saldo Cash Awal</td>
-                <td style="color: #2196F3;"><?php echo formatRupiah($openingBalance); ?></td>
-            </tr>
-            <tr>
-                <td>📈 Pemasukan Hari Ini (<?php echo count($incomeTransactions); ?> transaksi)</td>
-                <td style="color: #4CAF50;"><?php echo formatRupiah($totalIncome); ?></td>
-            </tr>
-            <tr>
-                <td>📉 Pengeluaran Hari Ini (<?php echo count($expenseTransactions); ?> transaksi)</td>
-                <td style="color: #f44336;"><?php echo formatRupiah($totalExpense); ?></td>
-            </tr>
-            <tr class="total">
-                <td>💵 SISA SALDO CASH</td>
-                <td><?php echo formatRupiah($closingBalance); ?></td>
-            </tr>
-        </table>
+        <!-- Daily Cash Summary (Same as Dashboard) -->
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 20px;">
+            <!-- Start Cash -->
+            <div style="background: linear-gradient(135deg, #f8fafc 0%, #f1f5f9 100%); padding: 12px 15px; border-radius: 10px; border: 1px solid #e2e8f0;">
+                <div style="font-size: 10px; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 5px;">Start Cash (<?php echo date('M'); ?>)</div>
+                <div style="font-size: 18px; font-weight: 700; color: #334155; font-family: Georgia, serif;"><?php echo formatRupiah($startKasHariIni); ?></div>
+            </div>
+            <!-- Cash Available -->
+            <div style="background: linear-gradient(135deg, <?php echo $cashAvailable >= 0 ? '#ecfdf5' : '#fef2f2'; ?> 0%, <?php echo $cashAvailable >= 0 ? '#d1fae5' : '#fee2e2'; ?> 100%); padding: 12px 15px; border-radius: 10px; border: 1px solid <?php echo $cashAvailable >= 0 ? '#a7f3d0' : '#fecaca'; ?>;">
+                <div style="font-size: 10px; color: <?php echo $cashAvailable >= 0 ? '#047857' : '#b91c1c'; ?>; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 5px;">Cash Available</div>
+                <div style="font-size: 18px; font-weight: 700; color: <?php echo $cashAvailable >= 0 ? '#059669' : '#dc2626'; ?>; font-family: Georgia, serif;"><?php echo formatRupiah($cashAvailable); ?></div>
+            </div>
+        </div>
+        
+        <!-- Detail Cards: Owner Transfer, Owner + Guest, Expense -->
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 25px;">
+            <!-- Owner Transfer -->
+            <div style="background: #fff; padding: 12px; border-radius: 8px; border: 1px solid #e5e7eb; text-align: center;">
+                <div style="width: 36px; height: 36px; border-radius: 8px; background: linear-gradient(135deg, #fbbf24, #f59e0b); display: inline-flex; align-items: center; justify-content: center; margin-bottom: 8px;">
+                    <span style="font-size: 16px;">💵</span>
+                </div>
+                <div style="font-size: 9px; color: #9ca3af; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px;">Owner Transfer</div>
+                <div style="font-size: 14px; font-weight: 700; color: #1f2937; font-family: Georgia, serif;"><?php echo formatRupiah($ownerTransferThisMonth); ?></div>
+            </div>
+            <!-- Owner + Guest -->
+            <div style="background: #fff; padding: 12px; border-radius: 8px; border: 1px solid #e5e7eb; text-align: center;">
+                <div style="width: 36px; height: 36px; border-radius: 8px; background: linear-gradient(135deg, #34d399, #10b981); display: inline-flex; align-items: center; justify-content: center; margin-bottom: 8px;">
+                    <span style="font-size: 16px;">⬆️</span>
+                </div>
+                <div style="font-size: 9px; color: #9ca3af; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px;">Owner + Guest</div>
+                <div style="font-size: 14px; font-weight: 700; color: #059669; font-family: Georgia, serif;"><?php echo formatRupiah($totalOperationalIncome + $guestCashIncome); ?></div>
+            </div>
+            <!-- Expense -->
+            <div style="background: #fff; padding: 12px; border-radius: 8px; border: 1px solid #e5e7eb; text-align: center;">
+                <div style="width: 36px; height: 36px; border-radius: 8px; background: linear-gradient(135deg, #f87171, #ef4444); display: inline-flex; align-items: center; justify-content: center; margin-bottom: 8px;">
+                    <span style="font-size: 16px;">⬇️</span>
+                </div>
+                <div style="font-size: 9px; color: #9ca3af; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px;">Expense</div>
+                <div style="font-size: 14px; font-weight: 700; color: #dc2626; font-family: Georgia, serif;"><?php echo formatRupiah($totalOperationalExpense); ?></div>
+            </div>
+        </div>
         
         <!-- Rincian Transaksi Hari Ini -->
         <div class="section">
