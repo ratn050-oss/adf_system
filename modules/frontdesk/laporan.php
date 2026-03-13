@@ -534,7 +534,6 @@ include '../../includes/header.php';
     </div>
 </div>
 
-<script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
 <script>
 function exportToPDF() {
     var w = window.open('export-daily-report.php', '_blank');
@@ -567,83 +566,22 @@ function editBreakfastOrder(id) {
 }
 
 function shareToWhatsApp() {
-    var btn = document.querySelector('.btn-wa');
-    var origText = btn.innerHTML;
-    btn.innerHTML = '⏳ Generating PDF...';
-    btn.disabled = true;
-
-    var fileName = 'Daily-Report-' + <?php echo json_encode(date('Y-m-d')); ?> + '.pdf';
-
-    // Fetch the export page HTML
-    fetch('export-daily-report.php?noprint=1')
-        .then(function(res) { return res.text(); })
-        .then(function(html) {
-            // Create iframe with srcdoc (self-contained HTML)
-            var iframe = document.createElement('iframe');
-            iframe.style.position = 'fixed';
-            iframe.style.left = '0';
-            iframe.style.top = '0';
-            iframe.style.width = '100vw';
-            iframe.style.height = '100vh';
-            iframe.style.opacity = '0.01';
-            iframe.style.zIndex = '99999';
-            iframe.srcdoc = html;
-            
-            document.body.appendChild(iframe);
-
-            iframe.onload = function() {
-                setTimeout(function() {
-                    var iframeDoc = iframe.contentDocument || iframe.contentWindow.document;
-
-                    var opt = {
-                        margin: 0,
-                        filename: fileName,
-                        image: { type: 'jpeg', quality: 0.95 },
-                        html2canvas: { 
-                            scale: 2, 
-                            useCORS: true, 
-                            backgroundColor: '#ffffff',
-                            logging: false
-                        },
-                        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' }
-                    };
-
-                    html2pdf().set(opt).from(iframeDoc.body).outputPdf('blob').then(function(pdfBlob) {
-                        document.body.removeChild(iframe);
-                        btn.innerHTML = origText;
-                        btn.disabled = false;
-                        
-                        var file = new File([pdfBlob], fileName, { type: 'application/pdf' });
-
-                        if (navigator.share && navigator.canShare && navigator.canShare({ files: [file] })) {
-                            navigator.share({
-                                title: 'Daily Report',
-                                text: 'Daily Report - ' + <?php echo json_encode($todayDisplay); ?>,
-                                files: [file]
-                            }).catch(function() {});
-                        } else {
-                            var url = URL.createObjectURL(pdfBlob);
-                            var a = document.createElement('a');
-                            a.href = url;
-                            a.download = fileName;
-                            a.click();
-                            URL.revokeObjectURL(url);
-                            alert('PDF berhasil di-download. Silakan share manual lewat WhatsApp.');
-                        }
-                    }).catch(function(err) {
-                        document.body.removeChild(iframe);
-                        btn.innerHTML = origText;
-                        btn.disabled = false;
-                        alert('Gagal generate PDF: ' + err.message);
-                    });
-                }, 800);
-            };
-        })
-        .catch(function(err) {
-            btn.innerHTML = origText;
-            btn.disabled = false;
-            alert('Gagal memuat laporan: ' + err.message);
-        });
+    // Build WhatsApp message with link to report
+    var reportUrl = window.location.origin + window.location.pathname.replace('laporan.php', 'export-daily-report.php') + '?noprint=1';
+    
+    var text = '*📊 DAILY REPORT - <?php echo date("d M Y"); ?>*\n\n';
+    text += '🏨 *<?php echo addslashes($company['name'] ?? 'Hotel'); ?>*\n\n';
+    text += '📈 *Occupancy:* <?php echo $occupancyRate; ?>%\n';
+    text += '👥 *In House:* <?php echo count($inHouseGuests); ?> tamu\n';
+    text += '📥 *Check-in Hari Ini:* <?php echo count($checkInToday); ?>\n';
+    text += '📤 *Check-out Hari Ini:* <?php echo count($checkOutToday); ?>\n';
+    <?php if (count($breakfastOrders) > 0): ?>
+    text += '🍳 *Breakfast Orders:* <?php echo count($breakfastOrders); ?>\n';
+    <?php endif; ?>
+    text += '\n📄 *Lihat Laporan Lengkap:*\n' + reportUrl;
+    
+    var whatsappUrl = 'https://wa.me/?text=' + encodeURIComponent(text);
+    window.open(whatsappUrl, '_blank');
 }
 </script>
 
