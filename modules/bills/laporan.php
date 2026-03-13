@@ -165,8 +165,8 @@ include '../../includes/header.php';
 .summary-box { background: linear-gradient(135deg, #4f46e5, #6366f1); border-radius: 12px; padding: 1rem 1.25rem; margin-top: 1rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; }
 .summary-info { display: flex; gap: 2rem; }
 .summary-item { text-align: center; }
-.summary-item .sum-label { font-size: 0.65rem; font-weight: 600; text-transform: uppercase; color: rgba(255,255,255,0.7); margin-bottom: 0.15rem; }
-.summary-item .sum-value { font-size: 1.1rem; font-weight: 800; color: #fff; }
+.summary-item .sum-label { font-size: 0.65rem; font-weight: 600; text-transform: uppercase; color: rgba(255,255,255,0.8) !important; margin-bottom: 0.15rem; }
+.summary-item .sum-value { font-size: 1.1rem; font-weight: 800; color: #fff !important; }
 .summary-actions { display: flex; gap: 0.5rem; }
 
 /* Report Stamp */
@@ -294,7 +294,7 @@ include '../../includes/header.php';
     <div class="stats-row">
         <div class="stat-item pending">
             <div class="stat-val"><?= formatCurrency($totalPending) ?></div>
-            <div class="stat-lbl">Pending (<?= $countPending ?>)</div>
+            <div class="stat-lbl">Menunggu Bayar (<?= $countPending ?>)</div>
         </div>
         <div class="stat-item overdue">
             <div class="stat-val"><?= formatCurrency($totalOverdue) ?></div>
@@ -361,7 +361,7 @@ include '../../includes/header.php';
                     <td style="font-size:0.72rem;color:var(--text-muted)"><?= htmlspecialchars($bill['account_number'] ?? '-') ?></td>
                     <td>
                         <span class="status-badge <?= $bill['status'] ?>">
-                            <?= $bill['status'] === 'overdue' ? 'Lewat' : 'Pending' ?>
+                            <?= $bill['status'] === 'overdue' ? 'Terlambat' : 'Menunggu' ?>
                         </span>
                     </td>
                     <td style="text-align:right;font-weight:600"><?= formatCurrency($bill['amount']) ?></td>
@@ -375,11 +375,11 @@ include '../../includes/header.php';
     <div class="summary-box">
         <div class="summary-info">
             <div class="summary-item">
-                <div class="sum-label">Tagihan Dipilih</div>
+                <div class="sum-label">Jumlah Tagihan</div>
                 <div class="sum-value" id="selectedCount">0</div>
             </div>
             <div class="summary-item">
-                <div class="sum-label">Total Pencairan</div>
+                <div class="sum-label">Total Pengajuan</div>
                 <div class="sum-value" id="selectedTotal">Rp 0</div>
             </div>
         </div>
