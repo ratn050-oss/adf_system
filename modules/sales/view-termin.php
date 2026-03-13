@@ -162,21 +162,24 @@ function formatInvDate($date) {
     return date('F j, Y', strtotime($date));
 }
 
-// Logo path check - simplified and robust
+// Logo path check - check uploads and assets folders
 $logoPath = '';
 $logoExists = false;
 $possibleLogos = [
-    $companyLogo,
-    'logos/' . $companyLogo,
-    'logos/cqc_logo.png',  // Default CQC logo fallback
-    'cqc_logo.png'
+    ['folder' => 'uploads', 'file' => $companyLogo],
+    ['folder' => 'uploads', 'file' => 'logos/' . $companyLogo],
+    ['folder' => 'uploads', 'file' => 'logos/cqc_logo.png'],
+    ['folder' => 'assets/images', 'file' => $companyLogo],
+    ['folder' => 'assets/images', 'file' => 'cqc-logo.png'],
+    ['folder' => 'assets/img', 'file' => 'cqc-logo.png'],
 ];
-foreach ($possibleLogos as $logo) {
-    if (!$logo) continue;
-    $fullPath = $configPath . '/uploads/' . $logo;
+foreach ($possibleLogos as $logoInfo) {
+    $file = $logoInfo['file'];
+    if (!$file) continue;
+    $fullPath = $configPath . '/' . $logoInfo['folder'] . '/' . $file;
     if (file_exists($fullPath)) {
         $logoExists = true;
-        $logoPath = BASE_URL . '/uploads/' . $logo;
+        $logoPath = BASE_URL . '/' . $logoInfo['folder'] . '/' . $file;
         break;
     }
 }
@@ -621,7 +624,7 @@ foreach ($possibleLogos as $logo) {
             font-size: 9px;
             color: var(--gray-500);
             font-weight: 500;
-            margin-bottom: 35px;
+            margin-bottom: 60px;
         }
         
         .sig-block .line {

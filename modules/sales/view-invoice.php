@@ -191,18 +191,22 @@ if ($companyLogo && strpos($companyLogo, 'http') === 0) {
     $logoPath = $companyLogo;
 } else {
     $possibleLogos = [
-        $companyLogo, 
-        'logos/' . $companyLogo, 
-        'logos/' . strtolower(str_replace(' ', '_', $companyName)) . '_logo.png',
-        'logos/' . strtolower(str_replace(' ', '_', $companyName)) . '.png',
-        'logos/default_logo.png'
+        ['folder' => 'uploads', 'file' => $companyLogo],
+        ['folder' => 'uploads', 'file' => 'logos/' . $companyLogo],
+        ['folder' => 'uploads', 'file' => 'logos/' . strtolower(str_replace(' ', '_', $companyName)) . '_logo.png'],
+        ['folder' => 'uploads', 'file' => 'logos/' . strtolower(str_replace(' ', '_', $companyName)) . '.png'],
+        ['folder' => 'uploads', 'file' => 'logos/default_logo.png'],
+        ['folder' => 'assets/images', 'file' => $companyLogo],
+        ['folder' => 'assets/images', 'file' => 'cqc-logo.png'],
+        ['folder' => 'assets/img', 'file' => 'cqc-logo.png'],
     ];
-    foreach ($possibleLogos as $logo) {
-        if (!$logo) continue;
-        $fullPath = $configPath . '/uploads/' . $logo;
+    foreach ($possibleLogos as $logoInfo) {
+        $file = $logoInfo['file'];
+        if (!$file) continue;
+        $fullPath = $configPath . '/' . $logoInfo['folder'] . '/' . $file;
         if (file_exists($fullPath)) {
             $logoExists = true;
-            $logoPath = BASE_URL . '/uploads/' . $logo;
+            $logoPath = BASE_URL . '/' . $logoInfo['folder'] . '/' . $file;
             break;
         }
     }
@@ -368,7 +372,7 @@ if ($companyLogo && strpos($companyLogo, 'http') === 0) {
         /* Signatures */
         .signatures { display: grid; grid-template-columns: 1fr 1fr; gap: 60px; margin-top: 20px; padding: 0 30px; }
         .sig-block { text-align: center; }
-        .sig-block .role { font-size: 9px; color: var(--gray-500); font-weight: 500; margin-bottom: 35px; }
+        .sig-block .role { font-size: 9px; color: var(--gray-500); font-weight: 500; margin-bottom: 60px; }
         .sig-block .line { border-top: 1px solid var(--navy); padding-top: 8px; }
         .sig-block .name { font-size: 10px; font-weight: 700; color: var(--navy); }
         
