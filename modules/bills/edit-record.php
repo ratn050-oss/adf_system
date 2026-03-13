@@ -9,6 +9,11 @@ require_once '../../config/database.php';
 require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
 
+// Prevent browser caching
+header("Cache-Control: no-cache, no-store, must-revalidate");
+header("Pragma: no-cache");
+header("Expires: 0");
+
 $auth = new Auth();
 $auth->requireLogin();
 $currentUser = $auth->getCurrentUser();

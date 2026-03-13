@@ -109,7 +109,7 @@ try {
             $userId = $firstUser ? $firstUser['id'] : 1;
         }
         
-        // Build cashbook insert
+        // Build cashbook insert - start with required columns
         $cbData = [
             'transaction_date' => $paidDate,
             'transaction_time' => date('H:i:s'),
@@ -119,39 +119,53 @@ try {
             'amount' => $paidAmount,
             'description' => 'Pembayaran tagihan: ' . $record['bill_name'] . ($record['vendor_name'] ? ' - ' . $record['vendor_name'] : '') . ($notes ? ' (' . $notes . ')' : ''),
             'payment_method' => $pmMethod,
-            'source_type' => 'bill_payment',
-            'is_editable' => 0,
-            'created_by' => $userId,
-            'reference_no' => 'BILL-' . $recordId
+            'created_by' => $userId
         ];
         
-        // Check if cash_account_id column exists
-        $hasCashAccountId = false;
+        // Check which optional columns exist and add them
         try {
-            $colChk = $db->getConnection()->query("SHOW COLUMNS FROM cash_book LIKE 'cash_account_id'");
-            $hasCashAccountId = $colChk && $colChk->rowCount() > 0;
-        } catch (Exception $e) {}
-        
-        // Try to find matching cash account from master DB
-        if ($hasCashAccountId) {
-            try {
-                $masterDbName = defined('MASTER_DB_NAME') ? MASTER_DB_NAME : (defined('DB_NAME') ? DB_NAME : 'adf_system');
-                $masterDb = new PDO("mysql:host=" . DB_HOST . ";dbname={$masterDbName};charset=utf8mb4", DB_USER, DB_PASS);
-                $masterDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-                $businessId = $_SESSION['business_id'] ?? 1;
-                
-                // Map payment method to account type
-                $acctType = ($pmMethod === 'cash') ? 'cash' : 'bank';
-                $cashAcct = $masterDb->prepare("SELECT id FROM cash_accounts WHERE business_id = ? AND account_type = ? LIMIT 1");
-                $cashAcct->execute([$businessId, $acctType]);
-                $acctRow = $cashAcct->fetch(PDO::FETCH_ASSOC);
-                if ($acctRow) {
-                    $cbData['cash_account_id'] = $acctRow['id'];
+            $pdo = $db->getConnection();
+            $cols = $pdo->query("SHOW COLUMNS FROM cash_book")->fetchAll(PDO::FETCH_COLUMN);
+            
+            if (in_array('source_type', $cols)) {
+                $cbData['source_type'] = 'bill_payment';
+            }
+            if (in_array('reference_no', $cols)) {
+                $cbData['reference_no'] = 'BILL-' . $recordId;
+            }
+            if (in_array('is_editable', $cols)) {
+                $cbData['is_editable'] = 0;
+            }
+            
+            // Check and set cash_account_id
+            if (in_array('cash_account_id', $cols)) {
+                try {
+                    $masterDbName = defined('MASTER_DB_NAME') ? MASTER_DB_NAME : (defined('DB_NAME') ? DB_NAME : 'adf_system');
+                    $masterDb = new PDO("mysql:host=" . DB_HOST . ";dbname={$masterDbName};charset=utf8mb4", DB_USER, DB_PASS);
+                    $masterDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+                    $businessId = $_SESSION['business_id'] ?? 1;
+                    
+                    // Map payment method to account type
+                    $acctType = ($pmMethod === 'cash') ? 'cash' : 'bank';
+                    $cashAcct = $masterDb->prepare("SELECT id FROM cash_accounts WHERE business_id = ? AND account_type = ? LIMIT 1");
+                    $cashAcct->execute([$businessId, $acctType]);
+                    $acctRow = $cashAcct->fetch(PDO::FETCH_ASSOC);
+                    if ($acctRow) {
+                        $cbData['cash_account_id'] = $acctRow['id'];
+                    }
+                } catch (Exception $e) {
+                    error_log("Bills pay.php - cash_account lookup error: " . $e->getMessage());
                 }
-            } catch (Exception $e) { /* ignore */ }
+            }
+        } catch (Exception $e) {
+            error_log("Bills pay.php - column check error: " . $e->getMessage());
         }
         
         $cashbookId = $db->insert('cash_book', $cbData);
+        
+        if (!$cashbookId) {
+            throw new Exception('Gagal menyimpan ke buku kas');
+        }
     }
     
     // Update bill record as paid

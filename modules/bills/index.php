@@ -9,6 +9,34 @@ require_once '../../config/database.php';
 require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
 
+// Prevent browser caching to always show fresh data
+header("Cache-Control: no-cache, no-store, must-revalidate");
+header("Pragma: no-cache");
+header("Expires: 0");
+
+// AJAX handler for fetching fresh bill data
+if (isset($_GET['ajax']) && $_GET['ajax'] === 'get_bill') {
+    header('Content-Type: application/json');
+    $db = Database::getInstance();
+    $billId = (int)($_GET['bill_id'] ?? 0);
+    if ($billId > 0) {
+        $bill = $db->fetchOne(
+            "SELECT br.*, bt.bill_name, bt.bill_category, bt.vendor_name, bt.division_id, bt.category_id, bt.payment_method as default_payment
+             FROM bill_records br 
+             JOIN bill_templates bt ON br.template_id = bt.id 
+             WHERE br.id = ?", [$billId]
+        );
+        if ($bill) {
+            echo json_encode(['success' => true, 'bill' => $bill]);
+        } else {
+            echo json_encode(['success' => false, 'message' => 'Bill not found']);
+        }
+    } else {
+        echo json_encode(['success' => false, 'message' => 'Invalid bill ID']);
+    }
+    exit;
+}
+
 $auth = new Auth();
 $auth->requireLogin();
 $currentUser = $auth->getCurrentUser();
@@ -880,7 +908,7 @@ include '../../includes/header.php';
                     <td style="text-align: center;">
                         <div class="bill-actions">
                             <?php if ($bill['status'] !== 'paid' && $bill['status'] !== 'cancelled'): ?>
-                            <button class="bill-action-btn pay" title="Bayar" onclick="openPayModal(<?= htmlspecialchars(json_encode($bill)) ?>)">
+                            <button class="bill-action-btn pay" title="Bayar" onclick="openPayModal(<?= $bill['id'] ?>)">
                                 <i data-feather="check-circle"></i>
                             </button>
                             <?php endif; ?>
@@ -957,22 +985,36 @@ include '../../includes/header.php';
 </div>
 
 <script>
-// Pay Modal
-function openPayModal(bill) {
-    document.getElementById('pay_record_id').value = bill.id;
-    document.getElementById('pay_template_id').value = bill.template_id;
-    document.getElementById('pay_bill_name').textContent = bill.bill_name;
-    document.getElementById('pay_bill_vendor').textContent = bill.vendor_name || '—';
-    
-    const amountField = document.getElementById('pay_amount');
-    amountField.value = parseInt(bill.amount).toLocaleString('id-ID');
-    amountField.dataset.raw = parseInt(bill.amount);
-    
-    if (bill.default_payment) {
-        document.getElementById('pay_method').value = bill.default_payment;
+// Pay Modal - Fetch fresh data via AJAX
+async function openPayModal(billId) {
+    try {
+        const response = await fetch('<?= BASE_URL ?>/modules/bills/index.php?ajax=get_bill&bill_id=' + billId);
+        const data = await response.json();
+        
+        if (!data.success) {
+            alert('Gagal mengambil data tagihan: ' + (data.message || 'Unknown error'));
+            return;
+        }
+        
+        const bill = data.bill;
+        document.getElementById('pay_record_id').value = bill.id;
+        document.getElementById('pay_template_id').value = bill.template_id;
+        document.getElementById('pay_bill_name').textContent = bill.bill_name;
+        document.getElementById('pay_bill_vendor').textContent = bill.vendor_name || '—';
+        
+        const amountField = document.getElementById('pay_amount');
+        amountField.value = parseInt(bill.amount).toLocaleString('id-ID');
+        amountField.dataset.raw = parseInt(bill.amount);
+        
+        if (bill.default_payment) {
+            document.getElementById('pay_method').value = bill.default_payment;
+        }
+        
+        document.getElementById('payModal').classList.add('active');
+    } catch (error) {
+        console.error('Error fetching bill:', error);
+        alert('Gagal mengambil data tagihan. Silakan refresh halaman.');
     }
-    
-    document.getElementById('payModal').classList.add('active');
 }
 
 function closePayModal() {
