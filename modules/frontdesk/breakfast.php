@@ -60,6 +60,18 @@ if (!empty($_SESSION['user_id'])) {
 
 // ==================== HANDLE BREAKFAST ORDER ====================
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
+    // === ANTI-DUPLICATE: Validate form token ===
+    $formToken = $_POST['_form_token'] ?? '';
+    $sessionToken = $_SESSION['bf_form_token'] ?? '';
+    
+    if (empty($formToken) || $formToken !== $sessionToken) {
+        // Token mismatch = duplicate submission or expired, redirect silently
+        header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?'));
+        exit;
+    }
+    // Consume token so it can't be reused
+    unset($_SESSION['bf_form_token']);
+    
     try {
         if ($_POST['action'] === 'update_order') {
             if (!$validUserId) {
@@ -124,7 +136,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             ]);
             
             $_SESSION['flash_message'] = "✅ Order #$editId berhasil diupdate!";
-            header('Location: ' . strtok($_SERVER['PHP_SELF'], '?'));
+            header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?'));
             exit;
             
         } elseif ($_POST['action'] === 'create_order') {
@@ -222,6 +234,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             if (!is_array($roomNumbers)) {
                 $roomNumbers = [$roomNumbers];
             }
+            
+            // === ANTI-DUPLICATE: Check for identical recent order ===
+            $dupCheck = $pdo->prepare("SELECT id FROM breakfast_orders 
+                WHERE guest_name = ? AND breakfast_date = ? AND breakfast_time = ? AND created_at >= DATE_SUB(NOW(), INTERVAL 2 MINUTE)");
+            $dupCheck->execute([trim($_POST['guest_name']), $_POST['breakfast_date'], $_POST['breakfast_time']]);
+            if ($dupCheck->fetch()) {
+                $_SESSION['flash_message'] = "⚠️ Order untuk tamu ini sudah ada (dibuat kurang dari 2 menit lalu). Tidak dibuat ulang.";
+                header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?'));
+                exit;
+            }
+            
             $stmt = $pdo->prepare("INSERT INTO breakfast_orders 
                 (booking_id, guest_name, room_number, total_pax, breakfast_time, breakfast_date, location, 
                  menu_items, special_requests, total_price, created_by) 
@@ -246,7 +269,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $itemscount = count($menuItems);
             $guestName = trim($_POST['guest_name']);
             $_SESSION['flash_message'] = "✅ Berhasil! Pesanan sarapan untuk <strong>" . htmlspecialchars($guestName) . "</strong> ($itemscount item menu) telah tersimpan dengan ID #$lastOrderId";
-            header('Location: ' . $_SERVER['PHP_SELF']);
+            header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?'));
             exit;
         }
     } catch (Exception $e) {
@@ -989,6 +1012,12 @@ include '../../includes/header.php';
         <div class="bf-form-card">
             <form method="POST" action="" id="breakfastOrderForm">
                 <input type="hidden" name="action" value="<?php echo $editOrder ? 'update_order' : 'create_order'; ?>">
+                <?php 
+                // Generate unique form token to prevent duplicate submission
+                $formToken = bin2hex(random_bytes(16));
+                $_SESSION['bf_form_token'] = $formToken;
+                ?>
+                <input type="hidden" name="_form_token" value="<?php echo $formToken; ?>">
                 <?php if ($editOrder): ?>
                 <input type="hidden" name="edit_id" value="<?php echo $editOrder['id']; ?>">
                 <?php endif; ?>
@@ -1382,6 +1411,14 @@ function validateBreakfastForm(e) {
     // Ensure room_number hidden inputs exist if rooms were selected
     const roomInputs = document.querySelectorAll('input[name="room_number[]"]');
     // If no rooms selected via checkboxes, that's okay (walk-in)
+
+    // === ANTI-DUPLICATE: Disable submit button ===
+    const submitBtn = document.querySelector('.bf-btn-submit');
+    if (submitBtn) {
+        submitBtn.disabled = true;
+        submitBtn.textContent = '⏳ Menyimpan...';
+        submitBtn.style.opacity = '0.6';
+    }
 
     return true;
 }
