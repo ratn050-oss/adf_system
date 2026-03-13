@@ -279,7 +279,8 @@ try {
                 if ($syncAmount <= 0) $syncAmount = $totalPaid;
                 if ($syncAmount <= 0) $syncAmount = (float)$booking['paid_amount'];
                 if ($syncAmount <= 0) $syncAmount = (float)$booking['final_price'];
-                $syncMethod = $isOTA ? ('ota_' . $normalizedSource) : 'transfer';
+                // OTA: Set payment method as "OTA [source]" (human readable)
+                $syncMethod = $isOTA ? ('OTA ' . ($booking['booking_source'] ?? 'OTA')) : 'transfer';
             }
 
             $syncResult = $cashbookHelper->syncPaymentToCashbook([
@@ -291,6 +292,7 @@ try {
                 'booking_code'   => $booking['booking_code'],
                 'room_number'    => $booking['room_number'],
                 'booking_source' => $booking['booking_source'],
+                'booking_notes'  => $booking['notes'] ?? $booking['special_request'] ?? '',
                 'final_price'    => $booking['final_price'],
                 'total_paid'     => $totalPaid,
                 'is_new_reservation' => false,

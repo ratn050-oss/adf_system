@@ -291,13 +291,15 @@ class CashbookHelper {
      */
     public function mapPaymentMethod($paymentMethod) {
         $pmMap = ['bank_transfer' => 'transfer', 'credit_card' => 'debit', 'credit' => 'debit'];
-        $cbMethod = strtolower($paymentMethod ?? 'cash');
-        $cbMethod = $pmMap[$cbMethod] ?? $cbMethod;
+        $cbMethod = $paymentMethod ?? 'cash';
         
-        // Allow ota_* formats (e.g. ota_agoda, ota_booking) to pass through
-        if (strpos($cbMethod, 'ota_') === 0) {
+        // Keep OTA formats as-is (e.g. "OTA tiket.com", "OTA Agoda")
+        if (stripos($cbMethod, 'OTA ') === 0 || stripos($cbMethod, 'ota_') === 0) {
             return $cbMethod;
         }
+        
+        $cbMethod = strtolower($cbMethod);
+        $cbMethod = $pmMap[$cbMethod] ?? $cbMethod;
         
         $allowedMethods = $this->getAllowedPaymentMethods();
         if ($allowedMethods !== null && !in_array($cbMethod, $allowedMethods)) {
@@ -504,13 +506,14 @@ class CashbookHelper {
             $guestName = $paymentData['guest_name'] ?? 'Guest';
             $bookingCode = $paymentData['booking_code'] ?? '';
             $roomNumber = $paymentData['room_number'] ?? '';
+            $bookingNotes = trim($paymentData['booking_notes'] ?? '');
             
-            $description = "Pembayaran Reservasi - {$guestName}";
+            $description = "{$guestName}";
             if ($roomNumber) {
-                $description .= " (Room {$roomNumber})";
+                $description .= " - Room {$roomNumber}";
             }
             if ($bookingCode) {
-                $description .= " - {$bookingCode}";
+                $description .= " ({$bookingCode})";
             }
             
             // Determine payment status label
@@ -534,12 +537,13 @@ class CashbookHelper {
                 }
             }
             
+            // Add booking notes if available
+            if ($bookingNotes) {
+                $description .= ' - ' . $bookingNotes;
+            }
+            
             // Check if this is OTA check-in (should be editable for reconciliation)
             $isOtaCheckin = $paymentData['is_ota_checkin'] ?? false;
-            if ($isOtaCheckin) {
-                $otaLabel = strtoupper($bookingSource ?: 'OTA');
-                $description .= " [{$otaLabel} - ESTIMASI]";  // Mark as estimate with OTA name
-            }
             
             // Map payment method
             $cbMethod = $this->mapPaymentMethod($paymentData['payment_method'] ?? 'cash');
