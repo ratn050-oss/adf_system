@@ -374,12 +374,25 @@ include '../../includes/header.php';
             <div class="form-group">
                 <label class="form-label">Metode Pembayaran *</label>
                 <select name="payment_method" class="form-control" required>
-                    <option value="cash" <?php echo $transaction['payment_method'] == 'cash' ? 'selected' : ''; ?>>Cash</option>
-                    <option value="debit" <?php echo $transaction['payment_method'] == 'debit' ? 'selected' : ''; ?>>Debit</option>
-                    <option value="transfer" <?php echo $transaction['payment_method'] == 'transfer' ? 'selected' : ''; ?>>Transfer</option>
-                    <option value="qr" <?php echo $transaction['payment_method'] == 'qr' ? 'selected' : ''; ?>>QR Code</option>
-                    <option value="edc" <?php echo $transaction['payment_method'] == 'edc' ? 'selected' : ''; ?>>EDC</option>
-                    <option value="other" <?php echo $transaction['payment_method'] == 'other' ? 'selected' : ''; ?>>Lainnya</option>
+                    <optgroup label="Umum">
+                        <option value="cash" <?php echo $transaction['payment_method'] == 'cash' ? 'selected' : ''; ?>>Cash</option>
+                        <option value="debit" <?php echo $transaction['payment_method'] == 'debit' ? 'selected' : ''; ?>>Debit</option>
+                        <option value="transfer" <?php echo $transaction['payment_method'] == 'transfer' ? 'selected' : ''; ?>>Transfer</option>
+                        <option value="qr" <?php echo $transaction['payment_method'] == 'qr' ? 'selected' : ''; ?>>QR Code</option>
+                        <option value="edc" <?php echo $transaction['payment_method'] == 'edc' ? 'selected' : ''; ?>>EDC</option>
+                    </optgroup>
+                    <optgroup label="OTA (Online Travel Agent)">
+                        <option value="OTA tiket.com" <?php echo $transaction['payment_method'] == 'OTA tiket.com' ? 'selected' : ''; ?>>OTA tiket.com</option>
+                        <option value="OTA Agoda" <?php echo $transaction['payment_method'] == 'OTA Agoda' ? 'selected' : ''; ?>>OTA Agoda</option>
+                        <option value="OTA Booking.com" <?php echo $transaction['payment_method'] == 'OTA Booking.com' ? 'selected' : ''; ?>>OTA Booking.com</option>
+                        <option value="OTA Traveloka" <?php echo $transaction['payment_method'] == 'OTA Traveloka' ? 'selected' : ''; ?>>OTA Traveloka</option>
+                        <option value="OTA Airbnb" <?php echo $transaction['payment_method'] == 'OTA Airbnb' ? 'selected' : ''; ?>>OTA Airbnb</option>
+                        <option value="OTA Expedia" <?php echo $transaction['payment_method'] == 'OTA Expedia' ? 'selected' : ''; ?>>OTA Expedia</option>
+                        <option value="OTA Pegipegi" <?php echo $transaction['payment_method'] == 'OTA Pegipegi' ? 'selected' : ''; ?>>OTA Pegipegi</option>
+                    </optgroup>
+                    <optgroup label="Lainnya">
+                        <option value="other" <?php echo $transaction['payment_method'] == 'other' ? 'selected' : ''; ?>>Lainnya</option>
+                    </optgroup>
                 </select>
             </div>
 

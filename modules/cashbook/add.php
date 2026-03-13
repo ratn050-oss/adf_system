@@ -1006,12 +1006,38 @@ include '../../includes/header.php';
                         </label>
                         
                         <label class="payment-method-card" style="padding: 0.5rem;">
+                            <input type="radio" name="payment_method" value="ota" required id="payment_ota">
+                            <div class="payment-content" style="text-align: center; position: relative;">
+                                <i data-feather="globe" style="width: 16px; height: 16px; margin-bottom: 0.15rem; color: #06b6d4;"></i>
+                                <div style="font-weight: 600; font-size: 0.75rem; color: var(--text-primary);">OTA</div>
+                            </div>
+                        </label>
+                        
+                        <label class="payment-method-card" style="padding: 0.5rem;">
                             <input type="radio" name="payment_method" value="other" required>
                             <div class="payment-content" style="text-align: center; position: relative;">
                                 <i data-feather="more-horizontal" style="width: 16px; height: 16px; margin-bottom: 0.15rem; color: #6b7280;"></i>
                                 <div style="font-weight: 600; font-size: 0.75rem; color: var(--text-primary);">Lainnya</div>
                             </div>
                         </label>
+                    </div>
+                    
+                    <!-- OTA Source Selection -->
+                    <div id="ota_source_section" style="display: none; margin-top: 0.5rem;">
+                        <label class="form-label" style="font-size: 0.75rem; font-weight: 600; margin-bottom: 0.25rem; color: #06b6d4;">
+                            <i data-feather="globe" style="width: 12px; height: 12px;"></i> Pilih Sumber OTA
+                        </label>
+                        <select name="ota_source" id="ota_source" class="form-control" style="font-size: 0.813rem; padding: 0.4rem 0.6rem;">
+                            <option value="">-- Pilih OTA --</option>
+                            <option value="OTA tiket.com">tiket.com</option>
+                            <option value="OTA Agoda">Agoda</option>
+                            <option value="OTA Booking.com">Booking.com</option>
+                            <option value="OTA Traveloka">Traveloka</option>
+                            <option value="OTA Airbnb">Airbnb</option>
+                            <option value="OTA Expedia">Expedia</option>
+                            <option value="OTA Pegipegi">Pegipegi</option>
+                            <option value="OTA Lainnya">OTA Lainnya</option>
+                        </select>
                     </div>
                 </div>
                 
@@ -1037,6 +1063,38 @@ include '../../includes/header.php';
 
 <script>
 feather.replace();
+
+// OTA Payment Method Handler
+(function() {
+    const paymentRadios = document.querySelectorAll('input[name="payment_method"]');
+    const otaSection = document.getElementById('ota_source_section');
+    const otaSelect = document.getElementById('ota_source');
+    const paymentOta = document.getElementById('payment_ota');
+    
+    // Show/hide OTA dropdown based on selection
+    paymentRadios.forEach(radio => {
+        radio.addEventListener('change', function() {
+            if (this.value === 'ota') {
+                otaSection.style.display = 'block';
+                otaSelect.required = true;
+                setTimeout(() => feather.replace(), 10);
+            } else {
+                otaSection.style.display = 'none';
+                otaSelect.required = false;
+                otaSelect.value = '';
+            }
+        });
+    });
+    
+    // Update payment_method value when OTA source changes
+    if (otaSelect) {
+        otaSelect.addEventListener('change', function() {
+            if (this.value && paymentOta) {
+                paymentOta.value = this.value;
+            }
+        });
+    }
+})();
 
 <?php if (!$isCQC): ?>
 // Owner Fund - Input dari Bu Sita
