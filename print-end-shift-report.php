@@ -161,46 +161,6 @@ function formatRupiah($amount) {
             color: #888;
         }
         
-        .info-grid {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 15px;
-            margin-bottom: 20px;
-        }
-        
-        .info-box {
-            padding: 10px;
-            background: #f8f9fa;
-            border-radius: 6px;
-            border-left: 3px solid #4CAF50;
-        }
-        
-        .info-box.expense {
-            border-left-color: #f44336;
-        }
-        
-        .info-box.balance {
-            border-left-color: #2196F3;
-        }
-        
-        .info-box.net {
-            border-left-color: #FF9800;
-        }
-        
-        .info-box h3 {
-            font-size: 11px;
-            color: #666;
-            margin-bottom: 5px;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-        }
-        
-        .info-box .amount {
-            font-size: 18px;
-            font-weight: bold;
-            color: #333;
-        }
-        
         .section {
             margin-bottom: 20px;
         }
@@ -348,133 +308,71 @@ function formatRupiah($amount) {
         <!-- Header -->
         <div class="header">
             <h1><?php echo htmlspecialchars($business['business_name']); ?></h1>
-            <h2>LAPORAN AKHIR SHIFT (END SHIFT)</h2>
+            <h2>LAPORAN CASH HARIAN (END SHIFT)</h2>
             <p><strong>Tanggal:</strong> <?php echo $todayDisplay; ?> | <strong>Waktu Cetak:</strong> <?php echo date('H:i:s'); ?></p>
             <p><strong>Operator:</strong> <?php echo htmlspecialchars($operatorName); ?></p>
         </div>
         
-        <!-- Summary Boxes -->
-        <div class="info-grid">
-            <div class="info-box">
-                <h3>Total Pemasukan</h3>
-                <div class="amount" style="color: #4CAF50;"><?php echo formatRupiah($totalIncome); ?></div>
-                <p style="font-size: 12px; color: #999; margin-top: 5px;"><?php echo count($incomeTransactions); ?> transaksi</p>
-            </div>
-            
-            <div class="info-box expense">
-                <h3>Total Pengeluaran</h3>
-                <div class="amount" style="color: #f44336;"><?php echo formatRupiah($totalExpense); ?></div>
-                <p style="font-size: 12px; color: #999; margin-top: 5px;"><?php echo count($expenseTransactions); ?> transaksi</p>
-            </div>
-            
-            <div class="info-box balance">
-                <h3>Saldo Awal</h3>
-                <div class="amount" style="color: #2196F3;"><?php echo formatRupiah($openingBalance); ?></div>
-            </div>
-            
-            <div class="info-box net">
-                <h3>Saldo Akhir</h3>
-                <div class="amount" style="color: <?php echo $closingBalance >= 0 ? '#4CAF50' : '#f44336'; ?>;">
-                    <?php echo formatRupiah($closingBalance); ?>
-                </div>
-            </div>
-        </div>
-        
-        <!-- Income Transactions -->
-        <div class="section">
-            <h2>📈 Detail Transaksi Pemasukan (<?php echo count($incomeTransactions); ?>)</h2>
-            <?php if (count($incomeTransactions) > 0): ?>
-            <table>
-                <thead>
-                    <tr>
-                        <th style="width: 15%;">Waktu</th>
-                        <th style="width: 40%;">Keterangan</th>
-                        <th style="width: 15%;">Kategori</th>
-                        <th style="width: 15%;">Metode</th>
-                        <th style="width: 15%;">Jumlah</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($incomeTransactions as $trans): ?>
-                    <tr>
-                        <td><?php echo htmlspecialchars($trans['transaction_time'] ?? ''); ?></td>
-                        <td><?php echo htmlspecialchars($trans['description']); ?></td>
-                        <td><?php echo htmlspecialchars($trans['category']); ?></td>
-                        <td><?php echo htmlspecialchars($trans['payment_method']); ?></td>
-                        <td class="amount income"><?php echo formatRupiah($trans['amount']); ?></td>
-                    </tr>
-                    <?php endforeach; ?>
-                    <tr style="background: #e8f5e9; font-weight: bold;">
-                        <td colspan="4" style="text-align: right; padding-right: 15px;">TOTAL PEMASUKAN:</td>
-                        <td class="amount income" style="font-size: 15px;"><?php echo formatRupiah($totalIncome); ?></td>
-                    </tr>
-                </tbody>
-            </table>
-            <?php else: ?>
-            <div class="no-data">Tidak ada transaksi pemasukan hari ini</div>
-            <?php endif; ?>
-        </div>
-        
-        <!-- Expense Transactions -->
-        <div class="section">
-            <h2>📉 Detail Transaksi Pengeluaran (<?php echo count($expenseTransactions); ?>)</h2>
-            <?php if (count($expenseTransactions) > 0): ?>
-            <table>
-                <thead>
-                    <tr>
-                        <th style="width: 15%;">Waktu</th>
-                        <th style="width: 40%;">Keterangan</th>
-                        <th style="width: 15%;">Kategori</th>
-                        <th style="width: 15%;">Metode</th>
-                        <th style="width: 15%;">Jumlah</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($expenseTransactions as $trans): ?>
-                    <tr>
-                        <td><?php echo htmlspecialchars($trans['transaction_time'] ?? ''); ?></td>
-                        <td><?php echo htmlspecialchars($trans['description']); ?></td>
-                        <td><?php echo htmlspecialchars($trans['category']); ?></td>
-                        <td><?php echo htmlspecialchars($trans['payment_method']); ?></td>
-                        <td class="amount expense"><?php echo formatRupiah($trans['amount']); ?></td>
-                    </tr>
-                    <?php endforeach; ?>
-                    <tr style="background: #ffebee; font-weight: bold;">
-                        <td colspan="4" style="text-align: right; padding-right: 15px;">TOTAL PENGELUARAN:</td>
-                        <td class="amount expense" style="font-size: 15px;"><?php echo formatRupiah($totalExpense); ?></td>
-                    </tr>
-                </tbody>
-            </table>
-            <?php else: ?>
-            <div class="no-data">Tidak ada transaksi pengeluaran hari ini</div>
-            <?php endif; ?>
-        </div>
-        
-        <!-- Summary -->
-        <table class="summary-table">
+        <!-- Summary Cash Harian -->
+        <table class="summary-table" style="margin-bottom: 25px;">
             <tr>
-                <td>Saldo Awal Hari Ini</td>
-                <td><?php echo formatRupiah($openingBalance); ?></td>
+                <td>💰 Saldo Cash Awal</td>
+                <td style="color: #2196F3;"><?php echo formatRupiah($openingBalance); ?></td>
             </tr>
             <tr>
-                <td>Total Pemasukan Hari Ini</td>
+                <td>📈 Pemasukan Hari Ini (<?php echo count($incomeTransactions); ?> transaksi)</td>
                 <td style="color: #4CAF50;"><?php echo formatRupiah($totalIncome); ?></td>
             </tr>
             <tr>
-                <td>Total Pengeluaran Hari Ini</td>
+                <td>📉 Pengeluaran Hari Ini (<?php echo count($expenseTransactions); ?> transaksi)</td>
                 <td style="color: #f44336;"><?php echo formatRupiah($totalExpense); ?></td>
             </tr>
-            <tr>
-                <td>Selisih (Net Income)</td>
-                <td style="color: <?php echo $netBalance >= 0 ? '#4CAF50' : '#f44336'; ?>;">
-                    <?php echo formatRupiah($netBalance); ?>
-                </td>
-            </tr>
             <tr class="total">
-                <td>SALDO AKHIR</td>
+                <td>💵 SISA SALDO CASH</td>
                 <td><?php echo formatRupiah($closingBalance); ?></td>
             </tr>
         </table>
+        
+        <!-- Rincian Transaksi Hari Ini -->
+        <div class="section">
+            <h2>📋 Rincian Transaksi Hari Ini (<?php echo count($transactions); ?>)</h2>
+            <?php if (count($transactions) > 0): ?>
+            <table>
+                <thead>
+                    <tr>
+                        <th style="width: 10%;">Waktu</th>
+                        <th style="width: 10%;">Tipe</th>
+                        <th style="width: 35%;">Keterangan</th>
+                        <th style="width: 15%;">Kategori</th>
+                        <th style="width: 15%;">Metode</th>
+                        <th style="width: 15%;">Jumlah</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <?php foreach ($transactions as $trans): ?>
+                    <tr>
+                        <td><?php echo htmlspecialchars($trans['transaction_time'] ?? ''); ?></td>
+                        <td>
+                            <?php if ($trans['transaction_type'] === 'income'): ?>
+                                <span style="color: #4CAF50; font-weight: 600;">MASUK</span>
+                            <?php else: ?>
+                                <span style="color: #f44336; font-weight: 600;">KELUAR</span>
+                            <?php endif; ?>
+                        </td>
+                        <td><?php echo htmlspecialchars($trans['description']); ?></td>
+                        <td><?php echo htmlspecialchars($trans['category']); ?></td>
+                        <td><?php echo htmlspecialchars($trans['payment_method']); ?></td>
+                        <td class="amount <?php echo $trans['transaction_type'] === 'income' ? 'income' : 'expense'; ?>">
+                            <?php echo formatRupiah($trans['amount']); ?>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                </tbody>
+            </table>
+            <?php else: ?>
+            <div class="no-data">Tidak ada transaksi hari ini</div>
+            <?php endif; ?>
+        </div>
         
         <!-- Footer -->
         <div class="footer">
