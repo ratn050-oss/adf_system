@@ -79,18 +79,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             $totalPrice = 0;
             foreach ($_POST['menu_items'] as $menuId) {
                 $qty = (int)($_POST['menu_qty'][$menuId] ?? 1);
+                $note = isset($_POST['menu_note'][$menuId]) ? trim($_POST['menu_note'][$menuId]) : '';
                 if ($qty > 0) {
                     $menuStmt = $pdo->prepare("SELECT menu_name, price, is_free FROM breakfast_menus WHERE id = ?");
                     $menuStmt->execute([$menuId]);
                     $menu = $menuStmt->fetch(PDO::FETCH_ASSOC);
                     if ($menu) {
-                        $menuItems[] = [
+                        $item = [
                             'menu_id' => $menuId,
                             'menu_name' => $menu['menu_name'],
                             'quantity' => $qty,
                             'price' => $menu['price'],
                             'is_free' => $menu['is_free']
                         ];
+                        if ($note !== '') $item['note'] = $note;
+                        $menuItems[] = $item;
                         if (!$menu['is_free']) $totalPrice += ($menu['price'] * $qty);
                     }
                 }
@@ -120,8 +123,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                 $editId
             ]);
             
-            $message = "✅ Order #$editId berhasil diupdate!";
-            header('Location: ' . $_SERVER['PHP_SELF']);
+            $_SESSION['flash_message'] = "✅ Order #$editId berhasil diupdate!";
+            header('Location: ' . strtok($_SERVER['PHP_SELF'], '?'));
             exit;
             
         } elseif ($_POST['action'] === 'create_order') {
@@ -183,6 +186,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             
             foreach ($_POST['menu_items'] as $menuId) {
                 $qty = (int)($_POST['menu_qty'][$menuId] ?? 1);
+                $note = isset($_POST['menu_note'][$menuId]) ? trim($_POST['menu_note'][$menuId]) : '';
                 if ($qty > 0) {
                     // Get menu price
                     $menuStmt = $pdo->prepare("SELECT menu_name, price, is_free FROM breakfast_menus WHERE id = ?");
@@ -190,13 +194,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
                     $menu = $menuStmt->fetch(PDO::FETCH_ASSOC);
                     
                     if ($menu) {
-                        $menuItems[] = [
+                        $item = [
                             'menu_id' => $menuId,
                             'menu_name' => $menu['menu_name'],
                             'quantity' => $qty,
                             'price' => $menu['price'],
                             'is_free' => $menu['is_free']
                         ];
+                        if ($note !== '') $item['note'] = $note;
+                        $menuItems[] = $item;
                         
                         if (!$menu['is_free']) {
                             $totalPrice += ($menu['price'] * $qty);
@@ -253,6 +259,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
 $editOrder = null;
 $editMenuIds = [];
 $editMenuQty = [];
+$editMenuNotes = [];
 $editRooms = [];
 if (!empty($_GET['edit'])) {
     $editId = (int)$_GET['edit'];
@@ -262,6 +269,7 @@ if (!empty($_GET['edit'])) {
         foreach ($items as $item) {
             $editMenuIds[] = $item['menu_id'];
             $editMenuQty[$item['menu_id']] = $item['quantity'];
+            if (!empty($item['note'])) $editMenuNotes[$item['menu_id']] = $item['note'];
         }
         // Decode room_number JSON array for edit mode
         $decoded = json_decode($editOrder['room_number'], true);
@@ -590,6 +598,72 @@ include '../../includes/header.php';
     color: var(--text-primary);
     font-size: 0.8rem;
     text-align: center;
+}
+
+.bf-menu-note {
+    display: none;
+    margin-top: 0.35rem;
+}
+
+.bf-menu-item:has(input[type="checkbox"]:checked) .bf-menu-note {
+    display: block;
+}
+
+.bf-note-input {
+    width: 100%;
+    padding: 0.3rem 0.5rem;
+    border-radius: 4px;
+    background: var(--bg-secondary);
+    border: 1px solid var(--bg-tertiary);
+    color: var(--text-primary);
+    font-size: 0.72rem;
+    font-family: inherit;
+}
+
+.bf-note-input::placeholder {
+    color: var(--text-muted);
+    font-style: italic;
+}
+
+.bf-order-note {
+    font-size: 0.58rem;
+    color: #f59e0b;
+    font-style: italic;
+    display: block;
+}
+
+.bf-order-actions {
+    display: flex;
+    gap: 0.35rem;
+    margin-top: 0.4rem;
+}
+
+.bf-order-btn {
+    padding: 0.25rem 0.5rem;
+    border-radius: 4px;
+    font-size: 0.65rem;
+    font-weight: 600;
+    cursor: pointer;
+    border: none;
+    transition: all 0.2s;
+}
+
+.bf-order-btn.edit {
+    background: rgba(99, 102, 241, 0.15);
+    color: #6366f1;
+}
+
+.bf-order-btn.edit:hover {
+    background: rgba(99, 102, 241, 0.3);
+}
+
+.bf-order-btn.delete {
+    background: rgba(239, 68, 68, 0.15);
+    color: #ef4444;
+}
+
+.bf-order-btn.delete:hover {
+    background: rgba(239, 68, 68, 0.3);
 }
 
 .bf-textarea {
@@ -1021,6 +1095,11 @@ include '../../includes/header.php';
                                     <span style="font-size: 0.7rem; color: var(--text-muted);">Qty:</span>
                                     <input type="number" name="menu_qty[<?php echo $menu['id']; ?>]" min="1" max="20" value="<?php echo $editMenuQty[$menu['id']] ?? 1; ?>" class="bf-qty-input">
                                 </div>
+                                <div class="bf-menu-note">
+                                    <input type="text" name="menu_note[<?php echo $menu['id']; ?>]" class="bf-note-input" 
+                                           placeholder="Ket: pedas/tidak, ice/hot, dll" 
+                                           value="<?php echo htmlspecialchars($editMenuNotes[$menu['id']] ?? ''); ?>">
+                                </div>
                             </div>
                             <?php endforeach; ?>
                         </div>
@@ -1044,6 +1123,11 @@ include '../../includes/header.php';
                                 <div class="bf-menu-qty">
                                     <span style="font-size: 0.7rem; color: var(--text-muted);">Qty:</span>
                                     <input type="number" name="menu_qty[<?php echo $menu['id']; ?>]" min="1" max="20" value="<?php echo $editMenuQty[$menu['id']] ?? 1; ?>" class="bf-qty-input">
+                                </div>
+                                <div class="bf-menu-note">
+                                    <input type="text" name="menu_note[<?php echo $menu['id']; ?>]" class="bf-note-input" 
+                                           placeholder="Ket: pedas/tidak, ice/hot, dll" 
+                                           value="<?php echo htmlspecialchars($editMenuNotes[$menu['id']] ?? ''); ?>">
                                 </div>
                             </div>
                             <?php endforeach; ?>
@@ -1116,15 +1200,15 @@ include '../../includes/header.php';
                 <?php endif; ?>
                 <div class="bf-order-room"><?php echo $order['location'] === 'restaurant' ? '🍽️ Restaurant' : ($order['location'] === 'take_away' ? '🥡 Take Away' : '🚪 Room Service'); ?></div>
                 <div class="bf-order-menus">
-                    <?php foreach (array_slice($order['menu_items'], 0, 3) as $item): ?>
+                    <?php foreach ($order['menu_items'] as $item): ?>
                     <span class="bf-order-menu-tag">
                         <?php echo htmlspecialchars($item['menu_name']); ?>
                         <?php if ($item['quantity'] > 1): ?>×<?php echo $item['quantity']; ?><?php endif; ?>
+                        <?php if (!empty($item['note'])): ?>
+                        <span class="bf-order-note">(<?php echo htmlspecialchars($item['note']); ?>)</span>
+                        <?php endif; ?>
                     </span>
                     <?php endforeach; ?>
-                    <?php if (count($order['menu_items']) > 3): ?>
-                    <span class="bf-order-menu-tag">+<?php echo count($order['menu_items']) - 3; ?> more</span>
-                    <?php endif; ?>
                 </div>
                 <div class="bf-order-footer">
                     <span class="bf-order-price">
@@ -1133,6 +1217,10 @@ include '../../includes/header.php';
                     <span class="bf-order-status <?php echo $order['order_status']; ?>">
                         <?php echo ucfirst($order['order_status']); ?>
                     </span>
+                </div>
+                <div class="bf-order-actions">
+                    <a href="?edit=<?php echo $order['id']; ?>" class="bf-order-btn edit">✏️ Edit</a>
+                    <button class="bf-order-btn delete" onclick="deleteOrder(<?php echo $order['id']; ?>, '<?php echo htmlspecialchars(addslashes($order['guest_name'])); ?>')">🗑️ Hapus</button>
                 </div>
             </div>
             <?php 
@@ -1324,6 +1412,26 @@ document.addEventListener('DOMContentLoaded', function() {
         });
     }
 });
+
+// ==================== DELETE ORDER ====================
+function deleteOrder(id, guestName) {
+    if (!confirm('Hapus order sarapan untuk "' + guestName + '"?\n\nData tidak bisa dikembalikan.')) return;
+    
+    fetch('<?php echo BASE_URL; ?>/api/breakfast-order-action.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'delete', id: id })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            location.reload();
+        } else {
+            alert('Gagal hapus: ' + (data.message || 'Unknown error'));
+        }
+    })
+    .catch(() => alert('Gagal menghubungi server'));
+}
 </script>
 
 <?php include '../../includes/footer.php'; ?>
