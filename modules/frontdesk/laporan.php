@@ -90,21 +90,8 @@ try {
         ORDER BY r.room_number ASC";
     $checkOutToday = $db->fetchAll($checkOutTodayQuery, [$today]);
     
-    // 5. CHECK-IN TOMORROW
+    // 5. TOMORROW DATE
     $tomorrow = date('Y-m-d', strtotime('+1 day'));
-    $checkInTomorrowQuery = "SELECT 
-            b.booking_code,
-            g.guest_name,
-            g.phone,
-            r.room_number,
-            b.check_in_date,
-            b.check_out_date
-        FROM bookings b
-        INNER JOIN guests g ON b.guest_id = g.id
-        INNER JOIN rooms r ON b.room_id = r.id
-        WHERE b.check_in_date = ? AND b.status = 'confirmed'
-        ORDER BY r.room_number ASC";
-    $checkInTomorrow = $db->fetchAll($checkInTomorrowQuery, [$tomorrow]);
     
     // 6. CHECK-OUT TOMORROW
     $checkOutTomorrowQuery = "SELECT 
@@ -403,31 +390,6 @@ include '../../includes/header.php';
                 <tr>
                     <td><span class="room-tag"><?php echo htmlspecialchars($g['room_number']); ?></span></td>
                     <td><?php echo htmlspecialchars($g['guest_name']); ?></td>
-                    <td><?php echo htmlspecialchars($g['booking_code']); ?></td>
-                    <td><?php echo date('d M', strtotime($g['check_in_date'])); ?></td>
-                    <td><?php echo date('d M', strtotime($g['check_out_date'])); ?></td>
-                </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
-    </div>
-    <?php endif; ?>
-
-    <!-- Check-in Tomorrow -->
-    <?php if (count($checkInTomorrow) > 0): ?>
-    <div class="rpt-section">
-        <div class="rpt-section-head">
-            <h3 class="sec-title">📅 Check-in Tomorrow</h3>
-            <span class="sec-count"><?php echo count($checkInTomorrow); ?></span>
-        </div>
-        <table class="rpt-table">
-            <thead><tr><th>Room</th><th>Guest</th><th>Phone</th><th>Code</th><th>In</th><th>Out</th></tr></thead>
-            <tbody>
-                <?php foreach ($checkInTomorrow as $g): ?>
-                <tr>
-                    <td><span class="room-tag"><?php echo htmlspecialchars($g['room_number']); ?></span></td>
-                    <td><?php echo htmlspecialchars($g['guest_name']); ?></td>
-                    <td><?php echo htmlspecialchars($g['phone'] ?: '-'); ?></td>
                     <td><?php echo htmlspecialchars($g['booking_code']); ?></td>
                     <td><?php echo date('d M', strtotime($g['check_in_date'])); ?></td>
                     <td><?php echo date('d M', strtotime($g['check_out_date'])); ?></td>
