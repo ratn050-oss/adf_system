@@ -62,22 +62,26 @@ $firstDayOfMonth = date('Y-m-01');
 // Daily Cash Calculation (Same as Dashboard)
 // ============================================
 
-// Get cash account IDs (grouped by type)
+// Get cash account IDs (grouped by type) from MASTER database
 $capitalAccounts = [];
 $pettyCashAccounts = [];
 
 try {
-    // Check if cash_accounts table exists
-    $cashAccounts = $businessDb->fetchAll("SELECT id, account_type FROM cash_accounts WHERE is_active = 1");
-    foreach ($cashAccounts as $acc) {
-        if (in_array($acc['account_type'], ['owner_capital', 'modal_owner'])) {
-            $capitalAccounts[] = $acc['id'];
-        } elseif (in_array($acc['account_type'], ['petty_cash', 'kas_operasional', 'kas_kecil'])) {
-            $pettyCashAccounts[] = $acc['id'];
-        }
-    }
+    // Get business ID from selected business
+    $businessId = $selectedBusinessId;
+    
+    // Get ALL owner_capital account IDs from MASTER database
+    $stmt = $masterDb->getConnection()->prepare("SELECT id FROM cash_accounts WHERE business_id = ? AND account_type = 'owner_capital'");
+    $stmt->execute([$businessId]);
+    $capitalAccounts = $stmt->fetchAll(PDO::FETCH_COLUMN);
+    
+    // Get ALL cash (Petty Cash) account IDs from MASTER database
+    $stmt = $masterDb->getConnection()->prepare("SELECT id FROM cash_accounts WHERE business_id = ? AND account_type = 'cash'");
+    $stmt->execute([$businessId]);
+    $pettyCashAccounts = $stmt->fetchAll(PDO::FETCH_COLUMN);
 } catch (\Throwable $e) {
     // Table might not exist
+    error_log("End Shift Report - Cash Accounts Error: " . $e->getMessage());
 }
 
 $hasCashAccountIdCol = true;
