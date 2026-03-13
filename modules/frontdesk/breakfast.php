@@ -1196,7 +1196,7 @@ include '../../includes/header.php';
                 <div class="bf-form-section">
                     <div class="bf-form-title">📝 Notes</div>
                     <textarea name="special_requests" id="special_requests" class="bf-textarea" 
-                              placeholder="Allergies, special preparation, etc."><?php echo $editOrder ? htmlspecialchars($editOrder['special_requests']) : ''; ?></textarea>
+                              placeholder="Allergies, special preparation, etc."><?php echo $editOrder ? htmlspecialchars($editOrder['special_requests'] ?? '') : ''; ?></textarea>
                 </div>
 
                 <div class="bf-actions">
