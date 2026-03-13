@@ -41,10 +41,10 @@ if (!empty($_SESSION['flash_error'])) {
 }
 
 // ==================== NO AUTO-CLEANUP - Data is sacred ====================
-// Just ensure the table structure is correct
+// Ensure submit_token column + UNIQUE index exists for anti-duplicate
 try {
-    // Add order_hash column if not exists (for future use)
-    try { $pdo->exec("ALTER TABLE breakfast_orders ADD COLUMN order_hash VARCHAR(32)"); } catch (Exception $e) {}
+    try { $pdo->exec("ALTER TABLE breakfast_orders ADD COLUMN submit_token VARCHAR(64) NULL"); } catch (Exception $e) {}
+    try { $pdo->exec("ALTER TABLE breakfast_orders ADD UNIQUE INDEX idx_submit_token (submit_token)"); } catch (Exception $e) {}
 } catch (Exception $e) {
     error_log("Breakfast init error: " . $e->getMessage());
 }
@@ -70,7 +70,7 @@ if (!empty($_SESSION['user_id'])) {
 // ==================== HANDLE BREAKFAST ORDER ====================
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
     
-    // ========== SIMPLE TOKEN CHECK ==========
+    // ========== BULLETPROOF TOKEN CHECK ==========
     $formToken = $_POST['_form_token'] ?? '';
     $sessionToken = $_SESSION['bf_form_token'] ?? '';
     
@@ -79,8 +79,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
         header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?'));
         exit;
     }
-    // Clear token immediately to prevent resubmit
+    // Clear token AND force session write immediately
     unset($_SESSION['bf_form_token']);
+    session_write_close();
+    // Re-open session for flash messages later
+    session_start();
     
     try {
         if ($_POST['action'] === 'update_order') {
@@ -252,29 +255,39 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
             
             $menuJson = json_encode($menuItems);
             
-            // === SIMPLE INSERT - token already validated above ===
-            $stmt = $pdo->prepare("INSERT INTO breakfast_orders 
-                (booking_id, guest_name, room_number, total_pax, breakfast_time, breakfast_date, location, 
-                 menu_items, special_requests, total_price, created_by) 
-                VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-            $stmt->execute([
-                !empty($_POST['booking_id']) ? (int)$_POST['booking_id'] : null,
-                trim($_POST['guest_name']),
-                json_encode($roomNumbers),
-                (int)$_POST['total_pax'],
-                $_POST['breakfast_time'],
-                $_POST['breakfast_date'],
-                $_POST['location'] ?? 'restaurant',
-                $menuJson,
-                !empty($_POST['special_requests']) ? trim($_POST['special_requests']) : null,
-                $totalPrice,
-                $validUserId
-            ]);
-            
-            $lastOrderId = $pdo->lastInsertId();
-            
-            $guestName = trim($_POST['guest_name']);
-            $_SESSION['flash_message'] = "✅ Berhasil! Pesanan untuk <strong>" . htmlspecialchars($guestName) . "</strong> tersimpan (ID #$lastOrderId)";
+            // === INSERT with submit_token as UNIQUE key ===
+            // If 2 requests arrive with same token, MySQL UNIQUE index blocks the 2nd one
+            try {
+                $stmt = $pdo->prepare("INSERT INTO breakfast_orders 
+                    (booking_id, guest_name, room_number, total_pax, breakfast_time, breakfast_date, location, 
+                     menu_items, special_requests, total_price, created_by, submit_token) 
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                $stmt->execute([
+                    !empty($_POST['booking_id']) ? (int)$_POST['booking_id'] : null,
+                    trim($_POST['guest_name']),
+                    json_encode($roomNumbers),
+                    (int)$_POST['total_pax'],
+                    $_POST['breakfast_time'],
+                    $_POST['breakfast_date'],
+                    $_POST['location'] ?? 'restaurant',
+                    $menuJson,
+                    !empty($_POST['special_requests']) ? trim($_POST['special_requests']) : null,
+                    $totalPrice,
+                    $validUserId,
+                    $formToken
+                ]);
+                
+                $lastOrderId = $pdo->lastInsertId();
+                
+                $guestName = trim($_POST['guest_name']);
+                $_SESSION['flash_message'] = "✅ Berhasil! Pesanan untuk <strong>" . htmlspecialchars($guestName) . "</strong> tersimpan (ID #$lastOrderId)";
+            } catch (PDOException $e) {
+                if ($e->getCode() == 23000 || strpos($e->getMessage(), 'Duplicate') !== false) {
+                    $_SESSION['flash_message'] = "⚠️ Order sudah tersimpan sebelumnya.";
+                } else {
+                    throw $e;
+                }
+            }
             header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?'));
             exit;
         }
