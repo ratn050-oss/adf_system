@@ -8,6 +8,7 @@ require_once '../../config/config.php';
 require_once '../../config/database.php';
 require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
+require_once '../../includes/report_helper.php';
 
 $auth = new Auth();
 $auth->requireLogin();
@@ -18,8 +19,12 @@ require_once __DIR__ . '/auto-migrate.php';
 $pageTitle = 'Laporan Pencairan Tagihan';
 $pageSubtitle = 'Ajukan pencairan dana untuk pembayaran tagihan';
 
+// Get company info
+$company = getCompanyInfo();
+
 // Get current month filter
 $filterMonth = getGet('month', date('Y-m'));
+$periodDisplay = strftime('%B %Y', strtotime($filterMonth . '-01'));
 
 // Get unpaid bills (pending + overdue)
 $bills = $db->fetchAll(
@@ -49,528 +54,378 @@ $categories = [
     'other' => ['label' => 'Lainnya', 'icon' => '📋', 'color' => '#64748b'],
 ];
 
-// Get business info
-$businessInfo = null;
-try {
-    $masterDbName = defined('MASTER_DB_NAME') ? MASTER_DB_NAME : (defined('DB_NAME') ? DB_NAME : 'adf_system');
-    $masterDb = new PDO("mysql:host=" . DB_HOST . ";dbname={$masterDbName};charset=utf8mb4", DB_USER, DB_PASS);
-    $masterDb->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-    $businessId = $_SESSION['business_id'] ?? 1;
-    $stmt = $masterDb->prepare("SELECT * FROM businesses WHERE id = ?");
-    $stmt->execute([$businessId]);
-    $businessInfo = $stmt->fetch(PDO::FETCH_ASSOC);
-} catch (Exception $e) {
-    // Fallback
+// Calculate totals
+$totalPending = 0;
+$totalOverdue = 0;
+$countPending = 0;
+$countOverdue = 0;
+
+foreach ($bills as $bill) {
+    if ($bill['status'] === 'overdue') {
+        $totalOverdue += $bill['amount'];
+        $countOverdue++;
+    } else {
+        $totalPending += $bill['amount'];
+        $countPending++;
+    }
 }
+
+$totalAll = $totalPending + $totalOverdue;
 
 include '../../includes/header.php';
 ?>
 
 <style>
-/* Laporan Styles */
-.laporan-container {
-    max-width: 900px;
-    margin: 0 auto;
-}
+/* ===== LAPORAN PENCAIRAN - ELEGANT DESIGN ===== */
+.laporan-container { max-width: 900px; margin: 0 auto; padding: 1rem 1.5rem; }
 
-.laporan-header {
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-    margin-bottom: 1.25rem;
-}
+.action-buttons { display: flex; gap: 0.5rem; justify-content: flex-end; margin-bottom: 1rem; flex-wrap: wrap; }
+.action-buttons .btn { padding: 0.45rem 1.1rem; border: none; border-radius: 8px; font-weight: 700; font-size: 0.8rem; cursor: pointer; display: inline-flex; align-items: center; gap: 0.4rem; transition: all 0.2s; color: #fff; letter-spacing: 0.3px; text-decoration: none; }
+.action-buttons .btn:hover { transform: translateY(-1px); box-shadow: 0 3px 10px rgba(0,0,0,0.2); }
+.btn-generate { background: #4f46e5; color: #fff; }
+.btn-generate:hover { background: #4338ca; }
+.btn-generate:disabled { background: #94a3b8; cursor: not-allowed; transform: none; box-shadow: none; }
+.btn-print { background: #475569; color: #fff; }
+.btn-print:hover { background: #334155; }
+.btn-wa { background: #22c55e; color: #fff; }
+.btn-wa:hover { background: #16a34a; }
+.btn-back { background: #64748b; color: #fff; }
+.btn-back:hover { background: #475569; }
 
-.laporan-filter {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
+/* Report Header - Same as Frontdesk */
+.report-header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 0.6rem; border-bottom: 2px solid #4f46e5; margin-bottom: 1rem; gap: 0.75rem; }
+[data-theme="dark"] .report-header { border-bottom-color: #6366f1; }
+.report-header-left { display: flex; align-items: center; gap: 0.75rem; }
+.report-logo { width: 48px; height: 48px; border-radius: 10px; object-fit: contain; flex-shrink: 0; }
+.report-logo-icon { width: 48px; height: 48px; border-radius: 10px; background: #eef2ff; display: flex; align-items: center; justify-content: center; font-size: 1.5rem; flex-shrink: 0; }
+[data-theme="dark"] .report-logo-icon { background: #312e81; }
+.report-header-left .hotel-name { font-size: 1.1rem; font-weight: 700; color: #1e293b; margin: 0; }
+[data-theme="dark"] .report-header-left .hotel-name { color: #e2e8f0; }
+.report-header-left .hotel-detail { font-size: 0.65rem; color: #64748b; line-height: 1.4; margin-top: 2px; }
+.report-header-right { text-align: right; flex-shrink: 0; }
+.report-header-right .report-title { font-size: 0.75rem; font-weight: 700; color: #4f46e5; letter-spacing: 1px; text-transform: uppercase; margin: 0; }
+[data-theme="dark"] .report-header-right .report-title { color: #818cf8; }
+.report-header-right .report-date { font-size: 0.7rem; color: #64748b; margin-top: 2px; }
 
-.laporan-filter input[type="month"],
-.laporan-filter select {
-    background: var(--bg-secondary);
-    border: 1px solid var(--bg-tertiary);
-    color: var(--text-primary);
-    font-size: 0.75rem;
-    padding: 0.45rem 0.65rem;
-    border-radius: var(--radius-md);
-    outline: none;
-}
+/* Stats Row */
+.stats-row { display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.6rem; margin-bottom: 1.25rem; }
+.stat-item { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 0.75rem 0.5rem; text-align: center; transition: all 0.2s; }
+.stat-item:hover { border-color: #c7d2fe; background: #eef2ff; }
+[data-theme="dark"] .stat-item { background: #1e293b; border-color: #334155; }
+[data-theme="dark"] .stat-item:hover { border-color: #4f46e5; background: #1e1b4b; }
+.stat-item .stat-val { font-size: 1.2rem; font-weight: 800; color: #4f46e5; line-height: 1; }
+[data-theme="dark"] .stat-item .stat-val { color: #818cf8; }
+.stat-item .stat-lbl { font-size: 0.6rem; color: #94a3b8; font-weight: 500; margin-top: 0.2rem; text-transform: uppercase; letter-spacing: 0.5px; }
+.stat-item.pending .stat-val { color: #f59e0b; }
+.stat-item.overdue .stat-val { color: #ef4444; }
+.stat-item.total .stat-val { color: #4f46e5; }
 
-.laporan-filter .btn {
-    padding: 0.45rem 0.85rem;
-    border: none;
-    border-radius: var(--radius-md);
-    font-size: 0.75rem;
-    font-weight: 600;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-}
+/* Filter Bar */
+.filter-bar { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 0.75rem 1rem; margin-bottom: 1rem; display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; }
+[data-theme="dark"] .filter-bar { background: #1e293b; border-color: #334155; }
+.filter-bar label { font-size: 0.72rem; font-weight: 600; color: #64748b; }
+.filter-bar input[type="month"] { background: #fff; border: 1px solid #e2e8f0; color: #1e293b; font-size: 0.75rem; padding: 0.4rem 0.6rem; border-radius: 6px; }
+[data-theme="dark"] .filter-bar input[type="month"] { background: #334155; border-color: #475569; color: #e2e8f0; }
+.filter-bar .btn-filter { background: #4f46e5; color: #fff; border: none; padding: 0.4rem 0.8rem; border-radius: 6px; font-size: 0.72rem; font-weight: 600; cursor: pointer; }
 
-/* Selection Table */
-.select-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.78rem;
-}
+/* Section */
+.rpt-section { margin-bottom: 0.75rem; }
+.rpt-section-head { display: flex; align-items: center; justify-content: space-between; padding: 0.5rem 0; border-bottom: 1px solid #e2e8f0; margin-bottom: 0.35rem; }
+[data-theme="dark"] .rpt-section-head { border-bottom-color: #475569; }
+.rpt-section-head .sec-title { font-size: 0.85rem; font-weight: 700; color: #1e293b; margin: 0; display: flex; align-items: center; gap: 0.35rem; }
+[data-theme="dark"] .rpt-section-head .sec-title { color: #e2e8f0; }
+.rpt-section-head .sec-action { display: flex; align-items: center; gap: 0.5rem; }
+.select-all-label { font-size: 0.68rem; color: #64748b; display: flex; align-items: center; gap: 0.35rem; cursor: pointer; }
+.select-all-label input { width: 16px; height: 16px; accent-color: #4f46e5; }
 
-.select-table th {
-    background: linear-gradient(135deg, var(--bg-secondary), var(--bg-tertiary));
-    padding: 0.6rem 0.55rem;
-    font-size: 0.68rem;
-    font-weight: 700;
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-    color: var(--text-muted);
-    border-bottom: 2px solid var(--bg-tertiary);
-    text-align: left;
-}
+/* Table */
+.rpt-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; }
+.rpt-table th { background: #f8fafc; padding: 0.45rem 0.5rem; text-align: left; font-weight: 600; font-size: 0.68rem; color: #64748b; border-bottom: 1px solid #e2e8f0; text-transform: uppercase; letter-spacing: 0.3px; }
+[data-theme="dark"] .rpt-table th { background: #1e293b; color: #94a3b8; border-bottom-color: #334155; }
+.rpt-table td { padding: 0.45rem 0.5rem; border-bottom: 1px solid #f1f5f9; color: #334155; font-size: 0.78rem; vertical-align: middle; }
+[data-theme="dark"] .rpt-table td { border-bottom-color: #1e293b; color: #cbd5e1; }
+.rpt-table tbody tr { transition: all 0.15s; }
+.rpt-table tbody tr:hover { background: #f8fafc; }
+[data-theme="dark"] .rpt-table tbody tr:hover { background: #1e293b; }
+.rpt-table tbody tr.selected { background: #eef2ff; }
+[data-theme="dark"] .rpt-table tbody tr.selected { background: rgba(99,102,241,0.15); }
+.rpt-table tbody tr.row-overdue { background: rgba(239,68,68,0.04); }
+[data-theme="dark"] .rpt-table tbody tr.row-overdue { background: rgba(239,68,68,0.1); }
+.rpt-table .bill-check { width: 16px; height: 16px; accent-color: #4f46e5; cursor: pointer; }
 
-.select-table td {
-    padding: 0.55rem;
-    border-bottom: 1px solid var(--bg-tertiary);
-    vertical-align: middle;
-}
-
-.select-table tbody tr {
-    transition: var(--transition);
-}
-
-.select-table tbody tr:hover {
-    background: rgba(99, 102, 241, 0.04);
-}
-
-.select-table tbody tr.selected {
-    background: rgba(99, 102, 241, 0.08);
-}
-
-.select-table tbody tr.row-overdue {
-    background: rgba(239, 68, 68, 0.04);
-}
-
-.select-table .bill-check {
-    width: 18px;
-    height: 18px;
-    accent-color: var(--primary-color);
-    cursor: pointer;
-}
-
-.bill-cat-badge {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.25rem;
-    padding: 0.15rem 0.4rem;
-    border-radius: 4px;
-    font-size: 0.62rem;
-    font-weight: 700;
-}
-
-.bill-status-badge {
-    display: inline-block;
-    padding: 0.15rem 0.4rem;
-    border-radius: 4px;
-    font-size: 0.62rem;
-    font-weight: 700;
-    text-transform: uppercase;
-}
-
-.bill-status-badge.pending { background: rgba(245, 158, 11, 0.15); color: #d97706; }
-.bill-status-badge.overdue { background: rgba(239, 68, 68, 0.15); color: #dc2626; }
+/* Badges */
+.cat-badge { display: inline-flex; align-items: center; gap: 0.2rem; padding: 0.12rem 0.4rem; border-radius: 4px; font-size: 0.65rem; font-weight: 600; }
+.status-badge { display: inline-block; padding: 0.12rem 0.4rem; border-radius: 4px; font-size: 0.62rem; font-weight: 700; text-transform: uppercase; letter-spacing: 0.3px; }
+.status-badge.pending { background: rgba(245,158,11,0.15); color: #d97706; }
+.status-badge.overdue { background: rgba(239,68,68,0.15); color: #dc2626; }
+[data-theme="dark"] .status-badge.pending { background: rgba(245,158,11,0.2); color: #fbbf24; }
+[data-theme="dark"] .status-badge.overdue { background: rgba(239,68,68,0.2); color: #f87171; }
 
 /* Summary Box */
-.selection-summary {
-    background: linear-gradient(135deg, var(--bg-secondary), var(--bg-tertiary));
-    border: 1px solid var(--bg-tertiary);
-    border-radius: var(--radius-lg);
-    padding: 1rem 1.25rem;
-    margin-top: 1.25rem;
-    display: flex;
-    align-items: center;
-    justify-content: space-between;
-    flex-wrap: wrap;
-    gap: 1rem;
-}
+.summary-box { background: linear-gradient(135deg, #4f46e5, #6366f1); border-radius: 12px; padding: 1rem 1.25rem; margin-top: 1rem; display: flex; align-items: center; justify-content: space-between; flex-wrap: wrap; gap: 1rem; }
+.summary-info { display: flex; gap: 2rem; }
+.summary-item { text-align: center; }
+.summary-item .sum-label { font-size: 0.65rem; font-weight: 600; text-transform: uppercase; color: rgba(255,255,255,0.7); margin-bottom: 0.15rem; }
+.summary-item .sum-value { font-size: 1.1rem; font-weight: 800; color: #fff; }
+.summary-actions { display: flex; gap: 0.5rem; }
 
-.summary-info {
-    display: flex;
-    gap: 2rem;
-}
+/* Report Stamp */
+.report-stamp { text-align: center; margin-top: 1.25rem; padding-top: 0.75rem; border-top: 1px dashed #e2e8f0; }
+[data-theme="dark"] .report-stamp { border-top-color: #334155; }
+.report-stamp .stamp-line { font-size: 0.6rem; color: #94a3b8; line-height: 1.6; }
+.report-stamp .stamp-system { font-weight: 600; color: #4f46e5; font-size: 0.6rem; letter-spacing: 0.5px; }
+[data-theme="dark"] .report-stamp .stamp-system { color: #818cf8; }
 
-.summary-item {
-    text-align: center;
-}
+/* Print Area */
+.print-area { display: none; }
+.print-area.show { display: block; background: #fff; color: #1a1a2e; padding: 1.5rem; border-radius: 12px; margin-top: 1.25rem; border: 1px solid #e2e8f0; }
 
-.summary-label {
-    font-size: 0.68rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    color: var(--text-muted);
-    margin-bottom: 0.2rem;
-}
+.print-area .print-header { display: flex; justify-content: space-between; align-items: center; padding-bottom: 0.75rem; border-bottom: 2px solid #4f46e5; margin-bottom: 1rem; gap: 0.75rem; }
+.print-area .print-logo { width: 52px; height: 52px; border-radius: 10px; object-fit: contain; }
+.print-area .print-logo-icon { width: 52px; height: 52px; border-radius: 10px; background: #eef2ff; display: flex; align-items: center; justify-content: center; font-size: 1.6rem; }
+.print-area .print-company { font-size: 1.15rem; font-weight: 700; color: #1e293b; margin: 0; }
+.print-area .print-address { font-size: 0.65rem; color: #64748b; line-height: 1.4; margin-top: 2px; }
+.print-area .print-title-box { text-align: right; }
+.print-area .print-doc-title { font-size: 0.8rem; font-weight: 700; color: #4f46e5; text-transform: uppercase; letter-spacing: 1px; margin: 0; }
+.print-area .print-doc-date { font-size: 0.7rem; color: #64748b; margin-top: 2px; }
 
-.summary-value {
-    font-size: 1.1rem;
-    font-weight: 700;
-    color: var(--text-heading);
-}
+.print-area .print-meta { display: flex; justify-content: space-between; margin-bottom: 1rem; font-size: 0.75rem; color: #475569; padding: 0.5rem 0; border-bottom: 1px solid #e2e8f0; }
 
-.summary-value.total {
-    color: var(--primary-color);
-}
+.print-area .print-table { width: 100%; border-collapse: collapse; font-size: 0.75rem; margin-bottom: 1rem; }
+.print-area .print-table th { background: #f1f5f9; padding: 0.5rem; text-align: left; font-weight: 600; border: 1px solid #e2e8f0; color: #374151; font-size: 0.68rem; text-transform: uppercase; }
+.print-area .print-table td { padding: 0.5rem; border: 1px solid #e2e8f0; color: #334155; }
+.print-area .print-table .text-right { text-align: right; }
+.print-area .print-table .text-center { text-align: center; }
+.print-area .print-table tfoot td { background: #f8fafc; font-weight: 700; }
+.print-area .print-table .bill-name { font-weight: 600; color: #1e293b; }
+.print-area .print-table .bill-vendor { font-size: 0.68rem; color: #64748b; }
 
-.summary-actions {
-    display: flex;
-    gap: 0.5rem;
-}
+.print-area .print-note { background: #f8fafc; border-radius: 8px; padding: 0.75rem; margin: 1rem 0; font-size: 0.72rem; color: #475569; border-left: 3px solid #4f46e5; }
 
-.summary-actions .btn {
-    padding: 0.55rem 1rem;
-    border: none;
-    border-radius: var(--radius-md);
-    font-size: 0.78rem;
-    font-weight: 600;
-    cursor: pointer;
-    display: inline-flex;
-    align-items: center;
-    gap: 0.35rem;
-    transition: var(--transition);
-}
+.print-area .signature-row { display: flex; justify-content: space-between; margin-top: 2rem; }
+.print-area .signature-box { text-align: center; min-width: 160px; }
+.print-area .sig-title { font-size: 0.7rem; color: #64748b; margin-bottom: 3rem; }
+.print-area .sig-line { border-top: 1px solid #cbd5e1; padding-top: 0.5rem; font-size: 0.75rem; font-weight: 600; color: #1e293b; }
 
-.summary-actions .btn-print {
-    background: linear-gradient(135deg, var(--primary-color), var(--primary-dark));
-    color: white;
-}
+.print-area .print-footer { text-align: center; margin-top: 1.5rem; padding-top: 0.75rem; border-top: 1px dashed #e2e8f0; font-size: 0.6rem; color: #94a3b8; }
+.print-area .print-footer .sys { font-weight: 600; color: #4f46e5; }
 
-.summary-actions .btn-print:hover {
-    box-shadow: var(--shadow-glow);
-}
-
-.summary-actions .btn-wa {
-    background: #25d366;
-    color: white;
-}
-
-/* Print Preview */
-.print-preview {
-    display: none;
-}
+/* Empty State */
+.empty-state { text-align: center; padding: 3rem 1rem; color: #94a3b8; }
+.empty-state-icon { font-size: 3rem; margin-bottom: 0.75rem; opacity: 0.5; }
+.empty-state-text { font-size: 0.88rem; margin-bottom: 0.35rem; color: #64748b; }
+.empty-state-sub { font-size: 0.72rem; }
 
 /* Print Styles */
 @media print {
-    body * {
-        visibility: hidden;
-    }
-    
-    .print-area, .print-area * {
-        visibility: visible;
-    }
-    
-    .print-area {
-        position: absolute;
-        left: 0;
-        top: 0;
-        width: 100%;
-        background: white;
-        padding: 20px;
-    }
-    
-    .no-print {
-        display: none !important;
-    }
+    body * { visibility: hidden; }
+    .print-area, .print-area * { visibility: visible; }
+    .print-area { position: absolute; left: 0; top: 0; width: 100%; padding: 12mm 15mm; background: white !important; }
+    .print-area .print-table th { background: #f3f4f6 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .print-area .print-logo-icon { background: #eef2ff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .print-area .print-note { background: #f8fafc !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .action-buttons, .filter-bar, .summary-box { display: none !important; }
 }
 
-/* Print Area Styles */
-.print-area {
-    background: white;
-    color: #1a1a2e;
-    padding: 1.5rem;
-    border-radius: var(--radius-lg);
-    margin-top: 1.25rem;
-    border: 1px solid var(--bg-tertiary);
-}
-
-.print-header {
-    text-align: center;
-    border-bottom: 2px solid #e2e8f0;
-    padding-bottom: 1rem;
-    margin-bottom: 1rem;
-}
-
-.print-logo {
-    width: 60px;
-    height: 60px;
-    margin: 0 auto 0.5rem;
-    background: linear-gradient(135deg, #6366f1, #4f46e5);
-    border-radius: 12px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    color: white;
-    font-size: 1.5rem;
-    font-weight: bold;
-}
-
-.print-title {
-    font-size: 1.1rem;
-    font-weight: 700;
-    color: #1a1a2e;
-    margin: 0 0 0.25rem;
-}
-
-.print-subtitle {
-    font-size: 0.75rem;
-    color: #64748b;
-}
-
-.print-info {
-    display: flex;
-    justify-content: space-between;
-    margin-bottom: 1rem;
-    font-size: 0.75rem;
-    color: #475569;
-}
-
-.print-table {
-    width: 100%;
-    border-collapse: collapse;
-    font-size: 0.75rem;
-    margin-bottom: 1rem;
-}
-
-.print-table th {
-    background: #f1f5f9;
-    padding: 0.5rem;
-    text-align: left;
-    font-weight: 600;
-    border: 1px solid #e2e8f0;
-    color: #1e293b;
-}
-
-.print-table td {
-    padding: 0.5rem;
-    border: 1px solid #e2e8f0;
-    color: #334155;
-}
-
-.print-table .text-right {
-    text-align: right;
-}
-
-.print-table tfoot td {
-    background: #f8fafc;
-    font-weight: 700;
-}
-
-.print-footer {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 2rem;
-    font-size: 0.72rem;
-    color: #64748b;
-}
-
-.signature-box {
-    text-align: center;
-    min-width: 150px;
-}
-
-.signature-line {
-    border-top: 1px solid #cbd5e1;
-    margin-top: 3rem;
-    padding-top: 0.5rem;
-}
-
-/* Empty State */
-.empty-state {
-    text-align: center;
-    padding: 3rem 1rem;
-    color: var(--text-muted);
-}
-
-.empty-state-icon {
-    font-size: 2.5rem;
-    margin-bottom: 0.75rem;
-    opacity: 0.5;
-}
-
-@media (max-width: 768px) {
-    .laporan-header { flex-direction: column; align-items: stretch; }
+@media (max-width: 640px) {
+    .laporan-container { padding: 0.75rem; }
+    .stats-row { grid-template-columns: 1fr; }
+    .report-header { flex-direction: column; align-items: flex-start; gap: 0.5rem; }
+    .report-header-right { text-align: left; }
+    .summary-box { flex-direction: column; text-align: center; }
     .summary-info { flex-direction: column; gap: 0.75rem; }
-    .selection-summary { flex-direction: column; text-align: center; }
+    .action-buttons { flex-direction: column; }
+    .action-buttons .btn { width: 100%; justify-content: center; }
 }
 </style>
 
 <div class="laporan-container">
-    <!-- Header -->
-    <div class="card no-print" style="margin-bottom: 1.25rem;">
-        <div class="laporan-header">
+    <!-- Action Buttons -->
+    <div class="action-buttons">
+        <a href="<?= BASE_URL ?>/modules/bills/" class="btn btn-back">
+            <i data-feather="arrow-left" style="width:14px;height:14px"></i> Kembali
+        </a>
+    </div>
+
+    <!-- Report Header - Same as Frontdesk -->
+    <div class="report-header">
+        <div class="report-header-left">
+            <?php
+            $logoUrl = $company['invoice_logo'] ?? $company['logo'] ?? null;
+            if ($logoUrl): ?>
+            <img src="<?php echo htmlspecialchars($logoUrl); ?>" alt="Logo" class="report-logo">
+            <?php else: ?>
+            <div class="report-logo-icon"><?php echo $company['icon']; ?></div>
+            <?php endif; ?>
             <div>
-                <h2 style="font-size: 1.05rem; font-weight: 700; color: var(--text-heading); margin: 0;">
-                    <i data-feather="file-text" style="width: 20px; height: 20px; display: inline; vertical-align: -3px;"></i>
-                    Laporan Pencairan Tagihan
-                </h2>
-                <p style="font-size: 0.72rem; color: var(--text-muted); margin: 0.2rem 0 0;">Pilih tagihan untuk diajukan pencairan dana ke owner</p>
+                <div class="hotel-name"><?php echo htmlspecialchars($company['name']); ?></div>
+                <div class="hotel-detail">
+                    <?php if ($company['address']): echo htmlspecialchars($company['address']); endif; ?>
+                    <?php if ($company['phone']): ?> | Tel: <?php echo htmlspecialchars($company['phone']); ?><?php endif; ?>
+                    <?php if ($company['email']): ?> | <?php echo htmlspecialchars($company['email']); ?><?php endif; ?>
+                </div>
             </div>
-            <div style="display: flex; gap: 0.5rem;">
-                <a href="<?= BASE_URL ?>/modules/bills/" class="btn" style="background: var(--bg-tertiary); color: var(--text-secondary); padding: 0.45rem 0.8rem; border-radius: var(--radius-md); font-size: 0.72rem; font-weight: 600; text-decoration: none;">
-                    <i data-feather="arrow-left" style="width: 14px; height: 14px;"></i> Kembali
-                </a>
-            </div>
+        </div>
+        <div class="report-header-right">
+            <div class="report-title">Pengajuan Pencairan</div>
+            <div class="report-date"><?= date('l, d F Y') ?></div>
         </div>
     </div>
 
     <!-- Filter -->
-    <div class="card no-print" style="margin-bottom: 1.25rem;">
-        <form method="GET" class="laporan-filter">
-            <label style="font-size: 0.72rem; font-weight: 600; color: var(--text-secondary);">Periode:</label>
-            <input type="month" name="month" value="<?= htmlspecialchars($filterMonth) ?>">
-            <button type="submit" class="btn" style="background: var(--primary-color); color: white;">
-                <i data-feather="filter" style="width: 13px; height: 13px;"></i> Filter
-            </button>
-        </form>
-    </div>
+    <form method="GET" class="filter-bar">
+        <label>Periode Tagihan:</label>
+        <input type="month" name="month" value="<?= htmlspecialchars($filterMonth) ?>">
+        <button type="submit" class="btn-filter">
+            <i data-feather="filter" style="width:12px;height:12px;display:inline;vertical-align:-2px"></i> Filter
+        </button>
+    </form>
 
     <?php if (empty($bills)): ?>
     <!-- Empty State -->
-    <div class="card">
-        <div class="empty-state">
-            <div class="empty-state-icon">✅</div>
-            <div style="font-size: 0.85rem; margin-bottom: 0.35rem;">Tidak ada tagihan yang perlu dibayar</div>
-            <div style="font-size: 0.72rem;">Semua tagihan periode <?= date('F Y', strtotime($filterMonth . '-01')) ?> sudah lunas</div>
-        </div>
+    <div class="empty-state">
+        <div class="empty-state-icon">✅</div>
+        <div class="empty-state-text">Tidak ada tagihan yang perlu dibayar</div>
+        <div class="empty-state-sub">Semua tagihan periode <?= date('F Y', strtotime($filterMonth . '-01')) ?> sudah lunas</div>
     </div>
     <?php else: ?>
-    <!-- Selection Table -->
-    <div class="card no-print" style="padding: 0; overflow: hidden;">
-        <div style="padding: 0.75rem 1rem; background: var(--bg-secondary); border-bottom: 1px solid var(--bg-tertiary); display: flex; align-items: center; justify-content: space-between;">
-            <span style="font-size: 0.78rem; font-weight: 600; color: var(--text-heading);">
-                Pilih Tagihan untuk Pencairan
-            </span>
-            <label style="display: flex; align-items: center; gap: 0.35rem; font-size: 0.72rem; color: var(--text-secondary); cursor: pointer;">
-                <input type="checkbox" id="selectAll" class="bill-check" onclick="toggleSelectAll(this)">
-                Pilih Semua
-            </label>
+
+    <!-- Stats -->
+    <div class="stats-row">
+        <div class="stat-item pending">
+            <div class="stat-val"><?= formatCurrency($totalPending) ?></div>
+            <div class="stat-lbl">Pending (<?= $countPending ?>)</div>
         </div>
-        <div style="overflow-x: auto;">
-            <table class="select-table">
-                <thead>
-                    <tr>
-                        <th style="width: 40px; text-align: center;">Pilih</th>
-                        <th>Tagihan</th>
-                        <th>Kategori</th>
-                        <th>Jatuh Tempo</th>
-                        <th>Status</th>
-                        <th style="text-align: right;">Nominal</th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php foreach ($bills as $bill): 
-                        $catInfo = $categories[$bill['bill_category']] ?? $categories['other'];
-                        $isOverdue = $bill['status'] === 'overdue';
-                    ?>
-                    <tr class="<?= $isOverdue ? 'row-overdue' : '' ?>" data-id="<?= $bill['id'] ?>" data-amount="<?= $bill['amount'] ?>">
-                        <td style="text-align: center;">
-                            <input type="checkbox" class="bill-check bill-item" 
-                                   data-id="<?= $bill['id'] ?>" 
-                                   data-name="<?= htmlspecialchars($bill['bill_name']) ?>"
-                                   data-vendor="<?= htmlspecialchars($bill['vendor_name'] ?? '-') ?>"
-                                   data-account="<?= htmlspecialchars($bill['account_number'] ?? '-') ?>"
-                                   data-due="<?= date('d M Y', strtotime($bill['due_date'])) ?>"
-                                   data-amount="<?= $bill['amount'] ?>"
-                                   data-status="<?= $bill['status'] ?>"
-                                   data-category="<?= $catInfo['label'] ?>"
-                                   onchange="updateSelection()">
-                        </td>
-                        <td>
-                            <div style="font-weight: 600; color: var(--text-heading); font-size: 0.78rem;">
-                                <?= htmlspecialchars($bill['bill_name']) ?>
-                            </div>
-                            <div style="font-size: 0.65rem; color: var(--text-muted);">
-                                <?= htmlspecialchars($bill['vendor_name'] ?? '-') ?>
-                                <?php if ($bill['account_number']): ?>
-                                · No. <?= htmlspecialchars($bill['account_number']) ?>
-                                <?php endif; ?>
-                            </div>
-                        </td>
-                        <td>
-                            <span class="bill-cat-badge" style="background: <?= $catInfo['color'] ?>18; color: <?= $catInfo['color'] ?>;">
-                                <?= $catInfo['icon'] ?> <?= $catInfo['label'] ?>
-                            </span>
-                        </td>
-                        <td style="font-size: 0.75rem;">
-                            <?= date('d M Y', strtotime($bill['due_date'])) ?>
-                        </td>
-                        <td>
-                            <span class="bill-status-badge <?= $bill['status'] ?>">
-                                <?= $bill['status'] === 'overdue' ? 'Lewat' : 'Pending' ?>
-                            </span>
-                        </td>
-                        <td style="text-align: right; font-weight: 600; font-size: 0.78rem;">
-                            <?= formatCurrency($bill['amount']) ?>
-                        </td>
-                    </tr>
-                    <?php endforeach; ?>
-                </tbody>
-            </table>
+        <div class="stat-item overdue">
+            <div class="stat-val"><?= formatCurrency($totalOverdue) ?></div>
+            <div class="stat-lbl">Jatuh Tempo (<?= $countOverdue ?>)</div>
+        </div>
+        <div class="stat-item total">
+            <div class="stat-val"><?= formatCurrency($totalAll) ?></div>
+            <div class="stat-lbl">Total Tagihan</div>
         </div>
     </div>
 
-    <!-- Summary -->
-    <div class="selection-summary no-print">
+    <!-- Selection Table -->
+    <div class="rpt-section">
+        <div class="rpt-section-head">
+            <h3 class="sec-title">📋 Pilih Tagihan untuk Pencairan</h3>
+            <div class="sec-action">
+                <label class="select-all-label">
+                    <input type="checkbox" id="selectAll" onchange="toggleSelectAll(this)">
+                    Pilih Semua
+                </label>
+            </div>
+        </div>
+        <table class="rpt-table">
+            <thead>
+                <tr>
+                    <th style="width:35px;text-align:center">✓</th>
+                    <th>Tagihan</th>
+                    <th>Kategori</th>
+                    <th>Jatuh Tempo</th>
+                    <th>No. Rek/ID</th>
+                    <th>Status</th>
+                    <th style="text-align:right">Nominal</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($bills as $bill): 
+                    $catInfo = $categories[$bill['bill_category']] ?? $categories['other'];
+                    $isOverdue = $bill['status'] === 'overdue';
+                ?>
+                <tr class="<?= $isOverdue ? 'row-overdue' : '' ?>" data-id="<?= $bill['id'] ?>">
+                    <td style="text-align:center">
+                        <input type="checkbox" class="bill-check bill-item"
+                               data-id="<?= $bill['id'] ?>"
+                               data-name="<?= htmlspecialchars($bill['bill_name']) ?>"
+                               data-vendor="<?= htmlspecialchars($bill['vendor_name'] ?? '-') ?>"
+                               data-account="<?= htmlspecialchars($bill['account_number'] ?? '-') ?>"
+                               data-due="<?= date('d M Y', strtotime($bill['due_date'])) ?>"
+                               data-amount="<?= $bill['amount'] ?>"
+                               data-status="<?= $bill['status'] ?>"
+                               data-category="<?= $catInfo['label'] ?>"
+                               data-icon="<?= $catInfo['icon'] ?>"
+                               onchange="updateSelection()">
+                    </td>
+                    <td>
+                        <div style="font-weight:600;color:var(--text-heading)"><?= htmlspecialchars($bill['bill_name']) ?></div>
+                        <div style="font-size:0.68rem;color:var(--text-muted)"><?= htmlspecialchars($bill['vendor_name'] ?? '-') ?></div>
+                    </td>
+                    <td>
+                        <span class="cat-badge" style="background:<?= $catInfo['color'] ?>18;color:<?= $catInfo['color'] ?>">
+                            <?= $catInfo['icon'] ?> <?= $catInfo['label'] ?>
+                        </span>
+                    </td>
+                    <td style="font-size:0.75rem"><?= date('d M Y', strtotime($bill['due_date'])) ?></td>
+                    <td style="font-size:0.72rem;color:var(--text-muted)"><?= htmlspecialchars($bill['account_number'] ?? '-') ?></td>
+                    <td>
+                        <span class="status-badge <?= $bill['status'] ?>">
+                            <?= $bill['status'] === 'overdue' ? 'Lewat' : 'Pending' ?>
+                        </span>
+                    </td>
+                    <td style="text-align:right;font-weight:600"><?= formatCurrency($bill['amount']) ?></td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+    </div>
+
+    <!-- Summary Box -->
+    <div class="summary-box">
         <div class="summary-info">
             <div class="summary-item">
-                <div class="summary-label">Dipilih</div>
-                <div class="summary-value" id="selectedCount">0 tagihan</div>
+                <div class="sum-label">Tagihan Dipilih</div>
+                <div class="sum-value" id="selectedCount">0</div>
             </div>
             <div class="summary-item">
-                <div class="summary-label">Total Pencairan</div>
-                <div class="summary-value total" id="selectedTotal">Rp 0</div>
+                <div class="sum-label">Total Pencairan</div>
+                <div class="sum-value" id="selectedTotal">Rp 0</div>
             </div>
         </div>
         <div class="summary-actions">
-            <button type="button" class="btn btn-print" onclick="generateReport()" id="btnGenerate" disabled>
-                <i data-feather="printer" style="width: 15px; height: 15px;"></i> Cetak Laporan
+            <button type="button" class="btn btn-generate" onclick="generateReport()" id="btnGenerate" disabled>
+                📄 Cetak Laporan
             </button>
             <button type="button" class="btn btn-wa" onclick="shareWhatsApp()" id="btnWa" disabled>
-                <i data-feather="message-circle" style="width: 15px; height: 15px;"></i> Kirim WA
+                📱 Kirim WA
             </button>
         </div>
     </div>
 
-    <!-- Print Area (hidden until generated) -->
-    <div class="print-area" id="printArea" style="display: none;">
+    <!-- Print Area -->
+    <div class="print-area" id="printArea">
         <div class="print-header">
-            <?php if ($businessInfo && !empty($businessInfo['logo'])): ?>
-            <img src="<?= $businessInfo['logo'] ?>" alt="Logo" style="width: 60px; height: 60px; object-fit: contain; margin-bottom: 0.5rem;">
-            <?php else: ?>
-            <div class="print-logo"><?= substr($businessInfo['business_name'] ?? 'B', 0, 1) ?></div>
-            <?php endif; ?>
-            <h1 class="print-title"><?= htmlspecialchars($businessInfo['business_name'] ?? 'Business') ?></h1>
-            <p class="print-subtitle"><?= htmlspecialchars($businessInfo['address'] ?? '') ?></p>
-        </div>
-        
-        <div style="text-align: center; margin-bottom: 1rem;">
-            <h2 style="font-size: 0.95rem; font-weight: 700; color: #1e293b; margin: 0;">PENGAJUAN PENCAIRAN DANA</h2>
-            <p style="font-size: 0.72rem; color: #64748b; margin: 0.25rem 0 0;">Pembayaran Tagihan Bulanan</p>
+            <div style="display:flex;align-items:center;gap:0.75rem">
+                <?php if ($logoUrl): ?>
+                <img src="<?php echo htmlspecialchars($logoUrl); ?>" alt="Logo" class="print-logo">
+                <?php else: ?>
+                <div class="print-logo-icon"><?php echo $company['icon']; ?></div>
+                <?php endif; ?>
+                <div>
+                    <div class="print-company"><?php echo htmlspecialchars($company['name']); ?></div>
+                    <div class="print-address">
+                        <?php if ($company['address']): echo htmlspecialchars($company['address']); endif; ?>
+                        <?php if ($company['phone']): ?> | Tel: <?php echo htmlspecialchars($company['phone']); ?><?php endif; ?>
+                        <?php if ($company['email']): ?> | <?php echo htmlspecialchars($company['email']); ?><?php endif; ?>
+                    </div>
+                </div>
+            </div>
+            <div class="print-title-box">
+                <div class="print-doc-title">Pengajuan Pencairan Dana</div>
+                <div class="print-doc-date">Pembayaran Tagihan Bulanan</div>
+            </div>
         </div>
 
-        <div class="print-info">
-            <div>
-                <strong>Periode:</strong> <?= date('F Y', strtotime($filterMonth . '-01')) ?>
-            </div>
-            <div>
-                <strong>Tanggal:</strong> <?= date('d M Y') ?>
-            </div>
+        <div class="print-meta">
+            <div><strong>Periode:</strong> <?= date('F Y', strtotime($filterMonth . '-01')) ?></div>
+            <div><strong>Tanggal:</strong> <?= date('d M Y') ?></div>
         </div>
 
         <table class="print-table">
             <thead>
                 <tr>
-                    <th style="width: 30px;">No</th>
+                    <th style="width:30px" class="text-center">No</th>
                     <th>Tagihan</th>
                     <th>Kategori</th>
                     <th>Jatuh Tempo</th>
@@ -589,25 +444,34 @@ include '../../includes/header.php';
             </tfoot>
         </table>
 
-        <div style="margin: 1.5rem 0; padding: 0.75rem; background: #f8fafc; border-radius: 6px; font-size: 0.72rem; color: #475569;">
+        <div class="print-note">
             <strong>Catatan:</strong> Mohon pencairan dana untuk pembayaran tagihan di atas. Dana akan digunakan untuk operasional bisnis sesuai dengan tagihan yang tertera.
         </div>
 
-        <div class="print-footer">
+        <div class="signature-row">
             <div class="signature-box">
-                <div>Diajukan oleh,</div>
-                <div class="signature-line"><?= htmlspecialchars($currentUser['full_name'] ?? $currentUser['username'] ?? 'Staff') ?></div>
+                <div class="sig-title">Diajukan oleh,</div>
+                <div class="sig-line"><?= htmlspecialchars($currentUser['full_name'] ?? $currentUser['username'] ?? 'Staff') ?></div>
             </div>
             <div class="signature-box">
-                <div>Disetujui oleh,</div>
-                <div class="signature-line">Owner</div>
+                <div class="sig-title">Disetujui oleh,</div>
+                <div class="sig-line">Owner</div>
             </div>
         </div>
 
-        <div style="text-align: center; margin-top: 1.5rem; padding-top: 1rem; border-top: 1px solid #e2e8f0; font-size: 0.65rem; color: #94a3b8;">
-            Dicetak dari ADF System — <?= date('d M Y H:i') ?> WIB
+        <div class="print-footer">
+            Dicetak dari <span class="sys">ADF System</span> — <?= htmlspecialchars($company['name']) ?> © <?= date('Y') ?>
+            <br><?= date('d M Y, H:i') ?> WIB
         </div>
     </div>
+
+    <!-- Report Stamp (for screen) -->
+    <div class="report-stamp">
+        <div class="stamp-line">Dicetak oleh: <strong><?= htmlspecialchars($currentUser['full_name'] ?? $currentUser['username'] ?? 'User') ?></strong></div>
+        <div class="stamp-line">Dicetak dari <span class="stamp-system">ADF System</span> — <?= htmlspecialchars($company['name']) ?> © <?= date('Y') ?></div>
+        <div class="stamp-line"><?= date('d M Y, H:i') ?> WIB</div>
+    </div>
+
     <?php endif; ?>
 </div>
 
@@ -636,12 +500,13 @@ function updateSelection() {
             due: item.dataset.due,
             amount: parseInt(item.dataset.amount),
             status: item.dataset.status,
-            category: item.dataset.category
+            category: item.dataset.category,
+            icon: item.dataset.icon
         });
         total += parseInt(item.dataset.amount);
     });
     
-    document.getElementById('selectedCount').textContent = selectedBills.length + ' tagihan';
+    document.getElementById('selectedCount').textContent = selectedBills.length;
     document.getElementById('selectedTotal').textContent = 'Rp ' + total.toLocaleString('id-ID');
     
     const btnGenerate = document.getElementById('btnGenerate');
@@ -650,7 +515,7 @@ function updateSelection() {
     btnWa.disabled = selectedBills.length === 0;
     
     // Update row highlight
-    document.querySelectorAll('.select-table tbody tr').forEach(row => {
+    document.querySelectorAll('.rpt-table tbody tr').forEach(row => {
         const checkbox = row.querySelector('.bill-item');
         if (checkbox && checkbox.checked) {
             row.classList.add('selected');
@@ -678,9 +543,12 @@ function generateReport() {
     selectedBills.forEach((bill, idx) => {
         total += bill.amount;
         html += `<tr>
-            <td>${idx + 1}</td>
-            <td><strong>${bill.name}</strong><br><small style="color: #64748b;">${bill.vendor}</small></td>
-            <td>${bill.category}</td>
+            <td class="text-center">${idx + 1}</td>
+            <td>
+                <div class="bill-name">${bill.name}</div>
+                <div class="bill-vendor">${bill.vendor}</div>
+            </td>
+            <td>${bill.icon} ${bill.category}</td>
             <td>${bill.due}</td>
             <td>${bill.account}</td>
             <td class="text-right">Rp ${bill.amount.toLocaleString('id-ID')}</td>
@@ -691,7 +559,7 @@ function generateReport() {
     document.getElementById('printTotal').textContent = 'Rp ' + total.toLocaleString('id-ID');
     
     // Show print area
-    document.getElementById('printArea').style.display = 'block';
+    document.getElementById('printArea').classList.add('show');
     
     // Scroll to print area
     document.getElementById('printArea').scrollIntoView({ behavior: 'smooth' });
@@ -710,16 +578,18 @@ function shareWhatsApp() {
     
     let total = 0;
     let message = `*PENGAJUAN PENCAIRAN DANA*\n`;
-    message += `_Pembayaran Tagihan Bulanan_\n`;
-    message += `📅 Periode: <?= date('F Y', strtotime($filterMonth . '-01')) ?>\n\n`;
-    message += `*Daftar Tagihan:*\n`;
-    message += `━━━━━━━━━━━━━━━\n`;
+    message += `_<?= htmlspecialchars($company['name']) ?>_\n`;
+    message += `━━━━━━━━━━━━━━━\n\n`;
+    message += `📅 *Periode:* <?= date('F Y', strtotime($filterMonth . '-01')) ?>\n`;
+    message += `📆 *Tanggal:* <?= date('d M Y') ?>\n\n`;
+    message += `*Daftar Tagihan:*\n\n`;
     
     selectedBills.forEach((bill, idx) => {
         total += bill.amount;
         const statusIcon = bill.status === 'overdue' ? '🔴' : '🟡';
-        message += `${idx + 1}. ${bill.name}\n`;
-        message += `   ${statusIcon} ${bill.category} · Rp ${bill.amount.toLocaleString('id-ID')}\n`;
+        message += `*${idx + 1}. ${bill.name}*\n`;
+        message += `   ${bill.icon} ${bill.category}\n`;
+        message += `   ${statusIcon} Rp ${bill.amount.toLocaleString('id-ID')}\n`;
         message += `   📆 Jatuh tempo: ${bill.due}\n`;
         if (bill.account && bill.account !== '-') {
             message += `   🏦 No: ${bill.account}\n`;
@@ -728,10 +598,56 @@ function shareWhatsApp() {
     });
     
     message += `━━━━━━━━━━━━━━━\n`;
-    message += `*TOTAL: Rp ${total.toLocaleString('id-ID')}*\n\n`;
-    message += `Mohon persetujuan untuk pencairan dana.\n`;
-    message += `\n_Diajukan oleh: <?= htmlspecialchars($currentUser['full_name'] ?? $currentUser['username'] ?? 'Staff') ?>_`;
-    message += `\n_<?= date('d M Y H:i') ?> WIB_`;
+    message += `💰 *TOTAL: Rp ${total.toLocaleString('id-ID')}*\n\n`;
+    message += `Mohon persetujuan untuk pencairan dana.\n\n`;
+    message += `_Diajukan oleh:_\n`;
+    message += `*<?= htmlspecialchars($currentUser['full_name'] ?? $currentUser['username'] ?? 'Staff') ?>*\n`;
+    message += `_<?= date('d M Y, H:i') ?> WIB_`;
+    
+    const encoded = encodeURIComponent(message);
+    window.open(`https://wa.me/?text=${encoded}`, '_blank');
+}
+
+// Initialize feather icons
+if (typeof feather !== 'undefined') feather.replace();
+</script>
+
+<?php include '../../includes/footer.php'; ?>
+}
+
+function shareWhatsApp() {
+    if (selectedBills.length === 0) {
+        alert('Pilih minimal 1 tagihan!');
+        return;
+    }
+    
+    let total = 0;
+    let message = `*PENGAJUAN PENCAIRAN DANA*\n`;
+    message += `_<?= htmlspecialchars($company['name']) ?>_\n`;
+    message += `━━━━━━━━━━━━━━━\n\n`;
+    message += `📅 *Periode:* <?= date('F Y', strtotime($filterMonth . '-01')) ?>\n`;
+    message += `📆 *Tanggal:* <?= date('d M Y') ?>\n\n`;
+    message += `*Daftar Tagihan:*\n\n`;
+    
+    selectedBills.forEach((bill, idx) => {
+        total += bill.amount;
+        const statusIcon = bill.status === 'overdue' ? '🔴' : '🟡';
+        message += `*${idx + 1}. ${bill.name}*\n`;
+        message += `   ${bill.icon} ${bill.category}\n`;
+        message += `   ${statusIcon} Rp ${bill.amount.toLocaleString('id-ID')}\n`;
+        message += `   📆 Jatuh tempo: ${bill.due}\n`;
+        if (bill.account && bill.account !== '-') {
+            message += `   🏦 No: ${bill.account}\n`;
+        }
+        message += `\n`;
+    });
+    
+    message += `━━━━━━━━━━━━━━━\n`;
+    message += `💰 *TOTAL: Rp ${total.toLocaleString('id-ID')}*\n\n`;
+    message += `Mohon persetujuan untuk pencairan dana.\n\n`;
+    message += `_Diajukan oleh:_\n`;
+    message += `*<?= htmlspecialchars($currentUser['full_name'] ?? $currentUser['username'] ?? 'Staff') ?>*\n`;
+    message += `_<?= date('d M Y, H:i') ?> WIB_`;
     
     const encoded = encodeURIComponent(message);
     window.open(`https://wa.me/?text=${encoded}`, '_blank');
