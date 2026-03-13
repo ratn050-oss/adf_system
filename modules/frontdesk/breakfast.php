@@ -67,234 +67,13 @@ if (!empty($_SESSION['user_id'])) {
     }
 }
 
-// ==================== HANDLE BREAKFAST ORDER ====================
+// ==================== HANDLE BREAKFAST ORDER (kept for backward compat) ====================
+// All new submissions go through api/breakfast-save.php via AJAX
+// This handler only exists as a fallback for non-JS browsers
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
-    
-    // ========== BULLETPROOF TOKEN CHECK ==========
-    $formToken = $_POST['_form_token'] ?? '';
-    $sessionToken = $_SESSION['bf_form_token'] ?? '';
-    
-    if (empty($formToken) || $formToken !== $sessionToken) {
-        $_SESSION['flash_message'] = "⚠️ Form expired, silakan coba lagi.";
-        header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?'));
-        exit;
-    }
-    // Clear token AND force session write immediately
-    unset($_SESSION['bf_form_token']);
-    session_write_close();
-    // Re-open session for flash messages later
-    session_start();
-    
-    try {
-        if ($_POST['action'] === 'update_order') {
-            if (!$validUserId) {
-                throw new Exception("❌ Sistem error: User tidak ditemukan di database.");
-            }
-            $editId = (int)($_POST['edit_id'] ?? 0);
-            if ($editId <= 0) throw new Exception("❌ ID order tidak valid");
-            
-            if (empty($_POST['guest_name']) || empty($_POST['total_pax']) || empty($_POST['breakfast_time']) || empty($_POST['breakfast_date'])) {
-                throw new Exception("❌ Semua field wajib harus diisi");
-            }
-            if (empty($_POST['menu_items']) || !is_array($_POST['menu_items'])) {
-                throw new Exception("❌ Pilih minimal 1 menu item");
-            }
-            
-            $menuItems = [];
-            $totalPrice = 0;
-            foreach ($_POST['menu_items'] as $menuId) {
-                $qty = (int)($_POST['menu_qty'][$menuId] ?? 1);
-                $note = isset($_POST['menu_note'][$menuId]) ? trim($_POST['menu_note'][$menuId]) : '';
-                if ($qty > 0) {
-                    $menuStmt = $pdo->prepare("SELECT menu_name, price, is_free FROM breakfast_menus WHERE id = ?");
-                    $menuStmt->execute([$menuId]);
-                    $menu = $menuStmt->fetch(PDO::FETCH_ASSOC);
-                    if ($menu) {
-                        $item = [
-                            'menu_id' => $menuId,
-                            'menu_name' => $menu['menu_name'],
-                            'quantity' => $qty,
-                            'price' => $menu['price'],
-                            'is_free' => $menu['is_free']
-                        ];
-                        if ($note !== '') $item['note'] = $note;
-                        $menuItems[] = $item;
-                        if (!$menu['is_free']) $totalPrice += ($menu['price'] * $qty);
-                    }
-                }
-            }
-            if (count($menuItems) === 0) throw new Exception("❌ No valid menu items selected");
-            
-            // Handle multiple room_number as array
-            $roomNumbers = isset($_POST['room_number']) ? $_POST['room_number'] : [];
-            if (!is_array($roomNumbers)) {
-                $roomNumbers = [$roomNumbers];
-            }
-            $stmt = $pdo->prepare("UPDATE breakfast_orders SET 
-                booking_id=?, guest_name=?, room_number=?, total_pax=?, breakfast_time=?, 
-                breakfast_date=?, location=?, menu_items=?, special_requests=?, total_price=?
-                WHERE id=?");
-            $stmt->execute([
-                !empty($_POST['booking_id']) ? (int)$_POST['booking_id'] : null,
-                trim($_POST['guest_name']),
-                json_encode($roomNumbers),
-                (int)$_POST['total_pax'],
-                $_POST['breakfast_time'],
-                $_POST['breakfast_date'],
-                $_POST['location'] ?? 'restaurant',
-                json_encode($menuItems),
-                !empty($_POST['special_requests']) ? trim($_POST['special_requests']) : null,
-                $totalPrice,
-                $editId
-            ]);
-            
-            $_SESSION['flash_message'] = "✅ Order #$editId berhasil diupdate!";
-            header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?'));
-            exit;
-            
-        } elseif ($_POST['action'] === 'create_order') {
-            // Validate user exists
-            if (!$validUserId) {
-                throw new Exception("❌ Sistem error: User tidak ditemukan di database. Hubungi administrator.");
-            }
-            
-            // Create breakfast_orders table if not exists
-            $pdo->exec("CREATE TABLE IF NOT EXISTS breakfast_orders (
-                id INT PRIMARY KEY AUTO_INCREMENT,
-                booking_id INT NULL,
-                guest_name VARCHAR(100) NOT NULL,
-                room_number TEXT,
-                total_pax INT NOT NULL,
-                breakfast_time TIME NOT NULL,
-                breakfast_date DATE NOT NULL,
-                location ENUM('restaurant', 'room_service', 'take_away') DEFAULT 'restaurant',
-                menu_items TEXT COMMENT 'JSON array of menu items with quantities',
-                special_requests TEXT,
-                total_price DECIMAL(10,2) DEFAULT 0.00,
-                order_status ENUM('pending', 'preparing', 'served', 'completed', 'cancelled') DEFAULT 'pending',
-                created_by INT NOT NULL,
-                created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                FOREIGN KEY (created_by) REFERENCES users(id),
-                INDEX idx_date (breakfast_date),
-                INDEX idx_status (order_status)
-            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-
-            // Add take_away to location enum if not exists
-            try {
-                $pdo->exec("ALTER TABLE breakfast_orders MODIFY COLUMN location ENUM('restaurant', 'room_service', 'take_away') DEFAULT 'restaurant'");
-            } catch (Exception $e) { /* already updated */ }
-            
-            // Upgrade room_number to TEXT for JSON storage
-            try {
-                $pdo->exec("ALTER TABLE breakfast_orders MODIFY COLUMN room_number TEXT");
-            } catch (Exception $e) { /* already updated */ }
-            
-            // ===== VALIDATION =====
-            // Validate required fields
-            if (empty($_POST['guest_name'])) {
-                throw new Exception("Guest name is required");
-            }
-            if (empty($_POST['total_pax'])) {
-                throw new Exception("Total pax is required");
-            }
-            if (empty($_POST['breakfast_time'])) {
-                throw new Exception("Breakfast time is required");
-            }
-            if (empty($_POST['breakfast_date'])) {
-                throw new Exception("Breakfast date is required");
-            }
-            
-            // CRITICAL: Validate that at least ONE menu item is selected
-            if (empty($_POST['menu_items']) || !is_array($_POST['menu_items']) || count($_POST['menu_items']) === 0) {
-                throw new Exception("❌ Pilih minimal 1 menu item untuk breakfast order");
-            }
-            
-            // Parse menu items from form
-            $menuItems = [];
-            $totalPrice = 0;
-            
-            foreach ($_POST['menu_items'] as $menuId) {
-                $qty = (int)($_POST['menu_qty'][$menuId] ?? 1);
-                $note = isset($_POST['menu_note'][$menuId]) ? trim($_POST['menu_note'][$menuId]) : '';
-                if ($qty > 0) {
-                    // Get menu price
-                    $menuStmt = $pdo->prepare("SELECT menu_name, price, is_free FROM breakfast_menus WHERE id = ?");
-                    $menuStmt->execute([$menuId]);
-                    $menu = $menuStmt->fetch(PDO::FETCH_ASSOC);
-                    
-                    if ($menu) {
-                        $item = [
-                            'menu_id' => $menuId,
-                            'menu_name' => $menu['menu_name'],
-                            'quantity' => $qty,
-                            'price' => $menu['price'],
-                            'is_free' => $menu['is_free']
-                        ];
-                        if ($note !== '') $item['note'] = $note;
-                        $menuItems[] = $item;
-                        
-                        if (!$menu['is_free']) {
-                            $totalPrice += ($menu['price'] * $qty);
-                        }
-                    }
-                }
-            }
-            
-            // Verify we have at least one valid menu item after processing
-            if (count($menuItems) === 0) {
-                throw new Exception("❌ No valid menu items selected");
-            }
-            
-            // Insert order
-            // Handle multiple room_number as array
-            $roomNumbers = isset($_POST['room_number']) ? $_POST['room_number'] : [];
-            if (!is_array($roomNumbers)) {
-                $roomNumbers = [$roomNumbers];
-            }
-            
-            $menuJson = json_encode($menuItems);
-            
-            // === INSERT with submit_token as UNIQUE key ===
-            // If 2 requests arrive with same token, MySQL UNIQUE index blocks the 2nd one
-            try {
-                $stmt = $pdo->prepare("INSERT INTO breakfast_orders 
-                    (booking_id, guest_name, room_number, total_pax, breakfast_time, breakfast_date, location, 
-                     menu_items, special_requests, total_price, created_by, submit_token) 
-                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-                $stmt->execute([
-                    !empty($_POST['booking_id']) ? (int)$_POST['booking_id'] : null,
-                    trim($_POST['guest_name']),
-                    json_encode($roomNumbers),
-                    (int)$_POST['total_pax'],
-                    $_POST['breakfast_time'],
-                    $_POST['breakfast_date'],
-                    $_POST['location'] ?? 'restaurant',
-                    $menuJson,
-                    !empty($_POST['special_requests']) ? trim($_POST['special_requests']) : null,
-                    $totalPrice,
-                    $validUserId,
-                    $formToken
-                ]);
-                
-                $lastOrderId = $pdo->lastInsertId();
-                
-                $guestName = trim($_POST['guest_name']);
-                $_SESSION['flash_message'] = "✅ Berhasil! Pesanan untuk <strong>" . htmlspecialchars($guestName) . "</strong> tersimpan (ID #$lastOrderId)";
-            } catch (PDOException $e) {
-                if ($e->getCode() == 23000 || strpos($e->getMessage(), 'Duplicate') !== false) {
-                    $_SESSION['flash_message'] = "⚠️ Order sudah tersimpan sebelumnya.";
-                } else {
-                    throw $e;
-                }
-            }
-            header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?'));
-            exit;
-        }
-    } catch (Exception $e) {
-        $error = "❌ Error: " . $e->getMessage();
-        error_log("Breakfast Order Error: " . $e->getMessage());
-    }
+    $_SESSION['flash_message'] = "⚠️ Gunakan browser modern untuk menyimpan order.";
+    header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?'));
+    exit;
 }
 
 // ==================== EDIT MODE ====================
@@ -1385,79 +1164,99 @@ function removeRoom(idx) {
     updateSelectedGuests();
 }
 
-// ==================== FORM VALIDATION ====================
-let formSubmitting = false; // Global flag
+// ==================== FORM VALIDATION & AJAX SUBMIT ====================
+let formSubmitting = false;
 
 function validateBreakfastForm(e) {
-    // CRITICAL: Prevent double submission
-    if (formSubmitting) {
-        e.preventDefault();
-        return false;
-    }
+    // ALWAYS prevent default form submit - we use AJAX instead
+    e.preventDefault();
+    
+    if (formSubmitting) return false;
     
     const guestName = document.getElementById('guest_name').value.trim();
     const totalPax = document.getElementById('total_pax').value.trim();
     const breakfastTime = document.getElementById('breakfast_time').value.trim();
     const breakfastDate = document.getElementById('breakfast_date').value.trim();
 
-    if (!guestName) {
-        alert('❌ Nama tamu harus diisi!');
-        document.getElementById('guest_name').focus();
-        e.preventDefault();
-        return false;
-    }
-
-    if (!totalPax || parseInt(totalPax) < 1) {
-        alert('❌ Total pax harus diisi (minimal 1)!');
-        document.getElementById('total_pax').focus();
-        e.preventDefault();
-        return false;
-    }
-
-    if (!breakfastTime) {
-        alert('❌ Waktu sarapan harus diisi!');
-        document.getElementById('breakfast_time').focus();
-        e.preventDefault();
-        return false;
-    }
-
-    if (!breakfastDate) {
-        alert('❌ Tanggal sarapan harus diisi!');
-        document.getElementById('breakfast_date').focus();
-        e.preventDefault();
-        return false;
-    }
+    if (!guestName) { alert('❌ Nama tamu harus diisi!'); document.getElementById('guest_name').focus(); return false; }
+    if (!totalPax || parseInt(totalPax) < 1) { alert('❌ Total pax harus diisi (minimal 1)!'); document.getElementById('total_pax').focus(); return false; }
+    if (!breakfastTime) { alert('❌ Waktu sarapan harus diisi!'); document.getElementById('breakfast_time').focus(); return false; }
+    if (!breakfastDate) { alert('❌ Tanggal sarapan harus diisi!'); document.getElementById('breakfast_date').focus(); return false; }
 
     const selectedMenus = document.querySelectorAll('input[name="menu_items[]"]:checked');
-    if (selectedMenus.length === 0) {
-        alert('❌ PILIH MINIMAL 1 MENU ITEM!\n\nPilih menu dari "Complimentary Breakfast" atau "Extra Items"');
-        e.preventDefault();
-        return false;
-    }
+    if (selectedMenus.length === 0) { alert('❌ PILIH MINIMAL 1 MENU ITEM!'); return false; }
 
-    // Ensure room_number hidden inputs exist if rooms were selected
-    const roomInputs = document.querySelectorAll('input[name="room_number[]"]');
-    // If no rooms selected via checkboxes, that's okay (walk-in)
-
-    // === ANTI-DUPLICATE: Disable submit button IMMEDIATELY on click ===
-    formSubmitting = true; // Set flag FIRST
-    
+    // Lock form
+    formSubmitting = true;
     const submitBtn = document.querySelector('.bf-btn-submit');
-    if (submitBtn) {
-        submitBtn.disabled = true;
-        submitBtn.innerHTML = '⏳ Menyimpan...';
-        submitBtn.style.opacity = '0.6';
-        submitBtn.style.pointerEvents = 'none';
-    }
-    
-    // Also disable form to prevent any resubmission
+    if (submitBtn) { submitBtn.disabled = true; submitBtn.innerHTML = '⏳ Menyimpan...'; }
     const form = document.getElementById('breakfastOrderForm');
-    if (form) {
-        form.style.pointerEvents = 'none';
-        form.style.opacity = '0.7';
-    }
+    if (form) { form.style.pointerEvents = 'none'; form.style.opacity = '0.7'; }
 
-    return true;
+    // Build JSON data
+    const data = {
+        action: document.querySelector('input[name="action"]').value,
+        _form_token: document.querySelector('input[name="_form_token"]').value,
+        guest_name: guestName,
+        total_pax: parseInt(totalPax),
+        breakfast_time: breakfastTime,
+        breakfast_date: breakfastDate,
+        location: (document.querySelector('input[name="location"]:checked') || {value:'restaurant'}).value,
+        special_requests: document.getElementById('special_requests').value.trim(),
+        booking_id: document.getElementById('booking_id').value || '',
+        menu_items: [],
+        menu_qty: {},
+        menu_note: {},
+        room_number: []
+    };
+
+    // Edit ID
+    const editIdInput = document.querySelector('input[name="edit_id"]');
+    if (editIdInput) data.edit_id = parseInt(editIdInput.value);
+
+    // Menu items
+    selectedMenus.forEach(function(cb) {
+        const menuId = cb.value;
+        data.menu_items.push(menuId);
+        const qtyInput = document.querySelector('input[name="menu_qty[' + menuId + ']"]');
+        data.menu_qty[menuId] = qtyInput ? parseInt(qtyInput.value) || 1 : 1;
+        const noteInput = document.querySelector('input[name="menu_note[' + menuId + ']"]');
+        data.menu_note[menuId] = noteInput ? noteInput.value.trim() : '';
+    });
+
+    // Room numbers
+    document.querySelectorAll('input[name="room_number[]"]').forEach(function(inp) {
+        if (inp.value) data.room_number.push(inp.value);
+    });
+
+    // Send AJAX - EXACTLY ONE request
+    fetch('../../api/breakfast-save.php', {
+        method: 'POST',
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify(data)
+    })
+    .then(function(r) { return r.json(); })
+    .then(function(result) {
+        if (result.success) {
+            // Show success and redirect
+            alert('✅ ' + result.message);
+            window.location.href = window.location.pathname;
+        } else {
+            alert('❌ ' + (result.message || 'Gagal menyimpan'));
+            // Unlock form
+            formSubmitting = false;
+            if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = data.edit_id ? '✓ Update Order' : '✓ Create Order'; }
+            if (form) { form.style.pointerEvents = ''; form.style.opacity = ''; }
+        }
+    })
+    .catch(function(err) {
+        alert('❌ Error koneksi: ' + err.message);
+        formSubmitting = false;
+        if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = data.edit_id ? '✓ Update Order' : '✓ Create Order'; }
+        if (form) { form.style.pointerEvents = ''; form.style.opacity = ''; }
+    });
+
+    return false;
 }
 
 // ==================== INIT ====================
