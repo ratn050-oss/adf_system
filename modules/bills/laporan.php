@@ -24,7 +24,7 @@ $company = getCompanyInfo();
 
 // Get current month filter
 $filterMonth = getGet('month', date('Y-m'));
-$periodDisplay = strftime('%B %Y', strtotime($filterMonth . '-01'));
+$periodDisplay = date('F Y', strtotime($filterMonth . '-01'));
 
 // Get unpaid bills (pending + overdue)
 $bills = $db->fetchAll(
