@@ -1,7 +1,9 @@
 <?php
 /**
- * BREAKFAST SAVE API - Clean rewrite
- * Server-side: 1 booking_id = max 1 order per day (prevents duplicates by design)
+ * BREAKFAST SAVE API
+ * - Drop FK on created_by (users table is in system DB, not business DB)
+ * - 1 guest_name per day = max 1 order (duplicate prevention)
+ * - Support multi-room per guest
  */
 define('APP_ACCESS', true);
 require_once '../config/config.php';
@@ -34,13 +36,18 @@ $action = $input['action'] ?? '';
 $db = Database::getInstance();
 $pdo = $db->getConnection();
 
-// User already validated by $auth->requireLogin() above
-// Note: users table is in system DB, not business DB - skip DB check
+// Drop FK constraint on created_by if it exists (users table is in system DB, not this business DB)
+try {
+    $fks = $pdo->query("SELECT CONSTRAINT_NAME FROM information_schema.KEY_COLUMN_USAGE 
+        WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'breakfast_orders' 
+        AND COLUMN_NAME = 'created_by' AND REFERENCED_TABLE_NAME = 'users'")->fetchAll(PDO::FETCH_COLUMN);
+    foreach ($fks as $fk) {
+        $pdo->exec("ALTER TABLE breakfast_orders DROP FOREIGN KEY `$fk`");
+    }
+} catch (Exception $e) { /* ignore */ }
+
+// User from session (already validated by requireLogin)
 $validUserId = !empty($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
-if (!$validUserId) {
-    echo json_encode(['success' => false, 'message' => 'User tidak valid - silakan login ulang']);
-    exit;
-}
 
 try {
     // Parse & validate menu items
@@ -87,6 +94,7 @@ try {
     $location = $input['location'] ?? 'restaurant';
     $specialRequests = !empty($input['special_requests']) ? trim($input['special_requests']) : null;
     $bookingId = !empty($input['booking_id']) ? (int)$input['booking_id'] : null;
+    $guestId = !empty($input['guest_id']) ? (int)$input['guest_id'] : null;
     $roomNumbers = $input['room_number'] ?? [];
     if (!is_array($roomNumbers)) $roomNumbers = [$roomNumbers];
 
@@ -101,19 +109,17 @@ try {
     $roomJson = json_encode($roomNumbers);
 
     if ($action === 'create_order') {
-        // SERVER-SIDE DUPLICATE PREVENTION: 1 booking per day
-        if ($bookingId) {
-            $existing = $db->fetchOne(
-                "SELECT id FROM breakfast_orders WHERE booking_id = ? AND breakfast_date = ?",
-                [$bookingId, $breakfastDate]
-            );
-            if ($existing) {
-                echo json_encode([
-                    'success' => false,
-                    'message' => "Tamu ini sudah punya order hari ini (ID #{$existing['id']}). Edit order yang ada atau hapus dulu."
-                ]);
-                exit;
-            }
+        // DUPLICATE PREVENTION: 1 guest per day (by guest_name + date)
+        $existing = $db->fetchOne(
+            "SELECT id FROM breakfast_orders WHERE guest_name = ? AND breakfast_date = ?",
+            [$guestName, $breakfastDate]
+        );
+        if ($existing) {
+            echo json_encode([
+                'success' => false,
+                'message' => "{$guestName} sudah punya order hari ini (ID #{$existing['id']}). Edit atau hapus dulu."
+            ]);
+            exit;
         }
 
         $stmt = $pdo->prepare("INSERT INTO breakfast_orders 

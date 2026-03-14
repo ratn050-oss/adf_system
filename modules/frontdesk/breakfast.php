@@ -44,19 +44,23 @@ try {
 } catch (Exception $e) {}
 
 // Get in-house guests WHO HAVE NOT ORDERED TODAY
+// Group by guest_id: one guest may have multiple bookings/rooms
 $inHouseGuests = [];
 try {
     $stmt = $pdo->prepare("
-        SELECT b.id as booking_id, g.guest_name, r.room_number
+        SELECT g.id as guest_id, g.guest_name, 
+               GROUP_CONCAT(DISTINCT r.room_number ORDER BY r.room_number SEPARATOR ',') as rooms,
+               GROUP_CONCAT(DISTINCT b.id ORDER BY b.id SEPARATOR ',') as booking_ids
         FROM bookings b
         JOIN guests g ON b.guest_id = g.id
         JOIN rooms r ON b.room_id = r.id
         WHERE b.status = 'checked_in'
-        AND b.id NOT IN (
-            SELECT bo.booking_id FROM breakfast_orders bo 
-            WHERE bo.breakfast_date = ? AND bo.booking_id IS NOT NULL
+        AND g.guest_name NOT IN (
+            SELECT bo.guest_name FROM breakfast_orders bo 
+            WHERE bo.breakfast_date = ? AND bo.guest_name IS NOT NULL AND bo.guest_name != ''
         )
-        ORDER BY r.room_number ASC
+        GROUP BY g.id, g.guest_name
+        ORDER BY MIN(r.room_number) ASC
     ");
     $stmt->execute([$today]);
     $inHouseGuests = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -192,15 +196,18 @@ include '../../includes/header.php';
                     <div class="bf-title">👤 Pilih Tamu In-House</div>
                     <?php if (count($inHouseGuests) > 0 || $editOrder): ?>
                     <div class="bf-group">
-                        <label class="bf-label">Kamar & Tamu *</label>
+                        <label class="bf-label">Tamu & Kamar *</label>
                         <select name="guest_select" id="guestSelect" class="bf-select" required>
                             <option value="">-- Pilih Tamu --</option>
-                            <?php foreach ($inHouseGuests as $g): ?>
-                            <option value="<?php echo $g['booking_id']; ?>" 
+                            <?php foreach ($inHouseGuests as $g): 
+                                $roomList = $g['rooms']; // e.g. "101,202,203"
+                                $bookingIdFirst = explode(',', $g['booking_ids'])[0];
+                            ?>
+                            <option value="<?php echo $g['guest_id']; ?>" 
                                     data-name="<?php echo htmlspecialchars($g['guest_name']); ?>" 
-                                    data-room="<?php echo htmlspecialchars($g['room_number']); ?>"
-                                    <?php echo ($editOrder && $editOrder['booking_id'] == $g['booking_id']) ? 'selected' : ''; ?>>
-                                Room <?php echo $g['room_number']; ?> — <?php echo htmlspecialchars($g['guest_name']); ?>
+                                    data-rooms="<?php echo htmlspecialchars($roomList); ?>"
+                                    data-booking="<?php echo $bookingIdFirst; ?>">
+                                <?php echo htmlspecialchars($g['guest_name']); ?> — Room <?php echo $roomList; ?>
                             </option>
                             <?php endforeach; ?>
                             <?php if ($editOrder): ?>
@@ -208,8 +215,11 @@ include '../../includes/header.php';
                                 $editRooms = json_decode($editOrder['room_number'], true);
                                 $editRoomStr = is_array($editRooms) ? implode(', ', $editRooms) : $editOrder['room_number'];
                             ?>
-                            <option value="<?php echo $editOrder['booking_id']; ?>" selected>
-                                Room <?php echo htmlspecialchars($editRoomStr); ?> — <?php echo htmlspecialchars($editOrder['guest_name']); ?> (editing)
+                            <option value="edit_<?php echo $editOrder['id']; ?>" 
+                                    data-name="<?php echo htmlspecialchars($editOrder['guest_name']); ?>"
+                                    data-rooms="<?php echo htmlspecialchars($editRoomStr); ?>"
+                                    data-booking="<?php echo $editOrder['booking_id']; ?>" selected>
+                                <?php echo htmlspecialchars($editOrder['guest_name']); ?> — Room <?php echo htmlspecialchars($editRoomStr); ?> (editing)
                             </option>
                             <?php endif; ?>
                         </select>
@@ -397,11 +407,14 @@ document.getElementById('bfForm').addEventListener('submit', function(e) {
     if (menus.length === 0) { alert('Pilih minimal 1 menu!'); return; }
 
     var opt = guestOpt.options[guestOpt.selectedIndex];
+    var roomsStr = opt.dataset.rooms || '';
+    var roomArr = roomsStr ? roomsStr.split(',').map(function(r){ return r.trim(); }) : [];
     var data = {
         action: document.querySelector('input[name="edit_id"]') ? 'update_order' : 'create_order',
-        booking_id: parseInt(guestOpt.value),
-        guest_name: opt.dataset.name || opt.textContent.trim(),
-        room_number: opt.dataset.room ? [opt.dataset.room] : [],
+        booking_id: parseInt(opt.dataset.booking) || null,
+        guest_id: parseInt(guestOpt.value) || null,
+        guest_name: opt.dataset.name || '',
+        room_number: roomArr,
         total_pax: parseInt(pax),
         breakfast_time: time,
         breakfast_date: document.querySelector('input[name="breakfast_date"]').value,
