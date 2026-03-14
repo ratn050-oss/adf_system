@@ -61,6 +61,7 @@ foreach ($rows as $r) {
 
 // Flash messages
 $flash = $_SESSION['flash'] ?? null;
+if ($flash && (!isset($flash['type']) || !isset($flash['message']))) $flash = null;
 unset($_SESSION['flash']);
 
 include '../../includes/header.php';
