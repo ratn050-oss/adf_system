@@ -1,931 +1,276 @@
 <?php
 /**
- * BREAKFAST ORDER FORM
- * Create breakfast orders with menu selection
+ * BREAKFAST ORDER - Rewritten clean version
+ * Flow: Pick guest (not yet ordered today) → Pick menu → Submit → Pick next guest
  */
-
 define('APP_ACCESS', true);
 require_once '../../config/config.php';
 require_once '../../config/database.php';
 require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
 
-// ============================================
-// SECURITY & AUTHENTICATION
-// ============================================
 $auth = new Auth();
 $auth->requireLogin();
+if (!$auth->hasPermission('frontdesk')) { header('Location: ' . BASE_URL . '/403.php'); exit; }
 
 $db = Database::getInstance();
-$currentUser = $auth->getCurrentUser();
-
-// Verify permission
-if (!$auth->hasPermission('frontdesk')) {
-    header('Location: ' . BASE_URL . '/403.php');
-    exit;
-}
-
 $pdo = $db->getConnection();
 $today = date('Y-m-d');
-$message = '';
-$error = '';
 
-// ==================== FLASH MESSAGE (PRG Pattern) ====================
-if (!empty($_SESSION['flash_message'])) {
-    $message = $_SESSION['flash_message'];
-    unset($_SESSION['flash_message']);
-}
-if (!empty($_SESSION['flash_error'])) {
-    $error = $_SESSION['flash_error'];
-    unset($_SESSION['flash_error']);
-}
-
-// ==================== NO AUTO-CLEANUP - Data is sacred ====================
-// Ensure submit_token column + UNIQUE index exists for anti-duplicate
+// Ensure table exists
 try {
-    try { $pdo->exec("ALTER TABLE breakfast_orders ADD COLUMN submit_token VARCHAR(64) NULL"); } catch (Exception $e) {}
-    try { $pdo->exec("ALTER TABLE breakfast_orders ADD UNIQUE INDEX idx_submit_token (submit_token)"); } catch (Exception $e) {}
-} catch (Exception $e) {
-    error_log("Breakfast init error: " . $e->getMessage());
-}
-
-// ==================== VALIDATE USER ID ====================
-// Check if current user exists in database before using in FK constraints
-$validUserId = null;
-if (!empty($_SESSION['user_id'])) {
-    $userCheck = $db->fetchOne("SELECT id FROM users WHERE id = ?", [$_SESSION['user_id']]);
-    if ($userCheck) {
-        $validUserId = $_SESSION['user_id'];
-    } else {
-        // User doesn't exist - log the issue and continue gracefully
-        error_log("Warning: SessionUser ID {$_SESSION['user_id']} not found in users table for breakfast order");
-        // Try to find ANY admin/staff user to use as fallback
-        $adminUser = $db->fetchOne("SELECT id FROM users WHERE is_active = 1 ORDER BY id LIMIT 1");
-        if ($adminUser) {
-            $validUserId = $adminUser['id'];
-        }
-    }
-}
-
-// ==================== HANDLE BREAKFAST ORDER (kept for backward compat) ====================
-// All new submissions go through api/breakfast-save.php via AJAX
-// This handler only exists as a fallback for non-JS browsers
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['action'])) {
-    $_SESSION['flash_message'] = "⚠️ Gunakan browser modern untuk menyimpan order.";
-    header('Location: ' . strtok($_SERVER['REQUEST_URI'], '?'));
-    exit;
-}
-
-// ==================== EDIT MODE ====================
-$editOrder = null;
-$editMenuIds = [];
-$editMenuQty = [];
-$editMenuNotes = [];
-$editRooms = [];
-if (!empty($_GET['edit'])) {
-    $editId = (int)$_GET['edit'];
-    $editOrder = $db->fetchOne("SELECT * FROM breakfast_orders WHERE id = ?", [$editId]);
-    if ($editOrder) {
-        $items = json_decode($editOrder['menu_items'], true) ?: [];
-        foreach ($items as $item) {
-            $editMenuIds[] = $item['menu_id'];
-            $editMenuQty[$item['menu_id']] = $item['quantity'];
-            if (!empty($item['note'])) $editMenuNotes[$item['menu_id']] = $item['note'];
-        }
-        // Decode room_number JSON array for edit mode
-        $decoded = json_decode($editOrder['room_number'], true);
-        $editRooms = is_array($decoded) ? $decoded : ($editOrder['room_number'] ? [$editOrder['room_number']] : []);
-    }
-}
-
-// ==================== GET DATA FOR FORM ====================
-try {
-    // Create breakfast menus table if not exists
     $pdo->exec("CREATE TABLE IF NOT EXISTS breakfast_menus (
-        id INT PRIMARY KEY AUTO_INCREMENT,
-        menu_name VARCHAR(100) NOT NULL,
-        description TEXT,
-        category ENUM('western', 'indonesian', 'asian', 'drinks', 'beverages', 'extras') DEFAULT 'western',
-        price DECIMAL(10,2) DEFAULT 0.00,
-        is_free BOOLEAN DEFAULT TRUE COMMENT 'TRUE = Free breakfast, FALSE = Extra/Paid',
-        is_available BOOLEAN DEFAULT TRUE,
-        image_url VARCHAR(255),
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        INDEX idx_category (category),
-        INDEX idx_available (is_available),
-        INDEX idx_free (is_free)
+        id INT PRIMARY KEY AUTO_INCREMENT, menu_name VARCHAR(100) NOT NULL,
+        description TEXT, category ENUM('western','indonesian','asian','drinks','beverages','extras') DEFAULT 'western',
+        price DECIMAL(10,2) DEFAULT 0.00, is_free BOOLEAN DEFAULT TRUE, is_available BOOLEAN DEFAULT TRUE,
+        image_url VARCHAR(255), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $pdo->exec("CREATE TABLE IF NOT EXISTS breakfast_orders (
+        id INT PRIMARY KEY AUTO_INCREMENT, booking_id INT NULL, guest_name VARCHAR(100) NOT NULL,
+        room_number TEXT, total_pax INT DEFAULT 1, breakfast_time TIME, breakfast_date DATE,
+        location VARCHAR(20) DEFAULT 'restaurant', menu_items TEXT, special_requests TEXT,
+        total_price DECIMAL(10,2) DEFAULT 0.00, order_status VARCHAR(20) DEFAULT 'pending',
+        created_by INT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 } catch (Exception $e) {}
 
-// Get available breakfast menus (Free and Paid separately)
-$freeMenus = [];
-$paidMenus = [];
+// Get menus
+$freeMenus = $paidMenus = [];
 try {
-    $stmt = $pdo->query("SELECT * FROM breakfast_menus WHERE is_available = TRUE AND is_free = TRUE ORDER BY category, menu_name");
-    $freeMenus = $stmt->fetchAll(PDO::FETCH_ASSOC);
-    
-    $stmt = $pdo->query("SELECT * FROM breakfast_menus WHERE is_available = TRUE AND is_free = FALSE ORDER BY category, menu_name");
-    $paidMenus = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    $freeMenus = $pdo->query("SELECT * FROM breakfast_menus WHERE is_available=1 AND is_free=1 ORDER BY category,menu_name")->fetchAll(PDO::FETCH_ASSOC);
+    $paidMenus = $pdo->query("SELECT * FROM breakfast_menus WHERE is_available=1 AND is_free=0 ORDER BY category,menu_name")->fetchAll(PDO::FETCH_ASSOC);
 } catch (Exception $e) {}
 
-// Get in-house guests for dropdown
+// Get in-house guests WHO HAVE NOT ORDERED TODAY
 $inHouseGuests = [];
 try {
     $stmt = $pdo->prepare("
-        SELECT 
-            b.id as booking_id,
-            g.guest_name,
-            r.room_number
+        SELECT b.id as booking_id, g.guest_name, r.room_number
         FROM bookings b
         JOIN guests g ON b.guest_id = g.id
         JOIN rooms r ON b.room_id = r.id
         WHERE b.status = 'checked_in'
+        AND b.id NOT IN (
+            SELECT bo.booking_id FROM breakfast_orders bo 
+            WHERE bo.breakfast_date = ? AND bo.booking_id IS NOT NULL
+        )
         ORDER BY r.room_number ASC
     ");
-    $stmt->execute();
+    $stmt->execute([$today]);
     $inHouseGuests = $stmt->fetchAll(PDO::FETCH_ASSOC);
 } catch (Exception $e) {}
+
+// Today's orders for sidebar
+$todayOrders = [];
+try {
+    $stmt = $pdo->prepare("SELECT * FROM breakfast_orders WHERE breakfast_date = ? ORDER BY breakfast_time ASC, id ASC");
+    $stmt->execute([$today]);
+    $todayOrders = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    foreach ($todayOrders as &$o) { $o['menu_items'] = json_decode($o['menu_items'], true) ?: []; }
+} catch (Exception $e) {}
+
+// Edit mode
+$editOrder = null; $editMenuIds = []; $editMenuQty = []; $editMenuNotes = [];
+if (!empty($_GET['edit'])) {
+    $editOrder = $db->fetchOne("SELECT * FROM breakfast_orders WHERE id = ?", [(int)$_GET['edit']]);
+    if ($editOrder) {
+        foreach (json_decode($editOrder['menu_items'], true) ?: [] as $item) {
+            $editMenuIds[] = $item['menu_id'];
+            $editMenuQty[$item['menu_id']] = $item['quantity'];
+            if (!empty($item['note'])) $editMenuNotes[$item['menu_id']] = $item['note'];
+        }
+    }
+}
 
 $pageTitle = 'Breakfast Order';
 include '../../includes/header.php';
 ?>
 
 <style>
-.bf-container { max-width: 1300px; margin: 0 auto; }
-
-.bf-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 1.25rem;
-    flex-wrap: wrap;
-    gap: 0.75rem;
-}
-
-.bf-header h1 {
-    font-size: 1.5rem;
-    font-weight: 800;
-    background: linear-gradient(135deg, #f59e0b, #f97316);
-    -webkit-background-clip: text;
-    -webkit-text-fill-color: transparent;
-    margin: 0;
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.bf-header-actions {
-    display: flex;
-    gap: 0.5rem;
-}
-
-.bf-header-btn {
-    padding: 0.5rem 0.875rem;
-    background: var(--bg-secondary);
-    border: 1px solid var(--bg-tertiary);
-    color: var(--text-primary);
-    border-radius: 8px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-decoration: none;
-    display: flex;
-    align-items: center;
-    gap: 0.35rem;
-    transition: all 0.2s;
-}
-
-.bf-header-btn:hover {
-    border-color: var(--primary-color);
-    background: rgba(99, 102, 241, 0.1);
-}
-
-.bf-layout {
-    display: grid;
-    grid-template-columns: 1fr 350px;
-    gap: 1.25rem;
-}
-
-.bf-alert {
-    padding: 0.75rem 1rem;
-    border-radius: 8px;
-    margin-bottom: 1rem;
-    font-size: 0.85rem;
-    font-weight: 600;
-}
-
-.bf-alert.success {
-    background: rgba(16, 185, 129, 0.15);
-    border: 1px solid rgba(16, 185, 129, 0.3);
-    color: #10b981;
-}
-
-.bf-alert.error {
-    background: rgba(239, 68, 68, 0.15);
-    border: 1px solid rgba(239, 68, 68, 0.3);
-    color: #ef4444;
-}
-
-/* Form Card */
-.bf-form-card {
-    background: var(--bg-secondary);
-    border: 1px solid var(--bg-tertiary);
-    border-radius: 12px;
-    padding: 1rem;
-}
-
-.bf-form-section {
-    margin-bottom: 1rem;
-}
-
-.bf-form-title {
-    font-size: 0.85rem;
-    font-weight: 700;
-    color: var(--text-primary);
-    margin-bottom: 0.65rem;
-    padding-bottom: 0.4rem;
-    border-bottom: 2px solid var(--bg-tertiary);
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-}
-
-.bf-form-row {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
-    gap: 0.75rem;
-    margin-bottom: 0.75rem;
-}
-
-.bf-form-group {
-    display: flex;
-    flex-direction: column;
-}
-
-.bf-label {
-    font-size: 0.68rem;
-    font-weight: 600;
-    color: var(--text-muted);
-    text-transform: uppercase;
-    letter-spacing: 0.3px;
-    margin-bottom: 0.3rem;
-}
-
-.bf-input {
-    padding: 0.55rem 0.65rem;
-    border-radius: 6px;
-    background: var(--bg-primary);
-    border: 1px solid var(--bg-tertiary);
-    color: var(--text-primary);
-    font-size: 0.85rem;
-}
-
-.bf-input:focus {
-    outline: none;
-    border-color: var(--primary-color);
-}
-
-.bf-radio-group {
-    display: flex;
-    gap: 0.5rem;
-}
-
-.bf-radio-label {
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    gap: 0.35rem;
-    padding: 0.5rem;
-    background: var(--bg-primary);
-    border: 2px solid var(--bg-tertiary);
-    border-radius: 8px;
-    cursor: pointer;
-    font-size: 0.78rem;
-    font-weight: 600;
-    transition: all 0.2s;
-}
-
-.bf-radio-label:hover { border-color: var(--primary-color); }
-
-.bf-radio-label:has(input:checked) {
-    border-color: var(--primary-color);
-    background: rgba(99, 102, 241, 0.15);
-}
-
-.bf-radio-label input { display: none; }
-
-/* Menu Section */
-.bf-menu-section {
-    margin-top: 1rem;
-}
-
-.bf-menu-category {
-    margin-bottom: 1rem;
-}
-
-.bf-menu-category-title {
-    font-size: 0.8rem;
-    font-weight: 700;
-    color: var(--text-primary);
-    margin-bottom: 0.5rem;
-    display: flex;
-    align-items: center;
-    gap: 0.35rem;
-}
-
-.bf-menu-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
-    gap: 0.5rem;
-}
-
-.bf-menu-item {
-    background: var(--bg-primary);
-    border: 1px solid var(--bg-tertiary);
-    border-radius: 8px;
-    padding: 0.65rem;
-    transition: all 0.2s;
-    cursor: pointer;
-}
-
-.bf-menu-item:hover {
-    border-color: var(--primary-color);
-}
-
-.bf-menu-item:has(input:checked) {
-    border-color: #10b981;
-    background: rgba(16, 185, 129, 0.1);
-}
-
-.bf-menu-checkbox {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.5rem;
-}
-
-.bf-menu-checkbox input[type="checkbox"] {
-    margin-top: 0.15rem;
-    width: 16px;
-    height: 16px;
-    cursor: pointer;
-}
-
-.bf-menu-info { flex: 1; }
-
-.bf-menu-name {
-    font-size: 0.8rem;
-    font-weight: 700;
-    color: var(--text-primary);
-    margin-bottom: 0.2rem;
-}
-
-.bf-menu-price {
-    font-size: 0.72rem;
-    font-weight: 700;
-    color: #10b981;
-}
-
-.bf-menu-cat {
-    display: inline-block;
-    padding: 0.15rem 0.4rem;
-    background: rgba(99, 102, 241, 0.15);
-    border-radius: 4px;
-    font-size: 0.6rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    color: var(--primary-color);
-}
-
-.bf-menu-qty {
-    display: none;
-    align-items: center;
-    gap: 0.35rem;
-    margin-top: 0.5rem;
-    padding-top: 0.5rem;
-    border-top: 1px dashed var(--bg-tertiary);
-}
-
-.bf-menu-item:has(input:checked) .bf-menu-qty {
-    display: flex;
-}
-
-.bf-qty-input {
-    width: 50px;
-    padding: 0.3rem;
-    border-radius: 4px;
-    background: var(--bg-secondary);
-    border: 1px solid var(--bg-tertiary);
-    color: var(--text-primary);
-    font-size: 0.8rem;
-    text-align: center;
-}
-
-.bf-menu-note {
-    display: none;
-    margin-top: 0.35rem;
-}
-
-.bf-menu-item:has(input[type="checkbox"]:checked) .bf-menu-note {
-    display: block;
-}
-
-.bf-note-input {
-    width: 100%;
-    padding: 0.3rem 0.5rem;
-    border-radius: 4px;
-    background: var(--bg-secondary);
-    border: 1px solid var(--bg-tertiary);
-    color: var(--text-primary);
-    font-size: 0.72rem;
-    font-family: inherit;
-}
-
-.bf-note-input::placeholder {
-    color: var(--text-muted);
-    font-style: italic;
-}
-
-.bf-order-note {
-    font-size: 0.58rem;
-    color: #f59e0b;
-    font-style: italic;
-    display: block;
-}
-
-.bf-order-actions {
-    display: flex;
-    gap: 0.35rem;
-    margin-top: 0.4rem;
-}
-
-.bf-order-btn {
-    padding: 0.25rem 0.5rem;
-    border-radius: 4px;
-    font-size: 0.65rem;
-    font-weight: 600;
-    cursor: pointer;
-    border: none;
-    transition: all 0.2s;
-}
-
-.bf-order-btn.edit {
-    background: rgba(99, 102, 241, 0.15);
-    color: #6366f1;
-}
-
-.bf-order-btn.edit:hover {
-    background: rgba(99, 102, 241, 0.3);
-}
-
-.bf-order-btn.delete {
-    background: rgba(239, 68, 68, 0.15);
-    color: #ef4444;
-}
-
-.bf-order-btn.delete:hover {
-    background: rgba(239, 68, 68, 0.3);
-}
-
-.bf-textarea {
-    width: 100%;
-    padding: 0.55rem 0.65rem;
-    border-radius: 6px;
-    background: var(--bg-primary);
-    border: 1px solid var(--bg-tertiary);
-    color: var(--text-primary);
-    font-size: 0.85rem;
-    font-family: inherit;
-    resize: vertical;
-    min-height: 60px;
-}
-
-.bf-actions {
-    display: flex;
-    gap: 0.5rem;
-    margin-top: 1rem;
-}
-
-.bf-btn-submit {
-    flex: 1;
-    padding: 0.75rem 1rem;
-    background: linear-gradient(135deg, #10b981, #059669);
-    color: white;
-    border: none;
-    border-radius: 8px;
-    font-size: 0.85rem;
-    font-weight: 700;
-    cursor: pointer;
-    transition: all 0.2s;
-}
-
-.bf-btn-submit:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 12px rgba(16, 185, 129, 0.3);
-}
-
-.bf-btn-reset {
-    padding: 0.75rem 1rem;
-    background: var(--bg-primary);
-    color: var(--text-muted);
-    border: 1px solid var(--bg-tertiary);
-    border-radius: 8px;
-    font-size: 0.85rem;
-    font-weight: 600;
-    cursor: pointer;
-}
-
-/* Sidebar - Today's Orders */
-.bf-sidebar {
-    background: var(--bg-secondary);
-    border: 1px solid var(--bg-tertiary);
-    border-radius: 12px;
-    overflow: hidden;
-    height: fit-content;
-    position: sticky;
-    top: 1rem;
-}
-
-.bf-sidebar-title {
-    padding: 0.85rem 1rem;
-    background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-    color: white;
-    font-size: 0.9rem;
-    font-weight: 700;
-    display: flex;
-    align-items: center;
-    gap: 0.4rem;
-}
-
-.bf-order-item {
-    padding: 0.75rem 1rem;
-    border-bottom: 1px solid var(--bg-tertiary);
-    transition: background 0.2s;
-}
-
-.bf-order-item:last-child { border-bottom: none; }
-
-.bf-order-item:hover { background: var(--bg-primary); }
-
-.bf-order-header {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-bottom: 0.35rem;
-}
-
-.bf-order-time {
-    font-size: 0.75rem;
-    font-weight: 700;
-    color: var(--primary-color);
-}
-
-.bf-order-pax {
-    font-size: 0.65rem;
-    padding: 0.2rem 0.4rem;
-    background: var(--bg-tertiary);
-    border-radius: 4px;
-    color: var(--text-muted);
-}
-
-.bf-order-guest {
-    font-size: 0.8rem;
-    font-weight: 600;
-    color: var(--text-primary);
-    margin-bottom: 0.25rem;
-}
-
-.bf-order-room {
-    font-size: 0.7rem;
-    color: var(--text-muted);
-    margin-bottom: 0.35rem;
-}
-
-.bf-order-menus {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.25rem;
-}
-
-.bf-order-menu-tag {
-    font-size: 0.62rem;
-    padding: 0.15rem 0.35rem;
-    background: rgba(139, 92, 246, 0.15);
-    color: #a78bfa;
-    border-radius: 3px;
-}
-
-.bf-order-footer {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    margin-top: 0.4rem;
-    padding-top: 0.35rem;
-    border-top: 1px dashed var(--bg-tertiary);
-}
-
-.bf-order-price {
-    font-size: 0.72rem;
-    font-weight: 700;
-    color: #10b981;
-}
-
-.bf-order-status {
-    font-size: 0.6rem;
-    padding: 0.2rem 0.4rem;
-    border-radius: 4px;
-    font-weight: 700;
-    text-transform: uppercase;
-}
-
-.bf-order-status.pending { background: rgba(245, 158, 11, 0.2); color: #f59e0b; }
-.bf-order-status.preparing { background: rgba(99, 102, 241, 0.2); color: #6366f1; }
-.bf-order-status.served { background: rgba(16, 185, 129, 0.2); color: #10b981; }
-.bf-order-status.completed { background: rgba(107, 114, 128, 0.2); color: #9ca3af; }
-
-.bf-empty {
-    padding: 2rem 1rem;
-    text-align: center;
-    color: var(--text-muted);
-}
-
-.bf-empty-icon { font-size: 2rem; margin-bottom: 0.5rem; }
-
-@media (max-width: 900px) {
-    .bf-layout {
-        grid-template-columns: 1fr;
-    }
-    
-    .bf-sidebar {
-        position: static;
-    }
-    
-    .bf-menu-grid {
-        grid-template-columns: 1fr 1fr;
-    }
-}
-
-@media (max-width: 600px) {
-    .bf-form-row { grid-template-columns: 1fr; }
-    .bf-menu-grid { grid-template-columns: 1fr; }
-    .bf-radio-group { flex-direction: column; }
-}
-
-/* Multi-select Guest/Room Dropdown */
-.bf-guest-multiselect {
-    position: relative;
-}
-
-.bf-multiselect-toggle {
-    display: flex;
-    justify-content: space-between;
-    align-items: center;
-    padding: 0.55rem 0.65rem;
-    border-radius: 6px;
-    background: var(--bg-primary);
-    border: 1px solid var(--bg-tertiary);
-    color: var(--text-primary);
-    font-size: 0.85rem;
-    cursor: pointer;
-    transition: border-color 0.2s;
-    min-height: 38px;
-}
-
-.bf-multiselect-toggle:hover {
-    border-color: var(--primary-color);
-}
-
-.bf-multiselect-toggle.active {
-    border-color: var(--primary-color);
-    box-shadow: 0 0 0 2px rgba(99, 102, 241, 0.15);
-}
-
-.bf-multiselect-dropdown {
-    display: none;
-    position: absolute;
-    top: 100%;
-    left: 0;
-    right: 0;
-    background: var(--bg-secondary);
-    border: 1px solid var(--primary-color);
-    border-radius: 0 0 8px 8px;
-    max-height: 250px;
-    overflow-y: auto;
-    z-index: 100;
-    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.3);
-}
-
-.bf-multiselect-dropdown.show {
-    display: block;
-}
-
-.bf-guest-option {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-    padding: 0.6rem 0.75rem;
-    cursor: pointer;
-    font-size: 0.82rem;
-    color: var(--text-primary);
-    border-bottom: 1px solid var(--bg-tertiary);
-    transition: background 0.15s;
-}
-
-.bf-guest-option:last-child {
-    border-bottom: none;
-}
-
-.bf-guest-option:hover {
-    background: rgba(99, 102, 241, 0.1);
-}
-
-.bf-guest-option input[type="checkbox"] {
-    width: 16px;
-    height: 16px;
-    cursor: pointer;
-    flex-shrink: 0;
-}
-
-.bf-guest-option.checked {
-    background: rgba(16, 185, 129, 0.1);
-}
-
-/* Room Tags */
-.bf-room-tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 0.35rem;
-    margin-top: 0.5rem;
-}
-
-.bf-room-tag {
-    display: inline-flex;
-    align-items: center;
-    gap: 0.3rem;
-    padding: 0.3rem 0.6rem;
-    background: rgba(99, 102, 241, 0.15);
-    border: 1px solid rgba(99, 102, 241, 0.3);
-    border-radius: 20px;
-    font-size: 0.72rem;
-    font-weight: 600;
-    color: var(--primary-color);
-}
-
-.bf-room-tag .remove-room {
-    cursor: pointer;
-    font-size: 0.85rem;
-    line-height: 1;
-    opacity: 0.7;
-    transition: opacity 0.15s;
-}
-
-.bf-room-tag .remove-room:hover {
-    opacity: 1;
-    color: #ef4444;
-}
+.bf-wrap{max-width:1300px;margin:0 auto}
+.bf-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:1.25rem;flex-wrap:wrap;gap:.75rem}
+.bf-head h1{font-size:1.5rem;font-weight:800;background:linear-gradient(135deg,#f59e0b,#f97316);-webkit-background-clip:text;-webkit-text-fill-color:transparent;margin:0;display:flex;align-items:center;gap:.5rem}
+.bf-head-actions{display:flex;gap:.5rem}
+.bf-head-btn{padding:.5rem .875rem;background:var(--bg-secondary);border:1px solid var(--bg-tertiary);color:var(--text-primary);border-radius:8px;font-size:.75rem;font-weight:600;text-decoration:none;display:flex;align-items:center;gap:.35rem;transition:all .2s}
+.bf-head-btn:hover{border-color:var(--primary-color);background:rgba(99,102,241,.1)}
+.bf-grid{display:grid;grid-template-columns:1fr 350px;gap:1.25rem}
+.bf-card{background:var(--bg-secondary);border:1px solid var(--bg-tertiary);border-radius:12px;padding:1rem}
+.bf-section{margin-bottom:1rem}
+.bf-title{font-size:.85rem;font-weight:700;color:var(--text-primary);margin-bottom:.65rem;padding-bottom:.4rem;border-bottom:2px solid var(--bg-tertiary);display:flex;align-items:center;gap:.4rem}
+.bf-row{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:.75rem;margin-bottom:.75rem}
+.bf-group{display:flex;flex-direction:column}
+.bf-label{font-size:.68rem;font-weight:600;color:var(--text-muted);text-transform:uppercase;letter-spacing:.3px;margin-bottom:.3rem}
+.bf-input,.bf-select{padding:.55rem .65rem;border-radius:6px;background:var(--bg-primary);border:1px solid var(--bg-tertiary);color:var(--text-primary);font-size:.85rem;width:100%}
+.bf-input:focus,.bf-select:focus{outline:none;border-color:var(--primary-color)}
+.bf-radio-group{display:flex;gap:.5rem}
+.bf-radio-label{flex:1;display:flex;align-items:center;justify-content:center;gap:.35rem;padding:.5rem;background:var(--bg-primary);border:2px solid var(--bg-tertiary);border-radius:8px;cursor:pointer;font-size:.78rem;font-weight:600;transition:all .2s}
+.bf-radio-label:hover{border-color:var(--primary-color)}
+.bf-radio-label:has(input:checked){border-color:var(--primary-color);background:rgba(99,102,241,.15)}
+.bf-radio-label input{display:none}
+.bf-menu-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:.5rem}
+.bf-menu-item{background:var(--bg-primary);border:1px solid var(--bg-tertiary);border-radius:8px;padding:.65rem;transition:all .2s;cursor:pointer}
+.bf-menu-item:hover{border-color:var(--primary-color)}
+.bf-menu-item:has(input:checked){border-color:#10b981;background:rgba(16,185,129,.1)}
+.bf-menu-cb{display:flex;align-items:flex-start;gap:.5rem}
+.bf-menu-cb input[type="checkbox"]{margin-top:.15rem;width:16px;height:16px;cursor:pointer}
+.bf-menu-name{font-size:.8rem;font-weight:700;color:var(--text-primary);margin-bottom:.2rem}
+.bf-menu-price{font-size:.72rem;font-weight:700;color:#10b981}
+.bf-menu-cat{display:inline-block;padding:.15rem .4rem;background:rgba(99,102,241,.15);border-radius:4px;font-size:.6rem;font-weight:600;text-transform:uppercase;color:var(--primary-color)}
+.bf-menu-qty{display:none;align-items:center;gap:.35rem;margin-top:.5rem;padding-top:.5rem;border-top:1px dashed var(--bg-tertiary)}
+.bf-menu-item:has(input:checked) .bf-menu-qty{display:flex}
+.bf-qty-input{width:50px;padding:.3rem;border-radius:4px;background:var(--bg-secondary);border:1px solid var(--bg-tertiary);color:var(--text-primary);font-size:.8rem;text-align:center}
+.bf-menu-note{display:none;margin-top:.35rem}
+.bf-menu-item:has(input:checked) .bf-menu-note{display:block}
+.bf-note-input{width:100%;padding:.3rem .5rem;border-radius:4px;background:var(--bg-secondary);border:1px solid var(--bg-tertiary);color:var(--text-primary);font-size:.72rem;font-family:inherit}
+.bf-textarea{width:100%;padding:.55rem .65rem;border-radius:6px;background:var(--bg-primary);border:1px solid var(--bg-tertiary);color:var(--text-primary);font-size:.85rem;font-family:inherit;resize:vertical;min-height:50px}
+.bf-actions{display:flex;gap:.5rem;margin-top:1rem}
+.bf-btn-submit{flex:1;padding:.75rem 1rem;background:linear-gradient(135deg,#10b981,#059669);color:#fff;border:none;border-radius:8px;font-size:.85rem;font-weight:700;cursor:pointer;transition:all .2s}
+.bf-btn-submit:hover{transform:translateY(-1px);box-shadow:0 4px 12px rgba(16,185,129,.3)}
+.bf-btn-submit:disabled{opacity:.5;cursor:not-allowed;transform:none}
+.bf-btn-reset{padding:.75rem 1rem;background:var(--bg-primary);color:var(--text-muted);border:1px solid var(--bg-tertiary);border-radius:8px;font-size:.85rem;font-weight:600;cursor:pointer;text-decoration:none;text-align:center}
+/* Sidebar */
+.bf-side{background:var(--bg-secondary);border:1px solid var(--bg-tertiary);border-radius:12px;overflow:hidden;height:fit-content;position:sticky;top:1rem}
+.bf-side-title{padding:.85rem 1rem;background:linear-gradient(135deg,var(--primary-color),var(--secondary-color));color:#fff;font-size:.9rem;font-weight:700;display:flex;align-items:center;gap:.4rem}
+.bf-side-count{background:rgba(255,255,255,.25);padding:.15rem .5rem;border-radius:10px;font-size:.7rem;margin-left:auto}
+.bf-order{padding:.75rem 1rem;border-bottom:1px solid var(--bg-tertiary);transition:background .2s}
+.bf-order:last-child{border-bottom:none}
+.bf-order:hover{background:var(--bg-primary)}
+.bf-order-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:.35rem}
+.bf-order-time{font-size:.75rem;font-weight:700;color:var(--primary-color)}
+.bf-order-pax{font-size:.65rem;padding:.2rem .4rem;background:var(--bg-tertiary);border-radius:4px;color:var(--text-muted)}
+.bf-order-guest{font-size:.8rem;font-weight:600;color:var(--text-primary);margin-bottom:.25rem}
+.bf-order-room{font-size:.7rem;color:var(--text-muted);margin-bottom:.35rem}
+.bf-order-menus{display:flex;flex-wrap:wrap;gap:.25rem}
+.bf-order-tag{font-size:.62rem;padding:.15rem .35rem;background:rgba(139,92,246,.15);color:#a78bfa;border-radius:3px}
+.bf-order-foot{display:flex;justify-content:space-between;align-items:center;margin-top:.4rem;padding-top:.35rem;border-top:1px dashed var(--bg-tertiary)}
+.bf-order-price{font-size:.72rem;font-weight:700;color:#10b981}
+.bf-order-status{font-size:.6rem;padding:.2rem .4rem;border-radius:4px;font-weight:700;text-transform:uppercase}
+.bf-order-status.pending{background:rgba(245,158,11,.2);color:#f59e0b}
+.bf-order-status.preparing{background:rgba(99,102,241,.2);color:#6366f1}
+.bf-order-status.served{background:rgba(16,185,129,.2);color:#10b981}
+.bf-order-status.completed{background:rgba(107,114,128,.2);color:#9ca3af}
+.bf-order-btns{display:flex;gap:.35rem;margin-top:.4rem}
+.bf-order-btn{padding:.25rem .5rem;border-radius:4px;font-size:.65rem;font-weight:600;cursor:pointer;border:none;transition:all .2s}
+.bf-order-btn.edit{background:rgba(99,102,241,.15);color:#6366f1}
+.bf-order-btn.del{background:rgba(239,68,68,.15);color:#ef4444}
+.bf-empty{padding:2rem 1rem;text-align:center;color:var(--text-muted)}
+.bf-empty-icon{font-size:2rem;margin-bottom:.5rem}
+.bf-alert{padding:.75rem 1rem;border-radius:8px;margin-bottom:1rem;font-size:.85rem;font-weight:600}
+.bf-alert.ok{background:rgba(16,185,129,.15);border:1px solid rgba(16,185,129,.3);color:#10b981}
+.bf-alert.err{background:rgba(239,68,68,.15);border:1px solid rgba(239,68,68,.3);color:#ef4444}
+.bf-no-guest{padding:1rem;text-align:center;font-size:.8rem;color:var(--text-muted);background:rgba(245,158,11,.08);border-radius:8px}
+@media(max-width:900px){.bf-grid{grid-template-columns:1fr}.bf-side{position:static}.bf-menu-grid{grid-template-columns:1fr 1fr}}
+@media(max-width:600px){.bf-row{grid-template-columns:1fr}.bf-menu-grid{grid-template-columns:1fr}.bf-radio-group{flex-direction:column}}
 </style>
 
-<div class="bf-container">
-    <!-- Header -->
-    <div class="bf-header">
+<div class="bf-wrap">
+    <div class="bf-head">
         <h1>🍳 Breakfast Order</h1>
-        <div class="bf-header-actions">
-            <a href="breakfast-orders.php" class="bf-header-btn">📋 Orders</a>
-            <a href="in-house.php" class="bf-header-btn">👥 In House</a>
-            <a href="dashboard.php" class="bf-header-btn">🏠 Dashboard</a>
+        <div class="bf-head-actions">
+            <a href="breakfast.php" class="bf-head-btn">📋 Orders</a>
+            <a href="in-house.php" class="bf-head-btn">👥 In House</a>
+            <a href="dashboard.php" class="bf-head-btn">🏠 Dashboard</a>
         </div>
     </div>
 
-    <!-- Messages -->
-    <?php if ($message): ?>
-    <div class="bf-alert success"><?php echo $message; ?></div>
-    <?php endif; ?>
-    
-    <?php if ($error): ?>
-    <div class="bf-alert error"><?php echo $error; ?></div>
+    <?php if (!empty($_GET['success'])): ?>
+    <div class="bf-alert ok">✅ <?php echo htmlspecialchars($_GET['success']); ?></div>
     <?php endif; ?>
 
-    <div class="bf-layout">
-        <!-- Form -->
-        <div class="bf-form-card">
-            <form method="POST" action="" id="breakfastOrderForm" autocomplete="off">
-                <input type="hidden" name="action" value="<?php echo $editOrder ? 'update_order' : 'create_order'; ?>">
-                <?php 
-                // Generate unique form token to prevent duplicate submission
-                $formToken = bin2hex(random_bytes(16));
-                $_SESSION['bf_form_token'] = $formToken;
-                ?>
-                <input type="hidden" name="_form_token" value="<?php echo $formToken; ?>">
+    <div class="bf-grid">
+        <!-- FORM -->
+        <div class="bf-card">
+            <form id="bfForm" autocomplete="off">
                 <?php if ($editOrder): ?>
                 <input type="hidden" name="edit_id" value="<?php echo $editOrder['id']; ?>">
                 <?php endif; ?>
-                
-                <!-- Guest Info Section -->
-                <div class="bf-form-section">
-                    <div class="bf-form-title">👤 Guest Information</div>
-                    <div class="bf-form-row">
-                        <div class="bf-form-group" style="grid-column: span 2;">
-                            <label class="bf-label">Pilih Kamar Tamu (bisa lebih dari 1)</label>
-                            <div class="bf-guest-multiselect" id="guestMultiselect">
-                                <div class="bf-multiselect-toggle" id="guestToggle" onclick="toggleGuestDropdown()">
-                                    <span id="guestSelectLabel">-- Pilih Kamar / Walk-in --</span>
-                                    <span style="font-size: 0.7rem;">▼</span>
-                                </div>
-                                <div class="bf-multiselect-dropdown" id="guestDropdown">
-                                    <?php foreach ($inHouseGuests as $guest): ?>
-                                    <label class="bf-guest-option">
-                                        <input type="checkbox" class="guest-checkbox" 
-                                               value="<?php echo $guest['booking_id']; ?>"
-                                               data-name="<?php echo htmlspecialchars($guest['guest_name']); ?>"
-                                               data-room="<?php echo htmlspecialchars($guest['room_number']); ?>"
-                                               <?php echo (in_array($guest['room_number'], $editRooms)) ? 'checked' : ''; ?>
-                                               onchange="updateSelectedGuests()">
-                                        <span>🛏️ Room <?php echo $guest['room_number']; ?> — <?php echo htmlspecialchars($guest['guest_name']); ?></span>
-                                    </label>
-                                    <?php endforeach; ?>
-                                    <?php if (empty($inHouseGuests)): ?>
-                                    <div style="padding: 1rem; text-align: center; color: var(--text-muted); font-size: 0.8rem;">Tidak ada tamu in-house</div>
-                                    <?php endif; ?>
-                                </div>
-                            </div>
-                            <div id="selectedRoomTags" class="bf-room-tags"></div>
-                            <input type="hidden" name="booking_id" id="booking_id" value="<?php echo $editOrder ? (int)$editOrder['booking_id'] : ''; ?>">
-                            <div id="roomInputsContainer"></div>
-                        </div>
+
+                <!-- Guest Selection -->
+                <div class="bf-section">
+                    <div class="bf-title">👤 Pilih Tamu In-House</div>
+                    <?php if (count($inHouseGuests) > 0 || $editOrder): ?>
+                    <div class="bf-group">
+                        <label class="bf-label">Kamar & Tamu *</label>
+                        <select name="guest_select" id="guestSelect" class="bf-select" required>
+                            <option value="">-- Pilih Tamu --</option>
+                            <?php foreach ($inHouseGuests as $g): ?>
+                            <option value="<?php echo $g['booking_id']; ?>" 
+                                    data-name="<?php echo htmlspecialchars($g['guest_name']); ?>" 
+                                    data-room="<?php echo htmlspecialchars($g['room_number']); ?>"
+                                    <?php echo ($editOrder && $editOrder['booking_id'] == $g['booking_id']) ? 'selected' : ''; ?>>
+                                Room <?php echo $g['room_number']; ?> — <?php echo htmlspecialchars($g['guest_name']); ?>
+                            </option>
+                            <?php endforeach; ?>
+                            <?php if ($editOrder): ?>
+                            <?php 
+                                $editRooms = json_decode($editOrder['room_number'], true);
+                                $editRoomStr = is_array($editRooms) ? implode(', ', $editRooms) : $editOrder['room_number'];
+                            ?>
+                            <option value="<?php echo $editOrder['booking_id']; ?>" selected>
+                                Room <?php echo htmlspecialchars($editRoomStr); ?> — <?php echo htmlspecialchars($editOrder['guest_name']); ?> (editing)
+                            </option>
+                            <?php endif; ?>
+                        </select>
                     </div>
-                    <div class="bf-form-row">
-                        <div class="bf-form-group" style="grid-column: span 2;">
-                            <label class="bf-label">Nama Tamu *</label>
-                            <input type="text" name="guest_name" id="guest_name" class="bf-input" required 
-                                   placeholder="Otomatis terisi saat pilih kamar, atau ketik manual"
-                                   value="<?php echo $editOrder ? htmlspecialchars($editOrder['guest_name']) : ''; ?>">
-                        </div>
-                    </div>
+                    <?php else: ?>
+                    <div class="bf-no-guest">🎉 Semua tamu in-house sudah order sarapan hari ini!</div>
+                    <?php endif; ?>
                 </div>
-                
+
                 <!-- Time & Details -->
-                <div class="bf-form-section">
-                    <div class="bf-form-title">⏰ Schedule & Details</div>
-                    <div class="bf-form-row">
-                        <div class="bf-form-group">
-                            <label class="bf-label">Total Pax *</label>
-                            <input type="number" name="total_pax" id="total_pax" class="bf-input" min="1" max="20" required value="<?php echo $editOrder ? (int)$editOrder['total_pax'] : ''; ?>">
+                <div class="bf-section">
+                    <div class="bf-title">⏰ Waktu & Detail</div>
+                    <div class="bf-row">
+                        <div class="bf-group">
+                            <label class="bf-label">Jumlah Pax *</label>
+                            <input type="number" name="total_pax" id="totalPax" class="bf-input" min="1" max="20" required value="<?php echo $editOrder ? (int)$editOrder['total_pax'] : ''; ?>">
                         </div>
-                        <div class="bf-form-group">
-                            <label class="bf-label">Time *</label>
-                            <input type="time" name="breakfast_time" id="breakfast_time" class="bf-input" required value="<?php echo $editOrder ? $editOrder['breakfast_time'] : ''; ?>">
+                        <div class="bf-group">
+                            <label class="bf-label">Jam *</label>
+                            <input type="time" name="breakfast_time" id="bfTime" class="bf-input" required value="<?php echo $editOrder ? $editOrder['breakfast_time'] : ''; ?>">
                         </div>
-                        <div class="bf-form-group">
-                            <label class="bf-label">Date *</label>
-                            <input type="date" name="breakfast_date" id="breakfast_date" class="bf-input" value="<?php echo $editOrder ? $editOrder['breakfast_date'] : $today; ?>" required>
+                        <div class="bf-group">
+                            <label class="bf-label">Tanggal</label>
+                            <input type="date" name="breakfast_date" class="bf-input" value="<?php echo $editOrder ? $editOrder['breakfast_date'] : $today; ?>" readonly>
                         </div>
                     </div>
-                    <div class="bf-form-row">
-                        <div class="bf-form-group" style="grid-column: span 2;">
-                            <label class="bf-label">Location *</label>
+                    <div class="bf-row">
+                        <div class="bf-group" style="grid-column:span 2">
+                            <label class="bf-label">Lokasi *</label>
                             <div class="bf-radio-group">
-                                <label class="bf-radio-label">
-                                    <input type="radio" name="location" value="restaurant" <?php echo (!$editOrder || $editOrder['location'] === 'restaurant') ? 'checked' : ''; ?>>
-                                    🍽️ Restaurant
-                                </label>
-                                <label class="bf-radio-label">
-                                    <input type="radio" name="location" value="room_service" <?php echo ($editOrder && $editOrder['location'] === 'room_service') ? 'checked' : ''; ?>>
-                                    🛏️ Room Service
-                                </label>
-                                <label class="bf-radio-label">
-                                    <input type="radio" name="location" value="take_away" <?php echo ($editOrder && $editOrder['location'] === 'take_away') ? 'checked' : ''; ?>>
-                                    🥡 Take Away
-                                </label>
+                                <label class="bf-radio-label"><input type="radio" name="location" value="restaurant" <?php echo (!$editOrder || ($editOrder['location'] ?? '') === 'restaurant') ? 'checked' : ''; ?>> 🍽️ Restaurant</label>
+                                <label class="bf-radio-label"><input type="radio" name="location" value="room_service" <?php echo ($editOrder && ($editOrder['location'] ?? '') === 'room_service') ? 'checked' : ''; ?>> 🛏️ Room Service</label>
+                                <label class="bf-radio-label"><input type="radio" name="location" value="take_away" <?php echo ($editOrder && ($editOrder['location'] ?? '') === 'take_away') ? 'checked' : ''; ?>> 🥡 Take Away</label>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Menu Selection -->
-                <div class="bf-menu-section">
-                    <div class="bf-form-title">🍽️ Select Menu Items</div>
-                    
+                <!-- Menu -->
+                <div class="bf-section">
+                    <div class="bf-title">🍽️ Pilih Menu</div>
+
                     <?php if (count($freeMenus) > 0): ?>
-                    <div class="bf-menu-category">
-                        <div class="bf-menu-category-title">✨ Complimentary (Free)</div>
+                    <div style="margin-bottom:1rem">
+                        <div style="font-size:.8rem;font-weight:700;margin-bottom:.5rem">✨ Free Breakfast</div>
                         <div class="bf-menu-grid">
-                            <?php foreach ($freeMenus as $menu): ?>
+                            <?php foreach ($freeMenus as $m): ?>
                             <div class="bf-menu-item">
-                                <label class="bf-menu-checkbox">
-                                    <input type="checkbox" name="menu_items[]" value="<?php echo $menu['id']; ?>" <?php echo in_array($menu['id'], $editMenuIds) ? 'checked' : ''; ?>>
-                                    <div class="bf-menu-info">
-                                        <div class="bf-menu-name"><?php echo htmlspecialchars($menu['menu_name']); ?></div>
-                                        <span class="bf-menu-cat"><?php echo $menu['category']; ?></span>
+                                <label class="bf-menu-cb">
+                                    <input type="checkbox" name="menu_items[]" value="<?php echo $m['id']; ?>" <?php echo in_array($m['id'], $editMenuIds) ? 'checked' : ''; ?>>
+                                    <div>
+                                        <div class="bf-menu-name"><?php echo htmlspecialchars($m['menu_name']); ?></div>
+                                        <span class="bf-menu-cat"><?php echo $m['category']; ?></span>
                                     </div>
                                 </label>
                                 <div class="bf-menu-qty">
-                                    <span style="font-size: 0.7rem; color: var(--text-muted);">Qty:</span>
-                                    <input type="number" name="menu_qty[<?php echo $menu['id']; ?>]" min="1" max="20" value="<?php echo $editMenuQty[$menu['id']] ?? 1; ?>" class="bf-qty-input">
+                                    <span style="font-size:.7rem;color:var(--text-muted)">Qty:</span>
+                                    <input type="number" name="menu_qty[<?php echo $m['id']; ?>]" min="1" max="20" value="<?php echo $editMenuQty[$m['id']] ?? 1; ?>" class="bf-qty-input">
                                 </div>
                                 <div class="bf-menu-note">
-                                    <input type="text" name="menu_note[<?php echo $menu['id']; ?>]" class="bf-note-input" 
-                                           placeholder="Ket: pedas/tidak, ice/hot, dll" 
-                                           value="<?php echo htmlspecialchars($editMenuNotes[$menu['id']] ?? ''); ?>">
+                                    <input type="text" name="menu_note[<?php echo $m['id']; ?>]" class="bf-note-input" placeholder="Catatan: pedas/tidak, dll" value="<?php echo htmlspecialchars($editMenuNotes[$m['id']] ?? ''); ?>">
                                 </div>
                             </div>
                             <?php endforeach; ?>
@@ -934,27 +279,25 @@ include '../../includes/header.php';
                     <?php endif; ?>
 
                     <?php if (count($paidMenus) > 0): ?>
-                    <div class="bf-menu-category">
-                        <div class="bf-menu-category-title">💰 Extra Items (Paid)</div>
+                    <div>
+                        <div style="font-size:.8rem;font-weight:700;margin-bottom:.5rem">💰 Extra (Berbayar)</div>
                         <div class="bf-menu-grid">
-                            <?php foreach ($paidMenus as $menu): ?>
+                            <?php foreach ($paidMenus as $m): ?>
                             <div class="bf-menu-item">
-                                <label class="bf-menu-checkbox">
-                                    <input type="checkbox" name="menu_items[]" value="<?php echo $menu['id']; ?>" <?php echo in_array($menu['id'], $editMenuIds) ? 'checked' : ''; ?>>
-                                    <div class="bf-menu-info">
-                                        <div class="bf-menu-name"><?php echo htmlspecialchars($menu['menu_name']); ?></div>
-                                        <div class="bf-menu-price">Rp <?php echo number_format($menu['price'], 0, ',', '.'); ?></div>
-                                        <span class="bf-menu-cat"><?php echo $menu['category']; ?></span>
+                                <label class="bf-menu-cb">
+                                    <input type="checkbox" name="menu_items[]" value="<?php echo $m['id']; ?>" <?php echo in_array($m['id'], $editMenuIds) ? 'checked' : ''; ?>>
+                                    <div>
+                                        <div class="bf-menu-name"><?php echo htmlspecialchars($m['menu_name']); ?></div>
+                                        <div class="bf-menu-price">Rp <?php echo number_format($m['price'], 0, ',', '.'); ?></div>
+                                        <span class="bf-menu-cat"><?php echo $m['category']; ?></span>
                                     </div>
                                 </label>
                                 <div class="bf-menu-qty">
-                                    <span style="font-size: 0.7rem; color: var(--text-muted);">Qty:</span>
-                                    <input type="number" name="menu_qty[<?php echo $menu['id']; ?>]" min="1" max="20" value="<?php echo $editMenuQty[$menu['id']] ?? 1; ?>" class="bf-qty-input">
+                                    <span style="font-size:.7rem;color:var(--text-muted)">Qty:</span>
+                                    <input type="number" name="menu_qty[<?php echo $m['id']; ?>]" min="1" max="20" value="<?php echo $editMenuQty[$m['id']] ?? 1; ?>" class="bf-qty-input">
                                 </div>
                                 <div class="bf-menu-note">
-                                    <input type="text" name="menu_note[<?php echo $menu['id']; ?>]" class="bf-note-input" 
-                                           placeholder="Ket: pedas/tidak, ice/hot, dll" 
-                                           value="<?php echo htmlspecialchars($editMenuNotes[$menu['id']] ?? ''); ?>">
+                                    <input type="text" name="menu_note[<?php echo $m['id']; ?>]" class="bf-note-input" placeholder="Catatan: pedas/tidak, dll" value="<?php echo htmlspecialchars($editMenuNotes[$m['id']] ?? ''); ?>">
                                 </div>
                             </div>
                             <?php endforeach; ?>
@@ -964,383 +307,167 @@ include '../../includes/header.php';
                 </div>
 
                 <!-- Notes -->
-                <div class="bf-form-section">
-                    <div class="bf-form-title">📝 Notes</div>
-                    <textarea name="special_requests" id="special_requests" class="bf-textarea" 
-                              placeholder="Allergies, special preparation, etc."><?php echo $editOrder ? htmlspecialchars($editOrder['special_requests'] ?? '') : ''; ?></textarea>
+                <div class="bf-section">
+                    <div class="bf-title">📝 Catatan</div>
+                    <textarea name="special_requests" class="bf-textarea" placeholder="Alergi, permintaan khusus, dll"><?php echo $editOrder ? htmlspecialchars($editOrder['special_requests'] ?? '') : ''; ?></textarea>
                 </div>
 
                 <div class="bf-actions">
-                    <button type="submit" class="bf-btn-submit"><?php echo $editOrder ? '✓ Update Order' : '✓ Create Order'; ?></button>
+                    <button type="submit" class="bf-btn-submit" id="btnSubmit"><?php echo $editOrder ? '✓ Update Order' : '✓ Simpan Order'; ?></button>
                     <?php if ($editOrder): ?>
-                    <a href="breakfast.php" class="bf-btn-reset" style="text-decoration:none; text-align:center;">✕ Cancel Edit</a>
-                    <?php else: ?>
-                    <button type="reset" class="bf-btn-reset">↺ Reset</button>
+                    <a href="breakfast.php" class="bf-btn-reset">✕ Batal</a>
                     <?php endif; ?>
                 </div>
             </form>
         </div>
 
-        <!-- Sidebar - Today's Orders -->
-        <div class="bf-sidebar">
-            <div class="bf-sidebar-title">📊 Today's Orders</div>
-            
-            <?php
-            try {
-                $todayOrders = [];
-                // Simple query — use breakfast_orders data directly, no JOINs
-                $stmt = $pdo->prepare("
-                    SELECT * FROM breakfast_orders
-                    WHERE breakfast_date = ?
-                    ORDER BY breakfast_time ASC, id DESC
-                ");
-                $stmt->execute([$today]);
-                $todayOrders = $stmt->fetchAll(PDO::FETCH_ASSOC);
-                
-                foreach ($todayOrders as &$order) {
-                    $order['menu_items'] = json_decode($order['menu_items'], true) ?: [];
-                }
-            } catch (Exception $e) {
-                $todayOrders = [];
-            }
-            
-            if (count($todayOrders) > 0):
-                foreach ($todayOrders as $order):
-            ?>
-            <div class="bf-order-item">
-                <div class="bf-order-header">
-                    <span class="bf-order-time">🕐 <?php echo date('H:i', strtotime($order['breakfast_time'])); ?></span>
-                    <span class="bf-order-pax"><?php echo $order['total_pax']; ?> pax</span>
-                </div>
-                <div class="bf-order-guest"><?php echo htmlspecialchars($order['guest_name']); ?></div>
-                <?php 
-                    $roomDisplay = '';
-                    $decodedRooms = json_decode($order['room_number'], true);
-                    if (is_array($decodedRooms) && count($decodedRooms) > 0) {
-                        $roomDisplay = implode(', ', $decodedRooms);
-                    } elseif (!empty($order['room_number'])) {
-                        $roomDisplay = $order['room_number'];
-                    }
-                ?>
-                <?php if (!empty($roomDisplay)): ?>
-                <div class="bf-order-room">🛏️ Room <?php echo htmlspecialchars($roomDisplay); ?></div>
-                <?php endif; ?>
-                <div class="bf-order-room"><?php echo $order['location'] === 'restaurant' ? '🍽️ Restaurant' : ($order['location'] === 'take_away' ? '🥡 Take Away' : '🚪 Room Service'); ?></div>
-                <div class="bf-order-menus">
-                    <?php foreach ($order['menu_items'] as $item): ?>
-                    <span class="bf-order-menu-tag">
-                        <?php echo htmlspecialchars($item['menu_name']); ?>
-                        <?php if ($item['quantity'] > 1): ?>×<?php echo $item['quantity']; ?><?php endif; ?>
-                        <?php if (!empty($item['note'])): ?>
-                        <span class="bf-order-note">(<?php echo htmlspecialchars($item['note']); ?>)</span>
-                        <?php endif; ?>
-                    </span>
-                    <?php endforeach; ?>
-                </div>
-                <div class="bf-order-footer">
-                    <span class="bf-order-price">
-                        <?php echo $order['total_price'] > 0 ? 'Rp ' . number_format($order['total_price'], 0, ',', '.') : 'Free'; ?>
-                    </span>
-                    <span class="bf-order-status <?php echo $order['order_status']; ?>">
-                        <?php echo ucfirst($order['order_status']); ?>
-                    </span>
-                </div>
-                <div class="bf-order-actions">
-                    <a href="?edit=<?php echo $order['id']; ?>" class="bf-order-btn edit">✏️ Edit</a>
-                    <button class="bf-order-btn delete" onclick="deleteOrder(<?php echo $order['id']; ?>, '<?php echo htmlspecialchars(addslashes($order['guest_name'])); ?>')">🗑️ Hapus</button>
-                </div>
+        <!-- SIDEBAR: Today's Orders -->
+        <div class="bf-side">
+            <div class="bf-side-title">
+                📊 Today's Orders
+                <span class="bf-side-count"><?php echo count($todayOrders); ?></span>
             </div>
-            <?php 
-                endforeach;
-            else: 
-            ?>
-            <div class="bf-empty">
-                <div class="bf-empty-icon">📭</div>
-                <p style="font-size: 0.8rem;">No orders today</p>
-            </div>
+
+            <?php if (count($todayOrders) > 0): ?>
+                <?php foreach ($todayOrders as $order): ?>
+                <div class="bf-order">
+                    <div class="bf-order-head">
+                        <span class="bf-order-time">🕐 <?php echo $order['breakfast_time'] ? date('H:i', strtotime($order['breakfast_time'])) : '-'; ?></span>
+                        <span class="bf-order-pax"><?php echo $order['total_pax']; ?> pax</span>
+                    </div>
+                    <div class="bf-order-guest"><?php echo htmlspecialchars($order['guest_name']); ?></div>
+                    <?php
+                        $rooms = json_decode($order['room_number'], true);
+                        $roomStr = is_array($rooms) ? implode(', ', $rooms) : ($order['room_number'] ?: '-');
+                    ?>
+                    <div class="bf-order-room">🛏️ Room <?php echo htmlspecialchars($roomStr); ?></div>
+                    <div class="bf-order-room"><?php echo ($order['location'] ?? 'restaurant') === 'restaurant' ? '🍽️ Restaurant' : (($order['location'] ?? '') === 'take_away' ? '🥡 Take Away' : '🚪 Room Service'); ?></div>
+                    <div class="bf-order-menus">
+                        <?php foreach ($order['menu_items'] as $item): ?>
+                        <span class="bf-order-tag">
+                            <?php echo htmlspecialchars($item['menu_name'] ?? '?'); ?>
+                            <?php if (($item['quantity'] ?? 1) > 1): ?>×<?php echo $item['quantity']; ?><?php endif; ?>
+                        </span>
+                        <?php endforeach; ?>
+                    </div>
+                    <div class="bf-order-foot">
+                        <span class="bf-order-price"><?php echo $order['total_price'] > 0 ? 'Rp ' . number_format($order['total_price'], 0, ',', '.') : 'Free'; ?></span>
+                        <span class="bf-order-status <?php echo $order['order_status']; ?>"><?php echo ucfirst($order['order_status']); ?></span>
+                    </div>
+                    <div class="bf-order-btns">
+                        <a href="?edit=<?php echo $order['id']; ?>" class="bf-order-btn edit">✏️ Edit</a>
+                        <button class="bf-order-btn del" onclick="hapusOrder(<?php echo $order['id']; ?>,'<?php echo htmlspecialchars(addslashes($order['guest_name'])); ?>')">🗑️ Hapus</button>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+            <?php else: ?>
+                <div class="bf-empty">
+                    <div class="bf-empty-icon">📭</div>
+                    <p style="font-size:.8rem">Belum ada order hari ini</p>
+                </div>
             <?php endif; ?>
         </div>
     </div>
 </div>
 
 <script>
-// ==================== MULTI-SELECT GUEST/ROOM ====================
-let guestDropdownOpen = false;
-
-function toggleGuestDropdown() {
-    const dropdown = document.getElementById('guestDropdown');
-    const toggle = document.getElementById('guestToggle');
-    guestDropdownOpen = !guestDropdownOpen;
-    dropdown.classList.toggle('show', guestDropdownOpen);
-    toggle.classList.toggle('active', guestDropdownOpen);
-}
-
-// Close dropdown when clicking outside
-document.addEventListener('click', function(e) {
-    const multiselect = document.getElementById('guestMultiselect');
-    if (multiselect && !multiselect.contains(e.target)) {
-        guestDropdownOpen = false;
-        document.getElementById('guestDropdown').classList.remove('show');
-        document.getElementById('guestToggle').classList.remove('active');
+// Guest select → auto fill pax
+document.getElementById('guestSelect')?.addEventListener('change', function() {
+    var opt = this.options[this.selectedIndex];
+    if (opt.value) {
+        document.getElementById('totalPax').value = document.getElementById('totalPax').value || 1;
     }
 });
 
-function updateSelectedGuests() {
-    const checkboxes = document.querySelectorAll('.guest-checkbox:checked');
-    const names = [];
-    const rooms = [];
-    let firstBookingId = '';
-
-    // Update option styling
-    document.querySelectorAll('.guest-option-item, .bf-guest-option').forEach(opt => opt.classList.remove('checked'));
-
-    checkboxes.forEach(function(cb, idx) {
-        cb.closest('.bf-guest-option').classList.add('checked');
-        const name = cb.dataset.name;
-        const room = cb.dataset.room;
-        if (name && names.indexOf(name) === -1) names.push(name);
-        if (room) rooms.push(room);
-        if (idx === 0) firstBookingId = cb.value;
-    });
-
-    // Update label
-    const label = document.getElementById('guestSelectLabel');
-    if (rooms.length === 0) {
-        label.textContent = '-- Pilih Kamar / Walk-in --';
-    } else if (rooms.length === 1) {
-        label.textContent = 'Room ' + rooms[0] + ' — ' + names[0];
-    } else {
-        label.textContent = rooms.length + ' kamar dipilih (Room ' + rooms.join(', ') + ')';
-    }
-
-    // Update guest name
-    document.getElementById('guest_name').value = names.join(', ');
-
-    // Update booking_id (first selected)
-    document.getElementById('booking_id').value = firstBookingId;
-
-    // Render room tags
-    renderRoomTags(rooms, checkboxes);
-
-    // Create hidden inputs for room_number[]
-    const container = document.getElementById('roomInputsContainer');
-    container.innerHTML = '';
-    rooms.forEach(function(room) {
-        const input = document.createElement('input');
-        input.type = 'hidden';
-        input.name = 'room_number[]';
-        input.value = room;
-        container.appendChild(input);
-    });
-
-    // Auto-calculate total pax (1 per room as default suggestion)
-    const paxInput = document.getElementById('total_pax');
-    if (rooms.length > 0 && (!paxInput.value || paxInput.dataset.autoset === '1')) {
-        paxInput.value = rooms.length;
-        paxInput.dataset.autoset = '1';
-    }
-    if (rooms.length === 0) {
-        paxInput.dataset.autoset = '0';
-    }
-}
-
-function renderRoomTags(rooms, checkboxes) {
-    const container = document.getElementById('selectedRoomTags');
-    container.innerHTML = '';
-    rooms.forEach(function(room, idx) {
-        const tag = document.createElement('span');
-        tag.className = 'bf-room-tag';
-        tag.innerHTML = '🛏️ Room ' + room + ' <span class="remove-room" onclick="removeRoom(' + idx + ')">&times;</span>';
-        container.appendChild(tag);
-    });
-}
-
-function removeRoom(idx) {
-    const checkboxes = document.querySelectorAll('.guest-checkbox:checked');
-    const arr = Array.from(checkboxes);
-    if (arr[idx]) {
-        arr[idx].checked = false;
-    }
-    updateSelectedGuests();
-}
-
-// ==================== FORM VALIDATION & AJAX SUBMIT ====================
-let formSubmitting = false;
-
-function validateBreakfastForm(e) {
-    // ALWAYS prevent default form submit - we use AJAX instead
+// Form submit via AJAX
+var submitting = false;
+document.getElementById('bfForm').addEventListener('submit', function(e) {
     e.preventDefault();
-    
-    if (formSubmitting) return false;
-    
-    const guestName = document.getElementById('guest_name').value.trim();
-    const totalPax = document.getElementById('total_pax').value.trim();
-    const breakfastTime = document.getElementById('breakfast_time').value.trim();
-    const breakfastDate = document.getElementById('breakfast_date').value.trim();
+    if (submitting) return;
 
-    if (!guestName) { alert('❌ Nama tamu harus diisi!'); document.getElementById('guest_name').focus(); return false; }
-    if (!totalPax || parseInt(totalPax) < 1) { alert('❌ Total pax harus diisi (minimal 1)!'); document.getElementById('total_pax').focus(); return false; }
-    if (!breakfastTime) { alert('❌ Waktu sarapan harus diisi!'); document.getElementById('breakfast_time').focus(); return false; }
-    if (!breakfastDate) { alert('❌ Tanggal sarapan harus diisi!'); document.getElementById('breakfast_date').focus(); return false; }
+    var guestOpt = document.getElementById('guestSelect');
+    if (!guestOpt || !guestOpt.value) { alert('Pilih tamu dulu!'); return; }
 
-    const selectedMenus = document.querySelectorAll('input[name="menu_items[]"]:checked');
-    if (selectedMenus.length === 0) { alert('❌ PILIH MINIMAL 1 MENU ITEM!'); return false; }
+    var pax = document.getElementById('totalPax').value;
+    var time = document.getElementById('bfTime').value;
+    if (!pax || parseInt(pax) < 1) { alert('Isi jumlah pax!'); return; }
+    if (!time) { alert('Isi jam sarapan!'); return; }
 
-    // Lock form
-    formSubmitting = true;
-    const submitBtn = document.querySelector('.bf-btn-submit');
-    if (submitBtn) { submitBtn.disabled = true; submitBtn.innerHTML = '⏳ Menyimpan...'; }
-    const form = document.getElementById('breakfastOrderForm');
-    if (form) { form.style.pointerEvents = 'none'; form.style.opacity = '0.7'; }
+    var menus = document.querySelectorAll('input[name="menu_items[]"]:checked');
+    if (menus.length === 0) { alert('Pilih minimal 1 menu!'); return; }
 
-    // Build JSON data
-    const data = {
-        action: document.querySelector('input[name="action"]').value,
-        _form_token: document.querySelector('input[name="_form_token"]').value,
-        guest_name: guestName,
-        total_pax: parseInt(totalPax),
-        breakfast_time: breakfastTime,
-        breakfast_date: breakfastDate,
+    var opt = guestOpt.options[guestOpt.selectedIndex];
+    var data = {
+        action: document.querySelector('input[name="edit_id"]') ? 'update_order' : 'create_order',
+        booking_id: parseInt(guestOpt.value),
+        guest_name: opt.dataset.name || opt.textContent.trim(),
+        room_number: opt.dataset.room ? [opt.dataset.room] : [],
+        total_pax: parseInt(pax),
+        breakfast_time: time,
+        breakfast_date: document.querySelector('input[name="breakfast_date"]').value,
         location: (document.querySelector('input[name="location"]:checked') || {value:'restaurant'}).value,
-        special_requests: document.getElementById('special_requests').value.trim(),
-        booking_id: document.getElementById('booking_id').value || '',
+        special_requests: document.querySelector('textarea[name="special_requests"]').value.trim(),
         menu_items: [],
         menu_qty: {},
-        menu_note: {},
-        room_number: []
+        menu_note: {}
     };
 
-    // Edit ID
-    const editIdInput = document.querySelector('input[name="edit_id"]');
-    if (editIdInput) data.edit_id = parseInt(editIdInput.value);
+    var editId = document.querySelector('input[name="edit_id"]');
+    if (editId) data.edit_id = parseInt(editId.value);
 
-    // Menu items
-    selectedMenus.forEach(function(cb) {
-        const menuId = cb.value;
-        data.menu_items.push(menuId);
-        const qtyInput = document.querySelector('input[name="menu_qty[' + menuId + ']"]');
-        data.menu_qty[menuId] = qtyInput ? parseInt(qtyInput.value) || 1 : 1;
-        const noteInput = document.querySelector('input[name="menu_note[' + menuId + ']"]');
-        data.menu_note[menuId] = noteInput ? noteInput.value.trim() : '';
+    menus.forEach(function(cb) {
+        var id = cb.value;
+        data.menu_items.push(id);
+        var q = document.querySelector('input[name="menu_qty[' + id + ']"]');
+        data.menu_qty[id] = q ? parseInt(q.value) || 1 : 1;
+        var n = document.querySelector('input[name="menu_note[' + id + ']"]');
+        data.menu_note[id] = n ? n.value.trim() : '';
     });
 
-    // Room numbers
-    document.querySelectorAll('input[name="room_number[]"]').forEach(function(inp) {
-        if (inp.value) data.room_number.push(inp.value);
-    });
+    submitting = true;
+    var btn = document.getElementById('btnSubmit');
+    btn.disabled = true;
+    btn.textContent = '⏳ Menyimpan...';
 
-    // Send AJAX - EXACTLY ONE request
     fetch('../../api/breakfast-save.php', {
         method: 'POST',
         headers: {'Content-Type': 'application/json'},
         body: JSON.stringify(data)
     })
     .then(function(r) { return r.json(); })
-    .then(function(result) {
-        if (result.success) {
-            // Show success and redirect
-            alert('✅ ' + result.message);
-            window.location.href = window.location.pathname;
+    .then(function(res) {
+        if (res.success) {
+            // Redirect clean — tamu ini hilang dari dropdown, bisa pilih tamu lain
+            window.location.href = 'breakfast.php?success=' + encodeURIComponent(res.message);
         } else {
-            alert('❌ ' + (result.message || 'Gagal menyimpan'));
-            // Unlock form
-            formSubmitting = false;
-            if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = data.edit_id ? '✓ Update Order' : '✓ Create Order'; }
-            if (form) { form.style.pointerEvents = ''; form.style.opacity = ''; }
+            alert('❌ ' + (res.message || 'Gagal menyimpan'));
+            submitting = false;
+            btn.disabled = false;
+            btn.textContent = data.edit_id ? '✓ Update Order' : '✓ Simpan Order';
         }
     })
     .catch(function(err) {
         alert('❌ Error koneksi: ' + err.message);
-        formSubmitting = false;
-        if (submitBtn) { submitBtn.disabled = false; submitBtn.innerHTML = data.edit_id ? '✓ Update Order' : '✓ Create Order'; }
-        if (form) { form.style.pointerEvents = ''; form.style.opacity = ''; }
+        submitting = false;
+        btn.disabled = false;
+        btn.textContent = data.edit_id ? '✓ Update Order' : '✓ Simpan Order';
     });
-
-    return false;
-}
-
-// ==================== INIT ====================
-document.addEventListener('DOMContentLoaded', function() {
-    const form = document.getElementById('breakfastOrderForm');
-    if (form) {
-        form.addEventListener('submit', validateBreakfastForm);
-    }
-
-    const isEditMode = <?php echo $editOrder ? 'true' : 'false'; ?>;
-
-    if (isEditMode) {
-        // Edit mode: initialize selected guests from pre-checked checkboxes
-        const preChecked = document.querySelectorAll('.guest-checkbox:checked');
-        if (preChecked.length > 0) {
-            updateSelectedGuests();
-        }
-        // Preserve edit guest name
-        document.getElementById('guest_name').value = <?php echo $editOrder ? json_encode($editOrder['guest_name']) : '""'; ?>;
-    } else {
-        // === CREATE MODE: Force-reset form to prevent browser cache ===
-        // Uncheck ALL guest checkboxes
-        document.querySelectorAll('.guest-checkbox').forEach(function(cb) {
-            cb.checked = false;
-        });
-        // Clear guest info
-        document.getElementById('guest_name').value = '';
-        document.getElementById('booking_id').value = '';
-        document.getElementById('roomInputsContainer').innerHTML = '';
-        document.getElementById('selectedRoomTags').innerHTML = '';
-        document.getElementById('guestSelectLabel').textContent = '-- Pilih Kamar / Walk-in --';
-        
-        // Clear pax & time (keep date as today)
-        document.getElementById('total_pax').value = '';
-        document.getElementById('breakfast_time').value = '';
-        
-        // Uncheck ALL menu checkboxes
-        document.querySelectorAll('input[name="menu_items[]"]').forEach(function(cb) {
-            cb.checked = false;
-        });
-        // Reset all qty to 1
-        document.querySelectorAll('.bf-qty-input').forEach(function(inp) {
-            inp.value = 1;
-        });
-        // Clear all menu notes
-        document.querySelectorAll('.bf-note-input').forEach(function(inp) {
-            inp.value = '';
-        });
-        // Clear special requests
-        var sr = document.getElementById('special_requests');
-        if (sr) sr.value = '';
-        
-        // Reset location to restaurant
-        var restRadio = document.querySelector('input[name="location"][value="restaurant"]');
-        if (restRadio) restRadio.checked = true;
-    }
-
-    // Mark pax as manually set if user changes it
-    const paxInput = document.getElementById('total_pax');
-    if (paxInput) {
-        paxInput.addEventListener('input', function() {
-            this.dataset.autoset = '0';
-        });
-    }
 });
 
-// ==================== DELETE ORDER ====================
-function deleteOrder(id, guestName) {
-    if (!confirm('Hapus order sarapan untuk "' + guestName + '"?\n\nData tidak bisa dikembalikan.')) return;
-    
+// Delete order
+function hapusOrder(id, name) {
+    if (!confirm('Hapus order sarapan "' + name + '"?')) return;
     fetch('<?php echo BASE_URL; ?>/api/breakfast-order-action.php', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'delete', id: id })
+        headers: {'Content-Type': 'application/json'},
+        body: JSON.stringify({action: 'delete', id: id})
     })
-    .then(r => r.json())
-    .then(data => {
-        if (data.success) {
-            location.reload();
-        } else {
-            alert('Gagal hapus: ' + (data.message || 'Unknown error'));
-        }
+    .then(function(r) { return r.json(); })
+    .then(function(d) {
+        if (d.success) location.reload();
+        else alert('Gagal: ' + (d.message || '?'));
     })
-    .catch(() => alert('Gagal menghubungi server'));
+    .catch(function() { alert('Error koneksi'); });
 }
 </script>
 
