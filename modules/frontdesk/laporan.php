@@ -124,15 +124,11 @@ try {
         ORDER BY r.room_number ASC";
     $arrivalTomorrow = $db->fetchAll($arrivalTomorrowQuery, [$tomorrow]);
     
-    // 8. BREAKFAST ORDERS TODAY — auto-cleanup duplicates first, then fetch
-    try {
-        $db->getConnection()->exec("DELETE bo1 FROM breakfast_orders bo1
-            INNER JOIN breakfast_orders bo2
-            ON bo1.guest_name = bo2.guest_name
-            AND bo1.breakfast_date = bo2.breakfast_date
-            AND bo1.id < bo2.id");
-    } catch (Exception $e) {}
-    $breakfastQuery = "SELECT bo.* FROM breakfast_orders bo WHERE bo.breakfast_date = ? ORDER BY bo.breakfast_time ASC";
+    // 8. BREAKFAST ORDERS TODAY — deduplicate: only newest record per guest per date
+    $breakfastQuery = "SELECT bo.* FROM breakfast_orders bo
+        WHERE bo.breakfast_date = ?
+        AND bo.id = (SELECT MAX(bo2.id) FROM breakfast_orders bo2 WHERE bo2.guest_name = bo.guest_name AND bo2.breakfast_date = bo.breakfast_date)
+        ORDER BY bo.breakfast_time ASC";
     $breakfastOrders = $db->fetchAll($breakfastQuery, [$today]);
     
     // Decode menu items

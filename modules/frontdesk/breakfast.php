@@ -82,7 +82,10 @@ try {
 // Today's orders for sidebar
 $todayOrders = [];
 try {
-    $stmt = $pdo->prepare("SELECT * FROM breakfast_orders WHERE breakfast_date = ? ORDER BY breakfast_time ASC, id ASC");
+    $stmt = $pdo->prepare("SELECT bo.* FROM breakfast_orders bo
+        WHERE bo.breakfast_date = ?
+        AND bo.id = (SELECT MAX(bo2.id) FROM breakfast_orders bo2 WHERE bo2.guest_name = bo.guest_name AND bo2.breakfast_date = bo.breakfast_date)
+        ORDER BY bo.breakfast_time ASC, bo.id ASC");
     $stmt->execute([$today]);
     $todayOrders = $stmt->fetchAll(PDO::FETCH_ASSOC);
     foreach ($todayOrders as &$o) { $o['menu_items'] = json_decode($o['menu_items'], true) ?: []; }

@@ -71,8 +71,11 @@ try {
         FROM bookings b INNER JOIN guests g ON b.guest_id = g.id INNER JOIN rooms r ON b.room_id = r.id
         WHERE b.check_in_date = ? AND b.status IN ('confirmed', 'pending') ORDER BY r.room_number ASC", [$tomorrow]);
     
-    // Breakfast orders — use bo.* directly, no JOINs (guest_name & room_number stored in order)
-    $breakfastOrders = $db->fetchAll("SELECT bo.* FROM breakfast_orders bo WHERE bo.breakfast_date = ? ORDER BY bo.breakfast_time ASC", [$today]);
+    // Breakfast orders — deduplicate: only newest record per guest per date
+    $breakfastOrders = $db->fetchAll("SELECT bo.* FROM breakfast_orders bo
+        WHERE bo.breakfast_date = ?
+        AND bo.id = (SELECT MAX(bo2.id) FROM breakfast_orders bo2 WHERE bo2.guest_name = bo.guest_name AND bo2.breakfast_date = bo.breakfast_date)
+        ORDER BY bo.breakfast_time ASC", [$today]);
     
     foreach ($breakfastOrders as &$order) {
         $order['menu_items'] = json_decode($order['menu_items'], true) ?: [];

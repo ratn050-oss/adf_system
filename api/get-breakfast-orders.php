@@ -31,9 +31,10 @@ try {
                   ORDER BY bo.breakfast_date DESC, bo.breakfast_time DESC";
         $orders = $db->fetchAll($query, [$bookingId]);
     } else {
-        // Get all orders for today
+        // Get all orders for today — deduplicate per guest per date
         $query = "SELECT bo.* FROM breakfast_orders bo
                   WHERE bo.breakfast_date = ?
+                  AND bo.id = (SELECT MAX(bo2.id) FROM breakfast_orders bo2 WHERE bo2.guest_name = bo.guest_name AND bo2.breakfast_date = bo.breakfast_date)
                   ORDER BY bo.breakfast_time ASC";
         $orders = $db->fetchAll($query, [$date]);
     }
