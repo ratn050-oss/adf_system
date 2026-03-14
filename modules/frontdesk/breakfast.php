@@ -32,9 +32,22 @@ try {
         location VARCHAR(20) DEFAULT 'restaurant', menu_items TEXT, special_requests TEXT,
         total_price DECIMAL(10,2) DEFAULT 0.00, order_status VARCHAR(20) DEFAULT 'pending',
         created_by INT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+        UNIQUE KEY uk_guest_date (guest_name, breakfast_date)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 } catch (Exception $e) {}
+
+// Auto-cleanup existing duplicates (keep newest ID per guest+date), then add UNIQUE index
+try {
+    $pdo->exec("DELETE bo1 FROM breakfast_orders bo1
+        INNER JOIN breakfast_orders bo2
+        ON bo1.guest_name = bo2.guest_name
+        AND bo1.breakfast_date = bo2.breakfast_date
+        AND bo1.id < bo2.id");
+} catch (Exception $e) {}
+try {
+    $pdo->exec("ALTER TABLE breakfast_orders ADD UNIQUE INDEX uk_guest_date (guest_name, breakfast_date)");
+} catch (Exception $e) { /* already exists */ }
 
 // Get menus
 $freeMenus = $paidMenus = [];

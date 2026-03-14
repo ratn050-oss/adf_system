@@ -25,24 +25,14 @@ try {
     $date = $_GET['date'] ?? date('Y-m-d');
     
     if ($bookingId) {
-        // Get orders for specific booking (include manual orders)
-        $query = "SELECT bo.*, 
-                         b.booking_code,
-                         bo.guest_name AS guest_name,
-                         bo.room_number AS room_number
-                  FROM breakfast_orders bo
-                  LEFT JOIN bookings b ON bo.booking_id = b.id
-                  WHERE (bo.booking_id = ? OR (bo.booking_id IS NULL AND bo.guest_name IS NOT NULL))
+        // Get orders for specific booking
+        $query = "SELECT bo.* FROM breakfast_orders bo
+                  WHERE bo.booking_id = ?
                   ORDER BY bo.breakfast_date DESC, bo.breakfast_time DESC";
         $orders = $db->fetchAll($query, [$bookingId]);
     } else {
-        // Get all orders for today (include manual orders)
-        $query = "SELECT bo.*, 
-                         b.booking_code,
-                         bo.guest_name AS guest_name,
-                         bo.room_number AS room_number
-                  FROM breakfast_orders bo
-                  LEFT JOIN bookings b ON bo.booking_id = b.id
+        // Get all orders for today
+        $query = "SELECT bo.* FROM breakfast_orders bo
                   WHERE bo.breakfast_date = ?
                   ORDER BY bo.breakfast_time ASC";
         $orders = $db->fetchAll($query, [$date]);
