@@ -397,6 +397,12 @@ if (isset($_SESSION['user_id'])) {
                                     <span>Absensi GPS</span>
                                 </a>
                             </li>
+                            <li class="submenu-item">
+                                <a href="<?php echo BASE_URL; ?>/modules/payroll/weekly-payroll.php" class="submenu-link <?php echo activeMenu('weekly-payroll.php'); ?>">
+                                    <i data-feather="calendar" class="submenu-icon"></i>
+                                    <span>Gaji Mingguan</span>
+                                </a>
+                            </li>
                         </ul>
                     </li>
                     <?php endif; ?>
