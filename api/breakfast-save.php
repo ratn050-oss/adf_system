@@ -34,14 +34,11 @@ $action = $input['action'] ?? '';
 $db = Database::getInstance();
 $pdo = $db->getConnection();
 
-// Validate user
-$validUserId = null;
-if (!empty($_SESSION['user_id'])) {
-    $userCheck = $db->fetchOne("SELECT id FROM users WHERE id = ?", [$_SESSION['user_id']]);
-    if ($userCheck) $validUserId = $_SESSION['user_id'];
-}
+// User already validated by $auth->requireLogin() above
+// Note: users table is in system DB, not business DB - skip DB check
+$validUserId = !empty($_SESSION['user_id']) ? (int)$_SESSION['user_id'] : null;
 if (!$validUserId) {
-    echo json_encode(['success' => false, 'message' => 'User tidak valid']);
+    echo json_encode(['success' => false, 'message' => 'User tidak valid - silakan login ulang']);
     exit;
 }
 
