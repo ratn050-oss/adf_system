@@ -169,15 +169,16 @@ try {
         } catch (Exception $e) {}
         
         // === DUPLICATE PREVENTION ===
-        // Generate content hash based on order content
-        $contentHash = hash('sha256', $guestName . '|' . $breakfastDate . '|' . $breakfastTime . '|' . json_encode($roomNumbers) . '|' . $menuJson);
+        // Generate content hash based on core identity (NOT menu JSON which can differ in formatting)
+        $roomKey = json_encode($roomNumbers);
+        $contentHash = hash('sha256', $guestName . '|' . $breakfastDate . '|' . $breakfastTime . '|' . $roomKey);
         
-        // Check 1: Exact content hash match (same guest, date, time, room, menu)
-        $dupCheck = $pdo->prepare("SELECT id FROM breakfast_orders WHERE submit_token = ? LIMIT 1");
-        $dupCheck->execute([$contentHash]);
-        $existingByHash = $dupCheck->fetch(PDO::FETCH_ASSOC);
-        if ($existingByHash) {
-            echo json_encode(['success' => true, 'message' => "Order sudah tersimpan sebelumnya (ID #{$existingByHash['id']})", 'id' => $existingByHash['id']]);
+        // Check 1: Exact match — same guest + same date + same time + same room
+        $dupCheck = $pdo->prepare("SELECT id FROM breakfast_orders WHERE guest_name = ? AND breakfast_date = ? AND breakfast_time = ? AND room_number = ? LIMIT 1");
+        $dupCheck->execute([$guestName, $breakfastDate, $breakfastTime, $roomKey]);
+        $existingExact = $dupCheck->fetch(PDO::FETCH_ASSOC);
+        if ($existingExact) {
+            echo json_encode(['success' => true, 'message' => "Order untuk {$guestName} jam {$breakfastTime} sudah ada (ID #{$existingExact['id']})", 'id' => $existingExact['id']]);
             exit;
         }
         

@@ -42,21 +42,22 @@ if ($action === 'delete') {
     $date = $input['date'] ?? date('Y-m-d');
     
     try {
-        // Find duplicates: same guest_name, breakfast_date, breakfast_time, menu_items
+        // Find duplicates: same guest_name, breakfast_date, breakfast_time, room_number
         // Keep the NEWEST one (highest id), delete older duplicates
+        // NOTE: Do NOT compare menu_items TEXT — JSON formatting may differ slightly
         $findDups = $pdo->prepare("
             SELECT bo.id 
             FROM breakfast_orders bo
             INNER JOIN (
-                SELECT guest_name, breakfast_date, breakfast_time, menu_items, MAX(id) as keep_id
+                SELECT guest_name, breakfast_date, breakfast_time, room_number, MAX(id) as keep_id
                 FROM breakfast_orders 
                 WHERE breakfast_date = ?
-                GROUP BY guest_name, breakfast_date, breakfast_time, menu_items
+                GROUP BY guest_name, breakfast_date, breakfast_time, room_number
                 HAVING COUNT(*) > 1
             ) dups ON bo.guest_name = dups.guest_name 
                   AND bo.breakfast_date = dups.breakfast_date 
                   AND bo.breakfast_time = dups.breakfast_time 
-                  AND bo.menu_items = dups.menu_items
+                  AND bo.room_number = dups.room_number
                   AND bo.id != dups.keep_id
             WHERE bo.breakfast_date = ?
         ");

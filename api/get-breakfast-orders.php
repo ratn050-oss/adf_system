@@ -28,12 +28,10 @@ try {
         // Get orders for specific booking (include manual orders)
         $query = "SELECT bo.*, 
                          b.booking_code,
-                         COALESCE(g.guest_name, bo.guest_name) AS guest_name,
-                         COALESCE(r.room_number, bo.room_number) AS room_number
+                         bo.guest_name AS guest_name,
+                         bo.room_number AS room_number
                   FROM breakfast_orders bo
                   LEFT JOIN bookings b ON bo.booking_id = b.id
-                  LEFT JOIN guests g ON b.guest_id = g.id
-                  LEFT JOIN rooms r ON b.room_id = r.id
                   WHERE (bo.booking_id = ? OR (bo.booking_id IS NULL AND bo.guest_name IS NOT NULL))
                   ORDER BY bo.breakfast_date DESC, bo.breakfast_time DESC";
         $orders = $db->fetchAll($query, [$bookingId]);
@@ -41,14 +39,12 @@ try {
         // Get all orders for today (include manual orders)
         $query = "SELECT bo.*, 
                          b.booking_code,
-                         COALESCE(g.guest_name, bo.guest_name) AS guest_name,
-                         COALESCE(r.room_number, bo.room_number) AS room_number
+                         bo.guest_name AS guest_name,
+                         bo.room_number AS room_number
                   FROM breakfast_orders bo
                   LEFT JOIN bookings b ON bo.booking_id = b.id
-                  LEFT JOIN guests g ON b.guest_id = g.id
-                  LEFT JOIN rooms r ON b.room_id = r.id
                   WHERE bo.breakfast_date = ?
-                  ORDER BY bo.breakfast_time ASC, room_number ASC";
+                  ORDER BY bo.breakfast_time ASC";
         $orders = $db->fetchAll($query, [$date]);
     }
     

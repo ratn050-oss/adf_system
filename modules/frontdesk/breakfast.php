@@ -998,7 +998,7 @@ include '../../includes/header.php';
                          WHERE bo2.guest_name = bo.guest_name 
                          AND bo2.breakfast_date = bo.breakfast_date 
                          AND bo2.breakfast_time = bo.breakfast_time 
-                         AND bo2.menu_items = bo.menu_items
+                         AND bo2.room_number = bo.room_number
                          AND bo2.id != bo.id) as duplicate_count
                     FROM breakfast_orders bo
                     LEFT JOIN bookings b ON bo.booking_id = b.id
