@@ -74,7 +74,12 @@ try {
     // Breakfast orders — deduplicate: only newest record per guest per date
     $breakfastOrders = $db->fetchAll("SELECT bo.* FROM breakfast_orders bo
         WHERE bo.breakfast_date = ?
-        AND bo.id = (SELECT MAX(bo2.id) FROM breakfast_orders bo2 WHERE bo2.guest_name = bo.guest_name AND bo2.breakfast_date = bo.breakfast_date)
+        AND bo.id = (
+            SELECT MAX(bo2.id) FROM breakfast_orders bo2
+            WHERE bo2.guest_name = bo.guest_name
+              AND bo2.breakfast_date = bo.breakfast_date
+              AND bo2.room_number = bo.room_number
+        )
         ORDER BY bo.breakfast_time ASC", [$today]);
     
     foreach ($breakfastOrders as &$order) {
