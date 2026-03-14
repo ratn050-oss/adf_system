@@ -31,16 +31,6 @@ if (!$input) {
 }
 
 $action = $input['action'] ?? '';
-$formToken = $input['_form_token'] ?? '';
-
-// Validate form token
-$sessionToken = $_SESSION['bf_form_token'] ?? '';
-if (empty($formToken) || $formToken !== $sessionToken) {
-    echo json_encode(['success' => false, 'message' => 'Form expired, refresh halaman.']);
-    exit;
-}
-// Clear token IMMEDIATELY
-unset($_SESSION['bf_form_token']);
 
 $db = Database::getInstance();
 $pdo = $db->getConnection();
@@ -123,17 +113,14 @@ try {
         $editId = (int)($input['edit_id'] ?? 0);
         if ($editId <= 0) throw new Exception('ID order tidak valid');
         
-        // Regenerate content hash for updated order
-        $contentHash = hash('sha256', $guestName . '|' . $breakfastDate . '|' . $breakfastTime . '|' . json_encode($roomNumbers) . '|' . $menuJson);
-        
         $stmt = $pdo->prepare("UPDATE breakfast_orders SET 
             booking_id=?, guest_name=?, room_number=?, total_pax=?, breakfast_time=?, 
-            breakfast_date=?, location=?, menu_items=?, special_requests=?, total_price=?, submit_token=?
+            breakfast_date=?, location=?, menu_items=?, special_requests=?, total_price=?
             WHERE id=?");
         $stmt->execute([
             $bookingId, $guestName, json_encode($roomNumbers), $totalPax,
             $breakfastTime, $breakfastDate, $location, $menuJson,
-            $specialRequests, $totalPrice, $contentHash, $editId
+            $specialRequests, $totalPrice, $editId
         ]);
         
         echo json_encode(['success' => true, 'message' => "Order #$editId berhasil diupdate!", 'id' => $editId]);
@@ -168,55 +155,20 @@ try {
             $pdo->exec("ALTER TABLE breakfast_orders MODIFY COLUMN room_number TEXT");
         } catch (Exception $e) {}
         
-        // === DUPLICATE PREVENTION ===
-        // Generate content hash based on core identity (NOT menu JSON which can differ in formatting)
-        $roomKey = json_encode($roomNumbers);
-        $contentHash = hash('sha256', $guestName . '|' . $breakfastDate . '|' . $breakfastTime . '|' . $roomKey);
-        
-        // Check 1: Exact match — same guest + same date + same time + same room
-        $dupCheck = $pdo->prepare("SELECT id FROM breakfast_orders WHERE guest_name = ? AND breakfast_date = ? AND breakfast_time = ? AND room_number = ? LIMIT 1");
-        $dupCheck->execute([$guestName, $breakfastDate, $breakfastTime, $roomKey]);
-        $existingExact = $dupCheck->fetch(PDO::FETCH_ASSOC);
-        if ($existingExact) {
-            echo json_encode(['success' => true, 'message' => "Order untuk {$guestName} jam {$breakfastTime} sudah ada (ID #{$existingExact['id']})", 'id' => $existingExact['id']]);
-            exit;
-        }
-        
-        // Check 2: Time-based duplicate (same guest + date + time within last 2 minutes)
-        $dupCheck2 = $pdo->prepare("SELECT id FROM breakfast_orders WHERE guest_name = ? AND breakfast_date = ? AND breakfast_time = ? AND created_at >= DATE_SUB(NOW(), INTERVAL 2 MINUTE) LIMIT 1");
-        $dupCheck2->execute([$guestName, $breakfastDate, $breakfastTime]);
-        $existingByTime = $dupCheck2->fetch(PDO::FETCH_ASSOC);
-        if ($existingByTime) {
-            echo json_encode(['success' => true, 'message' => "Order serupa baru saja dibuat (ID #{$existingByTime['id']}). Jika ingin order baru, tunggu 2 menit.", 'id' => $existingByTime['id']]);
-            exit;
-        }
-        
-        // INSERT with content hash as submit_token for database-level uniqueness
+        // INSERT — straightforward, no aggressive duplicate blocking
+        // Double-click protection is handled by frontend (formSubmitting flag)
         $stmt = $pdo->prepare("INSERT INTO breakfast_orders 
             (booking_id, guest_name, room_number, total_pax, breakfast_time, breakfast_date, location, 
-             menu_items, special_requests, total_price, created_by, submit_token) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+             menu_items, special_requests, total_price, created_by) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt->execute([
+            $bookingId, $guestName, json_encode($roomNumbers), $totalPax,
+            $breakfastTime, $breakfastDate, $location, $menuJson,
+            $specialRequests, $totalPrice, $validUserId
+        ]);
         
-        try {
-            $stmt->execute([
-                $bookingId, $guestName, json_encode($roomNumbers), $totalPax,
-                $breakfastTime, $breakfastDate, $location, $menuJson,
-                $specialRequests, $totalPrice, $validUserId, $contentHash
-            ]);
-            $lastOrderId = $pdo->lastInsertId();
-            echo json_encode(['success' => true, 'message' => "Pesanan untuk $guestName tersimpan (ID #$lastOrderId)", 'id' => $lastOrderId]);
-        } catch (PDOException $dupEx) {
-            // UNIQUE constraint violation = duplicate
-            if ($dupEx->getCode() === '23000') {
-                $existing = $pdo->prepare("SELECT id FROM breakfast_orders WHERE submit_token = ? LIMIT 1");
-                $existing->execute([$contentHash]);
-                $existingRow = $existing->fetch(PDO::FETCH_ASSOC);
-                $existId = $existingRow ? $existingRow['id'] : '?';
-                echo json_encode(['success' => true, 'message' => "Order sudah ada (ID #$existId)", 'id' => $existId]);
-            } else {
-                throw $dupEx;
-            }
-        }
+        $lastOrderId = $pdo->lastInsertId();
+        echo json_encode(['success' => true, 'message' => "Pesanan untuk $guestName tersimpan (ID #$lastOrderId)", 'id' => $lastOrderId]);
         
     } else {
         echo json_encode(['success' => false, 'message' => 'Action tidak valid']);

@@ -983,28 +983,16 @@ include '../../includes/header.php';
 
         <!-- Sidebar - Today's Orders -->
         <div class="bf-sidebar">
-            <div class="bf-sidebar-title" style="display:flex; justify-content:space-between; align-items:center;">
-                <span>📊 Today's Orders</span>
-                <button onclick="cleanupDuplicates()" style="background:rgba(255,255,255,0.2); border:none; color:white; padding:0.25rem 0.5rem; border-radius:4px; font-size:0.65rem; font-weight:600; cursor:pointer;" title="Hapus order duplikat hari ini">🧹 Clean Duplikat</button>
-            </div>
+            <div class="bf-sidebar-title">📊 Today's Orders</div>
             
             <?php
             try {
                 $todayOrders = [];
-                // Query with duplicate detection: group by guest+time+menu to flag duplicates
+                // Simple query — use breakfast_orders data directly, no JOINs
                 $stmt = $pdo->prepare("
-                    SELECT bo.*, b.booking_code, r.room_number as actual_room,
-                        (SELECT COUNT(*) FROM breakfast_orders bo2 
-                         WHERE bo2.guest_name = bo.guest_name 
-                         AND bo2.breakfast_date = bo.breakfast_date 
-                         AND bo2.breakfast_time = bo.breakfast_time 
-                         AND bo2.room_number = bo.room_number
-                         AND bo2.id != bo.id) as duplicate_count
-                    FROM breakfast_orders bo
-                    LEFT JOIN bookings b ON bo.booking_id = b.id
-                    LEFT JOIN rooms r ON b.room_id = r.id
-                    WHERE bo.breakfast_date = ?
-                    ORDER BY bo.breakfast_time ASC, bo.id DESC
+                    SELECT * FROM breakfast_orders
+                    WHERE breakfast_date = ?
+                    ORDER BY breakfast_time ASC, id DESC
                 ");
                 $stmt->execute([$today]);
                 $todayOrders = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -1019,20 +1007,19 @@ include '../../includes/header.php';
             if (count($todayOrders) > 0):
                 foreach ($todayOrders as $order):
             ?>
-            <div class="bf-order-item" <?php echo ($order['duplicate_count'] > 0) ? 'style="border-left: 3px solid #ef4444;"' : ''; ?>>
-                <?php if ($order['duplicate_count'] > 0): ?>
-                <div style="font-size:0.6rem; color:#ef4444; font-weight:700; margin-bottom:0.3rem;">⚠️ DUPLIKAT (<?php echo $order['duplicate_count']; ?> order serupa)</div>
-                <?php endif; ?>
+            <div class="bf-order-item">
                 <div class="bf-order-header">
                     <span class="bf-order-time">🕐 <?php echo date('H:i', strtotime($order['breakfast_time'])); ?></span>
                     <span class="bf-order-pax"><?php echo $order['total_pax']; ?> pax</span>
                 </div>
                 <div class="bf-order-guest"><?php echo htmlspecialchars($order['guest_name']); ?></div>
                 <?php 
-                    $roomDisplay = $order['room_number'] ?: $order['actual_room'];
-                    $decodedRooms = json_decode($roomDisplay, true);
-                    if (is_array($decodedRooms)) {
+                    $roomDisplay = '';
+                    $decodedRooms = json_decode($order['room_number'], true);
+                    if (is_array($decodedRooms) && count($decodedRooms) > 0) {
                         $roomDisplay = implode(', ', $decodedRooms);
+                    } elseif (!empty($order['room_number'])) {
+                        $roomDisplay = $order['room_number'];
                     }
                 ?>
                 <?php if (!empty($roomDisplay)): ?>
@@ -1351,27 +1338,6 @@ function deleteOrder(id, guestName) {
             location.reload();
         } else {
             alert('Gagal hapus: ' + (data.message || 'Unknown error'));
-        }
-    })
-    .catch(() => alert('Gagal menghubungi server'));
-}
-
-// ==================== CLEANUP DUPLICATES ====================
-function cleanupDuplicates() {
-    if (!confirm('Hapus semua order DUPLIKAT hari ini?\n\nOrder terbaru akan dipertahankan, duplikat lama dihapus.\nLanjutkan?')) return;
-    
-    fetch('<?php echo BASE_URL; ?>/api/breakfast-order-action.php', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'cleanup_duplicates', id: 0, date: '<?php echo $today; ?>' })
-    })
-    .then(r => r.json())
-    .then(data => {
-        if (data.success) {
-            alert('✅ ' + data.message);
-            if (data.deleted > 0) location.reload();
-        } else {
-            alert('❌ ' + (data.message || 'Gagal cleanup'));
         }
     })
     .catch(() => alert('Gagal menghubungi server'));
