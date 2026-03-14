@@ -71,11 +71,8 @@ try {
         FROM bookings b INNER JOIN guests g ON b.guest_id = g.id INNER JOIN rooms r ON b.room_id = r.id
         WHERE b.check_in_date = ? AND b.status IN ('confirmed', 'pending') ORDER BY r.room_number ASC", [$tomorrow]);
     
-    // Breakfast orders
-    $breakfastOrders = $db->fetchAll("SELECT bo.*, b.booking_code, g.guest_name, r.room_number
-        FROM breakfast_orders bo INNER JOIN bookings b ON bo.booking_id = b.id
-        INNER JOIN guests g ON b.guest_id = g.id INNER JOIN rooms r ON b.room_id = r.id
-        WHERE bo.breakfast_date = ? ORDER BY bo.breakfast_time ASC", [$today]);
+    // Breakfast orders — use bo.* directly, no JOINs (guest_name & room_number stored in order)
+    $breakfastOrders = $db->fetchAll("SELECT bo.* FROM breakfast_orders bo WHERE bo.breakfast_date = ? ORDER BY bo.breakfast_time ASC", [$today]);
     
     foreach ($breakfastOrders as &$order) {
         $order['menu_items'] = json_decode($order['menu_items'], true) ?: [];
@@ -493,13 +490,12 @@ header('Content-Type: text/html; charset=utf-8');
             <span class="sec-count"><?php echo count($checkOutTomorrow); ?></span>
         </div>
         <table>
-            <thead><tr><th>Room</th><th>Guest</th><th>Phone</th><th>Code</th><th>In</th><th>Out</th></tr></thead>
+            <thead><tr><th>Room</th><th>Guest</th><th>Code</th><th>In</th><th>Out</th></tr></thead>
             <tbody>
                 <?php foreach ($checkOutTomorrow as $g): ?>
                 <tr>
                     <td><span class="room-tag"><?php echo htmlspecialchars($g['room_number']); ?></span></td>
                     <td><?php echo htmlspecialchars($g['guest_name']); ?></td>
-                    <td><?php echo htmlspecialchars($g['phone'] ?: '-'); ?></td>
                     <td><?php echo htmlspecialchars($g['booking_code']); ?></td>
                     <td><?php echo date('d M', strtotime($g['check_in_date'])); ?></td>
                     <td><?php echo date('d M', strtotime($g['check_out_date'])); ?></td>
@@ -548,7 +544,11 @@ header('Content-Type: text/html; charset=utf-8');
             <tbody>
                 <?php foreach ($breakfastOrders as $order): ?>
                 <tr>
-                    <td><span class="room-tag"><?php echo htmlspecialchars($order['room_number']); ?></span></td>
+                    <td><span class="room-tag"><?php 
+                        $roomVal = $order['room_number'];
+                        $decodedR = json_decode($roomVal, true);
+                        echo htmlspecialchars(is_array($decodedR) ? implode(', ', $decodedR) : $roomVal);
+                    ?></span></td>
                     <td><?php echo date('H:i', strtotime($order['breakfast_time'])); ?></td>
                     <td><?php echo htmlspecialchars($order['guest_name']); ?></td>
                     <td><?php echo $order['total_pax']; ?></td>

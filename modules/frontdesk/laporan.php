@@ -124,18 +124,8 @@ try {
         ORDER BY r.room_number ASC";
     $arrivalTomorrow = $db->fetchAll($arrivalTomorrowQuery, [$tomorrow]);
     
-    // 8. BREAKFAST ORDERS TODAY
-    $breakfastQuery = "SELECT 
-            bo.*,
-            b.booking_code,
-            COALESCE(g.guest_name, bo.guest_name) AS guest_name,
-            COALESCE(r.room_number, bo.room_number) AS room_number
-        FROM breakfast_orders bo
-        LEFT JOIN bookings b ON bo.booking_id = b.id
-        LEFT JOIN guests g ON b.guest_id = g.id
-        LEFT JOIN rooms r ON b.room_id = r.id
-        WHERE bo.breakfast_date = ?
-        ORDER BY bo.breakfast_time ASC";
+    // 8. BREAKFAST ORDERS TODAY — use bo.* directly, no JOINs (guest_name & room_number stored in order)
+    $breakfastQuery = "SELECT bo.* FROM breakfast_orders bo WHERE bo.breakfast_date = ? ORDER BY bo.breakfast_time ASC";
     $breakfastOrders = $db->fetchAll($breakfastQuery, [$today]);
     
     // Decode menu items
@@ -408,13 +398,12 @@ include '../../includes/header.php';
             <span class="sec-count"><?php echo count($checkOutTomorrow); ?></span>
         </div>
         <table class="rpt-table">
-            <thead><tr><th>Room</th><th>Guest</th><th>Phone</th><th>Code</th><th>In</th><th>Out</th></tr></thead>
+            <thead><tr><th>Room</th><th>Guest</th><th>Code</th><th>In</th><th>Out</th></tr></thead>
             <tbody>
                 <?php foreach ($checkOutTomorrow as $g): ?>
                 <tr>
                     <td><span class="room-tag"><?php echo htmlspecialchars($g['room_number']); ?></span></td>
                     <td><?php echo htmlspecialchars($g['guest_name']); ?></td>
-                    <td><?php echo htmlspecialchars($g['phone'] ?: '-'); ?></td>
                     <td><?php echo htmlspecialchars($g['booking_code']); ?></td>
                     <td><?php echo date('d M', strtotime($g['check_in_date'])); ?></td>
                     <td><?php echo date('d M', strtotime($g['check_out_date'])); ?></td>
