@@ -265,17 +265,26 @@ arsort($chart_contractor_pie);
 
 // ====== RECENT PROJECT TRANSACTIONS (from cashbook sync) ======
 $recentProjectExpenses = [];
+$projectExpenseDebug = '';
 try {
     // Check columns in project_expenses
     $peCols = [];
     try {
         $stmt = $db->query("DESCRIBE project_expenses");
         $peCols = array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'Field');
-    } catch (Exception $e) {}
+    } catch (Exception $e) {
+        $projectExpenseDebug = 'Table project_expenses not found';
+    }
     
     if (!empty($peCols)) {
         $hasCashBookId = in_array('cash_book_id', $peCols);
         $hasDivisionName = in_array('division_name', $peCols);
+        $hasDescription = in_array('description', $peCols);
+        $hasExpenseDate = in_array('expense_date', $peCols);
+        
+        // Count total records first
+        $countRow = $db->query("SELECT COUNT(*) as cnt FROM project_expenses")->fetch(PDO::FETCH_ASSOC);
+        $totalPE = (int)($countRow['cnt'] ?? 0);
         
         // Detect project name column
         $projCols = [];
@@ -286,20 +295,35 @@ try {
         $pNameCol = in_array('project_name', $projCols) ? 'project_name' : (in_array('name', $projCols) ? 'name' : "'Unknown'");
         $pCodeCol = in_array('project_code', $projCols) ? 'project_code' : (in_array('code', $projCols) ? 'code' : "NULL");
         
-        $sql = "SELECT pe.*, p.{$pNameCol} as project_name, p.{$pCodeCol} as project_code";
-        if ($hasCashBookId) $sql .= ", cb.category_id, cb.payment_method, cat.category_name";
+        // Build SELECT with available columns
+        $selectCols = ['pe.id', 'pe.project_id', 'pe.amount'];
+        if ($hasExpenseDate) $selectCols[] = 'pe.expense_date';
+        if ($hasDescription) $selectCols[] = 'pe.description';
+        if ($hasDivisionName) $selectCols[] = 'pe.division_name';
+        if ($hasCashBookId) $selectCols[] = 'pe.cash_book_id';
+        $selectCols[] = "p.{$pNameCol} as project_name";
+        $selectCols[] = "p.{$pCodeCol} as project_code";
+        
+        if ($hasCashBookId) {
+            $selectCols[] = 'cat.category_name';
+        }
+        
+        $sql = "SELECT " . implode(', ', $selectCols);
         $sql .= " FROM project_expenses pe";
-        $sql .= " JOIN projects p ON pe.project_id = p.id";
+        $sql .= " LEFT JOIN projects p ON pe.project_id = p.id";
         if ($hasCashBookId) {
             $sql .= " LEFT JOIN cash_book cb ON pe.cash_book_id = cb.id";
             $sql .= " LEFT JOIN categories cat ON cb.category_id = cat.id";
         }
-        $sql .= " ORDER BY pe.expense_date DESC, pe.created_at DESC LIMIT 15";
+        $orderCol = $hasExpenseDate ? 'pe.expense_date' : 'pe.id';
+        $sql .= " ORDER BY {$orderCol} DESC LIMIT 15";
         
         $recentProjectExpenses = $db->query($sql)->fetchAll(PDO::FETCH_ASSOC);
+        $projectExpenseDebug = "Total records: {$totalPE}, Shown: " . count($recentProjectExpenses) . ", Cols: " . implode(',', $peCols);
     }
 } catch (Exception $e) {
     error_log("Recent project expenses load error: " . $e->getMessage());
+    $projectExpenseDebug = 'Error: ' . $e->getMessage();
     $recentProjectExpenses = [];
 }
 
@@ -2048,6 +2072,11 @@ include $base_path . '/includes/header.php';
                 Transaksi Proyek Terbaru
             </h2>
             <span style="font-size: 0.75rem; color: var(--text-muted);">Dari Buku Kas Besar</span>
+        </div>
+        
+        <!-- Debug info (temporary) -->
+        <div style="font-size: 0.7rem; color: #6b7280; background: #f3f4f6; padding: 0.5rem 0.75rem; border-radius: 6px; margin-bottom: 0.75rem; font-family: monospace;">
+            📊 <?= htmlspecialchars($projectExpenseDebug) ?>
         </div>
         
         <?php if (empty($recentProjectExpenses)): ?>
