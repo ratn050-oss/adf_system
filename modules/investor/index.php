@@ -263,6 +263,46 @@ unset($proj);
 // Sort contractor pie by value descending
 arsort($chart_contractor_pie);
 
+// ====== RECENT PROJECT TRANSACTIONS (from cashbook sync) ======
+$recentProjectExpenses = [];
+try {
+    // Check columns in project_expenses
+    $peCols = [];
+    try {
+        $stmt = $db->query("DESCRIBE project_expenses");
+        $peCols = array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'Field');
+    } catch (Exception $e) {}
+    
+    if (!empty($peCols)) {
+        $hasCashBookId = in_array('cash_book_id', $peCols);
+        $hasDivisionName = in_array('division_name', $peCols);
+        
+        // Detect project name column
+        $projCols = [];
+        try {
+            $stmt = $db->query("DESCRIBE projects");
+            $projCols = array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'Field');
+        } catch (Exception $e) {}
+        $pNameCol = in_array('project_name', $projCols) ? 'project_name' : (in_array('name', $projCols) ? 'name' : "'Unknown'");
+        $pCodeCol = in_array('project_code', $projCols) ? 'project_code' : (in_array('code', $projCols) ? 'code' : "NULL");
+        
+        $sql = "SELECT pe.*, p.{$pNameCol} as project_name, p.{$pCodeCol} as project_code";
+        if ($hasCashBookId) $sql .= ", cb.category_id, cb.payment_method, cat.category_name";
+        $sql .= " FROM project_expenses pe";
+        $sql .= " JOIN projects p ON pe.project_id = p.id";
+        if ($hasCashBookId) {
+            $sql .= " LEFT JOIN cash_book cb ON pe.cash_book_id = cb.id";
+            $sql .= " LEFT JOIN categories cat ON cb.category_id = cat.id";
+        }
+        $sql .= " ORDER BY pe.expense_date DESC, pe.created_at DESC LIMIT 15";
+        
+        $recentProjectExpenses = $db->query($sql)->fetchAll(PDO::FETCH_ASSOC);
+    }
+} catch (Exception $e) {
+    error_log("Recent project expenses load error: " . $e->getMessage());
+    $recentProjectExpenses = [];
+}
+
 $pageTitle = 'Data Investor';
 include $base_path . '/includes/header.php';
 ?>
@@ -1992,6 +2032,91 @@ include $base_path . '/includes/header.php';
                 <?php endif; ?>
             </div>
         </div>
+    </div>
+
+    <!-- Recent Project Transactions (from Cashbook) -->
+    <div class="recent-project-section" style="margin-top: 1.5rem;">
+        <div class="section-header">
+            <h2 class="section-title">
+                <svg width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24">
+                    <path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/>
+                    <polyline points="14 2 14 8 20 8"/>
+                    <line x1="16" y1="13" x2="8" y2="13"/>
+                    <line x1="16" y1="17" x2="8" y2="17"/>
+                    <polyline points="10 9 9 9 8 9"/>
+                </svg>
+                Transaksi Proyek Terbaru
+            </h2>
+            <span style="font-size: 0.75rem; color: var(--text-muted);">Dari Buku Kas Besar</span>
+        </div>
+        
+        <?php if (empty($recentProjectExpenses)): ?>
+            <div style="text-align: center; padding: 2rem; color: var(--text-muted); background: var(--bg-secondary); border-radius: 12px; border: 1px dashed var(--border-color);">
+                <svg width="40" height="40" fill="none" stroke="currentColor" stroke-width="1.5" viewBox="0 0 24 24" style="margin-bottom: 0.75rem; opacity: 0.4;">
+                    <path d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2"/>
+                </svg>
+                <div style="font-size: 0.85rem;">Belum ada transaksi proyek dari buku kas.</div>
+                <div style="font-size: 0.75rem; margin-top: 0.25rem;">Tandai pengeluaran sebagai "Pengeluaran Proyek" di <strong>Buku Kas</strong> untuk sinkronisasi otomatis.</div>
+            </div>
+        <?php else: ?>
+            <div style="overflow-x: auto; border-radius: 12px; border: 1px solid var(--border-color);">
+                <table style="width: 100%; border-collapse: collapse; font-size: 0.8rem;">
+                    <thead>
+                        <tr style="background: linear-gradient(135deg, rgba(245,158,11,0.15), rgba(217,119,6,0.1));">
+                            <th style="padding: 0.75rem 1rem; text-align: left; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; color: #92400e; border-bottom: 2px solid rgba(245,158,11,0.2);">Tanggal</th>
+                            <th style="padding: 0.75rem 1rem; text-align: left; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; color: #92400e; border-bottom: 2px solid rgba(245,158,11,0.2);">Proyek</th>
+                            <th style="padding: 0.75rem 1rem; text-align: left; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; color: #92400e; border-bottom: 2px solid rgba(245,158,11,0.2);">Deskripsi</th>
+                            <th style="padding: 0.75rem 1rem; text-align: left; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; color: #92400e; border-bottom: 2px solid rgba(245,158,11,0.2);">Divisi</th>
+                            <th style="padding: 0.75rem 1rem; text-align: right; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; color: #92400e; border-bottom: 2px solid rgba(245,158,11,0.2);">Jumlah</th>
+                            <th style="padding: 0.75rem 1rem; text-align: center; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.5px; color: #92400e; border-bottom: 2px solid rgba(245,158,11,0.2);">Sumber</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($recentProjectExpenses as $idx => $pe): ?>
+                        <tr style="border-bottom: 1px solid var(--border-color); background: <?= $idx % 2 === 0 ? 'var(--bg-secondary)' : 'var(--bg-primary)' ?>; transition: background 0.2s;" onmouseover="this.style.background='rgba(245,158,11,0.08)'" onmouseout="this.style.background='<?= $idx % 2 === 0 ? 'var(--bg-secondary)' : 'var(--bg-primary)' ?>'">
+                            <td style="padding: 0.6rem 1rem; white-space: nowrap; color: var(--text-primary);">
+                                <?= date('d M Y', strtotime($pe['expense_date'] ?? $pe['created_at'])) ?>
+                            </td>
+                            <td style="padding: 0.6rem 1rem;">
+                                <div style="font-weight: 600; color: var(--text-primary);"><?= htmlspecialchars($pe['project_name'] ?? '-') ?></div>
+                                <?php if (!empty($pe['project_code'])): ?>
+                                    <div style="font-size: 0.7rem; color: var(--text-muted);"><?= htmlspecialchars($pe['project_code']) ?></div>
+                                <?php endif; ?>
+                            </td>
+                            <td style="padding: 0.6rem 1rem; color: var(--text-primary); max-width: 250px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                <?= htmlspecialchars($pe['description'] ?? ($pe['category_name'] ?? '-')) ?>
+                            </td>
+                            <td style="padding: 0.6rem 1rem;">
+                                <?php if (!empty($pe['division_name'])): ?>
+                                    <span style="display: inline-block; padding: 0.2rem 0.5rem; background: rgba(99,102,241,0.1); color: #6366f1; border-radius: 4px; font-size: 0.7rem; font-weight: 600;">
+                                        <?= htmlspecialchars($pe['division_name']) ?>
+                                    </span>
+                                <?php else: ?>
+                                    <span style="color: var(--text-muted);">-</span>
+                                <?php endif; ?>
+                            </td>
+                            <td style="padding: 0.6rem 1rem; text-align: right; font-weight: 700; color: #d97706; white-space: nowrap;">
+                                Rp <?= number_format($pe['amount'], 0, ',', '.') ?>
+                            </td>
+                            <td style="padding: 0.6rem 1rem; text-align: center;">
+                                <?php if (!empty($pe['cash_book_id'])): ?>
+                                    <span style="display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.2rem 0.5rem; background: rgba(16,185,129,0.1); color: #059669; border-radius: 4px; font-size: 0.68rem; font-weight: 600;">
+                                        <svg width="12" height="12" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M9 12l2 2 4-4"/><circle cx="12" cy="12" r="10"/></svg>
+                                        Kas Besar
+                                    </span>
+                                <?php else: ?>
+                                    <span style="display: inline-block; padding: 0.2rem 0.5rem; background: rgba(107,114,128,0.1); color: #6b7280; border-radius: 4px; font-size: 0.68rem;">Manual</span>
+                                <?php endif; ?>
+                            </td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+            <div style="text-align: right; margin-top: 0.5rem; font-size: 0.72rem; color: var(--text-muted);">
+                Menampilkan <?= count($recentProjectExpenses) ?> transaksi terbaru
+            </div>
+        <?php endif; ?>
     </div>
 
     <!-- Investor Fund Inflow Details -->
