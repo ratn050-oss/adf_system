@@ -262,37 +262,57 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'edit_att') {
     $attId = (int)$_POST['att_id'];
     $status = $_POST['status'] ?? 'present';
-    $in = !empty($_POST['check_in_time']) ? $_POST['check_in_time'] . ':00' : null;
-    $out = !empty($_POST['check_out_time']) ? $_POST['check_out_time'] . ':00' : null;
+    $s1 = !empty($_POST['scan_1']) ? $_POST['scan_1'] . ':00' : null;
+    $s2 = !empty($_POST['scan_2']) ? $_POST['scan_2'] . ':00' : null;
+    $s3 = !empty($_POST['scan_3']) ? $_POST['scan_3'] . ':00' : null;
+    $s4 = !empty($_POST['scan_4']) ? $_POST['scan_4'] . ':00' : null;
     $notes = trim($_POST['notes'] ?? '');
-    $wh = null;
-    if ($in && $out) {
-        $t1 = strtotime("2000-01-01 $in");
-        $t2 = strtotime("2000-01-01 $out");
-        $wh = ($t2 > $t1) ? round(($t2-$t1)/3600, 2) : null;
-    }
-    $db->query("UPDATE payroll_attendance SET status=?, check_in_time=?, check_out_time=?, work_hours=?, notes=? WHERE id=?",
-        [$status, $in, $out, $wh, $notes, $attId]);
+    $sh1 = null; $sh2 = null; $wh = null;
+    if ($s1 && $s2) { $t1 = strtotime("2000-01-01 $s1"); $t2 = strtotime("2000-01-01 $s2"); $sh1 = ($t2>$t1)?round(($t2-$t1)/3600,2):null; }
+    if ($s3 && $s4) { $t3 = strtotime("2000-01-01 $s3"); $t4 = strtotime("2000-01-01 $s4"); $sh2 = ($t4>$t3)?round(($t4-$t3)/3600,2):null; }
+    $wh = round(($sh1 ?? 0) + ($sh2 ?? 0), 2) ?: null;
+    $db->query("UPDATE payroll_attendance SET status=?, check_in_time=?, check_out_time=?, scan_3=?, scan_4=?, work_hours=?, shift_1_hours=?, shift_2_hours=?, notes=? WHERE id=?",
+        [$status, $s1, $s2, $s3, $s4, $wh, $sh1, $sh2, $notes, $attId]);
     $msg = 'Data absen berhasil diperbarui.';
     $msgType = 'success';
 }
 
-// Manual add attendance
+// Auto-add split shift columns if missing
+try {
+    $_pdo->query("SELECT scan_3 FROM payroll_attendance LIMIT 0");
+} catch (PDOException $e) {
+    $_pdo->exec("ALTER TABLE payroll_attendance 
+        ADD COLUMN `scan_3` TIME DEFAULT NULL AFTER `check_out_time`,
+        ADD COLUMN `scan_4` TIME DEFAULT NULL AFTER `scan_3`,
+        ADD COLUMN `shift_1_hours` DECIMAL(5,2) DEFAULT NULL AFTER `work_hours`,
+        ADD COLUMN `shift_2_hours` DECIMAL(5,2) DEFAULT NULL AFTER `shift_1_hours`");
+}
+try {
+    $_pdo->query("SELECT monthly_target_hours FROM payroll_employees LIMIT 0");
+} catch (PDOException $e) {
+    $_pdo->exec("ALTER TABLE payroll_employees ADD COLUMN `monthly_target_hours` INT DEFAULT 200 AFTER `finger_id`");
+}
+
+// Manual add attendance (split shift: 4 scans)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'manual_att') {
     $empId = (int)$_POST['employee_id'];
     $date = $_POST['attendance_date'];
     $status = $_POST['status'] ?? 'present';
-    $in = !empty($_POST['check_in_time']) ? $_POST['check_in_time'] . ':00' : null;
-    $out = !empty($_POST['check_out_time']) ? $_POST['check_out_time'] . ':00' : null;
+    $s1 = !empty($_POST['scan_1']) ? $_POST['scan_1'] . ':00' : null;
+    $s2 = !empty($_POST['scan_2']) ? $_POST['scan_2'] . ':00' : null;
+    $s3 = !empty($_POST['scan_3']) ? $_POST['scan_3'] . ':00' : null;
+    $s4 = !empty($_POST['scan_4']) ? $_POST['scan_4'] . ':00' : null;
     $notes = trim($_POST['notes'] ?? '');
-    $wh = null;
-    if ($in && $out) {
-        $t1 = strtotime("$date $in"); $t2 = strtotime("$date $out");
-        $wh = ($t2 > $t1) ? round(($t2-$t1)/3600, 2) : null;
-    }
+
+    // Calculate shift hours
+    $sh1 = null; $sh2 = null; $wh = null;
+    if ($s1 && $s2) { $t1 = strtotime("$date $s1"); $t2 = strtotime("$date $s2"); $sh1 = ($t2>$t1)?round(($t2-$t1)/3600,2):null; }
+    if ($s3 && $s4) { $t3 = strtotime("$date $s3"); $t4 = strtotime("$date $s4"); $sh2 = ($t4>$t3)?round(($t4-$t3)/3600,2):null; }
+    $wh = round(($sh1 ?? 0) + ($sh2 ?? 0), 2) ?: null;
+
     try {
-        $db->query("INSERT INTO payroll_attendance (employee_id, attendance_date, check_in_time, check_out_time, work_hours, status, notes) VALUES (?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE check_in_time=VALUES(check_in_time), check_out_time=VALUES(check_out_time), work_hours=VALUES(work_hours), status=VALUES(status), notes=VALUES(notes)",
-            [$empId, $date, $in, $out, $wh, $status, $notes]);
+        $db->query("INSERT INTO payroll_attendance (employee_id, attendance_date, check_in_time, check_out_time, scan_3, scan_4, work_hours, shift_1_hours, shift_2_hours, status, notes) VALUES (?,?,?,?,?,?,?,?,?,?,?) ON DUPLICATE KEY UPDATE check_in_time=VALUES(check_in_time), check_out_time=VALUES(check_out_time), scan_3=VALUES(scan_3), scan_4=VALUES(scan_4), work_hours=VALUES(work_hours), shift_1_hours=VALUES(shift_1_hours), shift_2_hours=VALUES(shift_2_hours), status=VALUES(status), notes=VALUES(notes)",
+            [$empId, $date, $s1, $s2, $s3, $s4, $wh, $sh1, $sh2, $status, $notes]);
         $msg = 'Data absen berhasil ditambahkan.';
         $msgType = 'success';
     } catch (Exception $e) { $msg = 'Error: ' . $e->getMessage(); $msgType = 'error'; }
@@ -333,13 +353,16 @@ $dailyAtt = $db->fetchAll("
 // Monthly summary
 $monthlyAtt = $db->fetchAll("
     SELECT e.id, e.employee_code, e.full_name, e.position,
+        COALESCE(e.monthly_target_hours, 200) as target_hours,
         COUNT(a.id) as total_days,
         SUM(CASE WHEN a.status = 'present' THEN 1 ELSE 0 END) as present,
         SUM(CASE WHEN a.status = 'late' THEN 1 ELSE 0 END) as late,
         SUM(CASE WHEN a.status = 'absent' THEN 1 ELSE 0 END) as absent,
-        SUM(CASE WHEN a.status = 'leave' THEN 1 ELSE 0 END) as leave,
+        SUM(CASE WHEN a.status = 'leave' THEN 1 ELSE 0 END) as `leave`,
         ROUND(SUM(a.work_hours), 1) as total_hours,
-        ROUND(AVG(CASE WHEN a.work_hours > 0 THEN a.work_hours ELSE NULL END), 1) as avg_hours
+        ROUND(AVG(CASE WHEN a.work_hours > 0 THEN a.work_hours ELSE NULL END), 1) as avg_hours,
+        ROUND(SUM(a.shift_1_hours), 1) as total_shift1,
+        ROUND(SUM(a.shift_2_hours), 1) as total_shift2
     FROM payroll_employees e
     LEFT JOIN payroll_attendance a ON a.employee_id = e.id AND DATE_FORMAT(a.attendance_date, '%Y-%m') = ?
     WHERE e.is_active = 1
@@ -539,11 +562,13 @@ include '../../includes/header.php';
             <table class="att-table">
                 <thead><tr>
                     <th>Karyawan</th>
-                    <th>Check-In</th>
-                    <th>Check-Out</th>
-                    <th>Jam Kerja</th>
-                    <th>Lokasi Absen</th>
-                    <th>GPS</th>
+                    <th style="text-align:center;">Scan 1</th>
+                    <th style="text-align:center;">Scan 2</th>
+                    <th style="text-align:center;">Shift 1</th>
+                    <th style="text-align:center;">Scan 3</th>
+                    <th style="text-align:center;">Scan 4</th>
+                    <th style="text-align:center;">Shift 2</th>
+                    <th style="text-align:center;">Total</th>
                     <th>Status</th>
                     <th>Aksi</th>
                 </tr></thead>
@@ -557,39 +582,26 @@ include '../../includes/header.php';
                     $a = $attById[$emp['id']] ?? null;
                     $status = $a ? $a['status'] : 'notyet';
                     $labels = ['present'=>'Hadir','late'=>'Terlambat','absent'=>'Absen','leave'=>'Izin','holiday'=>'Libur','half_day'=>'1/2 Hari','notyet'=>'Belum'];
+                    $s1 = $a && $a['check_in_time'] ? substr($a['check_in_time'],0,5) : null;
+                    $s2 = $a && $a['check_out_time'] ? substr($a['check_out_time'],0,5) : null;
+                    $s3 = $a && !empty($a['scan_3']) ? substr($a['scan_3'],0,5) : null;
+                    $s4 = $a && !empty($a['scan_4']) ? substr($a['scan_4'],0,5) : null;
+                    $sh1 = $a ? ($a['shift_1_hours'] ?? null) : null;
+                    $sh2 = $a ? ($a['shift_2_hours'] ?? null) : null;
+                    $dash = '<span style="color:#d1d5db;">—</span>';
                 ?>
                 <tr>
                     <td>
                         <strong><?php echo htmlspecialchars($emp['full_name']); ?></strong>
                         <div style="font-size:10px; color:var(--muted);"><?php echo htmlspecialchars($emp['employee_code']); ?> • <?php echo htmlspecialchars($emp['position']); ?></div>
                     </td>
-                    <td style="font-weight:700;"><?php echo $a && $a['check_in_time'] ? substr($a['check_in_time'],0,5) : '<span style="color:#d1d5db;">—</span>'; ?></td>
-                    <td style="font-weight:700; color:var(--muted);"><?php echo $a && $a['check_out_time'] ? '<span style="color:var(--navy)">'.substr($a['check_out_time'],0,5).'</span>' : '<span style="color:#d1d5db;">—</span>'; ?></td>
-                    <td><?php echo $a && $a['work_hours'] ? '<strong>'.number_format($a['work_hours'],1).'</strong><span style="font-size:11px;color:var(--muted);"> jam</span>' : '<span style="color:#d1d5db;">—</span>'; ?></td>
-                    <td>
-                        <?php
-                        if ($a && (abs((float)($a['check_in_lat'] ?? 0)) > 0.001)) {
-                            $nearLoc = getAttendanceLocation((float)$a['check_in_lat'], (float)$a['check_in_lng'], $locations);
-                            if ($nearLoc) {
-                                $isOut = (bool)($a['is_outside_radius'] ?? false);
-                                $pillClass = $isOut ? 'loc-pill outside' : 'loc-pill';
-                                $distTxt = $nearLoc['_dist'] < 1000 ? $nearLoc['_dist'].'m' : round($nearLoc['_dist']/1000,1).'km';
-                                echo '<span class="'.$pillClass.'" title="'.htmlspecialchars($nearLoc['location_name']).' — '.$distTxt.'">📍 '.htmlspecialchars(mb_substr($nearLoc['location_name'],0,22)).'</span>';
-                            } else {
-                                echo '<span class="loc-pill unknown">🌐 Luar Area</span>';
-                            }
-                        } else {
-                            echo '<span style="color:#d1d5db;">—</span>';
-                        }
-                        ?>
-                    </td>
-                    <td>
-                        <?php if ($a && $a['check_in_distance_m']): ?>
-                            <span style="font-size:12px; font-weight:600; color:<?php echo $a['is_outside_radius'] ? 'var(--red)' : 'var(--green)'; ?>">
-                                <?php echo $a['check_in_distance_m']; ?>m <?php echo $a['is_outside_radius'] ? '⚠️' : '✅'; ?>
-                            </span>
-                        <?php else: echo '<span style="color:#d1d5db;">—</span>'; endif; ?>
-                    </td>
+                    <td style="text-align:center; font-weight:700; color:var(--green);"><?php echo $s1 ?: $dash; ?></td>
+                    <td style="text-align:center; font-weight:700; color:var(--navy);"><?php echo $s2 ?: $dash; ?></td>
+                    <td style="text-align:center; font-size:12px;"><?php echo $sh1 ? '<strong>'.number_format($sh1,1).'</strong>j' : $dash; ?></td>
+                    <td style="text-align:center; font-weight:700; color:var(--green);"><?php echo $s3 ?: $dash; ?></td>
+                    <td style="text-align:center; font-weight:700; color:var(--navy);"><?php echo $s4 ?: $dash; ?></td>
+                    <td style="text-align:center; font-size:12px;"><?php echo $sh2 ? '<strong>'.number_format($sh2,1).'</strong>j' : $dash; ?></td>
+                    <td style="text-align:center;"><?php echo $a && $a['work_hours'] ? '<strong>'.number_format($a['work_hours'],1).'</strong><span style="font-size:11px;color:var(--muted);"> jam</span>' : $dash; ?></td>
                     <td><span class="s-badge s-<?php echo $status; ?>"><?php echo $labels[$status] ?? $status; ?></span></td>
                     <td>
                         <?php if ($a): ?>
@@ -620,13 +632,19 @@ include '../../includes/header.php';
                     <th>Karyawan</th>
                     <th style="text-align:center;">Hadir</th>
                     <th style="text-align:center;">Terlambat</th>
-                    <th style="text-align:center;">Absen</th>
-                    <th style="text-align:center;">Izin</th>
+                    <th style="text-align:right;">Shift 1</th>
+                    <th style="text-align:right;">Shift 2</th>
                     <th style="text-align:right;">Total Jam</th>
+                    <th style="text-align:center;">Target</th>
                     <th style="text-align:right;">Avg/hari</th>
                 </tr></thead>
                 <tbody>
-                <?php foreach ($monthlyAtt as $row): ?>
+                <?php foreach ($monthlyAtt as $row):
+                    $total = (float)($row['total_hours'] ?? 0);
+                    $target = (int)($row['target_hours'] ?? 200);
+                    $pct = $target > 0 ? min(round($total/$target*100), 100) : 0;
+                    $barColor = $pct >= 90 ? 'var(--green)' : ($pct >= 60 ? 'var(--orange)' : 'var(--red)');
+                ?>
                 <tr>
                     <td>
                         <strong><?php echo htmlspecialchars($row['full_name']); ?></strong>
@@ -634,9 +652,18 @@ include '../../includes/header.php';
                     </td>
                     <td style="text-align:center;"><strong style="color:var(--green);"><?php echo $row['present']; ?></strong></td>
                     <td style="text-align:center;"><span style="color:var(--orange);"><?php echo $row['late']; ?></span></td>
-                    <td style="text-align:center;"><span style="color:var(--red);"><?php echo $row['absent']; ?></span></td>
-                    <td style="text-align:center;"><span style="color:#6366f1;"><?php echo $row['leave']; ?></span></td>
-                    <td style="text-align:right; font-weight:700;"><?php echo $row['total_hours'] ?? 0; ?>j</td>
+                    <td style="text-align:right; font-size:12px;"><?php echo ($row['total_shift1'] ?? 0); ?>j</td>
+                    <td style="text-align:right; font-size:12px;"><?php echo ($row['total_shift2'] ?? 0); ?>j</td>
+                    <td style="text-align:right; font-weight:700;"><?php echo $total; ?>j</td>
+                    <td style="min-width:140px;">
+                        <div style="display:flex; align-items:center; gap:6px;">
+                            <div style="flex:1; background:#e5e7eb; height:8px; border-radius:4px; overflow:hidden;">
+                                <div style="width:<?php echo $pct; ?>%; height:100%; background:<?php echo $barColor; ?>; border-radius:4px; transition:width 0.3s;"></div>
+                            </div>
+                            <span style="font-size:11px; font-weight:700; color:<?php echo $barColor; ?>; white-space:nowrap;"><?php echo $pct; ?>%</span>
+                        </div>
+                        <div style="font-size:10px; color:var(--muted); margin-top:2px;"><?php echo $total; ?>/<?php echo $target; ?>j</div>
+                    </td>
                     <td style="text-align:right;"><?php echo $row['avg_hours'] ?? 0; ?>j</td>
                 </tr>
                 <?php endforeach; ?>
@@ -982,19 +1009,31 @@ include '../../includes/header.php';
 <!-- ═══ MODAL: EDIT ATTENDANCE ═══ -->
 <div class="modal-overlay" id="editModal">
     <div class="modal-box">
-        <div class="modal-title">✏️ Edit Data Absen</div>
+        <div class="modal-title">✏️ Edit Data Absen (Split Shift)</div>
         <form method="POST">
             <input type="hidden" name="action" value="edit_att">
             <input type="hidden" name="att_id" id="editAttId">
             <div style="font-size:13px; font-weight:600; color:var(--navy); margin-bottom:12px;" id="editEmpName"></div>
+            <div style="font-size:11px; color:var(--muted); margin-bottom:8px; padding:6px 10px; background:#f0f9ff; border-radius:6px; border-left:3px solid var(--blue);">🔄 Shift 1</div>
             <div class="form-grid">
                 <div class="form-group">
-                    <label class="form-label">Check-In</label>
-                    <input type="time" name="check_in_time" id="editCheckIn" class="form-input">
+                    <label class="form-label">Scan 1 (Masuk)</label>
+                    <input type="time" name="scan_1" id="editScan1" class="form-input">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Check-Out</label>
-                    <input type="time" name="check_out_time" id="editCheckOut" class="form-input">
+                    <label class="form-label">Scan 2 (Pulang)</label>
+                    <input type="time" name="scan_2" id="editScan2" class="form-input">
+                </div>
+            </div>
+            <div style="font-size:11px; color:var(--muted); margin-bottom:8px; padding:6px 10px; background:#fefce8; border-radius:6px; border-left:3px solid var(--orange);">🌙 Shift 2</div>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label class="form-label">Scan 3 (Masuk)</label>
+                    <input type="time" name="scan_3" id="editScan3" class="form-input">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Scan 4 (Pulang)</label>
+                    <input type="time" name="scan_4" id="editScan4" class="form-input">
                 </div>
             </div>
             <div class="form-group">
@@ -1042,7 +1081,7 @@ include '../../includes/header.php';
 <!-- ═══ MODAL: MANUAL ATTENDANCE ═══ -->
 <div class="modal-overlay" id="manualModal">
     <div class="modal-box">
-        <div class="modal-title">➕ Input Absen Manual</div>
+        <div class="modal-title">➕ Input Absen Manual (Split Shift)</div>
         <form method="POST">
             <input type="hidden" name="action" value="manual_att">
             <div class="form-group">
@@ -1058,14 +1097,26 @@ include '../../includes/header.php';
                 <label class="form-label">Tanggal</label>
                 <input type="date" name="attendance_date" id="manualDate" class="form-input" value="<?php echo $viewDate; ?>" required>
             </div>
+            <div style="font-size:11px; color:var(--muted); margin-bottom:8px; padding:6px 10px; background:#f0f9ff; border-radius:6px; border-left:3px solid var(--blue);">🔄 Shift 1</div>
             <div class="form-grid">
                 <div class="form-group">
-                    <label class="form-label">Check-In</label>
-                    <input type="time" name="check_in_time" class="form-input" value="08:00">
+                    <label class="form-label">Scan 1 (Masuk)</label>
+                    <input type="time" name="scan_1" class="form-input" value="07:00">
                 </div>
                 <div class="form-group">
-                    <label class="form-label">Check-Out</label>
-                    <input type="time" name="check_out_time" class="form-input" value="17:00">
+                    <label class="form-label">Scan 2 (Pulang)</label>
+                    <input type="time" name="scan_2" class="form-input" value="11:00">
+                </div>
+            </div>
+            <div style="font-size:11px; color:var(--muted); margin-bottom:8px; padding:6px 10px; background:#fefce8; border-radius:6px; border-left:3px solid var(--orange);">🌙 Shift 2</div>
+            <div class="form-grid">
+                <div class="form-group">
+                    <label class="form-label">Scan 3 (Masuk)</label>
+                    <input type="time" name="scan_3" class="form-input">
+                </div>
+                <div class="form-group">
+                    <label class="form-label">Scan 4 (Pulang)</label>
+                    <input type="time" name="scan_4" class="form-input">
                 </div>
             </div>
             <div class="form-group">
@@ -1243,8 +1294,10 @@ function useMyGPS() {
 function openEditModal(att) {
     document.getElementById('editAttId').value = att.id;
     document.getElementById('editEmpName').textContent = att.full_name + ' — ' + att.attendance_date;
-    document.getElementById('editCheckIn').value = att.check_in_time ? att.check_in_time.substring(0,5) : '';
-    document.getElementById('editCheckOut').value = att.check_out_time ? att.check_out_time.substring(0,5) : '';
+    document.getElementById('editScan1').value = att.check_in_time ? att.check_in_time.substring(0,5) : '';
+    document.getElementById('editScan2').value = att.check_out_time ? att.check_out_time.substring(0,5) : '';
+    document.getElementById('editScan3').value = att.scan_3 ? att.scan_3.substring(0,5) : '';
+    document.getElementById('editScan4').value = att.scan_4 ? att.scan_4.substring(0,5) : '';
     document.getElementById('editStatus').value = att.status || 'present';
     document.getElementById('editNotes').value = att.notes || '';
     document.getElementById('editModal').classList.add('open');

@@ -121,6 +121,8 @@ if (!empty($registeredCloudId) && $cloudId !== $registeredCloudId) {
 }
 
 // ── Process attlog type ──
+// SPLIT SHIFT LOGIC: up to 4 scans/day, paired as shift 1 (scan 1-2) & shift 2 (scan 3-4)
+// Double scan filter: ignore scans < 30 min from last scan
 if ($type === 'attlog' && isset($data['data'])) {
     $pin = $data['data']['pin'] ?? null;
     $scanStr = $data['data']['scan'] ?? null;
@@ -151,23 +153,51 @@ if ($type === 'attlog' && isset($data['data'])) {
 
     $empId = (int)$employee['id'];
 
-    // Determine: check-in or check-out
-    // Priority: status_scan from machine. Fallback: first scan = in, second = out
-    $isCheckIn = true;
-    $statusScanLower = strtolower($statusScan ?? '');
-    if (strpos($statusScanLower, 'out') !== false) {
-        $isCheckIn = false;
-    } elseif (strpos($statusScanLower, 'in') !== false) {
-        $isCheckIn = true;
-    } else {
-        // Auto-detect: if no attendance today → check-in, else → check-out
-        $existStmt = $pdo->prepare("SELECT id, check_in_time, check_out_time FROM payroll_attendance WHERE employee_id = ? AND attendance_date = ?");
-        $existStmt->execute([$empId, $scanDate]);
-        $existAtt = $existStmt->fetch(PDO::FETCH_ASSOC);
-        $isCheckIn = !$existAtt || empty($existAtt['check_in_time']);
+    // Auto-add scan_3, scan_4 columns if missing
+    try { $pdo->query("SELECT scan_3 FROM payroll_attendance LIMIT 1"); } catch (PDOException $e) {
+        $pdo->exec("ALTER TABLE payroll_attendance 
+            ADD COLUMN `scan_3` TIME DEFAULT NULL AFTER `check_out_time`,
+            ADD COLUMN `scan_4` TIME DEFAULT NULL AFTER `scan_3`,
+            ADD COLUMN `shift_1_hours` DECIMAL(5,2) DEFAULT NULL AFTER `work_hours`,
+            ADD COLUMN `shift_2_hours` DECIMAL(5,2) DEFAULT NULL AFTER `shift_1_hours`");
     }
 
-    // Get checkin_start for late detection
+    // Get existing attendance record for today
+    $existStmt = $pdo->prepare("SELECT * FROM payroll_attendance WHERE employee_id = ? AND attendance_date = ?");
+    $existStmt->execute([$empId, $scanDate]);
+    $att = $existStmt->fetch(PDO::FETCH_ASSOC);
+
+    // Determine which scans are already filled
+    $scan1 = $att['check_in_time'] ?? null;
+    $scan2 = $att['check_out_time'] ?? null;
+    $scan3 = $att['scan_3'] ?? null;
+    $scan4 = $att['scan_4'] ?? null;
+    $filledScans = array_filter([$scan1, $scan2, $scan3, $scan4], fn($s) => !empty($s));
+
+    // DOUBLE SCAN FILTER: if last scan was < 30 min ago, skip
+    if (!empty($filledScans)) {
+        $lastScan = end($filledScans);
+        $lastScanSec = strtotime("2000-01-01 " . $lastScan);
+        $newScanSec = strtotime("2000-01-01 " . $scanTimeOnly);
+        $diffMinutes = abs($newScanSec - $lastScanSec) / 60;
+        
+        if ($diffMinutes < 30) {
+            $result = "Double scan ignored for {$employee['full_name']} (last: {$lastScan}, new: {$scanTimeOnly}, diff: " . round($diffMinutes) . "min < 30min)";
+            logWebhook($pdo, $cloudId, $type, $pin, $scanTime, $verify, $statusScan, $empId, 1, $result, $rawBody);
+            echo json_encode(['success' => true, 'message' => $result]);
+            exit;
+        }
+    }
+
+    // Check if all 4 scans are full
+    if (count($filledScans) >= 4) {
+        $result = "Max 4 scans reached for {$employee['full_name']} on {$scanDate}";
+        logWebhook($pdo, $cloudId, $type, $pin, $scanTime, $verify, $statusScan, $empId, 0, $result, $rawBody);
+        echo json_encode(['success' => false, 'message' => $result]);
+        exit;
+    }
+
+    // Get checkin_end for late detection
     $checkinEnd = '10:00:00';
     try {
         $cfgTime = $pdo->query("SELECT checkin_end FROM payroll_attendance_config WHERE id = 1")->fetch(PDO::FETCH_ASSOC);
@@ -175,50 +205,79 @@ if ($type === 'attlog' && isset($data['data'])) {
     } catch (Exception $e) {}
 
     $result = '';
+    $scanLabels = ['Scan 1 (Masuk Shift 1)', 'Scan 2 (Pulang Shift 1)', 'Scan 3 (Masuk Shift 2)', 'Scan 4 (Pulang Shift 2)'];
+    
     try {
-        if ($isCheckIn) {
-            // Determine status: present or late
+        if (!$att) {
+            // No record yet — this is Scan 1
             $status = ($scanTimeOnly > $checkinEnd) ? 'late' : 'present';
-
-            // Check for duplicate
-            $dupStmt = $pdo->prepare("SELECT id FROM payroll_attendance WHERE employee_id = ? AND attendance_date = ?");
-            $dupStmt->execute([$empId, $scanDate]);
-            $existing = $dupStmt->fetch(PDO::FETCH_ASSOC);
-
-            if ($existing) {
-                // Update existing (in case re-scan)
-                $pdo->prepare("UPDATE payroll_attendance SET check_in_time = ?, status = ?, check_in_device = ?, notes = CONCAT(IFNULL(notes,''), ' [FP re-scan in]') WHERE id = ?")
-                    ->execute([$scanTimeOnly, $status, 'fingerprint:' . $verify, $existing['id']]);
-                $result = "Updated check-in for {$employee['full_name']} at {$scanTimeOnly} ({$status})";
-            } else {
-                $pdo->prepare("INSERT INTO payroll_attendance (employee_id, attendance_date, check_in_time, status, check_in_device, notes) VALUES (?,?,?,?,?,?)")
-                    ->execute([$empId, $scanDate, $scanTimeOnly, $status, 'fingerprint:' . $verify, 'Fingerspot.io webhook']);
-                $result = "Check-in {$employee['full_name']} at {$scanTimeOnly} ({$status})";
-            }
+            $pdo->prepare("INSERT INTO payroll_attendance (employee_id, attendance_date, check_in_time, status, check_in_device, notes) VALUES (?,?,?,?,?,?)")
+                ->execute([$empId, $scanDate, $scanTimeOnly, $status, 'fingerprint:' . $verify, 'Fingerspot split-shift']);
+            $scanNum = 1;
+            $result = "{$scanLabels[0]}: {$employee['full_name']} at {$scanTimeOnly} ({$status})";
         } else {
-            // Check-out: update existing attendance
-            $existStmt = $pdo->prepare("SELECT id, check_in_time FROM payroll_attendance WHERE employee_id = ? AND attendance_date = ?");
-            $existStmt->execute([$empId, $scanDate]);
-            $existAtt = $existStmt->fetch(PDO::FETCH_ASSOC);
+            // Determine next empty slot
+            $scanNum = 0;
+            $updateCol = '';
+            if (empty($scan1)) { $updateCol = 'check_in_time'; $scanNum = 1; }
+            elseif (empty($scan2)) { $updateCol = 'check_out_time'; $scanNum = 2; }
+            elseif (empty($scan3)) { $updateCol = 'scan_3'; $scanNum = 3; }
+            elseif (empty($scan4)) { $updateCol = 'scan_4'; $scanNum = 4; }
 
-            if ($existAtt) {
-                // Calculate work hours
-                $workHours = null;
-                if ($existAtt['check_in_time']) {
-                    $inSec = strtotime("2000-01-01 " . $existAtt['check_in_time']);
-                    $outSec = strtotime("2000-01-01 " . $scanTimeOnly);
-                    if ($outSec > $inSec) {
-                        $workHours = round(($outSec - $inSec) / 3600, 2);
-                    }
+            if ($scanNum > 0) {
+                // Calculate shift hours when completing a pair
+                $shift1Hours = null;
+                $shift2Hours = null;
+                $totalHours = null;
+
+                if ($scanNum === 2 && $scan1) {
+                    // Completing Shift 1
+                    $s1 = strtotime("2000-01-01 " . $scan1);
+                    $s2 = strtotime("2000-01-01 " . $scanTimeOnly);
+                    $shift1Hours = ($s2 > $s1) ? round(($s2 - $s1) / 3600, 2) : null;
                 }
-                $pdo->prepare("UPDATE payroll_attendance SET check_out_time = ?, work_hours = ?, check_out_device = ? WHERE id = ?")
-                    ->execute([$scanTimeOnly, $workHours, 'fingerprint:' . $verify, $existAtt['id']]);
-                $result = "Check-out {$employee['full_name']} at {$scanTimeOnly}" . ($workHours ? " ({$workHours}h)" : '');
-            } else {
-                // No check-in yet, create record with check-out only
-                $pdo->prepare("INSERT INTO payroll_attendance (employee_id, attendance_date, check_out_time, status, check_out_device, notes) VALUES (?,?,?,?,?,?)")
-                    ->execute([$empId, $scanDate, $scanTimeOnly, 'present', 'fingerprint:' . $verify, 'Fingerspot checkout without checkin']);
-                $result = "Check-out (no check-in) {$employee['full_name']} at {$scanTimeOnly}";
+                if ($scanNum === 4 && $scan3) {
+                    // Completing Shift 2
+                    $s3 = strtotime("2000-01-01 " . $scan3);
+                    $s4 = strtotime("2000-01-01 " . $scanTimeOnly);
+                    $shift2Hours = ($s4 > $s3) ? round(($s4 - $s3) / 3600, 2) : null;
+                }
+
+                // Build update query
+                $updates = ["{$updateCol} = ?"];
+                $params = [$scanTimeOnly];
+
+                if ($shift1Hours !== null) {
+                    $updates[] = "shift_1_hours = ?";
+                    $params[] = $shift1Hours;
+                }
+                if ($shift2Hours !== null) {
+                    $updates[] = "shift_2_hours = ?";
+                    $params[] = $shift2Hours;
+                }
+
+                // Recalculate total work_hours
+                // Need current shift values + new one
+                $curShift1 = ($shift1Hours !== null) ? $shift1Hours : (float)($att['shift_1_hours'] ?? 0);
+                $curShift2 = ($shift2Hours !== null) ? $shift2Hours : (float)($att['shift_2_hours'] ?? 0);
+                $totalHours = $curShift1 + $curShift2;
+                if ($totalHours > 0) {
+                    $updates[] = "work_hours = ?";
+                    $params[] = round($totalHours, 2);
+                }
+
+                $updates[] = "notes = ?";
+                $params[] = "Split-shift: {$scanNum}/4 scans";
+                $params[] = $att['id'];
+
+                $sql = "UPDATE payroll_attendance SET " . implode(', ', $updates) . " WHERE id = ?";
+                $pdo->prepare($sql)->execute($params);
+
+                $hoursTxt = '';
+                if ($scanNum === 2 && $shift1Hours) $hoursTxt = " (shift1: {$shift1Hours}h)";
+                if ($scanNum === 4 && $shift2Hours) $hoursTxt = " (shift2: {$shift2Hours}h, total: {$totalHours}h)";
+
+                $result = "{$scanLabels[$scanNum-1]}: {$employee['full_name']} at {$scanTimeOnly}{$hoursTxt}";
             }
         }
 
