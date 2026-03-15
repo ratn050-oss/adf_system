@@ -899,18 +899,21 @@ include '../../includes/header.php';
                         <input type="checkbox" id="isProjectExpense" name="is_project_expense" value="1" onchange="toggleProjectExpense()" style="width: 16px; height: 16px; accent-color: #f59e0b;">
                         <span style="font-size: 0.813rem; font-weight: 600; color: #92400e;">🏗️ Pengeluaran Proyek (bukan beban hotel)</span>
                     </label>
-                    <?php if (!empty($investorProjects)): ?>
-                    <div id="projectSelectWrapper" style="display: none; margin-top: 0.4rem;">
-                        <select name="project_id" id="projectSelect" class="form-control" style="height: 34px; font-size: 0.813rem;">
+                    <div id="projectSelectWrapper" style="display: none; margin-top: 0.5rem;">
+                        <label class="form-label" style="font-size: 0.75rem; font-weight: 600; margin-bottom: 0.25rem; color: #92400e;">Pilih Proyek <span style="color: var(--danger);">*</span></label>
+                        <select name="project_id" id="projectSelect" class="form-control" style="height: 36px; font-size: 0.813rem; border-color: #f59e0b;">
                             <option value="">-- Pilih Proyek --</option>
                             <?php foreach ($investorProjects as $proj): ?>
                             <option value="<?php echo $proj['id']; ?>">
                                 <?php echo htmlspecialchars(($proj['project_code'] ? $proj['project_code'] . ' - ' : '') . $proj['project_name']); ?>
+                                <?php echo ' [' . ucfirst($proj['status']) . ']'; ?>
                             </option>
                             <?php endforeach; ?>
                         </select>
+                        <?php if (empty($investorProjects)): ?>
+                        <div style="font-size: 0.72rem; color: #dc2626; margin-top: 0.25rem;">⚠️ Belum ada proyek. Buat dulu di menu <a href="<?php echo BASE_URL; ?>/modules/investor/index.php" style="color: #4f46e5; font-weight: 600;">Investor & Proyek</a></div>
+                        <?php endif; ?>
                     </div>
-                    <?php endif; ?>
                     <div id="projectExpenseNote" style="display: none; font-size: 0.72rem; color: #f59e0b; margin-top: 0.25rem;">⚠️ Transaksi ini tidak masuk laporan P&L hotel, tapi tercatat di menu Investor & Proyek</div>
                     <input type="hidden" name="source_type" id="sourceTypeHidden" value="">
                 </div>
@@ -1097,6 +1100,26 @@ feather.replace();
 })();
 
 <?php if (!$isCQC): ?>
+// Show/hide project expense toggle based on transaction type (only visible for expense)
+document.querySelectorAll('input[name="transaction_type"]').forEach(radio => {
+    radio.addEventListener('change', function() {
+        const projectGroup = document.getElementById('projectExpenseGroup');
+        const checkbox = document.getElementById('isProjectExpense');
+        if (projectGroup) {
+            if (this.value === 'expense') {
+                projectGroup.style.display = 'block';
+            } else {
+                projectGroup.style.display = 'none';
+                // Uncheck and reset when switching to income
+                if (checkbox && checkbox.checked) {
+                    checkbox.checked = false;
+                    toggleProjectExpense();
+                }
+            }
+        }
+    });
+});
+
 // Owner Fund - Input dari Bu Sita
 function fillOwnerFund() {
     // Set transaction type to income
@@ -1464,6 +1487,7 @@ function toggleProjectExpense() {
     const label = document.getElementById('projectToggleLabel');
     const sourceField = document.getElementById('sourceTypeHidden');
     const note = document.getElementById('projectExpenseNote');
+    const projectSelect = document.getElementById('projectSelect');
     
     if (wrapper) wrapper.style.display = checked ? 'block' : 'none';
     if (note) note.style.display = checked ? 'block' : 'none';
@@ -1471,9 +1495,9 @@ function toggleProjectExpense() {
     label.style.borderColor = checked ? '#f59e0b' : 'rgba(245,158,11,0.3)';
     sourceField.value = checked ? 'owner_project' : '';
     
-    const projectSelect = document.getElementById('projectSelect');
-    if (!checked && projectSelect) {
-        projectSelect.value = '';
+    if (projectSelect) {
+        projectSelect.required = checked;
+        if (!checked) projectSelect.value = '';
     }
 }
 
