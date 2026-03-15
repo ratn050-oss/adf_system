@@ -159,8 +159,8 @@ try {
     $stmt->execute([$today]);
     $stats['today_income'] = (float)$stmt->fetchColumn();
     
-    // Today Expense
-    $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount), 0) FROM cash_book WHERE transaction_date = ? AND transaction_type = 'expense'");
+    // Today Expense (exclude owner_project — same as chart API)
+    $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount), 0) FROM cash_book WHERE transaction_date = ? AND transaction_type = 'expense'" . $excludeProjectExpense);
     $stmt->execute([$today]);
     $stats['today_expense'] = (float)$stmt->fetchColumn();
     
@@ -169,8 +169,8 @@ try {
     $stmt->execute([$thisMonth]);
     $stats['month_income'] = (float)$stmt->fetchColumn();
     
-    // Month Expense
-    $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount), 0) FROM cash_book WHERE DATE_FORMAT(transaction_date, '%Y-%m') = ? AND transaction_type = 'expense'");
+    // Month Expense (exclude owner_project — same as chart API)
+    $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount), 0) FROM cash_book WHERE DATE_FORMAT(transaction_date, '%Y-%m') = ? AND transaction_type = 'expense'" . $excludeProjectExpense);
     $stmt->execute([$thisMonth]);
     $stats['month_expense'] = (float)$stmt->fetchColumn();
     
