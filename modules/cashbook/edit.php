@@ -224,6 +224,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // ============================================
             // SYNC PROJECT EXPENSES (after commit - DDL causes implicit commit)
             // ============================================
+            $projectSyncResult = '';
             try {
                 $pdo = $db->getConnection();
                 
@@ -238,6 +239,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
                     try { $pdo->exec("ALTER TABLE project_expenses ADD COLUMN cash_book_id INT NULL"); } catch (Exception $ignore) {}
                     try { $pdo->exec("ALTER TABLE project_expenses ADD COLUMN division_name VARCHAR(100)"); } catch (Exception $ignore) {}
+                    
+                    // Detect actual column names in project_expenses
+                    $peCols = array_column($pdo->query("DESCRIBE project_expenses")->fetchAll(PDO::FETCH_ASSOC), 'Field');
                     
                     // Detect actual column names in projects table
                     $projCols = array_column($pdo->query("DESCRIBE projects")->fetchAll(PDO::FETCH_ASSOC), 'Field');
@@ -256,25 +260,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         if ($defProject) {
                             $projId = (int)$defProject['id'];
                         } else {
-                            // Build INSERT with correct column names
-                            $insertCols = ['description', 'budget_idr', 'status', 'created_by'];
-                            $insertVals = ['Proyek default untuk pengeluaran proyek dari kas besar', 0, 'ongoing', $_SESSION['user_id'] ?? null];
-                            $insertPlaceholders = ['?', '?', '?', '?'];
-                            
-                            array_unshift($insertCols, $pNameCol);
-                            array_unshift($insertVals, 'Proyek Umum');
-                            array_unshift($insertPlaceholders, '?');
-                            
-                            if ($pCodeCol) {
-                                array_unshift($insertCols, $pCodeCol);
-                                array_unshift($insertVals, 'UMUM');
-                                array_unshift($insertPlaceholders, '?');
-                            }
-                            
-                            $createStmt = $pdo->prepare("INSERT INTO projects (" . implode(',', $insertCols) . ") VALUES (" . implode(',', $insertPlaceholders) . ")");
-                            $createStmt->execute($insertVals);
+                            $ic = [$pNameCol, 'status'];
+                            $iv = ['Proyek Umum', 'ongoing'];
+                            if ($pCodeCol) { $ic[] = $pCodeCol; $iv[] = 'UMUM'; }
+                            if (in_array('description', $projCols)) { $ic[] = 'description'; $iv[] = 'Proyek default'; }
+                            if (in_array('budget_idr', $projCols)) { $ic[] = 'budget_idr'; $iv[] = 0; }
+                            if (in_array('created_by', $projCols)) { $ic[] = 'created_by'; $iv[] = $_SESSION['user_id'] ?? null; }
+                            $ph = implode(',', array_fill(0, count($ic), '?'));
+                            $pdo->prepare("INSERT INTO projects (" . implode(',', $ic) . ") VALUES ({$ph})")->execute($iv);
                             $projId = (int)$pdo->lastInsertId();
-                            error_log("PROJECT AUTO-CREATE (edit): Created 'Proyek Umum' with ID #{$projId}");
                         }
                     }
                     
@@ -286,33 +280,55 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                         $divName = $divStmt->fetchColumn() ?: '';
                     }
                     
-                    // Check if a project_expenses record already exists for this cash_book entry
-                    $existingPE = $pdo->prepare("SELECT id FROM project_expenses WHERE cash_book_id = ? LIMIT 1");
-                    $existingPE->execute([$id]);
-                    $peRow = $existingPE->fetch(PDO::FETCH_ASSOC);
+                    // Build dynamic INSERT/UPDATE using actual column names from DESCRIBE
+                    $hasCashBookId = in_array('cash_book_id', $peCols);
+                    $hasDesc = in_array('description', $peCols);
+                    $hasDivName = in_array('division_name', $peCols);
+                    $hasExpDate = in_array('expense_date', $peCols);
+                    $hasCreatedBy = in_array('created_by', $peCols);
+                    $descVal = $description ?: $category_name_input;
+                    
+                    // Check existing record
+                    $peRow = null;
+                    if ($hasCashBookId) {
+                        $chk = $pdo->prepare("SELECT id FROM project_expenses WHERE cash_book_id = ? LIMIT 1");
+                        $chk->execute([$id]);
+                        $peRow = $chk->fetch(PDO::FETCH_ASSOC);
+                    }
                     
                     if ($peRow) {
-                        // Update existing
-                        $peUpd = $pdo->prepare("UPDATE project_expenses SET project_id = ?, amount = ?, description = ?, division_name = ?, expense_date = ? WHERE id = ?");
-                        $peUpd->execute([$projId, $amount, ($description ?: $category_name_input), $divName, $transaction_date, $peRow['id']]);
-                        error_log("PROJECT SYNC EDIT: Updated project_expenses #{$peRow['id']} for cashbook #{$id}");
+                        $sc = ['project_id = ?', 'amount = ?'];
+                        $sv = [$projId, $amount];
+                        if ($hasDesc) { $sc[] = 'description = ?'; $sv[] = $descVal; }
+                        if ($hasDivName) { $sc[] = 'division_name = ?'; $sv[] = $divName; }
+                        if ($hasExpDate) { $sc[] = 'expense_date = ?'; $sv[] = $transaction_date; }
+                        $sv[] = $peRow['id'];
+                        $pdo->prepare("UPDATE project_expenses SET " . implode(', ', $sc) . " WHERE id = ?")->execute($sv);
+                        $projectSyncResult = ' | 🏗️ Proyek diupdate';
                     } else {
-                        // Insert new
-                        $peIns = $pdo->prepare("INSERT INTO project_expenses (project_id, amount, description, division_name, expense_date, created_by, cash_book_id) VALUES (?, ?, ?, ?, ?, ?, ?)");
-                        $peIns->execute([$projId, $amount, ($description ?: $category_name_input), $divName, $transaction_date, $_SESSION['user_id'], $id]);
-                        error_log("PROJECT SYNC EDIT: Inserted project_expenses for cashbook #{$id}, project #{$projId}");
+                        $ic = ['project_id', 'amount'];
+                        $iv = [$projId, $amount];
+                        if ($hasDesc) { $ic[] = 'description'; $iv[] = $descVal; }
+                        if ($hasDivName) { $ic[] = 'division_name'; $iv[] = $divName; }
+                        if ($hasExpDate) { $ic[] = 'expense_date'; $iv[] = $transaction_date; }
+                        if ($hasCreatedBy) { $ic[] = 'created_by'; $iv[] = $_SESSION['user_id'] ?? null; }
+                        if ($hasCashBookId) { $ic[] = 'cash_book_id'; $iv[] = $id; }
+                        $ph = implode(',', array_fill(0, count($ic), '?'));
+                        $pdo->prepare("INSERT INTO project_expenses (" . implode(',', $ic) . ") VALUES ({$ph})")->execute($iv);
+                        $projectSyncResult = ' | 🏗️ Tersinkron ke proyek';
                     }
                 } else {
-                    // Not a project expense anymore → remove link if exists
+                    // Not a project expense → remove link if exists
                     try {
                         $pdo->prepare("DELETE FROM project_expenses WHERE cash_book_id = ?")->execute([$id]);
                     } catch (Exception $ignore) {}
                 }
             } catch (Exception $projErr) {
+                $projectSyncResult = ' | ⚠️ Sync proyek gagal: ' . $projErr->getMessage();
                 error_log("Edit project sync error: " . $projErr->getMessage() . " | source_type={$newSourceType}, type={$transaction_type}, project_id={$project_id_input}");
             }
             
-            $_SESSION['success'] = '✅ Transaksi berhasil diupdate';
+            $_SESSION['success'] = '✅ Transaksi berhasil diupdate' . $projectSyncResult;
             header('Location: index.php');
             exit;
             
