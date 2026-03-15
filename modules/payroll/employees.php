@@ -19,6 +19,13 @@ if (!isModuleEnabled('payroll')) {
 $db = Database::getInstance();
 $currentUser = $auth->getCurrentUser();
 
+// Auto-add finger_id column if missing
+try {
+    $db->query("SELECT finger_id FROM payroll_employees LIMIT 1");
+} catch (Exception $e) {
+    $db->getConnection()->exec("ALTER TABLE payroll_employees ADD COLUMN `finger_id` VARCHAR(20) DEFAULT NULL");
+}
+
 // Auto-create tables if missing
 $check = $db->query("SHOW TABLES LIKE 'payroll_employees'");
 if ($check->rowCount() === 0) {
@@ -54,6 +61,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $base_salary = str_replace(['.', ','], '', $_POST['base_salary']);
         $bank_name = $_POST['bank_name'];
         $bank_account = $_POST['bank_account'];
+        $finger_id = trim($_POST['finger_id'] ?? '');
         
         try {
             if ($action === 'create') {
@@ -61,13 +69,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $count = $db->fetchOne("SELECT COUNT(*) as c FROM payroll_employees");
                     $employee_code = 'EMP-' . str_pad($count['c'] + 1, 3, '0', STR_PAD_LEFT);
                 }
-                $sql = "INSERT INTO payroll_employees (employee_code, full_name, position, department, phone, join_date, base_salary, bank_name, bank_account, created_by) 
-                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
-                $db->query($sql, [$employee_code, $full_name, $position, $department, $phone, $join_date, $base_salary, $bank_name, $bank_account, $_SESSION['user_id']]);
+                $sql = "INSERT INTO payroll_employees (employee_code, full_name, position, department, phone, join_date, base_salary, bank_name, bank_account, finger_id, created_by) 
+                        VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)";
+                $db->query($sql, [$employee_code, $full_name, $position, $department, $phone, $join_date, $base_salary, $bank_name, $bank_account, $finger_id ?: null, $_SESSION['user_id']]);
                 setFlash('success', 'Karyawan berhasil ditambahkan');
             } else {
-                $sql = "UPDATE payroll_employees SET full_name=?, position=?, department=?, phone=?, join_date=?, base_salary=?, bank_name=?, bank_account=? WHERE id=?";
-                $db->query($sql, [$full_name, $position, $department, $phone, $join_date, $base_salary, $bank_name, $bank_account, $id]);
+                $sql = "UPDATE payroll_employees SET full_name=?, position=?, department=?, phone=?, join_date=?, base_salary=?, bank_name=?, bank_account=?, finger_id=? WHERE id=?";
+                $db->query($sql, [$full_name, $position, $department, $phone, $join_date, $base_salary, $bank_name, $bank_account, $finger_id ?: null, $id]);
                 setFlash('success', 'Data karyawan berhasil diperbarui');
             }
         } catch (PDOException $e) {
@@ -688,7 +696,7 @@ include '../../includes/header.php';
                     <th>Position</th>
                     <th>Join Date</th>
                     <th>Base Salary</th>
-                    <th>Bank Account</th><th style="text-align:center;">👁️ Wajah</th>
+                    <th>Bank Account</th><th style="text-align:center;">� Finger ID</th><th style="text-align:center;">�👁️ Wajah</th>
                     <th style="text-align: center;">Actions</th>
                 </tr>
             </thead>
@@ -717,6 +725,13 @@ include '../../includes/header.php';
                             <?php echo htmlspecialchars($emp['bank_name'] ?: '-'); ?>
                             <span><?php echo htmlspecialchars($emp['bank_account'] ?: '-'); ?></span>
                         </div>
+                    </td>
+                    <td style="text-align:center;">
+                        <?php if (!empty($emp['finger_id'])): ?>
+                            <span style="font-size:11px; background:#eff6ff; color:#1e40af; padding:2px 7px; border-radius:4px; font-weight:700">🔒 PIN <?php echo htmlspecialchars($emp['finger_id']); ?></span>
+                        <?php else: ?>
+                            <span style="font-size:11px; color:#94a3b8;">— Belum</span>
+                        <?php endif; ?>
                     </td>
                     <td style="text-align:center;">
                         <?php if (!empty($emp['face_descriptor'])): ?>
@@ -821,6 +836,12 @@ include '../../includes/header.php';
                     <input type="text" name="bank_account" id="bankAccount" class="emp-form-input">
                 </div>
             </div>
+
+            <div class="emp-form-group">
+                <label class="emp-form-label">🔒 Finger ID (PIN Mesin Fingerprint)</label>
+                <input type="text" name="finger_id" id="fingerId" class="emp-form-input" placeholder="Nomor PIN di mesin absensi (opsional)">
+                <p class="emp-form-note">Masukkan PIN karyawan yang terdaftar di mesin fingerprint Revo / Fingerspot. Kosongkan jika belum pakai fingerprint.</p>
+            </div>
         </div>
         <div class="emp-modal-footer">
             <button type="button" class="emp-btn-cancel" onclick="closeModal()">Cancel</button>
@@ -873,6 +894,7 @@ function editEmployee(data) {
     formatCurrency(document.getElementById('baseSalary'));
     document.getElementById('bankName').value = data.bank_name;
     document.getElementById('bankAccount').value = data.bank_account;
+    document.getElementById('fingerId').value = data.finger_id || '';
 }
 
 function deleteEmployee(id) {

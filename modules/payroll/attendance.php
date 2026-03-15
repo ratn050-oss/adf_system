@@ -210,6 +210,54 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'reset
     $msgType = 'success';
 }
 
+// ── Fingerspot.io Configuration ──
+// Auto-create fingerspot columns in config
+try {
+    $pdo->query("SELECT fingerspot_cloud_id FROM payroll_attendance_config LIMIT 1");
+} catch (PDOException $e) {
+    $pdo->exec("ALTER TABLE payroll_attendance_config 
+        ADD COLUMN `fingerspot_cloud_id` VARCHAR(50) DEFAULT NULL,
+        ADD COLUMN `fingerspot_enabled` TINYINT(1) DEFAULT 0");
+}
+// Auto-create fingerprint_log table
+try {
+    $pdo->query("SELECT 1 FROM fingerprint_log LIMIT 1");
+} catch (PDOException $e) {
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `fingerprint_log` (
+        `id` INT AUTO_INCREMENT PRIMARY KEY,
+        `cloud_id` VARCHAR(50) NOT NULL,
+        `type` VARCHAR(32) NOT NULL DEFAULT 'attlog',
+        `pin` VARCHAR(20) DEFAULT NULL,
+        `scan_time` DATETIME DEFAULT NULL,
+        `verify_method` VARCHAR(30) DEFAULT NULL,
+        `status_scan` VARCHAR(30) DEFAULT NULL,
+        `employee_id` INT DEFAULT NULL,
+        `processed` TINYINT(1) DEFAULT 0,
+        `process_result` VARCHAR(255) DEFAULT NULL,
+        `raw_data` TEXT,
+        `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_cloud (cloud_id),
+        INDEX idx_pin (pin),
+        INDEX idx_scan (scan_time)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+}
+// Auto-add finger_id column to employees
+try {
+    $pdo->query("SELECT finger_id FROM payroll_employees LIMIT 1");
+} catch (PDOException $e) {
+    $pdo->exec("ALTER TABLE payroll_employees ADD COLUMN `finger_id` VARCHAR(20) DEFAULT NULL");
+}
+
+// Save Fingerspot config
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_fingerspot') {
+    $fpCloudId = trim($_POST['fingerspot_cloud_id'] ?? '');
+    $fpEnabled = isset($_POST['fingerspot_enabled']) ? 1 : 0;
+    $pdo->prepare("UPDATE payroll_attendance_config SET fingerspot_cloud_id=?, fingerspot_enabled=?, updated_by=? WHERE id=1")
+        ->execute([$fpCloudId ?: null, $fpEnabled, $currentUser['id']]);
+    $msg = '✅ Pengaturan Fingerspot berhasil disimpan.';
+    $msgType = 'success';
+}
+
 // Update attendance record
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'edit_att') {
     $attId = (int)$_POST['att_id'];
@@ -472,7 +520,8 @@ include '../../includes/header.php';
         <button class="att-tab active" id="tabDaily" onclick="switchTab('daily')">📋 Harian</button>
         <button class="att-tab" id="tabMonthly" onclick="switchTab('monthly')">📅 Bulanan</button>
         <button class="att-tab" id="tabSettings" onclick="switchTab('settings')">⚙️ Pengaturan</button>
-        <button class="att-tab" id="tabPins" onclick="switchTab('pins')">�️ Data Wajah</button>
+        <button class="att-tab" id="tabPins" onclick="switchTab('pins')">👁️ Data Wajah</button>
+        <button class="att-tab" id="tabFingerspot" onclick="switchTab('fingerspot')">🔐 Fingerprint</button>
     </div>
 
     <!-- ── DAILY TAB ── -->
@@ -738,6 +787,146 @@ include '../../includes/header.php';
         </div>
     </div>
 
+    <!-- ── FINGERSPOT TAB ── -->
+    <div id="tabPanelFingerspot" style="display:none;">
+        <?php
+        $fpConfig = $db->fetchOne("SELECT fingerspot_cloud_id, fingerspot_enabled FROM payroll_attendance_config WHERE id = 1") ?: [];
+        $fpEnabled = (int)($fpConfig['fingerspot_enabled'] ?? 0);
+        $fpCloudId = $fpConfig['fingerspot_cloud_id'] ?? '';
+        $bizSlug = defined('ACTIVE_BUSINESS_ID') ? strtolower(str_replace('_', '-', ACTIVE_BUSINESS_ID)) : 'narayana-hotel';
+        $webhookUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'adfsystem.online') . str_replace('/modules/payroll/attendance.php', '', $_SERVER['SCRIPT_NAME']) . '/api/fingerprint-webhook.php?b=' . urlencode($bizSlug);
+        ?>
+
+        <!-- Fingerspot Settings Card -->
+        <div style="background:#fff; border:1px solid var(--border); border-radius:12px; padding:18px; margin-bottom:14px;">
+            <div style="display:flex; align-items:center; gap:10px; margin-bottom:14px;">
+                <div style="width:40px; height:40px; background:linear-gradient(135deg,#6366f1,#8b5cf6); border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:20px;">🔐</div>
+                <div>
+                    <h3 style="font-size:14px; font-weight:700; color:var(--navy); margin:0;">Fingerspot.io Integration</h3>
+                    <div style="font-size:11px; color:var(--muted);">Hubungkan mesin fingerprint Revo via Fingerspot.io cloud</div>
+                </div>
+                <div style="margin-left:auto;">
+                    <?php if ($fpEnabled): ?>
+                        <span style="background:#d1fae5; color:#065f46; padding:4px 10px; border-radius:20px; font-size:11px; font-weight:700;">✅ Aktif</span>
+                    <?php else: ?>
+                        <span style="background:#fee2e2; color:#991b1b; padding:4px 10px; border-radius:20px; font-size:11px; font-weight:700;">⏸ Non-aktif</span>
+                    <?php endif; ?>
+                </div>
+            </div>
+
+            <form method="POST" action="?tab=fingerspot">
+                <input type="hidden" name="action" value="save_fingerspot">
+                <div class="form-group" style="margin-bottom:12px;">
+                    <label class="form-label" style="font-weight:700;">Cloud ID Mesin</label>
+                    <input type="text" name="fingerspot_cloud_id" class="form-input" value="<?php echo htmlspecialchars($fpCloudId); ?>" placeholder="Masukkan Cloud ID dari Fingerspot.io">
+                    <div style="font-size:10px; color:var(--muted); margin-top:3px;">Cloud ID bisa dilihat di dashboard Fingerspot.io → Device → Cloud ID</div>
+                </div>
+                <div class="form-group" style="display:flex; align-items:center; gap:8px; margin-bottom:14px;">
+                    <input type="checkbox" name="fingerspot_enabled" id="fpEnabled" <?php echo $fpEnabled ? 'checked' : ''; ?>>
+                    <label for="fpEnabled" style="font-size:12px; color:var(--navy); font-weight:600;">Aktifkan integrasi Fingerspot</label>
+                </div>
+                <button type="submit" class="btn-save" style="width:100%;">💾 Simpan Pengaturan Fingerspot</button>
+            </form>
+        </div>
+
+        <!-- Webhook URL Card -->
+        <div style="background:linear-gradient(135deg, #eff6ff, #dbeafe); border:1px solid #93c5fd; border-radius:12px; padding:16px; margin-bottom:14px;">
+            <h4 style="font-size:12px; font-weight:700; color:#1e40af; margin:0 0 8px;">🔗 Webhook URL (Pasang di Fingerspot.io)</h4>
+            <div style="background:#fff; border:1px solid #bfdbfe; border-radius:8px; padding:10px; font-family:monospace; font-size:11px; color:#1e3a5f; word-break:break-all; cursor:pointer;" onclick="copyWebhookUrl(this)" title="Klik untuk copy">
+                <?php echo htmlspecialchars($webhookUrl); ?>
+            </div>
+            <div style="font-size:10px; color:#3b82f6; margin-top:6px;">📋 Klik URL di atas untuk copy. Paste di pengaturan webhook Fingerspot.io → Developer → Webhook URL</div>
+        </div>
+
+        <!-- Mapping Table -->
+        <div style="background:#fff; border:1px solid var(--border); border-radius:12px; padding:18px; margin-bottom:14px;">
+            <h3 style="font-size:14px; font-weight:700; color:var(--navy); margin:0 0 12px;">👥 Mapping Karyawan ↔ PIN Mesin</h3>
+            <div style="font-size:11px; color:var(--muted); margin-bottom:12px; background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:8px 10px;">
+                ⚠️ Pastikan <strong>Finger ID / PIN</strong> di bawah sama persis dengan PIN yang terdaftar di mesin fingerprint. Atur Finger ID di menu <a href="employees.php" style="color:#2563eb; font-weight:700;">Data Karyawan</a>.
+            </div>
+            <div class="att-table-wrap">
+                <table class="att-table">
+                    <thead><tr>
+                        <th>Kode</th><th>Nama</th><th>Jabatan</th><th style="text-align:center;">Finger ID</th><th style="text-align:center;">Status</th>
+                    </tr></thead>
+                    <tbody>
+                    <?php
+                    $fpEmployees = $db->fetchAll("SELECT id, employee_code, full_name, position, finger_id FROM payroll_employees WHERE is_active = 1 ORDER BY full_name") ?: [];
+                    foreach ($fpEmployees as $fpe): ?>
+                    <tr>
+                        <td><code style="font-size:10px; background:rgba(99,102,241,0.1); padding:2px 6px; border-radius:3px;"><?php echo htmlspecialchars($fpe['employee_code']); ?></code></td>
+                        <td><strong><?php echo htmlspecialchars($fpe['full_name']); ?></strong></td>
+                        <td style="font-size:11px; color:var(--muted);"><?php echo htmlspecialchars($fpe['position']); ?></td>
+                        <td style="text-align:center;">
+                            <?php if (!empty($fpe['finger_id'])): ?>
+                                <span style="background:#eff6ff; color:#1e40af; padding:3px 10px; border-radius:6px; font-size:12px; font-weight:700; font-family:monospace;">PIN <?php echo htmlspecialchars($fpe['finger_id']); ?></span>
+                            <?php else: ?>
+                                <span style="color:#94a3b8; font-size:11px;">— Belum diset</span>
+                            <?php endif; ?>
+                        </td>
+                        <td style="text-align:center;">
+                            <?php if (!empty($fpe['finger_id'])): ?>
+                                <span style="background:#d1fae5; color:#065f46; padding:2px 8px; border-radius:10px; font-size:10px; font-weight:700;">✅ Ready</span>
+                            <?php else: ?>
+                                <span style="background:#fee2e2; color:#991b1b; padding:2px 8px; border-radius:10px; font-size:10px; font-weight:700;">⚠️ Setup</span>
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <!-- Webhook Log -->
+        <div style="background:#fff; border:1px solid var(--border); border-radius:12px; padding:18px;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:12px;">
+                <h3 style="font-size:14px; font-weight:700; color:var(--navy); margin:0;">📜 Webhook Log (Terbaru)</h3>
+                <span style="font-size:10px; color:var(--muted);">Menampilkan 20 log terakhir</span>
+            </div>
+            <?php
+            $fpLogs = [];
+            try {
+                $fpLogs = $db->fetchAll("SELECT fl.*, pe.full_name as emp_name FROM fingerprint_log fl LEFT JOIN payroll_employees pe ON fl.employee_id = pe.id ORDER BY fl.created_at DESC LIMIT 20") ?: [];
+            } catch (Exception $e) {}
+            ?>
+            <?php if (empty($fpLogs)): ?>
+            <div style="text-align:center; padding:30px; color:var(--muted); font-size:13px;">
+                <div style="font-size:32px; margin-bottom:8px;">📭</div>
+                Belum ada log webhook. Log akan muncul setelah mesin fingerprint mengirim data.
+            </div>
+            <?php else: ?>
+            <div style="overflow-x:auto;">
+                <table class="att-table" style="font-size:11px;">
+                    <thead><tr>
+                        <th>Waktu</th><th>PIN</th><th>Karyawan</th><th>Scan</th><th>Status</th><th>Hasil</th>
+                    </tr></thead>
+                    <tbody>
+                    <?php foreach ($fpLogs as $log): ?>
+                    <tr>
+                        <td style="white-space:nowrap; font-size:10px;"><?php echo date('d/m H:i:s', strtotime($log['created_at'])); ?></td>
+                        <td><code><?php echo htmlspecialchars($log['pin'] ?? '-'); ?></code></td>
+                        <td><?php echo htmlspecialchars($log['emp_name'] ?? '-'); ?></td>
+                        <td style="white-space:nowrap;"><?php echo $log['scan_time'] ? date('d/m H:i', strtotime($log['scan_time'])) : '-'; ?></td>
+                        <td>
+                            <?php if ($log['processed']): ?>
+                                <span style="background:#d1fae5; color:#065f46; padding:2px 6px; border-radius:4px; font-size:10px; font-weight:700;">✅</span>
+                            <?php else: ?>
+                                <span style="background:#fee2e2; color:#991b1b; padding:2px 6px; border-radius:4px; font-size:10px; font-weight:700;">❌</span>
+                            <?php endif; ?>
+                        </td>
+                        <td style="font-size:10px; max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="<?php echo htmlspecialchars($log['process_result'] ?? ''); ?>">
+                            <?php echo htmlspecialchars($log['process_result'] ?? '-'); ?>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+            <?php endif; ?>
+        </div>
+    </div>
+
 </div><!-- /att-container -->
 
 <!-- ═══ MODAL: ADD / EDIT LOCATION ═══ -->
@@ -906,11 +1095,11 @@ include '../../includes/header.php';
 <script>
 // ─ TABS ─
 function switchTab(tab) {
-    ['Daily','Monthly','Settings','Pins'].forEach(t => {
+    ['Daily','Monthly','Settings','Pins','Fingerspot'].forEach(t => {
         document.getElementById('tabPanel'+t).style.display = 'none';
         document.getElementById('tab'+t).classList.remove('active');
     });
-    const map = {daily:'Daily', monthly:'Monthly', settings:'Settings', pins:'Pins'};
+    const map = {daily:'Daily', monthly:'Monthly', settings:'Settings', pins:'Pins', fingerspot:'Fingerspot'};
     document.getElementById('tabPanel'+map[tab]).style.display = 'block';
     document.getElementById('tab'+map[tab]).classList.add('active');
     if (tab === 'settings') setTimeout(initAdminMap, 100);
@@ -923,6 +1112,17 @@ function switchTab(tab) {
 // Restore tab from URL
 const urlTab = new URLSearchParams(window.location.search).get('tab');
 if (urlTab) switchTab(urlTab);
+
+// Copy webhook URL
+function copyWebhookUrl(el) {
+    const text = el.innerText.trim();
+    navigator.clipboard.writeText(text).then(() => {
+        const orig = el.style.background;
+        el.style.background = '#d1fae5';
+        el.innerHTML = '✅ Copied!';
+        setTimeout(() => { el.innerHTML = text; el.style.background = orig; }, 1500);
+    });
+}
 
 // ─ LOCATION FORM VALIDATION (plain POST to ?tab=settings) ─
 function validateLocForm() {
