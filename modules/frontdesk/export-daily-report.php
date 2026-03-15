@@ -55,11 +55,8 @@ try {
         FROM bookings b INNER JOIN guests g ON b.guest_id = g.id INNER JOIN rooms r ON b.room_id = r.id
         WHERE b.check_out_date = ? AND b.status = 'checked_in' ORDER BY r.room_number ASC", [$today]);
     
-    // Check-in tomorrow
+    // Tomorrow
     $tomorrow = date('Y-m-d', strtotime('+1 day'));
-    $checkInTomorrow = $db->fetchAll("SELECT b.booking_code, g.guest_name, r.room_number, b.check_in_date, b.check_out_date, g.phone
-        FROM bookings b INNER JOIN guests g ON b.guest_id = g.id INNER JOIN rooms r ON b.room_id = r.id
-        WHERE b.check_in_date = ? AND b.status = 'confirmed' ORDER BY r.room_number ASC", [$tomorrow]);
     
     // Check-out tomorrow
     $checkOutTomorrow = $db->fetchAll("SELECT b.booking_code, g.guest_name, r.room_number, b.check_in_date, b.check_out_date, g.phone
@@ -71,7 +68,7 @@ try {
         FROM bookings b INNER JOIN guests g ON b.guest_id = g.id INNER JOIN rooms r ON b.room_id = r.id
         WHERE b.check_in_date = ? AND b.status IN ('confirmed', 'pending') ORDER BY r.room_number ASC", [$tomorrow]);
     
-    // Breakfast orders — deduplicate: only newest record per guest per date
+    // Breakfast orders — deduplicate: only newest record per guest per date per room
     $breakfastOrders = $db->fetchAll("SELECT bo.* FROM breakfast_orders bo
         WHERE bo.breakfast_date = ?
         AND bo.id = (
@@ -80,11 +77,16 @@ try {
               AND bo2.breakfast_date = bo.breakfast_date
               AND bo2.room_number = bo.room_number
         )
-        ORDER BY bo.breakfast_time ASC", [$today]);
+        ORDER BY bo.breakfast_time ASC, bo.id ASC", [$today]);
     
     foreach ($breakfastOrders as &$order) {
         $order['menu_items'] = json_decode($order['menu_items'], true) ?: [];
+        $decodedRoom = json_decode($order['room_number'], true);
+        if (is_array($decodedRoom)) {
+            $order['room_number'] = implode(', ', $decodedRoom);
+        }
     }
+    unset($order);
     
 } catch (Exception $e) {
     error_log("Export PDF Error: " . $e->getMessage());
@@ -465,31 +467,6 @@ header('Content-Type: text/html; charset=utf-8');
     </div>
     <?php endif; ?>
 
-    <!-- Check-in Tomorrow -->
-    <?php if (count($checkInTomorrow) > 0): ?>
-    <div class="rpt-section">
-        <div class="rpt-section-head">
-            <span class="sec-title">📅 Check-in Tomorrow</span>
-            <span class="sec-count"><?php echo count($checkInTomorrow); ?></span>
-        </div>
-        <table>
-            <thead><tr><th>Room</th><th>Guest</th><th>Phone</th><th>Code</th><th>In</th><th>Out</th></tr></thead>
-            <tbody>
-                <?php foreach ($checkInTomorrow as $g): ?>
-                <tr>
-                    <td><span class="room-tag"><?php echo htmlspecialchars($g['room_number']); ?></span></td>
-                    <td><?php echo htmlspecialchars($g['guest_name']); ?></td>
-                    <td><?php echo htmlspecialchars($g['phone'] ?: '-'); ?></td>
-                    <td><?php echo htmlspecialchars($g['booking_code']); ?></td>
-                    <td><?php echo date('d M', strtotime($g['check_in_date'])); ?></td>
-                    <td><?php echo date('d M', strtotime($g['check_out_date'])); ?></td>
-                </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
-    </div>
-    <?php endif; ?>
-
     <!-- Check-out Tomorrow -->
     <?php if (count($checkOutTomorrow) > 0): ?>
     <div class="rpt-section">
@@ -552,11 +529,7 @@ header('Content-Type: text/html; charset=utf-8');
             <tbody>
                 <?php foreach ($breakfastOrders as $order): ?>
                 <tr>
-                    <td><span class="room-tag"><?php 
-                        $roomVal = $order['room_number'];
-                        $decodedR = json_decode($roomVal, true);
-                        echo htmlspecialchars(is_array($decodedR) ? implode(', ', $decodedR) : $roomVal);
-                    ?></span></td>
+                    <td><span class="room-tag"><?php echo htmlspecialchars($order['room_number'] ?: '-'); ?></span></td>
                     <td><?php echo date('H:i', strtotime($order['breakfast_time'])); ?></td>
                     <td><?php echo htmlspecialchars($order['guest_name']); ?></td>
                     <td><?php echo $order['total_pax']; ?></td>
