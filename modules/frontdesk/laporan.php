@@ -124,15 +124,27 @@ try {
         ORDER BY r.room_number ASC";
     $arrivalTomorrow = $db->fetchAll($arrivalTomorrowQuery, [$tomorrow]);
     
-    // 8. BREAKFAST ORDERS TODAY — fetch from API to guarantee identical data as sidebar
+    // 8. BREAKFAST ORDERS TODAY — direct DB query (same logic as breakfast.php sidebar)
     $breakfastOrders = [];
     try {
-        $apiUrl = BASE_URL . '/api/get-breakfast-orders.php?date=' . urlencode($today);
-        $json = @file_get_contents($apiUrl);
-        $data = json_decode($json, true);
-        if ($data && !empty($data['orders'])) {
-            $breakfastOrders = $data['orders'];
+        $bfQuery = "SELECT bo.* FROM breakfast_orders bo
+            WHERE bo.breakfast_date = ?
+            AND bo.id = (
+                SELECT MAX(bo2.id) FROM breakfast_orders bo2
+                WHERE bo2.guest_name = bo.guest_name
+                  AND bo2.breakfast_date = bo.breakfast_date
+                  AND bo2.room_number = bo.room_number
+            )
+            ORDER BY bo.breakfast_time ASC, bo.id ASC";
+        $breakfastOrders = $db->fetchAll($bfQuery, [$today]);
+        foreach ($breakfastOrders as &$bfOrder) {
+            $bfOrder['menu_items'] = json_decode($bfOrder['menu_items'], true) ?: [];
+            $decodedRoom = json_decode($bfOrder['room_number'], true);
+            if (is_array($decodedRoom)) {
+                $bfOrder['room_number'] = implode(', ', $decodedRoom);
+            }
         }
+        unset($bfOrder);
     } catch (Exception $e) {}
     
 } catch (Exception $e) {
@@ -227,6 +239,20 @@ include '../../includes/header.php';
 [data-theme="dark"] .menu-list .qty { color: #818cf8; }
 
 .empty-msg { text-align: center; padding: 1rem; color: #94a3b8; font-size: 0.78rem; font-style: italic; }
+
+/* Breakfast card layout for mobile */
+.bf-cards { display: flex; flex-direction: column; gap: 0.5rem; }
+.bf-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.6rem 0.75rem; }
+[data-theme="dark"] .bf-card { background: #1e293b; border-color: #334155; }
+.bf-card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem; }
+.bf-card-guest { font-weight: 700; font-size: 0.8rem; color: #1e293b; }
+[data-theme="dark"] .bf-card-guest { color: #e2e8f0; }
+.bf-card-meta { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; font-size: 0.72rem; color: #64748b; margin-bottom: 0.3rem; }
+[data-theme="dark"] .bf-card-meta { color: #94a3b8; }
+.bf-card-menus { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.25rem; }
+.bf-card-menus .bf-menu-tag { background: #eef2ff; color: #4338ca; padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.68rem; font-weight: 500; }
+[data-theme="dark"] .bf-card-menus .bf-menu-tag { background: #312e81; color: #a5b4fc; }
+.bf-card-actions { display: flex; gap: 0.4rem; margin-top: 0.4rem; justify-content: flex-end; }
 
 .bf-act { display: inline-flex; gap: 4px; }
 .bf-act button { border: none; padding: 0.15rem 0.4rem; border-radius: 3px; font-size: 0.65rem; cursor: pointer; font-weight: 500; transition: all 0.15s; }
@@ -449,37 +475,30 @@ include '../../includes/header.php';
             <h3 class="sec-title">🍳 Breakfast Orders</h3>
             <span class="sec-count"><?php echo count($breakfastOrders); ?></span>
         </div>
-        <table class="rpt-table">
-            <thead><tr><th>Time</th><th>Room</th><th>Guest</th><th>Pax</th><th>Location</th><th>Menu</th><th class="bf-act-col">Action</th></tr></thead>
-            <tbody>
-                <?php foreach ($breakfastOrders as $order): ?>
-                <tr id="bf-row-<?php echo $order['id']; ?>">
-                    <td><?php echo date('H:i', strtotime($order['breakfast_time'])); ?></td>
-                    <td><span class="room-tag"><?php 
-                        $roomVal = $order['room_number'];
-                        $decodedR = json_decode($roomVal, true);
-                        echo htmlspecialchars(is_array($decodedR) ? implode(', ', $decodedR) : $roomVal);
-                    ?></span></td>
-                    <td><?php echo htmlspecialchars($order['guest_name']); ?></td>
-                    <td><?php echo $order['total_pax']; ?></td>
-                    <td><span class="loc-tag loc-<?php echo $order['location']; ?>"><?php echo $order['location'] === 'restaurant' ? '🍽️ Restaurant' : ($order['location'] === 'take_away' ? '🥡 Take Away' : '🚪 Room Service'); ?></span></td>
-                    <td>
-                        <ul class="menu-list">
-                            <?php foreach ($order['menu_items'] as $item): ?>
-                            <li><span class="qty">x<?php echo $item['quantity']; ?></span> <?php echo htmlspecialchars($item['menu_name']); ?></li>
-                            <?php endforeach; ?>
-                        </ul>
-                    </td>
-                    <td>
-                        <div class="bf-act">
-                            <button class="bf-edit" onclick="editBreakfastOrder(<?php echo $order['id']; ?>)" title="Edit">✏️</button>
-                            <button class="bf-del" onclick="deleteBreakfastOrder(<?php echo $order['id']; ?>, '<?php echo htmlspecialchars(addslashes($order['guest_name'])); ?>')" title="Delete">🗑️</button>
-                        </div>
-                    </td>
-                </tr>
-                <?php endforeach; ?>
-            </tbody>
-        </table>
+        <div class="bf-cards">
+            <?php foreach ($breakfastOrders as $order): ?>
+            <div class="bf-card" id="bf-row-<?php echo $order['id']; ?>">
+                <div class="bf-card-top">
+                    <span class="bf-card-guest"><?php echo htmlspecialchars($order['guest_name']); ?></span>
+                    <span class="room-tag"><?php echo htmlspecialchars($order['room_number'] ?: '-'); ?></span>
+                </div>
+                <div class="bf-card-meta">
+                    <span>🕐 <?php echo $order['breakfast_time'] ? date('H:i', strtotime($order['breakfast_time'])) : '-'; ?></span>
+                    <span>👤 <?php echo $order['total_pax']; ?> pax</span>
+                    <span class="loc-tag loc-<?php echo $order['location']; ?>"><?php echo $order['location'] === 'restaurant' ? '🍽️ Restaurant' : ($order['location'] === 'take_away' ? '🥡 Take Away' : '🚪 Room Service'); ?></span>
+                </div>
+                <div class="bf-card-menus">
+                    <?php foreach ($order['menu_items'] as $item): ?>
+                    <span class="bf-menu-tag">x<?php echo $item['quantity']; ?> <?php echo htmlspecialchars($item['menu_name']); ?></span>
+                    <?php endforeach; ?>
+                </div>
+                <div class="bf-card-actions">
+                    <button class="bf-edit" onclick="editBreakfastOrder(<?php echo $order['id']; ?>)" title="Edit">✏️ Edit</button>
+                    <button class="bf-del" onclick="deleteBreakfastOrder(<?php echo $order['id']; ?>, '<?php echo htmlspecialchars(addslashes($order['guest_name'])); ?>')" title="Delete">🗑️</button>
+                </div>
+            </div>
+            <?php endforeach; ?>
+        </div>
     </div>
     <?php endif; ?>
 
@@ -509,7 +528,12 @@ function deleteBreakfastOrder(id, guestName) {
     .then(r => r.json())
     .then(data => {
         if (data.success) {
-            document.getElementById('bf-row-' + id)?.remove();
+            var row = document.getElementById('bf-row-' + id);
+            if (row) row.remove();
+            // Update count
+            var countEl = document.querySelector('.rpt-section .sec-count');
+            var cards = document.querySelectorAll('.bf-card');
+            if (countEl) countEl.textContent = cards.length;
             showNotification('Order breakfast dihapus', 'success');
         } else {
             showNotification(data.message || 'Gagal menghapus', 'error');
