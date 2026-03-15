@@ -47,8 +47,26 @@ if ($isHotel) {
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             created_by INT
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-        $investorProjects = $pdo->query("SELECT id, project_name, project_code, status FROM projects WHERE status NOT IN ('completed','cancelled') OR status IS NULL ORDER BY project_name")->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Detect actual column names (table may have 'name' instead of 'project_name', etc.)
+        $descStmt = $pdo->query("DESCRIBE projects");
+        $cols = array_column($descStmt->fetchAll(PDO::FETCH_ASSOC), 'Field');
+        
+        $nameCol = in_array('project_name', $cols) ? 'project_name' : (in_array('name', $cols) ? 'name' : "'Unknown'");
+        $codeCol = in_array('project_code', $cols) ? 'project_code' : (in_array('code', $cols) ? 'code' : "NULL");
+        $statusCol = in_array('status', $cols) ? 'status' : "NULL";
+        
+        $sql = "SELECT id, {$nameCol} as project_name, {$codeCol} as project_code, {$statusCol} as status FROM projects ORDER BY id DESC";
+        $investorProjects = $pdo->query($sql)->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Filter out completed/cancelled in PHP (safer than SQL with unknown ENUM)
+        $investorProjects = array_filter($investorProjects, function($p) {
+            $s = strtolower($p['status'] ?? '');
+            return !in_array($s, ['completed', 'cancelled']);
+        });
+        $investorProjects = array_values($investorProjects);
     } catch (Exception $e) {
+        error_log("Cashbook project load error: " . $e->getMessage());
         $investorProjects = [];
     }
 }
