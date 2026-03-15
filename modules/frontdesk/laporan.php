@@ -124,22 +124,24 @@ try {
         ORDER BY r.room_number ASC";
     $arrivalTomorrow = $db->fetchAll($arrivalTomorrowQuery, [$tomorrow]);
     
-    // 8. BREAKFAST ORDERS TODAY — deduplicate: only newest record per guest per date
-    $breakfastQuery = "SELECT bo.* FROM breakfast_orders bo
-        WHERE bo.breakfast_date = ?
-        AND bo.id = (
-            SELECT MAX(bo2.id) FROM breakfast_orders bo2
-            WHERE bo2.guest_name = bo.guest_name
-              AND bo2.breakfast_date = bo.breakfast_date
-              AND bo2.room_number = bo.room_number
-        )
-        ORDER BY bo.breakfast_time ASC";
-    $breakfastOrders = $db->fetchAll($breakfastQuery, [$today]);
-    
-    // Decode menu items
-    foreach ($breakfastOrders as &$order) {
-        $order['menu_items'] = json_decode($order['menu_items'], true) ?: [];
-    }
+    // 8. BREAKFAST ORDERS TODAY — use EXACT same query as breakfast.php sidebar
+    $breakfastOrders = [];
+    try {
+        $stmt = $db->getConnection()->prepare("SELECT bo.* FROM breakfast_orders bo
+            WHERE bo.breakfast_date = ?
+            AND bo.id = (
+                SELECT MAX(bo2.id) FROM breakfast_orders bo2
+                WHERE bo2.guest_name = bo.guest_name
+                  AND bo2.breakfast_date = bo.breakfast_date
+                  AND bo2.room_number = bo.room_number
+            )
+            ORDER BY bo.breakfast_time ASC, bo.id ASC");
+        $stmt->execute([$today]);
+        $breakfastOrders = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($breakfastOrders as &$order) {
+            $order['menu_items'] = json_decode($order['menu_items'], true) ?: [];
+        }
+    } catch (Exception $e) {}
     
 } catch (Exception $e) {
     error_log("Laporan Error: " . $e->getMessage());
