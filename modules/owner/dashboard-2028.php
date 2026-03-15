@@ -119,6 +119,13 @@ try {
         $hasCashAccountId = ($colCheck && $colCheck->rowCount() > 0);
     } catch (Exception $e) { /* column doesn't exist */ }
 
+    // Check if source_type column exists (preferred exclusion method)
+    $hasSourceTypeCol = false;
+    try {
+        $colCheck = $pdo->query("SHOW COLUMNS FROM cash_book LIKE 'source_type'");
+        $hasSourceTypeCol = ($colCheck && $colCheck->rowCount() > 0);
+    } catch (Exception $e) {}
+
     // Get owner_capital account IDs from master DB
     $capitalAccounts = [];
     $pettyCashAccounts = [];
@@ -133,53 +140,32 @@ try {
         $pettyCashAccounts = $stmt->fetchAll(PDO::FETCH_COLUMN);
     }
     
-    // Build exclude owner capital condition for income/expense totals
+    // Build exclude owner capital condition — SAME logic as system dashboard (index.php)
     $excludeOwnerCapital = '';
-    if ($hasCashAccountId && !empty($capitalAccounts)) {
+    if ($hasSourceTypeCol) {
+        $excludeOwnerCapital = " AND (source_type IS NULL OR source_type NOT IN ('owner_fund','owner_project'))";
+    } elseif ($hasCashAccountId && !empty($capitalAccounts)) {
         $excludeOwnerCapital = " AND (cash_account_id IS NULL OR cash_account_id NOT IN (" . implode(',', $capitalAccounts) . "))";
     }
     
-    // Additional: Exclude modal/transfer entries by category or description
-    // These are capital/operational funds, not actual business income
-    $excludeModalCategories = [];
-    try {
-        $catStmt = $pdo->query("
-            SELECT id FROM categories 
-            WHERE LOWER(category_name) LIKE '%modal%' 
-            OR LOWER(category_name) LIKE '%transfer%dana%'
-            OR LOWER(category_name) LIKE '%petty%cash%'
-            OR LOWER(category_name) LIKE '%capital%'
-        ");
-        $excludeModalCategories = $catStmt->fetchAll(PDO::FETCH_COLUMN);
-    } catch (Exception $e) {}
-    
-    $excludeModalClause = "";
-    if (!empty($excludeModalCategories)) {
-        $excludeModalClause = " AND (category_id IS NULL OR category_id NOT IN (" . implode(',', $excludeModalCategories) . "))";
+    // Exclude owner_project from expense stats (same as index.php)
+    $excludeProjectExpense = '';
+    if ($hasSourceTypeCol) {
+        $excludeProjectExpense = " AND (source_type IS NULL OR source_type != 'owner_project')";
     }
     
-    // Also exclude by description patterns
-    $excludeDescClause = " AND (
-        LOWER(description) NOT LIKE '%modal operasional%'
-        AND LOWER(description) NOT LIKE '%transfer dana%'
-        AND LOWER(description) NOT LIKE '%setoran modal%'
-    )";
-    
-    // Combine all exclusions
-    $fullExclude = $excludeOwnerCapital . $excludeModalClause . $excludeDescClause;
-    
-    // Today Income (exclude owner capital and modal entries)
-    $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount), 0) FROM cash_book WHERE DATE(transaction_date) = ? AND transaction_type = 'income'" . $fullExclude);
+    // Today Income (exclude owner capital — same as system dashboard)
+    $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount), 0) FROM cash_book WHERE transaction_date = ? AND transaction_type = 'income'" . $excludeOwnerCapital);
     $stmt->execute([$today]);
     $stats['today_income'] = (float)$stmt->fetchColumn();
     
     // Today Expense
-    $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount), 0) FROM cash_book WHERE DATE(transaction_date) = ? AND transaction_type = 'expense'");
+    $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount), 0) FROM cash_book WHERE transaction_date = ? AND transaction_type = 'expense'");
     $stmt->execute([$today]);
     $stats['today_expense'] = (float)$stmt->fetchColumn();
     
-    // Month Income (exclude owner capital and modal entries)
-    $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount), 0) FROM cash_book WHERE DATE_FORMAT(transaction_date, '%Y-%m') = ? AND transaction_type = 'income'" . $fullExclude);
+    // Month Income (exclude owner capital — same as system dashboard)
+    $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount), 0) FROM cash_book WHERE DATE_FORMAT(transaction_date, '%Y-%m') = ? AND transaction_type = 'income'" . $excludeOwnerCapital);
     $stmt->execute([$thisMonth]);
     $stats['month_income'] = (float)$stmt->fetchColumn();
     
@@ -214,7 +200,7 @@ try {
         $capitalStats['balance'] = 0;
     }
 
-    // Query Petty Cash stats (Only cash payment method - same as system dashboard)
+    // Query Petty Cash stats (based on cash_account_id, NOT payment_method — same as system dashboard)
     if ($hasCashAccountId && !empty($pettyCashAccounts)) {
         $placeholders = implode(',', array_fill(0, count($pettyCashAccounts), '?'));
         $query = "
@@ -226,7 +212,6 @@ try {
             FROM cash_book 
             WHERE cash_account_id IN ($placeholders)
             AND DATE_FORMAT(transaction_date, '%Y-%m') = ?
-            AND payment_method = 'cash'
         ";
         $params = array_merge($pettyCashAccounts, [$thisMonth]);
         $stmt = $pdo->prepare($query);
@@ -260,6 +245,7 @@ try {
         LEFT JOIN cash_book cb ON d.id = cb.division_id 
             AND cb.transaction_type = 'expense'
             AND DATE_FORMAT(cb.transaction_date, '%Y-%m') = ?
+            " . ($hasSourceTypeCol ? "AND (cb.source_type IS NULL OR cb.source_type != 'owner_project')" : "") . "
         WHERE d.is_active = 1
         GROUP BY d.id, d.division_name, d.division_code
         HAVING total > 0
@@ -309,7 +295,7 @@ try {
             COALESCE(SUM(CASE WHEN transaction_type = 'income' THEN amount ELSE 0 END), 0) as income,
             COALESCE(SUM(CASE WHEN transaction_type = 'expense' THEN amount ELSE 0 END), 0) as expense
         FROM cash_book 
-        WHERE DATE_FORMAT(transaction_date, '%Y-%m') = ?" . $fullExclude);
+        WHERE DATE_FORMAT(transaction_date, '%Y-%m') = ?" . $excludeOwnerCapital);
     $stmt->execute([$lastMonth]);
     $prevMonthData = $stmt->fetch(PDO::FETCH_ASSOC);
     $prevIncome = (float)($prevMonthData['income'] ?? 0);
