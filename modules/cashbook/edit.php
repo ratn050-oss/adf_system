@@ -72,6 +72,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $description = $_POST['description'] ?? '';
     $payment_method = $_POST['payment_method'] ?? 'cash';
     $cash_account_id = !empty($_POST['cash_account_id']) ? (int)$_POST['cash_account_id'] : null;
+    $source_type_input = trim($_POST['source_type'] ?? '');
+    $project_id_input = (int)($_POST['project_id'] ?? 0);
     
     // Validate
     $errors = [];
@@ -136,6 +138,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'user_agent' => $userAgent
             ]);
             
+            // Determine source_type
+            $newSourceType = $transaction['source_type']; // keep original by default
+            if ($source_type_input === 'owner_project') {
+                $newSourceType = 'owner_project';
+            } elseif ($source_type_input === '' && $transaction['source_type'] === 'owner_project') {
+                // Unchecked project expense → revert to manual
+                $newSourceType = 'manual';
+            }
+            
             // Update transaction
             $db->update('cash_book', [
                 'transaction_date' => $transaction_date,
@@ -146,7 +157,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 'amount' => $amount,
                 'description' => $description,
                 'payment_method' => $payment_method,
-                'cash_account_id' => $cash_account_id
+                'cash_account_id' => $cash_account_id,
+                'source_type' => $newSourceType
             ], 'id = :id', ['id' => $id]);
             
             // ============================================
@@ -207,6 +219,73 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Don't fail the edit, just log the error
             }
             
+            // ============================================
+            // SYNC PROJECT EXPENSES
+            // ============================================
+            try {
+                $pdo = $db->getConnection();
+                
+                if ($newSourceType === 'owner_project' && $transaction_type === 'expense') {
+                    // Ensure project_expenses table
+                    $pdo->exec("CREATE TABLE IF NOT EXISTS project_expenses (
+                        id INT AUTO_INCREMENT PRIMARY KEY, project_id INT NOT NULL, category_id INT,
+                        amount DECIMAL(15,2) NOT NULL, description TEXT, division_name VARCHAR(100),
+                        expense_date DATE, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, created_by INT,
+                        cash_book_id INT NULL,
+                        INDEX idx_project (project_id), INDEX idx_date (expense_date)
+                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+                    try { $pdo->exec("ALTER TABLE project_expenses ADD COLUMN cash_book_id INT NULL"); } catch (Exception $ignore) {}
+                    try { $pdo->exec("ALTER TABLE project_expenses ADD COLUMN division_name VARCHAR(100)"); } catch (Exception $ignore) {}
+                    
+                    // Auto-create "Proyek Umum" if no project selected
+                    $projId = $project_id_input;
+                    if ($projId <= 0) {
+                        $defStmt = $pdo->prepare("SELECT id FROM projects WHERE project_code = 'UMUM' LIMIT 1");
+                        $defStmt->execute();
+                        $defaultProject = $defStmt->fetch(PDO::FETCH_ASSOC);
+                        if ($defaultProject) {
+                            $projId = (int)$defaultProject['id'];
+                        } else {
+                            $createStmt = $pdo->prepare("INSERT INTO projects (project_name, project_code, description, budget_idr, status, created_by) VALUES (?, ?, ?, ?, ?, ?)");
+                            $createStmt->execute(['Proyek Umum', 'UMUM', 'Proyek default untuk pengeluaran proyek dari kas besar', 0, 'ongoing', $_SESSION['user_id'] ?? null]);
+                            $projId = (int)$pdo->lastInsertId();
+                        }
+                    }
+                    
+                    // Get division name
+                    $divName = '';
+                    if ($division_id) {
+                        $divStmt = $pdo->prepare("SELECT division_name FROM divisions WHERE id = ?");
+                        $divStmt->execute([$division_id]);
+                        $divName = $divStmt->fetchColumn() ?: '';
+                    }
+                    
+                    // Check if a project_expenses record already exists for this cash_book entry
+                    $existingPE = $pdo->prepare("SELECT id FROM project_expenses WHERE cash_book_id = ? LIMIT 1");
+                    $existingPE->execute([$id]);
+                    $peRow = $existingPE->fetch(PDO::FETCH_ASSOC);
+                    
+                    if ($peRow) {
+                        // Update existing
+                        $peUpd = $pdo->prepare("UPDATE project_expenses SET project_id = ?, amount = ?, description = ?, division_name = ?, expense_date = ? WHERE id = ?");
+                        $peUpd->execute([$projId, $amount, ($description ?: $category_name_input), $divName, $transaction_date, $peRow['id']]);
+                        error_log("PROJECT SYNC EDIT: Updated project_expenses #{$peRow['id']} for cashbook #{$id}");
+                    } else {
+                        // Insert new
+                        $peIns = $pdo->prepare("INSERT INTO project_expenses (project_id, amount, description, division_name, expense_date, created_by, cash_book_id) VALUES (?, ?, ?, ?, ?, ?, ?)");
+                        $peIns->execute([$projId, $amount, ($description ?: $category_name_input), $divName, $transaction_date, $_SESSION['user_id'], $id]);
+                        error_log("PROJECT SYNC EDIT: Inserted project_expenses for cashbook #{$id}, project #{$projId}");
+                    }
+                } else {
+                    // Not a project expense anymore → remove link if exists
+                    try {
+                        $pdo->prepare("DELETE FROM project_expenses WHERE cash_book_id = ?")->execute([$id]);
+                    } catch (Exception $ignore) {}
+                }
+            } catch (Exception $projErr) {
+                error_log("Edit project sync error: " . $projErr->getMessage());
+            }
+            
             $db->commit();
             
             $_SESSION['success'] = '✅ Transaksi berhasil diupdate';
@@ -245,6 +324,58 @@ try {
     error_log("Error fetching cash accounts in edit.php: " . $e->getMessage());
     error_log("Stack trace: " . $e->getTraceAsString());
     $cashAccounts = []; // Empty array if query fails
+}
+
+// Load business configuration for project feature detection
+$businessConfig = require '../../config/businesses/' . ACTIVE_BUSINESS_ID . '.php';
+$isHotel = ($businessConfig['business_type'] ?? '') === 'hotel';
+
+// Load investor projects (for hotel project expense editing)
+$investorProjects = [];
+if ($isHotel) {
+    try {
+        $pdo = $db->getConnection();
+        $pdo->exec("CREATE TABLE IF NOT EXISTS projects (
+            id INT AUTO_INCREMENT PRIMARY KEY, project_name VARCHAR(150) NOT NULL, project_code VARCHAR(50),
+            description TEXT, budget_idr DECIMAL(15,2) DEFAULT 0,
+            status ENUM('planning','ongoing','on_hold','completed','cancelled') DEFAULT 'planning',
+            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+            created_by INT
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        
+        $descStmt = $pdo->query("DESCRIBE projects");
+        $cols = array_column($descStmt->fetchAll(PDO::FETCH_ASSOC), 'Field');
+        
+        $nameCol = in_array('project_name', $cols) ? 'project_name' : (in_array('name', $cols) ? 'name' : "'Unknown'");
+        $codeCol = in_array('project_code', $cols) ? 'project_code' : (in_array('code', $cols) ? 'code' : "NULL");
+        $statusCol = in_array('status', $cols) ? 'status' : "NULL";
+        
+        $sql = "SELECT id, {$nameCol} as project_name, {$codeCol} as project_code, {$statusCol} as status FROM projects ORDER BY id DESC";
+        $investorProjects = $pdo->query($sql)->fetchAll(PDO::FETCH_ASSOC);
+        
+        // Filter out completed/cancelled in PHP
+        $investorProjects = array_filter($investorProjects, function($p) {
+            $s = strtolower($p['status'] ?? '');
+            return !in_array($s, ['completed', 'cancelled']);
+        });
+        $investorProjects = array_values($investorProjects);
+    } catch (Exception $e) {
+        error_log("Edit cashbook project load error: " . $e->getMessage());
+        $investorProjects = [];
+    }
+}
+
+// Check if current transaction is already a project expense
+$currentProjectId = 0;
+$isCurrentProjectExpense = ($transaction['source_type'] === 'owner_project');
+if ($isCurrentProjectExpense) {
+    try {
+        $pdo = $db->getConnection();
+        $peRow = $pdo->prepare("SELECT project_id FROM project_expenses WHERE cash_book_id = ? LIMIT 1");
+        $peRow->execute([$id]);
+        $row = $peRow->fetch(PDO::FETCH_ASSOC);
+        if ($row) $currentProjectId = (int)$row['project_id'];
+    } catch (Exception $ignore) {}
 }
 
 include '../../includes/header.php';
@@ -344,6 +475,33 @@ include '../../includes/header.php';
                 </datalist>
                 <small style="color: var(--text-muted); display: block; margin-top: 0.25rem;">💡 Ketik manual atau pilih dari saran yang muncul</small>
             </div>
+
+            <?php if ($isHotel): ?>
+            <!-- Project Expense Toggle -->
+            <div class="form-group" id="projectExpenseGroup" style="<?php echo $transaction['transaction_type'] !== 'expense' ? 'display:none;' : ''; ?>">
+                <label style="display: flex; align-items: center; gap: 0.5rem; cursor: pointer; padding: 0.5rem 0.75rem; background: <?php echo $isCurrentProjectExpense ? 'rgba(245,158,11,0.25)' : 'rgba(245,158,11,0.1)'; ?>; border: 1px solid <?php echo $isCurrentProjectExpense ? '#f59e0b' : 'rgba(245,158,11,0.3)'; ?>; border-radius: 8px; transition: all 0.2s;" id="projectToggleLabel">
+                    <input type="checkbox" id="isProjectExpense" name="is_project_expense" value="1" <?php echo $isCurrentProjectExpense ? 'checked' : ''; ?> onchange="toggleProjectExpense()" style="width: 16px; height: 16px; accent-color: #f59e0b;">
+                    <span style="font-size: 0.813rem; font-weight: 600; color: #92400e;">🏗️ Pengeluaran Proyek (bukan beban hotel)</span>
+                </label>
+                <div id="projectSelectWrapper" style="display: <?php echo $isCurrentProjectExpense ? 'block' : 'none'; ?>; margin-top: 0.5rem;">
+                    <label class="form-label" style="font-size: 0.75rem; font-weight: 600; margin-bottom: 0.25rem; color: #92400e;">Pilih Proyek <span style="color: var(--danger);">*</span></label>
+                    <select name="project_id" id="projectSelect" class="form-control" style="height: 36px; font-size: 0.813rem; border-color: #f59e0b;" <?php echo $isCurrentProjectExpense ? 'required' : ''; ?>>
+                        <option value="">-- Pilih Proyek --</option>
+                        <?php foreach ($investorProjects as $proj): ?>
+                        <option value="<?php echo $proj['id']; ?>" <?php echo $currentProjectId == $proj['id'] ? 'selected' : ''; ?>>
+                            <?php echo htmlspecialchars(($proj['project_code'] ? $proj['project_code'] . ' - ' : '') . $proj['project_name']); ?>
+                            <?php echo ' [' . ucfirst($proj['status']) . ']'; ?>
+                        </option>
+                        <?php endforeach; ?>
+                    </select>
+                    <?php if (empty($investorProjects)): ?>
+                    <div style="font-size: 0.72rem; color: #dc2626; margin-top: 0.25rem;">⚠️ Belum ada proyek. Buat dulu di menu <a href="<?php echo BASE_URL; ?>/modules/investor/index.php" style="color: #4f46e5; font-weight: 600;">Investor & Proyek</a></div>
+                    <?php endif; ?>
+                </div>
+                <div id="projectExpenseNote" style="display: <?php echo $isCurrentProjectExpense ? 'block' : 'none'; ?>; font-size: 0.72rem; color: #f59e0b; margin-top: 0.25rem;">⚠️ Transaksi ini tidak masuk laporan P&L hotel, tapi tercatat di menu Investor & Proyek</div>
+                <input type="hidden" name="source_type" id="sourceTypeHidden" value="<?php echo $isCurrentProjectExpense ? 'owner_project' : ''; ?>">
+            </div>
+            <?php endif; ?>
 
             <!-- Cash Account -->
             <div class="form-group">
@@ -454,6 +612,46 @@ include '../../includes/header.php';
     
     // Initialize on page load
     updateCategorySuggestions();
+    
+    <?php if ($isHotel): ?>
+    // Toggle project expense checkbox
+    function toggleProjectExpense() {
+        const checked = document.getElementById('isProjectExpense').checked;
+        const wrapper = document.getElementById('projectSelectWrapper');
+        const label = document.getElementById('projectToggleLabel');
+        const sourceField = document.getElementById('sourceTypeHidden');
+        const note = document.getElementById('projectExpenseNote');
+        const projectSelect = document.getElementById('projectSelect');
+        
+        if (wrapper) wrapper.style.display = checked ? 'block' : 'none';
+        if (note) note.style.display = checked ? 'block' : 'none';
+        label.style.background = checked ? 'rgba(245,158,11,0.25)' : 'rgba(245,158,11,0.1)';
+        label.style.borderColor = checked ? '#f59e0b' : 'rgba(245,158,11,0.3)';
+        sourceField.value = checked ? 'owner_project' : '';
+        
+        if (projectSelect) {
+            projectSelect.required = checked;
+            if (!checked) projectSelect.value = '';
+        }
+    }
+    
+    // Show/hide project expense toggle based on transaction type
+    document.getElementById('transaction_type').addEventListener('change', function() {
+        const projectGroup = document.getElementById('projectExpenseGroup');
+        const checkbox = document.getElementById('isProjectExpense');
+        if (projectGroup) {
+            if (this.value === 'expense') {
+                projectGroup.style.display = 'block';
+            } else {
+                projectGroup.style.display = 'none';
+                if (checkbox && checkbox.checked) {
+                    checkbox.checked = false;
+                    toggleProjectExpense();
+                }
+            }
+        }
+    });
+    <?php endif; ?>
 </script>
 
 <?php include '../../includes/footer.php'; ?>
