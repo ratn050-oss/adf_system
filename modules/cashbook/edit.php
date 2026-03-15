@@ -219,8 +219,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 // Don't fail the edit, just log the error
             }
             
+            $db->commit();
+            
             // ============================================
-            // SYNC PROJECT EXPENSES
+            // SYNC PROJECT EXPENSES (after commit - DDL causes implicit commit)
             // ============================================
             try {
                 $pdo = $db->getConnection();
@@ -286,14 +288,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 error_log("Edit project sync error: " . $projErr->getMessage());
             }
             
-            $db->commit();
-            
             $_SESSION['success'] = '✅ Transaksi berhasil diupdate';
             header('Location: index.php');
             exit;
             
         } catch (Exception $e) {
-            $db->rollBack();
+            try { $db->rollBack(); } catch (Exception $ignore) {}
             $_SESSION['error'] = '❌ Gagal update transaksi: ' . $e->getMessage();
         }
     } else {
