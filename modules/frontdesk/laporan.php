@@ -124,22 +124,14 @@ try {
         ORDER BY r.room_number ASC";
     $arrivalTomorrow = $db->fetchAll($arrivalTomorrowQuery, [$tomorrow]);
     
-    // 8. BREAKFAST ORDERS TODAY — use EXACT same query as breakfast.php sidebar
+    // 8. BREAKFAST ORDERS TODAY — fetch from API to guarantee identical data as sidebar
     $breakfastOrders = [];
     try {
-        $stmt = $db->getConnection()->prepare("SELECT bo.* FROM breakfast_orders bo
-            WHERE bo.breakfast_date = ?
-            AND bo.id = (
-                SELECT MAX(bo2.id) FROM breakfast_orders bo2
-                WHERE bo2.guest_name = bo.guest_name
-                  AND bo2.breakfast_date = bo.breakfast_date
-                  AND bo2.room_number = bo.room_number
-            )
-            ORDER BY bo.breakfast_time ASC, bo.id ASC");
-        $stmt->execute([$today]);
-        $breakfastOrders = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        foreach ($breakfastOrders as &$order) {
-            $order['menu_items'] = json_decode($order['menu_items'], true) ?: [];
+        $apiUrl = BASE_URL . '/api/get-breakfast-orders.php?date=' . urlencode($today);
+        $json = @file_get_contents($apiUrl);
+        $data = json_decode($json, true);
+        if ($data && !empty($data['orders'])) {
+            $breakfastOrders = $data['orders'];
         }
     } catch (Exception $e) {}
     
