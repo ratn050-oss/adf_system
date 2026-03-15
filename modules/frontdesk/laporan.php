@@ -240,28 +240,29 @@ include '../../includes/header.php';
 
 .empty-msg { text-align: center; padding: 1rem; color: #94a3b8; font-size: 0.78rem; font-style: italic; }
 
-/* Breakfast card layout for mobile */
-.bf-cards { display: flex; flex-direction: column; gap: 0.5rem; }
-.bf-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; padding: 0.6rem 0.75rem; }
+/* Breakfast card layout - 2 column grid */
+.bf-cards { display: grid; grid-template-columns: repeat(2, 1fr); gap: 0.5rem; }
+.bf-card { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 0.55rem 0.7rem; position: relative; transition: all 0.2s; }
+.bf-card:hover { border-color: #c7d2fe; box-shadow: 0 2px 8px rgba(79,70,229,0.08); }
 [data-theme="dark"] .bf-card { background: #1e293b; border-color: #334155; }
-.bf-card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.3rem; }
-.bf-card-guest { font-weight: 700; font-size: 0.8rem; color: #1e293b; }
+[data-theme="dark"] .bf-card:hover { border-color: #4f46e5; box-shadow: 0 2px 8px rgba(99,102,241,0.15); }
+.bf-card-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.25rem; gap: 0.4rem; }
+.bf-card-guest { font-weight: 700; font-size: 0.78rem; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 [data-theme="dark"] .bf-card-guest { color: #e2e8f0; }
-.bf-card-meta { display: flex; flex-wrap: wrap; gap: 0.4rem; align-items: center; font-size: 0.72rem; color: #64748b; margin-bottom: 0.3rem; }
+.bf-card-meta { display: flex; flex-wrap: wrap; gap: 0.3rem 0.5rem; align-items: center; font-size: 0.68rem; color: #64748b; margin-bottom: 0.2rem; }
 [data-theme="dark"] .bf-card-meta { color: #94a3b8; }
-.bf-card-menus { display: flex; flex-wrap: wrap; gap: 0.25rem; margin-top: 0.25rem; }
-.bf-card-menus .bf-menu-tag { background: #eef2ff; color: #4338ca; padding: 0.1rem 0.4rem; border-radius: 4px; font-size: 0.68rem; font-weight: 500; }
+.bf-card-menus { display: flex; flex-wrap: wrap; gap: 0.2rem; }
+.bf-card-menus .bf-menu-tag { background: #eef2ff; color: #4338ca; padding: 0.08rem 0.35rem; border-radius: 4px; font-size: 0.65rem; font-weight: 500; white-space: nowrap; }
 [data-theme="dark"] .bf-card-menus .bf-menu-tag { background: #312e81; color: #a5b4fc; }
-.bf-card-actions { display: flex; gap: 0.4rem; margin-top: 0.4rem; justify-content: flex-end; }
-
-.bf-act { display: inline-flex; gap: 4px; }
-.bf-act button { border: none; padding: 0.15rem 0.4rem; border-radius: 3px; font-size: 0.65rem; cursor: pointer; font-weight: 500; transition: all 0.15s; }
-.bf-act .bf-edit { background: #e0e7ff; color: #3730a3; }
-.bf-act .bf-edit:hover { background: #c7d2fe; }
-.bf-act .bf-del { background: #fee2e2; color: #991b1b; }
-.bf-act .bf-del:hover { background: #fecaca; }
-[data-theme="dark"] .bf-act .bf-edit { background: rgba(99,102,241,0.2); color: #a5b4fc; }
-[data-theme="dark"] .bf-act .bf-del { background: rgba(239,68,68,0.2); color: #fca5a5; }
+.bf-card-actions { display: flex; gap: 0.3rem; margin-top: 0.3rem; justify-content: flex-end; }
+.bf-card-actions .bf-edit, .bf-card-actions .bf-del { border: none; padding: 0.15rem 0.45rem; border-radius: 4px; font-size: 0.62rem; cursor: pointer; font-weight: 500; transition: all 0.15s; }
+.bf-card-actions .bf-edit { background: #e0e7ff; color: #3730a3; }
+.bf-card-actions .bf-edit:hover { background: #c7d2fe; }
+.bf-card-actions .bf-del { background: #fee2e2; color: #991b1b; }
+.bf-card-actions .bf-del:hover { background: #fecaca; }
+[data-theme="dark"] .bf-card-actions .bf-edit { background: rgba(99,102,241,0.2); color: #a5b4fc; }
+[data-theme="dark"] .bf-card-actions .bf-del { background: rgba(239,68,68,0.2); color: #fca5a5; }
+@media (max-width: 640px) { .bf-cards { grid-template-columns: 1fr; } }
 
 .print-footer { display: none; }
 
@@ -271,6 +272,8 @@ include '../../includes/header.php';
     .laporan-container { position: absolute; left: 0; top: 0; width: 100%; max-width: 100%; padding: 12mm 15mm; }
     .action-buttons { display: none !important; }
     .bf-act { display: none !important; }
+    .bf-card-actions { display: none !important; }
+    .bf-cards { grid-template-columns: repeat(2, 1fr); }
     .stat-item { background: #f8fafc !important; border: 1px solid #d1d5db !important; }
     .rpt-table th { background: #f3f4f6 !important; }
     .room-tag { background: #4f46e5 !important; color: #fff !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
