@@ -45,7 +45,6 @@ if (isset($_GET['business']) && !empty($_GET['business'])) {
 // Get all available businesses & active config
 require_once __DIR__ . '/../../includes/business_access.php';
 $allBusinesses = getUserAvailableBusinesses();
-$activeBusinessId = getActiveBusinessId();
 
 // Sort businesses: narayana-hotel first, then alphabetically
 uksort($allBusinesses, function($a, $b) {
@@ -53,6 +52,13 @@ uksort($allBusinesses, function($a, $b) {
     if ($b === 'narayana-hotel') return 1;
     return strcmp($a, $b);
 });
+
+// Default to narayana-hotel when opening without explicit ?business= choice
+$activeBusinessId = getActiveBusinessId();
+if (!isset($_GET['business']) && isset($allBusinesses['narayana-hotel'])) {
+    setActiveBusinessId('narayana-hotel');
+    $activeBusinessId = 'narayana-hotel';
+}
 
 // If current active business is not in user's allowed list, auto-switch to first allowed
 if (!empty($allBusinesses) && !isset($allBusinesses[$activeBusinessId])) {
