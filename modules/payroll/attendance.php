@@ -350,7 +350,7 @@ $dailyAtt = $db->fetchAll("
     ORDER BY e.full_name
 ", [$viewDate]) ?: [];
 
-// Monthly summary
+// Monthly summary with overtime calc
 $monthlyAtt = $db->fetchAll("
     SELECT e.id, e.employee_code, e.full_name, e.position,
         COALESCE(e.monthly_target_hours, 200) as target_hours,
@@ -359,10 +359,12 @@ $monthlyAtt = $db->fetchAll("
         SUM(CASE WHEN a.status = 'late' THEN 1 ELSE 0 END) as late,
         SUM(CASE WHEN a.status = 'absent' THEN 1 ELSE 0 END) as absent,
         SUM(CASE WHEN a.status = 'leave' THEN 1 ELSE 0 END) as `leave`,
-        ROUND(SUM(a.work_hours), 1) as total_hours,
-        ROUND(AVG(CASE WHEN a.work_hours > 0 THEN a.work_hours ELSE NULL END), 1) as avg_hours,
+        ROUND(SUM(a.work_hours), 2) as total_hours,
+        ROUND(AVG(CASE WHEN a.work_hours > 0 THEN a.work_hours ELSE NULL END), 2) as avg_hours,
         ROUND(SUM(a.shift_1_hours), 1) as total_shift1,
-        ROUND(SUM(a.shift_2_hours), 1) as total_shift2
+        ROUND(SUM(a.shift_2_hours), 1) as total_shift2,
+        ROUND(SUM(LEAST(a.work_hours, 8)), 2) as total_regular,
+        ROUND(SUM(GREATEST(a.work_hours - 8, 0)), 2) as total_overtime_raw
     FROM payroll_employees e
     LEFT JOIN payroll_attendance a ON a.employee_id = e.id AND DATE_FORMAT(a.attendance_date, '%Y-%m') = ?
     WHERE e.is_active = 1
@@ -370,15 +372,35 @@ $monthlyAtt = $db->fetchAll("
     ORDER BY e.full_name
 ", [$viewMonth]) ?: [];
 
-// Today stats
+// Calculate overtime in 45-min increments for each employee
+foreach ($monthlyAtt as &$row) {
+    $otRaw = (float)($row['total_overtime_raw'] ?? 0);
+    // Each 45min (0.75h) block counts as 1 overtime unit
+    $row['overtime_units'] = floor($otRaw / 0.75);
+    $row['overtime_hours'] = round($row['overtime_units'] * 0.75, 2);
+    $row['regular_hours'] = (float)($row['total_regular'] ?? 0);
+}
+unset($row);
+
+// Today stats + overtime
 $todayStats = [
     'total'   => count($employees),
-    'present' => 0, 'late' => 0, 'checkedout' => 0
+    'present' => 0, 'late' => 0, 'checkedout' => 0,
+    'total_hours' => 0, 'regular_hours' => 0, 'overtime_hours' => 0, 'ot_count' => 0
 ];
 foreach ($dailyAtt as $a) {
     if ($a['check_in_time']) $todayStats['present']++;
     if ($a['status'] === 'late') $todayStats['late']++;
     if ($a['check_out_time']) $todayStats['checkedout']++;
+    $wh = (float)($a['work_hours'] ?? 0);
+    $todayStats['total_hours'] += $wh;
+    $todayStats['regular_hours'] += min($wh, 8);
+    if ($wh > 8) {
+        $otRaw = $wh - 8;
+        $otUnits = floor($otRaw / 0.75);
+        $todayStats['overtime_hours'] += $otUnits * 0.75;
+        if ($otUnits > 0) $todayStats['ot_count']++;
+    }
 }
 
 $absenUrl = $baseUrl . '/modules/payroll/absen.php?b=' . ACTIVE_BUSINESS_ID;
@@ -515,21 +537,26 @@ include '../../includes/header.php';
     </div>
 
     <!-- Stats -->
-    <div class="att-stats">
-        <div class="att-stat">
-            <div class="label">Total Karyawan</div>
-            <div class="value"><?php echo $todayStats['total']; ?></div>
-            <div class="sub">karyawan aktif</div>
-        </div>
+    <div class="att-stats" style="grid-template-columns:repeat(5,1fr);">
         <div class="att-stat success">
-            <div class="label">Hadir Hari Ini</div>
-            <div class="value"><?php echo $todayStats['present']; ?></div>
+            <div class="label">Hadir</div>
+            <div class="value"><?php echo $todayStats['present']; ?>/<?php echo $todayStats['total']; ?></div>
             <div class="sub"><?php echo $todayStats['total'] > 0 ? round($todayStats['present']/$todayStats['total']*100).'%' : '0%'; ?> kehadiran</div>
         </div>
         <div class="att-stat warning">
             <div class="label">Terlambat</div>
             <div class="value"><?php echo $todayStats['late']; ?></div>
             <div class="sub">dari yang hadir</div>
+        </div>
+        <div class="att-stat">
+            <div class="label">Total Jam Hari Ini</div>
+            <div class="value"><?php echo number_format($todayStats['total_hours'],1); ?></div>
+            <div class="sub"><?php echo number_format($todayStats['regular_hours'],1); ?>j reguler</div>
+        </div>
+        <div class="att-stat" style="border-top-color:#7c3aed;">
+            <div class="label">🔥 Lembur Hari Ini</div>
+            <div class="value" style="color:#7c3aed;"><?php echo number_format($todayStats['overtime_hours'],1); ?>j</div>
+            <div class="sub"><?php echo $todayStats['ot_count']; ?> staff lembur</div>
         </div>
         <div class="att-stat info">
             <div class="label">Belum Absen</div>
@@ -569,6 +596,8 @@ include '../../includes/header.php';
                     <th style="text-align:center;">Scan 4</th>
                     <th style="text-align:center;">Shift 2</th>
                     <th style="text-align:center;">Total</th>
+                    <th style="text-align:center;">Reguler</th>
+                    <th style="text-align:center;">Lembur</th>
                     <th>Status</th>
                     <th>Aksi</th>
                 </tr></thead>
@@ -588,6 +617,11 @@ include '../../includes/header.php';
                     $s4 = $a && !empty($a['scan_4']) ? substr($a['scan_4'],0,5) : null;
                     $sh1 = $a ? ($a['shift_1_hours'] ?? null) : null;
                     $sh2 = $a ? ($a['shift_2_hours'] ?? null) : null;
+                    $wh = (float)($a['work_hours'] ?? 0);
+                    $regHours = min($wh, 8);
+                    $otRaw = max($wh - 8, 0);
+                    $otUnits = floor($otRaw / 0.75); // per 45 min
+                    $otCounted = $otUnits * 0.75;
                     $dash = '<span style="color:#d1d5db;">—</span>';
                 ?>
                 <tr>
@@ -601,7 +635,16 @@ include '../../includes/header.php';
                     <td style="text-align:center; font-weight:700; color:var(--green);"><?php echo $s3 ?: $dash; ?></td>
                     <td style="text-align:center; font-weight:700; color:var(--navy);"><?php echo $s4 ?: $dash; ?></td>
                     <td style="text-align:center; font-size:12px;"><?php echo $sh2 ? '<strong>'.number_format($sh2,1).'</strong>j' : $dash; ?></td>
-                    <td style="text-align:center;"><?php echo $a && $a['work_hours'] ? '<strong>'.number_format($a['work_hours'],1).'</strong><span style="font-size:11px;color:var(--muted);"> jam</span>' : $dash; ?></td>
+                    <td style="text-align:center;"><?php echo $wh > 0 ? '<strong>'.number_format($wh,1).'</strong><span style="font-size:11px;color:var(--muted);"> jam</span>' : $dash; ?></td>
+                    <td style="text-align:center;"><?php echo $wh > 0 ? '<span style="color:var(--navy); font-weight:600;">'.number_format($regHours,1).'j</span>' : $dash; ?></td>
+                    <td style="text-align:center;"><?php
+                        if ($otCounted > 0) {
+                            echo '<span style="background:#ede9fe; color:#7c3aed; padding:2px 8px; border-radius:4px; font-weight:700; font-size:12px;">+'.number_format($otCounted,1).'j</span>';
+                            echo '<div style="font-size:9px; color:var(--muted);">'.$otUnits.'×45m</div>';
+                        } else {
+                            echo $wh > 0 ? '<span style="color:#d1d5db; font-size:11px;">0</span>' : $dash;
+                        }
+                    ?></td>
                     <td><span class="s-badge s-<?php echo $status; ?>"><?php echo $labels[$status] ?? $status; ?></span></td>
                     <td>
                         <?php if ($a): ?>
@@ -625,18 +668,55 @@ include '../../includes/header.php';
                 <input type="month" name="month" value="<?php echo $viewMonth; ?>" class="form-input" style="width:150px;">
                 <button type="submit" style="padding:8px 16px; background:var(--gold); color:var(--navy); border:none; border-radius:7px; font-size:12px; font-weight:700; cursor:pointer;">Tampilkan</button>
             </form>
+            <span style="font-size:12px; color:var(--muted);">📌 Standar: 8 jam/hari, 200 jam/bulan • Lembur: setiap kelipatan 45 menit di atas 8 jam</span>
         </div>
+
+        <?php
+        // Monthly totals for summary cards
+        $mTotRegular = 0; $mTotOvertime = 0; $mTotHours = 0; $mTotOtUnits = 0;
+        foreach ($monthlyAtt as $r) {
+            $mTotRegular += $r['regular_hours'];
+            $mTotOvertime += $r['overtime_hours'];
+            $mTotHours += (float)($r['total_hours'] ?? 0);
+            $mTotOtUnits += $r['overtime_units'];
+        }
+        ?>
+        <div style="display:grid; grid-template-columns:repeat(4,1fr); gap:10px; margin-bottom:14px;">
+            <div style="background:#fff; border:1px solid var(--border); border-radius:10px; padding:14px; border-top:3px solid var(--navy);">
+                <div style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase;">Total Jam Kerja</div>
+                <div style="font-size:24px; font-weight:800; color:var(--navy); margin-top:4px;"><?php echo number_format($mTotHours,1); ?>j</div>
+                <div style="font-size:10px; color:var(--muted);"><?php echo count(array_filter($monthlyAtt, fn($r) => (float)($r['total_hours'] ?? 0) > 0)); ?> staff aktif</div>
+            </div>
+            <div style="background:#fff; border:1px solid var(--border); border-radius:10px; padding:14px; border-top:3px solid var(--green);">
+                <div style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase;">Jam Reguler</div>
+                <div style="font-size:24px; font-weight:800; color:var(--green); margin-top:4px;"><?php echo number_format($mTotRegular,1); ?>j</div>
+                <div style="font-size:10px; color:var(--muted);">max 8j/hari</div>
+            </div>
+            <div style="background:#fff; border:1px solid var(--border); border-radius:10px; padding:14px; border-top:3px solid #7c3aed;">
+                <div style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase;">🔥 Total Lembur</div>
+                <div style="font-size:24px; font-weight:800; color:#7c3aed; margin-top:4px;"><?php echo number_format($mTotOvertime,1); ?>j</div>
+                <div style="font-size:10px; color:var(--muted);"><?php echo $mTotOtUnits; ?> unit (×45m)</div>
+            </div>
+            <div style="background:#fff; border:1px solid var(--border); border-radius:10px; padding:14px; border-top:3px solid var(--orange);">
+                <div style="font-size:10px; color:var(--muted); font-weight:700; text-transform:uppercase;">Rata-rata/Staff</div>
+                <?php $activeStaff = count(array_filter($monthlyAtt, fn($r) => (float)($r['total_hours'] ?? 0) > 0)); ?>
+                <div style="font-size:24px; font-weight:800; color:var(--orange); margin-top:4px;"><?php echo $activeStaff > 0 ? number_format($mTotHours/$activeStaff,1) : 0; ?>j</div>
+                <div style="font-size:10px; color:var(--muted);">dari target 200j</div>
+            </div>
+        </div>
+
         <div class="att-table-wrap">
             <table class="att-table">
                 <thead><tr>
                     <th>Karyawan</th>
                     <th style="text-align:center;">Hadir</th>
-                    <th style="text-align:center;">Terlambat</th>
-                    <th style="text-align:right;">Shift 1</th>
-                    <th style="text-align:right;">Shift 2</th>
                     <th style="text-align:right;">Total Jam</th>
-                    <th style="text-align:center;">Target</th>
+                    <th style="text-align:right;">Reguler</th>
+                    <th style="text-align:right;">Lembur</th>
+                    <th style="text-align:center;">OT Unit</th>
+                    <th style="text-align:center;">Target 200j</th>
                     <th style="text-align:right;">Avg/hari</th>
+                    <th style="text-align:center;">Salary Status</th>
                 </tr></thead>
                 <tbody>
                 <?php foreach ($monthlyAtt as $row):
@@ -644,31 +724,70 @@ include '../../includes/header.php';
                     $target = (int)($row['target_hours'] ?? 200);
                     $pct = $target > 0 ? min(round($total/$target*100), 100) : 0;
                     $barColor = $pct >= 90 ? 'var(--green)' : ($pct >= 60 ? 'var(--orange)' : 'var(--red)');
+                    $regH = $row['regular_hours'];
+                    $otH = $row['overtime_hours'];
+                    $otU = $row['overtime_units'];
                 ?>
                 <tr>
                     <td>
                         <strong><?php echo htmlspecialchars($row['full_name']); ?></strong>
-                        <div style="font-size:10px; color:var(--muted);"><?php echo htmlspecialchars($row['employee_code']); ?></div>
+                        <div style="font-size:10px; color:var(--muted);"><?php echo htmlspecialchars($row['employee_code']); ?> • <?php echo htmlspecialchars($row['position'] ?? ''); ?></div>
                     </td>
-                    <td style="text-align:center;"><strong style="color:var(--green);"><?php echo $row['present']; ?></strong></td>
-                    <td style="text-align:center;"><span style="color:var(--orange);"><?php echo $row['late']; ?></span></td>
-                    <td style="text-align:right; font-size:12px;"><?php echo ($row['total_shift1'] ?? 0); ?>j</td>
-                    <td style="text-align:right; font-size:12px;"><?php echo ($row['total_shift2'] ?? 0); ?>j</td>
-                    <td style="text-align:right; font-weight:700;"><?php echo $total; ?>j</td>
-                    <td style="min-width:140px;">
-                        <div style="display:flex; align-items:center; gap:6px;">
+                    <td style="text-align:center;">
+                        <strong style="color:var(--green);"><?php echo $row['present']; ?></strong>
+                        <?php if ((int)$row['late'] > 0): ?><span style="color:var(--orange); font-size:10px;">(<?php echo $row['late']; ?>⏰)</span><?php endif; ?>
+                    </td>
+                    <td style="text-align:right; font-weight:700; font-size:15px;"><?php echo number_format($total,1); ?>j</td>
+                    <td style="text-align:right; color:var(--navy); font-weight:600;"><?php echo number_format($regH,1); ?>j</td>
+                    <td style="text-align:right;">
+                        <?php if ($otH > 0): ?>
+                        <span style="background:#ede9fe; color:#7c3aed; padding:2px 8px; border-radius:4px; font-weight:700;">+<?php echo number_format($otH,1); ?>j</span>
+                        <?php else: ?>
+                        <span style="color:#d1d5db;">0</span>
+                        <?php endif; ?>
+                    </td>
+                    <td style="text-align:center;">
+                        <?php if ($otU > 0): ?>
+                        <span style="background:#fef3c7; color:#b45309; padding:2px 6px; border-radius:4px; font-weight:700; font-size:12px;"><?php echo $otU; ?>×</span>
+                        <?php else: ?>
+                        <span style="color:#d1d5db;">—</span>
+                        <?php endif; ?>
+                    </td>
+                    <td style="min-width:130px;">
+                        <div style="display:flex; align-items:center; gap:5px;">
                             <div style="flex:1; background:#e5e7eb; height:8px; border-radius:4px; overflow:hidden;">
                                 <div style="width:<?php echo $pct; ?>%; height:100%; background:<?php echo $barColor; ?>; border-radius:4px; transition:width 0.3s;"></div>
                             </div>
-                            <span style="font-size:11px; font-weight:700; color:<?php echo $barColor; ?>; white-space:nowrap;"><?php echo $pct; ?>%</span>
+                            <span style="font-size:10px; font-weight:700; color:<?php echo $barColor; ?>; white-space:nowrap;"><?php echo $pct; ?>%</span>
                         </div>
-                        <div style="font-size:10px; color:var(--muted); margin-top:2px;"><?php echo $total; ?>/<?php echo $target; ?>j</div>
+                        <div style="font-size:9px; color:var(--muted); margin-top:1px;"><?php echo number_format($total,1); ?>/<?php echo $target; ?>j</div>
                     </td>
-                    <td style="text-align:right;"><?php echo $row['avg_hours'] ?? 0; ?>j</td>
+                    <td style="text-align:right; font-size:12px;"><?php echo $row['avg_hours'] ?? 0; ?>j</td>
+                    <td style="text-align:center;">
+                        <?php
+                        if ($total == 0) {
+                            echo '<span style="background:#f1f5f9; color:#94a3b8; padding:3px 8px; border-radius:5px; font-size:11px;">Belum</span>';
+                        } elseif ($pct >= 100) {
+                            echo '<span style="background:#dcfce7; color:#16a34a; padding:3px 8px; border-radius:5px; font-size:11px; font-weight:700;">✅ Tercapai</span>';
+                        } elseif ($pct >= 80) {
+                            echo '<span style="background:#fef9c3; color:#a16207; padding:3px 8px; border-radius:5px; font-size:11px; font-weight:600;">⏳ Hampir</span>';
+                        } else {
+                            echo '<span style="background:#fef2f2; color:#dc2626; padding:3px 8px; border-radius:5px; font-size:11px; font-weight:600;">⚠️ Kurang</span>';
+                        }
+                        ?>
+                    </td>
                 </tr>
                 <?php endforeach; ?>
                 </tbody>
             </table>
+        </div>
+
+        <!-- Legend -->
+        <div style="margin-top:12px; padding:12px 16px; background:#f8fafc; border-radius:8px; border:1px solid var(--border); display:flex; gap:20px; flex-wrap:wrap; font-size:11px; color:var(--muted);">
+            <span>📌 <strong>Reguler:</strong> max 8 jam/hari</span>
+            <span>🔥 <strong>Lembur:</strong> jam di atas 8j, dihitung per kelipatan 45 menit</span>
+            <span>🎯 <strong>Target:</strong> 200 jam/bulan</span>
+            <span>📊 <strong>OT Unit:</strong> 1 unit = 45 menit lembur (untuk kalkulasi gaji)</span>
         </div>
     </div>
 
