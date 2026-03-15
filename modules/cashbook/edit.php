@@ -239,18 +239,42 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     try { $pdo->exec("ALTER TABLE project_expenses ADD COLUMN cash_book_id INT NULL"); } catch (Exception $ignore) {}
                     try { $pdo->exec("ALTER TABLE project_expenses ADD COLUMN division_name VARCHAR(100)"); } catch (Exception $ignore) {}
                     
+                    // Detect actual column names in projects table
+                    $projCols = array_column($pdo->query("DESCRIBE projects")->fetchAll(PDO::FETCH_ASSOC), 'Field');
+                    $pCodeCol = in_array('project_code', $projCols) ? 'project_code' : (in_array('code', $projCols) ? 'code' : null);
+                    $pNameCol = in_array('project_name', $projCols) ? 'project_name' : (in_array('name', $projCols) ? 'name' : 'project_name');
+                    
                     // Auto-create "Proyek Umum" if no project selected
                     $projId = $project_id_input;
                     if ($projId <= 0) {
-                        $defStmt = $pdo->prepare("SELECT id FROM projects WHERE project_code = 'UMUM' LIMIT 1");
-                        $defStmt->execute();
-                        $defaultProject = $defStmt->fetch(PDO::FETCH_ASSOC);
-                        if ($defaultProject) {
-                            $projId = (int)$defaultProject['id'];
+                        $defProject = null;
+                        if ($pCodeCol) {
+                            $defStmt = $pdo->prepare("SELECT id FROM projects WHERE {$pCodeCol} = 'UMUM' LIMIT 1");
+                            $defStmt->execute();
+                            $defProject = $defStmt->fetch(PDO::FETCH_ASSOC);
+                        }
+                        if ($defProject) {
+                            $projId = (int)$defProject['id'];
                         } else {
-                            $createStmt = $pdo->prepare("INSERT INTO projects (project_name, project_code, description, budget_idr, status, created_by) VALUES (?, ?, ?, ?, ?, ?)");
-                            $createStmt->execute(['Proyek Umum', 'UMUM', 'Proyek default untuk pengeluaran proyek dari kas besar', 0, 'ongoing', $_SESSION['user_id'] ?? null]);
+                            // Build INSERT with correct column names
+                            $insertCols = ['description', 'budget_idr', 'status', 'created_by'];
+                            $insertVals = ['Proyek default untuk pengeluaran proyek dari kas besar', 0, 'ongoing', $_SESSION['user_id'] ?? null];
+                            $insertPlaceholders = ['?', '?', '?', '?'];
+                            
+                            array_unshift($insertCols, $pNameCol);
+                            array_unshift($insertVals, 'Proyek Umum');
+                            array_unshift($insertPlaceholders, '?');
+                            
+                            if ($pCodeCol) {
+                                array_unshift($insertCols, $pCodeCol);
+                                array_unshift($insertVals, 'UMUM');
+                                array_unshift($insertPlaceholders, '?');
+                            }
+                            
+                            $createStmt = $pdo->prepare("INSERT INTO projects (" . implode(',', $insertCols) . ") VALUES (" . implode(',', $insertPlaceholders) . ")");
+                            $createStmt->execute($insertVals);
                             $projId = (int)$pdo->lastInsertId();
+                            error_log("PROJECT AUTO-CREATE (edit): Created 'Proyek Umum' with ID #{$projId}");
                         }
                     }
                     
@@ -285,7 +309,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     } catch (Exception $ignore) {}
                 }
             } catch (Exception $projErr) {
-                error_log("Edit project sync error: " . $projErr->getMessage());
+                error_log("Edit project sync error: " . $projErr->getMessage() . " | source_type={$newSourceType}, type={$transaction_type}, project_id={$project_id_input}");
             }
             
             $_SESSION['success'] = '✅ Transaksi berhasil diupdate';
@@ -630,7 +654,7 @@ include '../../includes/header.php';
         sourceField.value = checked ? 'owner_project' : '';
         
         if (projectSelect) {
-            projectSelect.required = checked;
+            projectSelect.required = (checked && projectSelect.options.length > 1);
             if (!checked) projectSelect.value = '';
         }
     }
