@@ -213,17 +213,17 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'reset
 // ── Fingerspot.io Configuration ──
 // Auto-create fingerspot columns in config
 try {
-    $pdo->query("SELECT fingerspot_cloud_id FROM payroll_attendance_config LIMIT 1");
+    $_pdo->query("SELECT fingerspot_cloud_id FROM payroll_attendance_config LIMIT 1");
 } catch (PDOException $e) {
-    $pdo->exec("ALTER TABLE payroll_attendance_config 
+    $_pdo->exec("ALTER TABLE payroll_attendance_config 
         ADD COLUMN `fingerspot_cloud_id` VARCHAR(50) DEFAULT NULL,
         ADD COLUMN `fingerspot_enabled` TINYINT(1) DEFAULT 0");
 }
 // Auto-create fingerprint_log table
 try {
-    $pdo->query("SELECT 1 FROM fingerprint_log LIMIT 1");
+    $_pdo->query("SELECT 1 FROM fingerprint_log LIMIT 1");
 } catch (PDOException $e) {
-    $pdo->exec("CREATE TABLE IF NOT EXISTS `fingerprint_log` (
+    $_pdo->exec("CREATE TABLE IF NOT EXISTS `fingerprint_log` (
         `id` INT AUTO_INCREMENT PRIMARY KEY,
         `cloud_id` VARCHAR(50) NOT NULL,
         `type` VARCHAR(32) NOT NULL DEFAULT 'attlog',
@@ -243,16 +243,16 @@ try {
 }
 // Auto-add finger_id column to employees
 try {
-    $pdo->query("SELECT finger_id FROM payroll_employees LIMIT 1");
+    $_pdo->query("SELECT finger_id FROM payroll_employees LIMIT 1");
 } catch (PDOException $e) {
-    $pdo->exec("ALTER TABLE payroll_employees ADD COLUMN `finger_id` VARCHAR(20) DEFAULT NULL");
+    $_pdo->exec("ALTER TABLE payroll_employees ADD COLUMN `finger_id` VARCHAR(20) DEFAULT NULL");
 }
 
 // Save Fingerspot config
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'save_fingerspot') {
     $fpCloudId = trim($_POST['fingerspot_cloud_id'] ?? '');
     $fpEnabled = isset($_POST['fingerspot_enabled']) ? 1 : 0;
-    $pdo->prepare("UPDATE payroll_attendance_config SET fingerspot_cloud_id=?, fingerspot_enabled=?, updated_by=? WHERE id=1")
+    $_pdo->prepare("UPDATE payroll_attendance_config SET fingerspot_cloud_id=?, fingerspot_enabled=?, updated_by=? WHERE id=1")
         ->execute([$fpCloudId ?: null, $fpEnabled, $currentUser['id']]);
     $msg = '✅ Pengaturan Fingerspot berhasil disimpan.';
     $msgType = 'success';
