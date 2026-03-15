@@ -1943,24 +1943,21 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
     
     // Create gradient for income line
     const incomeGradient = tradingCtx.createLinearGradient(0, 0, 0, 400);
-    incomeGradient.addColorStop(0, 'rgba(16, 185, 129, 0.3)');
-    incomeGradient.addColorStop(0.5, 'rgba(16, 185, 129, 0.15)');
-    incomeGradient.addColorStop(1, 'rgba(16, 185, 129, 0.02)');
+    incomeGradient.addColorStop(0, 'rgba(16, 185, 129, 0.85)');
+    incomeGradient.addColorStop(1, 'rgba(16, 185, 129, 0.65)');
     
     // Create gradient for expense line
     const expenseGradient = tradingCtx.createLinearGradient(0, 0, 0, 400);
-    expenseGradient.addColorStop(0, 'rgba(239, 68, 68, 0.3)');
-    expenseGradient.addColorStop(0.5, 'rgba(239, 68, 68, 0.15)');
-    expenseGradient.addColorStop(1, 'rgba(239, 68, 68, 0.02)');
+    expenseGradient.addColorStop(0, 'rgba(239, 68, 68, 0.85)');
+    expenseGradient.addColorStop(1, 'rgba(239, 68, 68, 0.65)');
     
-    // Create gradient for net balance line
+    // Create gradient for net balance line (subtle)
     const netGradient = tradingCtx.createLinearGradient(0, 0, 0, 400);
-    netGradient.addColorStop(0, 'rgba(<?php echo $cPrimaryRgb; ?>, 0.3)');
-    netGradient.addColorStop(0.5, 'rgba(<?php echo $cPrimaryRgb; ?>, 0.15)');
-    netGradient.addColorStop(1, 'rgba(<?php echo $cPrimaryRgb; ?>, 0.02)');
+    netGradient.addColorStop(0, 'rgba(<?php echo $cPrimaryRgb; ?>, 0.08)');
+    netGradient.addColorStop(1, 'rgba(<?php echo $cPrimaryRgb; ?>, 0.01)');
     
     let tradingChart = new Chart(tradingCtx, {
-        type: 'line',
+        type: 'bar',
         data: {
             labels: [
                 <?php foreach ($dailyData as $data): ?>
@@ -1975,20 +1972,14 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
                             <?php echo $data['income']; ?>,
                         <?php endforeach; ?>
                     ],
-                    borderColor: 'rgb(16, 185, 129)',
                     backgroundColor: incomeGradient,
-                    borderWidth: 3,
-                    pointRadius: 4,
-                    pointHoverRadius: 7,
-                    pointBackgroundColor: 'rgb(16, 185, 129)',
-                    pointBorderColor: '#fff',
-                    pointBorderWidth: 2,
-                    pointHoverBackgroundColor: '#fff',
-                    pointHoverBorderColor: 'rgb(16, 185, 129)',
-                    pointHoverBorderWidth: 3,
-                    fill: true,
-                    tension: 0.4,
-                    order: 2
+                    borderColor: 'rgb(16, 185, 129)',
+                    borderWidth: 0,
+                    borderRadius: 4,
+                    borderSkipped: false,
+                    order: 2,
+                    barPercentage: 0.7,
+                    categoryPercentage: 0.8
                 },
                 {
                     label: 'Pengeluaran',
@@ -1997,38 +1988,33 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
                             <?php echo $data['expense']; ?>,
                         <?php endforeach; ?>
                     ],
-                    borderColor: 'rgb(239, 68, 68)',
                     backgroundColor: expenseGradient,
-                    borderWidth: 3,
-                    pointRadius: 4,
-                    pointHoverRadius: 7,
-                    pointBackgroundColor: 'rgb(239, 68, 68)',
-                    pointBorderColor: '#fff',
-                    pointBorderWidth: 2,
-                    pointHoverBackgroundColor: '#fff',
-                    pointHoverBorderColor: 'rgb(239, 68, 68)',
-                    pointHoverBorderWidth: 3,
-                    fill: true,
-                    tension: 0.4,
-                    order: 3
+                    borderColor: 'rgb(239, 68, 68)',
+                    borderWidth: 0,
+                    borderRadius: 4,
+                    borderSkipped: false,
+                    order: 3,
+                    barPercentage: 0.7,
+                    categoryPercentage: 0.8
                 },
                 {
                     label: 'Net Balance (Kumulatif)',
                     data: cumulativeBalance,
-                    borderColor: 'rgb(<?php echo $cPrimaryRgb; ?>)',
+                    type: 'line',
+                    borderColor: 'rgba(<?php echo $cPrimaryRgb; ?>, 0.5)',
                     backgroundColor: netGradient,
-                    borderWidth: 4,
-                    pointRadius: 5,
-                    pointHoverRadius: 8,
+                    borderWidth: 2.5,
+                    pointRadius: 3,
+                    pointHoverRadius: 6,
                     pointBackgroundColor: 'rgb(<?php echo $cPrimaryRgb; ?>)',
-                    pointBorderColor: '#fff',
-                    pointBorderWidth: 3,
+                    pointBorderColor: 'rgba(255,255,255,0.9)',
+                    pointBorderWidth: 2,
                     pointHoverBackgroundColor: '#fff',
                     pointHoverBorderColor: 'rgb(<?php echo $cPrimaryRgb; ?>)',
-                    pointHoverBorderWidth: 3,
+                    pointHoverBorderWidth: 2,
                     fill: true,
                     tension: 0.4,
-                    borderDash: [0],
+                    borderDash: [6, 3],
                     order: 1
                 }
             ]
@@ -2052,14 +2038,14 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
                         padding: 15,
                         font: { 
                             size: 10, 
-                            weight: '400',
+                            weight: '500',
                             family: "'Inter', sans-serif"
                         },
                         color: getLegendTextColor(),
                         usePointStyle: true,
-                        pointStyle: 'circle',
-                        boxWidth: 8,
-                        boxHeight: 8
+                        pointStyle: 'rectRounded',
+                        boxWidth: 10,
+                        boxHeight: 10
                     }
                 },
                 tooltip: {
