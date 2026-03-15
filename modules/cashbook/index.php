@@ -559,6 +559,20 @@ foreach ($transactions as $trans) {
 }
 $balance = $totalIncome - $totalExpense;
 
+// Calculate ALL-TIME cash available (unfiltered - real current cash position)
+$cashAvailable = 0;
+try {
+    $cashAvailRow = $db->fetchOne(
+        "SELECT 
+            COALESCE(SUM(CASE WHEN transaction_type = 'income' THEN amount ELSE 0 END), 0) -
+            COALESCE(SUM(CASE WHEN transaction_type = 'expense' THEN amount ELSE 0 END), 0) as cash_available
+        FROM cash_book"
+    );
+    $cashAvailable = (float)($cashAvailRow['cash_available'] ?? 0);
+} catch (Exception $e) {
+    $cashAvailable = 0;
+}
+
 // CQC: Get actual Petty Cash balance from cash_accounts (master DB)
 $actualPettyCashBalance = 0;
 if ($isCQC) {
@@ -1745,6 +1759,25 @@ echo getPrintCSS();
             </button>
         </div>
     </form>
+    <?php endif; ?>
+    
+    <!-- Cash Available Banner -->
+    <?php if (!$isCQC): ?>
+    <div id="cashAvailableBanner" style="display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1.25rem; margin-bottom: 1rem; background: linear-gradient(135deg, rgba(79,70,229,0.06), rgba(99,102,241,0.03)); border: 1px solid rgba(79,70,229,0.15); border-radius: var(--radius-lg); gap: 1rem;">
+        <div style="display: flex; align-items: center; gap: 0.75rem;">
+            <div style="width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+                <i data-feather="wallet" style="width: 18px; height: 18px; color: #fff;"></i>
+            </div>
+            <div>
+                <div style="font-size: 0.7rem; font-weight: 500; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Cash Available (All-Time)</div>
+                <div id="cashAvailableValue" style="font-size: 1.35rem; font-weight: 800; color: <?php echo $cashAvailable >= 0 ? 'var(--success)' : 'var(--danger)'; ?>; letter-spacing: -0.5px; line-height: 1.2;"><?php echo formatCurrency($cashAvailable); ?></div>
+            </div>
+        </div>
+        <div style="font-size: 0.68rem; color: var(--text-muted); text-align: right; line-height: 1.4;">
+            <span>Saldo real dari seluruh transaksi</span><br>
+            <span style="font-size: 0.62rem; opacity: 0.7;">Update otomatis setiap transaksi</span>
+        </div>
+    </div>
     <?php endif; ?>
     
     <!-- Table -->
