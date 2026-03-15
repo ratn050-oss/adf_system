@@ -559,18 +559,85 @@ foreach ($transactions as $trans) {
 }
 $balance = $totalIncome - $totalExpense;
 
-// Calculate ALL-TIME cash available (unfiltered - real current cash position)
+// Calculate CASH AVAILABLE — same logic as dashboard Daily Cash widget
 $cashAvailable = 0;
+$startKas = 0;
 try {
-    $cashAvailRow = $db->fetchOne(
-        "SELECT 
-            COALESCE(SUM(CASE WHEN transaction_type = 'income' THEN amount ELSE 0 END), 0) -
-            COALESCE(SUM(CASE WHEN transaction_type = 'expense' THEN amount ELSE 0 END), 0) as cash_available
-        FROM cash_book"
-    );
-    $cashAvailable = (float)($cashAvailRow['cash_available'] ?? 0);
+    $thisMonth = date('Y-m');
+    $firstDayOfMonth = date('Y-m-01');
+    
+    // Get cash_accounts from master DB
+    $masterDbCash = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
+    $masterDbCash->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    $businessId = getMasterBusinessId();
+    
+    $stmt = $masterDbCash->prepare("SELECT id FROM cash_accounts WHERE business_id = ? AND account_type = 'owner_capital'");
+    $stmt->execute([$businessId]);
+    $capitalAccIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
+    
+    $stmt = $masterDbCash->prepare("SELECT id FROM cash_accounts WHERE business_id = ? AND account_type = 'cash'");
+    $stmt->execute([$businessId]);
+    $pettyCashAccIds = $stmt->fetchAll(PDO::FETCH_COLUMN);
+    
+    $allAccIds = array_merge($capitalAccIds, $pettyCashAccIds);
+    
+    // Check if cash_account_id column exists
+    $hasCashAccCol = false;
+    try {
+        $db->getConnection()->query("SELECT cash_account_id FROM cash_book LIMIT 1");
+        $hasCashAccCol = true;
+    } catch (\Throwable $e) {}
+    
+    if ($hasCashAccCol && !empty($allAccIds)) {
+        $ph = implode(',', array_fill(0, count($allAccIds), '?'));
+        
+        // Start Kas = balance from all transactions BEFORE this month
+        $rStart = $db->fetchOne(
+            "SELECT COALESCE(SUM(CASE WHEN transaction_type='income' THEN amount ELSE 0 END),0) -
+                    COALESCE(SUM(CASE WHEN transaction_type='expense' THEN amount ELSE 0 END),0) as bal
+             FROM cash_book WHERE cash_account_id IN ($ph) AND transaction_date < ?",
+            array_merge($allAccIds, [$firstDayOfMonth])
+        );
+        $startKas = (float)($rStart['bal'] ?? 0);
+        
+        // This month's balance from operational accounts
+        $rMonth = $db->fetchOne(
+            "SELECT COALESCE(SUM(CASE WHEN transaction_type='income' THEN amount ELSE 0 END),0) -
+                    COALESCE(SUM(CASE WHEN transaction_type='expense' THEN amount ELSE 0 END),0) as bal
+             FROM cash_book WHERE cash_account_id IN ($ph) AND DATE_FORMAT(transaction_date, '%Y-%m') = ?",
+            array_merge($allAccIds, [$thisMonth])
+        );
+        $monthBal = (float)($rMonth['bal'] ?? 0);
+        
+        // Guest cash income (cash payments NOT from owner accounts) this month
+        $excludePh = implode(',', array_fill(0, count($allAccIds), '?'));
+        $rGuest = $db->fetchOne(
+            "SELECT COALESCE(SUM(amount), 0) as total FROM cash_book 
+             WHERE transaction_type = 'income' AND payment_method = 'cash'
+             AND (cash_account_id IS NULL OR cash_account_id NOT IN ($excludePh))
+             AND DATE_FORMAT(transaction_date, '%Y-%m') = ?",
+            array_merge($allAccIds, [$thisMonth])
+        );
+        $guestCash = (float)($rGuest['total'] ?? 0);
+        
+        $cashAvailable = $startKas + $monthBal + $guestCash;
+    } else {
+        // Fallback: simple all-time balance
+        $cashAvailRow = $db->fetchOne(
+            "SELECT COALESCE(SUM(CASE WHEN transaction_type = 'income' THEN amount ELSE 0 END), 0) -
+                    COALESCE(SUM(CASE WHEN transaction_type = 'expense' THEN amount ELSE 0 END), 0) as bal
+             FROM cash_book"
+        );
+        $cashAvailable = (float)($cashAvailRow['bal'] ?? 0);
+    }
 } catch (Exception $e) {
-    $cashAvailable = 0;
+    // Fallback
+    $cashAvailRow = $db->fetchOne(
+        "SELECT COALESCE(SUM(CASE WHEN transaction_type = 'income' THEN amount ELSE 0 END), 0) -
+                COALESCE(SUM(CASE WHEN transaction_type = 'expense' THEN amount ELSE 0 END), 0) as bal
+         FROM cash_book"
+    );
+    $cashAvailable = (float)($cashAvailRow['bal'] ?? 0);
 }
 
 // CQC: Get actual Petty Cash balance from cash_accounts (master DB)
@@ -1763,19 +1830,19 @@ echo getPrintCSS();
     
     <!-- Cash Available Banner -->
     <?php if (!$isCQC): ?>
-    <div id="cashAvailableBanner" style="display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1.25rem; margin-bottom: 1rem; background: linear-gradient(135deg, rgba(79,70,229,0.06), rgba(99,102,241,0.03)); border: 1px solid rgba(79,70,229,0.15); border-radius: var(--radius-lg); gap: 1rem;">
+    <div id="cashAvailableBanner" style="display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1.25rem; margin-bottom: 1rem; background: linear-gradient(135deg, <?php echo $cashAvailable >= 0 ? 'rgba(16,185,129,0.06), rgba(5,150,105,0.03)' : 'rgba(239,68,68,0.06), rgba(220,38,38,0.03)'; ?>); border: 1px solid <?php echo $cashAvailable >= 0 ? 'rgba(16,185,129,0.2)' : 'rgba(239,68,68,0.2)'; ?>; border-radius: var(--radius-lg); gap: 1rem;">
         <div style="display: flex; align-items: center; gap: 0.75rem;">
-            <div style="width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
+            <div style="width: 36px; height: 36px; border-radius: 10px; background: linear-gradient(135deg, <?php echo $cashAvailable >= 0 ? '#10b981, #059669' : '#ef4444, #dc2626'; ?>); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
                 <i data-feather="wallet" style="width: 18px; height: 18px; color: #fff;"></i>
             </div>
             <div>
-                <div style="font-size: 0.7rem; font-weight: 500; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.5px;">Cash Available (All-Time)</div>
-                <div id="cashAvailableValue" style="font-size: 1.35rem; font-weight: 800; color: <?php echo $cashAvailable >= 0 ? 'var(--success)' : 'var(--danger)'; ?>; letter-spacing: -0.5px; line-height: 1.2;"><?php echo formatCurrency($cashAvailable); ?></div>
+                <div style="font-size: 0.7rem; font-weight: 600; color: <?php echo $cashAvailable >= 0 ? '#047857' : '#b91c1c'; ?>; text-transform: uppercase; letter-spacing: 0.5px;">Cash Available</div>
+                <div id="cashAvailableValue" style="font-size: 1.35rem; font-weight: 800; color: <?php echo $cashAvailable >= 0 ? '#059669' : '#dc2626'; ?>; letter-spacing: -0.5px; line-height: 1.2; font-family: 'Monaco', 'Courier New', monospace;"><?php echo formatCurrency($cashAvailable); ?></div>
             </div>
         </div>
-        <div style="font-size: 0.68rem; color: var(--text-muted); text-align: right; line-height: 1.4;">
-            <span>Saldo real dari seluruh transaksi</span><br>
-            <span style="font-size: 0.62rem; opacity: 0.7;">Update otomatis setiap transaksi</span>
+        <div style="text-align: right;">
+            <div style="font-size: 0.65rem; color: var(--text-muted); text-transform: uppercase; letter-spacing: 0.3px; margin-bottom: 0.15rem;">Start Cash (<?php echo date('M'); ?>)</div>
+            <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-primary); font-family: 'Monaco', 'Courier New', monospace;"><?php echo formatCurrency($startKas); ?></div>
         </div>
     </div>
     <?php endif; ?>
