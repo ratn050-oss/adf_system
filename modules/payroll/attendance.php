@@ -277,6 +277,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'edit_
     $msgType = 'success';
 }
 
+// Delete attendance record
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && ($_POST['action'] ?? '') === 'delete_att') {
+    $attId = (int)$_POST['att_id'];
+    if ($attId > 0) {
+        $db->query("DELETE FROM payroll_attendance WHERE id = ?", [$attId]);
+        $msg = 'Record absen berhasil dihapus.';
+        $msgType = 'success';
+    }
+}
+
 // Auto-add split shift columns if missing
 try {
     $_pdo->query("SELECT scan_3 FROM payroll_attendance LIMIT 0");
@@ -646,9 +656,14 @@ include '../../includes/header.php';
                         }
                     ?></td>
                     <td><span class="s-badge s-<?php echo $status; ?>"><?php echo $labels[$status] ?? $status; ?></span></td>
-                    <td>
+                    <td style="white-space:nowrap;">
                         <?php if ($a): ?>
-                        <button class="act-btn act-btn-edit" onclick='openEditModal(<?php echo json_encode($a); ?>)'>✏️ Edit</button>
+                        <button class="act-btn act-btn-edit" onclick='openEditModal(<?php echo json_encode($a); ?>)'>✏️</button>
+                        <form method="POST" style="display:inline;" onsubmit="return confirm('Hapus record absen <?php echo htmlspecialchars($emp['full_name']); ?> tanggal <?php echo $viewDate; ?>?')">
+                            <input type="hidden" name="action" value="delete_att">
+                            <input type="hidden" name="att_id" value="<?php echo $a['id']; ?>">
+                            <button type="submit" class="act-btn act-btn-del" style="background:#fef2f2; color:var(--red); border:1px solid #fca5a5; padding:4px 8px; border-radius:6px; font-size:11px; cursor:pointer;">🗑</button>
+                        </form>
                         <?php else: ?>
                         <button class="act-btn" style="background:#f0fdf4; color:var(--green);" onclick="quickManualAdd(<?php echo $emp['id']; ?>, '<?php echo htmlspecialchars($emp['full_name']); ?>', '<?php echo $viewDate; ?>')">➕</button>
                         <?php endif; ?>
