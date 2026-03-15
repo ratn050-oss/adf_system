@@ -114,9 +114,9 @@ if (!$fpEnabled) {
 }
 
 if (!empty($registeredCloudId) && $cloudId !== $registeredCloudId) {
-    logWebhook($pdo, $cloudId, $type, null, null, null, null, null, 0, "Cloud ID mismatch: expected {$registeredCloudId}", $rawBody);
+    logWebhook($pdo, $cloudId, $type, null, null, null, null, null, 0, "Cloud ID mismatch: received '{$cloudId}', expected '{$registeredCloudId}'", $rawBody);
     http_response_code(403);
-    echo json_encode(['success' => false, 'message' => 'Cloud ID not authorized']);
+    echo json_encode(['success' => false, 'message' => "Cloud ID mismatch: received '{$cloudId}', expected '{$registeredCloudId}'"]);
     exit;
 }
 

@@ -1045,12 +1045,13 @@ include '../../includes/header.php';
             <div style="overflow-x:auto;">
                 <table class="att-table" style="font-size:11px;">
                     <thead><tr>
-                        <th>Waktu</th><th>PIN</th><th>Karyawan</th><th>Scan</th><th>Status</th><th>Hasil</th>
+                        <th>Waktu</th><th>Cloud ID</th><th>PIN</th><th>Karyawan</th><th>Scan</th><th>Status</th><th>Hasil</th>
                     </tr></thead>
                     <tbody>
                     <?php foreach ($fpLogs as $log): ?>
                     <tr>
                         <td style="white-space:nowrap; font-size:10px;"><?php echo date('d/m H:i:s', strtotime($log['created_at'])); ?></td>
+                        <td style="font-size:10px;"><code><?php echo htmlspecialchars($log['cloud_id'] ?? '-'); ?></code></td>
                         <td><code><?php echo htmlspecialchars($log['pin'] ?? '-'); ?></code></td>
                         <td><?php echo htmlspecialchars($log['emp_name'] ?? '-'); ?></td>
                         <td style="white-space:nowrap;"><?php echo $log['scan_time'] ? date('d/m H:i', strtotime($log['scan_time'])) : '-'; ?></td>
@@ -1061,8 +1062,12 @@ include '../../includes/header.php';
                                 <span style="background:#fee2e2; color:#991b1b; padding:2px 6px; border-radius:4px; font-size:10px; font-weight:700;">❌</span>
                             <?php endif; ?>
                         </td>
-                        <td style="font-size:10px; max-width:200px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="<?php echo htmlspecialchars($log['process_result'] ?? ''); ?>">
+                        <td style="font-size:10px; max-width:250px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap;" title="<?php echo htmlspecialchars($log['process_result'] ?? ''); ?>">
                             <?php echo htmlspecialchars($log['process_result'] ?? '-'); ?>
+                            <?php if (!empty($log['raw_data'])): ?>
+                            <button onclick="this.nextElementSibling.style.display=this.nextElementSibling.style.display==='none'?'block':'none'; this.textContent=this.nextElementSibling.style.display==='none'?'📋':'❌'" style="background:none;border:none;cursor:pointer;font-size:10px;padding:0 2px;">📋</button>
+                            <pre style="display:none; font-size:9px; background:#f1f5f9; padding:6px; border-radius:4px; margin-top:4px; white-space:pre-wrap; word-break:break-all; max-width:300px;"><?php echo htmlspecialchars(substr($log['raw_data'], 0, 500)); ?></pre>
+                            <?php endif; ?>
                         </td>
                     </tr>
                     <?php endforeach; ?>
