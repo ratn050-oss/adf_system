@@ -47,6 +47,13 @@ require_once __DIR__ . '/../../includes/business_access.php';
 $allBusinesses = getUserAvailableBusinesses();
 $activeBusinessId = getActiveBusinessId();
 
+// Sort businesses: narayana-hotel first, then alphabetically
+uksort($allBusinesses, function($a, $b) {
+    if ($a === 'narayana-hotel') return -1;
+    if ($b === 'narayana-hotel') return 1;
+    return strcmp($a, $b);
+});
+
 // If current active business is not in user's allowed list, auto-switch to first allowed
 if (!empty($allBusinesses) && !isset($allBusinesses[$activeBusinessId])) {
     $firstAllowed = array_key_first($allBusinesses);
@@ -1836,11 +1843,17 @@ else { $healthStatus = 'Perlu Perhatian'; $healthEmoji = '🔴'; }
                     <span class="brand-subtext">Owner Dashboard</span>
                 </div>
             </div>
-            <div class="user-badge">
-                <div class="avatar"><?= strtoupper(substr($userName, 0, 1)) ?></div>
-                <div class="user-info">
-                    <?= htmlspecialchars($userName) ?>
-                    <?php if($isDev): ?><span class="dev-badge">DEV</span><?php endif; ?>
+            <div style="display:flex;align-items:center;gap:10px;">
+                <button onclick="location.reload()" title="Refresh Data" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2);border-radius:10px;padding:8px 14px;cursor:pointer;display:flex;align-items:center;gap:6px;color:white;font-size:12px;font-weight:600;transition:all 0.3s;backdrop-filter:blur(10px);" onmouseover="this.style.background='rgba(255,255,255,0.25)'" onmouseout="this.style.background='rgba(255,255,255,0.15)'">
+                    <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
+                    Refresh
+                </button>
+                <div class="user-badge">
+                    <div class="avatar"><?= strtoupper(substr($userName, 0, 1)) ?></div>
+                    <div class="user-info">
+                        <?= htmlspecialchars($userName) ?>
+                        <?php if($isDev): ?><span class="dev-badge">DEV</span><?php endif; ?>
+                    </div>
                 </div>
             </div>
         </header>
