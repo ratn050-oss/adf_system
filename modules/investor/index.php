@@ -292,8 +292,8 @@ try {
             $stmt = $db->query("DESCRIBE projects");
             $projCols = array_column($stmt->fetchAll(PDO::FETCH_ASSOC), 'Field');
         } catch (Exception $e) {}
-        $pNameCol = in_array('project_name', $projCols) ? 'project_name' : (in_array('name', $projCols) ? 'name' : "'Unknown'");
-        $pCodeCol = in_array('project_code', $projCols) ? 'project_code' : (in_array('code', $projCols) ? 'code' : "NULL");
+        $pNameCol = in_array('project_name', $projCols) ? 'project_name' : (in_array('name', $projCols) ? 'name' : null);
+        $pCodeCol = in_array('project_code', $projCols) ? 'project_code' : (in_array('code', $projCols) ? 'code' : null);
         
         // Build SELECT with available columns
         $selectCols = ['pe.id', 'pe.project_id', 'pe.amount'];
@@ -301,8 +301,10 @@ try {
         if ($hasDescription) $selectCols[] = 'pe.description';
         if ($hasDivisionName) $selectCols[] = 'pe.division_name';
         if ($hasCashBookId) $selectCols[] = 'pe.cash_book_id';
-        $selectCols[] = "p.{$pNameCol} as project_name";
-        $selectCols[] = "p.{$pCodeCol} as project_code";
+        if ($pNameCol) $selectCols[] = "p.{$pNameCol} as project_name";
+        else $selectCols[] = "'Unknown' as project_name";
+        if ($pCodeCol) $selectCols[] = "p.{$pCodeCol} as project_code";
+        else $selectCols[] = "NULL as project_code";
         
         if ($hasCashBookId) {
             $selectCols[] = 'cat.category_name';
