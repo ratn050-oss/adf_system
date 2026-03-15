@@ -772,6 +772,70 @@ else { $healthStatus = 'Perlu Perhatian'; $healthEmoji = '🔴'; }
             font-size: 12px;
             font-weight: 600;
         }
+
+        .header-right {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            flex-shrink: 0;
+        }
+
+        .btn-refresh {
+            background: linear-gradient(135deg, var(--accent), var(--accent-light));
+            border: none;
+            border-radius: 10px;
+            padding: 8px 14px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            color: white;
+            font-size: 12px;
+            font-weight: 600;
+            transition: all 0.3s;
+            box-shadow: 0 2px 8px rgba(99,102,241,0.3);
+            white-space: nowrap;
+        }
+        .btn-refresh:hover {
+            box-shadow: 0 4px 14px rgba(99,102,241,0.5);
+            transform: translateY(-1px);
+        }
+        .btn-refresh:active {
+            transform: scale(0.95);
+        }
+        .btn-refresh svg {
+            transition: transform 0.5s;
+        }
+        .btn-refresh:active svg {
+            transform: rotate(-180deg);
+        }
+
+        /* Mobile Responsive */
+        @media (max-width: 600px) {
+            .container { padding: 10px; }
+            .header { flex-wrap: wrap; gap: 8px; }
+            .brand { min-width: 0; flex: 1; }
+            .brand-text { font-size: 14px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; max-width: 180px; }
+            .brand-subtext { font-size: 10px; }
+            .header-right { gap: 6px; }
+            .btn-refresh { padding: 7px 10px; font-size: 11px; }
+            .btn-refresh .btn-refresh-text { display: none; }
+            .user-badge { padding: 4px; font-size: 11px; }
+            .user-info { display: none; }
+            .info-card { padding: 10px 12px; }
+            .biz-switcher { gap: 6px; }
+            .biz-pill { padding: 4px 8px; min-width: 100px; }
+            .biz-pill-name { font-size: 10px; }
+            .biz-pill-type { font-size: 8px; }
+            .stats-grid { grid-template-columns: 1fr 1fr; gap: 8px; }
+            .stat-value { font-size: 16px; }
+            .operational-grid { grid-template-columns: 1fr; }
+        }
+        @media (max-width: 400px) {
+            .brand-text { max-width: 140px; font-size: 13px; }
+            .brand-icon { width: 30px; height: 30px; }
+            .btn-refresh { padding: 6px 8px; border-radius: 8px; }
+        }
         
         /* Info Card → Business Switcher */
         .info-card {
@@ -1843,10 +1907,10 @@ else { $healthStatus = 'Perlu Perhatian'; $healthEmoji = '🔴'; }
                     <span class="brand-subtext">Owner Dashboard</span>
                 </div>
             </div>
-            <div style="display:flex;align-items:center;gap:10px;">
-                <button onclick="location.reload()" title="Refresh Data" style="background:rgba(255,255,255,0.15);border:1px solid rgba(255,255,255,0.2);border-radius:10px;padding:8px 14px;cursor:pointer;display:flex;align-items:center;gap:6px;color:white;font-size:12px;font-weight:600;transition:all 0.3s;backdrop-filter:blur(10px);" onmouseover="this.style.background='rgba(255,255,255,0.25)'" onmouseout="this.style.background='rgba(255,255,255,0.15)'">
+            <div class="header-right">
+                <button class="btn-refresh" onclick="location.reload()" title="Refresh Data">
                     <svg width="14" height="14" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24"><path d="M1 4v6h6"/><path d="M3.51 15a9 9 0 1 0 2.13-9.36L1 10"/></svg>
-                    Refresh
+                    <span class="btn-refresh-text">Refresh</span>
                 </button>
                 <div class="user-badge">
                     <div class="avatar"><?= strtoupper(substr($userName, 0, 1)) ?></div>
@@ -2216,7 +2280,7 @@ else { $healthStatus = 'Perlu Perhatian'; $healthEmoji = '🔴'; }
             $avgProgress = count($cqcProjects) > 0 ? round(array_sum(array_column($cqcProjects, 'progress_percentage')) / count($cqcProjects)) : 0;
             $budgetUsedPct = $totalBudget > 0 ? round(($totalSpent / $totalBudget) * 100) : 0;
             ?>
-            <div style="display: grid; grid-template-columns: repeat(4, 1fr); gap: 12px; margin-bottom: 24px;">
+            <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(80px, 1fr)); gap: 10px; margin-bottom: 24px;">
                 <div style="text-align: center; padding: 16px 10px; background: linear-gradient(135deg, #6366f1 0%, #4f46e5 100%); border-radius: 16px; box-shadow: 0 4px 14px rgba(99, 102, 241, 0.25);">
                     <div style="font-size: 28px; font-weight: 800; color: #fff; font-family: system-ui; line-height: 1;"><?php echo count($cqcProjects); ?></div>
                     <div style="font-size: 10px; color: rgba(255,255,255,0.8); font-weight: 600; margin-top: 6px; text-transform: uppercase; letter-spacing: 0.5px;">Total Proyek</div>
