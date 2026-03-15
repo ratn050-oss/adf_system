@@ -47,7 +47,7 @@ if ($isHotel) {
             created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
             created_by INT
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-        $investorProjects = $pdo->query("SELECT id, project_name, project_code, status FROM projects WHERE status IN ('planning','ongoing','on_hold') ORDER BY project_name")->fetchAll(PDO::FETCH_ASSOC);
+        $investorProjects = $pdo->query("SELECT id, project_name, project_code, status FROM projects WHERE status NOT IN ('completed','cancelled') OR status IS NULL ORDER BY project_name")->fetchAll(PDO::FETCH_ASSOC);
     } catch (Exception $e) {
         $investorProjects = [];
     }
