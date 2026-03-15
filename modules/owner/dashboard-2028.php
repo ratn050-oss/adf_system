@@ -291,57 +291,234 @@ try {
     $cfBalance = $cfTotalIncome - $cfTotalExpense;
 
     // ============================================
-    // AI HEALTH - Enhanced data for smart analysis
+    // AI HEALTH - Smart Hotel Business Analysis
+    // Focuses on hotel operations ONLY (excludes project expenses)
     // ============================================
     
-    // Previous month income/expense for growth comparison
+    // Previous month income/expense for growth comparison (exclude project expenses)
     $lastMonth = date('Y-m', strtotime('-1 month'));
     $stmt = $pdo->prepare("
         SELECT 
             COALESCE(SUM(CASE WHEN transaction_type = 'income' THEN amount ELSE 0 END), 0) as income,
             COALESCE(SUM(CASE WHEN transaction_type = 'expense' THEN amount ELSE 0 END), 0) as expense
         FROM cash_book 
-        WHERE DATE_FORMAT(transaction_date, '%Y-%m') = ?" . $excludeOwnerCapital);
+        WHERE DATE_FORMAT(transaction_date, '%Y-%m') = ?" . $excludeOwnerCapital . $excludeProjectExpense);
     $stmt->execute([$lastMonth]);
     $prevMonthData = $stmt->fetch(PDO::FETCH_ASSOC);
     $prevIncome = (float)($prevMonthData['income'] ?? 0);
     $prevExpense = (float)($prevMonthData['expense'] ?? 0);
     $incomeGrowth = $prevIncome > 0 ? (($stats['month_income'] - $prevIncome) / $prevIncome) * 100 : 0;
     
-    // Occupancy data
+    // Hotel expense only (exclude project) for AI analysis
+    $aiHotelExpense = 0;
+    try {
+        $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount), 0) FROM cash_book WHERE DATE_FORMAT(transaction_date, '%Y-%m') = ? AND transaction_type = 'expense'" . $excludeProjectExpense);
+        $stmt->execute([$thisMonth]);
+        $aiHotelExpense = (float)$stmt->fetchColumn();
+    } catch (Exception $e) { $aiHotelExpense = $stats['month_expense']; }
+    
+    // ============================================
+    // FRONTDESK OCCUPANCY - Smart Analysis (using rooms + bookings tables)
+    // ============================================
     $occupancyRate = 0;
     $totalRooms = 0;
     $occupiedRooms = 0;
+    $monthlyOccupancyRate = 0;
+    $avgStayDuration = 0;
+    $bookingSourceStats = [];
+    $revenuePerRoom = 0;
+    $upcomingBookings = 0;
+    $todayCheckins = 0;
+    $todayCheckouts = 0;
+    $prevMonthOccupancy = 0;
+    $occupancyGrowth = 0;
+    $avgRoomRate = 0;
+    $revPAR = 0; // Revenue Per Available Room
+    
     try {
-        $roomStmt = $pdo->query("SELECT COUNT(*) as total, COUNT(CASE WHEN status = 'occupied' THEN 1 END) as occupied FROM frontdesk_rooms");
+        // Total rooms from proper rooms table
+        $roomStmt = $pdo->query("SELECT COUNT(*) as total, COUNT(CASE WHEN status = 'occupied' THEN 1 END) as occupied FROM rooms");
         $roomData = $roomStmt->fetch(PDO::FETCH_ASSOC);
         $totalRooms = (int)($roomData['total'] ?? 0);
         $occupiedRooms = (int)($roomData['occupied'] ?? 0);
         $occupancyRate = $totalRooms > 0 ? ($occupiedRooms / $totalRooms) * 100 : 0;
+    } catch (Exception $e) {
+        // Fallback to legacy frontdesk_rooms
+        try {
+            $roomStmt = $pdo->query("SELECT COUNT(*) as total, COUNT(CASE WHEN status = 'occupied' THEN 1 END) as occupied FROM frontdesk_rooms");
+            $roomData = $roomStmt->fetch(PDO::FETCH_ASSOC);
+            $totalRooms = (int)($roomData['total'] ?? 0);
+            $occupiedRooms = (int)($roomData['occupied'] ?? 0);
+            $occupancyRate = $totalRooms > 0 ? ($occupiedRooms / $totalRooms) * 100 : 0;
+        } catch (Exception $e2) {}
+    }
+    
+    try {
+        // Monthly occupancy: room-nights sold vs available this month
+        $daysInMonth = (int)date('t');
+        $daysSoFar = (int)date('j');
+        $totalRoomNightsAvailable = $totalRooms * $daysSoFar;
+        
+        $stmt = $pdo->prepare("
+            SELECT COUNT(*) as room_nights
+            FROM bookings 
+            WHERE status IN ('checked_in', 'checked_out')
+            AND check_in_date <= CURDATE()
+            AND check_out_date >= ?
+            AND DATE_FORMAT(check_in_date, '%Y-%m') <= ?
+        ");
+        $stmt->execute([$thisMonth . '-01', $thisMonth]);
+        $roomNightsSold = (int)($stmt->fetch(PDO::FETCH_ASSOC)['room_nights'] ?? 0);
+        
+        // Better calculation: count distinct room-days occupied
+        $stmt = $pdo->prepare("
+            SELECT COUNT(DISTINCT CONCAT(room_id, '-', d.date)) as occupied_nights
+            FROM bookings b
+            CROSS JOIN (
+                SELECT DATE_ADD(?, INTERVAL seq.seq DAY) as date
+                FROM (SELECT 0 as seq UNION SELECT 1 UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 
+                      UNION SELECT 5 UNION SELECT 6 UNION SELECT 7 UNION SELECT 8 UNION SELECT 9
+                      UNION SELECT 10 UNION SELECT 11 UNION SELECT 12 UNION SELECT 13 UNION SELECT 14
+                      UNION SELECT 15 UNION SELECT 16 UNION SELECT 17 UNION SELECT 18 UNION SELECT 19
+                      UNION SELECT 20 UNION SELECT 21 UNION SELECT 22 UNION SELECT 23 UNION SELECT 24
+                      UNION SELECT 25 UNION SELECT 26 UNION SELECT 27 UNION SELECT 28 UNION SELECT 29
+                      UNION SELECT 30) seq
+                WHERE DATE_ADD(?, INTERVAL seq.seq DAY) <= CURDATE()
+                AND DATE_ADD(?, INTERVAL seq.seq DAY) <= LAST_DAY(?)
+            ) d
+            WHERE b.status IN ('checked_in', 'checked_out')
+            AND b.check_in_date <= d.date
+            AND b.check_out_date > d.date
+        ");
+        $firstDay = $thisMonth . '-01';
+        $stmt->execute([$firstDay, $firstDay, $firstDay, $firstDay]);
+        $occupiedNights = (int)($stmt->fetch(PDO::FETCH_ASSOC)['occupied_nights'] ?? 0);
+        $monthlyOccupancyRate = $totalRoomNightsAvailable > 0 ? ($occupiedNights / $totalRoomNightsAvailable) * 100 : 0;
+        
+        // Previous month occupancy for comparison
+        $prevFirstDay = date('Y-m-01', strtotime('-1 month'));
+        $prevLastDay = date('Y-m-t', strtotime('-1 month'));
+        $prevDaysInMonth = (int)date('t', strtotime('-1 month'));
+        $prevTotalNights = $totalRooms * $prevDaysInMonth;
+        
+        $stmt = $pdo->prepare("
+            SELECT COUNT(DISTINCT CONCAT(room_id, '-', d.date)) as occupied_nights
+            FROM bookings b
+            CROSS JOIN (
+                SELECT DATE_ADD(?, INTERVAL seq.seq DAY) as date
+                FROM (SELECT 0 as seq UNION SELECT 1 UNION SELECT 2 UNION SELECT 3 UNION SELECT 4 
+                      UNION SELECT 5 UNION SELECT 6 UNION SELECT 7 UNION SELECT 8 UNION SELECT 9
+                      UNION SELECT 10 UNION SELECT 11 UNION SELECT 12 UNION SELECT 13 UNION SELECT 14
+                      UNION SELECT 15 UNION SELECT 16 UNION SELECT 17 UNION SELECT 18 UNION SELECT 19
+                      UNION SELECT 20 UNION SELECT 21 UNION SELECT 22 UNION SELECT 23 UNION SELECT 24
+                      UNION SELECT 25 UNION SELECT 26 UNION SELECT 27 UNION SELECT 28 UNION SELECT 29
+                      UNION SELECT 30) seq
+                WHERE DATE_ADD(?, INTERVAL seq.seq DAY) <= ?
+            ) d
+            WHERE b.status IN ('checked_in', 'checked_out')
+            AND b.check_in_date <= d.date
+            AND b.check_out_date > d.date
+        ");
+        $stmt->execute([$prevFirstDay, $prevFirstDay, $prevLastDay]);
+        $prevOccupiedNights = (int)($stmt->fetch(PDO::FETCH_ASSOC)['occupied_nights'] ?? 0);
+        $prevMonthOccupancy = $prevTotalNights > 0 ? ($prevOccupiedNights / $prevTotalNights) * 100 : 0;
+        $occupancyGrowth = $prevMonthOccupancy > 0 ? $monthlyOccupancyRate - $prevMonthOccupancy : 0;
+        
+    } catch (Exception $e) {
+        // If bookings table not available, monthly = current snapshot
+        $monthlyOccupancyRate = $occupancyRate;
+    }
+    
+    try {
+        // Average stay duration this month
+        $stmt = $pdo->prepare("
+            SELECT AVG(total_nights) as avg_stay
+            FROM bookings 
+            WHERE status IN ('checked_in', 'checked_out')
+            AND DATE_FORMAT(check_in_date, '%Y-%m') = ?
+        ");
+        $stmt->execute([$thisMonth]);
+        $avgStayDuration = round((float)($stmt->fetch(PDO::FETCH_ASSOC)['avg_stay'] ?? 0), 1);
     } catch (Exception $e) {}
     
-    // Cash flow last 7 days
+    try {
+        // Booking source analysis
+        $stmt = $pdo->prepare("
+            SELECT booking_source, COUNT(*) as count, COALESCE(SUM(final_price), 0) as revenue
+            FROM bookings 
+            WHERE status IN ('checked_in', 'checked_out', 'confirmed')
+            AND DATE_FORMAT(check_in_date, '%Y-%m') = ?
+            GROUP BY booking_source
+            ORDER BY count DESC
+        ");
+        $stmt->execute([$thisMonth]);
+        $bookingSourceStats = $stmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $e) {}
+    
+    try {
+        // Revenue per room & RevPAR
+        $stmt = $pdo->prepare("
+            SELECT COALESCE(SUM(final_price), 0) as total_revenue, COUNT(*) as total_bookings,
+                   AVG(room_price) as avg_rate
+            FROM bookings 
+            WHERE status IN ('checked_in', 'checked_out')
+            AND DATE_FORMAT(check_in_date, '%Y-%m') = ?
+        ");
+        $stmt->execute([$thisMonth]);
+        $revData = $stmt->fetch(PDO::FETCH_ASSOC);
+        $totalBookingRevenue = (float)($revData['total_revenue'] ?? 0);
+        $totalBookingsCount = (int)($revData['total_bookings'] ?? 0);
+        $avgRoomRate = round((float)($revData['avg_rate'] ?? 0));
+        $revenuePerRoom = $totalRooms > 0 ? round($totalBookingRevenue / $totalRooms) : 0;
+        $daysSoFar = max(1, (int)date('j'));
+        $revPAR = ($totalRooms * $daysSoFar) > 0 ? round($totalBookingRevenue / ($totalRooms * $daysSoFar)) : 0;
+    } catch (Exception $e) {}
+    
+    try {
+        // Today's check-ins and check-outs
+        $today = date('Y-m-d');
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM bookings WHERE check_in_date = ? AND status IN ('confirmed', 'checked_in')");
+        $stmt->execute([$today]);
+        $todayCheckins = (int)$stmt->fetchColumn();
+        
+        $stmt = $pdo->prepare("SELECT COUNT(*) FROM bookings WHERE check_out_date = ? AND status = 'checked_in'");
+        $stmt->execute([$today]);
+        $todayCheckouts = (int)$stmt->fetchColumn();
+    } catch (Exception $e) {}
+    
+    try {
+        // Upcoming bookings (next 7 days)
+        $stmt = $pdo->prepare("
+            SELECT COUNT(*) FROM bookings 
+            WHERE check_in_date > CURDATE() AND check_in_date <= DATE_ADD(CURDATE(), INTERVAL 7 DAY)
+            AND status IN ('pending', 'confirmed')
+        ");
+        $stmt->execute();
+        $upcomingBookings = (int)$stmt->fetchColumn();
+    } catch (Exception $e) {}
+    
+    // Cash flow last 7 days (exclude project expenses)
     $avgDailyFlow = 0;
     try {
         $flowStmt = $pdo->query("
             SELECT SUM(CASE WHEN transaction_type = 'income' THEN amount ELSE -amount END) as net_flow,
                    COUNT(DISTINCT DATE(transaction_date)) as days
             FROM cash_book 
-            WHERE transaction_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)
+            WHERE transaction_date >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)" . $excludeProjectExpense . "
         ");
         $flowData = $flowStmt->fetch(PDO::FETCH_ASSOC);
         $days = max(1, (int)($flowData['days'] ?? 1));
         $avgDailyFlow = (float)($flowData['net_flow'] ?? 0) / $days;
     } catch (Exception $e) {}
     
-    // Top expense categories this month
+    // Top expense categories this month (HOTEL ONLY - exclude project expenses)
     $topExpenseCategories = [];
     try {
         $stmt = $pdo->prepare("
             SELECT c.category_name, COALESCE(SUM(cb.amount), 0) as total
             FROM cash_book cb
             LEFT JOIN categories c ON cb.category_id = c.id
-            WHERE cb.transaction_type = 'expense' AND DATE_FORMAT(cb.transaction_date, '%Y-%m') = ?
+            WHERE cb.transaction_type = 'expense' AND DATE_FORMAT(cb.transaction_date, '%Y-%m') = ?" . $excludeProjectExpense . "
             GROUP BY cb.category_id, c.category_name
             HAVING total > 0
             ORDER BY total DESC
@@ -550,92 +727,212 @@ $netToday = $stats['today_income'] - $stats['today_expense'];
 $expenseRatio = $stats['month_income'] > 0 ? ($stats['month_expense'] / $stats['month_income']) * 100 : 0;
 $profitMargin = $stats['month_income'] > 0 ? ($netProfit / $stats['month_income']) * 100 : 0;
 
+// Hotel-only expense ratio (for AI analysis, exclude project expenses)
+$aiExpenseRatio = $stats['month_income'] > 0 ? ($aiHotelExpense / $stats['month_income']) * 100 : 0;
+$aiNetProfit = $stats['month_income'] - $aiHotelExpense;
+$aiProfitMargin = $stats['month_income'] > 0 ? ($aiNetProfit / $stats['month_income']) * 100 : 0;
+
 // ============================================
-// AI HEALTH SCORING (5-factor, 0-100)
+// AI HEALTH SCORING - Smart Hotel Analysis (7-factor, 0-100)
+// Focus: hotel operations only, excludes project expenses
 // ============================================
 $healthScore = 0;
 
-// Factor 1: Profit Margin (30 pts)
-if ($profitMargin >= 30) $healthScore += 30;
-elseif ($profitMargin >= 20) $healthScore += 25;
-elseif ($profitMargin >= 10) $healthScore += 20;
-elseif ($profitMargin >= 5) $healthScore += 15;
-elseif ($profitMargin >= 0) $healthScore += 10;
+// Factor 1: Profit Margin - Hotel Only (20 pts)
+if ($aiProfitMargin >= 40) $healthScore += 20;
+elseif ($aiProfitMargin >= 30) $healthScore += 17;
+elseif ($aiProfitMargin >= 20) $healthScore += 14;
+elseif ($aiProfitMargin >= 10) $healthScore += 10;
+elseif ($aiProfitMargin >= 0) $healthScore += 6;
+else $healthScore += 2;
 
-// Factor 2: Income Growth (25 pts)
-if ($incomeGrowth >= 15) $healthScore += 25;
-elseif ($incomeGrowth >= 10) $healthScore += 20;
-elseif ($incomeGrowth >= 5) $healthScore += 15;
-elseif ($incomeGrowth >= 0) $healthScore += 10;
-else $healthScore += 5;
+// Factor 2: Income Growth (15 pts)
+if ($incomeGrowth >= 20) $healthScore += 15;
+elseif ($incomeGrowth >= 10) $healthScore += 12;
+elseif ($incomeGrowth >= 5) $healthScore += 10;
+elseif ($incomeGrowth >= 0) $healthScore += 7;
+elseif ($incomeGrowth >= -5) $healthScore += 4;
+else $healthScore += 2;
 
-// Factor 3: Expense Control (20 pts)
-if ($expenseRatio <= 50) $healthScore += 20;
-elseif ($expenseRatio <= 60) $healthScore += 16;
-elseif ($expenseRatio <= 70) $healthScore += 12;
-elseif ($expenseRatio <= 80) $healthScore += 8;
-else $healthScore += 4;
+// Factor 3: Hotel Expense Control (15 pts)
+if ($aiExpenseRatio <= 40) $healthScore += 15;
+elseif ($aiExpenseRatio <= 50) $healthScore += 13;
+elseif ($aiExpenseRatio <= 60) $healthScore += 10;
+elseif ($aiExpenseRatio <= 70) $healthScore += 7;
+elseif ($aiExpenseRatio <= 80) $healthScore += 4;
+else $healthScore += 2;
 
-// Factor 4: Occupancy (15 pts)
-if ($occupancyRate >= 80) $healthScore += 15;
-elseif ($occupancyRate >= 70) $healthScore += 12;
-elseif ($occupancyRate >= 60) $healthScore += 9;
-elseif ($occupancyRate >= 50) $healthScore += 6;
+// Factor 4: Monthly Occupancy (20 pts) - KEY HOTEL METRIC
+$occForScore = $monthlyOccupancyRate > 0 ? $monthlyOccupancyRate : $occupancyRate;
+if ($occForScore >= 80) $healthScore += 20;
+elseif ($occForScore >= 70) $healthScore += 17;
+elseif ($occForScore >= 60) $healthScore += 14;
+elseif ($occForScore >= 50) $healthScore += 10;
+elseif ($occForScore >= 35) $healthScore += 6;
 else $healthScore += 3;
 
-// Factor 5: Cash Flow Stability (10 pts)
-if ($avgDailyFlow > 0) $healthScore += 10;
-elseif ($avgDailyFlow >= -100000) $healthScore += 5;
+// Factor 5: RevPAR Performance (10 pts)
+if ($revPAR >= 400000) $healthScore += 10;
+elseif ($revPAR >= 300000) $healthScore += 8;
+elseif ($revPAR >= 200000) $healthScore += 6;
+elseif ($revPAR >= 100000) $healthScore += 4;
+elseif ($revPAR > 0) $healthScore += 2;
 
-// AI Alerts & Recommendations
+// Factor 6: Cash Flow Stability (10 pts)
+if ($avgDailyFlow > 500000) $healthScore += 10;
+elseif ($avgDailyFlow > 0) $healthScore += 7;
+elseif ($avgDailyFlow >= -100000) $healthScore += 4;
+else $healthScore += 1;
+
+// Factor 7: Booking Pipeline (10 pts)
+$pipelineScore = 0;
+if ($upcomingBookings >= 5) $pipelineScore += 5;
+elseif ($upcomingBookings >= 3) $pipelineScore += 4;
+elseif ($upcomingBookings >= 1) $pipelineScore += 2;
+if ($todayCheckins >= 2) $pipelineScore += 3;
+elseif ($todayCheckins >= 1) $pipelineScore += 2;
+if ($occupancyGrowth > 5) $pipelineScore += 2;
+elseif ($occupancyGrowth > 0) $pipelineScore += 1;
+$healthScore += min(10, $pipelineScore);
+
+// ============================================
+// AI ALERTS & RECOMMENDATIONS - Hotel Focused
+// ============================================
 $aiAlerts = [];
 $aiStrengths = [];
+$aiFrontdesk = []; // Frontdesk-specific insights
 
-// Top expense warning
+// --- FINANCIAL ALERTS (hotel only, no project) ---
 if (!empty($topExpenseCategories)) {
     $topCat = $topExpenseCategories[0];
-    $topPct = $stats['month_expense'] > 0 ? ($topCat['total'] / $stats['month_expense']) * 100 : 0;
+    $topPct = $aiHotelExpense > 0 ? ($topCat['total'] / $aiHotelExpense) * 100 : 0;
     if ($topPct > 30) {
-        $aiAlerts[] = '⚠️ <strong>' . htmlspecialchars($topCat['category_name'] ?? 'Unknown') . '</strong> menyerap ' . number_format($topPct, 0) . '% total pengeluaran (' . rp($topCat['total']) . '). Evaluasi apakah bisa dioptimalkan.';
+        $aiAlerts[] = '⚠️ <strong>' . htmlspecialchars($topCat['category_name'] ?? 'Unknown') . '</strong> menyerap ' . number_format($topPct, 0) . '% pengeluaran hotel (' . rp($topCat['total']) . '). Evaluasi apakah bisa dioptimalkan.';
     }
 }
 
-// Expense ratio warning
-if ($expenseRatio > 75) {
-    $aiAlerts[] = '🔴 Rasio biaya ' . number_format($expenseRatio, 1) . '% dari pendapatan. Perlu segera kurangi pengeluaran atau tingkatkan revenue.';
-} elseif ($expenseRatio > 60) {
-    $aiAlerts[] = '🟠 Rasio biaya ' . number_format($expenseRatio, 1) . '% — cukup tinggi. Pantau agar tidak naik lebih jauh.';
+if ($aiExpenseRatio > 75) {
+    $aiAlerts[] = '🔴 Rasio biaya hotel ' . number_format($aiExpenseRatio, 1) . '% dari pendapatan. Perlu segera kurangi pengeluaran atau tingkatkan revenue.';
+} elseif ($aiExpenseRatio > 60) {
+    $aiAlerts[] = '🟠 Rasio biaya hotel ' . number_format($aiExpenseRatio, 1) . '% — cukup tinggi. Pantau agar tidak naik lebih jauh.';
 }
 
-// Income growth
 if ($incomeGrowth < -10) {
     $aiAlerts[] = '📉 Pendapatan turun ' . number_format(abs($incomeGrowth), 1) . '% dari bulan lalu. Perlu strategi marketing atau promosi.';
 } elseif ($incomeGrowth < 0) {
     $aiAlerts[] = '📉 Pendapatan sedikit turun ' . number_format(abs($incomeGrowth), 1) . '% dari bulan lalu.';
 }
 
-// Occupancy
-if ($totalRooms > 0 && $occupancyRate < 50) {
-    $aiAlerts[] = '🏨 Occupancy hanya ' . number_format($occupancyRate, 0) . '%. Tingkatkan listing OTA dan promosi.';
-}
-
-// Cash flow
 if ($avgDailyFlow < 0) {
     $aiAlerts[] = '💸 Cash flow harian negatif (avg ' . rp(abs($avgDailyFlow)) . '/hari). Perhatikan arus kas.';
 }
 
-// Strengths
-if ($profitMargin >= 25) {
-    $aiStrengths[] = '✅ Profit margin sangat baik (' . number_format($profitMargin, 1) . '%)';
+// --- FRONTDESK INTELLIGENCE ---
+// Current occupancy status
+if ($totalRooms > 0) {
+    $occLabel = $occupancyRate >= 80 ? '🟢 Tinggi' : ($occupancyRate >= 50 ? '🟡 Sedang' : '🔴 Rendah');
+    $aiFrontdesk[] = '🏨 <strong>Sekarang:</strong> ' . $occupiedRooms . '/' . $totalRooms . ' kamar terisi (' . number_format($occupancyRate, 0) . '%) — ' . $occLabel;
+}
+
+// Monthly occupancy trend
+if ($monthlyOccupancyRate > 0) {
+    $trendIcon = $occupancyGrowth > 0 ? '📈' : ($occupancyGrowth < 0 ? '📉' : '➡️');
+    $trendText = abs($occupancyGrowth) > 0 ? ' (' . ($occupancyGrowth > 0 ? '+' : '') . number_format($occupancyGrowth, 1) . '% vs bulan lalu)' : '';
+    $aiFrontdesk[] = $trendIcon . ' <strong>Occupancy bulan ini:</strong> ' . number_format($monthlyOccupancyRate, 1) . '%' . $trendText;
+}
+
+// RevPAR analysis
+if ($revPAR > 0) {
+    $revparLabel = $revPAR >= 300000 ? 'Excellent' : ($revPAR >= 200000 ? 'Baik' : ($revPAR >= 100000 ? 'Cukup' : 'Rendah'));
+    $aiFrontdesk[] = '💰 <strong>RevPAR:</strong> ' . rp($revPAR) . '/malam — ' . $revparLabel;
+}
+
+// Average room rate
+if ($avgRoomRate > 0) {
+    $aiFrontdesk[] = '🏷️ <strong>Rata-rata harga kamar:</strong> ' . rp($avgRoomRate) . '/malam';
+}
+
+// Average stay duration
+if ($avgStayDuration > 0) {
+    $stayLabel = $avgStayDuration >= 3 ? '(long stay, bagus!)' : ($avgStayDuration >= 2 ? '(normal)' : '(singkat, peluang upsell)');
+    $aiFrontdesk[] = '🛏️ <strong>Rata-rata inap:</strong> ' . $avgStayDuration . ' malam ' . $stayLabel;
+}
+
+// Today activity
+if ($todayCheckins > 0 || $todayCheckouts > 0) {
+    $aiFrontdesk[] = '📋 <strong>Hari ini:</strong> ' . $todayCheckins . ' check-in, ' . $todayCheckouts . ' check-out';
+}
+
+// Upcoming bookings
+if ($upcomingBookings > 0) {
+    $aiFrontdesk[] = '📅 <strong>7 hari kedepan:</strong> ' . $upcomingBookings . ' booking masuk';
+} else {
+    $aiAlerts[] = '📅 Tidak ada booking 7 hari kedepan. Tingkatkan promosi OTA & sosial media.';
+}
+
+// Booking source insights
+if (!empty($bookingSourceStats)) {
+    $sourceLabels = ['walk_in' => 'Walk-in', 'phone' => 'Telepon', 'online' => 'Online', 'agoda' => 'Agoda', 'booking' => 'Booking.com', 'tiket' => 'Tiket.com', 'airbnb' => 'Airbnb', 'ota' => 'OTA'];
+    $topSource = $bookingSourceStats[0];
+    $sourceName = $sourceLabels[$topSource['booking_source']] ?? ucfirst($topSource['booking_source'] ?? 'Lainnya');
+    $aiFrontdesk[] = '🔗 <strong>Sumber utama:</strong> ' . $sourceName . ' (' . $topSource['count'] . ' booking, ' . rp($topSource['revenue']) . ')';
+    
+    // Check OTA dependency
+    $otaSources = ['agoda', 'booking', 'tiket', 'airbnb', 'ota', 'online'];
+    $otaCount = 0; $totalCount = 0;
+    foreach ($bookingSourceStats as $src) {
+        $totalCount += $src['count'];
+        if (in_array($src['booking_source'], $otaSources)) $otaCount += $src['count'];
+    }
+    $otaPct = $totalCount > 0 ? ($otaCount / $totalCount) * 100 : 0;
+    if ($otaPct > 80) {
+        $aiAlerts[] = '🌐 ' . number_format($otaPct, 0) . '% booking dari OTA. Diversifikasi ke direct booking untuk kurangi komisi.';
+    } elseif ($otaPct < 30 && $totalCount > 3) {
+        $aiStrengths[] = '✅ Direct booking ' . number_format(100 - $otaPct, 0) . '% — hemat biaya komisi OTA';
+    }
+}
+
+// Occupancy-based alerts
+if ($totalRooms > 0 && $occForScore < 40) {
+    $aiAlerts[] = '🏨 Occupancy rendah ' . number_format($occForScore, 0) . '%. Strategi: flash sale OTA, promo weekend, paket long stay.';
+} elseif ($totalRooms > 0 && $occForScore < 60) {
+    $aiAlerts[] = '🏨 Occupancy ' . number_format($occForScore, 0) . '% — masih bisa ditingkatkan. Coba optimalkan listing OTA & review management.';
+}
+
+// Revenue per room insight
+if ($revenuePerRoom > 0 && $totalRooms > 0) {
+    $rprLabel = $revenuePerRoom >= 5000000 ? 'Excellent' : ($revenuePerRoom >= 3000000 ? 'Baik' : ($revenuePerRoom >= 1500000 ? 'Cukup' : 'Perlu ditingkatkan'));
+    if ($revenuePerRoom < 1500000) {
+        $aiAlerts[] = '💵 Revenue/kamar hanya ' . rp($revenuePerRoom) . ' bulan ini. Tingkatkan harga atau occupancy.';
+    }
+}
+
+// --- STRENGTHS ---
+if ($aiProfitMargin >= 30) {
+    $aiStrengths[] = '✅ Profit margin hotel sangat baik (' . number_format($aiProfitMargin, 1) . '%)';
+} elseif ($aiProfitMargin >= 20) {
+    $aiStrengths[] = '✅ Profit margin hotel sehat (' . number_format($aiProfitMargin, 1) . '%)';
 }
 if ($incomeGrowth > 10) {
     $aiStrengths[] = '✅ Pertumbuhan pendapatan +' . number_format($incomeGrowth, 1) . '%';
 }
-if ($expenseRatio < 50) {
-    $aiStrengths[] = '✅ Kontrol biaya excellent (' . number_format($expenseRatio, 1) . '%)';
+if ($aiExpenseRatio < 50) {
+    $aiStrengths[] = '✅ Kontrol biaya hotel excellent (' . number_format($aiExpenseRatio, 1) . '%)';
 }
-if ($totalRooms > 0 && $occupancyRate >= 80) {
-    $aiStrengths[] = '✅ Occupancy tinggi ' . number_format($occupancyRate, 0) . '%';
+if ($totalRooms > 0 && $occForScore >= 75) {
+    $aiStrengths[] = '✅ Occupancy tinggi ' . number_format($occForScore, 0) . '%';
+}
+if ($avgStayDuration >= 3) {
+    $aiStrengths[] = '✅ Avg stay ' . $avgStayDuration . ' malam — tamu betah menginap';
+}
+if ($revPAR >= 300000) {
+    $aiStrengths[] = '✅ RevPAR ' . rp($revPAR) . ' — performa pendapatan per kamar sangat baik';
+}
+if ($upcomingBookings >= 5) {
+    $aiStrengths[] = '✅ Pipeline booking kuat (' . $upcomingBookings . ' booking dalam 7 hari)';
+}
+if ($occupancyGrowth > 10) {
+    $aiStrengths[] = '✅ Occupancy naik +' . number_format($occupancyGrowth, 1) . '% dari bulan lalu';
 }
 
 // Health status text
@@ -2445,12 +2742,12 @@ else { $healthStatus = 'Perlu Perhatian'; $healthEmoji = '🔴'; }
         </div>
         <?php endif; // end of isCQC ?>
         
-        <!-- AI Health -->
+        <!-- AI Health - Smart Hotel Analysis -->
         <div class="ai-card">
             <div class="ai-header">
                 <div class="ai-title-wrap">
                     <span class="ai-badge">✨ AI</span>
-                    <span class="ai-title">Business Health</span>
+                    <span class="ai-title">Hotel Health Monitor</span>
                 </div>
                 <div class="ai-score">
                     <div class="ai-score-value"><?= number_format($healthScore, 0) ?></div>
@@ -2459,11 +2756,35 @@ else { $healthStatus = 'Perlu Perhatian'; $healthEmoji = '🔴'; }
             </div>
             <div class="ai-content">
                 <div class="ai-status">
-                    <?= $healthEmoji ?> <strong><?= $healthStatus ?></strong> — Profit margin <?= number_format($profitMargin, 1) ?>%, rasio biaya <?= number_format($expenseRatio, 1) ?>%<?= $prevIncome > 0 ? ', growth ' . ($incomeGrowth >= 0 ? '+' : '') . number_format($incomeGrowth, 1) . '%' : '' ?>
+                    <?= $healthEmoji ?> <strong><?= $healthStatus ?></strong> — Margin hotel <?= number_format($aiProfitMargin, 1) ?>%, biaya hotel <?= number_format($aiExpenseRatio, 1) ?>%<?= $prevIncome > 0 ? ', growth ' . ($incomeGrowth >= 0 ? '+' : '') . number_format($incomeGrowth, 1) . '%' : '' ?>
                 </div>
+                
+                <?php if ($totalRooms > 0): ?>
+                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:10px 0;">
+                    <div style="text-align:center;padding:8px 4px;background:rgba(255,255,255,0.5);border-radius:8px;">
+                        <div style="font-size:16px;font-weight:800;color:<?= $occupancyRate >= 60 ? '#10b981' : ($occupancyRate >= 40 ? '#f59e0b' : '#ef4444') ?>"><?= number_format($occupancyRate, 0) ?>%</div>
+                        <div style="font-size:8px;text-transform:uppercase;font-weight:600;letter-spacing:0.5px;opacity:0.7;margin-top:2px;">Occupancy Now</div>
+                    </div>
+                    <div style="text-align:center;padding:8px 4px;background:rgba(255,255,255,0.5);border-radius:8px;">
+                        <div style="font-size:16px;font-weight:800;color:<?= $monthlyOccupancyRate >= 60 ? '#10b981' : ($monthlyOccupancyRate >= 40 ? '#f59e0b' : '#ef4444') ?>"><?= number_format($monthlyOccupancyRate, 1) ?>%</div>
+                        <div style="font-size:8px;text-transform:uppercase;font-weight:600;letter-spacing:0.5px;opacity:0.7;margin-top:2px;">Avg Bulan Ini</div>
+                    </div>
+                    <div style="text-align:center;padding:8px 4px;background:rgba(255,255,255,0.5);border-radius:8px;">
+                        <div style="font-size:16px;font-weight:800;color:#6366f1"><?= rp($revPAR) ?></div>
+                        <div style="font-size:8px;text-transform:uppercase;font-weight:600;letter-spacing:0.5px;opacity:0.7;margin-top:2px;">RevPAR</div>
+                    </div>
+                </div>
+                <?php endif; ?>
+
+                <?php if (!empty($aiFrontdesk)): ?>
+                <div class="ai-section-title">🏨 Frontdesk Intelligence</div>
+                <?php foreach ($aiFrontdesk as $fd): ?>
+                <div class="ai-alert-item"><?= $fd ?></div>
+                <?php endforeach; ?>
+                <?php endif; ?>
 
                 <?php if (!empty($topExpenseCategories)): ?>
-                <div class="ai-section-title">💰 Pengeluaran Terbesar</div>
+                <div class="ai-section-title">💰 Pengeluaran Hotel Terbesar</div>
                 <?php 
                 $maxExp = $topExpenseCategories[0]['total'];
                 foreach (array_slice($topExpenseCategories, 0, 5) as $cat): 
