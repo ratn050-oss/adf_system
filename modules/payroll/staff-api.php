@@ -25,7 +25,7 @@ $pdo = $db->getConnection();
 $pdo->exec("CREATE TABLE IF NOT EXISTS `staff_accounts` (
     `id` INT AUTO_INCREMENT PRIMARY KEY,
     `employee_id` INT NOT NULL,
-    `email` VARCHAR(255) NOT NULL UNIQUE,
+    `email` VARCHAR(255) NOT NULL,
     `password_hash` VARCHAR(255) NOT NULL,
     `last_login` DATETIME DEFAULT NULL,
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -43,22 +43,33 @@ $action = $_POST['action'] ?? $_GET['action'] ?? '';
 // REGISTER
 // ══════════════════════════════════════
 if ($action === 'register') {
-    $empCode = trim($_POST['employee_code'] ?? '');
+    $empInput = trim($_POST['employee_code'] ?? '');
     $email = trim($_POST['email'] ?? '');
     $password = $_POST['password'] ?? '';
 
-    if (!$empCode || !$email || !$password) {
+    if (!$empInput || !$email || !$password) {
         echo json_encode(['success' => false, 'message' => 'Semua field wajib diisi']); exit;
     }
     if (strlen($password) < 6) {
         echo json_encode(['success' => false, 'message' => 'Password minimal 6 karakter']); exit;
     }
-    if (!filter_var($email, FILTER_VALIDATE_EMAIL)) {
-        echo json_encode(['success' => false, 'message' => 'Format email tidak valid']); exit;
-    }
 
-    // Find employee
-    $emp = $db->fetchOne("SELECT id, full_name FROM payroll_employees WHERE employee_code = ? AND is_active = 1", [$empCode]);
+    // Build employee_code from number input: "1" -> try EMP-001, EMP-01, EMP-1, or exact match
+    $emp = null;
+    if (ctype_digit($empInput)) {
+        $variations = [
+            'EMP-' . str_pad($empInput, 3, '0', STR_PAD_LEFT),
+            'EMP-' . str_pad($empInput, 2, '0', STR_PAD_LEFT),
+            'EMP-' . $empInput,
+        ];
+        foreach ($variations as $code) {
+            $emp = $db->fetchOne("SELECT id, full_name FROM payroll_employees WHERE employee_code = ? AND is_active = 1", [$code]);
+            if ($emp) break;
+        }
+    }
+    if (!$emp) {
+        $emp = $db->fetchOne("SELECT id, full_name FROM payroll_employees WHERE employee_code = ? AND is_active = 1", [strtoupper($empInput)]);
+    }
     if (!$emp) {
         echo json_encode(['success' => false, 'message' => 'Kode karyawan tidak ditemukan. Hubungi admin.']); exit;
     }
@@ -89,7 +100,7 @@ if ($action === 'login') {
     $password = $_POST['password'] ?? '';
 
     if (!$email || !$password) {
-        echo json_encode(['success' => false, 'message' => 'Email & password wajib diisi']); exit;
+        echo json_encode(['success' => false, 'message' => 'Username & password wajib diisi']); exit;
     }
 
     $account = $db->fetchOne("SELECT sa.*, pe.full_name, pe.employee_code, pe.position, pe.department 
@@ -98,7 +109,7 @@ if ($action === 'login') {
         WHERE sa.email = ?", [$email]);
 
     if (!$account || !password_verify($password, $account['password_hash'])) {
-        echo json_encode(['success' => false, 'message' => 'Email atau password salah']); exit;
+        echo json_encode(['success' => false, 'message' => 'Username atau password salah']); exit;
     }
 
     // Update last login

@@ -508,6 +508,9 @@
             <a href="owner-access.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'owner-access.php' ? 'active' : ''; ?>">
                 <i class="bi bi-eye"></i>Owner Monitoring
             </a>
+            <a href="staff-accounts.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'staff-accounts.php' ? 'active' : ''; ?>">
+                <i class="bi bi-person-badge"></i>Staff Portal
+            </a>
             
             <div class="menu-section">System</div>
             <a href="database.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'database.php' ? 'active' : ''; ?>">

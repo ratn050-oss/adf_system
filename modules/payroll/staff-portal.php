@@ -168,8 +168,8 @@ if (!empty($absenConfig['app_logo'])) {
         <!-- Login Form -->
         <form class="auth-form active" id="loginForm" onsubmit="return handleLogin(event)">
             <div class="fg">
-                <label class="fl">Email</label>
-                <input type="email" class="fi" name="email" placeholder="email@contoh.com" required>
+                <label class="fl">Username / Email</label>
+                <input type="text" class="fi" name="email" placeholder="nama atau email" required>
             </div>
             <div class="fg">
                 <label class="fl">Password</label>
@@ -181,13 +181,13 @@ if (!empty($absenConfig['app_logo'])) {
         <!-- Register Form -->
         <form class="auth-form" id="registerForm" onsubmit="return handleRegister(event)">
             <div class="fg">
-                <label class="fl">Kode Karyawan</label>
-                <input type="text" class="fi" name="employee_code" placeholder="EMP-001" required>
-                <div class="fi-hint">Kode karyawan dari admin (lihat di slip gaji)</div>
+                <label class="fl">Nomor Karyawan</label>
+                <input type="number" class="fi" name="employee_code" placeholder="1" min="1" required style="font-size:18px; text-align:center; letter-spacing:2px;">
+                <div class="fi-hint">Masukkan angka saja, misal: 1, 2, 3 (lihat di slip gaji)</div>
             </div>
             <div class="fg">
-                <label class="fl">Email</label>
-                <input type="email" class="fi" name="email" placeholder="email@contoh.com" required>
+                <label class="fl">Username / Email</label>
+                <input type="text" class="fi" name="email" placeholder="nama atau email" required>
             </div>
             <div class="fg">
                 <label class="fl">Password</label>
