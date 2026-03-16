@@ -14,6 +14,14 @@ $auth = new Auth();
 $auth->requireLogin();
 $db = Database::getInstance();
 
+// Auto-fix: Convert payment_method ENUM to VARCHAR (ENUM misses edc, ota, etc.)
+try {
+    $colInfo = $db->fetchOne("SELECT COLUMN_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'cash_book' AND COLUMN_NAME = 'payment_method'");
+    if ($colInfo && stripos($colInfo['COLUMN_TYPE'], 'enum') !== false) {
+        $db->getConnection()->exec("ALTER TABLE `cash_book` MODIFY COLUMN `payment_method` VARCHAR(50) NOT NULL DEFAULT 'cash'");
+    }
+} catch (Exception $e) { /* ignore */ }
+
 // ── Permission: only users with can_edit on cashbook may proceed ─────────────
 if (!$auth->canEdit('cashbook')) {
     $_SESSION['error'] = '⛔ Anda tidak memiliki izin untuk mengedit transaksi.';

@@ -19,6 +19,14 @@ try {
     $db->getConnection()->exec("ALTER TABLE `cash_book` DROP FOREIGN KEY `cash_book_ibfk_3`");
 } catch (Exception $e) { /* already dropped or doesn't exist */ }
 
+// Auto-fix: Convert payment_method ENUM to VARCHAR (ENUM misses edc, ota, etc.)
+try {
+    $colInfo = $db->fetchOne("SELECT COLUMN_TYPE FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'cash_book' AND COLUMN_NAME = 'payment_method'");
+    if ($colInfo && stripos($colInfo['COLUMN_TYPE'], 'enum') !== false) {
+        $db->getConnection()->exec("ALTER TABLE `cash_book` MODIFY COLUMN `payment_method` VARCHAR(50) NOT NULL DEFAULT 'cash'");
+    }
+} catch (Exception $e) { /* ignore */ }
+
 // Load business configuration
 $businessConfig = require '../../config/businesses/' . ACTIVE_BUSINESS_ID . '.php';
 
