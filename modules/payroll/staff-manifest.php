@@ -25,27 +25,32 @@ if ($bizSlug) {
 $iconUrl192 = 'absen-icon.php?size=192';
 $iconUrl512 = 'absen-icon.php?size=512';
 $iconType = 'image/png';
+$rootDir = dirname(dirname(__DIR__));
+$baseHttpUrl = defined('BASE_URL') ? BASE_URL : '';
 try {
     $mdb = Database::getInstance();
-    foreach (['pwa_app_icon', 'login_logo'] as $iconKey) {
+    // Each key has a local directory prefix for when stored as filename
+    $iconKeys = [
+        'pwa_app_icon' => 'uploads/icons/',
+        'login_logo'   => 'uploads/logos/',
+    ];
+    foreach ($iconKeys as $iconKey => $localPrefix) {
         $iconRow = $mdb->fetchOne("SELECT setting_value FROM settings WHERE setting_key = ?", [$iconKey]);
         $iconVal = $iconRow['setting_value'] ?? null;
-        if ($iconVal && strpos($iconVal, 'http') === 0) {
-            // Cloudinary URL — use directly, no PHP middleman
+        if (!$iconVal) continue;
+        if (strpos($iconVal, 'http') === 0) {
+            // Full URL (Cloudinary) — use directly
             $iconUrl192 = $iconVal;
             $iconUrl512 = $iconVal;
-            // Detect type from URL
             if (preg_match('/\.(png)$/i', $iconVal)) $iconType = 'image/png';
             elseif (preg_match('/\.(jpe?g)$/i', $iconVal)) $iconType = 'image/jpeg';
-            elseif (preg_match('/\.(webp)$/i', $iconVal)) $iconType = 'image/webp';
             else $iconType = 'image/png';
             break;
-        } elseif ($iconVal) {
-            // Local file
-            $localCheck = dirname(dirname(__DIR__)) . '/' . ltrim($iconVal, '/');
-            if (file_exists($localCheck)) {
-                $baseHttpUrl = defined('BASE_URL') ? BASE_URL : '';
-                $iconUrl192 = $baseHttpUrl . '/' . ltrim($iconVal, '/');
+        } else {
+            // Local filename — prepend directory prefix
+            $fullPath = $rootDir . '/' . $localPrefix . $iconVal;
+            if (file_exists($fullPath)) {
+                $iconUrl192 = $baseHttpUrl . '/' . $localPrefix . $iconVal;
                 $iconUrl512 = $iconUrl192;
                 $ext = strtolower(pathinfo($iconVal, PATHINFO_EXTENSION));
                 $iconType = in_array($ext, ['jpg','jpeg']) ? 'image/jpeg' : 'image/png';

@@ -14,10 +14,16 @@ try {
     $db = Database::getInstance();
     // Check pwa_app_icon first, then login_logo
     $customIcon = null;
-    foreach (['pwa_app_icon', 'login_logo'] as $iconKey) {
+    $iconLocalPrefix = '';
+    $iconKeys = [
+        'pwa_app_icon' => 'uploads/icons/',
+        'login_logo'   => 'uploads/logos/',
+    ];
+    foreach ($iconKeys as $iconKey => $localPrefix) {
         $iconSetting = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = ?", [$iconKey]);
         if (!empty($iconSetting['setting_value'])) {
             $customIcon = $iconSetting['setting_value'];
+            $iconLocalPrefix = $localPrefix;
             break;
         }
     }
@@ -29,8 +35,8 @@ try {
             header('Location: ' . $customIcon);
             exit;
         }
-        // Local file
-        $localPath = dirname(dirname(dirname(__FILE__))) . '/' . ltrim($customIcon, '/');
+        // Local file — prepend directory prefix
+        $localPath = dirname(dirname(dirname(__FILE__))) . '/' . $iconLocalPrefix . $customIcon;
         if (file_exists($localPath)) {
             while (ob_get_level()) ob_end_clean();
             $mime = mime_content_type($localPath);

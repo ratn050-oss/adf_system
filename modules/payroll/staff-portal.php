@@ -34,21 +34,24 @@ $pwaIconUrl = 'absen-icon.php?size=192'; // fallback
 try {
     $masterDbName = defined('MASTER_DB_NAME') ? MASTER_DB_NAME : (defined('DB_NAME') ? DB_NAME : 'adf_system');
     $masterDb = Database::switchDatabase($masterDbName);
-    // Try pwa_app_icon first, then login_logo
-    foreach (['pwa_app_icon', 'login_logo'] as $iconKey) {
+    // Each key has a local directory prefix
+    $iconKeys = [
+        'pwa_app_icon' => 'uploads/icons/',
+        'login_logo'   => 'uploads/logos/',
+    ];
+    foreach ($iconKeys as $iconKey => $localPrefix) {
         $iconRow = $masterDb->fetchOne("SELECT setting_value FROM settings WHERE setting_key = ?", [$iconKey]);
         $iconVal = $iconRow['setting_value'] ?? null;
-        if ($iconVal) {
-            if (strpos($iconVal, 'http') === 0) {
-                $pwaIconUrl = $iconVal;
-            } else {
-                $localPath = __DIR__ . '/../../' . ltrim($iconVal, '/');
-                if (file_exists($localPath)) {
-                    $pwaIconUrl = $baseUrl . '/' . ltrim($iconVal, '/');
-                }
+        if (!$iconVal) continue;
+        if (strpos($iconVal, 'http') === 0) {
+            $pwaIconUrl = $iconVal;
+        } else {
+            $localPath = __DIR__ . '/../../' . $localPrefix . $iconVal;
+            if (file_exists($localPath)) {
+                $pwaIconUrl = $baseUrl . '/' . $localPrefix . $iconVal;
             }
-            break;
         }
+        break;
     }
     // Restore business DB connection
     $db = Database::switchDatabase($bizConfig['database']);
@@ -303,7 +306,9 @@ try {
 <div class="auth-wrap" id="authScreen">
     <div class="auth-card">
         <div class="auth-logo">
-            <?php if ($appLogo): ?><img src="<?php echo $appLogo; ?>" alt="Logo"><?php endif; ?>
+            <?php
+            $displayLogo = $appLogo ?: (strpos($pwaIconUrl, 'absen-icon.php') === false ? $pwaIconUrl : null);
+            if ($displayLogo): ?><img src="<?php echo htmlspecialchars($displayLogo); ?>" alt="Logo"><?php endif; ?>
             <h1><?php echo $bizName; ?></h1>
             <p>Staff Portal — Login atau Daftar</p>
         </div>

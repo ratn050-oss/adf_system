@@ -27,23 +27,29 @@ if ($bizSlug) {
 $iconUrl192 = 'absen-icon.php?size=192';
 $iconUrl512 = 'absen-icon.php?size=512';
 $iconType = 'image/png';
+$rootDir = dirname(dirname(__DIR__));
+$baseHttpUrl = defined('BASE_URL') ? BASE_URL : '';
 try {
     $mdb = Database::getInstance();
-    foreach (['pwa_app_icon', 'login_logo'] as $iconKey) {
+    $iconKeys = [
+        'pwa_app_icon' => 'uploads/icons/',
+        'login_logo'   => 'uploads/logos/',
+    ];
+    foreach ($iconKeys as $iconKey => $localPrefix) {
         $iconRow = $mdb->fetchOne("SELECT setting_value FROM settings WHERE setting_key = ?", [$iconKey]);
         $iconVal = $iconRow['setting_value'] ?? null;
-        if ($iconVal && strpos($iconVal, 'http') === 0) {
+        if (!$iconVal) continue;
+        if (strpos($iconVal, 'http') === 0) {
             $iconUrl192 = $iconVal;
             $iconUrl512 = $iconVal;
             if (preg_match('/\.(png)$/i', $iconVal)) $iconType = 'image/png';
             elseif (preg_match('/\.(jpe?g)$/i', $iconVal)) $iconType = 'image/jpeg';
             else $iconType = 'image/png';
             break;
-        } elseif ($iconVal) {
-            $localCheck = dirname(dirname(__DIR__)) . '/' . ltrim($iconVal, '/');
-            if (file_exists($localCheck)) {
-                $baseHttpUrl = defined('BASE_URL') ? BASE_URL : '';
-                $iconUrl192 = $baseHttpUrl . '/' . ltrim($iconVal, '/');
+        } else {
+            $fullPath = $rootDir . '/' . $localPrefix . $iconVal;
+            if (file_exists($fullPath)) {
+                $iconUrl192 = $baseHttpUrl . '/' . $localPrefix . $iconVal;
                 $iconUrl512 = $iconUrl192;
                 $ext = strtolower(pathinfo($iconVal, PATHINFO_EXTENSION));
                 $iconType = in_array($ext, ['jpg','jpeg']) ? 'image/jpeg' : 'image/png';
