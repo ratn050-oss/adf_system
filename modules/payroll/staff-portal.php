@@ -29,18 +29,17 @@ if (!empty($absenConfig['app_logo'])) {
     $appLogo = (str_starts_with($absenConfig['app_logo'], 'http')) ? $absenConfig['app_logo'] : $baseUrl . '/' . ltrim($absenConfig['app_logo'], '/');
 }
 
-// PWA Icon — use login_logo from master DB settings (same as login page)
+// PWA Icon — use login_logo from settings (same DB as login.php & developer-settings.php)
 $pwaIconUrl = 'absen-icon.php?size=192'; // fallback
 try {
-    $masterDbName = defined('MASTER_DB_NAME') ? MASTER_DB_NAME : (defined('DB_NAME') ? DB_NAME : 'adf_system');
-    $masterDb = Database::switchDatabase($masterDbName);
-    // Each key has a local directory prefix
+    // developer-settings.php stores into getInstance() DB, login.php reads from same
+    $settingsDb = Database::getInstance();
     $iconKeys = [
         'pwa_app_icon' => 'uploads/icons/',
         'login_logo'   => 'uploads/logos/',
     ];
     foreach ($iconKeys as $iconKey => $localPrefix) {
-        $iconRow = $masterDb->fetchOne("SELECT setting_value FROM settings WHERE setting_key = ?", [$iconKey]);
+        $iconRow = $settingsDb->fetchOne("SELECT setting_value FROM settings WHERE setting_key = ?", [$iconKey]);
         $iconVal = $iconRow['setting_value'] ?? null;
         if (!$iconVal) continue;
         if (strpos($iconVal, 'http') === 0) {
@@ -54,8 +53,6 @@ try {
             }
         }
     }
-    // Restore business DB connection
-    $db = Database::switchDatabase($bizConfig['database']);
 } catch (Exception $e) {}
 ?>
 <!DOCTYPE html>

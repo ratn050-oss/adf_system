@@ -55,15 +55,36 @@ try {
     $debug['settings_table_error'] = $e->getMessage();
 }
 
-// Step 6: Query pwa_app_icon and login_logo
+// Step 6: Query pwa_app_icon and login_logo FROM MASTER DB
 try {
     $pwaIcon = $mdb->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'pwa_app_icon'");
-    $debug['pwa_app_icon'] = $pwaIcon['setting_value'] ?? 'NULL/EMPTY';
+    $debug['master_pwa_app_icon'] = $pwaIcon['setting_value'] ?? 'NULL/EMPTY';
     
     $loginLogo = $mdb->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'login_logo'");
-    $debug['login_logo'] = $loginLogo['setting_value'] ?? 'NULL/EMPTY';
+    $debug['master_login_logo'] = $loginLogo['setting_value'] ?? 'NULL/EMPTY';
 } catch (Exception $e) {
-    $debug['settings_query_error'] = $e->getMessage();
+    $debug['master_settings_query_error'] = $e->getMessage();
+}
+
+// Step 6b: Query FROM DEFAULT DB (business DB - same as login.php & developer-settings.php)
+try {
+    $bizDb = Database::getInstance();
+    $debug['biz_db'] = Database::getCurrentDatabase();
+    
+    $bizHasSettings = $bizDb->fetchAll("SHOW TABLES LIKE 'settings'");
+    $debug['biz_settings_table_exists'] = !empty($bizHasSettings);
+    
+    $pwaIcon2 = $bizDb->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'pwa_app_icon'");
+    $debug['biz_pwa_app_icon'] = $pwaIcon2['setting_value'] ?? 'NULL/EMPTY';
+    
+    $loginLogo2 = $bizDb->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'login_logo'");
+    $debug['biz_login_logo'] = $loginLogo2['setting_value'] ?? 'NULL/EMPTY';
+    
+    // List all settings keys in business DB
+    $bizSettings = $bizDb->fetchAll("SELECT setting_key, LEFT(setting_value, 100) as val_preview FROM settings ORDER BY setting_key");
+    $debug['biz_all_settings'] = $bizSettings;
+} catch (Exception $e) {
+    $debug['biz_settings_error'] = $e->getMessage();
 }
 
 // Step 7: Check file paths

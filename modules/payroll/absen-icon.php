@@ -11,9 +11,9 @@ $size = in_array($size, [120, 152, 167, 180, 192, 512]) ? $size : 192;
 try {
     require_once dirname(dirname(dirname(__FILE__))) . '/config/config.php';
     require_once dirname(dirname(dirname(__FILE__))) . '/config/database.php';
-    // Must use master DB — settings table is NOT in business DB
-    $masterDbName = defined('MASTER_DB_NAME') ? MASTER_DB_NAME : (defined('DB_NAME') ? DB_NAME : 'adf_system');
-    $db = Database::switchDatabase($masterDbName);
+    // Settings (login_logo, pwa_app_icon) are stored by developer-settings.php
+    // which uses Database::getInstance() — same DB as login.php reads from
+    $db = Database::getInstance();
     // Check pwa_app_icon first, then login_logo
     $customIcon = null;
     $iconLocalPrefix = '';

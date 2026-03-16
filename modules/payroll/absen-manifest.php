@@ -30,9 +30,9 @@ $iconType = 'image/png';
 $rootDir = dirname(dirname(__DIR__));
 $baseHttpUrl = defined('BASE_URL') ? BASE_URL : '';
 try {
-    // Must use master DB — settings table is NOT in business DB
-    $masterDbName = defined('MASTER_DB_NAME') ? MASTER_DB_NAME : (defined('DB_NAME') ? DB_NAME : 'adf_system');
-    $mdb = Database::switchDatabase($masterDbName);
+    // Settings (login_logo, pwa_app_icon) are stored by developer-settings.php
+    // which uses Database::getInstance() — same DB as login.php reads from
+    $mdb = Database::getInstance();
     $iconKeys = [
         'pwa_app_icon' => 'uploads/icons/',
         'login_logo'   => 'uploads/logos/',
