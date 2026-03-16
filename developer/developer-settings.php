@@ -30,6 +30,9 @@ $currentLoginLogo = $loginLogoSetting['setting_value'] ?? null;
 $faviconSetting = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'site_favicon'");
 $currentFavicon = $faviconSetting['setting_value'] ?? null;
 
+$pwaIconSetting = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'pwa_app_icon'");
+$currentPwaIcon = $pwaIconSetting['setting_value'] ?? null;
+
 $waSetting = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'developer_whatsapp'");
 $currentWA = $waSetting['setting_value'] ?? '';
 
@@ -196,6 +199,49 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_favicon'])) {
     $db->query("DELETE FROM settings WHERE setting_key = 'site_favicon'");
     $success = 'Favicon berhasil dihapus!';
     $currentFavicon = null;
+}
+
+// Handle PWA App Icon upload
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_FILES['pwa_app_icon']) && $_FILES['pwa_app_icon']['error'] === UPLOAD_ERR_OK) {
+    $file = $_FILES['pwa_app_icon'];
+    $allowedTypes = ['image/jpeg', 'image/png', 'image/jpg'];
+    $maxSize = 2 * 1024 * 1024;
+    
+    if (!in_array($file['type'], $allowedTypes)) {
+        $error = 'Tipe file tidak diizinkan. Gunakan JPG atau PNG.';
+    } elseif ($file['size'] > $maxSize) {
+        $error = 'Ukuran file terlalu besar. Maksimal 2MB.';
+    } else {
+        $extension = pathinfo($file['name'], PATHINFO_EXTENSION);
+        $localFilename = 'pwa-app-icon.' . $extension;
+        
+        $cloudinary = CloudinaryHelper::getInstance();
+        $uploadResult = $cloudinary->smartUpload($file, 'uploads/icons', $localFilename, 'icons', 'pwa_app_icon');
+        
+        if ($uploadResult['success']) {
+            $storedValue = $uploadResult['path'];
+            $db->query("INSERT INTO settings (setting_key, setting_value) VALUES ('pwa_app_icon', ?) ON DUPLICATE KEY UPDATE setting_value = ?", [$storedValue, $storedValue]);
+            $success = 'App icon PWA berhasil diupload!' . ($uploadResult['is_cloud'] ? ' (Cloudinary)' : '');
+            $currentPwaIcon = $storedValue;
+        } else {
+            $error = 'Gagal upload file.';
+        }
+    }
+}
+
+// Handle delete PWA icon
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_pwa_icon'])) {
+    if ($currentPwaIcon && strpos($currentPwaIcon, 'http') === 0) {
+        $cl = CloudinaryHelper::getInstance();
+        $cl->delete('adf_system/icons/pwa_app_icon');
+    }
+    $uploadDir = BASE_PATH . '/uploads/icons/';
+    foreach (glob($uploadDir . 'pwa-app-icon.*') as $oldFile) {
+        @unlink($oldFile);
+    }
+    $db->query("DELETE FROM settings WHERE setting_key = 'pwa_app_icon'");
+    $success = 'App icon PWA berhasil dihapus! (akan kembali ke icon default)';
+    $currentPwaIcon = null;
 }
 
 // Handle WhatsApp number update
@@ -847,6 +893,62 @@ require_once __DIR__ . '/includes/header.php';
                 </div>
             </div>
             
+            <!-- PWA App Icon -->
+            <div class="settings-card">
+                <div class="settings-card-header">
+                    <div class="icon" style="background: rgba(99,102,241,0.15); color: #6366f1;">
+                        <i class="bi bi-phone"></i>
+                    </div>
+                    <div>
+                        <h5>App Icon (PWA)</h5>
+                        <small>Icon untuk install app di Android/iOS</small>
+                    </div>
+                </div>
+                <div class="settings-card-body">
+                    <?php if ($currentPwaIcon): ?>
+                    <?php
+                        $cl = CloudinaryHelper::getInstance();
+                        $pwaIconUrl = $cl->getDisplayUrl($currentPwaIcon, 'uploads/icons/');
+                    ?>
+                    <div class="preview-box mb-3">
+                        <img src="<?php echo $pwaIconUrl; ?>?v=<?php echo time(); ?>" 
+                             alt="PWA Icon" style="width:96px;height:96px;border-radius:20px;box-shadow:0 4px 12px rgba(0,0,0,.15);">
+                        <div class="mt-2" style="font-size:0.75rem;color:#888;">
+                            Preview di home screen:
+                            <div style="display:inline-flex;flex-direction:column;align-items:center;background:#f1f5f9;padding:8px 14px;border-radius:10px;margin-left:5px;margin-top:5px;">
+                                <img src="<?php echo $pwaIconUrl; ?>?v=<?php echo time(); ?>" style="width:48px;height:48px;border-radius:10px;margin-bottom:4px;">
+                                <span style="font-size:0.6rem;color:#333;">Staff Portal</span>
+                            </div>
+                        </div>
+                        <div class="mt-2">
+                            <form method="POST" style="display:inline;">
+                                <input type="hidden" name="delete_pwa_icon" value="1">
+                                <button type="submit" class="btn btn-sm btn-outline-danger">
+                                    <i class="bi bi-trash me-1"></i>Hapus Icon (kembali default)
+                                </button>
+                            </form>
+                        </div>
+                    </div>
+                    <?php else: ?>
+                    <div class="preview-box mb-3">
+                        <img src="../modules/payroll/absen-icon.php?size=192" 
+                             alt="Default Icon" style="width:96px;height:96px;border-radius:20px;box-shadow:0 4px 12px rgba(0,0,0,.15);opacity:.5;">
+                        <div class="text-muted mt-2" style="font-size:0.85rem;">Menggunakan icon default (auto-generated)</div>
+                    </div>
+                    <?php endif; ?>
+                    <form method="POST" enctype="multipart/form-data">
+                        <div class="mb-3">
+                            <label class="form-label">Upload App Icon</label>
+                            <input type="file" name="pwa_app_icon" class="form-control" accept=".jpg,.jpeg,.png,image/jpeg,image/png" required>
+                            <div class="form-text">Format: PNG atau JPG &bull; Maksimal 2MB &bull; Rekomendasi: <strong>512x512px</strong> (persegi)</div>
+                        </div>
+                        <button type="submit" class="btn btn-primary w-100">
+                            <i class="bi bi-upload me-1"></i>Upload App Icon
+                        </button>
+                    </form>
+                </div>
+            </div>
+
             <!-- WhatsApp Developer -->
             <div class="settings-card">
                 <div class="settings-card-header">

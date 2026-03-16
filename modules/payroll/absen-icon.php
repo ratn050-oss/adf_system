@@ -1,10 +1,40 @@
 <?php
 /**
  * PWA Icon Generator — outputs PNG for iOS apple-touch-icon
- * iOS requires PNG; this generates one dynamically via GD
+ * If custom icon is uploaded via developer panel, serve that instead.
+ * Otherwise generates one dynamically via GD.
  */
 $size = (int)($_GET['size'] ?? 192);
 $size = in_array($size, [120, 152, 167, 180, 192, 512]) ? $size : 192;
+
+// Check for custom icon from developer settings
+try {
+    require_once dirname(dirname(dirname(__FILE__))) . '/config/config.php';
+    require_once dirname(dirname(dirname(__FILE__))) . '/config/database.php';
+    $db = Database::getInstance();
+    $iconSetting = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'pwa_app_icon'");
+    $customIcon = $iconSetting['setting_value'] ?? null;
+    
+    if ($customIcon) {
+        // Cloudinary URL
+        if (strpos($customIcon, 'http') === 0) {
+            header('Location: ' . $customIcon);
+            exit;
+        }
+        // Local file
+        $localPath = dirname(dirname(dirname(__FILE__))) . '/' . ltrim($customIcon, '/');
+        if (file_exists($localPath)) {
+            $mime = mime_content_type($localPath);
+            header('Content-Type: ' . $mime);
+            header('Cache-Control: public, max-age=3600');
+            header('X-Content-Type-Options: nosniff');
+            readfile($localPath);
+            exit;
+        }
+    }
+} catch (Exception $e) {
+    // Fall through to default icon generation
+}
 
 header('Content-Type: image/png');
 header('Cache-Control: public, max-age=86400');
