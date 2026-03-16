@@ -30,7 +30,9 @@ $iconType = 'image/png';
 $rootDir = dirname(dirname(__DIR__));
 $baseHttpUrl = defined('BASE_URL') ? BASE_URL : '';
 try {
-    $mdb = Database::getInstance();
+    // Must use master DB — settings table is NOT in business DB
+    $masterDbName = defined('MASTER_DB_NAME') ? MASTER_DB_NAME : (defined('DB_NAME') ? DB_NAME : 'adf_system');
+    $mdb = Database::switchDatabase($masterDbName);
     $iconKeys = [
         'pwa_app_icon' => 'uploads/icons/',
         'login_logo'   => 'uploads/logos/',
@@ -55,6 +57,7 @@ try {
                 $iconType = in_array($ext, ['jpg','jpeg']) ? 'image/jpeg' : 'image/png';
                 break;
             }
+            // File not found — continue to next key
         }
     }
 } catch (Exception $e) {}

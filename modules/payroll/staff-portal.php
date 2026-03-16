@@ -45,13 +45,14 @@ try {
         if (!$iconVal) continue;
         if (strpos($iconVal, 'http') === 0) {
             $pwaIconUrl = $iconVal;
+            break;
         } else {
             $localPath = __DIR__ . '/../../' . $localPrefix . $iconVal;
             if (file_exists($localPath)) {
                 $pwaIconUrl = $baseUrl . '/' . $localPrefix . $iconVal;
+                break;
             }
         }
-        break;
     }
     // Restore business DB connection
     $db = Database::switchDatabase($bizConfig['database']);
