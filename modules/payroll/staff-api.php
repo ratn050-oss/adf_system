@@ -181,6 +181,13 @@ if ($action === 'profile') {
 if ($action === 'attendance_today') {
     $today = date('Y-m-d');
     $att = $db->fetchOne("SELECT * FROM payroll_attendance WHERE employee_id = ? AND attendance_date = ?", [$empId, $today]);
+    // Enrich with schedule info for cafe
+    if ($att) {
+        $att['schedule_start'] = $att['schedule_start'] ?? null;
+        $att['schedule_end'] = $att['schedule_end'] ?? null;
+        $att['late_minutes'] = $att['late_minutes'] ?? 0;
+        $att['early_leave_minutes'] = $att['early_leave_minutes'] ?? 0;
+    }
     echo json_encode(['success' => true, 'data' => $att]); exit;
 }
 
@@ -461,6 +468,7 @@ if ($action === 'face_register') {
 
 // ══════════════════════════════════════
 // FACE SCAN — Clock in/out (split-shift like fingerprint)
+// Business-type aware: cafe=2 scans, hotel=4 scans
 // ══════════════════════════════════════
 if ($action === 'face_clock') {
     $lat = (float)($_POST['lat'] ?? 0);
@@ -472,6 +480,9 @@ if ($action === 'face_clock') {
     $config = $db->fetchOne("SELECT * FROM payroll_attendance_config WHERE id = 1");
     $allowOutside = (bool)($config['allow_outside'] ?? false);
     $checkinEnd = $config['checkin_end'] ?? '10:00:00';
+
+    // Detect business type
+    $isCafeBiz = in_array($bizConfig['business_type'] ?? '', ['cafe', 'restaurant']);
 
     // Location check
     $locRows = $db->fetchAll("SELECT * FROM payroll_attendance_locations WHERE is_active = 1") ?: [];
@@ -500,13 +511,105 @@ if ($action === 'face_clock') {
         $pdo->exec("ALTER TABLE payroll_attendance ADD COLUMN scan_3 TIME DEFAULT NULL AFTER check_out_time, ADD COLUMN scan_4 TIME DEFAULT NULL AFTER scan_3, ADD COLUMN shift_1_hours DECIMAL(5,2) DEFAULT NULL AFTER work_hours, ADD COLUMN shift_2_hours DECIMAL(5,2) DEFAULT NULL AFTER shift_1_hours");
     }
 
+    // Ensure late/early columns for cafe
+    if ($isCafeBiz) {
+        try { $pdo->query("SELECT late_minutes FROM payroll_attendance LIMIT 1"); } catch (PDOException $e) {
+            $pdo->exec("ALTER TABLE payroll_attendance ADD COLUMN late_minutes INT DEFAULT 0 AFTER notes, ADD COLUMN early_leave_minutes INT DEFAULT 0 AFTER late_minutes, ADD COLUMN schedule_start TIME DEFAULT NULL AFTER early_leave_minutes, ADD COLUMN schedule_end TIME DEFAULT NULL AFTER schedule_start");
+        }
+    }
+
     $att = $db->fetchOne("SELECT * FROM payroll_attendance WHERE employee_id = ? AND attendance_date = ?", [$empId, $today]);
 
-    $scan1 = $att['check_in_time'] ?? null;
-    $scan2 = $att['check_out_time'] ?? null;
-    $scan3 = $att['scan_3'] ?? null;
-    $scan4 = $att['scan_4'] ?? null;
-    $filledScans = array_filter([$scan1, $scan2, $scan3, $scan4], fn($s) => !empty($s));
+    if ($isCafeBiz) {
+        // ── CAFE MODE: 2 scans (check_in, check_out) with fixed schedule ──
+        $scan1 = $att['check_in_time'] ?? null;
+        $scan2 = $att['check_out_time'] ?? null;
+
+        // Double scan filter (15 min for cafe)
+        if ($scan1 && !$scan2) {
+            $diffMin = abs(strtotime("2000-01-01 " . $now) - strtotime("2000-01-01 " . $scan1)) / 60;
+            if ($diffMin < 15) {
+                echo json_encode(['success' => false, 'message' => 'Baru saja absen masuk ' . substr($scan1,0,5) . ' (' . round($diffMin) . ' menit lalu). Tunggu minimal 15 menit.']); exit;
+            }
+        }
+
+        if ($scan1 && $scan2) {
+            echo json_encode(['success' => false, 'message' => 'Sudah absen masuk & pulang hari ini.']); exit;
+        }
+
+        // Get employee schedule
+        $schedule = null;
+        try {
+            $pdo->exec("CREATE TABLE IF NOT EXISTS `payroll_work_schedules` (
+                `id` INT AUTO_INCREMENT PRIMARY KEY,
+                `employee_id` INT NOT NULL,
+                `day_of_week` TINYINT NOT NULL DEFAULT 0,
+                `start_time` TIME NOT NULL DEFAULT '09:00:00',
+                `end_time` TIME NOT NULL DEFAULT '17:00:00',
+                `break_minutes` INT DEFAULT 60,
+                `is_off` TINYINT(1) DEFAULT 0,
+                `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                UNIQUE KEY uk_emp_day (employee_id, day_of_week)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+            $dayOfWeek = (int)date('w'); // 0=Sun, 6=Sat
+            $schedule = $db->fetchOne("SELECT * FROM payroll_work_schedules WHERE employee_id = ? AND day_of_week = ?", [$empId, $dayOfWeek]);
+        } catch (Exception $e) {}
+
+        // Fallback to config times
+        $schedStart = $schedule['start_time'] ?? ($config['checkin_start'] ?? '09:00:00');
+        $schedEnd = $schedule['end_time'] ?? ($config['checkout_start'] ?? '17:00:00');
+        $isScheduledOff = (bool)($schedule['is_off'] ?? false);
+
+        $device = 'face:verified';
+
+        try {
+            if (!$att) {
+                // CHECK-IN
+                $lateMinutes = 0;
+                if (strtotime("2000-01-01 $now") > strtotime("2000-01-01 $schedStart")) {
+                    $lateMinutes = (int)((strtotime("2000-01-01 $now") - strtotime("2000-01-01 $schedStart")) / 60);
+                }
+                $status = ($lateMinutes > 5) ? 'late' : 'present'; // 5 min grace
+                $statusEmoji = $status === 'late' ? ' ⚠️ Terlambat ' . $lateMinutes . ' menit' : '';
+
+                $pdo->prepare("INSERT INTO payroll_attendance (employee_id, attendance_date, check_in_time, check_in_lat, check_in_lng, check_in_distance_m, check_in_address, check_in_device, status, is_outside_radius, notes, late_minutes, schedule_start, schedule_end) VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
+                    ->execute([$empId, $today, $now, $lat ?: null, $lng ?: null, $distance, $address, $device, $status, $isOutside ? 1 : 0, 'Absen masuk', $lateMinutes, $schedStart, $schedEnd]);
+
+                echo json_encode([
+                    'success' => true,
+                    'message' => '✅ Absen Masuk — ' . date('H:i') . $statusEmoji,
+                    'scan_num' => 1
+                ]); exit;
+            }
+
+            if (empty($scan2)) {
+                // CHECK-OUT
+                $workHours = max(0, round((strtotime("2000-01-01 $now") - strtotime("2000-01-01 $scan1")) / 3600, 2));
+                $earlyLeave = 0;
+                if (strtotime("2000-01-01 $now") < strtotime("2000-01-01 $schedEnd")) {
+                    $earlyLeave = (int)((strtotime("2000-01-01 $schedEnd") - strtotime("2000-01-01 $now")) / 60);
+                }
+                $earlyNote = ($earlyLeave > 5) ? ' ⚠️ Pulang awal ' . $earlyLeave . ' menit' : '';
+
+                $pdo->prepare("UPDATE payroll_attendance SET check_out_time = ?, check_out_lat = ?, check_out_lng = ?, check_out_distance_m = ?, check_out_device = ?, work_hours = ?, shift_1_hours = ?, early_leave_minutes = ?, notes = ? WHERE id = ?")
+                    ->execute([$now, $lat ?: null, $lng ?: null, $distance, $device, $workHours, $workHours, $earlyLeave, 'Absen pulang', $att['id']]);
+
+                echo json_encode([
+                    'success' => true,
+                    'message' => '✅ Absen Pulang — ' . date('H:i') . " ({$workHours} jam)" . $earlyNote,
+                    'scan_num' => 2
+                ]); exit;
+            }
+        } catch (Exception $e) {
+            echo json_encode(['success' => false, 'message' => 'Gagal: ' . $e->getMessage()]); exit;
+        }
+    } else {
+        // ── HOTEL MODE: 4 scans (split-shift) ──
+        $scan1 = $att['check_in_time'] ?? null;
+        $scan2 = $att['check_out_time'] ?? null;
+        $scan3 = $att['scan_3'] ?? null;
+        $scan4 = $att['scan_4'] ?? null;
+        $filledScans = array_filter([$scan1, $scan2, $scan3, $scan4], fn($s) => !empty($s));
 
     // Double scan filter (30 min)
     if (!empty($filledScans)) {
@@ -580,6 +683,75 @@ if ($action === 'face_clock') {
     } catch (Exception $e) {
         echo json_encode(['success' => false, 'message' => 'Gagal: ' . $e->getMessage()]); exit;
     }
+    } // end hotel else
+}
+
+// ══════════════════════════════════════
+// WORK SCHEDULE (Cafe)
+// ══════════════════════════════════════
+if ($action === 'work_schedule') {
+    $pdo->exec("CREATE TABLE IF NOT EXISTS `payroll_work_schedules` (
+        `id` INT AUTO_INCREMENT PRIMARY KEY,
+        `employee_id` INT NOT NULL,
+        `day_of_week` TINYINT NOT NULL DEFAULT 0,
+        `start_time` TIME NOT NULL DEFAULT '09:00:00',
+        `end_time` TIME NOT NULL DEFAULT '17:00:00',
+        `break_minutes` INT DEFAULT 60,
+        `is_off` TINYINT(1) DEFAULT 0,
+        `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE KEY uk_emp_day (employee_id, day_of_week)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+    $config = $db->fetchOne("SELECT * FROM payroll_attendance_config WHERE id = 1");
+    $defaultStart = $config['checkin_start'] ?? '09:00:00';
+    $defaultEnd = $config['checkout_start'] ?? '17:00:00';
+
+    // Get today schedule
+    $todayDow = (int)date('w');
+    $todaySchedule = $db->fetchOne("SELECT * FROM payroll_work_schedules WHERE employee_id = ? AND day_of_week = ?", [$empId, $todayDow]);
+
+    // Get week schedule
+    $weekSchedule = $db->fetchAll("SELECT * FROM payroll_work_schedules WHERE employee_id = ? ORDER BY day_of_week", [$empId]) ?: [];
+
+    // If no schedule, return defaults
+    $startTime = $todaySchedule['start_time'] ?? $defaultStart;
+    $endTime = $todaySchedule['end_time'] ?? $defaultEnd;
+    $breakMin = $todaySchedule['break_minutes'] ?? 60;
+
+    $totalHours = max(0, round((strtotime("2000-01-01 $endTime") - strtotime("2000-01-01 $startTime")) / 3600, 1));
+
+    // Build weekly data
+    $weekly = [];
+    $schedMap = [];
+    foreach ($weekSchedule as $ws) { $schedMap[(int)$ws['day_of_week']] = $ws; }
+    for ($d = 0; $d <= 6; $d++) {
+        if (isset($schedMap[$d])) {
+            $weekly[] = [
+                'day_index' => $d,
+                'start_time' => $schedMap[$d]['start_time'],
+                'end_time' => $schedMap[$d]['end_time'],
+                'is_off' => (bool)$schedMap[$d]['is_off'],
+            ];
+        } else {
+            $weekly[] = [
+                'day_index' => $d,
+                'start_time' => $defaultStart,
+                'end_time' => $defaultEnd,
+                'is_off' => false,
+            ];
+        }
+    }
+
+    echo json_encode([
+        'success' => true,
+        'data' => [
+            'start_time' => $startTime,
+            'end_time' => $endTime,
+            'break_minutes' => (int)$breakMin,
+            'total_hours' => $totalHours,
+            'weekly' => $weekly,
+        ]
+    ]); exit;
 }
 
 echo json_encode(['success' => false, 'message' => 'Unknown action']);

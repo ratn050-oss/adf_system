@@ -21,6 +21,11 @@ $baseUrl = defined('BASE_URL') ? BASE_URL : '';
 $apiUrl = 'staff-api.php?b=' . urlencode($bizSlug);
 $absenUrl = 'absen.php?b=' . urlencode($bizSlug);
 $bizName = htmlspecialchars($bizConfig['name'] ?? 'Staff Portal');
+$bizType = $bizConfig['business_type'] ?? 'general';
+$isHotel = ($bizType === 'hotel');
+$isCafe = in_array($bizType, ['cafe', 'restaurant']);
+$themeColor = $bizConfig['theme']['color_primary'] ?? '#0d1f3c';
+$bizIcon = $bizConfig['theme']['icon'] ?? '🏢';
 
 // Logo
 $absenConfig = $db->fetchOne("SELECT app_logo FROM payroll_attendance_config WHERE id=1") ?: [];
@@ -61,17 +66,17 @@ try {
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="theme-color" content="#0d1f3c">
+    <meta name="theme-color" content="<?php echo htmlspecialchars($themeColor); ?>">
     <title>Staff Portal - <?php echo $bizName; ?></title>
     <link rel="manifest" href="staff-manifest.php?b=<?php echo urlencode($bizSlug); ?>">
     <link rel="apple-touch-icon" href="<?php echo htmlspecialchars($pwaIconUrl); ?>">
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
-        :root { --navy:#0d1f3c; --gold:#f0b429; --green:#059669; --red:#dc2626; --orange:#ea580c; --blue:#2563eb; --purple:#7c3aed; --bg:#f1f5f9; --card:#fff; --border:#e2e8f0; --muted:#64748b; --text:#1e293b; }
+        :root { --navy:<?php echo htmlspecialchars($themeColor); ?>; --gold:#f0b429; --green:#059669; --red:#dc2626; --orange:#ea580c; --blue:#2563eb; --purple:#7c3aed; --bg:#f1f5f9; --card:#fff; --border:#e2e8f0; --muted:#64748b; --text:#1e293b; }
         body { font-family:'Inter','Segoe UI',system-ui,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; -webkit-font-smoothing:antialiased; }
 
         /* ── Auth Screen ── */
-        .auth-wrap { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px; background:linear-gradient(135deg,#0d1f3c 0%,#1a3a5c 100%); }
+        .auth-wrap { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px; background:linear-gradient(135deg,var(--navy) 0%,<?php echo $isCafe ? '#a0522d' : '#1a3a5c'; ?> 100%); }
         .auth-card { background:#fff; border-radius:20px; padding:32px 28px; width:100%; max-width:380px; box-shadow:0 20px 60px rgba(0,0,0,.3); }
         .auth-logo { text-align:center; margin-bottom:20px; }
         .auth-logo img { height:50px; max-width:180px; object-fit:contain; }
@@ -537,7 +542,8 @@ try {
         </div>
     </div>
 
-    <!-- ═══ PAGE: ROOM ═══ -->
+    <!-- ═══ PAGE: ROOM (Hotel only) ═══ -->
+    <?php if ($isHotel): ?>
     <div class="page" id="page-occupancy">
         <div id="occStats"><div class="loading"><span class="spin"></span> Memuat...</div></div>
         <div class="card">
@@ -565,7 +571,7 @@ try {
     <div id="calPopupOverlay" class="cal-popup-overlay" style="display:none;" onclick="closeCalPopup()"></div>
     <div id="calPopup" class="cal-popup" style="display:none;"></div>
 
-    <!-- ═══ PAGE: BREAKFAST ═══ -->
+    <!-- ═══ PAGE: BREAKFAST (Hotel only) ═══ -->
     <div class="page" id="page-breakfast">
         <div id="bfStats"><div class="loading"><span class="spin"></span> Memuat...</div></div>
         <div class="card">
@@ -576,12 +582,31 @@ try {
             <div id="bfOrderList" style="margin-top:10px;"><div class="loading"><span class="spin"></span></div></div>
         </div>
     </div>
+    <?php endif; ?>
+
+    <?php if ($isCafe): ?>
+    <!-- ═══ PAGE: JADWAL (Cafe only) ═══ -->
+    <div class="page" id="page-schedule">
+        <div class="card">
+            <div class="card-title">⏰ Jadwal Kerja Saya</div>
+            <div id="scheduleInfo"><div class="loading"><span class="spin"></span> Memuat...</div></div>
+        </div>
+        <div class="card">
+            <div class="card-title">📊 Ketepatan Waktu Bulan Ini</div>
+            <div id="punctualityStats"><div class="loading"><span class="spin"></span> Memuat...</div></div>
+        </div>
+    </div>
+    <?php endif; ?>
 
     <!-- Bottom Navigation -->
     <div class="bottom-nav">
         <div class="nav-item active" data-page="home"><span class="nav-icon">🏠</span><span class="nav-label">Home</span></div>
+        <?php if ($isHotel): ?>
         <div class="nav-item" data-page="occupancy"><span class="nav-icon">🏨</span><span class="nav-label">Room Monitor</span></div>
         <div class="nav-item" data-page="breakfast"><span class="nav-icon">☕</span><span class="nav-label">Breakfast</span></div>
+        <?php elseif ($isCafe): ?>
+        <div class="nav-item" data-page="schedule"><span class="nav-icon">⏰</span><span class="nav-label">Jadwal</span></div>
+        <?php endif; ?>
     </div>
 </div>
 
@@ -636,6 +661,9 @@ const API = '<?php echo $apiUrl; ?>';
 const CRED_KEY = 'staff_saved_cred_<?php echo md5($bizSlug); ?>';
 const FACE_MODEL_URL = '<?php echo $baseUrl; ?>/assets/face-weights';
 const FACE_MODEL_CDN = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights';
+const BIZ_TYPE = '<?php echo $bizType; ?>';
+const IS_HOTEL = <?php echo $isHotel ? 'true' : 'false'; ?>;
+const IS_CAFE = <?php echo $isCafe ? 'true' : 'false'; ?>;
 
 // ═══ PASSWORD TOGGLE ═══
 function togglePw(inputId, btn) {
@@ -759,6 +787,7 @@ function loadHome() {
     loadAbsen();
     loadMonitoring();
     loadCuti();
+    if (IS_CAFE) loadSchedule();
 }
 
 // ── Navigation ──
@@ -770,8 +799,9 @@ document.querySelectorAll('.nav-item').forEach(item => {
         const page = item.dataset.page;
         document.getElementById('page-' + page).classList.add('active');
         if (page === 'home') loadHome();
-        if (page === 'occupancy') loadOccupancy();
-        if (page === 'breakfast') loadBreakfast();
+        if (page === 'occupancy' && IS_HOTEL) loadOccupancy();
+        if (page === 'breakfast' && IS_HOTEL) loadBreakfast();
+        if (page === 'schedule' && IS_CAFE) loadSchedule();
     });
 });
 
@@ -786,15 +816,38 @@ async function loadAbsen() {
         if (a) {
             const s1 = a.check_in_time ? a.check_in_time.substring(0,5) : '—';
             const s2 = a.check_out_time ? a.check_out_time.substring(0,5) : '—';
-            const s3 = a.scan_3 ? a.scan_3.substring(0,5) : '—';
-            const s4 = a.scan_4 ? a.scan_4.substring(0,5) : '—';
             const wh = parseFloat(a.work_hours) || 0;
             const statusMap = { present: '✅ Hadir', late: '⏰ Terlambat', absent: '❌ Absen', leave: '📝 Izin' };
-            document.getElementById('todayStatus').innerHTML = `
-                <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
-                    <span class="badge ${a.status==='present'?'b-hadir':a.status==='late'?'b-late':'b-absent'}">${statusMap[a.status]||a.status}</span>
-                    <span style="font-size:11px;color:var(--muted);">${wh > 0 ? wh.toFixed(1) + ' jam' : ''}</span>
-                </div>
+
+            let scanGrid;
+            if (IS_CAFE) {
+                // Cafe: 2 scan (Masuk / Pulang) with schedule info
+                const scheduleInfo = a.schedule_start && a.schedule_end
+                    ? `<div style="text-align:center;font-size:10px;color:var(--muted);margin-bottom:8px;">Jadwal: ${a.schedule_start?.substring(0,5) || '—'} — ${a.schedule_end?.substring(0,5) || '—'}</div>` : '';
+                const lateInfo = a.late_minutes && a.late_minutes > 0
+                    ? `<div style="text-align:center;font-size:10px;color:var(--red);margin-top:4px;">Terlambat ${a.late_minutes} menit</div>` : '';
+                const earlyInfo = a.early_leave_minutes && a.early_leave_minutes > 0
+                    ? `<div style="text-align:center;font-size:10px;color:var(--orange);margin-top:4px;">Pulang awal ${a.early_leave_minutes} menit</div>` : '';
+                scanGrid = `
+                    ${scheduleInfo}
+                    <div style="display:grid;grid-template-columns:1fr 1fr;gap:10px;text-align:center;">
+                        <div style="background:var(--bg);border-radius:10px;padding:14px;">
+                            <div style="font-size:20px;margin-bottom:4px;">🟢</div>
+                            <div style="font-size:10px;color:var(--muted);font-weight:600;">MASUK</div>
+                            <div style="font-size:22px;font-weight:800;color:var(--green);margin-top:2px;">${s1}</div>
+                        </div>
+                        <div style="background:var(--bg);border-radius:10px;padding:14px;">
+                            <div style="font-size:20px;margin-bottom:4px;">🔴</div>
+                            <div style="font-size:10px;color:var(--muted);font-weight:600;">PULANG</div>
+                            <div style="font-size:22px;font-weight:800;color:var(--navy);margin-top:2px;">${s2}</div>
+                        </div>
+                    </div>
+                    ${lateInfo}${earlyInfo}`;
+            } else {
+                // Hotel: 4 scan split-shift
+                const s3 = a.scan_3 ? a.scan_3.substring(0,5) : '—';
+                const s4 = a.scan_4 ? a.scan_4.substring(0,5) : '—';
+                scanGrid = `
                 <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;text-align:center;">
                     <div style="background:var(--bg);border-radius:8px;padding:8px;">
                         <div style="font-size:9px;color:var(--muted);">Scan 1</div>
@@ -813,6 +866,14 @@ async function loadAbsen() {
                         <div style="font-size:14px;font-weight:700;color:var(--navy);">${s4}</div>
                     </div>
                 </div>`;
+            }
+
+            document.getElementById('todayStatus').innerHTML = `
+                <div style="display:flex;align-items:center;gap:8px;margin-bottom:10px;">
+                    <span class="badge ${a.status==='present'?'b-hadir':a.status==='late'?'b-late':'b-absent'}">${statusMap[a.status]||a.status}</span>
+                    <span style="font-size:11px;color:var(--muted);">${wh > 0 ? wh.toFixed(1) + ' jam' : ''}</span>
+                </div>
+                ${scanGrid}`;
         } else {
             document.getElementById('todayStatus').innerHTML = '<div style="text-align:center;padding:16px;color:var(--muted);font-size:12px;">⏳ Belum absen hari ini. Tap "Scan Wajah" di atas untuk absen.</div>';
         }
@@ -868,22 +929,101 @@ async function loadMonitoring() {
             document.getElementById('monitorTable').innerHTML = '<div style="text-align:center;padding:16px;color:var(--muted);font-size:12px;">Belum ada data absensi.</div>';
             return;
         }
-        let html = '<div style="overflow-x:auto;"><table class="tbl"><thead><tr><th>Tanggal</th><th>Scan 1</th><th>Scan 2</th><th>Scan 3</th><th>Scan 4</th><th>Total</th><th>Status</th></tr></thead><tbody>';
+
+        let html;
+        if (IS_CAFE) {
+            html = '<div style="overflow-x:auto;"><table class="tbl"><thead><tr><th>Tanggal</th><th>Masuk</th><th>Pulang</th><th>Jam Kerja</th><th>Status</th></tr></thead><tbody>';
+        } else {
+            html = '<div style="overflow-x:auto;"><table class="tbl"><thead><tr><th>Tanggal</th><th>Scan 1</th><th>Scan 2</th><th>Scan 3</th><th>Scan 4</th><th>Total</th><th>Status</th></tr></thead><tbody>';
+        }
         const statusMap = { present:'Hadir', late:'Terlambat', absent:'Absen', leave:'Izin', holiday:'Libur', half_day:'½ Hari' };
         rows.forEach(r => {
             const dt = new Date(r.attendance_date);
             const day = dt.toLocaleDateString('id-ID',{weekday:'short',day:'numeric',month:'short'});
             const s1 = r.check_in_time ? r.check_in_time.substring(0,5) : '—';
             const s2 = r.check_out_time ? r.check_out_time.substring(0,5) : '—';
-            const s3 = r.scan_3 ? r.scan_3.substring(0,5) : '—';
-            const s4 = r.scan_4 ? r.scan_4.substring(0,5) : '—';
             const wh = parseFloat(r.work_hours)||0;
             const bc = r.status==='present'?'b-hadir':r.status==='late'?'b-late':'b-absent';
-            html += `<tr><td style="white-space:nowrap;">${day}</td><td style="font-weight:600;color:var(--green);">${s1}</td><td>${s2}</td><td style="color:var(--green);">${s3}</td><td>${s4}</td><td style="font-weight:700;">${wh>0?wh.toFixed(1)+'j':'—'}</td><td><span class="badge ${bc}">${statusMap[r.status]||r.status}</span></td></tr>`;
+
+            if (IS_CAFE) {
+                html += `<tr><td style="white-space:nowrap;">${day}</td><td style="font-weight:600;color:var(--green);">${s1}</td><td style="font-weight:600;color:var(--navy);">${s2}</td><td style="font-weight:700;">${wh>0?wh.toFixed(1)+'j':'—'}</td><td><span class="badge ${bc}">${statusMap[r.status]||r.status}</span></td></tr>`;
+            } else {
+                const s3 = r.scan_3 ? r.scan_3.substring(0,5) : '—';
+                const s4 = r.scan_4 ? r.scan_4.substring(0,5) : '—';
+                html += `<tr><td style="white-space:nowrap;">${day}</td><td style="font-weight:600;color:var(--green);">${s1}</td><td>${s2}</td><td style="color:var(--green);">${s3}</td><td>${s4}</td><td style="font-weight:700;">${wh>0?wh.toFixed(1)+'j':'—'}</td><td><span class="badge ${bc}">${statusMap[r.status]||r.status}</span></td></tr>`;
+            }
         });
         html += '</tbody></table></div>';
         document.getElementById('monitorTable').innerHTML = html;
     } catch(e) { document.getElementById('monitorTable').innerHTML = '<div style="color:var(--red);font-size:11px;">Gagal memuat</div>'; }
+}
+
+// ═══ SCHEDULE PAGE (Cafe) ═══
+async function loadSchedule() {
+    if (!IS_CAFE) return;
+    try {
+        const res = await fetch(API + '&action=work_schedule');
+        const data = await res.json();
+        if (!data.success) {
+            document.getElementById('scheduleInfo').innerHTML = '<div style="color:var(--muted);text-align:center;padding:16px;font-size:12px;">Jadwal belum dikonfigurasi admin.</div>';
+            return;
+        }
+        const s = data.data;
+        const dayNames = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+        const todayIdx = new Date().getDay();
+
+        let html = '<div style="margin-bottom:12px;">';
+        // Today highlight
+        html += `<div style="background:linear-gradient(135deg,var(--navy),${IS_CAFE?'#a0522d':'#1a3a5c'});color:#fff;border-radius:12px;padding:16px;margin-bottom:12px;text-align:center;">
+            <div style="font-size:11px;opacity:.7;">Jadwal Hari Ini — ${dayNames[todayIdx]}</div>
+            <div style="font-size:28px;font-weight:800;margin:6px 0;">${s.start_time?.substring(0,5) || '—'} — ${s.end_time?.substring(0,5) || '—'}</div>
+            <div style="font-size:12px;opacity:.8;">${s.total_hours || 8} jam kerja${s.break_minutes ? ' · istirahat ' + s.break_minutes + ' menit' : ''}</div>
+        </div>`;
+
+        // Weekly schedule
+        if (s.weekly && s.weekly.length > 0) {
+            html += '<div style="font-size:12px;font-weight:700;color:var(--navy);margin-bottom:8px;">📅 Jadwal Mingguan</div>';
+            s.weekly.forEach(d => {
+                const isToday = d.day_index == todayIdx;
+                const isOff = d.is_off;
+                html += `<div style="display:flex;align-items:center;justify-content:space-between;padding:10px 12px;border-radius:8px;margin-bottom:4px;${isToday?'background:var(--bg);border:1.5px solid var(--gold);':'border:1px solid var(--border);'}">
+                    <div style="font-weight:${isToday?'700':'500'};font-size:13px;">${isToday?'▶ ':''}${dayNames[d.day_index]}</div>
+                    <div style="font-size:12px;color:${isOff?'var(--red)':'var(--green)'};font-weight:600;">${isOff ? 'LIBUR' : (d.start_time?.substring(0,5)+' — '+d.end_time?.substring(0,5))}</div>
+                </div>`;
+            });
+        }
+        html += '</div>';
+        document.getElementById('scheduleInfo').innerHTML = html;
+
+        // Punctuality stats
+        const m = new Date().toISOString().substring(0,7);
+        const hRes = await fetch(API + '&action=attendance_history&month=' + m);
+        const hData = await hRes.json();
+        const rows = hData.data || [];
+        let onTime = 0, lateCount = 0, totalLateMin = 0;
+        rows.forEach(r => {
+            if (r.status === 'present') onTime++;
+            if (r.status === 'late') { lateCount++; totalLateMin += (parseInt(r.late_minutes) || 0); }
+        });
+        const totalDays = onTime + lateCount;
+        const pctOnTime = totalDays > 0 ? Math.round(onTime / totalDays * 100) : 100;
+        const barColor = pctOnTime >= 90 ? 'var(--green)' : pctOnTime >= 70 ? 'var(--orange)' : 'var(--red)';
+
+        document.getElementById('punctualityStats').innerHTML = `
+            <div class="stat-row">
+                <div class="stat-card"><div class="sl">Tepat Waktu</div><div class="sv" style="color:var(--green);">${onTime}</div><div class="ss">hari</div></div>
+                <div class="stat-card"><div class="sl">Terlambat</div><div class="sv" style="color:var(--orange);">${lateCount}</div><div class="ss">${totalLateMin > 0 ? 'total '+totalLateMin+' menit' : 'hari'}</div></div>
+            </div>
+            <div style="margin-top:4px;">
+                <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px;">
+                    <span style="color:var(--muted);">Ketepatan Waktu</span>
+                    <span style="font-weight:700;color:${barColor};">${pctOnTime}%</span>
+                </div>
+                <div class="progress"><div class="progress-bar" style="width:${pctOnTime}%;background:${barColor};"></div></div>
+            </div>`;
+    } catch(e) {
+        document.getElementById('scheduleInfo').innerHTML = '<div style="color:var(--red);font-size:11px;">Gagal memuat jadwal</div>';
+    }
 }
 
 // ═══ OCCUPANCY PAGE ═══
