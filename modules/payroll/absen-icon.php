@@ -12,8 +12,15 @@ try {
     require_once dirname(dirname(dirname(__FILE__))) . '/config/config.php';
     require_once dirname(dirname(dirname(__FILE__))) . '/config/database.php';
     $db = Database::getInstance();
-    $iconSetting = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'pwa_app_icon'");
-    $customIcon = $iconSetting['setting_value'] ?? null;
+    // Check pwa_app_icon first, then login_logo
+    $customIcon = null;
+    foreach (['pwa_app_icon', 'login_logo'] as $iconKey) {
+        $iconSetting = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = ?", [$iconKey]);
+        if (!empty($iconSetting['setting_value'])) {
+            $customIcon = $iconSetting['setting_value'];
+            break;
+        }
+    }
     
     if ($customIcon) {
         // Cloudinary URL

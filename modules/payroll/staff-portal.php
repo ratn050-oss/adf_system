@@ -28,6 +28,31 @@ $appLogo = null;
 if (!empty($absenConfig['app_logo'])) {
     $appLogo = (str_starts_with($absenConfig['app_logo'], 'http')) ? $absenConfig['app_logo'] : $baseUrl . '/' . ltrim($absenConfig['app_logo'], '/');
 }
+
+// PWA Icon — use login_logo from master DB settings (same as login page)
+$pwaIconUrl = 'absen-icon.php?size=192'; // fallback
+try {
+    $masterDbName = defined('MASTER_DB_NAME') ? MASTER_DB_NAME : (defined('DB_NAME') ? DB_NAME : 'adf_system');
+    $masterDb = Database::switchDatabase($masterDbName);
+    // Try pwa_app_icon first, then login_logo
+    foreach (['pwa_app_icon', 'login_logo'] as $iconKey) {
+        $iconRow = $masterDb->fetchOne("SELECT setting_value FROM settings WHERE setting_key = ?", [$iconKey]);
+        $iconVal = $iconRow['setting_value'] ?? null;
+        if ($iconVal) {
+            if (strpos($iconVal, 'http') === 0) {
+                $pwaIconUrl = $iconVal;
+            } else {
+                $localPath = __DIR__ . '/../../' . ltrim($iconVal, '/');
+                if (file_exists($localPath)) {
+                    $pwaIconUrl = $baseUrl . '/' . ltrim($iconVal, '/');
+                }
+            }
+            break;
+        }
+    }
+    // Restore business DB connection
+    $db = Database::switchDatabase($bizConfig['database']);
+} catch (Exception $e) {}
 ?>
 <!DOCTYPE html>
 <html lang="id">
@@ -38,7 +63,7 @@ if (!empty($absenConfig['app_logo'])) {
     <meta name="theme-color" content="#0d1f3c">
     <title>Staff Portal - <?php echo $bizName; ?></title>
     <link rel="manifest" href="staff-manifest.php?b=<?php echo urlencode($bizSlug); ?>">
-    <link rel="apple-touch-icon" href="absen-icon.php?size=192">
+    <link rel="apple-touch-icon" href="<?php echo htmlspecialchars($pwaIconUrl); ?>">
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
         :root { --navy:#0d1f3c; --gold:#f0b429; --green:#059669; --red:#dc2626; --orange:#ea580c; --blue:#2563eb; --purple:#7c3aed; --bg:#f1f5f9; --card:#fff; --border:#e2e8f0; --muted:#64748b; --text:#1e293b; }
@@ -1551,11 +1576,30 @@ let deferredPrompt = null;
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
 
+console.log('[PWA] standalone:', isStandalone, 'iOS:', isIOS, 'protocol:', location.protocol);
+
 window.addEventListener('beforeinstallprompt', (e) => {
+    console.log('[PWA] beforeinstallprompt fired!');
     e.preventDefault();
     deferredPrompt = e;
     document.getElementById('installBanner').classList.add('show');
 });
+
+// Also show install banner for Android Chrome if not standalone (manual A2HS hint)
+if (!isStandalone && !isIOS) {
+    // Show install hint after 3s even if beforeinstallprompt hasn't fired
+    setTimeout(() => {
+        if (!deferredPrompt) {
+            console.log('[PWA] beforeinstallprompt NOT fired after 3s. Showing manual hint.');
+            const banner = document.getElementById('installBanner');
+            if (banner) {
+                banner.querySelector('.ib-title').textContent = 'Install Aplikasi';
+                banner.querySelector('.ib-sub').textContent = 'Tap menu ⋮ → "Add to Home screen"';
+                banner.classList.add('show');
+            }
+        }
+    }, 3000);
+}
 
 document.getElementById('installBanner').addEventListener('click', async (e) => {
     if (e.target.closest('.ib-close')) return;
@@ -1580,7 +1624,9 @@ if (isIOS && !isStandalone && !localStorage.getItem('ios_guide_dismissed')) {
 
 // Register service worker (must be local sw.js with fetch handler for PWA install)
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js').catch(() => {});
+    navigator.serviceWorker.register('sw.js', { scope: './' })
+        .then(reg => console.log('SW registered, scope:', reg.scope))
+        .catch(err => console.error('SW registration failed:', err));
 }
 
 // Check notifications every 60s

@@ -23,13 +23,33 @@ if ($bizSlug) {
     }
 }
 
-// Icon cache-busting
-$iconVer = '';
+// Resolve icon: pwa_app_icon > login_logo > fallback GD icon
+$iconUrl192 = 'absen-icon.php?size=192';
+$iconUrl512 = 'absen-icon.php?size=512';
+$iconType = 'image/png';
 try {
     $mdb = Database::getInstance();
-    $iconRow = $mdb->fetchOne("SELECT setting_value FROM settings WHERE setting_key = 'pwa_app_icon'");
-    if (!empty($iconRow['setting_value'])) {
-        $iconVer = '&v=' . substr(md5($iconRow['setting_value']), 0, 8);
+    foreach (['pwa_app_icon', 'login_logo'] as $iconKey) {
+        $iconRow = $mdb->fetchOne("SELECT setting_value FROM settings WHERE setting_key = ?", [$iconKey]);
+        $iconVal = $iconRow['setting_value'] ?? null;
+        if ($iconVal && strpos($iconVal, 'http') === 0) {
+            $iconUrl192 = $iconVal;
+            $iconUrl512 = $iconVal;
+            if (preg_match('/\.(png)$/i', $iconVal)) $iconType = 'image/png';
+            elseif (preg_match('/\.(jpe?g)$/i', $iconVal)) $iconType = 'image/jpeg';
+            else $iconType = 'image/png';
+            break;
+        } elseif ($iconVal) {
+            $localCheck = dirname(dirname(__DIR__)) . '/' . ltrim($iconVal, '/');
+            if (file_exists($localCheck)) {
+                $baseHttpUrl = defined('BASE_URL') ? BASE_URL : '';
+                $iconUrl192 = $baseHttpUrl . '/' . ltrim($iconVal, '/');
+                $iconUrl512 = $iconUrl192;
+                $ext = strtolower(pathinfo($iconVal, PATHINFO_EXTENSION));
+                $iconType = in_array($ext, ['jpg','jpeg']) ? 'image/jpeg' : 'image/png';
+                break;
+            }
+        }
     }
 } catch (Exception $e) {}
 
@@ -49,28 +69,22 @@ echo json_encode([
     'lang'             => 'id',
     'icons'            => [
         [
-            'src'     => 'absen-icon.php?size=192' . $iconVer,
+            'src'     => $iconUrl192,
             'sizes'   => '192x192',
-            'type'    => 'image/png',
+            'type'    => $iconType,
             'purpose' => 'any',
         ],
         [
-            'src'     => 'absen-icon.php?size=512' . $iconVer,
+            'src'     => $iconUrl512,
             'sizes'   => '512x512',
-            'type'    => 'image/png',
+            'type'    => $iconType,
             'purpose' => 'any',
         ],
         [
-            'src'     => 'absen-icon.php?size=192' . $iconVer,
+            'src'     => $iconUrl192,
             'sizes'   => '192x192',
-            'type'    => 'image/png',
+            'type'    => $iconType,
             'purpose' => 'maskable',
-        ],
-        [
-            'src'     => '../../assets/icons/absen-icon-512.svg',
-            'sizes'   => '512x512',
-            'type'    => 'image/svg+xml',
-            'purpose' => 'any',
         ],
     ],
     'categories'                 => ['productivity', 'utilities'],
