@@ -18,8 +18,8 @@ $bizConfig = require $bizFile;
 if (!defined('ACTIVE_BUSINESS_ID')) define('ACTIVE_BUSINESS_ID', $bizConfig['business_id']);
 $db = Database::switchDatabase($bizConfig['database']);
 $baseUrl = defined('BASE_URL') ? BASE_URL : '';
-$apiUrl = $baseUrl . '/modules/payroll/staff-api.php?b=' . urlencode($bizSlug);
-$absenUrl = $baseUrl . '/modules/payroll/absen.php?b=' . urlencode($bizSlug);
+$apiUrl = 'staff-api.php?b=' . urlencode($bizSlug);
+$absenUrl = 'absen.php?b=' . urlencode($bizSlug);
 $bizName = htmlspecialchars($bizConfig['name'] ?? 'Staff Portal');
 
 // Logo
@@ -64,6 +64,15 @@ if (!empty($absenConfig['app_logo'])) {
         .auth-msg.err { display:block; background:#fef2f2; color:var(--red); border:1px solid #fca5a5; }
         .auth-msg.ok { display:block; background:#f0fdf4; color:var(--green); border:1px solid #86efac; }
         .fi-hint { font-size:10px; color:var(--muted); margin-top:3px; }
+
+        /* Password field with eye toggle */
+        .pw-wrap { position:relative; }
+        .pw-wrap .fi { padding-right:40px; }
+        .pw-toggle { position:absolute; right:10px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; font-size:18px; color:var(--muted); padding:4px; line-height:1; }
+        .pw-toggle:hover { color:var(--navy); }
+        .remember-row { display:flex; align-items:center; gap:6px; margin-bottom:14px; margin-top:-4px; }
+        .remember-row input[type=checkbox] { width:16px; height:16px; accent-color:var(--gold); cursor:pointer; }
+        .remember-row label { font-size:11px; color:var(--muted); cursor:pointer; user-select:none; }
 
         /* ── App Shell ── */
         .app-wrap { display:none; min-height:100vh; padding-bottom:70px; background:var(--bg); }
@@ -169,11 +178,18 @@ if (!empty($absenConfig['app_logo'])) {
         <form class="auth-form active" id="loginForm" onsubmit="return handleLogin(event)">
             <div class="fg">
                 <label class="fl">Username / Email</label>
-                <input type="text" class="fi" name="email" placeholder="nama atau email" required>
+                <input type="text" class="fi" name="email" placeholder="nama atau email" required id="loginEmail">
             </div>
             <div class="fg">
                 <label class="fl">Password</label>
-                <input type="password" class="fi" name="password" placeholder="••••••" required>
+                <div class="pw-wrap">
+                    <input type="password" class="fi" name="password" placeholder="••••••" required id="loginPass">
+                    <button type="button" class="pw-toggle" onclick="togglePw('loginPass',this)">👁️</button>
+                </div>
+            </div>
+            <div class="remember-row">
+                <input type="checkbox" id="rememberMe" checked>
+                <label for="rememberMe">Simpan login</label>
             </div>
             <button type="submit" class="btn-auth" id="loginBtn">🔐 Login</button>
         </form>
@@ -191,7 +207,14 @@ if (!empty($absenConfig['app_logo'])) {
             </div>
             <div class="fg">
                 <label class="fl">Password</label>
-                <input type="password" class="fi" name="password" placeholder="Min 6 karakter" minlength="6" required>
+                <div class="pw-wrap">
+                    <input type="password" class="fi" name="password" placeholder="Min 6 karakter" minlength="6" required id="regPass">
+                    <button type="button" class="pw-toggle" onclick="togglePw('regPass',this)">👁️</button>
+                </div>
+            </div>
+            <div class="remember-row">
+                <input type="checkbox" id="rememberReg" checked>
+                <label for="rememberReg">Simpan password</label>
             </div>
             <button type="submit" class="btn-auth" id="regBtn">📝 Daftar</button>
         </form>
@@ -277,6 +300,36 @@ if (!empty($absenConfig['app_logo'])) {
 <script>
 const API = '<?php echo $apiUrl; ?>';
 let selectedBfMenu = null;
+const CRED_KEY = 'staff_saved_cred_<?php echo md5($bizSlug); ?>';
+
+// ═══ PASSWORD TOGGLE ═══
+function togglePw(inputId, btn) {
+    const inp = document.getElementById(inputId);
+    if (inp.type === 'password') {
+        inp.type = 'text';
+        btn.textContent = '🙈';
+    } else {
+        inp.type = 'password';
+        btn.textContent = '👁️';
+    }
+}
+
+// ═══ SAVE / LOAD CREDENTIALS ═══
+function saveCredentials(email, password) {
+    try { localStorage.setItem(CRED_KEY, JSON.stringify({ email, password })); } catch(e) {}
+}
+function loadCredentials() {
+    try {
+        const saved = JSON.parse(localStorage.getItem(CRED_KEY) || 'null');
+        if (saved && saved.email) {
+            document.getElementById('loginEmail').value = saved.email;
+            document.getElementById('loginPass').value = saved.password || '';
+        }
+    } catch(e) {}
+}
+function clearCredentials() {
+    try { localStorage.removeItem(CRED_KEY); } catch(e) {}
+}
 
 // ═══ AUTH ═══
 function switchAuth(tab) {
@@ -306,12 +359,21 @@ async function handleLogin(e) {
     fd.append('action', 'login');
     try {
         const res = await fetch(API, { method: 'POST', body: fd });
-        const data = await res.json();
+        const text = await res.text();
+        let data;
+        try { data = JSON.parse(text); } catch(pe) {
+            showMsg('Server error: ' + text.substring(0, 100), 'error');
+            btn.disabled = false; btn.textContent = '🔐 Login';
+            return false;
+        }
         if (data.success) {
             localStorage.setItem('staff_name', data.name);
+            if (document.getElementById('rememberMe').checked) {
+                saveCredentials(fd.get('email'), fd.get('password'));
+            } else { clearCredentials(); }
             showApp(data.name);
         } else { showMsg(data.message, 'error'); }
-    } catch (err) { showMsg('Koneksi gagal', 'error'); }
+    } catch (err) { showMsg('Koneksi gagal: ' + err.message, 'error'); }
     btn.disabled = false; btn.textContent = '🔐 Login';
     return false;
 }
@@ -324,10 +386,21 @@ async function handleRegister(e) {
     fd.append('action', 'register');
     try {
         const res = await fetch(API, { method: 'POST', body: fd });
-        const data = await res.json();
+        const text = await res.text();
+        let data;
+        try { data = JSON.parse(text); } catch(pe) {
+            showMsg('Server error: ' + text.substring(0, 100), 'error');
+            btn.disabled = false; btn.textContent = '📝 Daftar';
+            return false;
+        }
         showMsg(data.message, data.success ? 'ok' : 'error');
-        if (data.success) { setTimeout(() => switchAuth('login'), 1500); }
-    } catch (err) { showMsg('Koneksi gagal', 'error'); }
+        if (data.success) {
+            if (document.getElementById('rememberReg').checked) {
+                saveCredentials(fd.get('email'), fd.get('password'));
+            }
+            setTimeout(() => switchAuth('login'), 1500);
+        }
+    } catch (err) { showMsg('Koneksi gagal: ' + err.message, 'error'); }
     btn.disabled = false; btn.textContent = '📝 Daftar';
     return false;
 }
@@ -586,6 +659,7 @@ async function submitBreakfast() {
 }
 
 // ═══ AUTO-LOGIN CHECK ═══
+loadCredentials();
 (async function checkSession() {
     try {
         const res = await fetch(API + '&action=profile');
