@@ -136,6 +136,48 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $bizDb) {
         header('Location: staff-accounts.php?business=' . urlencode($selectedBiz));
         exit;
     }
+
+    // Export accounts — regenerate passwords so they can be shared
+    if ($formAction === 'export_accounts') {
+        $exportMode = $_POST['export_mode'] ?? 'reset'; // 'reset' = generate new passwords
+        $exportData = [];
+
+        // Get all staff accounts with employee info
+        $rows = $bizPdo->query("
+            SELECT sa.id, sa.email, pe.full_name, pe.employee_code, pe.position, pe.department
+            FROM staff_accounts sa
+            LEFT JOIN payroll_employees pe ON pe.id = sa.employee_id
+            ORDER BY pe.full_name
+        ")->fetchAll(PDO::FETCH_ASSOC);
+
+        foreach ($rows as $row) {
+            // Generate a simple readable password
+            $newPass = strtolower(substr(preg_replace('/[^a-zA-Z]/', '', $row['full_name'] ?? 'staff'), 0, 4))
+                     . rand(100, 999);
+            // Update the password in DB
+            $hash = password_hash($newPass, PASSWORD_DEFAULT);
+            $bizPdo->prepare("UPDATE staff_accounts SET password_hash = ? WHERE id = ?")->execute([$hash, $row['id']]);
+
+            $exportData[] = [
+                'name'     => $row['full_name'] ?? 'Unknown',
+                'code'     => $row['employee_code'] ?? '',
+                'position' => $row['position'] ?? '',
+                'username' => $row['email'],
+                'password' => $newPass,
+            ];
+        }
+
+        $auth->logAction('export_staff_accounts', 'staff_accounts', null, null, [
+            'business' => $bizSlug, 'count' => count($exportData)
+        ]);
+
+        // Store in session for display
+        $_SESSION['export_data'] = $exportData;
+        $_SESSION['export_biz'] = $bizName;
+        $_SESSION['export_url'] = $portalUrl ?? '';
+        header('Location: staff-accounts.php?business=' . urlencode($selectedBiz) . '&show_export=1');
+        exit;
+    }
 }
 
 // Fetch data if business selected
@@ -271,11 +313,19 @@ require_once __DIR__ . '/includes/header.php';
             <div class="card-header-custom d-flex justify-content-between align-items-center">
                 <h6 class="mb-0">📋 Daftar Akun Staff (<?php echo count($staffAccounts); ?>)</h6>
                 <?php if (count($staffAccounts) > 0): ?>
-                <form method="POST" onsubmit="return confirm('HAPUS SEMUA akun staff? Tindakan ini tidak bisa dibatalkan!')">
-                    <input type="hidden" name="business" value="<?php echo htmlspecialchars($selectedBiz); ?>">
-                    <input type="hidden" name="form_action" value="delete_all">
-                    <button type="submit" class="btn btn-outline-danger btn-sm"><i class="bi bi-trash me-1"></i>Hapus Semua</button>
-                </form>
+                <div class="d-flex gap-2">
+                    <form method="POST" onsubmit="return confirm('Export akan RESET semua password staff dan generate password baru.\nPassword lama tidak bisa digunakan lagi.\n\nLanjutkan?')">
+                        <input type="hidden" name="business" value="<?php echo htmlspecialchars($selectedBiz); ?>">
+                        <input type="hidden" name="form_action" value="export_accounts">
+                        <input type="hidden" name="export_mode" value="reset">
+                        <button type="submit" class="btn btn-outline-success btn-sm"><i class="bi bi-download me-1"></i>Export Akun</button>
+                    </form>
+                    <form method="POST" onsubmit="return confirm('HAPUS SEMUA akun staff? Tindakan ini tidak bisa dibatalkan!')">
+                        <input type="hidden" name="business" value="<?php echo htmlspecialchars($selectedBiz); ?>">
+                        <input type="hidden" name="form_action" value="delete_all">
+                        <button type="submit" class="btn btn-outline-danger btn-sm"><i class="bi bi-trash me-1"></i>Hapus Semua</button>
+                    </form>
+                </div>
                 <?php endif; ?>
             </div>
             <div class="table-responsive">
@@ -406,12 +456,166 @@ require_once __DIR__ . '/includes/header.php';
     </div>
 </div>
 
+<?php
+// Show export result overlay
+$showExport = isset($_GET['show_export']) && !empty($_SESSION['export_data']);
+$exportData = $_SESSION['export_data'] ?? [];
+$exportBiz = $_SESSION['export_biz'] ?? '';
+$exportUrl = $_SESSION['export_url'] ?? '';
+if ($showExport) {
+    unset($_SESSION['export_data'], $_SESSION['export_biz'], $_SESSION['export_url']);
+}
+?>
+
+<?php if ($showExport && !empty($exportData)): ?>
+<!-- Export Result Modal (auto-show) -->
+<div class="modal fade" id="exportModal" tabindex="-1" data-bs-backdrop="static">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content">
+            <div class="modal-header bg-success text-white">
+                <h5 class="modal-title"><i class="bi bi-download me-2"></i>Export Akun Staff — <?php echo htmlspecialchars($exportBiz); ?></h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal"></button>
+            </div>
+            <div class="modal-body p-0">
+                <div class="p-3 bg-warning bg-opacity-10 border-bottom">
+                    <small class="text-warning"><i class="bi bi-exclamation-triangle me-1"></i>
+                    Semua password sudah direset. Bagikan data ini ke masing-masing staff.</small>
+                </div>
+
+                <!-- Printable content -->
+                <div id="exportContent" class="p-4">
+                    <div style="text-align:center;margin-bottom:20px;">
+                        <h4 style="margin:0;font-weight:800;"><?php echo htmlspecialchars($exportBiz); ?></h4>
+                        <p style="margin:4px 0 0;color:#666;font-size:13px;">Daftar Akun Staff Portal</p>
+                        <p style="margin:2px 0 0;color:#999;font-size:11px;">Generated: <?php echo date('d M Y H:i'); ?></p>
+                    </div>
+
+                    <?php if ($exportUrl): ?>
+                    <div style="background:#f0f7ff;border:1px solid #c5ddf5;border-radius:8px;padding:10px 14px;margin-bottom:16px;text-align:center;">
+                        <small style="color:#666;">Link Staff Portal:</small><br>
+                        <strong style="font-size:12px;word-break:break-all;"><?php echo htmlspecialchars($exportUrl); ?></strong>
+                    </div>
+                    <?php endif; ?>
+
+                    <table style="width:100%;border-collapse:collapse;font-size:13px;" id="exportTable">
+                        <thead>
+                            <tr style="background:#0d1f3c;color:#fff;">
+                                <th style="padding:8px 10px;text-align:left;">No</th>
+                                <th style="padding:8px 10px;text-align:left;">Nama</th>
+                                <th style="padding:8px 10px;text-align:left;">Jabatan</th>
+                                <th style="padding:8px 10px;text-align:left;">Username</th>
+                                <th style="padding:8px 10px;text-align:left;">Password</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                        <?php foreach ($exportData as $i => $d): ?>
+                            <tr style="border-bottom:1px solid #eee;<?php echo $i % 2 ? 'background:#f9f9f9;' : ''; ?>">
+                                <td style="padding:8px 10px;"><?php echo $i + 1; ?></td>
+                                <td style="padding:8px 10px;font-weight:600;">
+                                    <?php echo htmlspecialchars($d['name']); ?>
+                                    <?php if ($d['code']): ?><br><small style="color:#999;"><?php echo htmlspecialchars($d['code']); ?></small><?php endif; ?>
+                                </td>
+                                <td style="padding:8px 10px;color:#666;"><?php echo htmlspecialchars($d['position']); ?></td>
+                                <td style="padding:8px 10px;"><code style="background:#f0f0f0;padding:2px 6px;border-radius:4px;"><?php echo htmlspecialchars($d['username']); ?></code></td>
+                                <td style="padding:8px 10px;"><code style="background:#fef3c7;padding:2px 6px;border-radius:4px;font-weight:700;"><?php echo htmlspecialchars($d['password']); ?></code></td>
+                            </tr>
+                        <?php endforeach; ?>
+                        </tbody>
+                    </table>
+
+                    <div style="margin-top:16px;text-align:center;color:#999;font-size:10px;">
+                        ⚠️ Jaga kerahasiaan data ini. Setiap staff hanya perlu tahu akun miliknya sendiri.
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer d-flex justify-content-between">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Tutup</button>
+                <div class="d-flex gap-2">
+                    <button type="button" class="btn btn-outline-primary btn-sm" onclick="copyExportText()">
+                        <i class="bi bi-clipboard me-1"></i>Copy Text
+                    </button>
+                    <button type="button" class="btn btn-outline-success btn-sm" onclick="copyExportWA()">
+                        <i class="bi bi-whatsapp me-1"></i>Copy untuk WA
+                    </button>
+                    <button type="button" class="btn btn-primary btn-sm" onclick="printExport()">
+                        <i class="bi bi-printer me-1"></i>Print
+                    </button>
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+<?php endif; ?>
+
 <script>
 function resetPassword(id, name) {
     document.getElementById('resetAccountId').value = id;
     document.getElementById('resetName').textContent = name;
     new bootstrap.Modal(document.getElementById('resetModal')).show();
 }
+
+<?php if ($showExport && !empty($exportData)): ?>
+// Auto-show export modal
+document.addEventListener('DOMContentLoaded', () => {
+    new bootstrap.Modal(document.getElementById('exportModal')).show();
+});
+
+const exportAccounts = <?php echo json_encode($exportData, JSON_UNESCAPED_UNICODE); ?>;
+const exportBiz = <?php echo json_encode($exportBiz); ?>;
+const exportUrl = <?php echo json_encode($exportUrl); ?>;
+
+function copyExportText() {
+    let txt = `📋 DAFTAR AKUN STAFF PORTAL\n${exportBiz}\n${'═'.repeat(35)}\n\n`;
+    if (exportUrl) txt += `🔗 Link: ${exportUrl}\n\n`;
+    exportAccounts.forEach((a, i) => {
+        txt += `${i+1}. ${a.name}${a.position ? ' ('+a.position+')' : ''}\n`;
+        txt += `   Username: ${a.username}\n`;
+        txt += `   Password: ${a.password}\n\n`;
+    });
+    txt += `⚠️ Jaga kerahasiaan password masing-masing.`;
+    navigator.clipboard.writeText(txt).then(() => {
+        showCopyFeedback('Text berhasil di-copy!');
+    });
+}
+
+function copyExportWA() {
+    let txt = `📋 *DAFTAR AKUN STAFF PORTAL*\n*${exportBiz}*\n\n`;
+    if (exportUrl) txt += `🔗 Link:\n${exportUrl}\n\n`;
+    txt += `${'─'.repeat(25)}\n`;
+    exportAccounts.forEach((a, i) => {
+        txt += `\n*${i+1}. ${a.name}*${a.position ? '\n    _'+a.position+'_' : ''}\n`;
+        txt += `    👤 \`${a.username}\`\n`;
+        txt += `    🔑 \`${a.password}\`\n`;
+    });
+    txt += `\n${'─'.repeat(25)}\n⚠️ _Jaga kerahasiaan password._`;
+    navigator.clipboard.writeText(txt).then(() => {
+        showCopyFeedback('Format WA berhasil di-copy!');
+    });
+}
+
+function printExport() {
+    const content = document.getElementById('exportContent').innerHTML;
+    const win = window.open('', '_blank');
+    win.document.write(`<!DOCTYPE html><html><head><title>Export Akun Staff</title>
+    <style>body{font-family:Arial,sans-serif;padding:20px;} table{width:100%;border-collapse:collapse;}
+    th,td{padding:8px 10px;text-align:left;border-bottom:1px solid #ddd;}
+    th{background:#0d1f3c;color:#fff;} code{background:#f0f0f0;padding:2px 6px;border-radius:4px;}
+    @media print{body{padding:10px;}}</style></head><body>${content}</body></html>`);
+    win.document.close();
+    win.focus();
+    win.print();
+}
+
+function showCopyFeedback(msg) {
+    const toast = document.createElement('div');
+    toast.className = 'position-fixed bottom-0 end-0 p-3';
+    toast.style.zIndex = '9999';
+    toast.innerHTML = `<div class="toast show bg-success text-white" role="alert">
+        <div class="toast-body"><i class="bi bi-check-circle me-2"></i>${msg}</div></div>`;
+    document.body.appendChild(toast);
+    setTimeout(() => toast.remove(), 2500);
+}
+<?php endif; ?>
 </script>
 
 <?php require_once __DIR__ . '/includes/footer.php'; ?>
