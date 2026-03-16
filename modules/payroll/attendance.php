@@ -342,6 +342,7 @@ foreach ($dailyAtt as $a) {
 }
 
 $absenUrl = $baseUrl . '/modules/payroll/absen.php?b=' . ACTIVE_BUSINESS_ID;
+$staffPortalUrl = $baseUrl . '/modules/payroll/staff-portal.php?b=' . $bizSlug;
 
 // Fingerspot data
 $fpConfig = $db->fetchOne("SELECT fingerspot_cloud_id, fingerspot_enabled FROM payroll_attendance_config WHERE id = 1") ?: [];
@@ -472,15 +473,21 @@ include '../../includes/header.php';
         </div>
         <div style="display:flex; gap:6px;">
             <a href="<?php echo htmlspecialchars($absenUrl); ?>" target="_blank" class="btn btn-primary">📱 Halaman Absen</a>
+            <a href="<?php echo htmlspecialchars($staffPortalUrl); ?>" target="_blank" class="btn btn-purple">👤 Staff Portal</a>
             <button onclick="openManualModal()" class="btn btn-gold">➕ Input Manual</button>
         </div>
     </div>
 
     <!-- URL bar -->
     <div class="url-bar">
-        <span style="font-size:10px; font-weight:700; color:var(--muted); text-transform:uppercase;">📲 Link</span>
+        <span style="font-size:10px; font-weight:700; color:var(--muted); text-transform:uppercase;">📲 Absen</span>
         <input type="text" value="<?php echo htmlspecialchars($absenUrl); ?>" readonly id="absenUrlInput">
-        <button onclick="copyUrl()" class="btn btn-primary btn-sm">📋 Salin</button>
+        <button onclick="copyUrl('absenUrlInput')" class="btn btn-primary btn-sm">📋 Salin</button>
+    </div>
+    <div class="url-bar">
+        <span style="font-size:10px; font-weight:700; color:var(--muted); text-transform:uppercase;">👤 Portal</span>
+        <input type="text" value="<?php echo htmlspecialchars($staffPortalUrl); ?>" readonly id="portalUrlInput">
+        <button onclick="copyUrl('portalUrlInput')" class="btn btn-purple btn-sm">📋 Salin</button>
     </div>
 
     <!-- Stats -->
@@ -1146,8 +1153,8 @@ if (urlTab) {
 }
 
 // ─ COPY URL ─
-function copyUrl() {
-    const el = document.getElementById('absenUrlInput');
+function copyUrl(inputId) {
+    const el = document.getElementById(inputId || 'absenUrlInput');
     el.select();
     navigator.clipboard.writeText(el.value).then(() => {
         event.target.textContent = '✅ OK!';
