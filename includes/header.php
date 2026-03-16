@@ -359,6 +359,16 @@ if (isset($_SESSION['user_id'])) {
                     </li>
                     <?php endif; ?>
 
+                    <!-- Cafe Invoice Menu (Bens Cafe only) -->
+                    <?php if (isModuleEnabled('cafe-invoice')): ?>
+                    <li class="nav-item <?php echo (strpos($_SERVER['REQUEST_URI'], '/cafe-invoice/') !== false) ? 'open' : ''; ?>">
+                        <a href="<?php echo BASE_URL; ?>/modules/cafe-invoice/index.php" class="nav-link <?php echo activeMenu('cafe-invoice'); ?>">
+                            <i data-feather="file-text" class="nav-icon"></i>
+                            <span>☕ Invoice</span>
+                        </a>
+                    </li>
+                    <?php endif; ?>
+
                     <!-- Payroll Menu -->
                     <?php if ($auth->hasPermission('payroll') && isModuleEnabled('payroll')): ?>
                     <li class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/payroll/') !== false) ? 'open' : ''; ?>">

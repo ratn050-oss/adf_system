@@ -17,7 +17,8 @@ return [
         'procurement',
         'sales',
         'bills',
-        'payroll'
+        'payroll',
+        'cafe-invoice'
         // No frontdesk, investor, project for cafe
     ],
     
