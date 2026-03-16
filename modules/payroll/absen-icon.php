@@ -18,12 +18,14 @@ try {
     if ($customIcon) {
         // Cloudinary URL
         if (strpos($customIcon, 'http') === 0) {
+            while (ob_get_level()) ob_end_clean();
             header('Location: ' . $customIcon);
             exit;
         }
         // Local file
         $localPath = dirname(dirname(dirname(__FILE__))) . '/' . ltrim($customIcon, '/');
         if (file_exists($localPath)) {
+            while (ob_get_level()) ob_end_clean();
             $mime = mime_content_type($localPath);
             header('Content-Type: ' . $mime);
             header('Cache-Control: public, max-age=3600');
@@ -35,6 +37,9 @@ try {
 } catch (Exception $e) {
     // Fall through to default icon generation
 }
+
+// Clean any buffered output before sending image
+while (ob_get_level()) ob_end_clean();
 
 header('Content-Type: image/png');
 header('Cache-Control: public, max-age=86400');

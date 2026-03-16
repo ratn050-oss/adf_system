@@ -1282,9 +1282,9 @@ if (isIOS && !isStandalone && !localStorage.getItem('ios_guide_dismissed')) {
     document.getElementById('iosGuide').style.display = 'block';
 }
 
-// Register service worker
+// Register service worker (must be local sw.js with fetch handler for PWA install)
 if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('<?php echo $baseUrl; ?>/sw.js').catch(() => {});
+    navigator.serviceWorker.register('sw.js').catch(() => {});
 }
 
 // Check notifications every 60s

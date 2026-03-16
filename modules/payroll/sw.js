@@ -1,11 +1,12 @@
 /**
- * Service Worker — Absensi Karyawan PWA
+ * Service Worker — Staff Portal & Absensi PWA
  * Handles caching for offline / slow-network support
  */
 
-const CACHE_NAME   = 'absensi-v1';
+const CACHE_NAME   = 'staff-portal-v2';
 const APP_SHELL    = [
     './absen.php',
+    './staff-portal.php',
     'https://unpkg.com/leaflet@1.9.4/dist/leaflet.css',
     'https://unpkg.com/leaflet@1.9.4/dist/leaflet.js',
 ];
@@ -40,8 +41,8 @@ self.addEventListener('activate', event => {
 self.addEventListener('fetch', event => {
     const url = new URL(event.request.url);
 
-    // 1. API calls → always network-only (attendance data must be fresh)
-    if (url.pathname.includes('attendance-clock.php')) {
+    // 1. API calls → always network-only (data must be fresh)
+    if (url.pathname.includes('attendance-clock.php') || url.pathname.includes('staff-api.php')) {
         event.respondWith(fetch(event.request).catch(() =>
             new Response(JSON.stringify({ success: false, message: 'Tidak ada koneksi internet.' }), {
                 headers: { 'Content-Type': 'application/json' }
@@ -62,8 +63,8 @@ self.addEventListener('fetch', event => {
         return;
     }
 
-    // 4. App shell (absen.php) → network-first, fall back to cache
-    if (url.pathname.includes('absen.php') || url.pathname === '/modules/payroll/') {
+    // 4. App shell (absen/staff-portal) → network-first, fall back to cache
+    if (url.pathname.includes('absen.php') || url.pathname.includes('staff-portal.php') || url.pathname === '/modules/payroll/') {
         event.respondWith(networkFirst(event.request));
         return;
     }
