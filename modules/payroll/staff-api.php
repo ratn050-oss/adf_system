@@ -309,6 +309,51 @@ if ($action === 'breakfast_today') {
     echo json_encode(['success' => true, 'data' => $order]); exit;
 }
 
+// ── ALL TODAY'S BREAKFAST ORDERS (Staff Monitor) ──
+if ($action === 'breakfast_orders') {
+    $today = date('Y-m-d');
+    try {
+        $orders = $db->fetchAll("
+            SELECT bo.id, bo.guest_name, bo.room_number, bo.total_pax, bo.breakfast_time,
+                   bo.breakfast_date, bo.location, bo.menu_items, bo.special_requests,
+                   bo.total_price, bo.order_status, bo.created_at
+            FROM breakfast_orders bo
+            WHERE bo.breakfast_date = ?
+            AND bo.id = (SELECT MAX(bo2.id) FROM breakfast_orders bo2 
+                WHERE bo2.guest_name = bo.guest_name AND bo2.breakfast_date = bo.breakfast_date)
+            ORDER BY bo.breakfast_time ASC, bo.id ASC
+        ", [$today]) ?: [];
+
+        // Decode JSON fields
+        foreach ($orders as &$o) {
+            $o['menu_items'] = json_decode($o['menu_items'] ?? '[]', true) ?: [];
+            $rooms = json_decode($o['room_number'] ?? '[]', true);
+            $o['room_display'] = is_array($rooms) ? implode(', ', $rooms) : ($o['room_number'] ?? '-');
+        }
+
+        // Stats
+        $totalOrders = count($orders);
+        $totalPax = array_sum(array_column($orders, 'total_pax'));
+        $statusCounts = ['pending' => 0, 'preparing' => 0, 'served' => 0, 'completed' => 0];
+        foreach ($orders as $o) {
+            $s = $o['order_status'] ?? 'pending';
+            if (isset($statusCounts[$s])) $statusCounts[$s]++;
+        }
+
+        echo json_encode(['success' => true, 'data' => [
+            'orders' => $orders,
+            'stats' => [
+                'total_orders' => $totalOrders,
+                'total_pax' => $totalPax,
+                'status' => $statusCounts
+            ]
+        ]]);
+    } catch (Exception $e) {
+        echo json_encode(['success' => true, 'data' => ['orders' => [], 'stats' => ['total_orders' => 0, 'total_pax' => 0, 'status' => []]]]);
+    }
+    exit;
+}
+
 // ══════════════════════════════════════
 // LEAVE / CUTI
 // ══════════════════════════════════════

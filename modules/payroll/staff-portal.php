@@ -216,11 +216,23 @@ if (!empty($absenConfig['app_logo'])) {
         .cal-popup-overlay { position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:999; }
 
         /* Breakfast */
-        .menu-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; }
-        .menu-item { background:var(--bg); border:2px solid var(--border); border-radius:10px; padding:12px; cursor:pointer; transition:.15s; text-align:center; }
-        .menu-item:hover { border-color:var(--gold); } .menu-item.selected { border-color:var(--gold); background:#fffbeb; }
-        .menu-item .mi-name { font-size:12px; font-weight:600; color:var(--text); }
-        .menu-item .mi-cat { font-size:9px; color:var(--muted); text-transform:uppercase; margin-top:2px; }
+        .bf-order { padding:12px; border-bottom:1px solid var(--border); transition:background .15s; }
+        .bf-order:last-child { border-bottom:none; }
+        .bf-order:hover { background:#f8fafc; }
+        .bf-order-hdr { display:flex; align-items:center; justify-content:space-between; margin-bottom:4px; }
+        .bf-time { font-size:10px; font-weight:700; color:var(--blue); background:#eff6ff; padding:2px 6px; border-radius:4px; }
+        .bf-pax { font-size:9px; font-weight:600; color:var(--muted); background:var(--bg); padding:2px 6px; border-radius:4px; }
+        .bf-status { font-size:9px; font-weight:700; padding:2px 8px; border-radius:10px; text-transform:uppercase; letter-spacing:.3px; }
+        .bf-st-pending { background:rgba(245,158,11,.12); color:#d97706; }
+        .bf-st-prep { background:rgba(99,102,241,.12); color:#6366f1; }
+        .bf-st-served { background:rgba(16,185,129,.12); color:#059669; }
+        .bf-st-done { background:rgba(107,114,128,.12); color:#6b7280; }
+        .bf-guest { font-size:13px; font-weight:700; color:var(--navy); margin-bottom:2px; }
+        .bf-room { font-size:10px; color:var(--muted); margin-bottom:5px; }
+        .bf-menus { display:flex; flex-wrap:wrap; gap:4px; margin-bottom:5px; }
+        .bf-tag { font-size:9px; padding:2px 6px; background:rgba(139,92,246,.1); color:#7c3aed; border-radius:4px; font-weight:600; }
+        .bf-foot { display:flex; align-items:center; gap:8px; }
+        .bf-price { font-size:11px; font-weight:800; color:#059669; }
 
         /* Absen button */
         .absen-link { display:block; background:linear-gradient(135deg,var(--navy),#1a3a5c); color:#fff; text-decoration:none; border-radius:14px; padding:20px; text-align:center; margin-bottom:14px; }
@@ -472,16 +484,13 @@ if (!empty($absenConfig['app_logo'])) {
 
     <!-- ═══ PAGE: BREAKFAST ═══ -->
     <div class="page" id="page-breakfast">
+        <div id="bfStats"><div class="loading"><span class="spin"></span> Memuat...</div></div>
         <div class="card">
-            <div class="card-title">☕ Pesanan Hari Ini</div>
-            <div id="bfToday"><div class="loading"><span class="spin"></span></div></div>
-        </div>
-        <div class="card">
-            <div class="card-title">🍽️ Pilih Menu Breakfast</div>
-            <div id="bfMenu"><div class="loading"><span class="spin"></span> Memuat menu...</div></div>
-        </div>
-        <div style="text-align:center; margin-top:12px;">
-            <button onclick="submitBreakfast()" class="btn-auth" style="max-width:300px;border-radius:12px;" id="bfSubmitBtn" disabled>🍽️ Pesan Breakfast</button>
+            <div style="display:flex;align-items:center;justify-content:space-between;">
+                <div class="card-title" style="margin:0;">☕ Today's Breakfast Orders</div>
+                <button onclick="loadBreakfast()" style="background:none;border:none;font-size:14px;cursor:pointer;" title="Refresh">🔄</button>
+            </div>
+            <div id="bfOrderList" style="margin-top:10px;"><div class="loading"><span class="spin"></span></div></div>
         </div>
     </div>
 
@@ -495,7 +504,6 @@ if (!empty($absenConfig['app_logo'])) {
 
 <script>
 const API = '<?php echo $apiUrl; ?>';
-let selectedBfMenu = null;
 const CRED_KEY = 'staff_saved_cred_<?php echo md5($bizSlug); ?>';
 
 // ═══ PASSWORD TOGGLE ═══
@@ -1000,76 +1008,81 @@ async function loadOccupancy() {
 
 // ═══ BREAKFAST PAGE ═══
 async function loadBreakfast() {
-    selectedBfMenu = null;
-    document.getElementById('bfSubmitBtn').disabled = true;
-
-    // Today's order
     try {
-        const res = await fetch(API + '&action=breakfast_today');
+        const res = await fetch(API + '&action=breakfast_orders');
         const data = await res.json();
-        if (data.data) {
-            document.getElementById('bfToday').innerHTML = `
-                <div style="display:flex;align-items:center;gap:10px;">
-                    <div style="width:36px;height:36px;background:#fef3c7;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;">☕</div>
-                    <div>
-                        <div style="font-weight:700;font-size:13px;">${data.data.menu_name}</div>
-                        <div style="font-size:10px;color:var(--muted);">Status: ${data.data.status||'pending'}</div>
-                    </div>
+        const d = data.data || {};
+        const orders = d.orders || [];
+        const stats = d.stats || {};
+        const sc = stats.status || {};
+
+        // Stats bar
+        document.getElementById('bfStats').innerHTML = `
+            <div class="stat-row">
+                <div class="stat-card"><div class="sl">🍽️ ORDERS</div><div class="sv" style="color:var(--navy);">${stats.total_orders||0}</div></div>
+                <div class="stat-card"><div class="sl">👥 TOTAL PAX</div><div class="sv" style="color:var(--blue);">${stats.total_pax||0}</div></div>
+                <div class="stat-card"><div class="sl">⏳ PENDING</div><div class="sv" style="color:#f59e0b;">${sc.pending||0}</div></div>
+                <div class="stat-card"><div class="sl">✅ SERVED</div><div class="sv" style="color:var(--green);">${(sc.served||0)+(sc.completed||0)}</div></div>
+            </div>`;
+
+        // Order list
+        if (orders.length === 0) {
+            document.getElementById('bfOrderList').innerHTML = `
+                <div style="text-align:center;padding:30px 10px;">
+                    <div style="font-size:40px;margin-bottom:8px;">🍳</div>
+                    <div style="font-size:13px;font-weight:600;color:var(--muted);">Belum ada pesanan breakfast hari ini</div>
                 </div>`;
-        } else {
-            document.getElementById('bfToday').innerHTML = '<div style="text-align:center;padding:10px;color:var(--muted);font-size:12px;">Belum pesan hari ini.</div>';
-        }
-    } catch(e) {}
-
-    // Menu list
-    try {
-        const res = await fetch(API + '&action=breakfast_menu');
-        const data = await res.json();
-        const menus = data.data || [];
-        if (menus.length === 0) {
-            document.getElementById('bfMenu').innerHTML = '<div style="text-align:center;padding:16px;color:var(--muted);font-size:12px;">Menu belum tersedia.</div>';
             return;
         }
-        let html = '<div class="menu-grid">';
-        menus.forEach(m => {
-            const catEmoji = {western:'🍳',indonesian:'🍲',asian:'🥡',drinks:'☕',beverages:'🧃',extras:'🍞'}[m.category] || '🍽️';
-            html += `<div class="menu-item" data-id="${m.id}" onclick="selectMenu(this, ${m.id})">
-                <div style="font-size:20px;">${catEmoji}</div>
-                <div class="mi-name">${m.menu_name}</div>
-                <div class="mi-cat">${m.category} ${m.is_free=='1'?'• FREE':'• 💰'}</div>
+
+        let html = '';
+        orders.forEach((o, idx) => {
+            const time = o.breakfast_time ? o.breakfast_time.substring(0,5) : '--:--';
+            const pax = o.total_pax || 1;
+            const room = o.room_display || '-';
+            const loc = {'restaurant':'🍽️ Restaurant','room_service':'🚪 Room Service','take_away':'🎁 Take Away'}[o.location] || o.location || '';
+            const statusCls = {'pending':'bf-st-pending','preparing':'bf-st-prep','served':'bf-st-served','completed':'bf-st-done'}[o.order_status] || 'bf-st-pending';
+            const statusTxt = {'pending':'Pending','preparing':'Preparing','served':'Served','completed':'Done'}[o.order_status] || o.order_status;
+
+            // Menu tags
+            let menuTags = '';
+            const items = o.menu_items || [];
+            if (items.length > 0) {
+                items.forEach(m => {
+                    const qty = (m.quantity||1) > 1 ? ' ×' + m.quantity : '';
+                    menuTags += `<span class="bf-tag">${m.menu_name||'?'}${qty}</span>`;
+                });
+            } else {
+                menuTags = '<span class="bf-tag">' + (o.menu_name || 'Menu?') + '</span>';
+            }
+
+            const price = parseFloat(o.total_price||0);
+            const priceStr = price > 0 ? 'Rp ' + price.toLocaleString('id-ID') : 'Free';
+            const req = o.special_requests ? `<div style="font-size:9px;color:#a855f7;margin-top:4px;">💬 ${o.special_requests}</div>` : '';
+
+            html += `
+            <div class="bf-order">
+                <div class="bf-order-hdr">
+                    <div style="display:flex;align-items:center;gap:6px;">
+                        <span class="bf-time">🕐 ${time}</span>
+                        <span class="bf-pax">${pax} pax</span>
+                    </div>
+                    <span class="bf-status ${statusCls}">${statusTxt}</span>
+                </div>
+                <div class="bf-guest">${o.guest_name||'Guest'}</div>
+                <div class="bf-room">🛏️ Room ${room} ${loc ? '&nbsp;&nbsp;' + loc : ''}</div>
+                <div class="bf-menus">${menuTags}</div>
+                <div class="bf-foot">
+                    <span class="bf-price">${priceStr}</span>
+                </div>
+                ${req}
             </div>`;
         });
-        html += '</div>';
-        document.getElementById('bfMenu').innerHTML = html;
-    } catch(e) { document.getElementById('bfMenu').innerHTML = '<div style="color:var(--red);font-size:11px;">Gagal memuat menu</div>'; }
-}
-
-function selectMenu(el, id) {
-    document.querySelectorAll('.menu-item').forEach(i => i.classList.remove('selected'));
-    el.classList.add('selected');
-    selectedBfMenu = id;
-    document.getElementById('bfSubmitBtn').disabled = false;
-}
-
-async function submitBreakfast() {
-    if (!selectedBfMenu) return;
-    const btn = document.getElementById('bfSubmitBtn');
-    btn.disabled = true; btn.textContent = '⏳ Memesan...';
-    try {
-        const fd = new FormData();
-        fd.append('action', 'breakfast_submit');
-        fd.append('menu_id', selectedBfMenu);
-        fd.append('date', new Date().toISOString().substring(0,10));
-        const res = await fetch(API, { method: 'POST', body: fd });
-        const data = await res.json();
-        if (data.success) {
-            btn.textContent = '✅ ' + data.message;
-            setTimeout(() => { btn.textContent = '🍽️ Pesan Breakfast'; loadBreakfast(); }, 2000);
-        } else {
-            btn.textContent = '❌ ' + data.message;
-            setTimeout(() => { btn.textContent = '🍽️ Pesan Breakfast'; btn.disabled = false; }, 2000);
-        }
-    } catch(e) { btn.textContent = '❌ Gagal'; setTimeout(() => { btn.textContent = '🍽️ Pesan Breakfast'; btn.disabled = false; }, 2000); }
+        document.getElementById('bfOrderList').innerHTML = html;
+    } catch(e) {
+        console.error(e);
+        document.getElementById('bfOrderList').innerHTML = '<div style="color:var(--red);font-size:11px;padding:10px;">Gagal memuat data breakfast</div>';
+    }
 }
 
 // ═══ AUTO-LOGIN CHECK ═══
