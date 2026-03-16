@@ -163,30 +163,55 @@ if (!empty($absenConfig['app_logo'])) {
         .room-box .room-type { font-size:8px; color:var(--muted); font-weight:400; margin-top:1px; }
         .room-box .room-guest { font-size:8px; color:var(--red); font-weight:500; margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
-        /* Booking Calendar */
+        /* Booking Calendar - Frontdesk Style */
         .cal-nav { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; gap:6px; }
         .cal-nav button { background:var(--navy); color:#fff; border:none; border-radius:8px; padding:6px 14px; font-size:11px; font-weight:600; cursor:pointer; transition:.15s; }
         .cal-nav button:active { opacity:.7; transform:scale(.96); }
         .cal-nav .cal-period { font-size:12px; font-weight:700; color:var(--navy); }
-        .cal-scroll { overflow-x:auto; -webkit-overflow-scrolling:touch; border:1px solid var(--border); border-radius:10px; background:#fff; }
-        .cal-table { border-collapse:collapse; width:max-content; }
-        .cal-table th { position:sticky; top:0; background:var(--navy); color:#fff; font-size:9px; font-weight:700; text-align:center; padding:8px 0; z-index:3; min-width:70px; white-space:nowrap; border:none; }
-        .cal-table th.today-h { background:var(--gold); color:var(--navy); }
-        .cal-table th.room-h { text-align:left; padding-left:8px; min-width:60px; width:60px; position:sticky; left:0; z-index:4; background:var(--navy); }
-        .cal-table .cal-type-row td { background:#f1f5f9; padding:5px 8px; font-size:10px; font-weight:700; color:var(--navy); border-top:2px solid var(--border); }
-        .cal-table .cal-room-cell { background:#fff; font-size:10px; font-weight:800; color:var(--navy); padding:0 6px; position:sticky; left:0; z-index:2; border-right:2px solid var(--border); width:60px; min-width:60px; white-space:nowrap; height:34px; }
-        .cal-table .cal-day-cell { position:relative; min-width:70px; height:34px; border-right:1px solid #f0f0f0; border-bottom:1px solid #f0f0f0; padding:0; vertical-align:top; }
-        .cal-table .cal-day-cell.today-c { background:rgba(234,179,8,.06); }
-        .cal-bar { position:absolute; top:4px; left:2px; right:2px; height:26px; border-radius:6px; display:flex; align-items:center; justify-content:center; padding:0 6px; font-size:9px; font-weight:700; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; z-index:1; cursor:pointer; box-shadow:0 2px 6px rgba(0,0,0,.18); transition:transform .15s; }
-        .cal-bar:active { transform:scale(.96); }
-        .cal-bar.s-confirmed { background:linear-gradient(135deg,#06b6d4,#22d3ee); }
-        .cal-bar.s-pending { background:linear-gradient(135deg,#f59e0b,#fbbf24); }
-        .cal-bar.s-checked-in { background:linear-gradient(135deg,#0284c7,#0ea5e9); }
-        .cal-bar.s-checked-out { background:linear-gradient(135deg,#9ca3af,#d1d5db); opacity:.5; }
-        .cal-bar span { text-shadow:0 1px 2px rgba(0,0,0,.3); font-size:8px; letter-spacing:.2px; }
+        .cal-scroll { overflow-x:auto; -webkit-overflow-scrolling:touch; border-radius:10px; background:#fff; box-shadow:0 1px 4px rgba(0,0,0,.06); }
+        .cal-grid { display:grid; gap:0; width:fit-content; min-width:fit-content; }
+        .cal-grid-header { display:contents; }
+        .cal-grid-footer { display:contents; }
+        /* Header cells */
+        .cg-hdr-room { background:linear-gradient(135deg,#f1f5f9,#fff); border-right:2px solid #e2e8f0; border-bottom:2px solid #cbd5e1; padding:4px; font-weight:800; text-align:center; position:sticky; left:0; z-index:40; font-size:9px; color:#475569; letter-spacing:.8px; text-transform:uppercase; display:flex; align-items:center; justify-content:center; min-width:70px; max-width:70px; box-shadow:2px 0 6px rgba(0,0,0,.04); }
+        .cg-hdr-date { background:linear-gradient(180deg,#f8fafc,#f1f5f9); border-right:1px solid #e2e8f0; border-bottom:2px solid #cbd5e1; padding:3px 2px; text-align:center; font-weight:700; font-size:9px; color:#334155; min-width:100px; }
+        .cg-hdr-date.today { background:rgba(99,102,241,.12)!important; }
+        .cg-hdr-day { font-size:9px; text-transform:uppercase; font-weight:600; color:#64748b; letter-spacing:.3px; }
+        .cg-hdr-num { font-size:13px; font-weight:900; color:#1e293b; margin-left:2px; }
+        .cg-hdr-date.today .cg-hdr-num { color:#6366f1; }
+        /* Footer cells */
+        .cg-ftr-room { background:linear-gradient(135deg,#f1f5f9,#fff); border-right:2px solid #e2e8f0; border-top:2px solid #cbd5e1; padding:4px; font-weight:800; text-align:center; position:sticky; left:0; z-index:40; font-size:9px; color:#475569; letter-spacing:.8px; text-transform:uppercase; display:flex; align-items:center; justify-content:center; min-width:70px; max-width:70px; box-shadow:2px 0 6px rgba(0,0,0,.04); }
+        .cg-ftr-date { background:linear-gradient(180deg,#f8fafc,#f1f5f9); border-right:1px solid #e2e8f0; border-top:2px solid #cbd5e1; padding:3px 2px; text-align:center; font-weight:700; font-size:9px; color:#334155; }
+        .cg-ftr-date.today { background:rgba(99,102,241,.12)!important; }
+        /* Type header row */
+        .cg-type-hdr { background:linear-gradient(135deg,#eef2ff,#e0e7ff); border-right:2px solid #a5b4fc; border-bottom:1px solid #c7d2fe; padding:3px 6px; font-weight:800; color:#4338ca; position:sticky; left:0; z-index:30; display:flex; align-items:center; font-size:10px; gap:4px; min-width:70px; max-width:70px; box-shadow:2px 0 6px rgba(0,0,0,.04); }
+        .cg-type-price { background:linear-gradient(135deg,#eef2ff,#e0e7ff); border-right:1px solid #c7d2fe; border-bottom:1px solid #a5b4fc; display:flex; align-items:center; justify-content:center; font-size:9px; font-weight:800; color:#4338ca; letter-spacing:.3px; }
+        /* Room labels */
+        .cg-room { background:linear-gradient(135deg,#f8fafc,#fff); border-right:2px solid #e2e8f0; border-bottom:1px solid #f1f5f9; padding:2px 4px; font-weight:700; color:#334155; position:sticky; left:0; z-index:30; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; min-width:70px; max-width:70px; box-shadow:2px 0 6px rgba(0,0,0,.04); transition:.15s; }
+        .cg-room:hover { background:linear-gradient(135deg,#eef2ff,#e0e7ff); }
+        .cg-room-type { font-size:7px; font-weight:600; color:#6366f1; text-transform:uppercase; letter-spacing:.5px; line-height:1; }
+        .cg-room-num { font-size:13px; color:#1e293b; font-weight:900; line-height:1; }
+        /* Date cells */
+        .cg-cell { border-right:.5px solid rgba(51,65,85,.12); border-bottom:.5px solid rgba(51,65,85,.12); min-width:100px; min-height:28px; position:relative; background:transparent; }
+        .cg-cell.today { background:rgba(99,102,241,.05)!important; }
+        .cg-cell:hover { background:rgba(99,102,241,.04); }
+        /* Booking bars - Skewed CloudBed style */
+        .bbar-wrap { position:absolute; top:2px; left:50%; height:24px; display:flex; align-items:center; overflow:visible; z-index:10; margin-left:4px; cursor:pointer; }
+        .bbar { width:100%; height:22px; padding:0 6px; display:flex; align-items:center; justify-content:center; text-align:center; box-shadow:0 2px 6px rgba(0,0,0,.15),0 1px 2px rgba(0,0,0,.1); font-weight:700; font-size:10px; line-height:1.1; position:relative; border-radius:3px; white-space:nowrap; transform:skewX(-20deg); color:#fff!important; transition:all .2s; overflow:hidden; }
+        .bbar > span { transform:skewX(20deg); color:#fff!important; text-shadow:0 1px 3px rgba(0,0,0,.6); font-weight:800; font-size:9px; display:block; }
+        .bbar::before { content:''; position:absolute; left:-8px; top:50%; transform:translateY(-50%); width:0; height:0; border-top:10px solid transparent; border-bottom:10px solid transparent; border-right:5px solid; border-right-color:inherit; }
+        .bbar::after { content:''; position:absolute; right:-8px; top:50%; transform:translateY(-50%); width:0; height:0; border-top:10px solid transparent; border-bottom:10px solid transparent; border-left:5px solid; border-left-color:inherit; }
+        .bbar:hover { transform:skewX(-20deg) scaleY(1.15); box-shadow:0 8px 24px rgba(0,0,0,.3); z-index:20; }
+        .bbar.s-confirmed { background:linear-gradient(135deg,#06b6d4,#22d3ee)!important; border-color:#06b6d4; }
+        .bbar.s-pending { background:linear-gradient(135deg,#0ea5e9,#38bdf8)!important; border-color:#0ea5e9; }
+        .bbar.s-checked-in { background:linear-gradient(135deg,#16a34a,#22c55e)!important; border-color:#16a34a; }
+        .bbar.s-checked-out { background:linear-gradient(135deg,#9ca3af,#d1d5db)!important; border-color:#9ca3af; opacity:.4; }
+        .bbar.s-checked-out > span { color:#6b7280!important; text-shadow:0 1px 2px rgba(0,0,0,.1)!important; }
+        /* Legend */
         .cal-legend { display:flex; flex-wrap:wrap; gap:10px; margin-top:10px; justify-content:center; }
         .cal-legend-item { display:flex; align-items:center; gap:4px; font-size:9px; color:var(--muted); font-weight:500; }
-        .cal-legend-dot { width:12px; height:8px; border-radius:3px; }
+        .cal-legend-dot { width:14px; height:8px; border-radius:3px; transform:skewX(-20deg); }
+        /* Popup */
         .cal-popup { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:#fff; border-radius:16px; padding:18px; box-shadow:0 20px 60px rgba(0,0,0,.3); z-index:1000; width:290px; max-width:90vw; }
         .cal-popup-overlay { position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:999; }
 
@@ -436,8 +461,8 @@ if (!empty($absenConfig['app_logo'])) {
             </div>
             <div class="cal-legend">
                 <div class="cal-legend-item"><div class="cal-legend-dot" style="background:#06b6d4;"></div>Confirmed</div>
-                <div class="cal-legend-item"><div class="cal-legend-dot" style="background:#f59e0b;"></div>Pending</div>
-                <div class="cal-legend-item"><div class="cal-legend-dot" style="background:#0284c7;"></div>Checked In</div>
+                <div class="cal-legend-item"><div class="cal-legend-dot" style="background:#0ea5e9;"></div>Pending</div>
+                <div class="cal-legend-item"><div class="cal-legend-dot" style="background:#16a34a;"></div>Checked In</div>
                 <div class="cal-legend-item"><div class="cal-legend-dot" style="background:#9ca3af;"></div>Checked Out</div>
             </div>
         </div>
@@ -856,7 +881,8 @@ async function loadOccupancy() {
             document.getElementById('roomGrid').innerHTML = rh;
         }
 
-        // Calendar
+        // ── Calendar (Frontdesk Style) ──
+        const COL_W = 100; // pixels per day column
         const bookings = d.bookings || [];
         const start = new Date(d.calendar_start || calStartDate);
         const days = 14;
@@ -868,9 +894,8 @@ async function loadOccupancy() {
             dates.push(dt.toISOString().split('T')[0]);
         }
         
-        // Period label
-        const startM = new Date(dates[0]);
-        const endM = new Date(dates[dates.length-1]);
+        const startM = new Date(dates[0] + 'T00:00:00');
+        const endM = new Date(dates[dates.length-1] + 'T00:00:00');
         const months = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
         document.getElementById('calPeriod').textContent = 
             startM.getDate() + ' ' + months[startM.getMonth()] + ' - ' + endM.getDate() + ' ' + months[endM.getMonth()] + ' ' + endM.getFullYear();
@@ -883,12 +908,11 @@ async function loadOccupancy() {
             roomsByType[t].push(r);
         });
 
-        // Build booking map: room_id -> [{booking, startCol, span}]
+        // Build booking map
         const bookingMap = {};
         bookings.forEach(b => {
             if (!bookingMap[b.room_id]) bookingMap[b.room_id] = [];
-            const bStart = b.check_in_date;
-            const bEnd = b.check_out_date;
+            const bStart = b.check_in_date, bEnd = b.check_out_date;
             let startCol = -1, endCol = -1;
             for (let i = 0; i < dates.length; i++) {
                 if (dates[i] >= bStart && startCol < 0) startCol = i;
@@ -902,56 +926,71 @@ async function loadOccupancy() {
         });
 
         const dayNames = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
-        let g = `<table class="cal-table"><thead><tr><th class="room-h">🏠</th>`;
+        let g = `<div class="cal-grid" style="grid-template-columns:70px repeat(${days},${COL_W}px);">`;
+
+        // Header row
+        g += `<div class="cal-grid-header">`;
+        g += `<div class="cg-hdr-room">ROOMS</div>`;
         dates.forEach(dt => {
             const dd = new Date(dt + 'T00:00:00');
-            const isToday = dt === today;
-            g += `<th class="${isToday?'today-h':''}">${dayNames[dd.getDay()]}<br><span style="font-size:12px;">${dd.getDate()}</span></th>`;
+            const isTd = dt === today;
+            g += `<div class="cg-hdr-date${isTd?' today':''}"><span class="cg-hdr-day">${dayNames[dd.getDay()]}</span> <span class="cg-hdr-num">${dd.getDate()}</span></div>`;
         });
-        g += `</tr></thead><tbody>`;
+        g += `</div>`;
 
-        // Room rows grouped by type
+        // Room rows
         const typeNames = Object.keys(roomsByType);
         typeNames.forEach(typeName => {
-            g += `<tr class="cal-type-row"><td colspan="${days+1}">📂 ${typeName} (${roomsByType[typeName].length})</td></tr>`;
-            roomsByType[typeName].forEach(room => {
-                const roomBookings = bookingMap[room.id] || [];
-                // Build a "used" array to track which cells are covered by a colspan
-                const used = new Array(days).fill(false);
-                roomBookings.forEach(rb => {
-                    for (let c = rb.startCol; c < rb.startCol + rb.span; c++) {
-                        if (c > rb.startCol) used[c] = true; // mark non-start cells as used
-                    }
-                });
+            // Type header
+            g += `<div class="cg-type-hdr">📂 ${typeName}</div>`;
+            for (let i = 0; i < days; i++) g += `<div class="cg-type-price"></div>`;
 
-                g += `<tr><td class="cal-room-cell">${room.room_number}</td>`;
+            roomsByType[typeName].forEach(room => {
+                // Room label
+                const tShort = (room.room_type || '').toUpperCase().substring(0, 6);
+                g += `<div class="cg-room"><span class="cg-room-type">${tShort}</span><span class="cg-room-num">${room.room_number}</span></div>`;
+                
+                const roomBookings = bookingMap[room.id] || [];
+                // Date cells
                 for (let i = 0; i < days; i++) {
-                    if (used[i]) continue; // skip cells consumed by colspan
-                    const isToday = dates[i] === today;
-                    // Check if a booking starts here
-                    const bk = roomBookings.find(rb => rb.startCol === i);
-                    if (bk) {
-                        const cls = 's-' + (bk.status||'').replace('_','-');
-                        const name = (bk.guest_name||'Guest').substring(0, 8);
-                        const bData = JSON.stringify({booking_code:bk.booking_code,guest_name:bk.guest_name,check_in_date:bk.check_in_date,check_out_date:bk.check_out_date,status:bk.status,booking_source:bk.booking_source,payment_status:bk.payment_status}).replace(/'/g,'&#39;');
-                        g += `<td colspan="${bk.span}" class="cal-day-cell${isToday?' today-c':''}">`;
-                        g += `<div class="cal-bar ${cls}" onclick='showBookingPopup(${bData})'><span>${name}</span></div>`;
-                        g += `</td>`;
-                    } else {
-                        g += `<td class="cal-day-cell${isToday?' today-c':''}"></td>`;
-                    }
+                    const isTd = dates[i] === today;
+                    g += `<div class="cg-cell${isTd?' today':''}">`;
+                    // Render bars starting on this cell
+                    roomBookings.forEach(rb => {
+                        if (rb.startCol === i) {
+                            const barW = (rb.span * COL_W) - 12;
+                            const cls = 's-' + (rb.status||'').replace('_','-');
+                            const isCheckedIn = rb.status === 'checked_in';
+                            const icon = isCheckedIn ? '✓ ' : '';
+                            const name = (rb.guest_name||'Guest').substring(0, 12);
+                            const code = (rb.booking_code||'').substring(0, 8);
+                            const bData = JSON.stringify({booking_code:rb.booking_code,guest_name:rb.guest_name,check_in_date:rb.check_in_date,check_out_date:rb.check_out_date,status:rb.status,booking_source:rb.booking_source,payment_status:rb.payment_status}).replace(/'/g,'&#39;');
+                            g += `<div class="bbar-wrap" style="width:${barW}px;" onclick='showBookingPopup(${bData})'>`;
+                            g += `<div class="bbar ${cls}"><span>${icon}${name} • ${code}</span></div></div>`;
+                        }
+                    });
+                    g += `</div>`;
                 }
-                g += `</tr>`;
             });
         });
-        g += '</tbody></table>';
+
+        // Footer row
+        g += `<div class="cal-grid-footer">`;
+        g += `<div class="cg-ftr-room">ROOMS</div>`;
+        dates.forEach(dt => {
+            const dd = new Date(dt + 'T00:00:00');
+            const isTd = dt === today;
+            g += `<div class="cg-ftr-date${isTd?' today':''}"><span class="cg-hdr-day">${dayNames[dd.getDay()]}</span> <span class="cg-hdr-num">${dd.getDate()}</span></div>`;
+        });
+        g += `</div>`;
+        g += '</div>';
         document.getElementById('calGrid').innerHTML = g;
 
-        // Scroll to today column
+        // Scroll to today
         const todayIdx = dates.indexOf(today);
         if (todayIdx > 1) {
             const scrollEl = document.getElementById('calScroll');
-            setTimeout(() => { scrollEl.scrollLeft = Math.max(0, (todayIdx - 1) * 70); }, 100);
+            setTimeout(() => { scrollEl.scrollLeft = Math.max(0, (todayIdx - 1) * COL_W); }, 100);
         }
     } catch(e) { 
         console.error(e);
