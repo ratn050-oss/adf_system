@@ -37,7 +37,8 @@ if (!empty($absenConfig['app_logo'])) {
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="theme-color" content="#0d1f3c">
     <title>Staff Portal - <?php echo $bizName; ?></title>
-    <link rel="manifest" href="absen-manifest.php?b=<?php echo urlencode($bizSlug); ?>">
+    <link rel="manifest" href="staff-manifest.php?b=<?php echo urlencode($bizSlug); ?>">
+    <link rel="apple-touch-icon" href="absen-icon.php?size=192">
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
         :root { --navy:#0d1f3c; --gold:#f0b429; --green:#059669; --red:#dc2626; --orange:#ea580c; --blue:#2563eb; --purple:#7c3aed; --bg:#f1f5f9; --card:#fff; --border:#e2e8f0; --muted:#64748b; --text:#1e293b; }
@@ -82,13 +83,46 @@ if (!empty($absenConfig['app_logo'])) {
         .app-header .user-badge { background:rgba(255,255,255,.15); color:var(--gold); padding:4px 10px; border-radius:20px; font-size:11px; font-weight:600; }
         .app-header .logout-btn { background:none; border:1px solid rgba(255,255,255,.2); color:#fff; padding:5px 10px; border-radius:6px; font-size:11px; cursor:pointer; }
 
-        /* Bottom Nav */
+        /* Bottom Nav - 5 tabs */
         .bottom-nav { position:fixed; bottom:0; left:0; right:0; background:#fff; border-top:1px solid var(--border); display:flex; z-index:100; box-shadow:0 -2px 10px rgba(0,0,0,.08); }
-        .nav-item { flex:1; padding:8px 4px 6px; text-align:center; cursor:pointer; transition:.15s; border-top:2px solid transparent; }
+        .nav-item { flex:1; padding:6px 2px 5px; text-align:center; cursor:pointer; transition:.15s; border-top:2px solid transparent; }
         .nav-item.active { border-top-color:var(--gold); }
-        .nav-item .nav-icon { font-size:18px; display:block; }
-        .nav-item .nav-label { font-size:9px; font-weight:600; color:var(--muted); margin-top:2px; }
+        .nav-item .nav-icon { font-size:16px; display:block; }
+        .nav-item .nav-label { font-size:8px; font-weight:600; color:var(--muted); margin-top:1px; }
         .nav-item.active .nav-label { color:var(--navy); font-weight:700; }
+
+        /* Notification bell */
+        .notif-bell { position:relative; cursor:pointer; font-size:18px; padding:4px 8px; }
+        .notif-dot { position:absolute; top:2px; right:4px; width:8px; height:8px; background:var(--red); border-radius:50%; display:none; }
+        .notif-dot.show { display:block; }
+
+        /* Install banner */
+        .install-banner { background:linear-gradient(135deg,var(--gold),#e69800); color:var(--navy); padding:12px 16px; border-radius:12px; margin-bottom:12px; display:none; align-items:center; gap:10px; cursor:pointer; }
+        .install-banner.show { display:flex; }
+        .install-banner .ib-icon { font-size:24px; }
+        .install-banner .ib-text { flex:1; }
+        .install-banner .ib-title { font-weight:700; font-size:13px; }
+        .install-banner .ib-sub { font-size:10px; opacity:.8; }
+        .install-banner .ib-close { background:none; border:none; font-size:18px; cursor:pointer; padding:4px; color:var(--navy); }
+
+        /* Cuti form */
+        .cuti-type-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin-bottom:12px; }
+        .cuti-type { background:var(--bg); border:2px solid var(--border); border-radius:10px; padding:10px; cursor:pointer; text-align:center; transition:.15s; }
+        .cuti-type:hover { border-color:var(--gold); }
+        .cuti-type.selected { border-color:var(--gold); background:#fffbeb; }
+        .cuti-type .ct-icon { font-size:20px; }
+        .cuti-type .ct-label { font-size:11px; font-weight:600; margin-top:2px; }
+        .leave-status { display:inline-flex; align-items:center; gap:3px; padding:2px 8px; border-radius:4px; font-size:9px; font-weight:700; text-transform:uppercase; }
+        .ls-pending { background:#fef3c7; color:#92400e; }
+        .ls-approved { background:#dcfce7; color:#166534; }
+        .ls-rejected { background:#fee2e2; color:#991b1b; }
+
+        /* Notif popup */
+        .notif-popup { position:fixed; top:50px; right:10px; left:10px; max-width:360px; margin:auto; background:#fff; border-radius:14px; box-shadow:0 10px 40px rgba(0,0,0,.2); z-index:200; display:none; max-height:70vh; overflow-y:auto; border:1px solid var(--border); }
+        .notif-popup.open { display:block; }
+        .notif-popup .np-head { padding:14px 16px; border-bottom:1px solid var(--border); font-weight:700; font-size:14px; color:var(--navy); }
+        .notif-popup .np-item { padding:12px 16px; border-bottom:1px solid #f1f5f9; }
+        .notif-popup .np-empty { padding:30px; text-align:center; color:var(--muted); font-size:12px; }
 
         /* Pages */
         .page { display:none; padding:16px; animation:fadeIn .2s ease; }
@@ -229,12 +263,32 @@ if (!empty($absenConfig['app_logo'])) {
     <div class="app-header">
         <?php if ($appLogo): ?><img src="<?php echo $appLogo; ?>" class="logo"><?php endif; ?>
         <span class="title"><?php echo $bizName; ?></span>
+        <div class="notif-bell" onclick="toggleNotifs()">
+            🔔
+            <div class="notif-dot" id="notifDot"></div>
+        </div>
         <span class="user-badge" id="headerName">Staff</span>
         <button class="logout-btn" onclick="doLogout()">Keluar</button>
     </div>
 
+    <!-- Notification Popup -->
+    <div class="notif-popup" id="notifPopup">
+        <div class="np-head">🔔 Notifikasi</div>
+        <div id="notifList"><div class="np-empty">Memuat...</div></div>
+    </div>
+
     <!-- ═══ PAGE: ABSEN ═══ -->
     <div class="page active" id="page-absen">
+        <!-- Install Banner -->
+        <div class="install-banner" id="installBanner">
+            <div class="ib-icon">📲</div>
+            <div class="ib-text">
+                <div class="ib-title">Install Aplikasi</div>
+                <div class="ib-sub">Buka lebih cepat langsung dari home screen</div>
+            </div>
+            <button class="ib-close" onclick="event.stopPropagation();document.getElementById('installBanner').classList.remove('show');">✕</button>
+        </div>
+
         <a href="<?php echo htmlspecialchars($absenUrl); ?>" class="absen-link" target="_self">
             <div class="al-icon">👁️</div>
             <div class="al-title">Scan Wajah — Absen Sekarang</div>
@@ -273,6 +327,53 @@ if (!empty($absenConfig['app_logo'])) {
         </div>
     </div>
 
+    <!-- ═══ PAGE: CUTI ═══ -->
+    <div class="page" id="page-cuti">
+        <div class="card">
+            <div class="card-title">📝 Ajukan Cuti / Izin</div>
+            <form id="cutiForm" onsubmit="return submitCuti(event)">
+                <div style="margin-bottom:10px;">
+                    <label class="fl">Jenis</label>
+                    <div class="cuti-type-grid">
+                        <div class="cuti-type selected" data-type="cuti" onclick="selectCutiType(this)">
+                            <div class="ct-icon">🏖️</div><div class="ct-label">Cuti</div>
+                        </div>
+                        <div class="cuti-type" data-type="sakit" onclick="selectCutiType(this)">
+                            <div class="ct-icon">🩺</div><div class="ct-label">Sakit</div>
+                        </div>
+                        <div class="cuti-type" data-type="izin" onclick="selectCutiType(this)">
+                            <div class="ct-icon">📋</div><div class="ct-label">Izin</div>
+                        </div>
+                        <div class="cuti-type" data-type="cuti_khusus" onclick="selectCutiType(this)">
+                            <div class="ct-icon">⭐</div><div class="ct-label">Khusus</div>
+                        </div>
+                    </div>
+                </div>
+                <div style="display:grid; grid-template-columns:1fr 1fr; gap:8px; margin-bottom:10px;">
+                    <div>
+                        <label class="fl">Tanggal Mulai</label>
+                        <input type="date" class="fi" name="start_date" required id="cutiStart" min="<?php echo date('Y-m-d'); ?>">
+                    </div>
+                    <div>
+                        <label class="fl">Tanggal Selesai</label>
+                        <input type="date" class="fi" name="end_date" required id="cutiEnd" min="<?php echo date('Y-m-d'); ?>">
+                    </div>
+                </div>
+                <div style="margin-bottom:12px;">
+                    <label class="fl">Alasan</label>
+                    <textarea class="fi" name="reason" rows="3" placeholder="Jelaskan alasan cuti/izin..." required style="resize:vertical;"></textarea>
+                </div>
+                <button type="submit" class="btn-auth" id="cutiBtn" style="border-radius:10px;">📨 Kirim Pengajuan</button>
+            </form>
+        </div>
+
+        <div class="card">
+            <div class="card-title">📅 Riwayat Cuti</div>
+            <div id="cutiStats" style="margin-bottom:10px;"></div>
+            <div id="cutiHistory"><div class="loading"><span class="spin"></span> Memuat...</div></div>
+        </div>
+    </div>
+
     <!-- ═══ PAGE: BREAKFAST ═══ -->
     <div class="page" id="page-breakfast">
         <div class="card">
@@ -292,7 +393,8 @@ if (!empty($absenConfig['app_logo'])) {
     <div class="bottom-nav">
         <div class="nav-item active" data-page="absen"><span class="nav-icon">📋</span><span class="nav-label">Absen</span></div>
         <div class="nav-item" data-page="monitoring"><span class="nav-icon">📊</span><span class="nav-label">Monitoring</span></div>
-        <div class="nav-item" data-page="occupancy"><span class="nav-icon">🏨</span><span class="nav-label">Occupancy</span></div>
+        <div class="nav-item" data-page="cuti"><span class="nav-icon">🏖️</span><span class="nav-label">Cuti</span></div>
+        <div class="nav-item" data-page="occupancy"><span class="nav-icon">🏨</span><span class="nav-label">Kamar</span></div>
         <div class="nav-item" data-page="breakfast"><span class="nav-icon">☕</span><span class="nav-label">Breakfast</span></div>
     </div>
 </div>
@@ -430,6 +532,7 @@ document.querySelectorAll('.nav-item').forEach(item => {
         document.getElementById('page-' + page).classList.add('active');
         if (page === 'absen') loadAbsen();
         if (page === 'monitoring') loadMonitoring();
+        if (page === 'cuti') loadCuti();
         if (page === 'occupancy') loadOccupancy();
         if (page === 'breakfast') loadBreakfast();
     });
@@ -669,6 +772,193 @@ loadCredentials();
         }
     } catch(e) { /* stay on auth screen */ }
 })();
+
+// ═══ CUTI PAGE ═══
+let selectedCutiType = 'cuti';
+
+function selectCutiType(el) {
+    document.querySelectorAll('.cuti-type').forEach(i => i.classList.remove('selected'));
+    el.classList.add('selected');
+    selectedCutiType = el.dataset.type;
+}
+
+async function submitCuti(e) {
+    e.preventDefault();
+    const btn = document.getElementById('cutiBtn');
+    btn.disabled = true; btn.textContent = '⏳ Mengirim...';
+    const fd = new FormData(e.target);
+    fd.append('action', 'leave_submit');
+    fd.append('leave_type', selectedCutiType);
+    try {
+        const res = await fetch(API, { method: 'POST', body: fd });
+        const text = await res.text();
+        let data;
+        try { data = JSON.parse(text); } catch(pe) {
+            btn.textContent = '❌ Server error';
+            setTimeout(() => { btn.textContent = '📨 Kirim Pengajuan'; btn.disabled = false; }, 2000);
+            return false;
+        }
+        if (data.success) {
+            btn.textContent = '✅ ' + data.message;
+            e.target.reset();
+            document.querySelectorAll('.cuti-type').forEach(i => i.classList.remove('selected'));
+            document.querySelector('.cuti-type[data-type="cuti"]').classList.add('selected');
+            selectedCutiType = 'cuti';
+            setTimeout(() => { btn.textContent = '📨 Kirim Pengajuan'; btn.disabled = false; loadCuti(); }, 2000);
+        } else {
+            btn.textContent = '❌ ' + data.message;
+            setTimeout(() => { btn.textContent = '📨 Kirim Pengajuan'; btn.disabled = false; }, 2500);
+        }
+    } catch(err) {
+        btn.textContent = '❌ Koneksi gagal';
+        setTimeout(() => { btn.textContent = '📨 Kirim Pengajuan'; btn.disabled = false; }, 2000);
+    }
+    return false;
+}
+
+async function loadCuti() {
+    try {
+        const res = await fetch(API + '&action=leave_history');
+        const data = await res.json();
+        const stats = data.stats || {};
+        const rows = data.data || [];
+
+        document.getElementById('cutiStats').innerHTML = `
+            <div class="stat-row">
+                <div class="stat-card"><div class="sl">⏳ Pending</div><div class="sv" style="color:var(--orange);">${stats.pending||0}</div></div>
+                <div class="stat-card"><div class="sl">✅ Disetujui</div><div class="sv" style="color:var(--green);">${stats.approved||0}</div></div>
+                <div class="stat-card"><div class="sl">❌ Ditolak</div><div class="sv" style="color:var(--red);">${stats.rejected||0}</div></div>
+                <div class="stat-card"><div class="sl">🏖️ Cuti Tahun Ini</div><div class="sv" style="color:var(--blue);">${stats.cuti_used||0}</div></div>
+            </div>`;
+
+        if (rows.length === 0) {
+            document.getElementById('cutiHistory').innerHTML = '<div style="text-align:center;padding:16px;color:var(--muted);font-size:12px;">Belum ada riwayat pengajuan cuti.</div>';
+            return;
+        }
+
+        const typeLabel = { cuti:'🏖️ Cuti', sakit:'🩺 Sakit', izin:'📋 Izin', cuti_khusus:'⭐ Khusus' };
+        const statusCls = { pending:'ls-pending', approved:'ls-approved', rejected:'ls-rejected' };
+        const statusLabel = { pending:'⏳ Pending', approved:'✅ Disetujui', rejected:'❌ Ditolak' };
+        let html = '';
+        rows.forEach(r => {
+            const s = new Date(r.start_date).toLocaleDateString('id-ID',{day:'numeric',month:'short',year:'numeric'});
+            const e = new Date(r.end_date).toLocaleDateString('id-ID',{day:'numeric',month:'short',year:'numeric'});
+            const days = Math.ceil((new Date(r.end_date) - new Date(r.start_date)) / 86400000) + 1;
+            html += `<div style="padding:12px 0;border-bottom:1px solid #f1f5f9;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                    <span style="font-weight:700;font-size:12px;">${typeLabel[r.leave_type]||r.leave_type}</span>
+                    <span class="leave-status ${statusCls[r.status]||''}">${statusLabel[r.status]||r.status}</span>
+                </div>
+                <div style="font-size:11px;color:var(--muted);">📅 ${s} — ${e} (${days} hari)</div>
+                <div style="font-size:11px;color:var(--text);margin-top:3px;">${r.reason||''}</div>
+                ${r.admin_notes ? `<div style="font-size:10px;color:var(--blue);margin-top:3px;background:#eff6ff;padding:4px 8px;border-radius:4px;">💬 ${r.admin_notes}</div>` : ''}
+            </div>`;
+        });
+        document.getElementById('cutiHistory').innerHTML = html;
+    } catch(e) { document.getElementById('cutiHistory').innerHTML = '<div style="color:var(--red);font-size:11px;">Gagal memuat</div>'; }
+}
+
+// ═══ NOTIFICATIONS ═══
+let notifOpen = false;
+
+function toggleNotifs() {
+    notifOpen = !notifOpen;
+    const popup = document.getElementById('notifPopup');
+    if (notifOpen) {
+        popup.classList.add('open');
+        loadNotifs();
+    } else {
+        popup.classList.remove('open');
+    }
+}
+
+// Close notif popup when clicking outside
+document.addEventListener('click', function(e) {
+    if (notifOpen && !e.target.closest('.notif-bell') && !e.target.closest('.notif-popup')) {
+        notifOpen = false;
+        document.getElementById('notifPopup').classList.remove('open');
+    }
+});
+
+async function loadNotifs() {
+    try {
+        const res = await fetch(API + '&action=notifications');
+        const data = await res.json();
+        const notifs = data.data || [];
+        if (notifs.length === 0) {
+            document.getElementById('notifList').innerHTML = '<div class="np-empty">🔔 Belum ada notifikasi</div>';
+            return;
+        }
+        const typeLabel = { cuti:'🏖️ Cuti', sakit:'🩺 Sakit', izin:'📋 Izin', cuti_khusus:'⭐ Khusus' };
+        let html = '';
+        notifs.forEach(n => {
+            const icon = n.status === 'approved' ? '✅' : '❌';
+            const label = n.status === 'approved' ? 'DISETUJUI' : 'DITOLAK';
+            const color = n.status === 'approved' ? 'var(--green)' : 'var(--red)';
+            const s = new Date(n.start_date).toLocaleDateString('id-ID',{day:'numeric',month:'short'});
+            const e = new Date(n.end_date).toLocaleDateString('id-ID',{day:'numeric',month:'short'});
+            const time = n.approved_at ? new Date(n.approved_at).toLocaleDateString('id-ID',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) : '';
+            html += `<div class="np-item">
+                <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">
+                    <span style="font-size:14px;">${icon}</span>
+                    <span style="font-weight:700;font-size:12px;color:${color};">${label}</span>
+                    <span style="font-size:10px;color:var(--muted);margin-left:auto;">${time}</span>
+                </div>
+                <div style="font-size:11px;">${typeLabel[n.leave_type]||n.leave_type}: ${s} — ${e}</div>
+                ${n.admin_notes ? `<div style="font-size:10px;color:var(--blue);margin-top:2px;">💬 ${n.admin_notes}</div>` : ''}
+            </div>`;
+        });
+        document.getElementById('notifList').innerHTML = html;
+    } catch(e) { document.getElementById('notifList').innerHTML = '<div class="np-empty">Gagal memuat</div>'; }
+}
+
+async function checkNotifs() {
+    try {
+        const res = await fetch(API + '&action=notifications');
+        const data = await res.json();
+        const notifs = data.data || [];
+        const lastSeen = localStorage.getItem('notif_last_seen') || '';
+        const hasNew = notifs.length > 0 && (!lastSeen || notifs[0].approved_at > lastSeen);
+        document.getElementById('notifDot').classList.toggle('show', hasNew);
+        if (notifOpen && notifs.length > 0) {
+            localStorage.setItem('notif_last_seen', notifs[0].approved_at);
+        }
+    } catch(e) {}
+}
+
+// ═══ PWA INSTALL ═══
+let deferredPrompt = null;
+
+window.addEventListener('beforeinstallprompt', (e) => {
+    e.preventDefault();
+    deferredPrompt = e;
+    document.getElementById('installBanner').classList.add('show');
+});
+
+document.getElementById('installBanner').addEventListener('click', async (e) => {
+    if (e.target.closest('.ib-close')) return;
+    if (!deferredPrompt) return;
+    deferredPrompt.prompt();
+    const result = await deferredPrompt.userChoice;
+    if (result.outcome === 'accepted') {
+        document.getElementById('installBanner').classList.remove('show');
+    }
+    deferredPrompt = null;
+});
+
+window.addEventListener('appinstalled', () => {
+    document.getElementById('installBanner').classList.remove('show');
+    deferredPrompt = null;
+});
+
+// Register service worker
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('<?php echo $baseUrl; ?>/sw.js').catch(() => {});
+}
+
+// Check notifications every 60s
+setInterval(checkNotifs, 60000);
+setTimeout(checkNotifs, 3000);
 </script>
 
 </body>

@@ -33,6 +33,24 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS `staff_accounts` (
     UNIQUE KEY uk_emp (employee_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
+// Auto-create leave_requests table
+$pdo->exec("CREATE TABLE IF NOT EXISTS `leave_requests` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `employee_id` INT NOT NULL,
+    `leave_type` VARCHAR(50) NOT NULL DEFAULT 'cuti',
+    `start_date` DATE NOT NULL,
+    `end_date` DATE NOT NULL,
+    `reason` TEXT,
+    `status` ENUM('pending','approved','rejected') DEFAULT 'pending',
+    `approved_by` VARCHAR(100) DEFAULT NULL,
+    `approved_at` DATETIME DEFAULT NULL,
+    `admin_notes` TEXT,
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_emp (employee_id),
+    INDEX idx_status (status),
+    INDEX idx_dates (start_date, end_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
 // Session — close any existing session first, then start staff-specific one
 if (session_status() === PHP_SESSION_ACTIVE) {
     session_write_close();
@@ -116,10 +134,7 @@ if ($action === 'login') {
         WHERE LOWER(sa.email) = LOWER(?)", [$email]);
 
     if (!$account) {
-        // Debug: show existing usernames
-        $all = $db->fetchAll("SELECT sa.email, pe.full_name FROM staff_accounts sa LEFT JOIN payroll_employees pe ON pe.id = sa.employee_id");
-        $names = array_map(fn($a) => $a['email'] . ' (' . ($a['full_name'] ?? '?') . ')', $all ?: []);
-        echo json_encode(['success' => false, 'message' => 'Username tidak ditemukan. Akun yang ada: ' . (empty($names) ? 'kosong' : implode(', ', $names))]); exit;
+        echo json_encode(['success' => false, 'message' => 'Username tidak ditemukan']); exit;
     }
     if (!password_verify($password, $account['password_hash'])) {
         echo json_encode(['success' => false, 'message' => 'Password salah']); exit;
@@ -278,6 +293,65 @@ if ($action === 'breakfast_today') {
     $staffName = $_SESSION['staff_name'] ?? '';
     $order = $db->fetchOne("SELECT * FROM breakfast_orders WHERE guest_name = ? AND breakfast_date = ?", [$staffName, $today]);
     echo json_encode(['success' => true, 'data' => $order]); exit;
+}
+
+// ══════════════════════════════════════
+// LEAVE / CUTI
+// ══════════════════════════════════════
+if ($action === 'leave_submit') {
+    $type = trim($_POST['leave_type'] ?? 'cuti');
+    $start = $_POST['start_date'] ?? '';
+    $end = $_POST['end_date'] ?? '';
+    $reason = trim($_POST['reason'] ?? '');
+
+    if (!$start || !$end) {
+        echo json_encode(['success' => false, 'message' => 'Tanggal mulai dan selesai wajib diisi']); exit;
+    }
+    if ($start > $end) {
+        echo json_encode(['success' => false, 'message' => 'Tanggal selesai harus setelah tanggal mulai']); exit;
+    }
+    if (!$reason) {
+        echo json_encode(['success' => false, 'message' => 'Alasan wajib diisi']); exit;
+    }
+    $allowedTypes = ['cuti', 'sakit', 'izin', 'cuti_khusus'];
+    if (!in_array($type, $allowedTypes)) $type = 'cuti';
+
+    // Check overlapping
+    $overlap = $db->fetchOne("SELECT id FROM leave_requests WHERE employee_id = ? AND status != 'rejected' AND start_date <= ? AND end_date >= ?", [$empId, $end, $start]);
+    if ($overlap) {
+        echo json_encode(['success' => false, 'message' => 'Sudah ada pengajuan cuti di tanggal tersebut']); exit;
+    }
+
+    try {
+        $pdo->prepare("INSERT INTO leave_requests (employee_id, leave_type, start_date, end_date, reason) VALUES (?, ?, ?, ?, ?)")
+            ->execute([$empId, $type, $start, $end, $reason]);
+        echo json_encode(['success' => true, 'message' => 'Pengajuan cuti berhasil dikirim!']);
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => 'Gagal: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+if ($action === 'leave_history') {
+    $rows = $db->fetchAll("SELECT * FROM leave_requests WHERE employee_id = ? ORDER BY created_at DESC LIMIT 50", [$empId]) ?: [];
+    // Count stats
+    $year = date('Y');
+    $stats = $db->fetchOne("SELECT 
+        COUNT(CASE WHEN status = 'approved' AND leave_type = 'cuti' AND YEAR(start_date) = ? THEN 1 END) as cuti_used,
+        COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending,
+        COUNT(CASE WHEN status = 'approved' THEN 1 END) as approved,
+        COUNT(CASE WHEN status = 'rejected' THEN 1 END) as rejected
+        FROM leave_requests WHERE employee_id = ?", [$year, $empId]) ?: [];
+    echo json_encode(['success' => true, 'data' => $rows, 'stats' => $stats]); exit;
+}
+
+if ($action === 'notifications') {
+    // Get recent leave status changes (approved/rejected in last 30 days)
+    $notifs = $db->fetchAll("SELECT id, leave_type, start_date, end_date, status, admin_notes, approved_at 
+        FROM leave_requests 
+        WHERE employee_id = ? AND status IN ('approved','rejected') AND approved_at IS NOT NULL AND approved_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+        ORDER BY approved_at DESC LIMIT 20", [$empId]) ?: [];
+    echo json_encode(['success' => true, 'data' => $notifs]); exit;
 }
 
 echo json_encode(['success' => false, 'message' => 'Unknown action']);

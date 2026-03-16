@@ -305,6 +305,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
     }
+
+    // ── Leave / Cuti approval ──
+    if ($action === 'approve_leave' || $action === 'reject_leave') {
+        $leaveId = (int)($_POST['leave_id'] ?? 0);
+        $adminNotes = trim($_POST['admin_notes'] ?? '');
+        $newStatus = ($action === 'approve_leave') ? 'approved' : 'rejected';
+        $approver = $_SESSION['full_name'] ?? 'Admin';
+        if ($leaveId > 0) {
+            try {
+                $_pdo->exec("CREATE TABLE IF NOT EXISTS `leave_requests` (
+                    `id` INT AUTO_INCREMENT PRIMARY KEY, `employee_id` INT NOT NULL, `leave_type` VARCHAR(50) DEFAULT 'cuti',
+                    `start_date` DATE NOT NULL, `end_date` DATE NOT NULL, `reason` TEXT, `status` ENUM('pending','approved','rejected') DEFAULT 'pending',
+                    `approved_by` VARCHAR(100), `approved_at` DATETIME, `admin_notes` TEXT, `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    INDEX idx_emp (employee_id), INDEX idx_status (status)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+                $db->query("UPDATE leave_requests SET status = ?, approved_by = ?, approved_at = NOW(), admin_notes = ? WHERE id = ?",
+                    [$newStatus, $approver, $adminNotes, $leaveId]);
+                $msg = $newStatus === 'approved' ? '✅ Cuti disetujui.' : '❌ Cuti ditolak.';
+                $msgType = 'success';
+            } catch (Exception $e) { $msg = 'Error: ' . $e->getMessage(); $msgType = 'error'; }
+        }
+    }
 }
 
 // ══════════════════════════════════════════════
@@ -343,6 +365,19 @@ foreach ($dailyAtt as $a) {
 
 $absenUrl = $baseUrl . '/modules/payroll/absen.php?b=' . ACTIVE_BUSINESS_ID;
 $staffPortalUrl = $baseUrl . '/modules/payroll/staff-portal.php?b=' . $bizSlug;
+
+// Leave requests
+$leaveRequests = [];
+try {
+    $_pdo->exec("CREATE TABLE IF NOT EXISTS `leave_requests` (
+        `id` INT AUTO_INCREMENT PRIMARY KEY, `employee_id` INT NOT NULL, `leave_type` VARCHAR(50) DEFAULT 'cuti',
+        `start_date` DATE NOT NULL, `end_date` DATE NOT NULL, `reason` TEXT, `status` ENUM('pending','approved','rejected') DEFAULT 'pending',
+        `approved_by` VARCHAR(100), `approved_at` DATETIME, `admin_notes` TEXT, `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_emp (employee_id), INDEX idx_status (status)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    $leaveRequests = $db->fetchAll("SELECT lr.*, pe.full_name, pe.employee_code FROM leave_requests lr LEFT JOIN payroll_employees pe ON pe.id = lr.employee_id ORDER BY FIELD(lr.status,'pending','approved','rejected'), lr.created_at DESC LIMIT 100") ?: [];
+} catch (Exception $e) {}
+$pendingLeaves = count(array_filter($leaveRequests, fn($l) => $l['status'] === 'pending'));
 
 // Fingerspot data
 $fpConfig = $db->fetchOne("SELECT fingerspot_cloud_id, fingerspot_enabled FROM payroll_attendance_config WHERE id = 1") ?: [];
@@ -524,6 +559,7 @@ include '../../includes/header.php';
         <button class="att-tab active" data-tab="dashboard">📊 Dashboard Harian</button>
         <button class="att-tab" data-tab="gps">📍 Absen GPS</button>
         <button class="att-tab" data-tab="fingerprint">🔐 Fingerprint</button>
+        <button class="att-tab" data-tab="cuti">🏖️ Cuti<?php if ($pendingLeaves > 0): ?> <span style="background:var(--red);color:#fff;padding:1px 6px;border-radius:10px;font-size:9px;font-weight:800;"><?php echo $pendingLeaves; ?></span><?php endif; ?></button>
         <button class="att-tab" data-tab="manual">✋ Manual</button>
         <button class="att-tab" data-tab="reset">🔄 Reset</button>
     </div>
@@ -819,6 +855,99 @@ include '../../includes/header.php';
                 </table>
             </div>
             <?php endif; ?>
+        </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════ -->
+    <!-- TAB: CUTI (Leave Requests Approval)    -->
+    <!-- ═══════════════════════════════════════ -->
+    <div class="tab-panel" id="panel-cuti" style="display:none;">
+        <?php if ($pendingLeaves > 0): ?>
+        <div style="background:#fef3c7; border:1px solid #fde68a; border-radius:8px; padding:10px 14px; margin-bottom:14px; font-size:12px; color:#92400e; display:flex; align-items:center; gap:8px;">
+            <span style="font-size:20px;">⏳</span>
+            <div><strong><?php echo $pendingLeaves; ?> pengajuan</strong> menunggu persetujuan</div>
+        </div>
+        <?php endif; ?>
+
+        <?php if (empty($leaveRequests)): ?>
+        <div style="text-align:center; padding:40px; color:var(--muted);">
+            <div style="font-size:40px; margin-bottom:8px;">🏖️</div>
+            <div style="font-size:14px; font-weight:600;">Belum ada pengajuan cuti</div>
+            <div style="font-size:11px; margin-top:4px;">Staff mengajukan cuti via Staff Portal</div>
+        </div>
+        <?php else: ?>
+        <div class="tbl-wrap">
+            <table class="tbl">
+                <thead><tr>
+                    <th>Karyawan</th>
+                    <th>Jenis</th>
+                    <th>Tanggal</th>
+                    <th>Durasi</th>
+                    <th>Alasan</th>
+                    <th>Status</th>
+                    <th>Aksi</th>
+                </tr></thead>
+                <tbody>
+                <?php 
+                $typeLabels = ['cuti'=>'🏖️ Cuti', 'sakit'=>'🩺 Sakit', 'izin'=>'📋 Izin', 'cuti_khusus'=>'⭐ Khusus'];
+                foreach ($leaveRequests as $lr):
+                    $days = (int)((strtotime($lr['end_date']) - strtotime($lr['start_date'])) / 86400) + 1;
+                    $statusCls = ['pending'=>'b-late', 'approved'=>'b-present', 'rejected'=>'b-absent'];
+                    $statusLbl = ['pending'=>'⏳ Pending', 'approved'=>'✅ Disetujui', 'rejected'=>'❌ Ditolak'];
+                ?>
+                <tr style="<?php echo $lr['status'] === 'pending' ? 'background:#fffbeb;' : ''; ?>">
+                    <td>
+                        <strong><?php echo htmlspecialchars($lr['full_name'] ?? 'Unknown'); ?></strong>
+                        <div style="font-size:10px; color:var(--muted);"><?php echo htmlspecialchars($lr['employee_code'] ?? ''); ?></div>
+                    </td>
+                    <td style="font-size:11px; white-space:nowrap;"><?php echo $typeLabels[$lr['leave_type']] ?? $lr['leave_type']; ?></td>
+                    <td style="font-size:11px; white-space:nowrap;">
+                        <?php echo date('d M', strtotime($lr['start_date'])); ?> — <?php echo date('d M Y', strtotime($lr['end_date'])); ?>
+                    </td>
+                    <td style="text-align:center; font-weight:700;"><?php echo $days; ?> hari</td>
+                    <td style="font-size:11px; max-width:200px;">
+                        <?php echo htmlspecialchars($lr['reason'] ?? '-'); ?>
+                        <?php if ($lr['admin_notes']): ?>
+                        <div style="font-size:10px; color:var(--blue); margin-top:2px;">💬 <?php echo htmlspecialchars($lr['admin_notes']); ?></div>
+                        <?php endif; ?>
+                    </td>
+                    <td><span class="badge <?php echo $statusCls[$lr['status']] ?? ''; ?>"><?php echo $statusLbl[$lr['status']] ?? $lr['status']; ?></span>
+                        <?php if ($lr['approved_by']): ?>
+                        <div style="font-size:9px; color:var(--muted); margin-top:2px;">oleh <?php echo htmlspecialchars($lr['approved_by']); ?></div>
+                        <?php endif; ?>
+                    </td>
+                    <td style="white-space:nowrap;">
+                        <?php if ($lr['status'] === 'pending'): ?>
+                        <button class="btn btn-green btn-sm" onclick="openLeaveAction(<?php echo $lr['id']; ?>, 'approve', '<?php echo htmlspecialchars(addslashes($lr['full_name'] ?? '')); ?>')">✅</button>
+                        <button class="btn btn-del btn-sm" onclick="openLeaveAction(<?php echo $lr['id']; ?>, 'reject', '<?php echo htmlspecialchars(addslashes($lr['full_name'] ?? '')); ?>')">❌</button>
+                        <?php else: ?>
+                        <span class="dash">—</span>
+                        <?php endif; ?>
+                    </td>
+                </tr>
+                <?php endforeach; ?>
+                </tbody>
+            </table>
+        </div>
+        <?php endif; ?>
+    </div>
+
+    <!-- Leave Action Modal -->
+    <div class="modal-overlay" id="leaveModal">
+        <div class="modal-box">
+            <div class="modal-title" id="leaveModalTitle">Cuti</div>
+            <form method="POST" action="?tab=cuti">
+                <input type="hidden" name="action" id="leaveAction" value="approve_leave">
+                <input type="hidden" name="leave_id" id="leaveId">
+                <div class="fg">
+                    <label class="fl">Catatan (opsional)</label>
+                    <textarea class="fi" name="admin_notes" rows="2" placeholder="Catatan admin..."></textarea>
+                </div>
+                <div class="modal-actions">
+                    <button type="button" class="btn btn-primary" onclick="document.getElementById('leaveModal').classList.remove('open')">Batal</button>
+                    <button type="submit" class="btn btn-gold" id="leaveSubmitBtn">✅ Setujui</button>
+                </div>
+            </form>
         </div>
     </div>
 
@@ -1167,6 +1296,16 @@ function copyWebhookUrl(el) {
         el.innerHTML = '✅ Copied!';
         setTimeout(() => { el.innerHTML = text; }, 1500);
     });
+}
+
+// ─ LEAVE ACTION ─
+function openLeaveAction(id, action, name) {
+    document.getElementById('leaveId').value = id;
+    document.getElementById('leaveAction').value = action === 'approve' ? 'approve_leave' : 'reject_leave';
+    document.getElementById('leaveModalTitle').textContent = action === 'approve' ? '✅ Setujui Cuti — ' + name : '❌ Tolak Cuti — ' + name;
+    document.getElementById('leaveSubmitBtn').textContent = action === 'approve' ? '✅ Setujui' : '❌ Tolak';
+    document.getElementById('leaveSubmitBtn').className = action === 'approve' ? 'btn btn-green' : 'btn btn-danger';
+    document.getElementById('leaveModal').classList.add('open');
 }
 
 // ─ ADMIN MAP ─
