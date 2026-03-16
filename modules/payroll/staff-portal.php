@@ -419,7 +419,7 @@ if (!empty($absenConfig['app_logo'])) {
 
     <!-- ═══ PAGE: ROOM ═══ -->
     <div class="page" id="page-occupancy">
-        <div id="occStats"></div>
+        <div id="occStats"><div class="loading"><span class="spin"></span> Memuat...</div></div>
         <div class="card">
             <div class="card-title">🏨 Status Kamar</div>
             <div id="roomGrid"><div class="loading"><span class="spin"></span> Memuat...</div></div>
@@ -765,17 +765,77 @@ async function loadOccupancy() {
         const data = await res.json();
         const d = data.data || {};
 
-        // Stats
+        // Stats with Pie Chart
+        const occ = parseInt(d.occupied)||0;
+        const avail = parseInt(d.available)||0;
+        const total = parseInt(d.total_rooms)||0;
+        const rate = parseFloat(d.occupancy_rate)||0;
+        const arrivals = parseInt(d.arrivals_today)||0;
+        const departures = parseInt(d.departures_today)||0;
+
+        // SVG donut chart
+        const radius = 54, cx = 65, cy = 65, stroke = 14;
+        const circ = 2 * Math.PI * radius;
+        const occPct = total > 0 ? occ / total : 0;
+        const occLen = circ * occPct;
+        const availLen = circ - occLen;
+
         document.getElementById('occStats').innerHTML = `
-            <div class="stat-row">
-                <div class="stat-card"><div class="sl">🟢 AVAILABLE</div><div class="sv" style="color:var(--green);">${d.available||0}</div></div>
-                <div class="stat-card"><div class="sl">🔴 OCCUPIED</div><div class="sv" style="color:var(--red);">${d.occupied||0}</div></div>
-                <div class="stat-card"><div class="sl">📊 OCCUPANCY</div><div class="sv" style="color:var(--blue);">${d.occupancy_rate||0}%</div></div>
-                <div class="stat-card"><div class="sl">🏨 TOTAL</div><div class="sv">${d.total_rooms||0}</div></div>
-            </div>
-            <div class="stat-row" style="grid-template-columns:repeat(2,1fr);">
-                <div class="stat-card" style="border-left:3px solid var(--green);"><div class="sl">✈️ ARRIVALS TODAY</div><div class="sv" style="color:var(--green);">${d.arrivals_today||0}</div></div>
-                <div class="stat-card" style="border-left:3px solid var(--orange);"><div class="sl">🚪 DEPARTURES TODAY</div><div class="sv" style="color:var(--orange);">${d.departures_today||0}</div></div>
+            <div class="card" style="margin-bottom:12px;">
+                <div style="display:flex;align-items:center;gap:16px;flex-wrap:wrap;justify-content:center;">
+                    <!-- Donut Chart -->
+                    <div style="position:relative;width:130px;height:130px;flex-shrink:0;">
+                        <svg width="130" height="130" viewBox="0 0 130 130">
+                            <circle cx="${cx}" cy="${cy}" r="${radius}" fill="none" stroke="#e5e7eb" stroke-width="${stroke}"/>
+                            <circle cx="${cx}" cy="${cy}" r="${radius}" fill="none" stroke="#0ea5e9" stroke-width="${stroke}"
+                                stroke-dasharray="${occLen} ${availLen}"
+                                stroke-dashoffset="${circ * 0.25}"
+                                stroke-linecap="round"
+                                style="transition:stroke-dasharray .8s ease;"/>
+                            <circle cx="${cx}" cy="${cy}" r="${radius}" fill="none" stroke="#22c55e" stroke-width="${stroke}"
+                                stroke-dasharray="${availLen} ${occLen}"
+                                stroke-dashoffset="${circ * 0.25 - occLen}"
+                                stroke-linecap="round"
+                                style="transition:stroke-dasharray .8s ease;"/>
+                        </svg>
+                        <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+                            <div style="font-size:24px;font-weight:900;color:var(--navy);line-height:1;">${rate}%</div>
+                            <div style="font-size:8px;color:var(--muted);font-weight:600;text-transform:uppercase;letter-spacing:.5px;margin-top:2px;">Occupancy</div>
+                        </div>
+                    </div>
+                    <!-- Right Stats -->
+                    <div style="flex:1;min-width:160px;">
+                        <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                            <div style="background:#f0fdf4;border-radius:10px;padding:10px;text-align:center;">
+                                <div style="font-size:8px;font-weight:700;color:#16a34a;text-transform:uppercase;letter-spacing:.3px;">Available</div>
+                                <div style="font-size:22px;font-weight:900;color:#16a34a;">${avail}</div>
+                            </div>
+                            <div style="background:#fef2f2;border-radius:10px;padding:10px;text-align:center;">
+                                <div style="font-size:8px;font-weight:700;color:#dc2626;text-transform:uppercase;letter-spacing:.3px;">Occupied</div>
+                                <div style="font-size:22px;font-weight:900;color:#dc2626;">${occ}</div>
+                            </div>
+                            <div style="background:#eff6ff;border-radius:10px;padding:10px;text-align:center;">
+                                <div style="font-size:8px;font-weight:700;color:#2563eb;text-transform:uppercase;letter-spacing:.3px;">Total Rooms</div>
+                                <div style="font-size:22px;font-weight:900;color:#2563eb;">${total}</div>
+                            </div>
+                            <div style="background:#fefce8;border-radius:10px;padding:10px;text-align:center;">
+                                <div style="font-size:8px;font-weight:700;color:#ca8a04;text-transform:uppercase;letter-spacing:.3px;">Occ. Rate</div>
+                                <div style="font-size:22px;font-weight:900;color:#ca8a04;">${rate}%</div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <!-- Arrivals / Departures -->
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;">
+                    <div style="background:linear-gradient(135deg,#ecfdf5,#d1fae5);border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:10px;">
+                        <div style="width:36px;height:36px;background:#16a34a;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;">✈️</div>
+                        <div><div style="font-size:8px;font-weight:700;color:#16a34a;text-transform:uppercase;">Arrivals</div><div style="font-size:20px;font-weight:900;color:#16a34a;">${arrivals}</div></div>
+                    </div>
+                    <div style="background:linear-gradient(135deg,#fff7ed,#fed7aa);border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:10px;">
+                        <div style="width:36px;height:36px;background:#ea580c;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;">🚪</div>
+                        <div><div style="font-size:8px;font-weight:700;color:#ea580c;text-transform:uppercase;">Departures</div><div style="font-size:20px;font-weight:900;color:#ea580c;">${departures}</div></div>
+                    </div>
+                </div>
             </div>`;
 
         // Room grid
