@@ -88,10 +88,14 @@ if ($action === 'register') {
     }
 
     $hash = password_hash($password, PASSWORD_DEFAULT);
-    $pdo->prepare("INSERT INTO staff_accounts (employee_id, email, password_hash) VALUES (?, ?, ?)")
-        ->execute([$emp['id'], $email, $hash]);
+    try {
+        $pdo->prepare("INSERT INTO staff_accounts (employee_id, email, password_hash) VALUES (?, ?, ?)")
+            ->execute([$emp['id'], $email, $hash]);
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => 'Gagal simpan: ' . $e->getMessage()]); exit;
+    }
 
-    echo json_encode(['success' => true, 'message' => 'Registrasi berhasil! Silakan login.']);
+    echo json_encode(['success' => true, 'message' => 'Registrasi berhasil! Silakan login.', 'name' => $emp['full_name']]);
     exit;
 }
 
@@ -109,10 +113,15 @@ if ($action === 'login') {
     $account = $db->fetchOne("SELECT sa.*, pe.full_name, pe.employee_code, pe.position, pe.department 
         FROM staff_accounts sa 
         JOIN payroll_employees pe ON pe.id = sa.employee_id 
-        WHERE sa.email = ?", [$email]);
+        WHERE LOWER(sa.email) = LOWER(?)", [$email]);
 
-    if (!$account || !password_verify($password, $account['password_hash'])) {
-        echo json_encode(['success' => false, 'message' => 'Username atau password salah']); exit;
+    if (!$account) {
+        // Check how many accounts exist
+        $total = $db->fetchOne("SELECT COUNT(*) as c FROM staff_accounts");
+        echo json_encode(['success' => false, 'message' => 'Username tidak ditemukan. Total akun: ' . ($total['c'] ?? 0)]); exit;
+    }
+    if (!password_verify($password, $account['password_hash'])) {
+        echo json_encode(['success' => false, 'message' => 'Password salah']); exit;
     }
 
     // Update last login
