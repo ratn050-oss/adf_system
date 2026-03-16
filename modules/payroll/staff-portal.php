@@ -105,6 +105,9 @@ if (!empty($absenConfig['app_logo'])) {
         .install-banner .ib-sub { font-size:10px; opacity:.8; }
         .install-banner .ib-close { background:none; border:none; font-size:18px; cursor:pointer; padding:4px; color:var(--navy); }
 
+        /* iOS install guide */
+        .install-guide { background:#fff; border:2px solid var(--border); border-radius:12px; padding:14px 16px; margin-bottom:12px; border-left:4px solid #a855f7; }
+
         /* Cuti form */
         .cuti-type-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; margin-bottom:12px; }
         .cuti-type { background:var(--bg); border:2px solid var(--border); border-radius:10px; padding:10px; cursor:pointer; text-align:center; transition:.15s; }
@@ -279,7 +282,7 @@ if (!empty($absenConfig['app_logo'])) {
 
     <!-- ═══ PAGE: ABSEN ═══ -->
     <div class="page active" id="page-absen">
-        <!-- Install Banner -->
+        <!-- Install Banner (Android) -->
         <div class="install-banner" id="installBanner">
             <div class="ib-icon">📲</div>
             <div class="ib-text">
@@ -287,6 +290,29 @@ if (!empty($absenConfig['app_logo'])) {
                 <div class="ib-sub">Buka lebih cepat langsung dari home screen</div>
             </div>
             <button class="ib-close" onclick="event.stopPropagation();document.getElementById('installBanner').classList.remove('show');">✕</button>
+        </div>
+
+        <!-- iPhone Guide -->
+        <div class="install-guide" id="iosGuide" style="display:none;">
+            <div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;">
+                <span style="font-size:20px;">🍎</span>
+                <div style="font-weight:700;font-size:13px;color:var(--navy);">Install di iPhone / iPad</div>
+                <button style="margin-left:auto;background:none;border:none;font-size:16px;cursor:pointer;color:var(--muted);" onclick="this.parentElement.parentElement.style.display='none';localStorage.setItem('ios_guide_dismissed','1');">✕</button>
+            </div>
+            <div style="font-size:11px;color:var(--text);line-height:1.6;">
+                <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:6px;">
+                    <span style="background:var(--bg);border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;">1</span>
+                    <span>Tap tombol <strong style="background:#e5e7eb;padding:1px 6px;border-radius:4px;">⬆️ Share</strong> di bagian bawah Safari</span>
+                </div>
+                <div style="display:flex;align-items:flex-start;gap:8px;margin-bottom:6px;">
+                    <span style="background:var(--bg);border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;">2</span>
+                    <span>Scroll ke bawah, pilih <strong style="background:#e5e7eb;padding:1px 6px;border-radius:4px;">➕ Add to Home Screen</strong></span>
+                </div>
+                <div style="display:flex;align-items:flex-start;gap:8px;">
+                    <span style="background:var(--bg);border-radius:50%;width:22px;height:22px;display:flex;align-items:center;justify-content:center;font-size:11px;font-weight:700;flex-shrink:0;">3</span>
+                    <span>Tap <strong style="background:var(--gold);color:var(--navy);padding:1px 6px;border-radius:4px;">Add</strong> — icon akan muncul di home screen</span>
+                </div>
+            </div>
         </div>
 
         <a href="<?php echo htmlspecialchars($absenUrl); ?>" class="absen-link" target="_self">
@@ -928,6 +954,8 @@ async function checkNotifs() {
 
 // ═══ PWA INSTALL ═══
 let deferredPrompt = null;
+const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
 
 window.addEventListener('beforeinstallprompt', (e) => {
     e.preventDefault();
@@ -950,6 +978,11 @@ window.addEventListener('appinstalled', () => {
     document.getElementById('installBanner').classList.remove('show');
     deferredPrompt = null;
 });
+
+// Show iOS guide if on Safari and not yet installed
+if (isIOS && !isStandalone && !localStorage.getItem('ios_guide_dismissed')) {
+    document.getElementById('iosGuide').style.display = 'block';
+}
 
 // Register service worker
 if ('serviceWorker' in navigator) {
