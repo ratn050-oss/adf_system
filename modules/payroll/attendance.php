@@ -24,6 +24,25 @@ $currentUser = $auth->getCurrentUser();
 $pageTitle = 'Absensi Karyawan';
 $baseUrl = defined('BASE_URL') ? BASE_URL : '';
 
+// ═══ AJAX: Get employee schedule ═══
+if (isset($_GET['ajax_schedule']) && isset($_GET['emp_id'])) {
+    header('Content-Type: application/json');
+    try {
+        $_pdo->exec("CREATE TABLE IF NOT EXISTS `payroll_work_schedules` (
+            `id` INT AUTO_INCREMENT PRIMARY KEY, `employee_id` INT NOT NULL, `day_of_week` TINYINT NOT NULL DEFAULT 0,
+            `start_time` TIME NOT NULL DEFAULT '09:00:00', `end_time` TIME NOT NULL DEFAULT '17:00:00',
+            `break_minutes` INT DEFAULT 60, `is_off` TINYINT(1) DEFAULT 0,
+            `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY uk_emp_day (employee_id, day_of_week)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        $stmt = $_pdo->prepare("SELECT day_of_week, start_time, end_time, break_minutes, is_off FROM payroll_work_schedules WHERE employee_id = ?");
+        $stmt->execute([(int)$_GET['emp_id']]);
+        echo json_encode($stmt->fetchAll(PDO::FETCH_ASSOC));
+    } catch (Exception $e) {
+        echo json_encode([]);
+    }
+    exit;
+}
+
 // ══════════════════════════════════════════════
 // AUTO-CREATE TABLES & COLUMNS (idempotent)
 // ══════════════════════════════════════════════
@@ -306,6 +325,58 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
 
+    // ── Save Work Schedules ──
+    if ($action === 'save_work_schedule') {
+        $_pdo->exec("CREATE TABLE IF NOT EXISTS `payroll_work_schedules` (
+            `id` INT AUTO_INCREMENT PRIMARY KEY,
+            `employee_id` INT NOT NULL,
+            `day_of_week` TINYINT NOT NULL DEFAULT 0,
+            `start_time` TIME NOT NULL DEFAULT '09:00:00',
+            `end_time` TIME NOT NULL DEFAULT '17:00:00',
+            `break_minutes` INT DEFAULT 60,
+            `is_off` TINYINT(1) DEFAULT 0,
+            `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+            UNIQUE KEY uk_emp_day (employee_id, day_of_week)
+        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+        $schedEmpId = (int)($_POST['schedule_employee_id'] ?? 0);
+        $schedMode = $_POST['schedule_mode'] ?? 'individual'; // individual or bulk
+        $dayNames = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+
+        if ($schedMode === 'bulk') {
+            // Apply same schedule to all active employees
+            $bulkStart = $_POST['bulk_start_time'] ?? '09:00';
+            $bulkEnd = $_POST['bulk_end_time'] ?? '17:00';
+            $bulkBreak = (int)($_POST['bulk_break'] ?? 60);
+            $bulkOffDays = $_POST['off_days'] ?? [];
+
+            $allEmps = $db->fetchAll("SELECT id FROM payroll_employees WHERE is_active = 1") ?: [];
+            $saved = 0;
+            foreach ($allEmps as $emp) {
+                for ($d = 0; $d <= 6; $d++) {
+                    $isOff = in_array((string)$d, $bulkOffDays) ? 1 : 0;
+                    $_pdo->prepare("INSERT INTO payroll_work_schedules (employee_id, day_of_week, start_time, end_time, break_minutes, is_off) VALUES (?,?,?,?,?,?) ON DUPLICATE KEY UPDATE start_time=VALUES(start_time), end_time=VALUES(end_time), break_minutes=VALUES(break_minutes), is_off=VALUES(is_off)")
+                        ->execute([$emp['id'], $d, $bulkStart, $bulkEnd, $bulkBreak, $isOff]);
+                }
+                $saved++;
+            }
+            $msg = "✅ Jadwal berhasil diterapkan ke {$saved} karyawan."; $msgType = 'success';
+        } elseif ($schedEmpId > 0) {
+            // Individual schedule
+            for ($d = 0; $d <= 6; $d++) {
+                $st = $_POST["start_$d"] ?? '09:00';
+                $et = $_POST["end_$d"] ?? '17:00';
+                $brk = (int)($_POST["break_$d"] ?? 60);
+                $off = isset($_POST["off_$d"]) ? 1 : 0;
+
+                $_pdo->prepare("INSERT INTO payroll_work_schedules (employee_id, day_of_week, start_time, end_time, break_minutes, is_off) VALUES (?,?,?,?,?,?) ON DUPLICATE KEY UPDATE start_time=VALUES(start_time), end_time=VALUES(end_time), break_minutes=VALUES(break_minutes), is_off=VALUES(is_off)")
+                    ->execute([$schedEmpId, $d, $st, $et, $brk, $off]);
+            }
+            $empName = $db->fetchOne("SELECT full_name FROM payroll_employees WHERE id = ?", [$schedEmpId])['full_name'] ?? '';
+            $msg = "✅ Jadwal kerja {$empName} berhasil disimpan."; $msgType = 'success';
+        }
+    }
+
     // ── Leave / Cuti approval ──
     if ($action === 'approve_leave' || $action === 'reject_leave') {
         $leaveId = (int)($_POST['leave_id'] ?? 0);
@@ -561,6 +632,7 @@ include '../../includes/header.php';
         <button class="att-tab" data-tab="fingerprint">🔐 Fingerprint</button>
         <button class="att-tab" data-tab="cuti">🏖️ Cuti<?php if ($pendingLeaves > 0): ?> <span style="background:var(--red);color:#fff;padding:1px 6px;border-radius:10px;font-size:9px;font-weight:800;"><?php echo $pendingLeaves; ?></span><?php endif; ?></button>
         <button class="att-tab" data-tab="manual">✋ Manual</button>
+        <button class="att-tab" data-tab="schedule">📅 Jadwal Kerja</button>
         <button class="att-tab" data-tab="reset">🔄 Reset</button>
     </div>
 
@@ -980,6 +1052,162 @@ include '../../includes/header.php';
                 </tbody>
             </table>
         </div>
+    </div>
+
+    <!-- ═══════════════════════════════════════ -->
+    <!-- TAB: JADWAL KERJA (Work Schedules)     -->
+    <!-- ═══════════════════════════════════════ -->
+    <div class="tab-panel" id="panel-schedule" style="display:none;">
+
+        <!-- Quick Bulk Schedule -->
+        <div class="reset-card" style="margin-bottom:16px;">
+            <div style="display:flex;gap:12px;align-items:flex-start;">
+                <div class="reset-icon" style="background:#eff6ff;color:var(--blue);">📅</div>
+                <div style="flex:1;">
+                    <h3 style="font-size:13px;font-weight:700;color:var(--navy);margin:0 0 4px;">Atur Jadwal Semua Karyawan</h3>
+                    <p style="font-size:10px;color:var(--muted);margin:0 0 10px;">Terapkan jadwal yang sama ke semua karyawan aktif sekaligus.</p>
+                    <form method="POST" action="?tab=schedule" onsubmit="return confirm('Terapkan jadwal ini ke semua karyawan?')">
+                        <input type="hidden" name="action" value="save_work_schedule">
+                        <input type="hidden" name="schedule_mode" value="bulk">
+                        <div class="fgrid" style="margin-bottom:10px;">
+                            <div class="fg"><label class="fl">Jam Masuk</label><input type="time" name="bulk_start_time" class="fi" value="09:00" required></div>
+                            <div class="fg"><label class="fl">Jam Pulang</label><input type="time" name="bulk_end_time" class="fi" value="17:00" required></div>
+                            <div class="fg"><label class="fl">Istirahat (menit)</label><input type="number" name="bulk_break" class="fi" value="60" min="0" max="120"></div>
+                        </div>
+                        <div style="margin-bottom:10px;">
+                            <label class="fl">Hari Libur</label>
+                            <div style="display:flex;flex-wrap:wrap;gap:6px;margin-top:4px;">
+                                <?php $dayLabels = ['Min','Sen','Sel','Rab','Kam','Jum','Sab']; ?>
+                                <?php foreach ($dayLabels as $di => $dl): ?>
+                                <label style="display:flex;align-items:center;gap:4px;padding:4px 10px;background:var(--bg);border-radius:6px;font-size:11px;font-weight:600;cursor:pointer;<?php echo $di === 0 ? 'border:1px solid var(--red);' : 'border:1px solid var(--border);'; ?>">
+                                    <input type="checkbox" name="off_days[]" value="<?php echo $di; ?>" <?php echo $di === 0 ? 'checked' : ''; ?> style="accent-color:var(--red);"> <?php echo $dl; ?>
+                                </label>
+                                <?php endforeach; ?>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">📅 Terapkan ke Semua (<?php echo count($employees); ?> karyawan)</button>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Individual Schedule per Employee -->
+        <div class="reset-card">
+            <div style="display:flex;gap:12px;align-items:flex-start;">
+                <div class="reset-icon" style="background:#fef3c7;color:var(--orange);">👤</div>
+                <div style="flex:1;">
+                    <h3 style="font-size:13px;font-weight:700;color:var(--navy);margin:0 0 4px;">Jadwal per Karyawan</h3>
+                    <p style="font-size:10px;color:var(--muted);margin:0 0 10px;">Atur jadwal spesifik per hari untuk karyawan tertentu.</p>
+
+                    <div class="fg" style="margin-bottom:12px;">
+                        <label class="fl">Pilih Karyawan</label>
+                        <select id="schedEmpSelect" class="fi" onchange="loadEmpSchedule(this.value)">
+                            <option value="">— Pilih Karyawan —</option>
+                            <?php foreach ($employees as $emp): ?>
+                            <option value="<?php echo $emp['id']; ?>"><?php echo htmlspecialchars($emp['employee_code'] . ' — ' . $emp['full_name']); ?></option>
+                            <?php endforeach; ?>
+                        </select>
+                    </div>
+
+                    <form method="POST" action="?tab=schedule" id="schedForm" style="display:none;">
+                        <input type="hidden" name="action" value="save_work_schedule">
+                        <input type="hidden" name="schedule_mode" value="individual">
+                        <input type="hidden" name="schedule_employee_id" id="schedEmpId">
+
+                        <div id="schedGrid" style="border:1px solid var(--border);border-radius:8px;overflow:hidden;">
+                            <?php
+                            $dayFull = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+                            foreach ($dayFull as $di => $dn): ?>
+                            <div style="display:grid;grid-template-columns:90px 1fr 1fr 70px 50px;gap:8px;align-items:center;padding:8px 12px;<?php echo $di > 0 ? 'border-top:1px solid var(--border);' : ''; ?><?php echo $di === 0 ? 'background:#fef2f2;' : ($di === 6 ? 'background:#fef2f2;' : ''); ?>" id="schedRow<?php echo $di; ?>">
+                                <div style="font-weight:600;font-size:12px;"><?php echo $dn; ?></div>
+                                <input type="time" name="start_<?php echo $di; ?>" class="fi sched-time" value="09:00" style="padding:5px 6px;font-size:11px;" id="start_<?php echo $di; ?>">
+                                <input type="time" name="end_<?php echo $di; ?>" class="fi sched-time" value="17:00" style="padding:5px 6px;font-size:11px;" id="end_<?php echo $di; ?>">
+                                <input type="number" name="break_<?php echo $di; ?>" class="fi" value="60" min="0" max="120" style="padding:5px 6px;font-size:11px;" id="break_<?php echo $di; ?>">
+                                <label style="display:flex;align-items:center;gap:3px;font-size:10px;cursor:pointer;" title="Libur">
+                                    <input type="checkbox" name="off_<?php echo $di; ?>" value="1" onchange="toggleDayOff(<?php echo $di; ?>,this.checked)" id="off_<?php echo $di; ?>" <?php echo ($di === 0) ? 'checked' : ''; ?>> Off
+                                </label>
+                            </div>
+                            <?php endforeach; ?>
+                        </div>
+                        <div style="display:flex;justify-content:space-between;align-items:center;margin-top:10px;">
+                            <span style="font-size:10px;color:var(--muted);">Kolom: Hari | Masuk | Pulang | Istirahat(min) | Libur</span>
+                            <button type="submit" class="btn btn-primary">💾 Simpan Jadwal</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- Current Schedules Overview -->
+        <div class="reset-card" style="margin-top:16px;">
+            <h3 style="font-size:13px;font-weight:700;color:var(--navy);margin:0 0 10px;">📋 Ringkasan Jadwal Terkini</h3>
+            <?php
+            // Load existing schedules
+            $_pdo->exec("CREATE TABLE IF NOT EXISTS `payroll_work_schedules` (
+                `id` INT AUTO_INCREMENT PRIMARY KEY, `employee_id` INT NOT NULL, `day_of_week` TINYINT NOT NULL DEFAULT 0,
+                `start_time` TIME NOT NULL DEFAULT '09:00:00', `end_time` TIME NOT NULL DEFAULT '17:00:00',
+                `break_minutes` INT DEFAULT 60, `is_off` TINYINT(1) DEFAULT 0,
+                `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE KEY uk_emp_day (employee_id, day_of_week)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+            $schedSummary = $_pdo->query("
+                SELECT pe.id, pe.employee_code, pe.full_name, pe.position,
+                    COUNT(ws.id) as sched_count,
+                    GROUP_CONCAT(CASE WHEN ws.is_off = 1 THEN ws.day_of_week END) as off_days,
+                    MIN(CASE WHEN ws.is_off = 0 THEN ws.start_time END) as earliest_start,
+                    MAX(CASE WHEN ws.is_off = 0 THEN ws.end_time END) as latest_end
+                FROM payroll_employees pe
+                LEFT JOIN payroll_work_schedules ws ON ws.employee_id = pe.id
+                WHERE pe.is_active = 1
+                GROUP BY pe.id
+                ORDER BY pe.full_name
+            ")->fetchAll(PDO::FETCH_ASSOC);
+            $dShort = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
+            ?>
+            <?php if (empty($schedSummary)): ?>
+                <div style="text-align:center;padding:16px;color:var(--muted);font-size:12px;">Belum ada karyawan aktif.</div>
+            <?php else: ?>
+            <div style="overflow-x:auto;">
+                <table class="tbl">
+                    <thead><tr><th>Karyawan</th><th>Jabatan</th><th>Jam Kerja</th><th>Hari Libur</th><th>Status</th></tr></thead>
+                    <tbody>
+                    <?php foreach ($schedSummary as $ss): ?>
+                    <tr>
+                        <td style="font-weight:600;"><?php echo htmlspecialchars($ss['employee_code'] . ' — ' . $ss['full_name']); ?></td>
+                        <td style="color:var(--muted);font-size:10px;"><?php echo htmlspecialchars($ss['position'] ?? '—'); ?></td>
+                        <td>
+                            <?php if ($ss['sched_count'] > 0): ?>
+                                <span style="font-weight:600;"><?php echo substr($ss['earliest_start'] ?? '09:00', 0, 5); ?> — <?php echo substr($ss['latest_end'] ?? '17:00', 0, 5); ?></span>
+                            <?php else: ?>
+                                <span style="color:var(--muted);">—</span>
+                            <?php endif; ?>
+                        </td>
+                        <td>
+                            <?php
+                            if ($ss['off_days']) {
+                                $offArr = explode(',', $ss['off_days']);
+                                $offLabels = array_map(fn($d) => $dShort[(int)$d] ?? '?', $offArr);
+                                echo '<span style="color:var(--red);font-size:10px;font-weight:600;">' . implode(', ', $offLabels) . '</span>';
+                            } else {
+                                echo '<span style="color:var(--muted);font-size:10px;">—</span>';
+                            }
+                            ?>
+                        </td>
+                        <td>
+                            <?php if ($ss['sched_count'] > 0): ?>
+                                <span class="badge b-hadir">✅ Sudah diatur</span>
+                            <?php else: ?>
+                                <span class="badge b-absent">⚠️ Belum</span>
+                            <?php endif; ?>
+                        </td>
+                    </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+            <?php endif; ?>
+        </div>
+
     </div>
 
     <!-- ═══════════════════════════════════════ -->
@@ -1433,6 +1661,56 @@ function quickManualAdd(id, name, date) {
 function closeModal(id) { document.getElementById(id).classList.remove('open'); }
 document.querySelectorAll('.modal-overlay').forEach(m => {
     m.addEventListener('click', e => { if (e.target === m) m.classList.remove('open'); });
+});
+
+// ─ SCHEDULE MANAGEMENT ─
+function loadEmpSchedule(empId) {
+    const form = document.getElementById('schedForm');
+    if (!empId) { form.style.display = 'none'; return; }
+    document.getElementById('schedEmpId').value = empId;
+    // Reset to defaults first
+    for (let d = 0; d < 7; d++) {
+        document.getElementById('start_' + d).value = '09:00';
+        document.getElementById('end_' + d).value = '17:00';
+        document.getElementById('break_' + d).value = '60';
+        document.getElementById('off_' + d).checked = (d === 0);
+        toggleDayOff(d, d === 0);
+    }
+    form.style.display = 'block';
+    // Fetch existing schedule via AJAX
+    fetch('<?php echo "?tab=schedule&ajax_schedule=1&emp_id="; ?>' + encodeURIComponent(empId))
+        .then(r => r.json())
+        .then(data => {
+            if (data && data.length) {
+                data.forEach(row => {
+                    const d = parseInt(row.day_of_week);
+                    if (row.start_time) document.getElementById('start_' + d).value = row.start_time.substring(0, 5);
+                    if (row.end_time) document.getElementById('end_' + d).value = row.end_time.substring(0, 5);
+                    document.getElementById('break_' + d).value = row.break_minutes || 60;
+                    const isOff = parseInt(row.is_off) === 1;
+                    document.getElementById('off_' + d).checked = isOff;
+                    toggleDayOff(d, isOff);
+                });
+            }
+        })
+        .catch(() => {}); // Use defaults on error
+}
+
+function toggleDayOff(dayIndex, isChecked) {
+    const row = document.getElementById('schedRow' + dayIndex);
+    const inputs = row.querySelectorAll('input[type="time"], input[type="number"]');
+    inputs.forEach(inp => {
+        inp.disabled = isChecked;
+        inp.style.opacity = isChecked ? '0.3' : '1';
+    });
+    row.style.opacity = isChecked ? '0.5' : '1';
+}
+
+// Init Sunday as off on page load
+document.addEventListener('DOMContentLoaded', () => {
+    if (document.getElementById('off_0') && document.getElementById('off_0').checked) {
+        toggleDayOff(0, true);
+    }
 });
 </script>
 
