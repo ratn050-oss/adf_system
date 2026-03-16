@@ -34,6 +34,66 @@ $months = [
 
 $period = $db->fetchOne("SELECT * FROM payroll_periods WHERE period_month = ? AND period_year = ?", [$month, $year]);
 
+// ── Helper: Get attendance hours from fingerprint/GPS data for a month ──
+function getAttendanceHours($db, $empId, $month, $year) {
+    $monthStr = sprintf('%04d-%02d', $year, $month);
+    $rows = $db->fetchAll(
+        "SELECT work_hours FROM payroll_attendance WHERE employee_id = ? AND DATE_FORMAT(attendance_date, '%Y-%m') = ? AND work_hours > 0",
+        [$empId, $monthStr]
+    );
+    $totalHours = 0;
+    $totalOvertimeHours = 0;
+    foreach ($rows as $r) {
+        $wh = (float)$r['work_hours'];
+        $totalHours += $wh;
+        if ($wh > 8) {
+            $otRaw = $wh - 8;
+            $otUnits = floor($otRaw / 0.75); // per 45-min block
+            $totalOvertimeHours += $otUnits * 0.75;
+        }
+    }
+    return [
+        'work_hours' => round($totalHours, 2),
+        'overtime_hours' => round($totalOvertimeHours, 2),
+        'days_worked' => count($rows)
+    ];
+}
+
+// ── Helper: Sync all slips with attendance data ──
+function syncSlipsWithAttendance($db, $periodId, $month, $year) {
+    $slipsToSync = $db->fetchAll("SELECT id, employee_id, base_salary FROM payroll_slips WHERE period_id = ?", [$periodId]);
+    foreach ($slipsToSync as $slip) {
+        $att = getAttendanceHours($db, $slip['employee_id'], $month, $year);
+        $workH = $att['work_hours'];
+        $otH = $att['overtime_hours'];
+        $baseSalary = (float)$slip['base_salary'];
+        $hourlyRate = $baseSalary / 200;
+        $actualBase = ($workH >= 200) ? $baseSalary : round($workH * $hourlyRate, 2);
+        $otRate = $hourlyRate;
+        $otAmount = round($otH * $otRate, 2);
+
+        // Read current addon values
+        $cur = $db->fetchOne("SELECT incentive, allowance, bonus, other_income, deduction_loan, deduction_absence, deduction_tax, deduction_bpjs, deduction_other FROM payroll_slips WHERE id = ?", [$slip['id']]);
+        $incentive = (float)($cur['incentive'] ?? 0);
+        $allowance = (float)($cur['allowance'] ?? 0);
+        $bonus = (float)($cur['bonus'] ?? 0);
+        $other = (float)($cur['other_income'] ?? 0);
+        $totalEarn = $actualBase + $otAmount + $incentive + $allowance + $bonus + $other;
+        $loan = (float)($cur['deduction_loan'] ?? 0);
+        $absence = (float)($cur['deduction_absence'] ?? 0);
+        $tax = (float)($cur['deduction_tax'] ?? 0);
+        $bpjs = (float)($cur['deduction_bpjs'] ?? 0);
+        $dedOther = (float)($cur['deduction_other'] ?? 0);
+        $totalDed = $loan + $absence + $tax + $bpjs + $dedOther;
+        $netSalary = $totalEarn - $totalDed;
+
+        $db->query("UPDATE payroll_slips SET work_hours=?, overtime_hours=?, actual_base=?, overtime_rate=?, overtime_amount=?, total_earnings=?, total_deductions=?, net_salary=? WHERE id=?",
+            [$workH, $otH, $actualBase, $otRate, $otAmount, $totalEarn, $totalDed, $netSalary, $slip['id']]);
+    }
+    // Update period totals
+    $db->query("UPDATE payroll_periods p LEFT JOIN (SELECT period_id, SUM(total_earnings) as gross, SUM(total_deductions) as ded, SUM(net_salary) as net, COUNT(id) as cnt FROM payroll_slips WHERE period_id = ?) s ON p.id = s.period_id SET p.total_gross = s.gross, p.total_deductions = s.ded, p.total_net = s.net, p.total_employees = s.cnt WHERE p.id = ?", [$periodId, $periodId]);
+}
+
 if (!$period && isset($_POST['create_period'])) {
     try {
         $label = $months[$month] . ' ' . $year;
@@ -43,8 +103,14 @@ if (!$period && isset($_POST['create_period'])) {
         
         $employees = $db->fetchAll("SELECT * FROM payroll_employees WHERE is_active = 1");
         foreach ($employees as $emp) {
-            $db->query("INSERT INTO payroll_slips (period_id, employee_id, employee_name, position, base_salary, work_hours, actual_base) VALUES (?, ?, ?, ?, ?, 200, ?)",
-                      [$period['id'], $emp['id'], $emp['full_name'], $emp['position'], $emp['base_salary'], $emp['base_salary']]);
+            // Get real attendance hours for this month
+            $att = getAttendanceHours($db, $emp['id'], $month, $year);
+            $workH = $att['work_hours'] > 0 ? $att['work_hours'] : 0;
+            $baseSalary = (float)$emp['base_salary'];
+            $hourlyRate = $baseSalary / 200;
+            $actualBase = ($workH >= 200) ? $baseSalary : round($workH * $hourlyRate, 2);
+            $db->query("INSERT INTO payroll_slips (period_id, employee_id, employee_name, position, base_salary, work_hours, actual_base, overtime_hours, overtime_rate, overtime_amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                      [$period['id'], $emp['id'], $emp['full_name'], $emp['position'], $baseSalary, $workH, $actualBase, $att['overtime_hours'], $hourlyRate, round($att['overtime_hours'] * $hourlyRate, 2)]);
         }
         
         setFlash('success', 'Payroll period created successfully');
@@ -66,6 +132,15 @@ if ($period) {
         [$period['id']]
     );
     
+    // ── Auto-sync slips with attendance data on every page load (draft only) ──
+    if ($period['status'] === 'draft') {
+        try {
+            syncSlipsWithAttendance($db, $period['id'], $month, $year);
+            // Re-fetch period after sync
+            $period = $db->fetchOne("SELECT * FROM payroll_periods WHERE id = ?", [$period['id']]);
+        } catch (Exception $e) { /* ignore sync errors */ }
+    }
+
         // Ensure displayed period totals are in sync with payroll_slips sums
         try {
             $sums = $db->fetchOne("SELECT IFNULL(SUM(total_earnings),0) as gross, IFNULL(SUM(total_deductions),0) as ded, IFNULL(SUM(net_salary),0) as net, COUNT(id) as cnt FROM payroll_slips WHERE period_id = ?", [$period['id']]);
@@ -254,8 +329,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['refresh_employees']))
     $added = 0;
     foreach ($employees as $emp) {
         if (!in_array($emp['id'], $existingIds)) {
-            $db->query("INSERT INTO payroll_slips (period_id, employee_id, employee_name, position, base_salary, work_hours, actual_base) VALUES (?, ?, ?, ?, ?, 200, ?)",
-                      [$period['id'], $emp['id'], $emp['full_name'], $emp['position'], $emp['base_salary'], $emp['base_salary']]);
+            $att = getAttendanceHours($db, $emp['id'], $month, $year);
+            $workH = $att['work_hours'] > 0 ? $att['work_hours'] : 0;
+            $baseSalary = (float)$emp['base_salary'];
+            $hourlyRate = $baseSalary / 200;
+            $actualBase = ($workH >= 200) ? $baseSalary : round($workH * $hourlyRate, 2);
+            $db->query("INSERT INTO payroll_slips (period_id, employee_id, employee_name, position, base_salary, work_hours, actual_base, overtime_hours, overtime_rate, overtime_amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                      [$period['id'], $emp['id'], $emp['full_name'], $emp['position'], $baseSalary, $workH, $actualBase, $att['overtime_hours'], $hourlyRate, round($att['overtime_hours'] * $hourlyRate, 2)]);
             $added++;
         }
     }
@@ -267,6 +347,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['refresh_employees']))
                       [$emp['full_name'], $emp['position'], $period['id'], $emp['id']]);
         }
     }
+
+    // Sync attendance hours for all slips
+    syncSlipsWithAttendance($db, $period['id'], $month, $year);
     
     $msg = [];
     if ($added > 0) $msg[] = "$added added";
@@ -726,7 +809,7 @@ include '../../includes/header.php';
 
     <!-- Info Box -->
     <div style="background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3); border-radius: 10px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.8rem; color: #b45309;">
-        <strong>Work Hours Logic:</strong> Target = 200 hours. If Work Hrs &ge; 200, employee gets full Base Salary. If Work Hrs &lt; 200, calculated as (Base/200) &times; Work Hrs.
+        <strong>🔄 Auto-Sync Absensi:</strong> Jam kerja &amp; lembur otomatis diambil dari data fingerprint/GPS setiap hari. Target = 200 jam. Lembur = kelipatan 45 menit di atas 8 jam/hari. Status <code>draft</code> = auto-update realtime.
     </div>
 
     <!-- Payroll Table -->
