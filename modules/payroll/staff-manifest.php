@@ -22,16 +22,15 @@ if ($bizSlug) {
 }
 
 // Resolve icon: pwa_app_icon > login_logo > fallback GD icon
-$iconUrl192 = 'absen-icon.php?size=192';
-$iconUrl512 = 'absen-icon.php?size=512';
+// All URLs must be ABSOLUTE for Android WebAPK generation
+$baseHttpUrl = defined('BASE_URL') ? BASE_URL : '';
+$moduleUrl = $baseHttpUrl . '/modules/payroll';
+$iconUrl192 = $moduleUrl . '/absen-icon.php?size=192';
+$iconUrl512 = $moduleUrl . '/absen-icon.php?size=512';
 $iconType = 'image/png';
 $rootDir = dirname(dirname(__DIR__));
-$baseHttpUrl = defined('BASE_URL') ? BASE_URL : '';
 try {
-    // Settings (login_logo, pwa_app_icon) are stored by developer-settings.php
-    // which uses Database::getInstance() — same DB as login.php reads from
     $mdb = Database::getInstance();
-    // Each key has a local directory prefix for when stored as filename
     $iconKeys = [
         'pwa_app_icon' => 'uploads/icons/',
         'login_logo'   => 'uploads/logos/',
@@ -41,7 +40,6 @@ try {
         $iconVal = $iconRow['setting_value'] ?? null;
         if (!$iconVal) continue;
         if (strpos($iconVal, 'http') === 0) {
-            // Full URL (Cloudinary) — use directly
             $iconUrl192 = $iconVal;
             $iconUrl512 = $iconVal;
             if (preg_match('/\.(png)$/i', $iconVal)) $iconType = 'image/png';
@@ -49,7 +47,6 @@ try {
             else $iconType = 'image/png';
             break;
         } else {
-            // Local filename — prepend directory prefix
             $fullPath = $rootDir . '/' . $localPrefix . $iconVal;
             if (file_exists($fullPath)) {
                 $iconUrl192 = $baseHttpUrl . '/' . $localPrefix . $iconVal;
@@ -58,20 +55,22 @@ try {
                 $iconType = in_array($ext, ['jpg','jpeg']) ? 'image/jpeg' : 'image/png';
                 break;
             }
-            // File not found — continue to next key
         }
     }
 } catch (Exception $e) {}
 
-$startUrl = 'staff-portal.php' . ($bizSlug ? '?b=' . urlencode($bizSlug) : '');
+$startUrl = $moduleUrl . '/staff-portal.php' . ($bizSlug ? '?b=' . urlencode($bizSlug) : '');
+$scopeUrl = $moduleUrl . '/';
+$manifestId = '/modules/payroll/staff-portal' . ($bizSlug ? '?b=' . $bizSlug : '');
 
 while (ob_get_level()) ob_end_clean();
 echo json_encode([
+    'id'               => $manifestId,
     'name'             => $bizName . ' — Staff Portal',
     'short_name'       => 'Staff Portal',
     'description'      => 'Portal karyawan: absensi, monitoring, cuti, occupancy, breakfast',
     'start_url'        => $startUrl,
-    'scope'            => '.',
+    'scope'            => $scopeUrl,
     'display'          => 'standalone',
     'orientation'      => 'portrait',
     'theme_color'      => '#0d1f3c',

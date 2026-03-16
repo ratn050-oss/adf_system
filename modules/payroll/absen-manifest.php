@@ -23,15 +23,14 @@ if ($bizSlug) {
     }
 }
 
-// Resolve icon: pwa_app_icon > login_logo > fallback GD icon
-$iconUrl192 = 'absen-icon.php?size=192';
-$iconUrl512 = 'absen-icon.php?size=512';
+// Resolve icon — all URLs must be ABSOLUTE for Android WebAPK
+$baseHttpUrl = defined('BASE_URL') ? BASE_URL : '';
+$moduleUrl = $baseHttpUrl . '/modules/payroll';
+$iconUrl192 = $moduleUrl . '/absen-icon.php?size=192';
+$iconUrl512 = $moduleUrl . '/absen-icon.php?size=512';
 $iconType = 'image/png';
 $rootDir = dirname(dirname(__DIR__));
-$baseHttpUrl = defined('BASE_URL') ? BASE_URL : '';
 try {
-    // Settings (login_logo, pwa_app_icon) are stored by developer-settings.php
-    // which uses Database::getInstance() — same DB as login.php reads from
     $mdb = Database::getInstance();
     $iconKeys = [
         'pwa_app_icon' => 'uploads/icons/',
@@ -57,20 +56,22 @@ try {
                 $iconType = in_array($ext, ['jpg','jpeg']) ? 'image/jpeg' : 'image/png';
                 break;
             }
-            // File not found — continue to next key
         }
     }
 } catch (Exception $e) {}
 
-$startUrl = 'absen.php' . ($bizSlug ? '?b=' . urlencode($bizSlug) : '');
+$startUrl = $moduleUrl . '/absen.php' . ($bizSlug ? '?b=' . urlencode($bizSlug) : '');
+$scopeUrl = $moduleUrl . '/';
+$manifestId = '/modules/payroll/absen' . ($bizSlug ? '?b=' . $bizSlug : '');
 
 while (ob_get_level()) ob_end_clean();
 echo json_encode([
+    'id'               => $manifestId,
     'name'             => $bizName,
     'short_name'       => $bizShort,
     'description'      => 'Absensi GPS dan deteksi wajah karyawan',
     'start_url'        => $startUrl,
-    'scope'            => '.',
+    'scope'            => $scopeUrl,
     'display'          => 'standalone',
     'orientation'      => 'portrait',
     'theme_color'      => '#0d1f3c',
