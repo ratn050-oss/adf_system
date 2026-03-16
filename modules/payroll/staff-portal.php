@@ -165,28 +165,29 @@ if (!empty($absenConfig['app_logo'])) {
 
         /* Booking Calendar */
         .cal-nav { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; gap:6px; }
-        .cal-nav button { background:var(--navy); color:#fff; border:none; border-radius:8px; padding:6px 12px; font-size:11px; font-weight:600; cursor:pointer; }
-        .cal-nav button:active { opacity:.7; }
+        .cal-nav button { background:var(--navy); color:#fff; border:none; border-radius:8px; padding:6px 14px; font-size:11px; font-weight:600; cursor:pointer; transition:.15s; }
+        .cal-nav button:active { opacity:.7; transform:scale(.96); }
         .cal-nav .cal-period { font-size:12px; font-weight:700; color:var(--navy); }
-        .cal-scroll { overflow-x:auto; -webkit-overflow-scrolling:touch; border:1px solid var(--border); border-radius:10px; }
-        .cal-grid { display:grid; min-width:max-content; }
-        .cal-hdr { position:sticky; top:0; background:var(--navy); color:#fff; font-size:9px; font-weight:700; text-align:center; padding:6px 2px; z-index:2; }
-        .cal-hdr.today-h { background:var(--gold); color:var(--navy); }
-        .cal-hdr.room-h { text-align:left; padding-left:6px; min-width:80px; position:sticky; left:0; z-index:3; }
-        .cal-type-row { grid-column:1/-1; background:#f1f5f9; padding:4px 8px; font-size:10px; font-weight:700; color:var(--navy); border-top:1px solid var(--border); }
-        .cal-room { background:var(--bg); font-size:10px; font-weight:700; color:var(--navy); padding:4px 6px; position:sticky; left:0; z-index:1; border-right:1px solid var(--border); border-bottom:1px solid #f1f5f9; display:flex; align-items:center; min-width:80px; }
-        .cal-cell { position:relative; min-width:42px; height:30px; border-right:1px solid #f1f5f9; border-bottom:1px solid #f1f5f9; font-size:8px; }
-        .cal-cell.today-c { background:rgba(234,179,8,.08); }
-        .cal-bar { position:absolute; top:3px; height:24px; border-radius:4px; display:flex; align-items:center; padding:0 4px; font-size:8px; font-weight:700; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; z-index:1; cursor:pointer; box-shadow:0 1px 3px rgba(0,0,0,.2); min-width:20px; }
+        .cal-scroll { overflow-x:auto; -webkit-overflow-scrolling:touch; border:1px solid var(--border); border-radius:10px; background:#fff; }
+        .cal-table { border-collapse:collapse; width:max-content; }
+        .cal-table th { position:sticky; top:0; background:var(--navy); color:#fff; font-size:9px; font-weight:700; text-align:center; padding:8px 0; z-index:3; min-width:70px; white-space:nowrap; border:none; }
+        .cal-table th.today-h { background:var(--gold); color:var(--navy); }
+        .cal-table th.room-h { text-align:left; padding-left:8px; min-width:60px; width:60px; position:sticky; left:0; z-index:4; background:var(--navy); }
+        .cal-table .cal-type-row td { background:#f1f5f9; padding:5px 8px; font-size:10px; font-weight:700; color:var(--navy); border-top:2px solid var(--border); }
+        .cal-table .cal-room-cell { background:#fff; font-size:10px; font-weight:800; color:var(--navy); padding:0 6px; position:sticky; left:0; z-index:2; border-right:2px solid var(--border); width:60px; min-width:60px; white-space:nowrap; height:34px; }
+        .cal-table .cal-day-cell { position:relative; min-width:70px; height:34px; border-right:1px solid #f0f0f0; border-bottom:1px solid #f0f0f0; padding:0; vertical-align:top; }
+        .cal-table .cal-day-cell.today-c { background:rgba(234,179,8,.06); }
+        .cal-bar { position:absolute; top:4px; left:2px; right:2px; height:26px; border-radius:6px; display:flex; align-items:center; justify-content:center; padding:0 6px; font-size:9px; font-weight:700; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; z-index:1; cursor:pointer; box-shadow:0 2px 6px rgba(0,0,0,.18); transition:transform .15s; }
+        .cal-bar:active { transform:scale(.96); }
         .cal-bar.s-confirmed { background:linear-gradient(135deg,#06b6d4,#22d3ee); }
         .cal-bar.s-pending { background:linear-gradient(135deg,#f59e0b,#fbbf24); }
         .cal-bar.s-checked-in { background:linear-gradient(135deg,#0284c7,#0ea5e9); }
         .cal-bar.s-checked-out { background:linear-gradient(135deg,#9ca3af,#d1d5db); opacity:.5; }
-        .cal-bar span { text-shadow:0 1px 2px rgba(0,0,0,.4); }
-        .cal-legend { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; justify-content:center; }
-        .cal-legend-item { display:flex; align-items:center; gap:4px; font-size:9px; color:var(--muted); }
-        .cal-legend-dot { width:10px; height:10px; border-radius:3px; }
-        .cal-popup { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:#fff; border-radius:14px; padding:16px; box-shadow:0 20px 60px rgba(0,0,0,.3); z-index:1000; width:280px; max-width:90vw; }
+        .cal-bar span { text-shadow:0 1px 2px rgba(0,0,0,.3); font-size:8px; letter-spacing:.2px; }
+        .cal-legend { display:flex; flex-wrap:wrap; gap:10px; margin-top:10px; justify-content:center; }
+        .cal-legend-item { display:flex; align-items:center; gap:4px; font-size:9px; color:var(--muted); font-weight:500; }
+        .cal-legend-dot { width:12px; height:8px; border-radius:3px; }
+        .cal-popup { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:#fff; border-radius:16px; padding:18px; box-shadow:0 20px 60px rgba(0,0,0,.3); z-index:1000; width:290px; max-width:90vw; }
         .cal-popup-overlay { position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:999; }
 
         /* Breakfast */
@@ -462,7 +463,7 @@ if (!empty($absenConfig['app_logo'])) {
     <!-- Bottom Navigation -->
     <div class="bottom-nav">
         <div class="nav-item active" data-page="home"><span class="nav-icon">🏠</span><span class="nav-label">Home</span></div>
-        <div class="nav-item" data-page="occupancy"><span class="nav-icon">🏨</span><span class="nav-label">Room</span></div>
+        <div class="nav-item" data-page="occupancy"><span class="nav-icon">🏨</span><span class="nav-label">Room Monitor</span></div>
         <div class="nav-item" data-page="breakfast"><span class="nav-icon">☕</span><span class="nav-label">Breakfast</span></div>
     </div>
 </div>
@@ -840,49 +841,57 @@ async function loadOccupancy() {
             }
         });
 
-        const cols = days + 1; // +1 for room label column
         const dayNames = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
-        let g = `<div class="cal-grid" style="grid-template-columns:80px repeat(${days},minmax(42px,1fr));">`;
-
-        // Header row
-        g += `<div class="cal-hdr room-h">ROOMS</div>`;
+        let g = `<table class="cal-table"><thead><tr><th class="room-h">🏠</th>`;
         dates.forEach(dt => {
-            const dd = new Date(dt);
+            const dd = new Date(dt + 'T00:00:00');
             const isToday = dt === today;
-            g += `<div class="cal-hdr${isToday?' today-h':''}">${dayNames[dd.getDay()]}<br>${dd.getDate()}</div>`;
+            g += `<th class="${isToday?'today-h':''}">${dayNames[dd.getDay()]}<br><span style="font-size:12px;">${dd.getDate()}</span></th>`;
         });
+        g += `</tr></thead><tbody>`;
 
         // Room rows grouped by type
         const typeNames = Object.keys(roomsByType);
         typeNames.forEach(typeName => {
-            g += `<div class="cal-type-row">📂 ${typeName} (${roomsByType[typeName].length})</div>`;
+            g += `<tr class="cal-type-row"><td colspan="${days+1}">📂 ${typeName} (${roomsByType[typeName].length})</td></tr>`;
             roomsByType[typeName].forEach(room => {
-                g += `<div class="cal-room">${room.room_number}</div>`;
                 const roomBookings = bookingMap[room.id] || [];
+                // Build a "used" array to track which cells are covered by a colspan
+                const used = new Array(days).fill(false);
+                roomBookings.forEach(rb => {
+                    for (let c = rb.startCol; c < rb.startCol + rb.span; c++) {
+                        if (c > rb.startCol) used[c] = true; // mark non-start cells as used
+                    }
+                });
+
+                g += `<tr><td class="cal-room-cell">${room.room_number}</td>`;
                 for (let i = 0; i < days; i++) {
+                    if (used[i]) continue; // skip cells consumed by colspan
                     const isToday = dates[i] === today;
-                    g += `<div class="cal-cell${isToday?' today-c':''}">`;
-                    // Render booking bars that start on this column
-                    roomBookings.forEach(rb => {
-                        if (rb.startCol === i) {
-                            const wPct = (rb.span * 100) + '%';
-                            const cls = 's-' + (rb.status||'').replace('_','-');
-                            const name = (rb.guest_name||'Guest').substring(0, 10);
-                            g += `<div class="cal-bar ${cls}" style="width:${wPct};left:0;" onclick='showBookingPopup(${JSON.stringify({booking_code:rb.booking_code,guest_name:rb.guest_name,check_in_date:rb.check_in_date,check_out_date:rb.check_out_date,status:rb.status,booking_source:rb.booking_source,payment_status:rb.payment_status})})'><span>${name}</span></div>`;
-                        }
-                    });
-                    g += `</div>`;
+                    // Check if a booking starts here
+                    const bk = roomBookings.find(rb => rb.startCol === i);
+                    if (bk) {
+                        const cls = 's-' + (bk.status||'').replace('_','-');
+                        const name = (bk.guest_name||'Guest').substring(0, 8);
+                        const bData = JSON.stringify({booking_code:bk.booking_code,guest_name:bk.guest_name,check_in_date:bk.check_in_date,check_out_date:bk.check_out_date,status:bk.status,booking_source:bk.booking_source,payment_status:bk.payment_status}).replace(/'/g,'&#39;');
+                        g += `<td colspan="${bk.span}" class="cal-day-cell${isToday?' today-c':''}">`;
+                        g += `<div class="cal-bar ${cls}" onclick='showBookingPopup(${bData})'><span>${name}</span></div>`;
+                        g += `</td>`;
+                    } else {
+                        g += `<td class="cal-day-cell${isToday?' today-c':''}"></td>`;
+                    }
                 }
+                g += `</tr>`;
             });
         });
-        g += '</div>';
+        g += '</tbody></table>';
         document.getElementById('calGrid').innerHTML = g;
 
-        // Scroll to today
+        // Scroll to today column
         const todayIdx = dates.indexOf(today);
-        if (todayIdx > 2) {
+        if (todayIdx > 1) {
             const scrollEl = document.getElementById('calScroll');
-            scrollEl.scrollLeft = (todayIdx - 1) * 42;
+            setTimeout(() => { scrollEl.scrollLeft = Math.max(0, (todayIdx - 1) * 70); }, 100);
         }
     } catch(e) { 
         console.error(e);
