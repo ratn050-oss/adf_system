@@ -116,9 +116,10 @@ if ($action === 'login') {
         WHERE LOWER(sa.email) = LOWER(?)", [$email]);
 
     if (!$account) {
-        // Check how many accounts exist
-        $total = $db->fetchOne("SELECT COUNT(*) as c FROM staff_accounts");
-        echo json_encode(['success' => false, 'message' => 'Username tidak ditemukan. Total akun: ' . ($total['c'] ?? 0)]); exit;
+        // Debug: show existing usernames
+        $all = $db->fetchAll("SELECT sa.email, pe.full_name FROM staff_accounts sa LEFT JOIN payroll_employees pe ON pe.id = sa.employee_id");
+        $names = array_map(fn($a) => $a['email'] . ' (' . ($a['full_name'] ?? '?') . ')', $all ?: []);
+        echo json_encode(['success' => false, 'message' => 'Username tidak ditemukan. Akun yang ada: ' . (empty($names) ? 'kosong' : implode(', ', $names))]); exit;
     }
     if (!password_verify($password, $account['password_hash'])) {
         echo json_encode(['success' => false, 'message' => 'Password salah']); exit;
