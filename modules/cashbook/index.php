@@ -16,6 +16,11 @@ $auth->requireLogin();
 $currentUser = $auth->getCurrentUser();
 $db = Database::getInstance();
 
+// Auto-drop FK constraint on cash_book.created_by (references users in master DB, not business DB)
+try {
+    $db->getConnection()->exec("ALTER TABLE `cash_book` DROP FOREIGN KEY `cash_book_ibfk_3`");
+} catch (Exception $e) { /* already dropped or doesn't exist */ }
+
 // ==========================================
 // AUTO-SYNC UNSYNCED BOOKING PAYMENTS TO CASHBOOK
 // Works on both local AND hosting (with/without synced_to_cashbook column)

@@ -14,6 +14,11 @@ $auth = new Auth();
 $auth->requireLogin();
 $db = Database::getInstance();
 
+// Auto-drop FK constraint on cash_book.created_by (references users in master DB, not business DB)
+try {
+    $db->getConnection()->exec("ALTER TABLE `cash_book` DROP FOREIGN KEY `cash_book_ibfk_3`");
+} catch (Exception $e) { /* already dropped or doesn't exist */ }
+
 // Load business configuration
 $businessConfig = require '../../config/businesses/' . ACTIVE_BUSINESS_ID . '.php';
 
