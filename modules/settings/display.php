@@ -27,6 +27,12 @@ foreach ($result as $row) {
 // Ensure user_preferences table exists
 try {
     $db->fetchOne("SELECT 1 FROM user_preferences LIMIT 1");
+    // Drop foreign key constraint if it exists (causes errors in multi-DB setup)
+    try {
+        $db->getConnection()->exec("ALTER TABLE user_preferences DROP FOREIGN KEY user_preferences_ibfk_1");
+    } catch (Exception $fkErr) {
+        // FK doesn't exist — fine
+    }
 } catch (Exception $e) {
     // Table doesn't exist, create it (no FK to avoid errors on fresh DBs)
     try {
