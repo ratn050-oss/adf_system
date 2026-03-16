@@ -1716,134 +1716,6 @@ async function doFaceClock() {
     }
 }
 
-// ═══ PWA INSTALL — Enhanced UX ═══
-// Register SW immediately for fastest beforeinstallprompt
-if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js', { scope: './' })
-        .then(reg => console.log('[PWA] SW registered, scope:', reg.scope))
-        .catch(err => console.error('[PWA] SW registration failed:', err));
-}
-
-let deferredPrompt = null;
-let userEngaged = false;
-const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
-const ibDismissed = localStorage.getItem('ib_dismissed') === '1';
-
-console.log('[PWA] standalone:', isStandalone, 'iOS:', isIOS, 'dismissed:', ibDismissed);
-
-// Track user engagement (Chrome requires this before firing beforeinstallprompt)
-['click', 'scroll', 'keydown', 'touchstart'].forEach(evt => {
-    document.addEventListener(evt, () => { userEngaged = true; }, { once: true, passive: true });
-});
-
-function showInstallBanner(mode) {
-    if (isStandalone || ibDismissed) return;
-    const banner = document.getElementById('installBanner');
-    if (!banner || banner.classList.contains('show')) return;
-    if (mode === 'manual') {
-        banner.querySelector('.ib-title').textContent = 'Install Staff Portal';
-        banner.querySelector('.ib-sub').textContent = 'Tap menu ⋮ di Chrome → "Add to Home screen"';
-        const btn = banner.querySelector('.ib-action');
-        btn.textContent = 'Cara Install';
-        btn.onclick = (e) => {
-            e.stopPropagation();
-            alert('Untuk install:\n\n1. Tap menu ⋮ (3 titik) di kanan atas Chrome\n2. Pilih "Add to Home screen" atau "Install app"\n3. Tap "Add" atau "Install"\n\nAplikasi akan muncul di home screen!');
-        };
-    }
-    banner.classList.add('show');
-    console.log('[PWA] Banner shown, mode:', mode);
-}
-
-window.addEventListener('beforeinstallprompt', (e) => {
-    console.log('[PWA] beforeinstallprompt fired!');
-    e.preventDefault();
-    deferredPrompt = e;
-    showInstallBanner('native');
-});
-
-// Fallback: show manual hint after page is loaded + some engagement time
-if (!isStandalone && !ibDismissed) {
-    // Check multiple times — beforeinstallprompt can fire late
-    const checkTimes = [3000, 8000, 15000];
-    checkTimes.forEach(ms => {
-        setTimeout(() => {
-            if (!deferredPrompt && !isStandalone) {
-                // On Android Chrome, show manual hint
-                if (!isIOS) {
-                    showInstallBanner('manual');
-                }
-            }
-        }, ms);
-    });
-}
-
-// Install button handler
-document.getElementById('ibAction')?.addEventListener('click', async (e) => {
-    e.stopPropagation();
-    if (!deferredPrompt) return;
-
-    const prog = document.getElementById('installProgress');
-    const bar = document.getElementById('ipBarFill');
-    const step = document.getElementById('ipStep');
-    prog.classList.add('show');
-
-    bar.style.width = '15%'; step.textContent = 'Menyiapkan manifest...';
-    await new Promise(r => setTimeout(r, 400));
-    bar.style.width = '30%'; step.textContent = 'Mengunduh icon...';
-    await new Promise(r => setTimeout(r, 500));
-    bar.style.width = '50%'; step.textContent = 'Caching resources...';
-
-    deferredPrompt.prompt();
-    const result = await deferredPrompt.userChoice;
-
-    if (result.outcome === 'accepted') {
-        bar.style.width = '75%'; step.textContent = 'Installing app...';
-        await new Promise(r => setTimeout(r, 600));
-        bar.style.width = '100%'; step.textContent = 'Hampir selesai...';
-        await new Promise(r => setTimeout(r, 500));
-
-        document.getElementById('ipSub').style.display = 'none';
-        document.querySelector('.ip-bar').style.display = 'none';
-        step.style.display = 'none';
-        document.getElementById('ipDone').style.display = 'flex';
-
-        await new Promise(r => setTimeout(r, 2500));
-        prog.classList.remove('show');
-        document.getElementById('installBanner').classList.remove('show');
-    } else {
-        prog.classList.remove('show');
-    }
-    deferredPrompt = null;
-});
-
-// Banner click (non-button area)
-document.getElementById('installBanner')?.addEventListener('click', (e) => {
-    if (e.target.closest('.ib-close') || e.target.closest('.ib-action')) return;
-    if (deferredPrompt) document.getElementById('ibAction').click();
-});
-
-window.addEventListener('appinstalled', () => {
-    console.log('[PWA] App installed!');
-    document.getElementById('installBanner')?.classList.remove('show');
-    localStorage.removeItem('ib_dismissed');
-    deferredPrompt = null;
-    const prog = document.getElementById('installProgress');
-    if (!prog.classList.contains('show')) {
-        prog.classList.add('show');
-        document.getElementById('ipSub').style.display = 'none';
-        document.querySelector('.ip-bar').style.display = 'none';
-        document.getElementById('ipStep').style.display = 'none';
-        document.getElementById('ipDone').style.display = 'flex';
-        setTimeout(() => prog.classList.remove('show'), 2500);
-    }
-});
-
-// iOS guide
-if (isIOS && !isStandalone && !localStorage.getItem('ios_guide_dismissed')) {
-    document.getElementById('iosGuide').style.display = 'block';
-}
-
 // Check notifications every 60s
 setInterval(checkNotifs, 60000);
 setTimeout(checkNotifs, 3000);
@@ -1859,6 +1731,194 @@ setTimeout(checkNotifs, 3000);
     <button class="ib-action" id="ibAction">Install</button>
     <button class="ib-close" onclick="event.stopPropagation();this.parentElement.classList.remove('show');localStorage.setItem('ib_dismissed','1');">✕</button>
 </div>
+
+<!-- PWA Install Logic — MUST be after banner HTML -->
+<script>
+(function() {
+    // Register SW immediately
+    if ('serviceWorker' in navigator) {
+        navigator.serviceWorker.register('sw.js', { scope: './' })
+            .then(reg => console.log('[PWA] SW registered, scope:', reg.scope))
+            .catch(err => console.error('[PWA] SW failed:', err));
+    }
+
+    let deferredPrompt = null;
+    const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+    const wasDismissed = localStorage.getItem('ib_dismissed') === '1';
+    const banner = document.getElementById('installBanner');
+    const ibBtn = document.getElementById('ibAction');
+
+    console.log('[PWA] standalone:', isStandalone, 'iOS:', isIOS, 'dismissed:', wasDismissed);
+
+    // Already installed as PWA — hide everything
+    if (isStandalone) return;
+
+    function showBanner(mode) {
+        if (wasDismissed || !banner) return;
+        if (banner.classList.contains('show')) return;
+        if (mode === 'manual') {
+            banner.querySelector('.ib-title').textContent = 'Install Staff Portal';
+            banner.querySelector('.ib-sub').textContent = 'Tap ⋮ menu Chrome → "Install app"';
+            ibBtn.textContent = 'Cara Install';
+            ibBtn.dataset.mode = 'manual';
+        } else {
+            banner.querySelector('.ib-title').textContent = 'Install Staff Portal';
+            banner.querySelector('.ib-sub').textContent = 'Buka langsung dari home screen';
+            ibBtn.textContent = 'Install';
+            ibBtn.dataset.mode = 'native';
+        }
+        banner.classList.add('show');
+        console.log('[PWA] Banner shown:', mode);
+    }
+
+    // Catch beforeinstallprompt
+    window.addEventListener('beforeinstallprompt', (e) => {
+        console.log('[PWA] beforeinstallprompt fired!');
+        e.preventDefault();
+        deferredPrompt = e;
+        showBanner('native');
+    });
+
+    // Fallback timers for Android Chrome if prompt doesn't fire
+    if (!isIOS && !wasDismissed) {
+        [4000, 10000, 20000].forEach(ms => {
+            setTimeout(() => {
+                if (!deferredPrompt && !isStandalone) showBanner('manual');
+            }, ms);
+        });
+    }
+
+    // iOS guide
+    if (isIOS && !localStorage.getItem('ios_guide_dismissed')) {
+        const guide = document.getElementById('iosGuide');
+        if (guide) guide.style.display = 'block';
+    }
+
+    // Install button click
+    ibBtn.addEventListener('click', async (e) => {
+        e.stopPropagation();
+
+        // Manual mode — show guide
+        if (!deferredPrompt || ibBtn.dataset.mode === 'manual') {
+            showManualGuide();
+            return;
+        }
+
+        // Native mode — show progress + trigger Chrome prompt
+        const prog = document.getElementById('installProgress');
+        const bar = document.getElementById('ipBarFill');
+        const step = document.getElementById('ipStep');
+
+        // Reset progress UI
+        document.getElementById('ipSub').style.display = '';
+        document.querySelector('.ip-bar').style.display = '';
+        step.style.display = '';
+        document.getElementById('ipDone').style.display = 'none';
+        bar.style.width = '0%';
+
+        prog.classList.add('show');
+
+        bar.style.width = '20%'; step.textContent = 'Menyiapkan manifest...';
+        await sleep(400);
+        bar.style.width = '40%'; step.textContent = 'Mengunduh icon...';
+        await sleep(400);
+        bar.style.width = '60%'; step.textContent = 'Mempersiapkan app...';
+
+        try {
+            deferredPrompt.prompt();
+            const result = await deferredPrompt.userChoice;
+
+            if (result.outcome === 'accepted') {
+                bar.style.width = '80%'; step.textContent = 'Installing...';
+                await sleep(500);
+                bar.style.width = '100%'; step.textContent = '';
+                await sleep(400);
+
+                // Show success
+                document.getElementById('ipSub').style.display = 'none';
+                document.querySelector('.ip-bar').style.display = 'none';
+                step.style.display = 'none';
+                document.getElementById('ipDone').style.display = 'flex';
+                await sleep(2500);
+            }
+        } catch(err) {
+            console.error('[PWA] Install error:', err);
+            step.textContent = 'Gagal install, coba manual...';
+            await sleep(1500);
+        }
+
+        prog.classList.remove('show');
+        banner.classList.remove('show');
+        deferredPrompt = null;
+    });
+
+    // Banner body click
+    banner.addEventListener('click', (e) => {
+        if (e.target.closest('.ib-close') || e.target.closest('.ib-action')) return;
+        ibBtn.click();
+    });
+
+    // App installed event
+    window.addEventListener('appinstalled', () => {
+        console.log('[PWA] App installed!');
+        banner.classList.remove('show');
+        localStorage.removeItem('ib_dismissed');
+        deferredPrompt = null;
+
+        const prog = document.getElementById('installProgress');
+        if (!prog.classList.contains('show')) {
+            prog.classList.add('show');
+            document.getElementById('ipSub').style.display = 'none';
+            document.querySelector('.ip-bar').style.display = 'none';
+            document.getElementById('ipStep').style.display = 'none';
+            document.getElementById('ipDone').style.display = 'flex';
+            setTimeout(() => prog.classList.remove('show'), 2500);
+        }
+    });
+
+    function showManualGuide() {
+        // Create fullscreen guide overlay
+        const ov = document.createElement('div');
+        ov.style.cssText = 'position:fixed;inset:0;z-index:2000;background:rgba(5,10,24,.96);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:24px;animation:faceIn .3s ease;';
+        ov.innerHTML = `
+            <div style="text-align:center;max-width:320px;">
+                <div style="font-size:56px;margin-bottom:16px;">📲</div>
+                <h3 style="color:#fff;font-size:18px;font-weight:700;margin:0 0 8px;">Install Staff Portal</h3>
+                <p style="color:rgba(255,255,255,.5);font-size:12px;margin:0 0 28px;">Ikuti langkah berikut di browser Chrome:</p>
+                <div style="text-align:left;">
+                    <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:20px;">
+                        <div style="width:32px;height:32px;background:linear-gradient(135deg,#f0b429,#e09800);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:#0d1f3c;flex-shrink:0;">1</div>
+                        <div>
+                            <div style="color:#fff;font-size:14px;font-weight:600;">Tap menu ⋮</div>
+                            <div style="color:rgba(255,255,255,.4);font-size:11px;margin-top:2px;">3 titik di kanan atas Chrome</div>
+                        </div>
+                    </div>
+                    <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:20px;">
+                        <div style="width:32px;height:32px;background:linear-gradient(135deg,#f0b429,#e09800);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:#0d1f3c;flex-shrink:0;">2</div>
+                        <div>
+                            <div style="color:#fff;font-size:14px;font-weight:600;">Pilih "Install app"</div>
+                            <div style="color:rgba(255,255,255,.4);font-size:11px;margin-top:2px;">Atau "Add to Home screen"</div>
+                        </div>
+                    </div>
+                    <div style="display:flex;gap:12px;align-items:flex-start;margin-bottom:28px;">
+                        <div style="width:32px;height:32px;background:linear-gradient(135deg,#34d399,#059669);border-radius:50%;display:flex;align-items:center;justify-content:center;font-size:14px;font-weight:800;color:#fff;flex-shrink:0;">3</div>
+                        <div>
+                            <div style="color:#fff;font-size:14px;font-weight:600;">Tap "Install"</div>
+                            <div style="color:rgba(255,255,255,.4);font-size:11px;margin-top:2px;">App muncul di home screen!</div>
+                        </div>
+                    </div>
+                </div>
+                <button onclick="this.closest('div[style]').parentElement.remove();" style="background:rgba(255,255,255,.1);border:1px solid rgba(255,255,255,.15);color:#fff;padding:12px 32px;border-radius:12px;font-size:13px;font-weight:600;cursor:pointer;width:100%;">Mengerti</button>
+            </div>
+        `;
+        document.body.appendChild(ov);
+        ov.addEventListener('click', (e) => { if (e.target === ov) ov.remove(); });
+    }
+
+    function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+})();
+</script>
 
 </body>
 </html>
