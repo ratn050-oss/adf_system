@@ -413,4 +413,173 @@ if ($action === 'notifications') {
     echo json_encode(['success' => true, 'data' => $notifs]); exit;
 }
 
+// ══════════════════════════════════════
+// FACE SCAN — Get face data for logged-in staff
+// ══════════════════════════════════════
+if ($action === 'face_data') {
+    $emp = $db->fetchOne("SELECT id, employee_code, full_name, position, department, face_descriptor FROM payroll_employees WHERE id = ? AND is_active = 1", [$empId]);
+    if (!$emp) { echo json_encode(['success' => false, 'message' => 'Data karyawan tidak ditemukan']); exit; }
+
+    $today = date('Y-m-d');
+    $att = $db->fetchOne("SELECT * FROM payroll_attendance WHERE employee_id = ? AND attendance_date = ?", [$empId, $today]);
+    $config = $db->fetchOne("SELECT * FROM payroll_attendance_config WHERE id = 1");
+    $locRows = $db->fetchAll("SELECT id, location_name, lat, lng, radius_m FROM payroll_attendance_locations WHERE is_active = 1 ORDER BY id") ?: [];
+
+    echo json_encode([
+        'success' => true,
+        'employee' => [
+            'id' => (int)$emp['id'],
+            'name' => $emp['full_name'],
+            'has_face' => !empty($emp['face_descriptor']),
+            'face_descriptor' => $emp['face_descriptor'] ? json_decode($emp['face_descriptor'], true) : null,
+        ],
+        'today' => $att,
+        'config' => [
+            'locations' => array_map(fn($l) => [
+                'name' => $l['location_name'], 'lat' => (float)$l['lat'],
+                'lng' => (float)$l['lng'], 'radius' => (int)$l['radius_m'],
+            ], $locRows),
+            'checkin_end' => $config['checkin_end'] ?? '10:00:00',
+            'allow_outside' => (bool)($config['allow_outside'] ?? false),
+        ],
+    ]); exit;
+}
+
+// ══════════════════════════════════════
+// FACE SCAN — Register face descriptor
+// ══════════════════════════════════════
+if ($action === 'face_register') {
+    $descriptor = trim($_POST['face_descriptor'] ?? '');
+    if (!$descriptor) { echo json_encode(['success' => false, 'message' => 'Data wajah kosong']); exit; }
+    $arr = json_decode($descriptor, true);
+    if (!is_array($arr) || count($arr) < 100) {
+        echo json_encode(['success' => false, 'message' => 'Format descriptor wajah tidak valid']); exit;
+    }
+    $db->query("UPDATE payroll_employees SET face_descriptor = ? WHERE id = ?", [$descriptor, $empId]);
+    echo json_encode(['success' => true, 'message' => 'Wajah berhasil didaftarkan!']); exit;
+}
+
+// ══════════════════════════════════════
+// FACE SCAN — Clock in/out (split-shift like fingerprint)
+// ══════════════════════════════════════
+if ($action === 'face_clock') {
+    $lat = (float)($_POST['lat'] ?? 0);
+    $lng = (float)($_POST['lng'] ?? 0);
+    $address = substr(trim($_POST['address'] ?? ''), 0, 255);
+    $today = date('Y-m-d');
+    $now = date('H:i:s');
+
+    $config = $db->fetchOne("SELECT * FROM payroll_attendance_config WHERE id = 1");
+    $allowOutside = (bool)($config['allow_outside'] ?? false);
+    $checkinEnd = $config['checkin_end'] ?? '10:00:00';
+
+    // Location check
+    $locRows = $db->fetchAll("SELECT * FROM payroll_attendance_locations WHERE is_active = 1") ?: [];
+    $distance = 0; $isOutside = false;
+    if (!empty($locRows) && $lat && $lng) {
+        $nearest = null; $nearestDist = PHP_INT_MAX;
+        foreach ($locRows as $loc) {
+            $R = 6371000;
+            $dLat = deg2rad((float)$loc['lat'] - $lat); $dLng = deg2rad((float)$loc['lng'] - $lng);
+            $a = sin($dLat/2)*sin($dLat/2) + cos(deg2rad($lat))*cos(deg2rad((float)$loc['lat']))*sin($dLng/2)*sin($dLng/2);
+            $d = (int)(2 * $R * asin(sqrt($a)));
+            if ($d < $nearestDist) { $nearestDist = $d; $nearest = $loc; }
+        }
+        $distance = $nearestDist;
+        $isOutside = $distance > (int)$nearest['radius_m'];
+        if ($isOutside && !$allowOutside) {
+            echo json_encode(['success' => false, 'message' => "Di luar radius {$nearest['location_name']} ({$distance}m, maks {$nearest['radius_m']}m)"]); exit;
+        }
+    }
+
+    // Get existing attendance
+    $pdo = $db->getConnection();
+
+    // Ensure split-shift columns exist
+    try { $pdo->query("SELECT scan_3 FROM payroll_attendance LIMIT 1"); } catch (PDOException $e) {
+        $pdo->exec("ALTER TABLE payroll_attendance ADD COLUMN scan_3 TIME DEFAULT NULL AFTER check_out_time, ADD COLUMN scan_4 TIME DEFAULT NULL AFTER scan_3, ADD COLUMN shift_1_hours DECIMAL(5,2) DEFAULT NULL AFTER work_hours, ADD COLUMN shift_2_hours DECIMAL(5,2) DEFAULT NULL AFTER shift_1_hours");
+    }
+
+    $att = $db->fetchOne("SELECT * FROM payroll_attendance WHERE employee_id = ? AND attendance_date = ?", [$empId, $today]);
+
+    $scan1 = $att['check_in_time'] ?? null;
+    $scan2 = $att['check_out_time'] ?? null;
+    $scan3 = $att['scan_3'] ?? null;
+    $scan4 = $att['scan_4'] ?? null;
+    $filledScans = array_filter([$scan1, $scan2, $scan3, $scan4], fn($s) => !empty($s));
+
+    // Double scan filter (30 min)
+    if (!empty($filledScans)) {
+        $lastScan = end($filledScans);
+        $diffMin = abs(strtotime("2000-01-01 " . $now) - strtotime("2000-01-01 " . $lastScan)) / 60;
+        if ($diffMin < 30) {
+            echo json_encode(['success' => false, 'message' => 'Scan terakhir ' . substr($lastScan,0,5) . ' (' . round($diffMin) . ' menit lalu). Tunggu minimal 30 menit.']); exit;
+        }
+    }
+
+    if (count($filledScans) >= 4) {
+        echo json_encode(['success' => false, 'message' => 'Sudah 4 scan hari ini (maks split-shift)']); exit;
+    }
+
+    $device = 'face:verified';
+    $scanLabels = ['Masuk Shift 1', 'Pulang Shift 1', 'Masuk Shift 2', 'Pulang Shift 2'];
+
+    try {
+        if (!$att) {
+            // Scan 1 — new record
+            $status = ($now > $checkinEnd) ? 'late' : 'present';
+            $pdo->prepare("INSERT INTO payroll_attendance (employee_id, attendance_date, check_in_time, check_in_lat, check_in_lng, check_in_distance_m, check_in_address, check_in_device, status, is_outside_radius, notes) VALUES (?,?,?,?,?,?,?,?,?,?,?)")
+                ->execute([$empId, $today, $now, $lat ?: null, $lng ?: null, $distance, $address, $device, $status, $isOutside ? 1 : 0, 'Face scan 1/4']);
+            echo json_encode(['success' => true, 'message' => '✅ ' . $scanLabels[0] . ' — ' . date('H:i') . ($status === 'late' ? ' ⚠️ Terlambat' : ''), 'scan_num' => 1]); exit;
+        }
+
+        // Determine next empty slot
+        $scanNum = 0;
+        if (empty($scan1)) $scanNum = 1;
+        elseif (empty($scan2)) $scanNum = 2;
+        elseif (empty($scan3)) $scanNum = 3;
+        elseif (empty($scan4)) $scanNum = 4;
+
+        if ($scanNum === 0) {
+            echo json_encode(['success' => false, 'message' => 'Sudah lengkap 4 scan']); exit;
+        }
+
+        $colMap = [1 => 'check_in_time', 2 => 'check_out_time', 3 => 'scan_3', 4 => 'scan_4'];
+        $updates = [$colMap[$scanNum] . " = ?"];
+        $params = [$now];
+
+        // Calculate shift hours
+        $shift1Hours = null; $shift2Hours = null;
+        if ($scanNum === 2 && $scan1) {
+            $shift1Hours = max(0, round((strtotime("2000-01-01 " . $now) - strtotime("2000-01-01 " . $scan1)) / 3600, 2));
+            $updates[] = "shift_1_hours = ?"; $params[] = $shift1Hours;
+            $updates[] = "check_out_device = ?"; $params[] = $device;
+            if ($lat) { $updates[] = "check_out_lat = ?"; $params[] = $lat; $updates[] = "check_out_lng = ?"; $params[] = $lng; $updates[] = "check_out_distance_m = ?"; $params[] = $distance; }
+        }
+        if ($scanNum === 4 && $scan3) {
+            $shift2Hours = max(0, round((strtotime("2000-01-01 " . $now) - strtotime("2000-01-01 " . $scan3)) / 3600, 2));
+            $updates[] = "shift_2_hours = ?"; $params[] = $shift2Hours;
+        }
+
+        // Recalculate total
+        $curS1 = ($shift1Hours !== null) ? $shift1Hours : (float)($att['shift_1_hours'] ?? 0);
+        $curS2 = ($shift2Hours !== null) ? $shift2Hours : (float)($att['shift_2_hours'] ?? 0);
+        $totalHours = round($curS1 + $curS2, 2);
+        if ($totalHours > 0) { $updates[] = "work_hours = ?"; $params[] = $totalHours; }
+
+        $updates[] = "notes = ?"; $params[] = "Face scan {$scanNum}/4";
+        $params[] = $att['id'];
+
+        $pdo->prepare("UPDATE payroll_attendance SET " . implode(', ', $updates) . " WHERE id = ?")->execute($params);
+
+        $hoursTxt = '';
+        if ($scanNum === 2 && $shift1Hours) $hoursTxt = " ({$shift1Hours} jam)";
+        if ($scanNum === 4 && $shift2Hours) $hoursTxt = " (total: {$totalHours} jam)";
+
+        echo json_encode(['success' => true, 'message' => '✅ ' . $scanLabels[$scanNum - 1] . ' — ' . date('H:i') . $hoursTxt, 'scan_num' => $scanNum]); exit;
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => 'Gagal: ' . $e->getMessage()]); exit;
+    }
+}
+
 echo json_encode(['success' => false, 'message' => 'Unknown action']);

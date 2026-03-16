@@ -42,7 +42,7 @@ try {
 while (ob_get_level()) ob_end_clean();
 
 header('Content-Type: image/png');
-header('Cache-Control: public, max-age=86400');
+header('Cache-Control: public, max-age=300');
 header('X-Content-Type-Options: nosniff');
 
 if (!function_exists('imagecreatetruecolor')) {
