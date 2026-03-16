@@ -122,14 +122,31 @@ try {
         .notif-dot { position:absolute; top:2px; right:4px; width:8px; height:8px; background:var(--red); border-radius:50%; display:none; }
         .notif-dot.show { display:block; }
 
-        /* Install banner */
-        .install-banner { background:linear-gradient(135deg,var(--gold),#e69800); color:var(--navy); padding:12px 16px; border-radius:12px; margin-bottom:12px; display:none; align-items:center; gap:10px; cursor:pointer; }
-        .install-banner.show { display:flex; }
-        .install-banner .ib-icon { font-size:24px; }
+        /* Install banner — modern */
+        .install-banner { background:linear-gradient(135deg,#0d1f3c 0%,#1a3a5c 100%); color:#fff; padding:14px 16px; border-radius:14px; margin-bottom:12px; display:none; align-items:center; gap:12px; cursor:pointer; border:1px solid rgba(240,180,41,.2); position:relative; overflow:hidden; }
+        .install-banner::before { content:''; position:absolute; top:-50%; right:-20%; width:120px; height:120px; background:radial-gradient(circle,rgba(240,180,41,.15),transparent 70%); border-radius:50%; pointer-events:none; }
+        .install-banner.show { display:flex; animation:ibSlide .4s cubic-bezier(.16,1,.3,1); }
+        @keyframes ibSlide { from { opacity:0; transform:translateY(-10px); } to { opacity:1; transform:translateY(0); } }
+        .install-banner .ib-icon { width:40px; height:40px; background:linear-gradient(135deg,var(--gold),#e09800); border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0; }
         .install-banner .ib-text { flex:1; }
-        .install-banner .ib-title { font-weight:700; font-size:13px; }
-        .install-banner .ib-sub { font-size:10px; opacity:.8; }
-        .install-banner .ib-close { background:none; border:none; font-size:18px; cursor:pointer; padding:4px; color:var(--navy); }
+        .install-banner .ib-title { font-weight:700; font-size:13px; color:#fff; }
+        .install-banner .ib-sub { font-size:10px; color:rgba(255,255,255,.6); margin-top:2px; }
+        .install-banner .ib-action { background:var(--gold); color:var(--navy); border:none; padding:8px 16px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer; white-space:nowrap; }
+        .install-banner .ib-close { background:none; border:none; font-size:16px; cursor:pointer; padding:4px; color:rgba(255,255,255,.4); position:absolute; top:8px; right:8px; }
+        /* Install progress overlay */
+        .install-progress { display:none; position:fixed; inset:0; background:rgba(5,10,24,.95); z-index:2000; flex-direction:column; align-items:center; justify-content:center; }
+        .install-progress.show { display:flex; animation:faceIn .3s ease; }
+        .ip-icon { width:80px; height:80px; border-radius:20px; margin-bottom:20px; object-fit:cover; box-shadow:0 8px 30px rgba(0,0,0,.4); }
+        .ip-title { color:#fff; font-size:18px; font-weight:700; margin-bottom:6px; }
+        .ip-sub { color:rgba(255,255,255,.5); font-size:12px; margin-bottom:24px; text-align:center; padding:0 40px; }
+        .ip-bar { width:200px; height:4px; background:rgba(255,255,255,.1); border-radius:2px; overflow:hidden; margin-bottom:8px; }
+        .ip-bar-fill { height:100%; background:linear-gradient(90deg,var(--gold),#34d399); border-radius:2px; width:0%; transition:width .5s cubic-bezier(.4,0,.2,1); }
+        .ip-step { color:rgba(255,255,255,.4); font-size:11px; min-height:16px; }
+        .ip-done { display:none; flex-direction:column; align-items:center; }
+        .ip-check { width:56px; height:56px; background:linear-gradient(135deg,#34d399,#059669); border-radius:50%; display:flex; align-items:center; justify-content:center; font-size:28px; color:#fff; margin-bottom:16px; animation:popIn .4s cubic-bezier(.16,1,.3,1); }
+        @keyframes popIn { from { transform:scale(0); } to { transform:scale(1); } }
+        .ip-done-text { color:#fff; font-size:16px; font-weight:700; }
+        .ip-done-sub { color:rgba(255,255,255,.5); font-size:11px; margin-top:4px; }
 
         /* iOS install guide */
         .install-guide { background:#fff; border:2px solid var(--border); border-radius:12px; padding:14px 16px; margin-bottom:12px; border-left:4px solid #a855f7; }
@@ -266,20 +283,52 @@ try {
         .absen-link .al-title { font-size:16px; font-weight:700; }
         .absen-link .al-sub { font-size:11px; color:rgba(255,255,255,.7); margin-top:4px; }
 
-        /* Face Scan Modal */
-        .face-overlay { display:none; position:fixed; inset:0; background:rgba(0,0,0,.85); z-index:1000; flex-direction:column; align-items:center; justify-content:center; }
-        .face-overlay.show { display:flex; }
-        .face-close { position:absolute; top:16px; right:16px; background:rgba(255,255,255,.2); border:none; color:#fff; font-size:20px; width:36px; height:36px; border-radius:50%; cursor:pointer; z-index:10; }
-        .face-container { position:relative; width:260px; height:260px; border-radius:50%; overflow:hidden; border:4px solid rgba(240,180,41,.5); transition:border-color .3s; }
-        .face-container.matched { border-color:#059669; }
+        /* Face Scan Modal — 2028 Vibe */
+        .face-overlay { display:none; position:fixed; inset:0; background:linear-gradient(160deg,#050a18 0%,#0a1628 40%,#0f1d35 100%); z-index:1000; flex-direction:column; align-items:center; justify-content:center; }
+        .face-overlay.show { display:flex; animation:faceIn .4s cubic-bezier(.16,1,.3,1); }
+        @keyframes faceIn { from { opacity:0; transform:scale(1.05); } to { opacity:1; transform:scale(1); } }
+        .face-close { position:absolute; top:env(safe-area-inset-top,16px); right:16px; margin-top:16px; background:rgba(255,255,255,.08); backdrop-filter:blur(10px); border:1px solid rgba(255,255,255,.1); color:rgba(255,255,255,.7); font-size:18px; width:40px; height:40px; border-radius:50%; cursor:pointer; z-index:10; transition:all .2s; }
+        .face-close:hover { background:rgba(255,255,255,.15); color:#fff; }
+        .face-header { text-align:center; margin-bottom:24px; }
+        .face-header h3 { color:#fff; font-size:16px; font-weight:700; margin:0 0 4px; letter-spacing:.5px; }
+        .face-header p { color:rgba(255,255,255,.45); font-size:11px; margin:0; }
+        .face-ring-wrap { position:relative; width:240px; height:240px; }
+        .face-ring-outer { position:absolute; inset:-12px; border-radius:50%; border:2px solid rgba(240,180,41,.15); }
+        .face-ring-scan { position:absolute; inset:-12px; border-radius:50%; border:2px solid transparent; border-top-color:rgba(240,180,41,.6); animation:faceSpin 2s linear infinite; }
+        @keyframes faceSpin { to { transform:rotate(360deg); } }
+        .face-ring-scan.matched { border-top-color:#34d399; animation-duration:1s; }
+        .face-ring-pulse { position:absolute; inset:-20px; border-radius:50%; border:1px solid rgba(240,180,41,.1); animation:ringPulse 2.5s ease-out infinite; }
+        @keyframes ringPulse { 0% { transform:scale(.95); opacity:1; } 100% { transform:scale(1.08); opacity:0; } }
+        .face-container { position:relative; width:240px; height:240px; border-radius:50%; overflow:hidden; border:3px solid rgba(255,255,255,.1); transition:border-color .4s; }
+        .face-container.matched { border-color:#34d399; box-shadow:0 0 40px rgba(52,211,153,.25); }
         .face-container video { width:100%; height:100%; object-fit:cover; transform:scaleX(-1); }
-        .face-container canvas { position:absolute; top:0; left:0; width:100%; height:100%; }
-        .face-status { color:#fff; font-size:13px; text-align:center; margin-top:16px; font-weight:600; min-height:20px; }
-        .face-meter { width:220px; height:6px; background:rgba(255,255,255,.15); border-radius:3px; margin-top:10px; overflow:hidden; }
-        .face-meter-fill { height:100%; border-radius:3px; width:0%; transition:width .3s, background .3s; }
-        .face-meter-label { color:rgba(255,255,255,.6); font-size:10px; text-align:center; margin-top:4px; min-height:14px; }
-        .face-btn-register { margin-top:14px; padding:12px 28px; background:var(--gold); color:var(--navy); border:none; border-radius:10px; font-size:14px; font-weight:700; cursor:pointer; display:none; }
-        .face-gps-info { color:rgba(255,255,255,.5); font-size:10px; text-align:center; margin-top:12px; min-height:14px; }
+        .face-container canvas { position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; }
+        .face-corners { position:absolute; inset:0; pointer-events:none; }
+        .face-corners::before, .face-corners::after { content:''; position:absolute; width:28px; height:28px; border-color:rgba(240,180,41,.5); border-style:solid; }
+        .face-corners::before { top:12px; left:12px; border-width:2px 0 0 2px; border-radius:4px 0 0 0; }
+        .face-corners::after { top:12px; right:12px; border-width:2px 2px 0 0; border-radius:0 4px 0 0; }
+        .face-corners-b { position:absolute; inset:0; pointer-events:none; }
+        .face-corners-b::before, .face-corners-b::after { content:''; position:absolute; width:28px; height:28px; border-color:rgba(240,180,41,.5); border-style:solid; }
+        .face-corners-b::before { bottom:12px; left:12px; border-width:0 0 2px 2px; border-radius:0 0 0 4px; }
+        .face-corners-b::after { bottom:12px; right:12px; border-width:0 2px 2px 0; border-radius:0 0 4px 0; }
+        .face-container.matched .face-corners::before, .face-container.matched .face-corners::after,
+        .face-container.matched .face-corners-b::before, .face-container.matched .face-corners-b::after { border-color:#34d399; }
+        .face-scan-line { position:absolute; left:10%; right:10%; height:2px; background:linear-gradient(90deg,transparent,rgba(240,180,41,.6),transparent); top:20%; animation:scanLine 2s ease-in-out infinite; pointer-events:none; }
+        @keyframes scanLine { 0%,100% { top:20%; opacity:.5; } 50% { top:75%; opacity:1; } }
+        .face-container.matched .face-scan-line { background:linear-gradient(90deg,transparent,rgba(52,211,153,.6),transparent); }
+        .face-status { color:#fff; font-size:14px; text-align:center; margin-top:20px; font-weight:600; min-height:20px; letter-spacing:.3px; }
+        .face-status-sub { color:rgba(255,255,255,.35); font-size:10px; text-align:center; margin-top:4px; min-height:14px; }
+        .face-meter { width:200px; height:4px; background:rgba(255,255,255,.08); border-radius:2px; margin-top:16px; overflow:hidden; position:relative; }
+        .face-meter::before { content:''; position:absolute; inset:0; background:rgba(255,255,255,.03); border-radius:2px; }
+        .face-meter-fill { height:100%; border-radius:2px; width:0%; transition:width .4s cubic-bezier(.4,0,.2,1), background .4s; }
+        .face-meter-label { color:rgba(255,255,255,.5); font-size:11px; text-align:center; margin-top:8px; min-height:14px; font-weight:500; font-variant-numeric:tabular-nums; }
+        .face-btn-register { margin-top:20px; padding:14px 36px; background:linear-gradient(135deg,#f0b429,#e09800); color:var(--navy); border:none; border-radius:14px; font-size:14px; font-weight:700; cursor:pointer; display:none; transition:all .2s; box-shadow:0 4px 20px rgba(240,180,41,.3); letter-spacing:.3px; }
+        .face-btn-register:active { transform:scale(.96); }
+        .face-btn-register:disabled { opacity:.5; transform:none; }
+        .face-gps-info { color:rgba(255,255,255,.35); font-size:10px; text-align:center; margin-top:16px; min-height:14px; padding:0 20px; }
+        .face-particles { position:absolute; inset:0; pointer-events:none; overflow:hidden; }
+        .face-particle { position:absolute; width:2px; height:2px; background:rgba(240,180,41,.3); border-radius:50%; animation:particleFloat linear infinite; }
+        @keyframes particleFloat { 0% { transform:translateY(100vh) scale(0); opacity:0; } 10% { opacity:1; } 90% { opacity:1; } 100% { transform:translateY(-20px) scale(1); opacity:0; } }
 
         /* Loading */
         .loading { text-align:center; padding:30px; color:var(--muted); font-size:12px; }
@@ -393,9 +442,10 @@ try {
         <div class="install-banner" id="installBanner">
             <div class="ib-icon">📲</div>
             <div class="ib-text">
-                <div class="ib-title">Install Aplikasi</div>
-                <div class="ib-sub">Buka lebih cepat langsung dari home screen</div>
+                <div class="ib-title">Install Staff Portal</div>
+                <div class="ib-sub">Akses lebih cepat dari home screen</div>
             </div>
+            <button class="ib-action" id="ibAction">Install</button>
             <button class="ib-close" onclick="event.stopPropagation();document.getElementById('installBanner').classList.remove('show');">✕</button>
         </div>
 
@@ -545,20 +595,48 @@ try {
     </div>
 </div>
 
-<!-- Face Scan Overlay -->
+<!-- Face Scan Overlay — 2028 Vibe -->
 <div class="face-overlay" id="faceOverlay">
+    <div class="face-particles" id="faceParticles"></div>
     <button class="face-close" onclick="closeFaceScan()">✕</button>
-    <div class="face-container" id="faceRing">
-        <video id="faceVideo" autoplay playsinline muted></video>
-        <canvas id="faceCanvas"></canvas>
+    <div class="face-header">
+        <h3 id="faceTitle">Face Recognition</h3>
+        <p id="faceSubtitle">Verifikasi identitas karyawan</p>
     </div>
-    <div class="face-status" id="faceStatus">Memuat model AI...</div>
+    <div class="face-ring-wrap">
+        <div class="face-ring-pulse"></div>
+        <div class="face-ring-outer"></div>
+        <div class="face-ring-scan" id="faceRingScan"></div>
+        <div class="face-container" id="faceRing">
+            <video id="faceVideo" autoplay playsinline muted></video>
+            <canvas id="faceCanvas"></canvas>
+            <div class="face-scan-line" id="faceScanLine"></div>
+            <div class="face-corners"></div>
+            <div class="face-corners-b"></div>
+        </div>
+    </div>
+    <div class="face-status" id="faceStatus">Memulai...</div>
+    <div class="face-status-sub" id="faceStatusSub"></div>
     <div class="face-meter" id="faceMeter" style="display:none;">
         <div class="face-meter-fill" id="faceMeterFill"></div>
     </div>
     <div class="face-meter-label" id="faceMeterLabel"></div>
-    <button class="face-btn-register" id="btnFaceRegister" onclick="registerFace()">📸 Daftarkan Wajah Saya</button>
+    <button class="face-btn-register" id="btnFaceRegister" onclick="registerFace()">Daftarkan Wajah</button>
     <div class="face-gps-info" id="faceGpsInfo"></div>
+</div>
+
+<!-- Install Progress Overlay -->
+<div class="install-progress" id="installProgress">
+    <img class="ip-icon" id="ipIcon" src="<?php echo htmlspecialchars($pwaIconUrl); ?>" alt="App">
+    <div class="ip-title"><?php echo $bizName; ?></div>
+    <div class="ip-sub" id="ipSub">Installing Staff Portal...</div>
+    <div class="ip-bar"><div class="ip-bar-fill" id="ipBarFill"></div></div>
+    <div class="ip-step" id="ipStep">Preparing...</div>
+    <div class="ip-done" id="ipDone">
+        <div class="ip-check">✓</div>
+        <div class="ip-done-text">Terinstall!</div>
+        <div class="ip-done-sub">Buka dari home screen</div>
+    </div>
 </div>
 
 <script src="https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/dist/face-api.min.js"></script>
@@ -1312,49 +1390,78 @@ async function checkNotifs() {
     } catch(e) {}
 }
 
-// ═══ FACE SCAN ═══
+// ═══ FACE SCAN — 2028 Vibe ═══
 let faceModelsLoaded = false;
 let faceStream = null;
-let faceInterval = null;
+let faceRAF = null;
 let faceStoredDescriptor = null;
 let faceVerifyMode = false;
 let faceGps = null;
 let faceGpsWatcher = null;
 let faceConfig = null;
 let faceDetected = false;
+let faceProcessing = false;
+let faceScanActive = false;
+let faceMatchCount = 0;
+
+// Generate floating particles
+function initFaceParticles() {
+    const c = document.getElementById('faceParticles');
+    if (c.children.length > 0) return;
+    for (let i = 0; i < 20; i++) {
+        const p = document.createElement('div');
+        p.className = 'face-particle';
+        p.style.left = Math.random() * 100 + '%';
+        p.style.animationDuration = (4 + Math.random() * 6) + 's';
+        p.style.animationDelay = Math.random() * 5 + 's';
+        p.style.width = p.style.height = (1 + Math.random() * 2) + 'px';
+        c.appendChild(p);
+    }
+}
 
 async function loadFaceModels() {
     if (faceModelsLoaded) return true;
-    document.getElementById('faceStatus').textContent = '🧠 Memuat model AI...';
+    setFaceStatus('Memuat AI model...', 'Neural network initialization');
     let url = FACE_MODEL_URL;
     try {
         const t = await fetch(url + '/tiny_face_detector_model-weights_manifest.json', { method: 'HEAD' });
         if (!t.ok) throw new Error();
     } catch(e) { url = FACE_MODEL_CDN; }
     try {
+        setFaceStatus('Loading detector...', '1/3 modules');
         await faceapi.nets.tinyFaceDetector.loadFromUri(url);
+        setFaceStatus('Loading landmarks...', '2/3 modules');
         await faceapi.nets.faceLandmark68TinyNet.loadFromUri(url);
+        setFaceStatus('Loading recognizer...', '3/3 modules');
         await faceapi.nets.faceRecognitionNet.loadFromUri(url);
         faceModelsLoaded = true;
         return true;
     } catch(e) {
-        document.getElementById('faceStatus').textContent = '❌ Gagal memuat model: ' + e.message;
+        setFaceStatus('Gagal memuat model', e.message);
         return false;
     }
+}
+
+function setFaceStatus(main, sub) {
+    document.getElementById('faceStatus').textContent = main;
+    document.getElementById('faceStatusSub').textContent = sub || '';
 }
 
 async function openFaceScan() {
     const overlay = document.getElementById('faceOverlay');
     overlay.classList.add('show');
+    faceScanActive = true;
+    faceMatchCount = 0;
+    initFaceParticles();
 
-    // 1. Load face data for logged-in staff
-    document.getElementById('faceStatus').textContent = '⏳ Memuat data...';
+    // 1. Load face data
+    setFaceStatus('Menghubungkan...', 'Mengambil data karyawan');
     try {
         const res = await fetch(API + '&action=face_data');
         const data = await res.json();
         if (!data.success) {
             if (data.auth === false) { doLogout(); return; }
-            document.getElementById('faceStatus').textContent = '❌ ' + data.message;
+            setFaceStatus('Error', data.message);
             return;
         }
         faceConfig = data.config;
@@ -1366,64 +1473,86 @@ async function openFaceScan() {
             faceStoredDescriptor = null;
             faceVerifyMode = false;
         }
-
-        // Check if all 4 scans done
         const att = data.today;
         if (att && att.check_in_time && att.check_out_time && att.scan_3 && att.scan_4) {
-            document.getElementById('faceStatus').textContent = '✅ Sudah lengkap 4 scan hari ini';
+            setFaceStatus('Scan lengkap hari ini', '4/4 scan tercatat');
+            document.getElementById('faceRing').classList.add('matched');
+            document.getElementById('faceRingScan').classList.add('matched');
             return;
         }
     } catch(e) {
-        document.getElementById('faceStatus').textContent = '❌ Jaringan error: ' + e.message;
+        setFaceStatus('Jaringan error', e.message);
         return;
     }
 
-    // 2. Load face-api models
+    // 2. Load models
     const ok = await loadFaceModels();
     if (!ok) return;
 
-    // 3. Start GPS
+    // 3. GPS
     startFaceGps();
 
-    // 4. Start camera
+    // 4. Camera — request higher res for faster detection
     try {
         faceStream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: 'user', width: { ideal: 480 }, height: { ideal: 480 } }
+            video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 640 } }
         });
         const video = document.getElementById('faceVideo');
         video.srcObject = faceStream;
-        video.addEventListener('loadedmetadata', () => {
-            const canvas = document.getElementById('faceCanvas');
-            canvas.width = video.videoWidth;
-            canvas.height = video.videoHeight;
-        });
+        await new Promise(r => video.onloadedmetadata = r);
+        const canvas = document.getElementById('faceCanvas');
+        canvas.width = video.videoWidth;
+        canvas.height = video.videoHeight;
 
         if (faceVerifyMode) {
-            document.getElementById('faceStatus').textContent = 'Arahkan wajah ke kamera...';
+            setFaceStatus('Arahkan wajah ke kamera', 'Verifikasi otomatis');
+            document.getElementById('faceTitle').textContent = 'Verifikasi Wajah';
             document.getElementById('faceMeter').style.display = 'block';
             document.getElementById('btnFaceRegister').style.display = 'none';
         } else {
-            document.getElementById('faceStatus').textContent = '📸 Wajah belum terdaftar — posisikan wajah, tekan tombol di bawah';
+            setFaceStatus('Wajah belum terdaftar', 'Posisikan wajah lalu tap tombol daftar');
+            document.getElementById('faceTitle').textContent = 'Registrasi Wajah';
             document.getElementById('btnFaceRegister').style.display = 'block';
             document.getElementById('faceMeter').style.display = 'none';
         }
-        faceInterval = setInterval(faceDetectLoop, 800);
+        // Use requestAnimationFrame loop with throttle for faster response
+        faceProcessing = false;
+        faceDetectRAF();
     } catch(e) {
-        document.getElementById('faceStatus').textContent = '❌ Kamera gagal: ' + e.message;
+        setFaceStatus('Kamera gagal', e.message);
     }
 }
 
+function faceDetectRAF() {
+    if (!faceScanActive) return;
+    faceRAF = requestAnimationFrame(async () => {
+        if (!faceProcessing) {
+            faceProcessing = true;
+            await faceDetectLoop();
+            faceProcessing = false;
+        }
+        faceDetectRAF();
+    });
+}
+
 function closeFaceScan() {
-    clearInterval(faceInterval);
+    faceScanActive = false;
+    if (faceRAF) { cancelAnimationFrame(faceRAF); faceRAF = null; }
     if (faceStream) { faceStream.getTracks().forEach(t => t.stop()); faceStream = null; }
     if (faceGpsWatcher) { navigator.geolocation.clearWatch(faceGpsWatcher); faceGpsWatcher = null; }
-    document.getElementById('faceOverlay').classList.remove('show');
+    const overlay = document.getElementById('faceOverlay');
+    overlay.classList.remove('show');
     document.getElementById('faceMeter').style.display = 'none';
     document.getElementById('faceMeterFill').style.width = '0%';
     document.getElementById('faceMeterLabel').textContent = '';
     document.getElementById('btnFaceRegister').style.display = 'none';
     document.getElementById('faceGpsInfo').textContent = '';
     document.getElementById('faceRing').classList.remove('matched');
+    document.getElementById('faceRingScan').classList.remove('matched');
+    document.getElementById('faceStatusSub').textContent = '';
+    document.getElementById('faceTitle').textContent = 'Face Recognition';
+    document.getElementById('faceSubtitle').textContent = 'Verifikasi identitas karyawan';
+    faceMatchCount = 0;
 }
 
 function startFaceGps() {
@@ -1432,7 +1561,7 @@ function startFaceGps() {
         pos => {
             faceGps = pos;
             const acc = Math.round(pos.coords.accuracy);
-            let info = '📍 GPS ±' + acc + 'm';
+            let info = '📍 ±' + acc + 'm';
             const locs = faceConfig?.locations || [];
             if (locs.length > 0) {
                 let nearest = null, nDist = Infinity;
@@ -1459,8 +1588,10 @@ function haversineDist(lat1, lng1, lat2, lng2) {
 
 async function faceDetectLoop() {
     const video = document.getElementById('faceVideo');
-    if (!video.readyState || video.readyState < 2) return;
-    const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 });
+    if (!video || !video.readyState || video.readyState < 2) return;
+
+    // Smaller inputSize = faster detection; scoreThreshold lowered for quicker pickup
+    const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.4 });
     const detection = await faceapi.detectSingleFace(video, options)
         .withFaceLandmarks(true)
         .withFaceDescriptor();
@@ -1468,51 +1599,63 @@ async function faceDetectLoop() {
     faceDetected = !!detection;
 
     if (!detection) {
-        document.getElementById('faceStatus').textContent = '😐 Wajah tidak terdeteksi — hadap kamera';
-        document.getElementById('faceRing').style.borderColor = 'rgba(240,180,41,0.5)';
+        setFaceStatus('Posisikan wajah', 'Pastikan pencahayaan cukup');
         document.getElementById('faceRing').classList.remove('matched');
-        if (faceVerifyMode) { document.getElementById('faceMeterFill').style.width = '0%'; document.getElementById('faceMeterLabel').textContent = ''; }
+        document.getElementById('faceRingScan').classList.remove('matched');
+        if (faceVerifyMode) {
+            document.getElementById('faceMeterFill').style.width = '0%';
+            document.getElementById('faceMeterLabel').textContent = '';
+        }
+        faceMatchCount = 0;
         return;
     }
-
-    document.getElementById('faceRing').style.borderColor = '#f0b429';
 
     if (faceVerifyMode) {
         const dist = faceapi.euclideanDistance(faceStoredDescriptor, detection.descriptor);
         const score = Math.max(0, Math.min(100, Math.round((1 - dist / 0.6) * 100)));
         const fill = document.getElementById('faceMeterFill');
         fill.style.width = score + '%';
-        fill.style.background = score > 70 ? '#059669' : score > 45 ? '#f0b429' : '#dc2626';
-        document.getElementById('faceMeterLabel').textContent = 'Kecocokan: ' + score + '%';
+        fill.style.background = score > 70 ? '#34d399' : score > 45 ? '#fbbf24' : '#f87171';
+        document.getElementById('faceMeterLabel').textContent = score + '% match';
 
         if (dist < 0.45) {
-            document.getElementById('faceStatus').textContent = '✅ Wajah terkenali!';
-            document.getElementById('faceRing').classList.add('matched');
-            clearInterval(faceInterval);
-            setTimeout(doFaceClock, 600);
+            faceMatchCount++;
+            // Require 2 consecutive matches for reliability
+            if (faceMatchCount >= 2) {
+                setFaceStatus('Wajah terverifikasi', 'Identitas dikonfirmasi');
+                document.getElementById('faceRing').classList.add('matched');
+                document.getElementById('faceRingScan').classList.add('matched');
+                faceScanActive = false;
+                setTimeout(doFaceClock, 500);
+            } else {
+                setFaceStatus('Mengenali wajah...', 'Konfirmasi ' + faceMatchCount + '/2');
+            }
         } else if (dist < 0.6) {
-            document.getElementById('faceStatus').textContent = '🔄 Hampir cocok, posisikan lebih baik...';
+            setFaceStatus('Hampir cocok', 'Atur posisi & pencahayaan');
+            faceMatchCount = 0;
         } else {
-            document.getElementById('faceStatus').textContent = '⚠️ Wajah tidak cocok';
+            setFaceStatus('Wajah tidak cocok', 'Pastikan wajah terdaftar');
+            faceMatchCount = 0;
         }
     } else {
-        document.getElementById('faceStatus').textContent = '✅ Wajah terdeteksi — tekan tombol untuk daftar';
+        setFaceStatus('Wajah terdeteksi', 'Tap tombol di bawah untuk mendaftar');
     }
 }
 
 async function registerFace() {
-    if (!faceDetected) { document.getElementById('faceStatus').textContent = '⚠️ Pastikan wajah terdeteksi dulu'; return; }
+    if (!faceDetected) { setFaceStatus('Deteksi gagal', 'Pastikan wajah terlihat di kamera'); return; }
     const btn = document.getElementById('btnFaceRegister');
-    btn.disabled = true; btn.textContent = '⏳ Mendaftarkan...';
-    clearInterval(faceInterval);
+    btn.disabled = true; btn.textContent = 'Mendaftarkan...';
+    faceScanActive = false;
+    if (faceRAF) { cancelAnimationFrame(faceRAF); faceRAF = null; }
 
     const video = document.getElementById('faceVideo');
     const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 320 });
     const detection = await faceapi.detectSingleFace(video, options).withFaceLandmarks(true).withFaceDescriptor();
     if (!detection) {
-        document.getElementById('faceStatus').textContent = '❌ Gagal mendeteksi. Coba lagi.';
-        btn.disabled = false; btn.textContent = '📸 Daftarkan Wajah Saya';
-        faceInterval = setInterval(faceDetectLoop, 800);
+        setFaceStatus('Gagal mendeteksi', 'Coba posisikan ulang wajah');
+        btn.disabled = false; btn.textContent = 'Daftarkan Wajah';
+        faceScanActive = true; faceDetectRAF();
         return;
     }
 
@@ -1526,24 +1669,29 @@ async function registerFace() {
         if (data.success) {
             faceStoredDescriptor = new Float32Array(descriptorArr);
             faceVerifyMode = true;
-            document.getElementById('faceStatus').textContent = '✅ Wajah terdaftar! Verifikasi...';
+            setFaceStatus('Wajah terdaftar!', 'Memulai verifikasi...');
+            document.getElementById('faceTitle').textContent = 'Verifikasi Wajah';
             btn.style.display = 'none';
             document.getElementById('faceMeter').style.display = 'block';
-            setTimeout(() => { faceInterval = setInterval(faceDetectLoop, 800); }, 1000);
+            document.getElementById('faceRing').classList.add('matched');
+            setTimeout(() => {
+                document.getElementById('faceRing').classList.remove('matched');
+                faceScanActive = true; faceDetectRAF();
+            }, 1200);
         } else {
-            document.getElementById('faceStatus').textContent = '❌ ' + data.message;
-            btn.disabled = false; btn.textContent = '📸 Daftarkan Wajah Saya';
-            faceInterval = setInterval(faceDetectLoop, 800);
+            setFaceStatus('Gagal mendaftar', data.message);
+            btn.disabled = false; btn.textContent = 'Daftarkan Wajah';
+            faceScanActive = true; faceDetectRAF();
         }
     } catch(e) {
-        document.getElementById('faceStatus').textContent = '❌ Jaringan error';
-        btn.disabled = false; btn.textContent = '📸 Daftarkan Wajah Saya';
-        faceInterval = setInterval(faceDetectLoop, 800);
+        setFaceStatus('Jaringan error', 'Periksa koneksi internet');
+        btn.disabled = false; btn.textContent = 'Daftarkan Wajah';
+        faceScanActive = true; faceDetectRAF();
     }
 }
 
 async function doFaceClock() {
-    document.getElementById('faceStatus').textContent = '⏳ Menyimpan absen...';
+    setFaceStatus('Menyimpan absensi...', 'Mengirim ke server');
 
     let address = '';
     if (faceGps) {
@@ -1563,18 +1711,22 @@ async function doFaceClock() {
     try {
         const res = await fetch(API, { method: 'POST', body: fd });
         const data = await res.json();
-        document.getElementById('faceStatus').textContent = data.success ? data.message : '❌ ' + data.message;
+        if (data.success) {
+            setFaceStatus('Absen berhasil!', data.message);
+        } else {
+            setFaceStatus('Gagal', data.message);
+        }
         setTimeout(() => {
             closeFaceScan();
             loadAbsen();
         }, 2000);
     } catch(e) {
-        document.getElementById('faceStatus').textContent = '❌ Jaringan error: ' + e.message;
+        setFaceStatus('Jaringan error', e.message);
         setTimeout(closeFaceScan, 2000);
     }
 }
 
-// ═══ PWA INSTALL ═══
+// ═══ PWA INSTALL — Enhanced UX ═══
 let deferredPrompt = null;
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
@@ -1588,39 +1740,91 @@ window.addEventListener('beforeinstallprompt', (e) => {
     document.getElementById('installBanner').classList.add('show');
 });
 
-// Also show install banner for Android Chrome if not standalone (manual A2HS hint)
 if (!isStandalone && !isIOS) {
-    // Show install hint after 3s even if beforeinstallprompt hasn't fired
     setTimeout(() => {
         if (!deferredPrompt) {
             console.log('[PWA] beforeinstallprompt NOT fired after 3s. Showing manual hint.');
             const banner = document.getElementById('installBanner');
             if (banner) {
-                banner.querySelector('.ib-title').textContent = 'Install Aplikasi';
+                banner.querySelector('.ib-title').textContent = 'Install Staff Portal';
                 banner.querySelector('.ib-sub').textContent = 'Tap menu ⋮ → "Add to Home screen"';
+                banner.querySelector('.ib-action').textContent = 'Cara Install';
+                banner.querySelector('.ib-action').onclick = () => {
+                    alert('Untuk install:\n\n1. Tap menu ⋮ (3 titik) di Chrome\n2. Pilih "Add to Home screen"\n3. Tap "Add"\n\nAplikasi akan muncul di home screen!');
+                };
                 banner.classList.add('show');
             }
         }
     }, 3000);
 }
 
-document.getElementById('installBanner').addEventListener('click', async (e) => {
-    if (e.target.closest('.ib-close')) return;
+// Install button handler
+document.getElementById('ibAction').addEventListener('click', async (e) => {
+    e.stopPropagation();
     if (!deferredPrompt) return;
+
+    // Show install progress overlay
+    const prog = document.getElementById('installProgress');
+    const bar = document.getElementById('ipBarFill');
+    const step = document.getElementById('ipStep');
+    prog.classList.add('show');
+
+    // Animate progress steps
+    bar.style.width = '15%'; step.textContent = 'Menyiapkan manifest...';
+    await new Promise(r => setTimeout(r, 400));
+    bar.style.width = '30%'; step.textContent = 'Mengunduh icon...';
+    await new Promise(r => setTimeout(r, 500));
+    bar.style.width = '50%'; step.textContent = 'Caching resources...';
+
+    // Trigger actual Chrome install prompt
     deferredPrompt.prompt();
     const result = await deferredPrompt.userChoice;
+
     if (result.outcome === 'accepted') {
+        bar.style.width = '75%'; step.textContent = 'Installing app...';
+        await new Promise(r => setTimeout(r, 600));
+        bar.style.width = '100%'; step.textContent = 'Hampir selesai...';
+        await new Promise(r => setTimeout(r, 500));
+
+        // Show success
+        document.getElementById('ipSub').style.display = 'none';
+        document.querySelector('.ip-bar').style.display = 'none';
+        step.style.display = 'none';
+        document.getElementById('ipDone').style.display = 'flex';
+
+        await new Promise(r => setTimeout(r, 2500));
+        prog.classList.remove('show');
         document.getElementById('installBanner').classList.remove('show');
+    } else {
+        // User dismissed — close progress
+        prog.classList.remove('show');
     }
     deferredPrompt = null;
 });
 
-window.addEventListener('appinstalled', () => {
-    document.getElementById('installBanner').classList.remove('show');
-    deferredPrompt = null;
+// Banner click (non-button area)
+document.getElementById('installBanner').addEventListener('click', (e) => {
+    if (e.target.closest('.ib-close') || e.target.closest('.ib-action')) return;
+    if (deferredPrompt) document.getElementById('ibAction').click();
 });
 
-// Show iOS guide if on Safari and not yet installed
+window.addEventListener('appinstalled', () => {
+    console.log('[PWA] App installed!');
+    document.getElementById('installBanner').classList.remove('show');
+    deferredPrompt = null;
+    // Show progress completion if not already showing
+    const prog = document.getElementById('installProgress');
+    if (!prog.classList.contains('show')) {
+        prog.classList.add('show');
+        document.getElementById('ipSub').style.display = 'none';
+        document.querySelector('.ip-bar').style.display = 'none';
+        document.getElementById('ipStep').style.display = 'none';
+        document.getElementById('ipDone').style.display = 'flex';
+        setTimeout(() => prog.classList.remove('show'), 2500);
+    }
+});
+
+// iOS guide
 if (isIOS && !isStandalone && !localStorage.getItem('ios_guide_dismissed')) {
     document.getElementById('iosGuide').style.display = 'block';
 }
