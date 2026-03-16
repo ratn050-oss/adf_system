@@ -163,6 +163,32 @@ if (!empty($absenConfig['app_logo'])) {
         .room-box .room-type { font-size:8px; color:var(--muted); font-weight:400; margin-top:1px; }
         .room-box .room-guest { font-size:8px; color:var(--red); font-weight:500; margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
+        /* Booking Calendar */
+        .cal-nav { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; gap:6px; }
+        .cal-nav button { background:var(--navy); color:#fff; border:none; border-radius:8px; padding:6px 12px; font-size:11px; font-weight:600; cursor:pointer; }
+        .cal-nav button:active { opacity:.7; }
+        .cal-nav .cal-period { font-size:12px; font-weight:700; color:var(--navy); }
+        .cal-scroll { overflow-x:auto; -webkit-overflow-scrolling:touch; border:1px solid var(--border); border-radius:10px; }
+        .cal-grid { display:grid; min-width:max-content; }
+        .cal-hdr { position:sticky; top:0; background:var(--navy); color:#fff; font-size:9px; font-weight:700; text-align:center; padding:6px 2px; z-index:2; }
+        .cal-hdr.today-h { background:var(--gold); color:var(--navy); }
+        .cal-hdr.room-h { text-align:left; padding-left:6px; min-width:80px; position:sticky; left:0; z-index:3; }
+        .cal-type-row { grid-column:1/-1; background:#f1f5f9; padding:4px 8px; font-size:10px; font-weight:700; color:var(--navy); border-top:1px solid var(--border); }
+        .cal-room { background:var(--bg); font-size:10px; font-weight:700; color:var(--navy); padding:4px 6px; position:sticky; left:0; z-index:1; border-right:1px solid var(--border); border-bottom:1px solid #f1f5f9; display:flex; align-items:center; min-width:80px; }
+        .cal-cell { position:relative; min-width:42px; height:30px; border-right:1px solid #f1f5f9; border-bottom:1px solid #f1f5f9; font-size:8px; }
+        .cal-cell.today-c { background:rgba(234,179,8,.08); }
+        .cal-bar { position:absolute; top:3px; height:24px; border-radius:4px; display:flex; align-items:center; padding:0 4px; font-size:8px; font-weight:700; color:#fff; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; z-index:1; cursor:pointer; box-shadow:0 1px 3px rgba(0,0,0,.2); min-width:20px; }
+        .cal-bar.s-confirmed { background:linear-gradient(135deg,#06b6d4,#22d3ee); }
+        .cal-bar.s-pending { background:linear-gradient(135deg,#f59e0b,#fbbf24); }
+        .cal-bar.s-checked-in { background:linear-gradient(135deg,#0284c7,#0ea5e9); }
+        .cal-bar.s-checked-out { background:linear-gradient(135deg,#9ca3af,#d1d5db); opacity:.5; }
+        .cal-bar span { text-shadow:0 1px 2px rgba(0,0,0,.4); }
+        .cal-legend { display:flex; flex-wrap:wrap; gap:8px; margin-top:8px; justify-content:center; }
+        .cal-legend-item { display:flex; align-items:center; gap:4px; font-size:9px; color:var(--muted); }
+        .cal-legend-dot { width:10px; height:10px; border-radius:3px; }
+        .cal-popup { position:fixed; top:50%; left:50%; transform:translate(-50%,-50%); background:#fff; border-radius:14px; padding:16px; box-shadow:0 20px 60px rgba(0,0,0,.3); z-index:1000; width:280px; max-width:90vw; }
+        .cal-popup-overlay { position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:999; }
+
         /* Breakfast */
         .menu-grid { display:grid; grid-template-columns:repeat(2,1fr); gap:8px; }
         .menu-item { background:var(--bg); border:2px solid var(--border); border-radius:10px; padding:12px; cursor:pointer; transition:.15s; text-align:center; }
@@ -390,14 +416,33 @@ if (!empty($absenConfig['app_logo'])) {
         </div>
     </div>
 
-    <!-- ═══ PAGE: OCCUPANCY ═══ -->
+    <!-- ═══ PAGE: ROOM ═══ -->
     <div class="page" id="page-occupancy">
         <div id="occStats"></div>
         <div class="card">
             <div class="card-title">🏨 Status Kamar</div>
             <div id="roomGrid"><div class="loading"><span class="spin"></span> Memuat...</div></div>
         </div>
+        <div class="card">
+            <div class="card-title">📅 Booking Calendar</div>
+            <div class="cal-nav">
+                <button onclick="calNav(-14)">◀ Prev</button>
+                <span class="cal-period" id="calPeriod"></span>
+                <button onclick="calNav(14)">Next ▶</button>
+            </div>
+            <div class="cal-scroll" id="calScroll">
+                <div id="calGrid"><div class="loading"><span class="spin"></span> Memuat...</div></div>
+            </div>
+            <div class="cal-legend">
+                <div class="cal-legend-item"><div class="cal-legend-dot" style="background:#06b6d4;"></div>Confirmed</div>
+                <div class="cal-legend-item"><div class="cal-legend-dot" style="background:#f59e0b;"></div>Pending</div>
+                <div class="cal-legend-item"><div class="cal-legend-dot" style="background:#0284c7;"></div>Checked In</div>
+                <div class="cal-legend-item"><div class="cal-legend-dot" style="background:#9ca3af;"></div>Checked Out</div>
+            </div>
+        </div>
     </div>
+    <div id="calPopupOverlay" class="cal-popup-overlay" style="display:none;" onclick="closeCalPopup()"></div>
+    <div id="calPopup" class="cal-popup" style="display:none;"></div>
 
     <!-- ═══ PAGE: BREAKFAST ═══ -->
     <div class="page" id="page-breakfast">
@@ -417,7 +462,7 @@ if (!empty($absenConfig['app_logo'])) {
     <!-- Bottom Navigation -->
     <div class="bottom-nav">
         <div class="nav-item active" data-page="home"><span class="nav-icon">🏠</span><span class="nav-label">Home</span></div>
-        <div class="nav-item" data-page="occupancy"><span class="nav-icon">🏨</span><span class="nav-label">Kamar</span></div>
+        <div class="nav-item" data-page="occupancy"><span class="nav-icon">🏨</span><span class="nav-label">Room</span></div>
         <div class="nav-item" data-page="breakfast"><span class="nav-icon">☕</span><span class="nav-label">Breakfast</span></div>
     </div>
 </div>
@@ -677,41 +722,172 @@ async function loadMonitoring() {
 }
 
 // ═══ OCCUPANCY PAGE ═══
+let calStartDate = new Date().toISOString().split('T')[0];
+
+function calNav(days) {
+    const d = new Date(calStartDate);
+    d.setDate(d.getDate() + days);
+    calStartDate = d.toISOString().split('T')[0];
+    loadOccupancy();
+}
+
+function closeCalPopup() {
+    document.getElementById('calPopup').style.display = 'none';
+    document.getElementById('calPopupOverlay').style.display = 'none';
+}
+
+function showBookingPopup(b) {
+    const statusMap = {'pending':'⏳ Pending','confirmed':'✅ Confirmed','checked_in':'🏨 Checked In','checked_out':'🚪 Checked Out'};
+    const sourceMap = {'walk_in':'Walk In','agoda':'Agoda','booking':'Booking.com','traveloka':'Traveloka','airbnb':'Airbnb','tiket':'Tiket.com','phone':'Phone'};
+    const payMap = {'unpaid':'❌ Belum Bayar','partial':'⚠️ Sebagian','paid':'✅ Lunas'};
+    document.getElementById('calPopup').innerHTML = `
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+            <div style="font-weight:800;font-size:14px;color:var(--navy);">📋 Detail Booking</div>
+            <button onclick="closeCalPopup()" style="background:none;border:none;font-size:18px;cursor:pointer;">✕</button>
+        </div>
+        <div style="font-size:12px;line-height:2;">
+            <div><strong>Kode:</strong> ${b.booking_code||'-'}</div>
+            <div><strong>Tamu:</strong> ${b.guest_name||'-'}</div>
+            <div><strong>Check-in:</strong> ${b.check_in_date}</div>
+            <div><strong>Check-out:</strong> ${b.check_out_date}</div>
+            <div><strong>Status:</strong> ${statusMap[b.status]||b.status}</div>
+            <div><strong>Sumber:</strong> ${sourceMap[b.booking_source]||b.booking_source||'-'}</div>
+            <div><strong>Bayar:</strong> ${payMap[b.payment_status]||b.payment_status||'-'}</div>
+        </div>`;
+    document.getElementById('calPopup').style.display = 'block';
+    document.getElementById('calPopupOverlay').style.display = 'block';
+}
+
 async function loadOccupancy() {
     try {
-        const res = await fetch(API + '&action=occupancy');
+        const res = await fetch(API + '&action=occupancy&start=' + calStartDate);
         const data = await res.json();
         const d = data.data || {};
 
+        // Stats
         document.getElementById('occStats').innerHTML = `
             <div class="stat-row">
-                <div class="stat-card"><div class="sl">🟢 Available</div><div class="sv" style="color:var(--green);">${d.available||0}</div></div>
-                <div class="stat-card"><div class="sl">🔴 Occupied</div><div class="sv" style="color:var(--red);">${d.occupied||0}</div></div>
-                <div class="stat-card"><div class="sl">📊 Occupancy</div><div class="sv" style="color:var(--blue);">${d.occupancy_rate||0}%</div></div>
-                <div class="stat-card"><div class="sl">🏨 Total</div><div class="sv">${d.total_rooms||0}</div></div>
+                <div class="stat-card"><div class="sl">🟢 AVAILABLE</div><div class="sv" style="color:var(--green);">${d.available||0}</div></div>
+                <div class="stat-card"><div class="sl">🔴 OCCUPIED</div><div class="sv" style="color:var(--red);">${d.occupied||0}</div></div>
+                <div class="stat-card"><div class="sl">📊 OCCUPANCY</div><div class="sv" style="color:var(--blue);">${d.occupancy_rate||0}%</div></div>
+                <div class="stat-card"><div class="sl">🏨 TOTAL</div><div class="sv">${d.total_rooms||0}</div></div>
             </div>
             <div class="stat-row" style="grid-template-columns:repeat(2,1fr);">
-                <div class="stat-card" style="border-left:3px solid var(--green);"><div class="sl">✈️ Arrivals Today</div><div class="sv" style="color:var(--green);">${d.arrivals_today||0}</div></div>
-                <div class="stat-card" style="border-left:3px solid var(--orange);"><div class="sl">🚪 Departures Today</div><div class="sv" style="color:var(--orange);">${d.departures_today||0}</div></div>
+                <div class="stat-card" style="border-left:3px solid var(--green);"><div class="sl">✈️ ARRIVALS TODAY</div><div class="sv" style="color:var(--green);">${d.arrivals_today||0}</div></div>
+                <div class="stat-card" style="border-left:3px solid var(--orange);"><div class="sl">🚪 DEPARTURES TODAY</div><div class="sv" style="color:var(--orange);">${d.departures_today||0}</div></div>
             </div>`;
 
+        // Room grid
         const rooms = d.rooms || [];
         if (rooms.length === 0) {
             document.getElementById('roomGrid').innerHTML = '<div style="text-align:center;padding:16px;color:var(--muted);font-size:12px;">Tidak ada data kamar.</div>';
-            return;
+        } else {
+            let rh = '<div class="room-grid">';
+            rooms.forEach(r => {
+                const isOcc = r.status === 'occupied';
+                rh += `<div class="room-box ${isOcc?'occ':'avail'}">
+                    ${r.room_number}
+                    <div class="room-type">${r.room_type||''}</div>
+                    ${isOcc ? `<div class="room-guest">${r.guest_name||''}</div>` : ''}
+                </div>`;
+            });
+            rh += '</div>';
+            document.getElementById('roomGrid').innerHTML = rh;
         }
-        let html = '<div class="room-grid">';
+
+        // Calendar
+        const bookings = d.bookings || [];
+        const start = new Date(d.calendar_start || calStartDate);
+        const days = 14;
+        const dates = [];
+        const today = new Date().toISOString().split('T')[0];
+        for (let i = 0; i < days; i++) {
+            const dt = new Date(start);
+            dt.setDate(dt.getDate() + i);
+            dates.push(dt.toISOString().split('T')[0]);
+        }
+        
+        // Period label
+        const startM = new Date(dates[0]);
+        const endM = new Date(dates[dates.length-1]);
+        const months = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+        document.getElementById('calPeriod').textContent = 
+            startM.getDate() + ' ' + months[startM.getMonth()] + ' - ' + endM.getDate() + ' ' + months[endM.getMonth()] + ' ' + endM.getFullYear();
+
+        // Group rooms by type
+        const roomsByType = {};
         rooms.forEach(r => {
-            const isOcc = r.status === 'occupied';
-            html += `<div class="room-box ${isOcc?'occ':'avail'}">
-                ${r.room_number}
-                <div class="room-type">${r.room_type||''}</div>
-                ${isOcc ? `<div class="room-guest">${r.guest_name||''}</div>` : ''}
-            </div>`;
+            const t = r.room_type || 'Standard';
+            if (!roomsByType[t]) roomsByType[t] = [];
+            roomsByType[t].push(r);
         });
-        html += '</div>';
-        document.getElementById('roomGrid').innerHTML = html;
-    } catch(e) { document.getElementById('roomGrid').innerHTML = '<div style="color:var(--red);font-size:11px;">Gagal memuat</div>'; }
+
+        // Build booking map: room_id -> [{booking, startCol, span}]
+        const bookingMap = {};
+        bookings.forEach(b => {
+            if (!bookingMap[b.room_id]) bookingMap[b.room_id] = [];
+            const bStart = b.check_in_date;
+            const bEnd = b.check_out_date;
+            let startCol = -1, endCol = -1;
+            for (let i = 0; i < dates.length; i++) {
+                if (dates[i] >= bStart && startCol < 0) startCol = i;
+                if (dates[i] < bEnd) endCol = i;
+            }
+            if (bStart < dates[0]) startCol = 0;
+            if (endCol < 0 && bEnd > dates[0]) endCol = dates.length - 1;
+            if (startCol >= 0 && endCol >= startCol) {
+                bookingMap[b.room_id].push({ ...b, startCol, span: endCol - startCol + 1 });
+            }
+        });
+
+        const cols = days + 1; // +1 for room label column
+        const dayNames = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
+        let g = `<div class="cal-grid" style="grid-template-columns:80px repeat(${days},minmax(42px,1fr));">`;
+
+        // Header row
+        g += `<div class="cal-hdr room-h">ROOMS</div>`;
+        dates.forEach(dt => {
+            const dd = new Date(dt);
+            const isToday = dt === today;
+            g += `<div class="cal-hdr${isToday?' today-h':''}">${dayNames[dd.getDay()]}<br>${dd.getDate()}</div>`;
+        });
+
+        // Room rows grouped by type
+        const typeNames = Object.keys(roomsByType);
+        typeNames.forEach(typeName => {
+            g += `<div class="cal-type-row">📂 ${typeName} (${roomsByType[typeName].length})</div>`;
+            roomsByType[typeName].forEach(room => {
+                g += `<div class="cal-room">${room.room_number}</div>`;
+                const roomBookings = bookingMap[room.id] || [];
+                for (let i = 0; i < days; i++) {
+                    const isToday = dates[i] === today;
+                    g += `<div class="cal-cell${isToday?' today-c':''}">`;
+                    // Render booking bars that start on this column
+                    roomBookings.forEach(rb => {
+                        if (rb.startCol === i) {
+                            const wPct = (rb.span * 100) + '%';
+                            const cls = 's-' + (rb.status||'').replace('_','-');
+                            const name = (rb.guest_name||'Guest').substring(0, 10);
+                            g += `<div class="cal-bar ${cls}" style="width:${wPct};left:0;" onclick='showBookingPopup(${JSON.stringify({booking_code:rb.booking_code,guest_name:rb.guest_name,check_in_date:rb.check_in_date,check_out_date:rb.check_out_date,status:rb.status,booking_source:rb.booking_source,payment_status:rb.payment_status})})'><span>${name}</span></div>`;
+                        }
+                    });
+                    g += `</div>`;
+                }
+            });
+        });
+        g += '</div>';
+        document.getElementById('calGrid').innerHTML = g;
+
+        // Scroll to today
+        const todayIdx = dates.indexOf(today);
+        if (todayIdx > 2) {
+            const scrollEl = document.getElementById('calScroll');
+            scrollEl.scrollLeft = (todayIdx - 1) * 42;
+        }
+    } catch(e) { 
+        console.error(e);
+        document.getElementById('roomGrid').innerHTML = '<div style="color:var(--red);font-size:11px;">Gagal memuat</div>'; 
+    }
 }
 
 // ═══ BREAKFAST PAGE ═══

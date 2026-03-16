@@ -222,25 +222,39 @@ if ($action === 'occupancy') {
         $available = max(0, $totalRooms - $occupied);
         $rate = $totalRooms > 0 ? round($occupied / $totalRooms * 100, 1) : 0;
         
-        // Room list with status
-        $rooms = $db->fetchAll("SELECT r.id, r.room_number, r.room_type, r.floor,
+        // Room list with type info
+        $rooms = $db->fetchAll("SELECT r.id, r.room_number, r.floor_number,
+            COALESCE(rt.type_name, 'Standard') as room_type,
             CASE WHEN b.id IS NOT NULL THEN 'occupied' ELSE 'available' END as status,
-            b.guest_name, b.check_in_date, b.check_out_date
+            g.guest_name, b.check_in_date, b.check_out_date
             FROM rooms r
+            LEFT JOIN room_types rt ON r.room_type_id = rt.id
             LEFT JOIN bookings b ON b.room_id = r.id AND b.status = 'checked_in'
-            ORDER BY r.room_number") ?: [];
+            LEFT JOIN guests g ON b.guest_id = g.id
+            ORDER BY rt.type_name ASC, r.room_number ASC") ?: [];
 
         // Arrivals today
         $arrivals = $db->fetchOne("SELECT COUNT(*) as c FROM bookings WHERE DATE(check_in_date) = ? AND status IN ('confirmed','checked_in')", [$today])['c'] ?? 0;
         $departures = $db->fetchOne("SELECT COUNT(*) as c FROM bookings WHERE DATE(check_out_date) = ? AND status = 'checked_in'", [$today])['c'] ?? 0;
 
+        // Calendar bookings (14 days from start_date param or today)
+        $startDate = $_GET['start'] ?? $today;
+        $endDate = date('Y-m-d', strtotime($startDate . ' +13 days'));
+        $bookings = $db->fetchAll("SELECT b.id, b.booking_code, b.room_id, b.check_in_date, b.check_out_date,
+            b.status, b.booking_source, b.payment_status, g.guest_name
+            FROM bookings b LEFT JOIN guests g ON b.guest_id = g.id
+            WHERE b.check_in_date <= ? AND b.check_out_date > ?
+            AND b.status IN ('pending','confirmed','checked_in','checked_out')
+            ORDER BY b.check_in_date ASC", [$endDate, $startDate]) ?: [];
+
         echo json_encode(['success' => true, 'data' => [
             'total_rooms' => $totalRooms, 'occupied' => $occupied, 'available' => $available,
             'occupancy_rate' => $rate, 'rooms' => $rooms,
-            'arrivals_today' => $arrivals, 'departures_today' => $departures
+            'arrivals_today' => $arrivals, 'departures_today' => $departures,
+            'bookings' => $bookings, 'calendar_start' => $startDate, 'calendar_end' => $endDate
         ]]);
     } catch (Exception $e) {
-        echo json_encode(['success' => true, 'data' => ['total_rooms' => 0, 'occupied' => 0, 'available' => 0, 'occupancy_rate' => 0, 'rooms' => [], 'arrivals_today' => 0, 'departures_today' => 0]]);
+        echo json_encode(['success' => true, 'data' => ['total_rooms' => 0, 'occupied' => 0, 'available' => 0, 'occupancy_rate' => 0, 'rooms' => [], 'arrivals_today' => 0, 'departures_today' => 0, 'bookings' => []]]);
     }
     exit;
 }
