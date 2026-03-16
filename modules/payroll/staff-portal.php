@@ -122,16 +122,16 @@ try {
         .notif-dot { position:absolute; top:2px; right:4px; width:8px; height:8px; background:var(--red); border-radius:50%; display:none; }
         .notif-dot.show { display:block; }
 
-        /* Install banner — modern */
-        .install-banner { background:linear-gradient(135deg,#0d1f3c 0%,#1a3a5c 100%); color:#fff; padding:14px 16px; border-radius:14px; margin-bottom:12px; display:none; align-items:center; gap:12px; cursor:pointer; border:1px solid rgba(240,180,41,.2); position:relative; overflow:hidden; }
+        /* Install banner — fixed bottom, visible everywhere */
+        .install-banner { position:fixed; bottom:0; left:0; right:0; z-index:900; background:linear-gradient(135deg,#0d1f3c 0%,#1a3a5c 100%); color:#fff; padding:16px 16px calc(16px + env(safe-area-inset-bottom,0px)); display:none; align-items:center; gap:12px; cursor:pointer; border-top:1px solid rgba(240,180,41,.3); box-shadow:0 -4px 30px rgba(0,0,0,.3); }
         .install-banner::before { content:''; position:absolute; top:-50%; right:-20%; width:120px; height:120px; background:radial-gradient(circle,rgba(240,180,41,.15),transparent 70%); border-radius:50%; pointer-events:none; }
-        .install-banner.show { display:flex; animation:ibSlide .4s cubic-bezier(.16,1,.3,1); }
-        @keyframes ibSlide { from { opacity:0; transform:translateY(-10px); } to { opacity:1; transform:translateY(0); } }
-        .install-banner .ib-icon { width:40px; height:40px; background:linear-gradient(135deg,var(--gold),#e09800); border-radius:10px; display:flex; align-items:center; justify-content:center; font-size:20px; flex-shrink:0; }
+        .install-banner.show { display:flex; animation:ibSlideUp .5s cubic-bezier(.16,1,.3,1); }
+        @keyframes ibSlideUp { from { opacity:0; transform:translateY(100%); } to { opacity:1; transform:translateY(0); } }
+        .install-banner .ib-icon { width:44px; height:44px; background:linear-gradient(135deg,var(--gold),#e09800); border-radius:12px; display:flex; align-items:center; justify-content:center; font-size:22px; flex-shrink:0; }
         .install-banner .ib-text { flex:1; }
-        .install-banner .ib-title { font-weight:700; font-size:13px; color:#fff; }
-        .install-banner .ib-sub { font-size:10px; color:rgba(255,255,255,.6); margin-top:2px; }
-        .install-banner .ib-action { background:var(--gold); color:var(--navy); border:none; padding:8px 16px; border-radius:8px; font-size:11px; font-weight:700; cursor:pointer; white-space:nowrap; }
+        .install-banner .ib-title { font-weight:700; font-size:14px; color:#fff; }
+        .install-banner .ib-sub { font-size:11px; color:rgba(255,255,255,.6); margin-top:2px; }
+        .install-banner .ib-action { background:var(--gold); color:var(--navy); border:none; padding:10px 20px; border-radius:10px; font-size:12px; font-weight:700; cursor:pointer; white-space:nowrap; }
         .install-banner .ib-close { background:none; border:none; font-size:16px; cursor:pointer; padding:4px; color:rgba(255,255,255,.4); position:absolute; top:8px; right:8px; }
         /* Install progress overlay */
         .install-progress { display:none; position:fixed; inset:0; background:rgba(5,10,24,.95); z-index:2000; flex-direction:column; align-items:center; justify-content:center; }
@@ -438,16 +438,6 @@ try {
 
     <!-- ═══ PAGE: HOME (Absen + Monitoring + Cuti) ═══ -->
     <div class="page active" id="page-home">
-        <!-- Install Banner (Android) -->
-        <div class="install-banner" id="installBanner">
-            <div class="ib-icon">📲</div>
-            <div class="ib-text">
-                <div class="ib-title">Install Staff Portal</div>
-                <div class="ib-sub">Akses lebih cepat dari home screen</div>
-            </div>
-            <button class="ib-action" id="ibAction">Install</button>
-            <button class="ib-close" onclick="event.stopPropagation();document.getElementById('installBanner').classList.remove('show');">✕</button>
-        </div>
 
         <!-- iPhone Guide -->
         <div class="install-guide" id="iosGuide" style="display:none;">
@@ -1727,56 +1717,83 @@ async function doFaceClock() {
 }
 
 // ═══ PWA INSTALL — Enhanced UX ═══
+// Register SW immediately for fastest beforeinstallprompt
+if ('serviceWorker' in navigator) {
+    navigator.serviceWorker.register('sw.js', { scope: './' })
+        .then(reg => console.log('[PWA] SW registered, scope:', reg.scope))
+        .catch(err => console.error('[PWA] SW registration failed:', err));
+}
+
 let deferredPrompt = null;
+let userEngaged = false;
 const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
 const isStandalone = window.matchMedia('(display-mode: standalone)').matches || window.navigator.standalone;
+const ibDismissed = localStorage.getItem('ib_dismissed') === '1';
 
-console.log('[PWA] standalone:', isStandalone, 'iOS:', isIOS, 'protocol:', location.protocol);
+console.log('[PWA] standalone:', isStandalone, 'iOS:', isIOS, 'dismissed:', ibDismissed);
+
+// Track user engagement (Chrome requires this before firing beforeinstallprompt)
+['click', 'scroll', 'keydown', 'touchstart'].forEach(evt => {
+    document.addEventListener(evt, () => { userEngaged = true; }, { once: true, passive: true });
+});
+
+function showInstallBanner(mode) {
+    if (isStandalone || ibDismissed) return;
+    const banner = document.getElementById('installBanner');
+    if (!banner || banner.classList.contains('show')) return;
+    if (mode === 'manual') {
+        banner.querySelector('.ib-title').textContent = 'Install Staff Portal';
+        banner.querySelector('.ib-sub').textContent = 'Tap menu ⋮ di Chrome → "Add to Home screen"';
+        const btn = banner.querySelector('.ib-action');
+        btn.textContent = 'Cara Install';
+        btn.onclick = (e) => {
+            e.stopPropagation();
+            alert('Untuk install:\n\n1. Tap menu ⋮ (3 titik) di kanan atas Chrome\n2. Pilih "Add to Home screen" atau "Install app"\n3. Tap "Add" atau "Install"\n\nAplikasi akan muncul di home screen!');
+        };
+    }
+    banner.classList.add('show');
+    console.log('[PWA] Banner shown, mode:', mode);
+}
 
 window.addEventListener('beforeinstallprompt', (e) => {
     console.log('[PWA] beforeinstallprompt fired!');
     e.preventDefault();
     deferredPrompt = e;
-    document.getElementById('installBanner').classList.add('show');
+    showInstallBanner('native');
 });
 
-if (!isStandalone && !isIOS) {
-    setTimeout(() => {
-        if (!deferredPrompt) {
-            console.log('[PWA] beforeinstallprompt NOT fired after 3s. Showing manual hint.');
-            const banner = document.getElementById('installBanner');
-            if (banner) {
-                banner.querySelector('.ib-title').textContent = 'Install Staff Portal';
-                banner.querySelector('.ib-sub').textContent = 'Tap menu ⋮ → "Add to Home screen"';
-                banner.querySelector('.ib-action').textContent = 'Cara Install';
-                banner.querySelector('.ib-action').onclick = () => {
-                    alert('Untuk install:\n\n1. Tap menu ⋮ (3 titik) di Chrome\n2. Pilih "Add to Home screen"\n3. Tap "Add"\n\nAplikasi akan muncul di home screen!');
-                };
-                banner.classList.add('show');
+// Fallback: show manual hint after page is loaded + some engagement time
+if (!isStandalone && !ibDismissed) {
+    // Check multiple times — beforeinstallprompt can fire late
+    const checkTimes = [3000, 8000, 15000];
+    checkTimes.forEach(ms => {
+        setTimeout(() => {
+            if (!deferredPrompt && !isStandalone) {
+                // On Android Chrome, show manual hint
+                if (!isIOS) {
+                    showInstallBanner('manual');
+                }
             }
-        }
-    }, 3000);
+        }, ms);
+    });
 }
 
 // Install button handler
-document.getElementById('ibAction').addEventListener('click', async (e) => {
+document.getElementById('ibAction')?.addEventListener('click', async (e) => {
     e.stopPropagation();
     if (!deferredPrompt) return;
 
-    // Show install progress overlay
     const prog = document.getElementById('installProgress');
     const bar = document.getElementById('ipBarFill');
     const step = document.getElementById('ipStep');
     prog.classList.add('show');
 
-    // Animate progress steps
     bar.style.width = '15%'; step.textContent = 'Menyiapkan manifest...';
     await new Promise(r => setTimeout(r, 400));
     bar.style.width = '30%'; step.textContent = 'Mengunduh icon...';
     await new Promise(r => setTimeout(r, 500));
     bar.style.width = '50%'; step.textContent = 'Caching resources...';
 
-    // Trigger actual Chrome install prompt
     deferredPrompt.prompt();
     const result = await deferredPrompt.userChoice;
 
@@ -1786,7 +1803,6 @@ document.getElementById('ibAction').addEventListener('click', async (e) => {
         bar.style.width = '100%'; step.textContent = 'Hampir selesai...';
         await new Promise(r => setTimeout(r, 500));
 
-        // Show success
         document.getElementById('ipSub').style.display = 'none';
         document.querySelector('.ip-bar').style.display = 'none';
         step.style.display = 'none';
@@ -1796,23 +1812,22 @@ document.getElementById('ibAction').addEventListener('click', async (e) => {
         prog.classList.remove('show');
         document.getElementById('installBanner').classList.remove('show');
     } else {
-        // User dismissed — close progress
         prog.classList.remove('show');
     }
     deferredPrompt = null;
 });
 
 // Banner click (non-button area)
-document.getElementById('installBanner').addEventListener('click', (e) => {
+document.getElementById('installBanner')?.addEventListener('click', (e) => {
     if (e.target.closest('.ib-close') || e.target.closest('.ib-action')) return;
     if (deferredPrompt) document.getElementById('ibAction').click();
 });
 
 window.addEventListener('appinstalled', () => {
     console.log('[PWA] App installed!');
-    document.getElementById('installBanner').classList.remove('show');
+    document.getElementById('installBanner')?.classList.remove('show');
+    localStorage.removeItem('ib_dismissed');
     deferredPrompt = null;
-    // Show progress completion if not already showing
     const prog = document.getElementById('installProgress');
     if (!prog.classList.contains('show')) {
         prog.classList.add('show');
@@ -1829,17 +1844,21 @@ if (isIOS && !isStandalone && !localStorage.getItem('ios_guide_dismissed')) {
     document.getElementById('iosGuide').style.display = 'block';
 }
 
-// Register service worker (must be local sw.js with fetch handler for PWA install)
-if ('serviceWorker' in navigator) {
-    navigator.serviceWorker.register('sw.js', { scope: './' })
-        .then(reg => console.log('SW registered, scope:', reg.scope))
-        .catch(err => console.error('SW registration failed:', err));
-}
-
 // Check notifications every 60s
 setInterval(checkNotifs, 60000);
 setTimeout(checkNotifs, 3000);
 </script>
+
+<!-- Install Banner — fixed bottom, works on auth + app -->
+<div class="install-banner" id="installBanner">
+    <div class="ib-icon">📲</div>
+    <div class="ib-text">
+        <div class="ib-title">Install Staff Portal</div>
+        <div class="ib-sub">Akses lebih cepat dari home screen</div>
+    </div>
+    <button class="ib-action" id="ibAction">Install</button>
+    <button class="ib-close" onclick="event.stopPropagation();this.parentElement.classList.remove('show');localStorage.setItem('ib_dismissed','1');">✕</button>
+</div>
 
 </body>
 </html>
