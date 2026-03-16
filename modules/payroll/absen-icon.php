@@ -31,9 +31,22 @@ try {
     }
     
     if ($customIcon) {
-        // Cloudinary URL
+        // Cloudinary / external URL — proxy content directly (no redirect)
         if (strpos($customIcon, 'http') === 0) {
             while (ob_get_level()) ob_end_clean();
+            $ctx = stream_context_create(['http' => ['timeout' => 8, 'user_agent' => 'ADF-PWA-Icon/1.0']]);
+            $imgData = @file_get_contents($customIcon, false, $ctx);
+            if ($imgData !== false) {
+                $finfo = new finfo(FILEINFO_MIME_TYPE);
+                $mime = $finfo->buffer($imgData) ?: 'image/png';
+                header('Content-Type: ' . $mime);
+                header('Content-Length: ' . strlen($imgData));
+                header('Cache-Control: public, max-age=86400');
+                header('X-Content-Type-Options: nosniff');
+                echo $imgData;
+                exit;
+            }
+            // Fallback: redirect if proxy fails
             header('Location: ' . $customIcon);
             exit;
         }

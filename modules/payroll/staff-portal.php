@@ -625,7 +625,8 @@ try {
     <div class="ip-done" id="ipDone">
         <div class="ip-check">✓</div>
         <div class="ip-done-text">Terinstall!</div>
-        <div class="ip-done-sub">Buka dari home screen</div>
+        <div class="ip-done-sub">Cek home screen atau daftar aplikasi (app drawer)</div>
+        <div class="ip-done-sub" style="margin-top:6px;font-size:10px;opacity:.5;">Jika tidak muncul di home screen, swipe up → cari "Staff Portal"</div>
     </div>
 </div>
 
@@ -1840,7 +1841,7 @@ setTimeout(checkNotifs, 3000);
                 document.querySelector('.ip-bar').style.display = 'none';
                 step.style.display = 'none';
                 document.getElementById('ipDone').style.display = 'flex';
-                await sleep(2500);
+                await sleep(4000);
             }
         } catch(err) {
             console.error('[PWA] Install error:', err);
@@ -1873,7 +1874,7 @@ setTimeout(checkNotifs, 3000);
             document.querySelector('.ip-bar').style.display = 'none';
             document.getElementById('ipStep').style.display = 'none';
             document.getElementById('ipDone').style.display = 'flex';
-            setTimeout(() => prog.classList.remove('show'), 2500);
+            setTimeout(() => prog.classList.remove('show'), 4000);
         }
     });
 

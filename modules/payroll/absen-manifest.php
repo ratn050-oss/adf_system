@@ -77,6 +77,7 @@ echo json_encode([
     'theme_color'      => '#0d1f3c',
     'background_color' => '#0d1f3c',
     'lang'             => 'id',
+    'prefer_related_applications' => false,
     'icons'            => [
         [
             'src'     => $iconUrl192,
@@ -89,6 +90,12 @@ echo json_encode([
             'sizes'   => '512x512',
             'type'    => $iconType,
             'purpose' => 'any',
+        ],
+        [
+            'src'     => $iconUrl512,
+            'sizes'   => '512x512',
+            'type'    => $iconType,
+            'purpose' => 'maskable',
         ],
         [
             'src'     => $iconUrl192,
