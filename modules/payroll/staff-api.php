@@ -33,7 +33,10 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS `staff_accounts` (
     UNIQUE KEY uk_emp (employee_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
-// Session
+// Session — close any existing session first, then start staff-specific one
+if (session_status() === PHP_SESSION_ACTIVE) {
+    session_write_close();
+}
 session_name('staff_portal_' . md5($bizSlug));
 session_start();
 
