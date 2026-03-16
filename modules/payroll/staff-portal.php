@@ -280,8 +280,8 @@ if (!empty($absenConfig['app_logo'])) {
         <div id="notifList"><div class="np-empty">Memuat...</div></div>
     </div>
 
-    <!-- ═══ PAGE: ABSEN ═══ -->
-    <div class="page active" id="page-absen">
+    <!-- ═══ PAGE: HOME (Absen + Monitoring + Cuti) ═══ -->
+    <div class="page active" id="page-home">
         <!-- Install Banner (Android) -->
         <div class="install-banner" id="installBanner">
             <div class="ib-icon">📲</div>
@@ -315,51 +315,40 @@ if (!empty($absenConfig['app_logo'])) {
             </div>
         </div>
 
+        <!-- Scan Wajah -->
         <a href="<?php echo htmlspecialchars($absenUrl); ?>" class="absen-link" target="_self">
             <div class="al-icon">👁️</div>
             <div class="al-title">Scan Wajah — Absen Sekarang</div>
             <div class="al-sub">Tap untuk buka halaman scan wajah</div>
         </a>
 
+        <!-- Status Hari Ini -->
         <div class="card">
             <div class="card-title">📋 Status Absen Hari Ini</div>
             <div id="todayStatus"><div class="loading"><span class="spin"></span> Memuat...</div></div>
         </div>
 
+        <!-- Ringkasan Bulan Ini -->
         <div class="card">
             <div class="card-title">📊 Ringkasan Bulan Ini</div>
             <div id="monthlySummary"><div class="loading"><span class="spin"></span> Memuat...</div></div>
         </div>
-    </div>
 
-    <!-- ═══ PAGE: MONITORING ═══ -->
-    <div class="page" id="page-monitoring">
-        <div style="display:flex; align-items:center; gap:8px; margin-bottom:12px;">
-            <input type="month" id="monitorMonth" class="fi" style="width:160px;" value="<?php echo date('Y-m'); ?>" onchange="loadMonitoring()">
-        </div>
-        <div id="monitorStats"></div>
+        <!-- Monitoring Detail -->
         <div class="card">
-            <div class="card-title">📅 Detail Harian</div>
+            <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
+                <div class="card-title" style="margin:0;">📅 Detail Absensi</div>
+                <input type="month" id="monitorMonth" class="fi" style="width:140px;padding:5px 8px;font-size:11px;" value="<?php echo date('Y-m'); ?>" onchange="loadMonitoring()">
+            </div>
+            <div id="monitorStats"></div>
             <div id="monitorTable"><div class="loading"><span class="spin"></span> Memuat...</div></div>
         </div>
-    </div>
 
-    <!-- ═══ PAGE: OCCUPANCY ═══ -->
-    <div class="page" id="page-occupancy">
-        <div id="occStats"></div>
+        <!-- Ajukan Cuti -->
         <div class="card">
-            <div class="card-title">🏨 Status Kamar</div>
-            <div id="roomGrid"><div class="loading"><span class="spin"></span> Memuat...</div></div>
-        </div>
-    </div>
-
-    <!-- ═══ PAGE: CUTI ═══ -->
-    <div class="page" id="page-cuti">
-        <div class="card">
-            <div class="card-title">📝 Ajukan Cuti / Izin</div>
+            <div class="card-title">🏖️ Ajukan Cuti / Izin</div>
             <form id="cutiForm" onsubmit="return submitCuti(event)">
                 <div style="margin-bottom:10px;">
-                    <label class="fl">Jenis</label>
                     <div class="cuti-type-grid">
                         <div class="cuti-type selected" data-type="cuti" onclick="selectCutiType(this)">
                             <div class="ct-icon">🏖️</div><div class="ct-label">Cuti</div>
@@ -387,16 +376,26 @@ if (!empty($absenConfig['app_logo'])) {
                 </div>
                 <div style="margin-bottom:12px;">
                     <label class="fl">Alasan</label>
-                    <textarea class="fi" name="reason" rows="3" placeholder="Jelaskan alasan cuti/izin..." required style="resize:vertical;"></textarea>
+                    <textarea class="fi" name="reason" rows="2" placeholder="Jelaskan alasan cuti/izin..." required style="resize:vertical;"></textarea>
                 </div>
                 <button type="submit" class="btn-auth" id="cutiBtn" style="border-radius:10px;">📨 Kirim Pengajuan</button>
             </form>
         </div>
 
+        <!-- Riwayat Cuti -->
         <div class="card">
             <div class="card-title">📅 Riwayat Cuti</div>
             <div id="cutiStats" style="margin-bottom:10px;"></div>
             <div id="cutiHistory"><div class="loading"><span class="spin"></span> Memuat...</div></div>
+        </div>
+    </div>
+
+    <!-- ═══ PAGE: OCCUPANCY ═══ -->
+    <div class="page" id="page-occupancy">
+        <div id="occStats"></div>
+        <div class="card">
+            <div class="card-title">🏨 Status Kamar</div>
+            <div id="roomGrid"><div class="loading"><span class="spin"></span> Memuat...</div></div>
         </div>
     </div>
 
@@ -417,9 +416,7 @@ if (!empty($absenConfig['app_logo'])) {
 
     <!-- Bottom Navigation -->
     <div class="bottom-nav">
-        <div class="nav-item active" data-page="absen"><span class="nav-icon">📋</span><span class="nav-label">Absen</span></div>
-        <div class="nav-item" data-page="monitoring"><span class="nav-icon">📊</span><span class="nav-label">Monitoring</span></div>
-        <div class="nav-item" data-page="cuti"><span class="nav-icon">🏖️</span><span class="nav-label">Cuti</span></div>
+        <div class="nav-item active" data-page="home"><span class="nav-icon">🏠</span><span class="nav-label">Home</span></div>
         <div class="nav-item" data-page="occupancy"><span class="nav-icon">🏨</span><span class="nav-label">Kamar</span></div>
         <div class="nav-item" data-page="breakfast"><span class="nav-icon">☕</span><span class="nav-label">Breakfast</span></div>
     </div>
@@ -545,7 +542,13 @@ function showApp(name) {
     document.getElementById('authScreen').style.display = 'none';
     document.getElementById('appShell').style.display = 'block';
     document.getElementById('headerName').textContent = name || 'Staff';
+    loadHome();
+}
+
+function loadHome() {
     loadAbsen();
+    loadMonitoring();
+    loadCuti();
 }
 
 // ── Navigation ──
@@ -556,9 +559,7 @@ document.querySelectorAll('.nav-item').forEach(item => {
         item.classList.add('active');
         const page = item.dataset.page;
         document.getElementById('page-' + page).classList.add('active');
-        if (page === 'absen') loadAbsen();
-        if (page === 'monitoring') loadMonitoring();
-        if (page === 'cuti') loadCuti();
+        if (page === 'home') loadHome();
         if (page === 'occupancy') loadOccupancy();
         if (page === 'breakfast') loadBreakfast();
     });

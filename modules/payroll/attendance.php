@@ -364,6 +364,7 @@ foreach ($dailyAtt as $a) {
 }
 
 $absenUrl = $baseUrl . '/modules/payroll/absen.php?b=' . ACTIVE_BUSINESS_ID;
+$bizSlug = defined('ACTIVE_BUSINESS_ID') ? strtolower(str_replace('_', '-', ACTIVE_BUSINESS_ID)) : 'narayana-hotel';
 $staffPortalUrl = $baseUrl . '/modules/payroll/staff-portal.php?b=' . $bizSlug;
 
 // Leave requests
@@ -383,7 +384,6 @@ $pendingLeaves = count(array_filter($leaveRequests, fn($l) => $l['status'] === '
 $fpConfig = $db->fetchOne("SELECT fingerspot_cloud_id, fingerspot_enabled FROM payroll_attendance_config WHERE id = 1") ?: [];
 $fpEnabled = (int)($fpConfig['fingerspot_enabled'] ?? 0);
 $fpCloudId = $fpConfig['fingerspot_cloud_id'] ?? '';
-$bizSlug = defined('ACTIVE_BUSINESS_ID') ? strtolower(str_replace('_', '-', ACTIVE_BUSINESS_ID)) : 'narayana-hotel';
 $webhookUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'adfsystem.online') . str_replace('/modules/payroll/attendance.php', '', $_SERVER['SCRIPT_NAME']) . '/api/fingerprint-webhook.php?b=' . urlencode($bizSlug);
 
 // Webhook logs
