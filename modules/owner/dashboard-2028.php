@@ -295,18 +295,15 @@ try {
     // Focuses on hotel operations ONLY (excludes project expenses)
     // ============================================
     
-    // Previous month income/expense for growth comparison (exclude project expenses)
+    // Previous month income/expense for growth comparison
+    // Split into separate queries: income excludes capital, expense excludes project
     $lastMonth = date('Y-m', strtotime('-1 month'));
-    $stmt = $pdo->prepare("
-        SELECT 
-            COALESCE(SUM(CASE WHEN transaction_type = 'income' THEN amount ELSE 0 END), 0) as income,
-            COALESCE(SUM(CASE WHEN transaction_type = 'expense' THEN amount ELSE 0 END), 0) as expense
-        FROM cash_book 
-        WHERE DATE_FORMAT(transaction_date, '%Y-%m') = ?" . $excludeOwnerCapital . $excludeProjectExpense);
+    $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount), 0) FROM cash_book WHERE DATE_FORMAT(transaction_date, '%Y-%m') = ? AND transaction_type = 'income'" . $excludeOwnerCapital);
     $stmt->execute([$lastMonth]);
-    $prevMonthData = $stmt->fetch(PDO::FETCH_ASSOC);
-    $prevIncome = (float)($prevMonthData['income'] ?? 0);
-    $prevExpense = (float)($prevMonthData['expense'] ?? 0);
+    $prevIncome = (float)$stmt->fetchColumn();
+    $stmt = $pdo->prepare("SELECT COALESCE(SUM(amount), 0) FROM cash_book WHERE DATE_FORMAT(transaction_date, '%Y-%m') = ? AND transaction_type = 'expense'" . $excludeProjectExpense);
+    $stmt->execute([$lastMonth]);
+    $prevExpense = (float)$stmt->fetchColumn();
     $incomeGrowth = $prevIncome > 0 ? (($stats['month_income'] - $prevIncome) / $prevIncome) * 100 : 0;
     
     // Hotel expense only (exclude project) for AI analysis
@@ -336,8 +333,20 @@ try {
     $revPAR = 0; // Revenue Per Available Room
     
     try {
-        // Total rooms from proper rooms table
-        $roomStmt = $pdo->query("SELECT COUNT(*) as total, COUNT(CASE WHEN status = 'occupied' THEN 1 END) as occupied FROM rooms");
+        // Total rooms & occupied: combine rooms.status with active bookings for accuracy
+        // A room is occupied if: status='occupied' OR has active booking (checked_in/confirmed) overlapping today
+        $roomStmt = $pdo->query("
+            SELECT COUNT(*) as total,
+                   COUNT(CASE WHEN r.status = 'occupied'
+                              OR EXISTS (
+                                  SELECT 1 FROM bookings b 
+                                  WHERE b.room_id = r.id 
+                                  AND b.status IN ('checked_in', 'confirmed') 
+                                  AND b.check_in_date <= CURDATE() 
+                                  AND b.check_out_date >= CURDATE()
+                              ) THEN 1 END) as occupied
+            FROM rooms r
+        ");
         $roomData = $roomStmt->fetch(PDO::FETCH_ASSOC);
         $totalRooms = (int)($roomData['total'] ?? 0);
         $occupiedRooms = (int)($roomData['occupied'] ?? 0);
@@ -362,7 +371,7 @@ try {
         $stmt = $pdo->prepare("
             SELECT COUNT(*) as room_nights
             FROM bookings 
-            WHERE status IN ('checked_in', 'checked_out')
+            WHERE status IN ('checked_in', 'checked_out', 'confirmed')
             AND check_in_date <= CURDATE()
             AND check_out_date >= ?
             AND DATE_FORMAT(check_in_date, '%Y-%m') <= ?
@@ -371,6 +380,7 @@ try {
         $roomNightsSold = (int)($stmt->fetch(PDO::FETCH_ASSOC)['room_nights'] ?? 0);
         
         // Better calculation: count distinct room-days occupied
+        // Include 'confirmed' bookings where check_in_date has passed (guest is there but not formally checked in)
         $stmt = $pdo->prepare("
             SELECT COUNT(DISTINCT CONCAT(room_id, '-', d.date)) as occupied_nights
             FROM bookings b
@@ -386,7 +396,7 @@ try {
                 WHERE DATE_ADD(?, INTERVAL seq.seq DAY) <= CURDATE()
                 AND DATE_ADD(?, INTERVAL seq.seq DAY) <= LAST_DAY(?)
             ) d
-            WHERE b.status IN ('checked_in', 'checked_out')
+            WHERE b.status IN ('checked_in', 'checked_out', 'confirmed')
             AND b.check_in_date <= d.date
             AND b.check_out_date > d.date
         ");
@@ -415,7 +425,7 @@ try {
                       UNION SELECT 30) seq
                 WHERE DATE_ADD(?, INTERVAL seq.seq DAY) <= ?
             ) d
-            WHERE b.status IN ('checked_in', 'checked_out')
+            WHERE b.status IN ('checked_in', 'checked_out', 'confirmed')
             AND b.check_in_date <= d.date
             AND b.check_out_date > d.date
         ");
@@ -430,11 +440,11 @@ try {
     }
     
     try {
-        // Average stay duration this month
+        // Average stay duration this month (include confirmed with past check-in)
         $stmt = $pdo->prepare("
             SELECT AVG(total_nights) as avg_stay
             FROM bookings 
-            WHERE status IN ('checked_in', 'checked_out')
+            WHERE status IN ('checked_in', 'checked_out', 'confirmed')
             AND DATE_FORMAT(check_in_date, '%Y-%m') = ?
         ");
         $stmt->execute([$thisMonth]);
@@ -456,12 +466,13 @@ try {
     } catch (Exception $e) {}
     
     try {
-        // Revenue per room & RevPAR
+        // Revenue per room & RevPAR (include confirmed bookings with past check-in dates)
         $stmt = $pdo->prepare("
             SELECT COALESCE(SUM(final_price), 0) as total_revenue, COUNT(*) as total_bookings,
                    AVG(room_price) as avg_rate
             FROM bookings 
-            WHERE status IN ('checked_in', 'checked_out')
+            WHERE status IN ('checked_in', 'checked_out', 'confirmed')
+            AND check_in_date <= CURDATE()
             AND DATE_FORMAT(check_in_date, '%Y-%m') = ?
         ");
         $stmt->execute([$thisMonth]);
