@@ -121,10 +121,8 @@ try {
         $stmt = $pdo->query("SELECT COUNT(DISTINCT room_id) FROM bookings WHERE status = 'checked_in'");
         $stats['occupied'] = (int)$stmt->fetchColumn();
         
-        // Available = total - occupied
+        // Available & occupancy - will be recalculated below after room status map is loaded
         $stats['available'] = $stats['total_rooms'] - $stats['occupied'];
-
-        // Occupancy rate
         $stats['occupancy'] = $stats['total_rooms'] > 0 ? round(($stats['occupied'] / $stats['total_rooms']) * 100) : 0;
 
         // Revenue from cash_book (source of truth - matches Buku Kas Besar in system)
@@ -262,30 +260,61 @@ try {
         $stmt->execute([$today]);
         $todayDepartures = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
-        // Room status breakdown
+        // Room status breakdown from rooms table
         $stmt = $pdo->query("SELECT status, COUNT(*) as count FROM rooms GROUP BY status");
         $roomStatus = $stmt->fetchAll(PDO::FETCH_ASSOC);
         foreach ($roomStatus as $rs) {
             $roomStatusMap[$rs['status']] = (int)$rs['count'];
         }
 
-        // This month's reservations (all statuses except cancelled)
-        $stmt = $pdo->prepare("
-            SELECT b.id, g.guest_name, b.check_in_date, b.check_out_date,
-                   r.room_number, rt.type_name as room_type,
-                   b.status, b.final_price, b.paid_amount,
-                   b.booking_source
-            FROM bookings b
-            LEFT JOIN guests g ON b.guest_id = g.id
-            LEFT JOIN rooms r ON b.room_id = r.id
-            LEFT JOIN room_types rt ON r.room_type_id = rt.id
-            WHERE DATE_FORMAT(b.check_in_date, '%Y-%m') = ?
-              AND b.status NOT IN ('cancelled')
-            ORDER BY b.check_in_date ASC
-            LIMIT 50
-        ");
-        $stmt->execute([$thisMonth]);
-        $monthReservations = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        // Fix: Sync room counts - occupied from bookings overrides rooms.status
+        // rooms.status may be stale, bookings is source of truth
+        $maint = ($roomStatusMap['maintenance'] ?? 0) + ($roomStatusMap['cleaning'] ?? 0) + ($roomStatusMap['blocked'] ?? 0);
+        $stats['available'] = max(0, $stats['total_rooms'] - $stats['occupied'] - $maint);
+        $stats['occupancy'] = $stats['total_rooms'] > 0 ? round(($stats['occupied'] / $stats['total_rooms']) * 100) : 0;
+
+        // ── Calendar Timeline Data (CloudBeds style) ──
+        $calRooms = [];
+        $calBookings = [];
+        try {
+            // All rooms with type info
+            $stmt = $pdo->query("
+                SELECT r.id, r.room_number, r.status, r.floor_number,
+                       COALESCE(rt.type_name, 'Standard') as room_type
+                FROM rooms r
+                LEFT JOIN room_types rt ON r.room_type_id = rt.id
+                ORDER BY rt.type_name, r.floor_number, r.room_number
+            ");
+            $calRooms = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // Bookings spanning -7 to +30 days
+            $calStart = date('Y-m-d', strtotime('-7 days'));
+            $calEnd = date('Y-m-d', strtotime('+30 days'));
+            $stmt = $pdo->prepare("
+                SELECT b.id, b.booking_code, b.room_id, b.check_in_date, b.check_out_date,
+                       b.status, b.room_price, b.booking_source, b.payment_status,
+                       b.total_nights, b.final_price,
+                       g.guest_name, g.phone as guest_phone
+                FROM bookings b
+                LEFT JOIN guests g ON b.guest_id = g.id
+                WHERE b.check_in_date < ? AND b.check_out_date > ?
+                AND b.status IN ('pending', 'confirmed', 'checked_in', 'checked_out')
+                ORDER BY b.check_in_date
+            ");
+            $stmt->execute([$calEnd, $calStart]);
+            $calBookings = $stmt->fetchAll(PDO::FETCH_ASSOC);
+
+            // Attach current guest to room
+            foreach ($calRooms as &$cr) {
+                foreach ($calBookings as $cb) {
+                    if ($cb['room_id'] == $cr['id'] && $cb['status'] === 'checked_in') {
+                        $cr['guest_name'] = $cb['guest_name'];
+                        break;
+                    }
+                }
+            }
+            unset($cr);
+        } catch (Exception $e) {}
     }
 } catch (Exception $e) {
     $error = $e->getMessage();
@@ -637,46 +666,69 @@ function rp($num) {
             font-weight: 600;
         }
         
-        /* ── Booking Calendar ──────────────────────────────── */
-        .cal-wrap { background: var(--card); border-radius: 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.07); margin-bottom: 16px; overflow: hidden; }
-        .cal-header { background: linear-gradient(90deg,#6366f1,#818cf8); padding: 10px 14px; display: flex; align-items: center; justify-content: space-between; }
-        .cal-header-title { color: #fff; font-weight: 700; font-size: 13px; letter-spacing: 0.02em; }
-        .cal-header-sub { color: rgba(255,255,255,0.7); font-size: 10px; }
-        .cal-grid { display: grid; grid-template-columns: repeat(7,1fr); gap: 0; }
-        .cal-dow { text-align: center; font-size: 9px; font-weight: 700; color: var(--text-muted); padding: 6px 0 4px; letter-spacing: 0.05em; text-transform: uppercase; border-bottom: 1px solid var(--border); }
-        .cal-day { position: relative; min-height: 38px; padding: 4px 2px 2px; border-right: 1px solid var(--border); border-bottom: 1px solid var(--border); cursor: pointer; transition: background 0.15s; user-select: none; }
-        .cal-day:nth-child(7n) { border-right: none; }
-        .cal-day.empty { background: #f8fafc; cursor: default; }
-        .cal-day.today .cal-day-num { background: #6366f1; color: #fff; border-radius: 50%; width: 20px; height: 20px; display: flex; align-items: center; justify-content: center; margin: 0 auto; }
-        .cal-day.has-booking { background: #f0f4ff; }
-        .cal-day.has-booking:active { background: #dbeafe; }
-        .cal-day-num { font-size: 11px; font-weight: 600; color: var(--text); text-align: center; line-height: 20px; margin-bottom: 2px; }
-        .cal-dots { display: flex; flex-wrap: wrap; gap: 2px; justify-content: center; padding: 0 2px; }
-        .cal-dot { width: 5px; height: 5px; border-radius: 50%; flex-shrink: 0; }
-        .dot-confirmed  { background: #3b82f6; }
-        .dot-checked_in { background: #10b981; }
-        .dot-checked_out{ background: #94a3b8; }
-        .dot-pending    { background: #f59e0b; }
-        .cal-legend { display: flex; gap: 10px; flex-wrap: wrap; padding: 8px 14px 10px; border-top: 1px solid var(--border); }
-        .cal-legend-item { display: flex; align-items: center; gap: 4px; font-size: 9px; color: var(--text-muted); }
-        /* Bottom Sheet */
-        .cal-sheet-backdrop { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 200; display: none; }
-        .cal-sheet { position: fixed; bottom: 0; left: 0; right: 0; max-width: 480px; margin: 0 auto; background: #fff; border-radius: 20px 20px 0 0; z-index: 201; transform: translateY(100%); transition: transform 0.28s cubic-bezier(.4,0,.2,1); max-height: 70vh; overflow-y: auto; padding-bottom: env(safe-area-inset-bottom,16px); }
-        .cal-sheet.open { transform: translateY(0); }
-        .cal-sheet-handle { width: 36px; height: 4px; background: #e2e8f0; border-radius: 2px; margin: 10px auto 0; }
-        .cal-sheet-title { padding: 10px 16px 8px; font-weight: 700; font-size: 14px; color: var(--text); border-bottom: 1px solid var(--border); }
-        .cal-sheet-item { display: flex; align-items: center; gap: 10px; padding: 10px 16px; border-bottom: 1px solid #f1f5f9; }
-        .cal-sheet-room { width: 36px; height: 36px; border-radius: 8px; background: linear-gradient(135deg,#6366f1,#818cf8); color: #fff; font-weight: 800; font-size: 11px; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
-        .cal-sheet-info { flex: 1; min-width: 0; }
-        .cal-sheet-name { font-weight: 600; font-size: 12px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .cal-sheet-detail { font-size: 10px; color: var(--text-muted); margin-top: 1px; }
-        .cal-sheet-status { flex-shrink: 0; }
-        .css-badge { display: inline-block; padding: 2px 7px; border-radius: 8px; font-size: 9px; font-weight: 700; }
-        .badge-confirmed  { background: #dbeafe; color: #1d4ed8; }
-        .badge-checked_in { background: #dcfce7; color: #15803d; }
-        .badge-checked_out{ background: #f1f5f9; color: #475569; }
-        .badge-pending    { background: #fef9c3; color: #a16207; }
-        .cal-sheet-empty { padding: 24px; text-align: center; color: var(--text-muted); font-size: 12px; }
+        /* ── Room Status Grid ──────────────────────────── */
+        .room-status-wrap { background: var(--card); border-radius: 14px; padding: 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-bottom: 14px; }
+        .room-status-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; flex-wrap: wrap; gap: 6px; }
+        .room-status-label { font-size: 12px; font-weight: 700; color: var(--text); }
+        .room-status-summary { display: flex; gap: 6px; flex-wrap: wrap; }
+        .room-status-pill { display: flex; align-items: center; gap: 4px; font-size: 9px; font-weight: 700; padding: 3px 8px; border-radius: 10px; }
+        .rsp-available { background: #dcfce7; color: #15803d; }
+        .rsp-occupied { background: #fee2e2; color: #dc2626; }
+        .rsp-maintenance { background: #f3f4f6; color: #6b7280; }
+        .room-grid-owner { display: grid; grid-template-columns: repeat(auto-fill, minmax(66px, 1fr)); gap: 6px; }
+        .room-box-owner { border-radius: 10px; padding: 8px 6px; text-align: center; border: 1.5px solid var(--border); position: relative; transition: all 0.2s; }
+        .room-box-owner.rb-avail { background: linear-gradient(135deg, #f0fdf4, #dcfce7); border-color: #86efac; }
+        .room-box-owner.rb-occ { background: linear-gradient(135deg, #fef2f2, #fee2e2); border-color: #fca5a5; }
+        .room-box-owner.rb-maint { background: #f9fafb; border-color: #d1d5db; opacity: 0.6; }
+        .rb-number { font-size: 15px; font-weight: 900; color: #1e293b; line-height: 1; }
+        .rb-type { font-size: 7px; font-weight: 700; text-transform: uppercase; color: #6366f1; letter-spacing: 0.5px; margin-top: 2px; }
+        .rb-guest { font-size: 7px; font-weight: 600; color: #dc2626; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 58px; margin-inline: auto; }
+        .rb-status-dot { width: 6px; height: 6px; border-radius: 50%; position: absolute; top: 4px; right: 4px; }
+        .rb-dot-avail { background: #22c55e; }
+        .rb-dot-occ { background: #ef4444; }
+
+        /* ── Calendar Timeline (CloudBeds) ────────────── */
+        .cal-card-owner { background: var(--card); border-radius: 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); overflow: hidden; margin-bottom: 14px; }
+        .cal-nav-owner { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; gap: 8px; background: linear-gradient(135deg, #6366f1, #818cf8); }
+        .cal-nav-btn { background: rgba(255,255,255,0.2); color: #fff; border: none; border-radius: 8px; padding: 6px 12px; font-size: 11px; font-weight: 700; cursor: pointer; transition: 0.15s; backdrop-filter: blur(4px); }
+        .cal-nav-btn:active { opacity: 0.7; transform: scale(0.96); }
+        .cal-nav-period { font-size: 11px; font-weight: 800; color: #fff; letter-spacing: 0.3px; text-align: center; }
+        .cal-scroll-owner { overflow-x: auto; -webkit-overflow-scrolling: touch; cursor: grab; }
+        .cal-scroll-owner:active { cursor: grabbing; }
+        .cal-grid-owner { display: grid; gap: 0; width: fit-content; min-width: fit-content; }
+        .cgo-hdr-room { background: linear-gradient(135deg, #f1f5f9, #fff); border-right: 2px solid #e2e8f0; border-bottom: 2px solid #cbd5e1; padding: 4px; font-weight: 800; text-align: center; position: sticky; left: 0; z-index: 40; font-size: 9px; color: #475569; letter-spacing: 0.8px; text-transform: uppercase; display: flex; align-items: center; justify-content: center; min-width: 64px; max-width: 64px; box-shadow: 2px 0 6px rgba(0,0,0,0.04); }
+        .cgo-hdr-date { background: linear-gradient(180deg, #f8fafc, #f1f5f9); border-right: 1px solid #e2e8f0; border-bottom: 2px solid #cbd5e1; padding: 3px 2px; text-align: center; font-weight: 700; font-size: 9px; color: #334155; min-width: 80px; }
+        .cgo-hdr-date.cgo-today { background: rgba(99,102,241,0.12) !important; }
+        .cgo-hdr-day { font-size: 8px; text-transform: uppercase; font-weight: 600; color: #64748b; letter-spacing: 0.3px; }
+        .cgo-hdr-num { font-size: 12px; font-weight: 900; color: #1e293b; margin-left: 2px; }
+        .cgo-hdr-date.cgo-today .cgo-hdr-num { color: #6366f1; }
+        .cgo-type-hdr { background: linear-gradient(135deg, #eef2ff, #e0e7ff); border-right: 2px solid #a5b4fc; border-bottom: 1px solid #c7d2fe; padding: 3px 6px; font-weight: 800; color: #4338ca; position: sticky; left: 0; z-index: 30; display: flex; align-items: center; font-size: 9px; gap: 4px; min-width: 64px; max-width: 64px; box-shadow: 2px 0 6px rgba(0,0,0,0.04); }
+        .cgo-type-price { background: linear-gradient(135deg, #eef2ff, #e0e7ff); border-right: 1px solid #c7d2fe; border-bottom: 1px solid #a5b4fc; }
+        .cgo-room { background: linear-gradient(135deg, #f8fafc, #fff); border-right: 2px solid #e2e8f0; border-bottom: 1px solid #f1f5f9; padding: 2px 4px; font-weight: 700; color: #334155; position: sticky; left: 0; z-index: 30; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; min-width: 64px; max-width: 64px; box-shadow: 2px 0 6px rgba(0,0,0,0.04); }
+        .cgo-room-type { font-size: 7px; font-weight: 600; color: #6366f1; text-transform: uppercase; letter-spacing: 0.5px; line-height: 1; }
+        .cgo-room-num { font-size: 12px; color: #1e293b; font-weight: 900; line-height: 1; }
+        .cgo-cell { border-right: 0.5px solid rgba(51,65,85,0.12); border-bottom: 0.5px solid rgba(51,65,85,0.12); min-width: 80px; min-height: 28px; position: relative; background: transparent; }
+        .cgo-cell.cgo-today { background: rgba(99,102,241,0.05) !important; }
+        .bbar-wrap-o { position: absolute; top: 2px; left: 50%; height: 24px; display: flex; align-items: center; overflow: visible; z-index: 10; margin-left: 4px; cursor: pointer; }
+        .bbar-o { width: 100%; height: 22px; padding: 0 6px; display: flex; align-items: center; justify-content: center; text-align: center; box-shadow: 0 2px 6px rgba(0,0,0,0.15), 0 1px 2px rgba(0,0,0,0.1); font-weight: 700; font-size: 9px; line-height: 1.1; position: relative; border-radius: 3px; white-space: nowrap; transform: skewX(-20deg); color: #fff !important; transition: all 0.2s; overflow: hidden; }
+        .bbar-o > span { transform: skewX(20deg); color: #fff !important; text-shadow: 0 1px 3px rgba(0,0,0,0.6); font-weight: 800; font-size: 8px; }
+        .bbar-o::before { content: ''; position: absolute; left: -6px; top: 50%; transform: translateY(-50%); width: 0; height: 0; border-top: 10px solid transparent; border-bottom: 10px solid transparent; border-right: 4px solid; border-right-color: inherit; }
+        .bbar-o::after { content: ''; position: absolute; right: -6px; top: 50%; transform: translateY(-50%); width: 0; height: 0; border-top: 10px solid transparent; border-bottom: 10px solid transparent; border-left: 4px solid; border-left-color: inherit; }
+        .bbar-o:active { transform: skewX(-20deg) scaleY(1.1); }
+        .bbar-o.bs-confirmed { background: linear-gradient(135deg, #06b6d4, #22d3ee) !important; border-color: #06b6d4; }
+        .bbar-o.bs-pending { background: linear-gradient(135deg, #0ea5e9, #38bdf8) !important; border-color: #0ea5e9; }
+        .bbar-o.bs-checked-in { background: linear-gradient(135deg, #16a34a, #22c55e) !important; border-color: #16a34a; }
+        .bbar-o.bs-checked-out { background: linear-gradient(135deg, #9ca3af, #d1d5db) !important; border-color: #9ca3af; opacity: 0.4; }
+        .bbar-o.bs-checked-out > span { color: #6b7280 !important; text-shadow: none !important; }
+        .cgo-ftr-room { background: linear-gradient(135deg, #f1f5f9, #fff); border-right: 2px solid #e2e8f0; border-top: 2px solid #cbd5e1; padding: 4px; font-weight: 800; text-align: center; position: sticky; left: 0; z-index: 40; font-size: 9px; color: #475569; letter-spacing: 0.8px; text-transform: uppercase; display: flex; align-items: center; justify-content: center; min-width: 64px; max-width: 64px; box-shadow: 2px 0 6px rgba(0,0,0,0.04); }
+        .cgo-ftr-date { background: linear-gradient(180deg, #f8fafc, #f1f5f9); border-right: 1px solid #e2e8f0; border-top: 2px solid #cbd5e1; padding: 3px 2px; text-align: center; font-weight: 700; font-size: 9px; color: #334155; }
+        .cgo-ftr-date.cgo-today { background: rgba(99,102,241,0.12) !important; }
+        .cal-legend-owner { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px 12px 10px; border-top: 1px solid var(--border); justify-content: center; }
+        .cal-legend-item-o { display: flex; align-items: center; gap: 4px; font-size: 8px; color: var(--text-muted); font-weight: 500; }
+        .cal-legend-dot-o { width: 12px; height: 7px; border-radius: 3px; transform: skewX(-20deg); }
+        /* Booking popup */
+        .cal-popup-overlay-o { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 999; display: none; }
+        .cal-popup-o { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); background: #fff; border-radius: 16px; padding: 18px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); z-index: 1000; width: 300px; max-width: 90vw; display: none; }
 
         /* Empty State */
         .empty-state {
@@ -843,6 +895,12 @@ function rp($num) {
                     <span class="occ-label">Occupied</span>
                     <span class="occ-value danger"><?= $stats['occupied'] ?> rooms</span>
                 </div>
+                <?php $maintTotal = ($roomStatusMap['maintenance'] ?? 0) + ($roomStatusMap['cleaning'] ?? 0); if ($maintTotal > 0): ?>
+                <div class="occ-row">
+                    <span class="occ-label">Maintenance</span>
+                    <span class="occ-value warning"><?= $maintTotal ?> rooms</span>
+                </div>
+                <?php endif; ?>
                 <div class="occ-row">
                     <span class="occ-label">Total</span>
                     <span class="occ-value"><?= $stats['total_rooms'] ?> rooms</span>
@@ -954,89 +1012,66 @@ function rp($num) {
         
         <?php endif; ?>
 
-        <!-- ══ Booking Calendar ════════════════════════════════════════════════ -->
-        <?php
-            $monthReservations = $monthReservations ?? [];
-            // Build lookup: date => [ bookings ]
-            $calData = [];
-            foreach ($monthReservations as $r) {
-                // A booking spans check_in to check_out-1 — mark every day it's active
-                $di = new DateTime($r['check_in_date']);
-                $de = new DateTime($r['check_out_date']);
-                $cur = clone $di;
-                while ($cur < $de) {
-                    $k = $cur->format('Y-m-d');
-                    $calData[$k][] = $r;
-                    $cur->modify('+1 day');
-                }
-            }
-            $calJson = json_encode($calData, JSON_UNESCAPED_UNICODE);
-            $monthTs  = mktime(0,0,0, (int)date('m'), 1, (int)date('Y'));
-            $daysInMonth = (int)date('t', $monthTs);
-            $firstDow    = (int)date('w', $monthTs); // 0=Sun
-        ?>
+        <!-- ══ Room Monitor & Booking Calendar (CloudBeds Style) ══ -->
+        <?php if (!empty($calRooms)): ?>
         <div class="section-title">
-            📅 Booking Calendar &mdash; <?= date('F Y') ?>
-            <span class="badge"><?= count($monthReservations) ?></span>
+            📅 Room Monitor & Booking Calendar
+            <span class="badge"><?= count($calBookings) ?></span>
         </div>
 
-        <div class="cal-wrap">
-            <div class="cal-header">
-                <div>
-                    <div class="cal-header-title"><?= date('F Y') ?></div>
-                    <div class="cal-header-sub"><?= count($monthReservations) ?> reservasi bulan ini</div>
-                </div>
-                <div style="font-size:22px">&#x1F4C6;</div>
-            </div>
-            <!-- Day-of-week headers -->
-            <div class="cal-grid" id="calGrid">
-                <?php foreach (['Sun','Mon','Tue','Wed','Thu','Fri','Sat'] as $d): ?>
-                <div class="cal-dow"><?= $d ?></div>
-                <?php endforeach; ?>
-                <!-- Empty cells before 1st -->
-                <?php for ($e = 0; $e < $firstDow; $e++): ?>
-                <div class="cal-day empty"></div>
-                <?php endfor; ?>
-                <!-- Day cells -->
-                <?php for ($day = 1; $day <= $daysInMonth; $day++):
-                    $dateStr = date('Y-m') . '-' . str_pad($day, 2, '0', STR_PAD_LEFT);
-                    $isToday = ($dateStr === date('Y-m-d'));
-                    $hasBook = isset($calData[$dateStr]) && count($calData[$dateStr]) > 0;
-                ?>
-                <div class="cal-day<?= $isToday ? ' today' : '' ?><?= $hasBook ? ' has-booking' : '' ?>"
-                     <?= $hasBook ? "onclick=\"showDay('$dateStr')\"" : '' ?>>
-                    <div class="cal-day-num"><?= $day ?></div>
-                    <?php if ($hasBook): ?>
-                    <div class="cal-dots">
-                        <?php
-                        $shown = [];
-                        foreach (array_slice($calData[$dateStr], 0, 4) as $bk) {
-                            $shown[$bk['status']] = true;
-                        }
-                        foreach ($shown as $st => $_): ?>
-                        <div class="cal-dot dot-<?= $st ?>"></div>
-                        <?php endforeach; ?>
-                    </div>
+        <!-- Room Status Grid -->
+        <div class="room-status-wrap">
+            <div class="room-status-header">
+                <div class="room-status-label">🏨 Status Kamar</div>
+                <div class="room-status-summary">
+                    <span class="room-status-pill rsp-available">✓ <?= $stats['available'] ?> Available</span>
+                    <span class="room-status-pill rsp-occupied">● <?= $stats['occupied'] ?> Occupied</span>
+                    <?php $maintCount = ($roomStatusMap['maintenance'] ?? 0) + ($roomStatusMap['cleaning'] ?? 0); if ($maintCount > 0): ?>
+                    <span class="room-status-pill rsp-maintenance">🔧 <?= $maintCount ?></span>
                     <?php endif; ?>
                 </div>
-                <?php endfor; ?>
             </div>
-            <!-- Legend -->
-            <div class="cal-legend">
-                <div class="cal-legend-item"><div class="cal-dot dot-checked_in"></div> In-House</div>
-                <div class="cal-legend-item"><div class="cal-dot dot-confirmed"></div> Confirmed</div>
-                <div class="cal-legend-item"><div class="cal-dot dot-checked_out"></div> Checked-Out</div>
-                <div class="cal-legend-item"><div class="cal-dot dot-pending"></div> Pending</div>
+            <div class="room-grid-owner">
+                <?php foreach ($calRooms as $cr):
+                    $isOcc = ($cr['status'] === 'occupied') || !empty($cr['guest_name']);
+                    $isMaint = in_array($cr['status'], ['maintenance', 'cleaning', 'blocked']);
+                    $cls = $isOcc ? 'rb-occ' : ($isMaint ? 'rb-maint' : 'rb-avail');
+                    $dotCls = $isOcc ? 'rb-dot-occ' : 'rb-dot-avail';
+                ?>
+                <div class="room-box-owner <?= $cls ?>">
+                    <div class="rb-status-dot <?= $dotCls ?>"></div>
+                    <div class="rb-number"><?= htmlspecialchars($cr['room_number']) ?></div>
+                    <div class="rb-type"><?= htmlspecialchars(substr($cr['room_type'], 0, 8)) ?></div>
+                    <?php if ($isOcc && !empty($cr['guest_name'])): ?>
+                    <div class="rb-guest"><?= htmlspecialchars(substr($cr['guest_name'], 0, 12)) ?></div>
+                    <?php endif; ?>
+                </div>
+                <?php endforeach; ?>
             </div>
         </div>
 
-        <!-- Bottom Sheet -->
-        <div class="cal-sheet-backdrop" id="sheetBackdrop" onclick="closeSheet()"></div>
-        <div class="cal-sheet" id="calSheet">
-            <div class="cal-sheet-handle"></div>
-            <div class="cal-sheet-title" id="sheetTitle"></div>
-            <div id="sheetBody"></div>
+        <!-- Booking Calendar Timeline -->
+        <div class="cal-card-owner">
+            <div class="cal-nav-owner">
+                <button class="cal-nav-btn" onclick="ownerCalNav(-14)">◀ Prev</button>
+                <span class="cal-nav-period" id="ownerCalPeriod"></span>
+                <button class="cal-nav-btn" onclick="ownerCalNav(14)">Next ▶</button>
+            </div>
+            <div class="cal-scroll-owner" id="ownerCalScroll">
+                <div id="ownerCalGrid"></div>
+            </div>
+            <div class="cal-legend-owner">
+                <div class="cal-legend-item-o"><div class="cal-legend-dot-o" style="background:linear-gradient(135deg,#06b6d4,#22d3ee);"></div>Confirmed</div>
+                <div class="cal-legend-item-o"><div class="cal-legend-dot-o" style="background:linear-gradient(135deg,#0ea5e9,#38bdf8);"></div>Pending</div>
+                <div class="cal-legend-item-o"><div class="cal-legend-dot-o" style="background:linear-gradient(135deg,#16a34a,#22c55e);"></div>Checked In</div>
+                <div class="cal-legend-item-o"><div class="cal-legend-dot-o" style="background:linear-gradient(135deg,#9ca3af,#d1d5db);"></div>Checked Out</div>
+            </div>
         </div>
+
+        <!-- Booking Popup -->
+        <div class="cal-popup-overlay-o" id="ownerCalOverlay" onclick="closeOwnerCalPopup()"></div>
+        <div class="cal-popup-o" id="ownerCalPopup"></div>
+        <?php endif; ?>
 
         
     <?php
@@ -1046,140 +1081,203 @@ function rp($num) {
     ?>
     
     <script>
-    // ── Booking Calendar data (read-only) ────────────────────────────────────
-    var CAL_DATA = <?= $calJson ?? '{}' ?>;
-
-    var statusLabel = {
-        confirmed:   'Confirmed',
-        checked_in:  'In-House',
-        checked_out: 'Checked-Out',
-        pending:     'Pending'
-    };
-    var badgeClass = {
-        confirmed:   'badge-confirmed',
-        checked_in:  'badge-checked_in',
-        checked_out: 'badge-checked_out',
-        pending:     'badge-pending'
-    };
-    var months = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
-
-    function showDay(dateStr) {
-        var bookings = CAL_DATA[dateStr] || [];
-        var parts = dateStr.split('-');
-        var label = parseInt(parts[2]) + ' ' + months[parseInt(parts[1])-1] + ' ' + parts[0];
-        document.getElementById('sheetTitle').textContent = '📅 ' + label + '  (' + bookings.length + ' booking)';
-
-        var html = '';
-        if (bookings.length === 0) {
-            html = '<div class="cal-sheet-empty">Tidak ada booking hari ini</div>';
-        } else {
-            // Deduplicate by booking id
-            var seen = {};
-            bookings.forEach(function(b) {
-                if (seen[b.id]) return;
-                seen[b.id] = true;
-                var initials = (b.guest_name || 'G').substring(0,3).toUpperCase();
-                var st = b.status || 'pending';
-                var ciDate = b.check_in_date ? b.check_in_date.substring(5,10).replace('-','/') : '-';
-                var coDate = b.check_out_date ? b.check_out_date.substring(5,10).replace('-','/') : '-';
-                html += '<div class="cal-sheet-item">' +
-                    '<div class="cal-sheet-room">' + (b.room_number || '-') + '</div>' +
-                    '<div class="cal-sheet-info">' +
-                        '<div class="cal-sheet-name">' + (b.guest_name || 'Guest') + '</div>' +
-                        '<div class="cal-sheet-detail">' + (b.room_type || '') + '  •  ' + ciDate + ' – ' + coDate + '</div>' +
-                    '</div>' +
-                    '<div class="cal-sheet-status"><span class="css-badge ' + (badgeClass[st]||'') + '">' + (statusLabel[st]||st) + '</span></div>' +
-                '</div>';
-            });
-        }
-        document.getElementById('sheetBody').innerHTML = html;
-        document.getElementById('sheetBackdrop').style.display = 'block';
-        setTimeout(function(){ document.getElementById('calSheet').classList.add('open'); }, 10);
-    }
-
-    function closeSheet() {
-        document.getElementById('calSheet').classList.remove('open');
-        setTimeout(function(){ document.getElementById('sheetBackdrop').style.display = 'none'; }, 280);
-    }
-
-    // swipe down to close
-    (function(){
-        var sheet = document.getElementById('calSheet');
-        var startY = 0;
-        sheet.addEventListener('touchstart', function(e){ startY = e.touches[0].clientY; }, {passive:true});
-        sheet.addEventListener('touchend', function(e){ if (e.changedTouches[0].clientY - startY > 60) closeSheet(); }, {passive:true});
-    })();
-
     document.addEventListener('DOMContentLoaded', function() {
+        // ── Pie Chart ──
         var canvas = document.getElementById('occupancyPie');
         if (!canvas) return;
         var ctx = canvas.getContext('2d');
         
         var occupied = <?= (int)$stats['occupied'] ?>;
         var available = <?= (int)$stats['available'] ?>;
-        var maintenance = <?= (int)($roomStatusMap['maintenance'] ?? 0) ?>;
-        var cleaning = <?= (int)($roomStatusMap['cleaning'] ?? 0) ?>;
-        var total = occupied + available + maintenance + cleaning;
+        var maintenance = <?= (int)(($roomStatusMap['maintenance'] ?? 0) + ($roomStatusMap['cleaning'] ?? 0)) ?>;
+        var total = occupied + available + maintenance;
         if (total === 0) { available = 1; total = 1; }
         
         var cx = 55, cy = 55, r = 50, innerR = 32;
         var startAngle = -Math.PI / 2;
         
-        // Modern gradient colors
         var gradOccupied = ctx.createLinearGradient(0, 0, 110, 110);
-        gradOccupied.addColorStop(0, '#ef4444');
-        gradOccupied.addColorStop(1, '#f87171');
-        
+        gradOccupied.addColorStop(0, '#ef4444'); gradOccupied.addColorStop(1, '#f87171');
         var gradAvailable = ctx.createLinearGradient(0, 0, 110, 110);
-        gradAvailable.addColorStop(0, '#10b981');
-        gradAvailable.addColorStop(1, '#34d399');
-        
+        gradAvailable.addColorStop(0, '#10b981'); gradAvailable.addColorStop(1, '#34d399');
         var gradMaint = ctx.createLinearGradient(0, 0, 110, 110);
-        gradMaint.addColorStop(0, '#f59e0b');
-        gradMaint.addColorStop(1, '#fbbf24');
+        gradMaint.addColorStop(0, '#f59e0b'); gradMaint.addColorStop(1, '#fbbf24');
         
-        var gradClean = ctx.createLinearGradient(0, 0, 110, 110);
-        gradClean.addColorStop(0, '#3b82f6');
-        gradClean.addColorStop(1, '#60a5fa');
-        
-        // Draw segments with gradients
         var segments = [
             { value: occupied, color: gradOccupied },
             { value: available, color: gradAvailable },
-            { value: maintenance, color: gradMaint },
-            { value: cleaning, color: gradClean }
+            { value: maintenance, color: gradMaint }
         ];
-        
         var currentAngle = startAngle;
         segments.forEach(function(seg) {
             if (seg.value > 0) {
                 var angle = (seg.value / total) * 2 * Math.PI;
-                ctx.beginPath();
-                ctx.moveTo(cx, cy);
+                ctx.beginPath(); ctx.moveTo(cx, cy);
                 ctx.arc(cx, cy, r, currentAngle, currentAngle + angle);
-                ctx.closePath();
-                ctx.fillStyle = seg.color;
-                ctx.fill();
+                ctx.closePath(); ctx.fillStyle = seg.color; ctx.fill();
                 currentAngle += angle;
             }
         });
-        
-        // Inner donut hole with subtle gradient
         var innerGrad = ctx.createRadialGradient(cx, cy, 0, cx, cy, innerR);
-        innerGrad.addColorStop(0, '#ffffff');
-        innerGrad.addColorStop(1, '#f8fafc');
-        ctx.beginPath();
-        ctx.arc(cx, cy, innerR, 0, 2 * Math.PI);
-        ctx.fillStyle = innerGrad;
-        ctx.fill();
-        
-        // Subtle inner shadow ring
-        ctx.beginPath();
-        ctx.arc(cx, cy, innerR, 0, 2 * Math.PI);
-        ctx.strokeStyle = 'rgba(99, 102, 241, 0.1)';
-        ctx.lineWidth = 1;
-        ctx.stroke();
+        innerGrad.addColorStop(0, '#ffffff'); innerGrad.addColorStop(1, '#f8fafc');
+        ctx.beginPath(); ctx.arc(cx, cy, innerR, 0, 2 * Math.PI);
+        ctx.fillStyle = innerGrad; ctx.fill();
+        ctx.beginPath(); ctx.arc(cx, cy, innerR, 0, 2 * Math.PI);
+        ctx.strokeStyle = 'rgba(99, 102, 241, 0.1)'; ctx.lineWidth = 1; ctx.stroke();
     });
+
+    // ── CloudBeds Booking Calendar ──
+    <?php if (!empty($calRooms)): ?>
+    (function() {
+        var COL_W = 80;
+        var calRooms = <?= json_encode($calRooms, JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+        var calBookings = <?= json_encode($calBookings, JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
+        var calOffset = 0;
+
+        function renderOwnerCal() {
+            var today = new Date(); today.setHours(0,0,0,0);
+            var start = new Date(today);
+            start.setDate(start.getDate() + calOffset - 3);
+            var days = 14, dates = [], todayStr = today.toISOString().split('T')[0];
+            for (var i = 0; i < days; i++) {
+                var dt = new Date(start); dt.setDate(dt.getDate() + i);
+                dates.push(dt.toISOString().split('T')[0]);
+            }
+            var months = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+            var startD = new Date(dates[0] + 'T00:00:00'), endD = new Date(dates[dates.length-1] + 'T00:00:00');
+            var periodEl = document.getElementById('ownerCalPeriod');
+            if (periodEl) periodEl.textContent = startD.getDate() + ' ' + months[startD.getMonth()] + ' — ' + endD.getDate() + ' ' + months[endD.getMonth()] + ' ' + endD.getFullYear();
+
+            var roomsByType = {};
+            calRooms.forEach(function(r) {
+                var t = r.room_type || 'Standard';
+                if (!roomsByType[t]) roomsByType[t] = [];
+                roomsByType[t].push(r);
+            });
+
+            var bookingMap = {};
+            calBookings.forEach(function(b) {
+                if (!bookingMap[b.room_id]) bookingMap[b.room_id] = [];
+                var bStart = b.check_in_date, bEnd = b.check_out_date;
+                var startCol = -1, endCol = -1;
+                for (var i = 0; i < dates.length; i++) {
+                    if (dates[i] >= bStart && startCol < 0) startCol = i;
+                    if (dates[i] < bEnd) endCol = i;
+                }
+                if (bStart < dates[0]) startCol = 0;
+                if (endCol < 0 && bEnd > dates[0]) endCol = dates.length - 1;
+                if (startCol >= 0 && endCol >= startCol) {
+                    var copy = {}; for (var k in b) copy[k] = b[k];
+                    copy.startCol = startCol; copy.span = endCol - startCol + 1;
+                    bookingMap[b.room_id].push(copy);
+                }
+            });
+
+            var dayNames = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
+            var g = '<div class="cal-grid-owner" style="grid-template-columns:64px repeat(' + days + ',' + COL_W + 'px);">';
+            g += '<div class="cgo-hdr-room">ROOMS</div>';
+            dates.forEach(function(dt) {
+                var dd = new Date(dt + 'T00:00:00'), isTd = dt === todayStr;
+                g += '<div class="cgo-hdr-date' + (isTd ? ' cgo-today' : '') + '"><span class="cgo-hdr-day">' + dayNames[dd.getDay()] + '</span> <span class="cgo-hdr-num">' + dd.getDate() + '</span></div>';
+            });
+
+            Object.keys(roomsByType).forEach(function(typeName) {
+                g += '<div class="cgo-type-hdr">📂 ' + typeName.substring(0, 10) + '</div>';
+                for (var i = 0; i < days; i++) g += '<div class="cgo-type-price"></div>';
+
+                roomsByType[typeName].forEach(function(room) {
+                    var tShort = (room.room_type || '').toUpperCase().substring(0, 6);
+                    g += '<div class="cgo-room"><span class="cgo-room-type">' + tShort + '</span><span class="cgo-room-num">' + room.room_number + '</span></div>';
+                    var roomBookings = bookingMap[room.id] || [];
+                    for (var i = 0; i < days; i++) {
+                        var isTd = dates[i] === todayStr;
+                        g += '<div class="cgo-cell' + (isTd ? ' cgo-today' : '') + '">';
+                        roomBookings.forEach(function(rb) {
+                            if (rb.startCol === i) {
+                                var barW = (rb.span * COL_W) - 10;
+                                var sCls = 'bs-' + (rb.status || '').replace('_', '-');
+                                var isCI = rb.status === 'checked_in';
+                                var icon = isCI ? '✓ ' : '';
+                                var name = (rb.guest_name || 'Guest').substring(0, 10);
+                                var code = (rb.booking_code || '').substring(0, 6);
+                                var bData = encodeURIComponent(JSON.stringify({
+                                    booking_code: rb.booking_code, guest_name: rb.guest_name,
+                                    check_in_date: rb.check_in_date, check_out_date: rb.check_out_date,
+                                    status: rb.status, booking_source: rb.booking_source,
+                                    payment_status: rb.payment_status, room_price: rb.room_price,
+                                    final_price: rb.final_price, total_nights: rb.total_nights,
+                                    guest_phone: rb.guest_phone
+                                }));
+                                g += '<div class="bbar-wrap-o" style="width:' + barW + 'px;" onclick="showOwnerBooking(\'' + bData + '\')">'
+                                   + '<div class="bbar-o ' + sCls + '"><span>' + icon + name + ' • ' + code + '</span></div></div>';
+                            }
+                        });
+                        g += '</div>';
+                    }
+                });
+            });
+
+            g += '<div class="cgo-ftr-room">ROOMS</div>';
+            dates.forEach(function(dt) {
+                var dd = new Date(dt + 'T00:00:00'), isTd = dt === todayStr;
+                g += '<div class="cgo-ftr-date' + (isTd ? ' cgo-today' : '') + '"><span class="cgo-hdr-day">' + dayNames[dd.getDay()] + '</span> <span class="cgo-hdr-num">' + dd.getDate() + '</span></div>';
+            });
+            g += '</div>';
+            document.getElementById('ownerCalGrid').innerHTML = g;
+
+            var todayIdx = dates.indexOf(todayStr);
+            if (todayIdx > 1) {
+                var scrollEl = document.getElementById('ownerCalScroll');
+                setTimeout(function() { scrollEl.scrollLeft = Math.max(0, (todayIdx - 1) * COL_W); }, 100);
+            }
+        }
+
+        window.ownerCalNav = function(d) { calOffset += d; renderOwnerCal(); };
+
+        window.showOwnerBooking = function(encoded) {
+            var b = JSON.parse(decodeURIComponent(encoded));
+            var statusMap = {'pending':'⏳ Pending','confirmed':'✅ Confirmed','checked_in':'🏨 Checked In','checked_out':'🚪 Checked Out'};
+            var sourceMap = {'walk_in':'Walk In','agoda':'Agoda','booking':'Booking.com','traveloka':'Traveloka','airbnb':'Airbnb','tiket':'Tiket.com','phone':'Telepon','ota':'OTA','online':'Online'};
+            var payMap = {'unpaid':'❌ Belum Bayar','partial':'⚠️ Sebagian','paid':'✅ Lunas'};
+            var rp = function(n) { return 'Rp ' + Number(n||0).toLocaleString('id-ID'); };
+            document.getElementById('ownerCalPopup').innerHTML =
+                '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">' +
+                    '<div style="font-weight:800;font-size:14px;color:#1e293b;">📋 Detail Booking</div>' +
+                    '<button onclick="closeOwnerCalPopup()" style="background:none;border:none;font-size:18px;cursor:pointer;color:#64748b;">✕</button>' +
+                '</div>' +
+                '<div style="font-size:12px;line-height:2.2;color:#334155;">' +
+                    '<div><strong>Kode:</strong> ' + (b.booking_code||'-') + '</div>' +
+                    '<div><strong>Tamu:</strong> ' + (b.guest_name||'-') + '</div>' +
+                    '<div><strong>Telepon:</strong> ' + (b.guest_phone||'-') + '</div>' +
+                    '<div><strong>Check-in:</strong> ' + (b.check_in_date||'-') + '</div>' +
+                    '<div><strong>Check-out:</strong> ' + (b.check_out_date||'-') + ' (' + (b.total_nights||'-') + ' malam)</div>' +
+                    '<div><strong>Status:</strong> ' + (statusMap[b.status]||b.status) + '</div>' +
+                    '<div><strong>Sumber:</strong> ' + (sourceMap[b.booking_source]||b.booking_source||'-') + '</div>' +
+                    '<div><strong>Harga:</strong> ' + rp(b.final_price) + '</div>' +
+                    '<div><strong>Pembayaran:</strong> ' + (payMap[b.payment_status]||b.payment_status||'-') + '</div>' +
+                '</div>';
+            document.getElementById('ownerCalPopup').style.display = 'block';
+            document.getElementById('ownerCalOverlay').style.display = 'block';
+        };
+
+        window.closeOwnerCalPopup = function() {
+            document.getElementById('ownerCalPopup').style.display = 'none';
+            document.getElementById('ownerCalOverlay').style.display = 'none';
+        };
+
+        // Drag to scroll
+        var scrollEl = document.getElementById('ownerCalScroll');
+        if (scrollEl) {
+            var isDown = false, startX, scrollLeft;
+            scrollEl.addEventListener('mousedown', function(e) { isDown = true; startX = e.pageX - scrollEl.offsetLeft; scrollLeft = scrollEl.scrollLeft; });
+            scrollEl.addEventListener('mouseleave', function() { isDown = false; });
+            scrollEl.addEventListener('mouseup', function() { isDown = false; });
+            scrollEl.addEventListener('mousemove', function(e) { if (!isDown) return; e.preventDefault(); var x = e.pageX - scrollEl.offsetLeft; scrollEl.scrollLeft = scrollLeft - (x - startX); });
+        }
+
+        renderOwnerCal();
+    })();
+    <?php endif; ?>
     </script>
 </body>
 </html>
