@@ -170,16 +170,29 @@ if ($project_id) {
             sort($expDivisions);
 
             // Apply filters
+            // When search is used: search is PRIMARY - date/month/division are optional refinements
+            // When search is empty: date/month/division work as strict AND filters
             $filteredExpenses = array_filter($expenses, function($e) use ($expFilterDate, $expFilterMonth, $expFilterDiv, $expFilterSearch) {
                 $d = $e['expense_date'] ?? ($e['created_at'] ?? '');
+                $desc = mb_strtolower($e['description'] ?? '');
+                $div  = mb_strtolower($e['division_name'] ?? '');
+
+                if (!empty($expFilterSearch)) {
+                    // Search mode: keyword must match description or division
+                    $needle = mb_strtolower($expFilterSearch);
+                    if (strpos($desc . ' ' . $div, $needle) === false) return false;
+                    // If month is also set, still respect it (broad time scope)
+                    if (!empty($expFilterMonth) && substr($d, 0, 7) !== $expFilterMonth) return false;
+                    // If date is also set, respect it
+                    if (!empty($expFilterDate) && substr($d, 0, 10) !== $expFilterDate) return false;
+                    // Division filter is IGNORED when search is active (search already covers it)
+                    return true;
+                }
+
+                // No search: strict AND filters
                 if (!empty($expFilterDate) && substr($d, 0, 10) !== $expFilterDate) return false;
                 if (!empty($expFilterMonth) && substr($d, 0, 7) !== $expFilterMonth) return false;
-                if (!empty($expFilterDiv) && ($e['division_name'] ?? '') !== $expFilterDiv) return false;
-                if (!empty($expFilterSearch)) {
-                    $needle = mb_strtolower($expFilterSearch);
-                    $haystack = mb_strtolower(($e['description'] ?? '') . ' ' . ($e['division_name'] ?? ''));
-                    if (strpos($haystack, $needle) === false) return false;
-                }
+                if (!empty($expFilterDiv) && mb_strtolower($e['division_name'] ?? '') !== mb_strtolower($expFilterDiv)) return false;
                 return true;
             });
             $filteredExpenses = array_values($filteredExpenses);
@@ -472,16 +485,16 @@ include $base_path . '/includes/header.php';
                         <input type="hidden" name="project_id" value="<?= $project_id ?>">
                         <input type="hidden" name="tab" value="expenses">
                         <div>
-                            <label style="font-size:0.7rem;font-weight:600;color:#64748b;display:block;margin-bottom:0.2rem">📅 Tanggal</label>
-                            <input type="date" name="exp_date" value="<?= htmlspecialchars($expFilterDate) ?>" style="width:100%;height:34px;border:1px solid #e2e8f0;border-radius:6px;padding:0 0.5rem;font-size:0.82rem;">
+                            <label style="font-size:0.7rem;font-weight:600;color:#64748b;display:block;margin-bottom:0.2rem">📅 Tanggal <span style="font-weight:400;color:#94a3b8">(opsional)</span></label>
+                            <input type="date" id="expFilterDate" name="exp_date" value="<?= htmlspecialchars($expFilterDate) ?>" style="width:100%;height:34px;border:1px solid #e2e8f0;border-radius:6px;padding:0 0.5rem;font-size:0.82rem;">
                         </div>
                         <div>
-                            <label style="font-size:0.7rem;font-weight:600;color:#64748b;display:block;margin-bottom:0.2rem">📆 Bulan</label>
+                            <label style="font-size:0.7rem;font-weight:600;color:#64748b;display:block;margin-bottom:0.2rem">📆 Bulan <span style="font-weight:400;color:#94a3b8">(opsional)</span></label>
                             <input type="month" name="exp_month" value="<?= htmlspecialchars($expFilterMonth) ?>" style="width:100%;height:34px;border:1px solid #e2e8f0;border-radius:6px;padding:0 0.5rem;font-size:0.82rem;">
                         </div>
                         <div>
-                            <label style="font-size:0.7rem;font-weight:600;color:#64748b;display:block;margin-bottom:0.2rem">🏗️ Divisi</label>
-                            <select name="exp_div" style="width:100%;height:34px;border:1px solid #e2e8f0;border-radius:6px;padding:0 0.5rem;font-size:0.82rem;background:#fff;">
+                            <label style="font-size:0.7rem;font-weight:600;color:#64748b;display:block;margin-bottom:0.2rem">🏗️ Divisi <span style="font-weight:400;color:#94a3b8">(opsional)</span></label>
+                            <select id="expFilterDiv" name="exp_div" style="width:100%;height:34px;border:1px solid #e2e8f0;border-radius:6px;padding:0 0.5rem;font-size:0.82rem;background:#fff;">
                                 <option value="">Semua Divisi</option>
                                 <?php foreach ($expDivisions as $ed): ?>
                                 <option value="<?= htmlspecialchars($ed) ?>" <?= $expFilterDiv === $ed ? 'selected' : '' ?>><?= htmlspecialchars($ed) ?></option>
@@ -489,8 +502,8 @@ include $base_path . '/includes/header.php';
                             </select>
                         </div>
                         <div>
-                            <label style="font-size:0.7rem;font-weight:600;color:#64748b;display:block;margin-bottom:0.2rem">🔍 Cari Nama/Ket</label>
-                            <input type="text" name="exp_search" value="<?= htmlspecialchars($expFilterSearch) ?>" placeholder="Cth: Pak Ipin, semen..." style="width:100%;height:34px;border:1px solid #e2e8f0;border-radius:6px;padding:0 0.5rem;font-size:0.82rem;">
+                            <label style="font-size:0.7rem;font-weight:600;color:#6366f1;display:block;margin-bottom:0.2rem">🔍 Cari Nama/Ket</label>
+                            <input type="text" id="expFilterSearch" name="exp_search" value="<?= htmlspecialchars($expFilterSearch) ?>" placeholder="Ketik nama: Pak Ipin, semen..." style="width:100%;height:34px;border:1px solid #e2e8f0;border-radius:6px;padding:0 0.5rem;font-size:0.82rem;" oninput="if(this.value.length>0){document.getElementById('expFilterDate').value='';document.getElementById('expFilterDiv').value='';}">
                         </div>
                         <div style="display:flex;align-items:flex-end;gap:0.4rem">
                             <button type="submit" style="flex:1;height:34px;background:#6366f1;color:#fff;border:none;border-radius:6px;font-size:0.8rem;font-weight:600;cursor:pointer">🔍 Filter</button>
@@ -501,8 +514,11 @@ include $base_path . '/includes/header.php';
                     <?php if ($hasExpFilter): ?>
                     <div style="margin-bottom:0.75rem;padding:0.5rem 0.75rem;background:linear-gradient(135deg,rgba(99,102,241,0.06),rgba(99,102,241,0.02));border:1px solid rgba(99,102,241,0.15);border-radius:6px;font-size:0.78rem;color:#4338ca;">
                         📊 Menampilkan <strong><?= count($filteredExpenses) ?></strong> dari <?= count($expenses) ?> transaksi
-                        | Total filtered: <strong>Rp <?= number_format($filteredTotal,0,',','.') ?></strong>
-                        <?php if (!empty($expFilterSearch)): ?> | Kata kunci: "<em><?= htmlspecialchars($expFilterSearch) ?></em>"<?php endif; ?>
+                        | Total: <strong>Rp <?= number_format($filteredTotal,0,',','.') ?></strong>
+                        <?php if (!empty($expFilterSearch)): ?> | Pencarian: "<em><?= htmlspecialchars($expFilterSearch) ?></em>"<?php endif; ?>
+                        <?php if (!empty($expFilterSearch) && (empty($expFilterDate) && empty($expFilterDiv))): ?>
+                        <span style="color:#64748b"> — 💡 Pencarian mencari di semua tanggal & divisi</span>
+                        <?php endif; ?>
                     </div>
                     <?php endif; ?>
 
