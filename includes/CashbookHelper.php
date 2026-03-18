@@ -371,22 +371,32 @@ class CashbookHelper {
             'airbnb' => 'ota_fee_airbnb',
             'traveloka' => 'ota_fee_traveloka',
             'expedia' => 'ota_fee_expedia',
-            'pegipegi' => 'ota_fee_other_ota',
+            'pegipegi' => 'ota_fee_pegipegi',
             'ota' => 'ota_fee_other_ota'
         ];
         
         // Use matched source (normalized) for lookup
         $settingKey = $settingKeyMap[$matchedSource] ?? 'ota_fee_other_ota';
         
-        error_log("CashbookHelper::calculateOtaFee: source='{$bookingSource}' normalized='{$normalizedSource}' matched='{$matchedSource}' settingKey='{$settingKey}'");
+        error_log("CashbookHelper::calculateOtaFee: source='{$bookingSource}' normalized='{$normalizedSource}' matched='{$matchedSource}'");
         
         try {
-            $feeStmt = $this->masterDb->prepare("SELECT setting_value FROM settings WHERE setting_key = ?");
-            $feeStmt->execute([$settingKey]);
+            // Primary: read fee directly from booking_sources table (single source of truth)
+            $feeStmt = $this->masterDb->prepare("SELECT fee_percent FROM booking_sources WHERE source_key = ? AND is_active = 1 LIMIT 1");
+            $feeStmt->execute([$matchedSource]);
             $feeQuery = $feeStmt->fetch(PDO::FETCH_ASSOC);
             
+            if (!$feeQuery) {
+                // Fallback: read from settings table
+                $settingKey = $settingKeyMap[$matchedSource] ?? 'ota_fee_other_ota';
+                error_log("CashbookHelper::calculateOtaFee: booking_sources miss, fallback to settings key '{$settingKey}'");
+                $feeStmt = $this->masterDb->prepare("SELECT setting_value as fee_percent FROM settings WHERE setting_key = ?");
+                $feeStmt->execute([$settingKey]);
+                $feeQuery = $feeStmt->fetch(PDO::FETCH_ASSOC);
+            }
+            
             if ($feeQuery) {
-                $feePercent = (float)($feeQuery['setting_value'] ?? 0);
+                $feePercent = (float)($feeQuery['fee_percent'] ?? 0);
                 error_log("CashbookHelper::calculateOtaFee: feePercent={$feePercent}% amount={$amount}");
                 if ($feePercent > 0) {
                     $feeAmount = ($amount * $feePercent) / 100;
@@ -399,7 +409,7 @@ class CashbookHelper {
                     ];
                 }
             } else {
-                error_log("CashbookHelper::calculateOtaFee: No fee setting found for key '{$settingKey}'");
+                error_log("CashbookHelper::calculateOtaFee: No fee found for source '{$matchedSource}'");
             }
         } catch (\Throwable $e) {
             error_log("CashbookHelper: OTA fee calculation error - " . $e->getMessage());

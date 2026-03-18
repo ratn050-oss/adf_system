@@ -96,6 +96,9 @@ try {
         'booking' => 'booking',
         'tiket' => 'tiket',
         'airbnb' => 'airbnb',
+        'traveloka' => 'traveloka',
+        'expedia' => 'expedia',
+        'pegipegi' => 'pegipegi',
         'ota' => 'ota'
     ];
     $bookingSource = $sourceMap[$bookingSource] ?? $bookingSource;

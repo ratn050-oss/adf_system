@@ -27,18 +27,39 @@ if (!$auth->hasPermission('frontdesk')) {
 $pageTitle = 'Reservasi Management - Direct/OTA Bookings';
 
 // ============================================
-// OTA CONFIGURATION (Default if not in DB)
+// OTA CONFIGURATION - Load from Database
 // ============================================
-$otaProviders = [
-    'walk_in' => ['name' => 'Walk-in', 'fee' => 0, 'icon' => '🚶'],
-    'phone' => ['name' => 'Phone Booking', 'fee' => 0, 'icon' => '📞'],
-    'online' => ['name' => 'Direct Online', 'fee' => 0, 'icon' => '💻'],
-    'agoda' => ['name' => 'Agoda', 'fee' => 15, 'icon' => '🏨'],
-    'booking' => ['name' => 'Booking.com', 'fee' => 12, 'icon' => '📱'],
-    'tiket' => ['name' => 'Tiket.com', 'fee' => 10, 'icon' => '✈️'],
-    'airbnb' => ['name' => 'Airbnb', 'fee' => 3, 'icon' => '🏠'],
-    'ota' => ['name' => 'OTA Lainnya', 'fee' => 10, 'icon' => '🌐'],
-];
+$otaProviders = [];
+try {
+    $otaRows = $db->fetchAll("SELECT source_key, source_name, fee_percent, icon FROM booking_sources WHERE is_active = 1 ORDER BY sort_order ASC");
+    if ($otaRows) {
+        foreach ($otaRows as $row) {
+            $otaProviders[$row['source_key']] = [
+                'name' => $row['source_name'],
+                'fee'  => (float)$row['fee_percent'],
+                'icon' => $row['icon'] ?? '🌐'
+            ];
+        }
+    }
+} catch (Exception $e) {
+    error_log("Load booking_sources error: " . $e->getMessage());
+}
+// Fallback defaults if DB query fails or table doesn't exist
+if (empty($otaProviders)) {
+    $otaProviders = [
+        'walk_in' => ['name' => 'Walk-in', 'fee' => 0, 'icon' => '🚶'],
+        'phone' => ['name' => 'Phone Booking', 'fee' => 0, 'icon' => '📞'],
+        'online' => ['name' => 'Direct Online', 'fee' => 0, 'icon' => '💻'],
+        'agoda' => ['name' => 'Agoda', 'fee' => 15, 'icon' => '🏨'],
+        'booking' => ['name' => 'Booking.com', 'fee' => 12, 'icon' => '📱'],
+        'tiket' => ['name' => 'Tiket.com', 'fee' => 10, 'icon' => '✈️'],
+        'traveloka' => ['name' => 'Traveloka', 'fee' => 15, 'icon' => '🎫'],
+        'airbnb' => ['name' => 'Airbnb', 'fee' => 3, 'icon' => '🏠'],
+        'expedia' => ['name' => 'Expedia', 'fee' => 15, 'icon' => '🗺️'],
+        'pegipegi' => ['name' => 'PegiPegi', 'fee' => 10, 'icon' => '🧳'],
+        'ota' => ['name' => 'OTA Lainnya', 'fee' => 10, 'icon' => '🌐'],
+    ];
+}
 
 // ============================================
 // GET BOOKINGS LIST
@@ -1464,7 +1485,8 @@ function calculateMultiRoomTotal() {
         otaFeeAmountInput.value = 0;
     }
     
-    const grandTotal = subtotal - discountAmount - otaFeeAmount;
+    // Grand total = subtotal - discount only (OTA fee is deducted by CashbookHelper, not from guest price)
+    const grandTotal = subtotal - discountAmount;
     
     // Update display
     document.getElementById('totalRoomsDisplay').textContent = totalRooms + ' room' + (totalRooms !== 1 ? 's' : '');
@@ -1527,7 +1549,7 @@ async function submitMultiRoomBooking(event) {
         discount = discountValue;
     }
     
-    // Calculate OTA fee
+    // Calculate OTA fee (for display only - actual deduction happens in CashbookHelper)
     let otaFeePercent = 0;
     let otaFeeAmount = 0;
     if (typeof OTA_FEES !== 'undefined' && OTA_FEES[bookingSource]) {
@@ -1536,14 +1558,14 @@ async function submitMultiRoomBooking(event) {
     }
     
     // Calculate discount per room (distribute equally)
+    // NOTE: OTA fee is NOT subtracted from final_price - CashbookHelper handles fee deduction
     const discountPerRoom = discount / checkedRooms.length;
-    const otaFeePerRoom = otaFeeAmount / checkedRooms.length;
     
     // Calculate payment per room (distribute proportionally)
     let totalPrice = 0;
     const roomPrices = [];
     checkedRooms.forEach(checkbox => {
-        const price = parseFloat(checkbox.dataset.price) * nights - discountPerRoom - otaFeePerRoom;
+        const price = parseFloat(checkbox.dataset.price) * nights - discountPerRoom;
         roomPrices.push(price);
         totalPrice += price;
     });
@@ -1570,7 +1592,7 @@ async function submitMultiRoomBooking(event) {
         // Create FormData for API
         const roomBasePrice = parseFloat(checkbox.dataset.price);
         const roomTotalPrice = roomBasePrice * nights;
-        const roomFinalPrice = roomTotalPrice - discountPerRoom - otaFeePerRoom;
+        const roomFinalPrice = roomTotalPrice - discountPerRoom;
         
         const formData = new FormData();
         formData.append('guest_name', guestName);
@@ -1584,7 +1606,6 @@ async function submitMultiRoomBooking(event) {
         formData.append('adults', 1);
         formData.append('children', 0);
         formData.append('discount', discountPerRoom);
-        formData.append('ota_fee', otaFeePerRoom);
         formData.append('final_price', roomFinalPrice);
         formData.append('booking_source', bookingSource);
         formData.append('payment_method', paymentMethod);

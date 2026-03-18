@@ -28,7 +28,7 @@ if (!$auth->hasPermission('frontdesk')) {
 $pageTitle = 'Calendar Booking';
 
 // ============================================
-// GET OTA FEES (For Frontend Logic)
+// GET OTA FEES (For Frontend Logic) - Load from booking_sources table
 // ============================================
 $otaFees = [
     'direct' => 0,
@@ -43,14 +43,11 @@ $otaFees = [
     'ota' => 10
 ];
 try {
-    // Attempt to fetch from settings table if exists
-    $fees = $db->fetchAll("SELECT setting_key, setting_value FROM settings WHERE setting_key LIKE 'ota_fee_%'");
-    if ($fees) {
-        foreach ($fees as $fee) {
-            $key = str_replace(['ota_fee_', '_'], ['', ' '], $fee['setting_key']); // e.g., 'ota_fee_agoda' -> 'agoda'
-            // Normalize key for JS mapping
-            $normalizedKey = strtolower(str_replace(['.com', ' '], ['', '_'], $key));
-            $otaFees[$normalizedKey] = (float)$fee['setting_value'];
+    // Read directly from booking_sources table (single source of truth)
+    $feesFromDb = $db->fetchAll("SELECT source_key, fee_percent FROM booking_sources WHERE is_active = 1");
+    if ($feesFromDb) {
+        foreach ($feesFromDb as $fee) {
+            $otaFees[$fee['source_key']] = (float)$fee['fee_percent'];
         }
     }
 } catch (Exception $e) {

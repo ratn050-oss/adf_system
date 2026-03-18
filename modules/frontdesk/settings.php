@@ -362,7 +362,7 @@ elseif ($activeTab === 'ota_fees') {
                 // Use the known mapping for standard keys
                 $keyMap = ['agoda'=>'ota_fee_agoda','booking'=>'ota_fee_booking_com','tiket'=>'ota_fee_tiket_com',
                            'traveloka'=>'ota_fee_traveloka','airbnb'=>'ota_fee_airbnb','expedia'=>'ota_fee_expedia',
-                           'pegipegi'=>'ota_fee_other_ota','ota'=>'ota_fee_other_ota'];
+                           'pegipegi'=>'ota_fee_pegipegi','ota'=>'ota_fee_other_ota'];
                 if (isset($keyMap[$d[0]])) $sk = $keyMap[$d[0]];
                 $feeStmt->execute([$sk, $d[3], $d[3]]);
             }
@@ -388,7 +388,7 @@ elseif ($activeTab === 'ota_fees') {
                 if ($srcRow) {
                     $keyMap = ['agoda'=>'ota_fee_agoda','booking'=>'ota_fee_booking_com','bookingcom'=>'ota_fee_booking_com',
                                'tiket'=>'ota_fee_tiket_com','tiketcom'=>'ota_fee_tiket_com','traveloka'=>'ota_fee_traveloka',
-                               'airbnb'=>'ota_fee_airbnb','expedia'=>'ota_fee_expedia','pegipegi'=>'ota_fee_other_ota','ota'=>'ota_fee_other_ota'];
+                               'airbnb'=>'ota_fee_airbnb','expedia'=>'ota_fee_expedia','pegipegi'=>'ota_fee_pegipegi','ota'=>'ota_fee_other_ota'];
                     $sk = $keyMap[$srcRow['source_key']] ?? ('ota_fee_' . $srcRow['source_key']);
                     $syncStmt = $pdo->prepare("INSERT INTO settings (setting_key, setting_value, setting_type) VALUES (?, ?, 'number') ON DUPLICATE KEY UPDATE setting_value=?");
                     $syncStmt->execute([$sk, $feePercent, $feePercent]);
@@ -447,7 +447,7 @@ elseif ($activeTab === 'ota_fees') {
                 if ($srcRow) {
                     $keyMap = ['agoda'=>'ota_fee_agoda','booking'=>'ota_fee_booking_com','tiket'=>'ota_fee_tiket_com',
                                'traveloka'=>'ota_fee_traveloka','airbnb'=>'ota_fee_airbnb','expedia'=>'ota_fee_expedia',
-                               'pegipegi'=>'ota_fee_other_ota','ota'=>'ota_fee_other_ota'];
+                               'pegipegi'=>'ota_fee_pegipegi','ota'=>'ota_fee_other_ota'];
                     $sk = $keyMap[$srcRow['source_key']] ?? ('ota_fee_' . $srcRow['source_key']);
                     $syncStmt = $pdo->prepare("INSERT INTO settings (setting_key, setting_value, setting_type) VALUES (?, ?, 'number') ON DUPLICATE KEY UPDATE setting_value=?");
                     $syncStmt->execute([$sk, $feePercent, $feePercent]);
