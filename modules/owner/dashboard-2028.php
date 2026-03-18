@@ -540,59 +540,40 @@ try {
     } catch (Exception $e) {}
     
     // ============================================
-    // BOOKING CALENDAR DATA - Room status + 14-day timeline
-    // Same data source as frontdesk module for sync
+    // ATTENDANCE MONITORING DATA
     // ============================================
-    $calRooms = [];
-    $calBookings = [];
-    $calRoomStatusMap = ['available' => 0, 'occupied' => 0, 'maintenance' => 0, 'cleaning' => 0, 'blocked' => 0];
+    $attDate = date('Y-m-d');
+    $attEmployees = [];
+    $attRecords = [];
+    $attStats = ['total' => 0, 'present' => 0, 'late' => 0, 'leave' => 0, 'absent' => 0];
     try {
-        // Get all rooms with type info
-        $stmt = $pdo->query("
-            SELECT r.id, r.room_number, r.status, r.floor_number,
-                   COALESCE(rt.type_name, 'Standard') as room_type
-            FROM rooms r
-            LEFT JOIN room_types rt ON r.room_type_id = rt.id
-            WHERE r.status != 'maintenance' OR r.status IS NULL
-            ORDER BY rt.type_name, r.floor_number, r.room_number
-        ");
-        $calRooms = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        // Get all active employees
+        $stmt = $pdo->query("SELECT id, employee_code, full_name, position, department FROM payroll_employees WHERE is_active = 1 ORDER BY full_name");
+        $attEmployees = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $attStats['total'] = count($attEmployees);
         
-        // Room status summary (all rooms including maintenance)
-        $stmt = $pdo->query("SELECT status, COUNT(*) as cnt FROM rooms GROUP BY status");
-        while ($rs = $stmt->fetch(PDO::FETCH_ASSOC)) {
-            $calRoomStatusMap[$rs['status']] = (int)$rs['cnt'];
-        }
-        
-        // Get bookings for 60 days before + 30 days after (covers calendar view)
-        $calStart = date('Y-m-d', strtotime('-7 days'));
-        $calEnd = date('Y-m-d', strtotime('+30 days'));
+        // Get today's attendance records
         $stmt = $pdo->prepare("
-            SELECT b.id, b.booking_code, b.room_id, b.check_in_date, b.check_out_date,
-                   b.status, b.room_price, b.booking_source, b.payment_status,
-                   b.total_nights, b.final_price,
-                   g.guest_name, g.phone as guest_phone
-            FROM bookings b
-            LEFT JOIN guests g ON b.guest_id = g.id
-            WHERE b.check_in_date < ? AND b.check_out_date > ?
-            AND b.status IN ('pending', 'confirmed', 'checked_in', 'checked_out')
-            ORDER BY b.check_in_date
+            SELECT a.*, e.full_name, e.employee_code, e.position, e.department
+            FROM payroll_attendance a
+            JOIN payroll_employees e ON e.id = a.employee_id
+            WHERE a.attendance_date = ?
+            ORDER BY e.full_name
         ");
-        $stmt->execute([$calEnd, $calStart]);
-        $calBookings = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        $stmt->execute([$attDate]);
+        $attRecords = $stmt->fetchAll(PDO::FETCH_ASSOC);
         
-        // Add guest name to rooms from active bookings
-        foreach ($calRooms as &$cr) {
-            foreach ($calBookings as $cb) {
-                if ($cb['room_id'] == $cr['id'] && $cb['status'] === 'checked_in') {
-                    $cr['guest_name'] = $cb['guest_name'];
-                    break;
-                }
-            }
+        // Calculate stats
+        $attRecordedIds = [];
+        foreach ($attRecords as $ar) {
+            $attRecordedIds[] = $ar['employee_id'];
+            if ($ar['status'] === 'late') $attStats['late']++;
+            elseif ($ar['status'] === 'leave' || $ar['status'] === 'holiday') $attStats['leave']++;
+            else $attStats['present']++;
         }
-        unset($cr);
+        $attStats['absent'] = $attStats['total'] - count($attRecordedIds);
     } catch (Exception $e) {
-        // Calendar data optional
+        // Attendance data optional
     }
     
 } catch (Exception $e) {
@@ -2242,210 +2223,97 @@ else { $healthStatus = 'Perlu Perhatian'; $healthEmoji = '🔴'; }
         .cqc-status-on_hold { background: #f3f4f6; color: #6b7280; }
         
         /* ══════════════════════════════════════════ */
-        /* BOOKING CALENDAR - CloudBeds Style         */
+        /* ATTENDANCE MONITORING                      */
         /* ══════════════════════════════════════════ */
-        .cal-section { margin-top: 16px; }
-        .cal-section-title {
+        .att-section { margin-top: 16px; }
+        .att-section-title {
             display: flex; align-items: center; gap: 8px; margin-bottom: 12px;
             font-size: 14px; font-weight: 700; color: var(--text-primary);
         }
-        .cal-section-title .cal-badge {
+        .att-section-title .att-badge {
             background: linear-gradient(135deg, #6366f1, #818cf8);
             color: #fff; font-size: 9px; font-weight: 800; padding: 3px 8px;
             border-radius: 6px; letter-spacing: 0.5px;
         }
-        /* Room Status Grid */
-        .room-status-wrap {
-            background: var(--surface); border-radius: 14px; padding: 14px;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.06); margin-bottom: 14px;
+        .att-date-nav {
+            display: flex; align-items: center; justify-content: center;
+            gap: 10px; margin-bottom: 12px;
         }
-        .room-status-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-        .room-status-label { font-size: 12px; font-weight: 700; color: var(--text-primary); }
-        .room-status-summary { display: flex; gap: 8px; }
-        .room-status-pill {
-            display: flex; align-items: center; gap: 4px; font-size: 9px;
-            font-weight: 700; padding: 3px 8px; border-radius: 10px;
-        }
-        .rsp-available { background: #dcfce7; color: #15803d; }
-        .rsp-occupied { background: #fee2e2; color: #dc2626; }
-        .rsp-maintenance { background: #f3f4f6; color: #6b7280; }
-        .room-grid-owner {
-            display: grid; grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
-            gap: 6px;
-        }
-        .room-box-owner {
-            border-radius: 10px; padding: 8px 6px; text-align: center;
-            border: 1.5px solid var(--border); transition: all 0.2s; position: relative;
-        }
-        .room-box-owner.rb-avail {
-            background: linear-gradient(135deg, #f0fdf4, #dcfce7);
-            border-color: #86efac;
-        }
-        .room-box-owner.rb-occ {
-            background: linear-gradient(135deg, #fef2f2, #fee2e2);
-            border-color: #fca5a5;
-        }
-        .room-box-owner.rb-maint {
-            background: #f9fafb; border-color: #d1d5db; opacity: 0.6;
-        }
-        .rb-number { font-size: 15px; font-weight: 900; color: #1e293b; line-height: 1; }
-        .rb-type { font-size: 7px; font-weight: 700; text-transform: uppercase; color: #6366f1; letter-spacing: 0.5px; margin-top: 2px; }
-        .rb-guest { font-size: 7px; font-weight: 600; color: #dc2626; margin-top: 2px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 64px; }
-        .rb-status-dot { width: 6px; height: 6px; border-radius: 50%; position: absolute; top: 4px; right: 4px; }
-        .rb-dot-avail { background: #22c55e; }
-        .rb-dot-occ { background: #ef4444; }
-        
-        /* Calendar Timeline Grid */
-        .cal-card-owner {
-            background: var(--surface); border-radius: 14px;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.06); overflow: hidden; margin-bottom: 14px;
-        }
-        .cal-nav-owner {
-            display: flex; align-items: center; justify-content: space-between;
-            padding: 10px 14px; gap: 8px;
+        .att-date-btn {
             background: linear-gradient(135deg, #6366f1, #818cf8);
+            color: #fff; border: none; border-radius: 8px; padding: 6px 14px;
+            font-size: 11px; font-weight: 700; cursor: pointer; transition: 0.15s;
         }
-        .cal-nav-btn {
-            background: rgba(255,255,255,0.2); color: #fff; border: none;
-            border-radius: 8px; padding: 6px 12px; font-size: 11px;
-            font-weight: 700; cursor: pointer; transition: 0.15s;
-            backdrop-filter: blur(4px);
+        .att-date-btn:active { opacity: 0.7; transform: scale(0.96); }
+        .att-date-label {
+            font-size: 13px; font-weight: 800; color: var(--text-primary);
+            letter-spacing: 0.3px; min-width: 140px; text-align: center;
         }
-        .cal-nav-btn:active { opacity: 0.7; transform: scale(0.96); }
-        .cal-nav-period {
-            font-size: 12px; font-weight: 800; color: #fff;
+        /* Stats cards */
+        .att-stats {
+            display: grid; grid-template-columns: repeat(4, 1fr);
+            gap: 8px; margin-bottom: 14px;
+        }
+        .att-stat-card {
+            background: var(--surface); border-radius: 12px; padding: 10px 8px;
+            text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,0.06);
+            border: 1.5px solid var(--border);
+        }
+        .att-stat-icon { font-size: 18px; margin-bottom: 2px; }
+        .att-stat-num { font-size: 20px; font-weight: 900; line-height: 1.1; }
+        .att-stat-label { font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-top: 2px; }
+        .att-stat-card.asc-present { border-color: #86efac; }
+        .att-stat-card.asc-present .att-stat-num { color: #16a34a; }
+        .att-stat-card.asc-late { border-color: #fcd34d; }
+        .att-stat-card.asc-late .att-stat-num { color: #d97706; }
+        .att-stat-card.asc-leave { border-color: #93c5fd; }
+        .att-stat-card.asc-leave .att-stat-num { color: #2563eb; }
+        .att-stat-card.asc-absent { border-color: #fca5a5; }
+        .att-stat-card.asc-absent .att-stat-num { color: #dc2626; }
+        /* Staff list */
+        .att-list-wrap {
+            background: var(--surface); border-radius: 14px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.06); overflow: hidden;
+        }
+        .att-list-header {
+            display: flex; align-items: center; justify-content: space-between;
+            padding: 10px 14px; border-bottom: 1px solid var(--border);
+        }
+        .att-list-title { font-size: 12px; font-weight: 700; color: var(--text-primary); }
+        .att-list-count { font-size: 10px; color: var(--text-muted); font-weight: 600; }
+        .att-emp-row {
+            display: flex; align-items: center; padding: 10px 14px;
+            border-bottom: 1px solid rgba(0,0,0,0.04); gap: 10px;
+            transition: background 0.15s;
+        }
+        .att-emp-row:last-child { border-bottom: none; }
+        .att-emp-avatar {
+            width: 36px; height: 36px; border-radius: 10px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 14px; font-weight: 900; color: #fff; flex-shrink: 0;
+        }
+        .att-emp-avatar.av-present { background: linear-gradient(135deg, #16a34a, #22c55e); }
+        .att-emp-avatar.av-late { background: linear-gradient(135deg, #d97706, #f59e0b); }
+        .att-emp-avatar.av-leave { background: linear-gradient(135deg, #2563eb, #3b82f6); }
+        .att-emp-avatar.av-absent { background: linear-gradient(135deg, #dc2626, #ef4444); }
+        .att-emp-info { flex: 1; min-width: 0; }
+        .att-emp-name { font-size: 12px; font-weight: 700; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .att-emp-pos { font-size: 9px; color: var(--text-muted); font-weight: 600; margin-top: 1px; }
+        .att-emp-times { text-align: right; flex-shrink: 0; }
+        .att-emp-time-row { font-size: 10px; color: var(--text-secondary); font-weight: 600; line-height: 1.4; }
+        .att-emp-time-row strong { color: var(--text-primary); }
+        .att-emp-hours { font-size: 9px; color: #6366f1; font-weight: 700; }
+        .att-status-badge {
+            display: inline-block; font-size: 8px; font-weight: 800;
+            padding: 2px 7px; border-radius: 6px; text-transform: uppercase;
             letter-spacing: 0.3px;
         }
-        .cal-scroll-owner {
-            overflow-x: auto; -webkit-overflow-scrolling: touch;
-            cursor: grab;
-        }
-        .cal-scroll-owner:active { cursor: grabbing; }
-        .cal-grid-owner {
-            display: grid; gap: 0; width: fit-content; min-width: fit-content;
-        }
-        /* Header cells */
-        .cgo-hdr-room {
-            background: linear-gradient(135deg, #f1f5f9, #fff);
-            border-right: 2px solid #e2e8f0; border-bottom: 2px solid #cbd5e1;
-            padding: 4px; font-weight: 800; text-align: center;
-            position: sticky; left: 0; z-index: 40; font-size: 9px;
-            color: #475569; letter-spacing: 0.8px; text-transform: uppercase;
-            display: flex; align-items: center; justify-content: center;
-            min-width: 70px; max-width: 70px;
-            box-shadow: 2px 0 6px rgba(0,0,0,0.04);
-        }
-        .cgo-hdr-date {
-            background: linear-gradient(180deg, #f8fafc, #f1f5f9);
-            border-right: 1px solid #e2e8f0; border-bottom: 2px solid #cbd5e1;
-            padding: 3px 2px; text-align: center; font-weight: 700;
-            font-size: 9px; color: #334155; min-width: 90px;
-        }
-        .cgo-hdr-date.cgo-today { background: rgba(99,102,241,0.12) !important; }
-        .cgo-hdr-day { font-size: 9px; text-transform: uppercase; font-weight: 600; color: #64748b; letter-spacing: 0.3px; }
-        .cgo-hdr-num { font-size: 13px; font-weight: 900; color: #1e293b; margin-left: 2px; }
-        .cgo-hdr-date.cgo-today .cgo-hdr-num { color: #6366f1; }
-        /* Type header */
-        .cgo-type-hdr {
-            background: linear-gradient(135deg, #eef2ff, #e0e7ff);
-            border-right: 2px solid #a5b4fc; border-bottom: 1px solid #c7d2fe;
-            padding: 3px 6px; font-weight: 800; color: #4338ca;
-            position: sticky; left: 0; z-index: 30; display: flex;
-            align-items: center; font-size: 10px; gap: 4px;
-            min-width: 70px; max-width: 70px;
-            box-shadow: 2px 0 6px rgba(0,0,0,0.04);
-        }
-        .cgo-type-price {
-            background: linear-gradient(135deg, #eef2ff, #e0e7ff);
-            border-right: 1px solid #c7d2fe; border-bottom: 1px solid #a5b4fc;
-        }
-        /* Room labels */
-        .cgo-room {
-            background: linear-gradient(135deg, #f8fafc, #fff);
-            border-right: 2px solid #e2e8f0; border-bottom: 1px solid #f1f5f9;
-            padding: 2px 4px; font-weight: 700; color: #334155;
-            position: sticky; left: 0; z-index: 30; display: flex;
-            flex-direction: column; justify-content: center; align-items: center;
-            text-align: center; min-width: 70px; max-width: 70px;
-            box-shadow: 2px 0 6px rgba(0,0,0,0.04); transition: 0.15s;
-        }
-        .cgo-room:hover { background: linear-gradient(135deg, #eef2ff, #e0e7ff); }
-        .cgo-room-type { font-size: 7px; font-weight: 600; color: #6366f1; text-transform: uppercase; letter-spacing: 0.5px; line-height: 1; }
-        .cgo-room-num { font-size: 13px; color: #1e293b; font-weight: 900; line-height: 1; }
-        /* Date cells */
-        .cgo-cell {
-            border-right: 0.5px solid rgba(51,65,85,0.12);
-            border-bottom: 0.5px solid rgba(51,65,85,0.12);
-            min-width: 90px; min-height: 28px; position: relative; background: transparent;
-        }
-        .cgo-cell.cgo-today { background: rgba(99,102,241,0.05) !important; }
-        /* Booking bars - Skewed CloudBed style */
-        .bbar-wrap-o {
-            position: absolute; top: 2px; left: 50%; height: 24px;
-            display: flex; align-items: center; overflow: visible;
-            z-index: 10; margin-left: 4px; cursor: pointer;
-        }
-        .bbar-o {
-            width: 100%; height: 22px; padding: 0 6px;
-            display: flex; align-items: center; justify-content: center;
-            text-align: center;
-            box-shadow: 0 2px 6px rgba(0,0,0,0.15), 0 1px 2px rgba(0,0,0,0.1);
-            font-weight: 700; font-size: 10px; line-height: 1.1;
-            position: relative; border-radius: 3px; white-space: nowrap;
-            transform: skewX(-20deg); color: #fff !important; transition: all 0.2s; overflow: hidden;
-        }
-        .bbar-o > span {
-            transform: skewX(20deg); color: #fff !important;
-            text-shadow: 0 1px 3px rgba(0,0,0,0.6); font-weight: 800; font-size: 9px;
-        }
-        .bbar-o::before {
-            content: ''; position: absolute; left: -8px; top: 50%; transform: translateY(-50%);
-            width: 0; height: 0; border-top: 10px solid transparent;
-            border-bottom: 10px solid transparent; border-right: 5px solid; border-right-color: inherit;
-        }
-        .bbar-o::after {
-            content: ''; position: absolute; right: -8px; top: 50%; transform: translateY(-50%);
-            width: 0; height: 0; border-top: 10px solid transparent;
-            border-bottom: 10px solid transparent; border-left: 5px solid; border-left-color: inherit;
-        }
-        .bbar-o:hover { transform: skewX(-20deg) scaleY(1.15); box-shadow: 0 8px 24px rgba(0,0,0,0.3); z-index: 20; }
-        .bbar-o.bs-confirmed { background: linear-gradient(135deg, #06b6d4, #22d3ee) !important; border-color: #06b6d4; }
-        .bbar-o.bs-pending { background: linear-gradient(135deg, #0ea5e9, #38bdf8) !important; border-color: #0ea5e9; }
-        .bbar-o.bs-checked-in { background: linear-gradient(135deg, #16a34a, #22c55e) !important; border-color: #16a34a; }
-        .bbar-o.bs-checked-out { background: linear-gradient(135deg, #9ca3af, #d1d5db) !important; border-color: #9ca3af; opacity: 0.4; }
-        .bbar-o.bs-checked-out > span { color: #6b7280 !important; text-shadow: 0 1px 2px rgba(0,0,0,0.1) !important; }
-        /* Footer cells */
-        .cgo-ftr-room {
-            background: linear-gradient(135deg, #f1f5f9, #fff);
-            border-right: 2px solid #e2e8f0; border-top: 2px solid #cbd5e1;
-            padding: 4px; font-weight: 800; text-align: center;
-            position: sticky; left: 0; z-index: 40; font-size: 9px;
-            color: #475569; letter-spacing: 0.8px; text-transform: uppercase;
-            display: flex; align-items: center; justify-content: center;
-            min-width: 70px; max-width: 70px;
-            box-shadow: 2px 0 6px rgba(0,0,0,0.04);
-        }
-        .cgo-ftr-date {
-            background: linear-gradient(180deg, #f8fafc, #f1f5f9);
-            border-right: 1px solid #e2e8f0; border-top: 2px solid #cbd5e1;
-            padding: 3px 2px; text-align: center; font-weight: 700; font-size: 9px; color: #334155;
-        }
-        .cgo-ftr-date.cgo-today { background: rgba(99,102,241,0.12) !important; }
-        /* Calendar Legend */
-        .cal-legend-owner {
-            display: flex; flex-wrap: wrap; gap: 10px; padding: 8px 14px 10px;
-            border-top: 1px solid var(--border); justify-content: center;
-        }
-        .cal-legend-item-o { display: flex; align-items: center; gap: 4px; font-size: 9px; color: var(--text-muted); font-weight: 500; }
-        .cal-legend-dot-o { width: 14px; height: 8px; border-radius: 3px; transform: skewX(-20deg); }
-        /* Booking popup */
-        .cal-popup-overlay-o { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 999; display: none; }
-        .cal-popup-o {
-            position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%);
-            background: #fff; border-radius: 16px; padding: 18px;
-            box-shadow: 0 20px 60px rgba(0,0,0,0.3); z-index: 1000;
-            width: 300px; max-width: 90vw; display: none;
-        }
+        .asb-present { background: #dcfce7; color: #15803d; }
+        .asb-late { background: #fef3c7; color: #92400e; }
+        .asb-leave { background: #dbeafe; color: #1e40af; }
+        .asb-absent { background: #fee2e2; color: #991b1b; }
+        .asb-holiday { background: #f3e8ff; color: #6b21a8; }
+        .asb-half_day { background: #ffedd5; color: #9a3412; }
     </style>
 </head>
 <body>
@@ -3087,68 +2955,109 @@ else { $healthStatus = 'Perlu Perhatian'; $healthEmoji = '🔴'; }
             </div>
         </div>
         
-        <?php if (!$isCQC && !empty($calRooms)): ?>
+        <?php if (!$isCQC && $attStats['total'] > 0): ?>
         <!-- ═══════════════════════════════════════════ -->
-        <!-- BOOKING CALENDAR - Room Status + Timeline  -->
+        <!-- ATTENDANCE MONITORING                      -->
         <!-- ═══════════════════════════════════════════ -->
-        <div class="cal-section">
-            <div class="cal-section-title">
-                <span class="cal-badge">LIVE</span>
-                📅 Room Monitor & Booking Calendar
+        <div class="att-section">
+            <div class="att-section-title">
+                <span class="att-badge">LIVE</span>
+                👥 Monitoring Absensi Staff
             </div>
             
-            <!-- Room Status Grid -->
-            <div class="room-status-wrap">
-                <div class="room-status-header">
-                    <div class="room-status-label">🏨 Status Kamar</div>
-                    <div class="room-status-summary">
-                        <span class="room-status-pill rsp-available">✓ <?= $calRoomStatusMap['available'] ?> Available</span>
-                        <span class="room-status-pill rsp-occupied">● <?= $calRoomStatusMap['occupied'] ?> Occupied</span>
-                        <?php if ($calRoomStatusMap['maintenance'] > 0): ?>
-                        <span class="room-status-pill rsp-maintenance">🔧 <?= $calRoomStatusMap['maintenance'] ?></span>
-                        <?php endif; ?>
-                    </div>
+            <!-- Date Navigation -->
+            <div class="att-date-nav">
+                <button class="att-date-btn" onclick="attNavDate(-1)">◀</button>
+                <span class="att-date-label" id="attDateLabel"><?php
+                    $hariIndo = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+                    $bulanIndoShort = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+                    $dt = new DateTime($attDate);
+                    echo $hariIndo[(int)$dt->format('w')] . ', ' . $dt->format('d') . ' ' . $bulanIndoShort[(int)$dt->format('n')-1] . ' ' . $dt->format('Y');
+                ?></span>
+                <button class="att-date-btn" onclick="attNavDate(1)">▶</button>
+            </div>
+            
+            <!-- Stats Cards -->
+            <div class="att-stats">
+                <div class="att-stat-card asc-present">
+                    <div class="att-stat-icon">✅</div>
+                    <div class="att-stat-num" id="attStatPresent"><?= $attStats['present'] ?></div>
+                    <div class="att-stat-label">Hadir</div>
                 </div>
-                <div class="room-grid-owner">
-                    <?php foreach ($calRooms as $cr): 
-                        $isOcc = ($cr['status'] === 'occupied') || !empty($cr['guest_name']);
-                        $cls = $isOcc ? 'rb-occ' : ($cr['status'] === 'maintenance' ? 'rb-maint' : 'rb-avail');
-                        $dotCls = $isOcc ? 'rb-dot-occ' : 'rb-dot-avail';
+                <div class="att-stat-card asc-late">
+                    <div class="att-stat-icon">⏰</div>
+                    <div class="att-stat-num" id="attStatLate"><?= $attStats['late'] ?></div>
+                    <div class="att-stat-label">Terlambat</div>
+                </div>
+                <div class="att-stat-card asc-leave">
+                    <div class="att-stat-icon">📋</div>
+                    <div class="att-stat-num" id="attStatLeave"><?= $attStats['leave'] ?></div>
+                    <div class="att-stat-label">Izin</div>
+                </div>
+                <div class="att-stat-card asc-absent">
+                    <div class="att-stat-icon">❌</div>
+                    <div class="att-stat-num" id="attStatAbsent"><?= $attStats['absent'] ?></div>
+                    <div class="att-stat-label">Alpha</div>
+                </div>
+            </div>
+            
+            <!-- Staff List -->
+            <div class="att-list-wrap">
+                <div class="att-list-header">
+                    <div class="att-list-title">📋 Daftar Kehadiran</div>
+                    <div class="att-list-count" id="attListCount"><?= count($attRecords) ?>/<?= $attStats['total'] ?> staff</div>
+                </div>
+                <div id="attStaffList">
+                    <?php
+                    // Show present/late employees first
+                    foreach ($attRecords as $ar):
+                        $statusCls = 'av-present';
+                        $badgeCls = 'asb-present';
+                        $badgeText = 'Hadir';
+                        $initial = mb_strtoupper(mb_substr($ar['full_name'], 0, 1));
+                        if ($ar['status'] === 'late') { $statusCls = 'av-late'; $badgeCls = 'asb-late'; $badgeText = 'Terlambat'; }
+                        elseif ($ar['status'] === 'leave') { $statusCls = 'av-leave'; $badgeCls = 'asb-leave'; $badgeText = 'Izin'; }
+                        elseif ($ar['status'] === 'holiday') { $statusCls = 'av-leave'; $badgeCls = 'asb-holiday'; $badgeText = 'Libur'; }
+                        elseif ($ar['status'] === 'half_day') { $statusCls = 'av-late'; $badgeCls = 'asb-half_day'; $badgeText = 'Half Day'; }
+                        $cin = $ar['check_in_time'] ? substr($ar['check_in_time'], 0, 5) : '-';
+                        $cout = $ar['check_out_time'] ? substr($ar['check_out_time'], 0, 5) : '-';
+                        $wh = $ar['work_hours'] ? number_format((float)$ar['work_hours'], 1) . ' jam' : '';
                     ?>
-                    <div class="room-box-owner <?= $cls ?>">
-                        <div class="rb-status-dot <?= $dotCls ?>"></div>
-                        <div class="rb-number"><?= htmlspecialchars($cr['room_number']) ?></div>
-                        <div class="rb-type"><?= htmlspecialchars(substr($cr['room_type'], 0, 8)) ?></div>
-                        <?php if ($isOcc && !empty($cr['guest_name'])): ?>
-                        <div class="rb-guest"><?= htmlspecialchars(substr($cr['guest_name'], 0, 12)) ?></div>
-                        <?php endif; ?>
+                    <div class="att-emp-row">
+                        <div class="att-emp-avatar <?= $statusCls ?>"><?= $initial ?></div>
+                        <div class="att-emp-info">
+                            <div class="att-emp-name"><?= htmlspecialchars($ar['full_name']) ?></div>
+                            <div class="att-emp-pos"><?= htmlspecialchars($ar['position'] ?? '-') ?> <span class="att-status-badge <?= $badgeCls ?>"><?= $badgeText ?></span></div>
+                        </div>
+                        <div class="att-emp-times">
+                            <div class="att-emp-time-row">In: <strong><?= $cin ?></strong></div>
+                            <div class="att-emp-time-row">Out: <strong><?= $cout ?></strong></div>
+                            <?php if ($wh): ?><div class="att-emp-hours"><?= $wh ?></div><?php endif; ?>
+                        </div>
+                    </div>
+                    <?php endforeach; ?>
+                    
+                    <?php
+                    // Show absent employees (no attendance record)
+                    $recordedIds = array_column($attRecords, 'employee_id');
+                    foreach ($attEmployees as $emp):
+                        if (in_array($emp['id'], $recordedIds)) continue;
+                        $initial = mb_strtoupper(mb_substr($emp['full_name'], 0, 1));
+                    ?>
+                    <div class="att-emp-row">
+                        <div class="att-emp-avatar av-absent"><?= $initial ?></div>
+                        <div class="att-emp-info">
+                            <div class="att-emp-name"><?= htmlspecialchars($emp['full_name']) ?></div>
+                            <div class="att-emp-pos"><?= htmlspecialchars($emp['position'] ?? '-') ?> <span class="att-status-badge asb-absent">Alpha</span></div>
+                        </div>
+                        <div class="att-emp-times">
+                            <div class="att-emp-time-row" style="color:#dc2626;font-weight:700;">Tidak hadir</div>
+                        </div>
                     </div>
                     <?php endforeach; ?>
                 </div>
             </div>
-            
-            <!-- Booking Calendar Timeline -->
-            <div class="cal-card-owner">
-                <div class="cal-nav-owner">
-                    <button class="cal-nav-btn" onclick="ownerCalNav(-14)">◀ Prev</button>
-                    <span class="cal-nav-period" id="ownerCalPeriod"></span>
-                    <button class="cal-nav-btn" onclick="ownerCalNav(14)">Next ▶</button>
-                </div>
-                <div class="cal-scroll-owner" id="ownerCalScroll">
-                    <div id="ownerCalGrid"></div>
-                </div>
-                <div class="cal-legend-owner">
-                    <div class="cal-legend-item-o"><div class="cal-legend-dot-o" style="background:linear-gradient(135deg,#06b6d4,#22d3ee);"></div>Confirmed</div>
-                    <div class="cal-legend-item-o"><div class="cal-legend-dot-o" style="background:linear-gradient(135deg,#0ea5e9,#38bdf8);"></div>Pending</div>
-                    <div class="cal-legend-item-o"><div class="cal-legend-dot-o" style="background:linear-gradient(135deg,#16a34a,#22c55e);"></div>Checked In</div>
-                    <div class="cal-legend-item-o"><div class="cal-legend-dot-o" style="background:linear-gradient(135deg,#9ca3af,#d1d5db);"></div>Checked Out</div>
-                </div>
-            </div>
         </div>
-        
-        <!-- Booking Popup -->
-        <div class="cal-popup-overlay-o" id="ownerCalOverlay" onclick="closeOwnerCalPopup()"></div>
-        <div class="cal-popup-o" id="ownerCalPopup"></div>
         <?php endif; ?>
         
         <?php if (!$isCQC): // Only show for non-CQC businesses ?>
@@ -3574,182 +3483,92 @@ else { $healthStatus = 'Perlu Perhatian'; $healthEmoji = '🔴'; }
     }
     
     // ═══════════════════════════════════════════
-    // OWNER BOOKING CALENDAR - CloudBeds Timeline
+    // ATTENDANCE MONITORING - Date Navigation
     // ═══════════════════════════════════════════
-    <?php if (!$isCQC && !empty($calRooms)): ?>
+    <?php if (!$isCQC && $attStats['total'] > 0): ?>
     (function() {
-        const COL_W = 90;
-        const calRooms = <?= json_encode($calRooms, JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
-        const calBookings = <?= json_encode($calBookings, JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
-        let calOffset = 0;
+        let attCurrentDate = '<?= $attDate ?>';
+        const businessId = <?= (int)$_SESSION['business_id'] ?>;
+        const hariIndo = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+        const bulanShort = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
         
-        function renderOwnerCal() {
+        function formatDateIndo(dateStr) {
+            const d = new Date(dateStr + 'T00:00:00');
+            return hariIndo[d.getDay()] + ', ' + String(d.getDate()).padStart(2,'0') + ' ' + bulanShort[d.getMonth()] + ' ' + d.getFullYear();
+        }
+        
+        window.attNavDate = function(offset) {
+            const d = new Date(attCurrentDate + 'T00:00:00');
+            d.setDate(d.getDate() + offset);
+            // Don't go beyond today
             const today = new Date();
             today.setHours(0,0,0,0);
-            const start = new Date(today);
-            start.setDate(start.getDate() + calOffset - 3); // Show 3 days before today
-            const days = 14;
-            const dates = [];
-            const todayStr = today.toISOString().split('T')[0];
+            if (d > today) return;
             
-            for (let i = 0; i < days; i++) {
-                const dt = new Date(start);
-                dt.setDate(dt.getDate() + i);
-                dates.push(dt.toISOString().split('T')[0]);
-            }
+            attCurrentDate = d.toISOString().split('T')[0];
+            document.getElementById('attDateLabel').textContent = formatDateIndo(attCurrentDate);
+            loadAttendance(attCurrentDate);
+        };
+        
+        function loadAttendance(dateStr) {
+            const list = document.getElementById('attStaffList');
+            list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:12px;">Memuat data...</div>';
             
-            // Update period label
-            const months = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
-            const startD = new Date(dates[0] + 'T00:00:00');
-            const endD = new Date(dates[dates.length-1] + 'T00:00:00');
-            const periodEl = document.getElementById('ownerCalPeriod');
-            if (periodEl) periodEl.textContent = startD.getDate() + ' ' + months[startD.getMonth()] + ' — ' + endD.getDate() + ' ' + months[endD.getMonth()] + ' ' + endD.getFullYear();
-            
-            // Group rooms by type
-            const roomsByType = {};
-            calRooms.forEach(r => {
-                const t = r.room_type || 'Standard';
-                if (!roomsByType[t]) roomsByType[t] = [];
-                roomsByType[t].push(r);
-            });
-            
-            // Build booking map
-            const bookingMap = {};
-            calBookings.forEach(b => {
-                if (!bookingMap[b.room_id]) bookingMap[b.room_id] = [];
-                const bStart = b.check_in_date, bEnd = b.check_out_date;
-                let startCol = -1, endCol = -1;
-                for (let i = 0; i < dates.length; i++) {
-                    if (dates[i] >= bStart && startCol < 0) startCol = i;
-                    if (dates[i] < bEnd) endCol = i;
-                }
-                if (bStart < dates[0]) startCol = 0;
-                if (endCol < 0 && bEnd > dates[0]) endCol = dates.length - 1;
-                if (startCol >= 0 && endCol >= startCol) {
-                    bookingMap[b.room_id].push({ ...b, startCol, span: endCol - startCol + 1 });
-                }
-            });
-            
-            const dayNames = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
-            let g = '<div class="cal-grid-owner" style="grid-template-columns:70px repeat(' + days + ',' + COL_W + 'px);">';
-            
-            // Header row
-            g += '<div class="cgo-hdr-room">ROOMS</div>';
-            dates.forEach(dt => {
-                const dd = new Date(dt + 'T00:00:00');
-                const isTd = dt === todayStr;
-                g += '<div class="cgo-hdr-date' + (isTd ? ' cgo-today' : '') + '"><span class="cgo-hdr-day">' + dayNames[dd.getDay()] + '</span> <span class="cgo-hdr-num">' + dd.getDate() + '</span></div>';
-            });
-            
-            // Room rows by type
-            Object.keys(roomsByType).forEach(typeName => {
-                // Type header
-                g += '<div class="cgo-type-hdr">📂 ' + typeName + '</div>';
-                for (let i = 0; i < days; i++) g += '<div class="cgo-type-price"></div>';
-                
-                roomsByType[typeName].forEach(room => {
-                    const tShort = (room.room_type || '').toUpperCase().substring(0, 6);
-                    g += '<div class="cgo-room"><span class="cgo-room-type">' + tShort + '</span><span class="cgo-room-num">' + room.room_number + '</span></div>';
-                    
-                    const roomBookings = bookingMap[room.id] || [];
-                    for (let i = 0; i < days; i++) {
-                        const isTd = dates[i] === todayStr;
-                        g += '<div class="cgo-cell' + (isTd ? ' cgo-today' : '') + '">';
-                        roomBookings.forEach(rb => {
-                            if (rb.startCol === i) {
-                                const barW = (rb.span * COL_W) - 12;
-                                const sCls = 'bs-' + (rb.status || '').replace('_', '-');
-                                const isCI = rb.status === 'checked_in';
-                                const icon = isCI ? '✓ ' : '';
-                                const name = (rb.guest_name || 'Guest').substring(0, 12);
-                                const code = (rb.booking_code || '').substring(0, 8);
-                                const bData = encodeURIComponent(JSON.stringify({
-                                    booking_code: rb.booking_code, guest_name: rb.guest_name,
-                                    check_in_date: rb.check_in_date, check_out_date: rb.check_out_date,
-                                    status: rb.status, booking_source: rb.booking_source,
-                                    payment_status: rb.payment_status, room_price: rb.room_price,
-                                    final_price: rb.final_price, total_nights: rb.total_nights,
-                                    guest_phone: rb.guest_phone
-                                }));
-                                g += '<div class="bbar-wrap-o" style="width:' + barW + 'px;" onclick="showOwnerBooking(\'' + bData + '\')">';
-                                g += '<div class="bbar-o ' + sCls + '"><span>' + icon + name + ' • ' + code + '</span></div></div>';
-                            }
-                        });
-                        g += '</div>';
+            fetch('<?= BASE_URL ?>api/owner-attendance.php?date=' + encodeURIComponent(dateStr) + '&business_id=' + businessId)
+                .then(r => r.json())
+                .then(data => {
+                    if (!data.success) {
+                        list.innerHTML = '<div style="text-align:center;padding:20px;color:#dc2626;font-size:12px;">Gagal memuat data</div>';
+                        return;
                     }
+                    // Update stats
+                    document.getElementById('attStatPresent').textContent = data.stats.present;
+                    document.getElementById('attStatLate').textContent = data.stats.late;
+                    document.getElementById('attStatLeave').textContent = data.stats.leave;
+                    document.getElementById('attStatAbsent').textContent = data.stats.absent;
+                    document.getElementById('attListCount').textContent = data.stats.recorded + '/' + data.stats.total + ' staff';
+                    
+                    let html = '';
+                    // Present/late employees
+                    data.records.forEach(ar => {
+                        let statusCls = 'av-present', badgeCls = 'asb-present', badgeText = 'Hadir';
+                        if (ar.status === 'late') { statusCls = 'av-late'; badgeCls = 'asb-late'; badgeText = 'Terlambat'; }
+                        else if (ar.status === 'leave') { statusCls = 'av-leave'; badgeCls = 'asb-leave'; badgeText = 'Izin'; }
+                        else if (ar.status === 'holiday') { statusCls = 'av-leave'; badgeCls = 'asb-holiday'; badgeText = 'Libur'; }
+                        else if (ar.status === 'half_day') { statusCls = 'av-late'; badgeCls = 'asb-half_day'; badgeText = 'Half Day'; }
+                        const cin = ar.check_in_time ? ar.check_in_time.substring(0,5) : '-';
+                        const cout = ar.check_out_time ? ar.check_out_time.substring(0,5) : '-';
+                        const wh = ar.work_hours ? parseFloat(ar.work_hours).toFixed(1) + ' jam' : '';
+                        const initial = (ar.full_name || '?')[0].toUpperCase();
+                        
+                        html += '<div class="att-emp-row">';
+                        html += '<div class="att-emp-avatar ' + statusCls + '">' + initial + '</div>';
+                        html += '<div class="att-emp-info"><div class="att-emp-name">' + (ar.full_name||'-') + '</div>';
+                        html += '<div class="att-emp-pos">' + (ar.position||'-') + ' <span class="att-status-badge ' + badgeCls + '">' + badgeText + '</span></div></div>';
+                        html += '<div class="att-emp-times"><div class="att-emp-time-row">In: <strong>' + cin + '</strong></div>';
+                        html += '<div class="att-emp-time-row">Out: <strong>' + cout + '</strong></div>';
+                        if (wh) html += '<div class="att-emp-hours">' + wh + '</div>';
+                        html += '</div></div>';
+                    });
+                    
+                    // Absent employees
+                    data.absent.forEach(emp => {
+                        const initial = (emp.full_name || '?')[0].toUpperCase();
+                        html += '<div class="att-emp-row">';
+                        html += '<div class="att-emp-avatar av-absent">' + initial + '</div>';
+                        html += '<div class="att-emp-info"><div class="att-emp-name">' + (emp.full_name||'-') + '</div>';
+                        html += '<div class="att-emp-pos">' + (emp.position||'-') + ' <span class="att-status-badge asb-absent">Alpha</span></div></div>';
+                        html += '<div class="att-emp-times"><div class="att-emp-time-row" style="color:#dc2626;font-weight:700;">Tidak hadir</div></div>';
+                        html += '</div>';
+                    });
+                    
+                    if (!html) html = '<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:12px;">Tidak ada data kehadiran</div>';
+                    list.innerHTML = html;
+                })
+                .catch(() => {
+                    list.innerHTML = '<div style="text-align:center;padding:20px;color:#dc2626;font-size:12px;">Error koneksi</div>';
                 });
-            });
-            
-            // Footer row
-            g += '<div class="cgo-ftr-room">ROOMS</div>';
-            dates.forEach(dt => {
-                const dd = new Date(dt + 'T00:00:00');
-                const isTd = dt === todayStr;
-                g += '<div class="cgo-ftr-date' + (isTd ? ' cgo-today' : '') + '"><span class="cgo-hdr-day">' + dayNames[dd.getDay()] + '</span> <span class="cgo-hdr-num">' + dd.getDate() + '</span></div>';
-            });
-            
-            g += '</div>';
-            document.getElementById('ownerCalGrid').innerHTML = g;
-            
-            // Auto-scroll to today
-            const todayIdx = dates.indexOf(todayStr);
-            if (todayIdx > 1) {
-                const scrollEl = document.getElementById('ownerCalScroll');
-                setTimeout(() => { scrollEl.scrollLeft = Math.max(0, (todayIdx - 1) * COL_W); }, 100);
-            }
         }
-        
-        // Navigation
-        window.ownerCalNav = function(days) {
-            calOffset += days;
-            renderOwnerCal();
-        };
-        
-        // Popup
-        window.showOwnerBooking = function(encoded) {
-            const b = JSON.parse(decodeURIComponent(encoded));
-            const statusMap = {'pending':'⏳ Pending','confirmed':'✅ Confirmed','checked_in':'🏨 Checked In','checked_out':'🚪 Checked Out'};
-            const sourceMap = {'walk_in':'Walk In','agoda':'Agoda','booking':'Booking.com','traveloka':'Traveloka','airbnb':'Airbnb','tiket':'Tiket.com','phone':'Telepon','ota':'OTA','online':'Online'};
-            const payMap = {'unpaid':'❌ Belum Bayar','partial':'⚠️ Sebagian','paid':'✅ Lunas'};
-            const rp = n => 'Rp ' + Number(n||0).toLocaleString('id-ID');
-            
-            document.getElementById('ownerCalPopup').innerHTML = 
-                '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">' +
-                    '<div style="font-weight:800;font-size:14px;color:#1e293b;">📋 Detail Booking</div>' +
-                    '<button onclick="closeOwnerCalPopup()" style="background:none;border:none;font-size:18px;cursor:pointer;color:#64748b;">✕</button>' +
-                '</div>' +
-                '<div style="font-size:12px;line-height:2.2;color:#334155;">' +
-                    '<div><strong>Kode:</strong> ' + (b.booking_code||'-') + '</div>' +
-                    '<div><strong>Tamu:</strong> ' + (b.guest_name||'-') + '</div>' +
-                    '<div><strong>Telepon:</strong> ' + (b.guest_phone||'-') + '</div>' +
-                    '<div><strong>Check-in:</strong> ' + (b.check_in_date||'-') + '</div>' +
-                    '<div><strong>Check-out:</strong> ' + (b.check_out_date||'-') + ' (' + (b.total_nights||'-') + ' malam)</div>' +
-                    '<div><strong>Status:</strong> ' + (statusMap[b.status]||b.status) + '</div>' +
-                    '<div><strong>Sumber:</strong> ' + (sourceMap[b.booking_source]||b.booking_source||'-') + '</div>' +
-                    '<div><strong>Harga:</strong> ' + rp(b.final_price) + '</div>' +
-                    '<div><strong>Pembayaran:</strong> ' + (payMap[b.payment_status]||b.payment_status||'-') + '</div>' +
-                '</div>';
-            document.getElementById('ownerCalPopup').style.display = 'block';
-            document.getElementById('ownerCalOverlay').style.display = 'block';
-        };
-        
-        window.closeOwnerCalPopup = function() {
-            document.getElementById('ownerCalPopup').style.display = 'none';
-            document.getElementById('ownerCalOverlay').style.display = 'none';
-        };
-        
-        // Drag to scroll
-        const scrollEl = document.getElementById('ownerCalScroll');
-        if (scrollEl) {
-            let isDown = false, startX, scrollLeft;
-            scrollEl.addEventListener('mousedown', e => { isDown = true; startX = e.pageX - scrollEl.offsetLeft; scrollLeft = scrollEl.scrollLeft; });
-            scrollEl.addEventListener('mouseleave', () => { isDown = false; });
-            scrollEl.addEventListener('mouseup', () => { isDown = false; });
-            scrollEl.addEventListener('mousemove', e => { if (!isDown) return; e.preventDefault(); const x = e.pageX - scrollEl.offsetLeft; scrollEl.scrollLeft = scrollLeft - (x - startX); });
-        }
-        
-        // Initial render
-        renderOwnerCal();
     })();
     <?php endif; ?>
     </script>
