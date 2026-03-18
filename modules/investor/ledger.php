@@ -149,6 +149,43 @@ if ($project_id) {
                 $expenses = $stmt->fetchAll(PDO::FETCH_ASSOC);
             } catch (Exception $e) { $expenses = []; }
 
+            // ── Expense filters ──────────────────────────────────────────
+            $expFilterDate   = trim($_GET['exp_date'] ?? '');
+            $expFilterMonth  = trim($_GET['exp_month'] ?? '');
+            $expFilterDiv    = trim($_GET['exp_div'] ?? '');
+            $expFilterSearch = trim($_GET['exp_search'] ?? '');
+
+            // Smart: if date within selected month, use month
+            if (!empty($expFilterDate) && !empty($expFilterMonth)) {
+                if (substr($expFilterDate, 0, 7) === $expFilterMonth) $expFilterDate = '';
+            }
+
+            // Collect unique divisions from expenses for filter dropdown
+            $expDivisions = [];
+            foreach ($expenses as $ex) {
+                if (!empty($ex['division_name']) && !in_array($ex['division_name'], $expDivisions)) {
+                    $expDivisions[] = $ex['division_name'];
+                }
+            }
+            sort($expDivisions);
+
+            // Apply filters
+            $filteredExpenses = array_filter($expenses, function($e) use ($expFilterDate, $expFilterMonth, $expFilterDiv, $expFilterSearch) {
+                $d = $e['expense_date'] ?? ($e['created_at'] ?? '');
+                if (!empty($expFilterDate) && substr($d, 0, 10) !== $expFilterDate) return false;
+                if (!empty($expFilterMonth) && substr($d, 0, 7) !== $expFilterMonth) return false;
+                if (!empty($expFilterDiv) && ($e['division_name'] ?? '') !== $expFilterDiv) return false;
+                if (!empty($expFilterSearch)) {
+                    $needle = mb_strtolower($expFilterSearch);
+                    $haystack = mb_strtolower(($e['description'] ?? '') . ' ' . ($e['division_name'] ?? ''));
+                    if (strpos($haystack, $needle) === false) return false;
+                }
+                return true;
+            });
+            $filteredExpenses = array_values($filteredExpenses);
+            $filteredTotal = array_sum(array_column($filteredExpenses, 'amount'));
+            $hasExpFilter = !empty($expFilterDate) || !empty($expFilterMonth) || !empty($expFilterDiv) || !empty($expFilterSearch);
+
             $total_expenses = array_sum(array_column($expenses, 'amount'));
             $project['total_expenses'] = $total_expenses;
 
@@ -426,16 +463,56 @@ include $base_path . '/includes/header.php';
                 </div>
                 <div class="panel">
                     <div class="panel-head">
-                        <h3>Riwayat Pengeluaran</h3>
+                        <h3>Riwayat Pengeluaran <?php if ($hasExpFilter): ?><span style="font-size:0.75rem;color:#6366f1;font-weight:400">(Filtered: <?= count($filteredExpenses) ?> dari <?= count($expenses) ?> data)</span><?php endif; ?></h3>
                         <div class="action-row no-print"><button onclick="window.print()" class="btn btn-sky btn-xs">🖨️ Print</button></div>
                     </div>
+
+                    <!-- Filter Bar -->
+                    <form method="GET" action="" class="no-print" style="display:grid;grid-template-columns:repeat(5,1fr);gap:0.6rem;margin-bottom:1rem;padding:0.85rem 1rem;background:#f8fafc;border:1px solid #e2e8f0;border-radius:8px;">
+                        <input type="hidden" name="project_id" value="<?= $project_id ?>">
+                        <input type="hidden" name="tab" value="expenses">
+                        <div>
+                            <label style="font-size:0.7rem;font-weight:600;color:#64748b;display:block;margin-bottom:0.2rem">📅 Tanggal</label>
+                            <input type="date" name="exp_date" value="<?= htmlspecialchars($expFilterDate) ?>" style="width:100%;height:34px;border:1px solid #e2e8f0;border-radius:6px;padding:0 0.5rem;font-size:0.82rem;">
+                        </div>
+                        <div>
+                            <label style="font-size:0.7rem;font-weight:600;color:#64748b;display:block;margin-bottom:0.2rem">📆 Bulan</label>
+                            <input type="month" name="exp_month" value="<?= htmlspecialchars($expFilterMonth) ?>" style="width:100%;height:34px;border:1px solid #e2e8f0;border-radius:6px;padding:0 0.5rem;font-size:0.82rem;">
+                        </div>
+                        <div>
+                            <label style="font-size:0.7rem;font-weight:600;color:#64748b;display:block;margin-bottom:0.2rem">🏗️ Divisi</label>
+                            <select name="exp_div" style="width:100%;height:34px;border:1px solid #e2e8f0;border-radius:6px;padding:0 0.5rem;font-size:0.82rem;background:#fff;">
+                                <option value="">Semua Divisi</option>
+                                <?php foreach ($expDivisions as $ed): ?>
+                                <option value="<?= htmlspecialchars($ed) ?>" <?= $expFilterDiv === $ed ? 'selected' : '' ?>><?= htmlspecialchars($ed) ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+                        <div>
+                            <label style="font-size:0.7rem;font-weight:600;color:#64748b;display:block;margin-bottom:0.2rem">🔍 Cari Nama/Ket</label>
+                            <input type="text" name="exp_search" value="<?= htmlspecialchars($expFilterSearch) ?>" placeholder="Cth: Pak Ipin, semen..." style="width:100%;height:34px;border:1px solid #e2e8f0;border-radius:6px;padding:0 0.5rem;font-size:0.82rem;">
+                        </div>
+                        <div style="display:flex;align-items:flex-end;gap:0.4rem">
+                            <button type="submit" style="flex:1;height:34px;background:#6366f1;color:#fff;border:none;border-radius:6px;font-size:0.8rem;font-weight:600;cursor:pointer">🔍 Filter</button>
+                            <a href="?project_id=<?= $project_id ?>&tab=expenses" style="height:34px;display:flex;align-items:center;padding:0 0.7rem;background:#f1f5f9;color:#64748b;border:1px solid #e2e8f0;border-radius:6px;font-size:0.78rem;text-decoration:none;font-weight:600">✕</a>
+                        </div>
+                    </form>
+
+                    <?php if ($hasExpFilter): ?>
+                    <div style="margin-bottom:0.75rem;padding:0.5rem 0.75rem;background:linear-gradient(135deg,rgba(99,102,241,0.06),rgba(99,102,241,0.02));border:1px solid rgba(99,102,241,0.15);border-radius:6px;font-size:0.78rem;color:#4338ca;">
+                        📊 Menampilkan <strong><?= count($filteredExpenses) ?></strong> dari <?= count($expenses) ?> transaksi
+                        | Total filtered: <strong>Rp <?= number_format($filteredTotal,0,',','.') ?></strong>
+                        <?php if (!empty($expFilterSearch)): ?> | Kata kunci: "<em><?= htmlspecialchars($expFilterSearch) ?></em>"<?php endif; ?>
+                    </div>
+                    <?php endif; ?>
+
                     <table class="tbl">
                         <thead><tr><th>#</th><th>Tanggal</th><th>Deskripsi</th><th>Divisi</th><th style="text-align:right">Jumlah</th><th class="no-print" style="width:50px">Aksi</th></tr></thead>
                         <tbody>
-                        <?php if (empty($expenses)): ?>
-                            <tr class="empty"><td colspan="6">Belum ada data pengeluaran</td></tr>
+                        <?php if (empty($filteredExpenses)): ?>
+                            <tr class="empty"><td colspan="6"><?= $hasExpFilter ? 'Tidak ada data yang cocok dengan filter' : 'Belum ada data pengeluaran' ?></td></tr>
                         <?php else: ?>
-                            <?php foreach ($expenses as $i => $e): ?>
+                            <?php foreach ($filteredExpenses as $i => $e): ?>
                             <tr>
                                 <td style="color:var(--text-muted)"><?= $i+1 ?></td>
                                 <td><?= date('d/m/Y', strtotime($e['expense_date'] ?? $e['created_at'] ?? 'now')) ?></td>
@@ -445,7 +522,7 @@ include $base_path . '/includes/header.php';
                                 <td class="no-print"><button class="btn btn-rose btn-xs" onclick="deleteExpense(<?= $e['id'] ?>)">✕</button></td>
                             </tr>
                             <?php endforeach; ?>
-                            <tr class="foot"><td colspan="4">TOTAL</td><td class="money" style="text-align:right">Rp <?= number_format($project['total_expenses'],0,',','.') ?></td><td></td></tr>
+                            <tr class="foot"><td colspan="4">TOTAL<?= $hasExpFilter ? ' (FILTERED)' : '' ?></td><td class="money" style="text-align:right">Rp <?= number_format($hasExpFilter ? $filteredTotal : $project['total_expenses'],0,',','.') ?></td><td></td></tr>
                         <?php endif; ?>
                         </tbody>
                     </table>
