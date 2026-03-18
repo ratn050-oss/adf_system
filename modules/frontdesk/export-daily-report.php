@@ -496,13 +496,12 @@ header('Content-Type: text/html; charset=utf-8');
             <span class="sec-count"><?php echo count($arrivalTomorrow); ?></span>
         </div>
         <table>
-            <thead><tr><th>Room</th><th>Guest</th><th>Phone</th><th>Code</th><th>Pax</th><th>In</th><th>Out</th></tr></thead>
+            <thead><tr><th>Room</th><th>Guest</th><th>Code</th><th>Pax</th><th>In</th><th>Out</th></tr></thead>
             <tbody>
                 <?php foreach ($arrivalTomorrow as $g): ?>
                 <tr>
                     <td><span class="room-tag"><?php echo htmlspecialchars($g['room_number']); ?></span></td>
                     <td><?php echo htmlspecialchars($g['guest_name']); ?></td>
-                    <td><?php echo htmlspecialchars($g['phone'] ?: '-'); ?></td>
                     <td><?php echo htmlspecialchars($g['booking_code']); ?></td>
                     <td><?php echo $g['guest_count'] ?: '1'; ?></td>
                     <td><?php echo date('d M', strtotime($g['check_in_date'])); ?></td>
@@ -526,7 +525,13 @@ header('Content-Type: text/html; charset=utf-8');
             <tbody>
                 <?php foreach ($breakfastOrders as $order): ?>
                 <tr>
-                    <td><span class="room-tag"><?php echo htmlspecialchars($order['room_number'] ?: '-'); ?></span></td>
+                    <td style="max-width:90px"><?php
+                        $roomArr = array_map('trim', explode(',', $order['room_number'] ?: '-'));
+                        $roomChunks = array_chunk($roomArr, 2);
+                        foreach ($roomChunks as $rc) {
+                            echo '<span class="room-tag" style="display:inline-block;margin:1px 0">' . htmlspecialchars(implode(', ', $rc)) . '</span><br>';
+                        }
+                    ?></td>
                     <td><?php echo date('H:i', strtotime($order['breakfast_time'])); ?></td>
                     <td style="max-width:180px;word-wrap:break-word"><?php
                         // Split combined guest names, show max 4 per line
