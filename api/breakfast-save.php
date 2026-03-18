@@ -102,52 +102,66 @@ try {
     $menuJson = json_encode($menuItems);
 
     if ($action === 'create_bulk') {
-        // Multi-guest order: create one order per guest
+        // Multi-guest → 1 COMBINED order (all guests + all rooms in one record)
         $guests = $input['guests'] ?? [];
         if (empty($guests) || !is_array($guests)) throw new Exception('Pilih minimal 1 tamu');
 
-        $created = [];
+        $guestNames = [];
+        $allRooms = [];
+        $firstBookingId = null;
         $skipped = [];
-        $stmt = $pdo->prepare("INSERT INTO breakfast_orders 
-            (booking_id, guest_name, room_number, total_pax, breakfast_time, breakfast_date, 
-             location, menu_items, special_requests, total_price, created_by) 
-            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
 
         foreach ($guests as $guest) {
             $gName = trim($guest['guest_name'] ?? '');
             if (empty($gName)) continue;
 
-            $gBookingId = !empty($guest['booking_id']) ? (int)$guest['booking_id'] : null;
-            $gRooms = $guest['room_number'] ?? [];
-            if (!is_array($gRooms)) $gRooms = [$gRooms];
-            $gRoomJson = json_encode($gRooms);
-
-            // Check duplicate
+            // Check if this guest already has an order today (exact or within combined name)
             $existing = $db->fetchOne(
-                "SELECT id FROM breakfast_orders WHERE guest_name = ? AND breakfast_date = ?",
-                [$gName, $breakfastDate]
+                "SELECT id FROM breakfast_orders WHERE breakfast_date = ? AND FIND_IN_SET(?, REPLACE(guest_name, ', ', ',')) > 0",
+                [$breakfastDate, $gName]
             );
             if ($existing) {
                 $skipped[] = $gName;
                 continue;
             }
 
-            $stmt->execute([
-                $gBookingId, $gName, $gRoomJson, $totalPax,
-                $breakfastTime, $breakfastDate, $location, $menuJson,
-                $specialRequests, $totalPrice, $validUserId
-            ]);
-            $created[] = $gName;
+            $guestNames[] = $gName;
+            if ($firstBookingId === null && !empty($guest['booking_id'])) {
+                $firstBookingId = (int)$guest['booking_id'];
+            }
+            $gRooms = $guest['room_number'] ?? [];
+            if (!is_array($gRooms)) $gRooms = [$gRooms];
+            foreach ($gRooms as $r) {
+                $r = trim($r);
+                if (!empty($r) && !in_array($r, $allRooms)) $allRooms[] = $r;
+            }
         }
 
-        if (count($created) === 0 && count($skipped) > 0) {
-            echo json_encode(['success' => false, 'message' => 'Semua tamu sudah punya order: ' . implode(', ', $skipped)]);
+        if (count($guestNames) === 0 && count($skipped) > 0) {
+            echo json_encode(['success' => false, 'message' => 'Semua tamu sudah punya order hari ini: ' . implode(', ', $skipped)]);
             exit;
         }
+        if (count($guestNames) === 0) {
+            throw new Exception('Tidak ada tamu valid yang dipilih');
+        }
 
-        $msg = count($created) . ' order tersimpan: ' . implode(', ', $created);
+        $combinedName = implode(', ', $guestNames);
+        $roomJson = json_encode($allRooms);
+
+        $stmt = $pdo->prepare("INSERT INTO breakfast_orders 
+            (booking_id, guest_name, room_number, total_pax, breakfast_time, breakfast_date, 
+             location, menu_items, special_requests, total_price, created_by) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+        $stmt->execute([
+            $firstBookingId, $combinedName, $roomJson, $totalPax,
+            $breakfastTime, $breakfastDate, $location, $menuJson,
+            $specialRequests, $totalPrice, $validUserId
+        ]);
+
+        $newId = $pdo->lastInsertId();
+        $msg = "Order #{$newId} tersimpan untuk: " . $combinedName;
         if (count($skipped) > 0) $msg .= ' (dilewati: ' . implode(', ', $skipped) . ')';
-        echo json_encode(['success' => true, 'message' => $msg]);
+        echo json_encode(['success' => true, 'message' => $msg, 'id' => $newId]);
 
     } elseif ($action === 'create_order') {
         // Single guest order
@@ -159,10 +173,10 @@ try {
 
         if (empty($guestName)) throw new Exception('Nama tamu harus diisi');
 
-        // DUPLICATE PREVENTION: 1 guest per day (by guest_name + date)
+        // DUPLICATE PREVENTION: check exact name or within combined order
         $existing = $db->fetchOne(
-            "SELECT id FROM breakfast_orders WHERE guest_name = ? AND breakfast_date = ?",
-            [$guestName, $breakfastDate]
+            "SELECT id FROM breakfast_orders WHERE breakfast_date = ? AND FIND_IN_SET(?, REPLACE(guest_name, ', ', ',')) > 0",
+            [$breakfastDate, $guestName]
         );
         if ($existing) {
             echo json_encode([

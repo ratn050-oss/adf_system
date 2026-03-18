@@ -27,27 +27,18 @@ try {
         updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
     $pdo->exec("CREATE TABLE IF NOT EXISTS breakfast_orders (
-        id INT PRIMARY KEY AUTO_INCREMENT, booking_id INT NULL, guest_name VARCHAR(100) NOT NULL,
+        id INT PRIMARY KEY AUTO_INCREMENT, booking_id INT NULL, guest_name VARCHAR(500) NOT NULL,
         room_number TEXT, total_pax INT DEFAULT 1, breakfast_time TIME, breakfast_date DATE,
         location VARCHAR(20) DEFAULT 'restaurant', menu_items TEXT, special_requests TEXT,
         total_price DECIMAL(10,2) DEFAULT 0.00, order_status VARCHAR(20) DEFAULT 'pending',
         created_by INT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-        UNIQUE KEY uk_guest_date (guest_name, breakfast_date)
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 } catch (Exception $e) {}
 
-// Auto-cleanup existing duplicates (keep newest ID per guest+date), then add UNIQUE index
-try {
-    $pdo->exec("DELETE bo1 FROM breakfast_orders bo1
-        INNER JOIN breakfast_orders bo2
-        ON bo1.guest_name = bo2.guest_name
-        AND bo1.breakfast_date = bo2.breakfast_date
-        AND bo1.id < bo2.id");
-} catch (Exception $e) {}
-try {
-    $pdo->exec("ALTER TABLE breakfast_orders ADD UNIQUE INDEX uk_guest_date (guest_name, breakfast_date)");
-} catch (Exception $e) { /* already exists */ }
+// Widen guest_name column and drop old unique constraint (combined multi-guest names can be long)
+try { $pdo->exec("ALTER TABLE breakfast_orders MODIFY guest_name VARCHAR(500) NOT NULL"); } catch (Exception $e) {}
+try { $pdo->exec("ALTER TABLE breakfast_orders DROP INDEX uk_guest_date"); } catch (Exception $e) {}
 
 // Get menus
 $freeMenus = $paidMenus = [];
@@ -68,9 +59,10 @@ try {
         JOIN guests g ON b.guest_id = g.id
         JOIN rooms r ON b.room_id = r.id
         WHERE b.status = 'checked_in'
-        AND g.guest_name NOT IN (
-            SELECT bo.guest_name FROM breakfast_orders bo 
-            WHERE bo.breakfast_date = ? AND bo.guest_name IS NOT NULL AND bo.guest_name != ''
+        AND NOT EXISTS (
+            SELECT 1 FROM breakfast_orders bo 
+            WHERE bo.breakfast_date = ? 
+            AND FIND_IN_SET(g.guest_name, REPLACE(bo.guest_name, ', ', ',')) > 0
         )
         GROUP BY g.id, g.guest_name
         ORDER BY MIN(r.room_number) ASC
@@ -529,7 +521,7 @@ document.getElementById('bfForm').addEventListener('submit', function(e) {
 
     submitting = true;
     btn.disabled = true;
-    btn.textContent = '⏳ Menyimpan ' + guests.length + ' order...';
+    btn.textContent = '⏳ Menyimpan order...';
 
     var payload = Object.assign({}, common, {
         action: 'create_bulk',
@@ -570,65 +562,89 @@ function hapusOrder(id, name) {
     .catch(function() { alert('Error koneksi'); });
 }
 
-// PDF Print
+// PDF Print — A4 format
 function cetakOrder(order) {
     var rooms = order.room_number;
     if (typeof rooms === 'string') { try { rooms = JSON.parse(rooms); } catch(e) { rooms = [rooms]; } }
     var roomStr = Array.isArray(rooms) ? rooms.join(', ') : (rooms || '-');
     var items = order.menu_items;
     if (typeof items === 'string') { try { items = JSON.parse(items); } catch(e) { items = []; } }
-    var locMap = {restaurant:'🍽️ Restaurant', room_service:'🚪 Room Service', take_away:'🥡 Take Away'};
+    var locMap = {restaurant:'Restaurant', room_service:'Room Service', take_away:'Take Away'};
     var locLabel = locMap[order.location] || order.location;
     var timeStr = order.breakfast_time ? order.breakfast_time.substring(0,5) : '-';
     var dateStr = order.breakfast_date || '<?php echo $today; ?>';
 
-    var html = '<div style="font-family:Arial,sans-serif;max-width:400px;margin:0 auto;padding:20px;color:#1a1a2e">';
-    html += '<div style="text-align:center;border-bottom:2px solid #f59e0b;padding-bottom:12px;margin-bottom:15px">';
-    html += '<div style="font-size:22px;font-weight:800;color:#f59e0b">🍳 Breakfast Order</div>';
-    html += '<div style="font-size:11px;color:#6b7280;margin-top:4px"><?php echo htmlspecialchars($_SESSION["business_name"] ?? "Narayana Karimunjawa"); ?></div>';
+    var html = '<div style="font-family:Arial,sans-serif;width:100%;max-width:700px;margin:0 auto;padding:30px 40px;color:#1a1a2e">';
+
+    // Header
+    html += '<div style="text-align:center;border-bottom:3px solid #f59e0b;padding-bottom:15px;margin-bottom:25px">';
+    html += '<div style="font-size:28px;font-weight:800;color:#f59e0b;letter-spacing:1px">BREAKFAST ORDER</div>';
+    html += '<div style="font-size:14px;color:#374151;margin-top:6px;font-weight:600"><?php echo htmlspecialchars($_SESSION["business_name"] ?? "Narayana Karimunjawa"); ?></div>';
+    html += '<div style="font-size:11px;color:#9ca3af;margin-top:4px">Order #' + (order.id || '-') + ' | ' + dateStr + '</div>';
     html += '</div>';
 
-    html += '<table style="width:100%;font-size:12px;margin-bottom:12px;border-collapse:collapse">';
-    html += '<tr><td style="padding:4px 0;color:#6b7280;width:90px">Tamu</td><td style="padding:4px 0;font-weight:700">' + escHtml(order.guest_name) + '</td></tr>';
-    html += '<tr><td style="padding:4px 0;color:#6b7280">Room</td><td style="padding:4px 0">' + escHtml(roomStr) + '</td></tr>';
-    html += '<tr><td style="padding:4px 0;color:#6b7280">Tanggal</td><td style="padding:4px 0">' + dateStr + '</td></tr>';
-    html += '<tr><td style="padding:4px 0;color:#6b7280">Jam</td><td style="padding:4px 0">' + timeStr + '</td></tr>';
-    html += '<tr><td style="padding:4px 0;color:#6b7280">Pax</td><td style="padding:4px 0">' + (order.total_pax || 1) + '</td></tr>';
-    html += '<tr><td style="padding:4px 0;color:#6b7280">Lokasi</td><td style="padding:4px 0">' + locLabel + '</td></tr>';
+    // Guest info
+    html += '<table style="width:100%;font-size:13px;margin-bottom:25px;border-collapse:collapse">';
+    html += '<tr><td style="padding:8px 12px;color:#6b7280;width:130px;border-bottom:1px solid #f3f4f6;vertical-align:top">Tamu</td><td style="padding:8px 12px;font-weight:700;border-bottom:1px solid #f3f4f6">' + escHtml(order.guest_name) + '</td></tr>';
+    html += '<tr><td style="padding:8px 12px;color:#6b7280;border-bottom:1px solid #f3f4f6">Room</td><td style="padding:8px 12px;font-weight:600;color:#6366f1;border-bottom:1px solid #f3f4f6">' + escHtml(roomStr) + '</td></tr>';
+    html += '<tr><td style="padding:8px 12px;color:#6b7280;border-bottom:1px solid #f3f4f6">Tanggal</td><td style="padding:8px 12px;border-bottom:1px solid #f3f4f6">' + dateStr + '</td></tr>';
+    html += '<tr><td style="padding:8px 12px;color:#6b7280;border-bottom:1px solid #f3f4f6">Jam</td><td style="padding:8px 12px;border-bottom:1px solid #f3f4f6">' + timeStr + '</td></tr>';
+    html += '<tr><td style="padding:8px 12px;color:#6b7280;border-bottom:1px solid #f3f4f6">Jumlah Pax</td><td style="padding:8px 12px;border-bottom:1px solid #f3f4f6">' + (order.total_pax || 1) + '</td></tr>';
+    html += '<tr><td style="padding:8px 12px;color:#6b7280;border-bottom:1px solid #f3f4f6">Lokasi</td><td style="padding:8px 12px;border-bottom:1px solid #f3f4f6">' + locLabel + '</td></tr>';
     html += '</table>';
 
-    html += '<div style="font-size:12px;font-weight:700;margin-bottom:8px;padding:6px 0;border-top:1px dashed #d1d5db;border-bottom:1px dashed #d1d5db">Menu Items</div>';
-    html += '<table style="width:100%;font-size:11px;border-collapse:collapse">';
-    html += '<tr style="background:#fef3c7"><th style="padding:5px;text-align:left;font-size:10px">Menu</th><th style="padding:5px;text-align:center;width:35px;font-size:10px">Qty</th><th style="padding:5px;text-align:left;font-size:10px">Catatan</th></tr>';
+    // Menu header
+    html += '<div style="font-size:15px;font-weight:700;margin-bottom:12px;padding:10px 12px;background:#fef3c7;border-radius:6px">Menu Items</div>';
+
+    // Menu table
+    html += '<table style="width:100%;font-size:12px;border-collapse:collapse;margin-bottom:20px">';
+    html += '<thead><tr style="background:#f9fafb">';
+    html += '<th style="padding:10px 12px;text-align:left;border-bottom:2px solid #e5e7eb;font-size:11px;color:#6b7280;text-transform:uppercase">Menu</th>';
+    html += '<th style="padding:10px 12px;text-align:center;width:50px;border-bottom:2px solid #e5e7eb;font-size:11px;color:#6b7280">Qty</th>';
+    html += '<th style="padding:10px 12px;text-align:left;border-bottom:2px solid #e5e7eb;font-size:11px;color:#6b7280">Catatan</th>';
+    html += '<th style="padding:10px 12px;text-align:right;width:110px;border-bottom:2px solid #e5e7eb;font-size:11px;color:#6b7280">Harga</th>';
+    html += '</tr></thead><tbody>';
+
     var totalPrice = 0;
     for (var i = 0; i < items.length; i++) {
         var it = items[i];
         var price = parseFloat(it.price) || 0;
         var qty = parseInt(it.quantity) || 1;
-        if (!it.is_free) totalPrice += price * qty;
+        var lineTotal = it.is_free ? 0 : price * qty;
+        totalPrice += lineTotal;
         html += '<tr style="border-bottom:1px solid #f3f4f6">';
-        html += '<td style="padding:5px">' + escHtml(it.menu_name || '?');
-        if (!it.is_free && price > 0) html += ' <span style="color:#10b981;font-size:10px">(Rp ' + numberFmt(price) + ')</span>';
+        html += '<td style="padding:10px 12px;font-weight:600">' + escHtml(it.menu_name || '?');
+        if (it.is_free) html += ' <span style="color:#10b981;font-size:10px;font-weight:400">(Free)</span>';
         html += '</td>';
-        html += '<td style="padding:5px;text-align:center">' + qty + '</td>';
-        html += '<td style="padding:5px;color:#92400e;font-style:italic">' + escHtml(it.note || '-') + '</td>';
+        html += '<td style="padding:10px 12px;text-align:center">' + qty + '</td>';
+        html += '<td style="padding:10px 12px;color:#92400e;font-style:italic">' + escHtml(it.note || '-') + '</td>';
+        html += '<td style="padding:10px 12px;text-align:right">' + (lineTotal > 0 ? 'Rp ' + numberFmt(lineTotal) : '-') + '</td>';
         html += '</tr>';
     }
-    html += '</table>';
+    html += '</tbody></table>';
 
+    // Special requests
     if (order.special_requests) {
-        html += '<div style="margin-top:10px;padding:8px;background:#fffbeb;border-left:3px solid #f59e0b;border-radius:4px;font-size:11px">';
-        html += '<strong>📝 Catatan Khusus:</strong> ' + escHtml(order.special_requests);
+        html += '<div style="margin-bottom:20px;padding:12px 14px;background:#fffbeb;border-left:4px solid #f59e0b;border-radius:4px;font-size:12px">';
+        html += '<strong>Catatan Khusus:</strong> ' + escHtml(order.special_requests);
         html += '</div>';
     }
 
+    // Total
+    html += '<div style="text-align:right;padding:14px 12px;border-top:2px solid #e5e7eb;margin-bottom:30px">';
     if (totalPrice > 0) {
-        html += '<div style="margin-top:10px;text-align:right;font-size:13px;font-weight:700;color:#10b981">Total: Rp ' + numberFmt(totalPrice) + '</div>';
+        html += '<span style="font-size:18px;font-weight:800;color:#10b981">Total: Rp ' + numberFmt(totalPrice) + '</span>';
     } else {
-        html += '<div style="margin-top:10px;text-align:right;font-size:12px;font-weight:600;color:#6b7280">✨ Free Breakfast</div>';
+        html += '<span style="font-size:15px;font-weight:700;color:#6b7280">Free Breakfast</span>';
     }
+    html += '</div>';
 
-    html += '<div style="margin-top:15px;text-align:center;font-size:9px;color:#9ca3af;border-top:1px solid #e5e7eb;padding-top:8px">Printed: ' + new Date().toLocaleString('id-ID') + '</div>';
+    // Footer — no absolute positioning, just at the end with spacing
+    html += '<div style="text-align:center;font-size:9px;color:#9ca3af;border-top:1px solid #e5e7eb;padding-top:12px;margin-top:40px">';
+    html += 'Printed from ADF System — <?php echo htmlspecialchars($_SESSION["business_name"] ?? "Narayana Hotel"); ?> &copy; <?php echo date("Y"); ?>';
+    html += '<br>Printed: ' + new Date().toLocaleString('id-ID');
+    html += '</div>';
+
     html += '</div>';
 
     var container = document.createElement('div');
@@ -636,10 +652,11 @@ function cetakOrder(order) {
     document.body.appendChild(container);
 
     html2pdf().set({
-        margin: [8, 5, 8, 5],
-        filename: 'breakfast-' + escHtml(order.guest_name).replace(/\s+/g,'-') + '-' + dateStr + '.pdf',
-        html2canvas: { scale: 2 },
-        jsPDF: { unit: 'mm', format: [110, 200], orientation: 'portrait' }
+        margin: [10, 15, 15, 15],
+        filename: 'breakfast-' + escHtml(order.guest_name).replace(/[\s,]+/g,'-') + '-' + dateStr + '.pdf',
+        html2canvas: { scale: 2, useCORS: true },
+        jsPDF: { unit: 'mm', format: 'a4', orientation: 'portrait' },
+        pagebreak: { mode: ['avoid-all'] }
     }).from(container).save().then(function() {
         document.body.removeChild(container);
     });
