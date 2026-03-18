@@ -313,18 +313,15 @@ header('Content-Type: text/html; charset=utf-8');
         .menu-list li { padding: 1px 0; }
         .menu-list .qty { font-weight: 600; color: #4f46e5; margin-right: 3px; }
         
-        /* Print Footer */
+        /* Print Footer — normal flow, not fixed */
         .print-footer {
-            position: fixed;
-            bottom: 0;
-            left: 0;
-            right: 0;
-            margin: 0 10mm 5mm 10mm;
+            margin-top: 20px;
+            padding-top: 8px;
             font-size: 8pt;
             color: #999;
             text-align: center;
             border-top: 1px dashed #e5e7eb;
-            padding-top: 5px;
+            page-break-inside: avoid;
         }
         
         .print-footer .sys {
