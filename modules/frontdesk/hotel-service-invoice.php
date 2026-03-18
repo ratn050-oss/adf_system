@@ -69,11 +69,35 @@ $serviceLabels = [
     'narayana_trip' => ['label' => 'Narayana Trip',  'icon' => '🚤'],
     'lain_lain'     => ['label' => 'Lain-lain',      'icon' => '📦'],
 ];
+// Load dynamic service types from DB
+try {
+    $stStmt = $pdo->prepare("SELECT type_key, type_label, type_icon FROM hotel_service_types WHERE business_id=? AND is_active=1");
+    $stStmt->execute([$inv['business_id']]);
+    foreach ($stStmt->fetchAll(PDO::FETCH_ASSOC) as $st) {
+        $serviceLabels[$st['type_key']] = ['label' => $st['type_label'], 'icon' => $st['type_icon']];
+    }
+} catch (\Throwable $e) {}
 
 // PPN / tax info
-$taxRate   = (float)($inv['tax_rate']   ?? 0);
-$taxAmount = (float)($inv['tax_amount'] ?? 0);
-$subtotal  = $taxRate > 0 ? round($inv['total'] - $taxAmount, 2) : $inv['total'];
+$taxRate             = (float)($inv['tax_rate']             ?? 0);
+$taxAmount           = (float)($inv['tax_amount']           ?? 0);
+$serviceChargeRate   = (float)($inv['service_charge_rate']  ?? 0);
+$serviceChargeAmount = (float)($inv['service_charge_amount'] ?? 0);
+$discountRate        = (float)($inv['discount_rate']        ?? 0);
+$discountAmount      = (float)($inv['discount_amount']      ?? 0);
+// Recalculate subtotal from total
+$subtotal = (float)$inv['total'] - $taxAmount - $serviceChargeAmount + $discountAmount;
+
+// Load created_by user info for signature
+$createdByName = '';
+try {
+    if (!empty($inv['created_by'])) {
+        $uStmt = $pdo->prepare("SELECT full_name FROM users WHERE id=?");
+        $uStmt->execute([$inv['created_by']]);
+        $uRow = $uStmt->fetch(PDO::FETCH_ASSOC);
+        if ($uRow) $createdByName = $uRow['full_name'];
+    }
+} catch (\Throwable $e) {}
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -204,6 +228,14 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#eef1f5;color:#1e293
 .pay-row .pv{color:#1e293b;font-weight:600}
 .pay-row .pv.acct{font-family:'Courier New',monospace;font-size:0.78rem;font-weight:800;color:#1a3457;letter-spacing:0.06em}
 .pay-note{font-size:0.67rem;color:#64748b;font-style:italic;width:100%;margin-top:0.1rem}
+
+/* ── Signature ────────────────────────────────────────────────────── */
+.signature-section{display:flex;justify-content:space-between;gap:2rem;padding:2rem 2rem 1.5rem;margin-top:1.5rem;border-top:1px dashed #e2e8f0}
+.sig-col{text-align:center;flex:1;max-width:200px}
+.sig-title{font-size:0.72rem;font-weight:700;color:#64748b;text-transform:uppercase;letter-spacing:0.08em;margin-bottom:2.5rem}
+.sig-line{border-bottom:1px solid #1e293b;margin-bottom:0.35rem}
+.sig-name{font-size:0.78rem;font-weight:700;color:#1e293b}
+.sig-role{font-size:0.65rem;color:#94a3b8;margin-top:0.15rem}
 
 /* ── Footer ───────────────────────────────────────────────────────── */
 .inv-foot{background:linear-gradient(90deg,#1a3457 0%,#2a5298 100%);padding:0.9rem 2rem;display:flex;justify-content:space-between;align-items:center;gap:1rem;flex-wrap:wrap}
@@ -359,11 +391,25 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#eef1f5;color:#1e293
         <!-- ── Totals ── -->
         <div class="totals-wrap">
             <div class="totals-box">
-                <?php if ($taxRate > 0): ?>
+                <?php if ($taxRate > 0 || $serviceChargeRate > 0 || $discountRate > 0): ?>
                 <div class="t-row">
                     <span class="tk">Subtotal</span>
                     <span class="tv">Rp <?php echo number_format($subtotal,0,',','.'); ?></span>
                 </div>
+                <?php endif; ?>
+                <?php if ($serviceChargeRate > 0): ?>
+                <div class="t-row" style="color:#3b82f6">
+                    <span class="tk">Service Charge <?php echo rtrim(rtrim(number_format($serviceChargeRate,2),'0'),'.'); ?>%</span>
+                    <span class="tv">Rp <?php echo number_format($serviceChargeAmount,0,',','.'); ?></span>
+                </div>
+                <?php endif; ?>
+                <?php if ($discountRate > 0): ?>
+                <div class="t-row" style="color:#ef4444">
+                    <span class="tk">Discount <?php echo rtrim(rtrim(number_format($discountRate,2),'0'),'.'); ?>%</span>
+                    <span class="tv">- Rp <?php echo number_format($discountAmount,0,',','.'); ?></span>
+                </div>
+                <?php endif; ?>
+                <?php if ($taxRate > 0): ?>
                 <div class="t-row t-tax">
                     <span class="tk">PPN <?php echo rtrim(rtrim(number_format($taxRate,2),'0'),'.'); ?>%</span>
                     <span class="tv">Rp <?php echo number_format($taxAmount,0,',','.'); ?></span>
@@ -409,6 +455,22 @@ body{font-family:'Segoe UI',system-ui,sans-serif;background:#eef1f5;color:#1e293
             </div>
         </div>
         <?php endif; ?>
+
+        <!-- ── Signature ── -->
+        <div class="signature-section">
+            <div class="sig-col">
+                <div class="sig-title">Prepared by</div>
+                <div class="sig-line"></div>
+                <div class="sig-name"><?php echo htmlspecialchars($createdByName ?: '________________'); ?></div>
+                <div class="sig-role">Staff / Accounting</div>
+            </div>
+            <div class="sig-col">
+                <div class="sig-title">Received by</div>
+                <div class="sig-line"></div>
+                <div class="sig-name"><?php echo htmlspecialchars($inv['guest_name']); ?></div>
+                <div class="sig-role">Guest</div>
+            </div>
+        </div>
 
     </div>
 

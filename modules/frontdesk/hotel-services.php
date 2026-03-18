@@ -40,6 +40,10 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS hotel_invoices (
     notes           TEXT         DEFAULT NULL,
     tax_rate        DECIMAL(5,2) NOT NULL DEFAULT 0,
     tax_amount      DECIMAL(15,2) NOT NULL DEFAULT 0,
+    service_charge_rate   DECIMAL(5,2) NOT NULL DEFAULT 0,
+    service_charge_amount DECIMAL(15,2) NOT NULL DEFAULT 0,
+    discount_rate         DECIMAL(5,2) NOT NULL DEFAULT 0,
+    discount_amount       DECIMAL(15,2) NOT NULL DEFAULT 0,
     created_by      INT          DEFAULT NULL,
     created_at      DATETIME     NOT NULL DEFAULT CURRENT_TIMESTAMP,
     updated_at      DATETIME     DEFAULT NULL ON UPDATE CURRENT_TIMESTAMP,
@@ -58,16 +62,29 @@ try {
 try { $pdo->query("SELECT tax_rate FROM hotel_invoices LIMIT 1"); } catch (\Throwable $e) {
     try { $pdo->exec("ALTER TABLE hotel_invoices ADD COLUMN tax_rate DECIMAL(5,2) NOT NULL DEFAULT 0, ADD COLUMN tax_amount DECIMAL(15,2) NOT NULL DEFAULT 0"); } catch (\Throwable $e2) {}
 }
-
-// Expand service_type ENUM for existing tables (add narayana_trip, lain_lain)
-try { $pdo->query("SELECT 1 FROM hotel_invoice_items WHERE service_type='narayana_trip' LIMIT 0"); } catch (\Throwable $e) {
-    try { $pdo->exec("ALTER TABLE hotel_invoice_items MODIFY service_type ENUM('motor_rental','laundry','service','airport_drop','harbor_drop','narayana_trip','lain_lain') NOT NULL"); } catch (\Throwable $e2) {}
+// Add service_charge & discount columns to existing tables
+try { $pdo->query("SELECT service_charge_rate FROM hotel_invoices LIMIT 1"); } catch (\Throwable $e) {
+    try { $pdo->exec("ALTER TABLE hotel_invoices ADD COLUMN service_charge_rate DECIMAL(5,2) NOT NULL DEFAULT 0, ADD COLUMN service_charge_amount DECIMAL(15,2) NOT NULL DEFAULT 0, ADD COLUMN discount_rate DECIMAL(5,2) NOT NULL DEFAULT 0, ADD COLUMN discount_amount DECIMAL(15,2) NOT NULL DEFAULT 0"); } catch (\Throwable $e2) {}
 }
+
+// Migrate service_type from ENUM to VARCHAR for dynamic types
+try {
+    $colInfo = $pdo->query("SHOW COLUMNS FROM hotel_invoice_items LIKE 'service_type'")->fetch(PDO::FETCH_ASSOC);
+    if ($colInfo && strpos($colInfo['Type'], 'enum') === 0) {
+        $pdo->exec("ALTER TABLE hotel_invoice_items MODIFY service_type VARCHAR(50) NOT NULL");
+    }
+} catch (\Throwable $e) {}
+try {
+    $colInfo2 = $pdo->query("SHOW COLUMNS FROM hotel_service_catalog LIKE 'service_type'")->fetch(PDO::FETCH_ASSOC);
+    if ($colInfo2 && strpos($colInfo2['Type'], 'enum') === 0) {
+        $pdo->exec("ALTER TABLE hotel_service_catalog MODIFY service_type VARCHAR(50) NOT NULL");
+    }
+} catch (\Throwable $e) {}
 
 $pdo->exec("CREATE TABLE IF NOT EXISTS hotel_invoice_items (
     id              INT AUTO_INCREMENT PRIMARY KEY,
     invoice_id      INT NOT NULL,
-    service_type    ENUM('motor_rental','laundry','service','airport_drop','harbor_drop','narayana_trip','lain_lain') NOT NULL,
+    service_type    VARCHAR(50) NOT NULL,
     description     VARCHAR(255) DEFAULT NULL,
     quantity        DECIMAL(10,2) NOT NULL DEFAULT 1,
     unit_price      DECIMAL(15,2) NOT NULL DEFAULT 0,
@@ -80,7 +97,7 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS hotel_invoice_items (
 $pdo->exec("CREATE TABLE IF NOT EXISTS hotel_service_catalog (
     id            INT AUTO_INCREMENT PRIMARY KEY,
     business_id   INT NOT NULL DEFAULT 1,
-    service_type  ENUM('motor_rental','laundry','service','airport_drop','harbor_drop','narayana_trip','lain_lain') NOT NULL,
+    service_type  VARCHAR(50) NOT NULL,
     item_name     VARCHAR(120) NOT NULL,
     default_price DECIMAL(15,2) NOT NULL DEFAULT 0,
     unit          VARCHAR(30)  DEFAULT 'unit',
@@ -90,16 +107,61 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS hotel_service_catalog (
     KEY idx_biz_svc (business_id, service_type)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
-// ── Service type config ────────────────────────────────────────────────────────
-$serviceTypes = [
-    'motor_rental'   => ['label' => 'Motor Rental',   'icon' => '🏍️'],
-    'laundry'        => ['label' => 'Laundry',         'icon' => '👕'],
-    'service'        => ['label' => 'Service',         'icon' => '🔧'],
-    'airport_drop'   => ['label' => 'Airport Drop',    'icon' => '✈️'],
-    'harbor_drop'    => ['label' => 'Harbor Drop',     'icon' => '⚓'],
-    'narayana_trip'  => ['label' => 'Narayana Trip',   'icon' => '🚤'],
-    'lain_lain'      => ['label' => 'Lain-lain',       'icon' => '📦'],
-];
+// ── Dynamic service types table ────────────────────────────────────────────────
+$pdo->exec("CREATE TABLE IF NOT EXISTS hotel_service_types (
+    id            INT AUTO_INCREMENT PRIMARY KEY,
+    business_id   INT NOT NULL DEFAULT 1,
+    type_key      VARCHAR(50) NOT NULL,
+    type_label    VARCHAR(100) NOT NULL,
+    type_icon     VARCHAR(10) DEFAULT '🔹',
+    is_active     TINYINT(1) NOT NULL DEFAULT 1,
+    sort_order    INT NOT NULL DEFAULT 0,
+    created_at    DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    UNIQUE KEY uk_biz_key (business_id, type_key)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
+// Seed default service types if empty
+try {
+    $svcCount = $pdo->prepare("SELECT COUNT(*) FROM hotel_service_types WHERE business_id=?");
+    $svcCount->execute([$businessId]);
+    if ((int)$svcCount->fetchColumn() === 0) {
+        $defaults = [
+            ['motor_rental', 'Motor Rental', '🏍️', 1],
+            ['laundry', 'Laundry', '👕', 2],
+            ['service', 'Service', '🔧', 3],
+            ['airport_drop', 'Airport Drop', '✈️', 4],
+            ['harbor_drop', 'Harbor Drop', '⚓', 5],
+            ['narayana_trip', 'Narayana Trip', '🚤', 6],
+            ['lain_lain', 'Lain-lain', '📦', 7],
+        ];
+        $seedStmt = $pdo->prepare("INSERT INTO hotel_service_types (business_id, type_key, type_label, type_icon, sort_order) VALUES (?,?,?,?,?)");
+        foreach ($defaults as $d) {
+            $seedStmt->execute([$businessId, $d[0], $d[1], $d[2], $d[3]]);
+        }
+    }
+} catch (\Throwable $e) {}
+
+// ── Load service types from DB ─────────────────────────────────────────────────
+$serviceTypes = [];
+try {
+    $stStmt = $pdo->prepare("SELECT type_key, type_label, type_icon FROM hotel_service_types WHERE business_id=? AND is_active=1 ORDER BY sort_order, type_label");
+    $stStmt->execute([$businessId]);
+    foreach ($stStmt->fetchAll(PDO::FETCH_ASSOC) as $st) {
+        $serviceTypes[$st['type_key']] = ['label' => $st['type_label'], 'icon' => $st['type_icon']];
+    }
+} catch (\Throwable $e) {}
+// Fallback if DB is empty
+if (empty($serviceTypes)) {
+    $serviceTypes = [
+        'motor_rental'   => ['label' => 'Motor Rental',   'icon' => '🏍️'],
+        'laundry'        => ['label' => 'Laundry',         'icon' => '👕'],
+        'service'        => ['label' => 'Service',         'icon' => '🔧'],
+        'airport_drop'   => ['label' => 'Airport Drop',    'icon' => '✈️'],
+        'harbor_drop'    => ['label' => 'Harbor Drop',     'icon' => '⚓'],
+        'narayana_trip'  => ['label' => 'Narayana Trip',   'icon' => '🚤'],
+        'lain_lain'      => ['label' => 'Lain-lain',       'icon' => '📦'],
+    ];
+}
 
 $statusColors    = ['pending'=>'#f59e0b','confirmed'=>'#3b82f6','completed'=>'#10b981','cancelled'=>'#ef4444'];
 $payStatusColors = ['unpaid'=>'#ef4444','partial'=>'#f59e0b','paid'=>'#10b981'];
@@ -338,6 +400,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             $paidAmount = max(0, (float)($_POST['paid_amount'] ?? 0));
             $notes      = trim($_POST['notes'] ?? '');
             $taxRate    = max(0, min(100, (float)($_POST['tax_rate'] ?? 0)));
+            $serviceChargeRate = max(0, min(100, (float)($_POST['service_charge_rate'] ?? 0)));
+            $discountRate      = max(0, min(100, (float)($_POST['discount_rate'] ?? 0)));
 
             if (!$guestName) throw new Exception('Guest name is required');
 
@@ -351,13 +415,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                 $item['total']      = round($item['qty'] * $item['unit_price'], 2);
                 $subtotal += $item['total'];
                 if (!isset($serviceTypes[$item['service_type'] ?? ''])) {
-                    throw new Exception('Invalid service type');
+                    throw new Exception('Invalid service type: ' . ($item['service_type'] ?? ''));
                 }
             }
             unset($item);
 
-            $taxAmount = round($subtotal * $taxRate / 100, 2);
-            $total     = $subtotal + $taxAmount;  // grand total
+            $serviceChargeAmount = round($subtotal * $serviceChargeRate / 100, 2);
+            $discountAmount      = round($subtotal * $discountRate / 100, 2);
+            $afterChargeDiscount = $subtotal + $serviceChargeAmount - $discountAmount;
+            $taxAmount           = round($afterChargeDiscount * $taxRate / 100, 2);
+            $total               = $afterChargeDiscount + $taxAmount;
 
             $paidAmount = min($paidAmount, $total);
             $remaining  = $total - $paidAmount;
@@ -373,11 +440,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             $pdo->prepare("INSERT INTO hotel_invoices
                 (business_id, invoice_number, booking_id, guest_name, guest_phone, room_number,
                  total, paid_amount, payment_status, payment_method, status, notes,
-                 tax_rate, tax_amount, created_by, created_at)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())")
+                 tax_rate, tax_amount, service_charge_rate, service_charge_amount,
+                 discount_rate, discount_amount, created_by, created_at)
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())")
                 ->execute([$businessId, $invNo, $bookingId, $guestName, $guestPhone ?: null,
                     $roomNumber ?: null, $total, $paidAmount, $payStatus, $payMethod,
-                    'confirmed', $notes ?: null, $taxRate, $taxAmount, $currentUser['id'] ?? null]);
+                    'confirmed', $notes ?: null, $taxRate, $taxAmount,
+                    $serviceChargeRate, $serviceChargeAmount, $discountRate, $discountAmount,
+                    $currentUser['id'] ?? null]);
             $invId = (int)$pdo->lastInsertId();
 
             $iStmt = $pdo->prepare("INSERT INTO hotel_invoice_items
@@ -578,6 +648,57 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             exit;
         }
 
+        // ── SAVE / UPDATE SERVICE TYPE ──────────────────────────────────────────────────
+        if ($action === 'save_service_type') {
+            $stId      = (int)($_POST['st_id'] ?? 0);
+            $typeKey   = preg_replace('/[^a-z0-9_]/', '', strtolower(trim($_POST['type_key'] ?? '')));
+            $typeLabel = trim($_POST['type_label'] ?? '');
+            $typeIcon  = trim($_POST['type_icon'] ?? '🔹');
+            $sortOrder = (int)($_POST['sort_order'] ?? 0);
+            if (!$typeKey || !$typeLabel) throw new Exception('Key and Label are required');
+            if ($stId) {
+                $pdo->prepare("UPDATE hotel_service_types SET type_key=?,type_label=?,type_icon=?,sort_order=? WHERE id=? AND business_id=?")
+                    ->execute([$typeKey, $typeLabel, $typeIcon, $sortOrder, $stId, $businessId]);
+            } else {
+                $pdo->prepare("INSERT INTO hotel_service_types (business_id,type_key,type_label,type_icon,sort_order) VALUES (?,?,?,?,?)")
+                    ->execute([$businessId, $typeKey, $typeLabel, $typeIcon, $sortOrder]);
+                $stId = (int)$pdo->lastInsertId();
+            }
+            ob_clean();
+            echo json_encode(['success' => true, 'id' => $stId]);
+            exit;
+        }
+
+        // ── DELETE SERVICE TYPE ─────────────────────────────────────────────────────────────
+        if ($action === 'delete_service_type') {
+            $stId = (int)($_POST['st_id'] ?? 0);
+            if (!$stId) throw new Exception('Invalid ID');
+            // Prevent deleting if used in existing items
+            $usedCheck = $pdo->prepare("SELECT type_key FROM hotel_service_types WHERE id=? AND business_id=?");
+            $usedCheck->execute([$stId, $businessId]);
+            $typeRow = $usedCheck->fetch(PDO::FETCH_ASSOC);
+            if ($typeRow) {
+                $usedInItems = $pdo->prepare("SELECT COUNT(*) FROM hotel_invoice_items ii JOIN hotel_invoices i ON ii.invoice_id=i.id WHERE i.business_id=? AND ii.service_type=?");
+                $usedInItems->execute([$businessId, $typeRow['type_key']]);
+                if ((int)$usedInItems->fetchColumn() > 0) {
+                    throw new Exception('Cannot delete: service type is used in existing invoices');
+                }
+            }
+            $pdo->prepare("DELETE FROM hotel_service_types WHERE id=? AND business_id=?")->execute([$stId, $businessId]);
+            ob_clean();
+            echo json_encode(['success' => true]);
+            exit;
+        }
+
+        // ── GET SERVICE TYPES (AJAX) ────────────────────────────────────────────────────────
+        if ($action === 'get_service_types') {
+            $stRows = $pdo->prepare("SELECT * FROM hotel_service_types WHERE business_id=? ORDER BY sort_order, type_label");
+            $stRows->execute([$businessId]);
+            ob_clean();
+            echo json_encode(['success' => true, 'data' => $stRows->fetchAll(PDO::FETCH_ASSOC)]);
+            exit;
+        }
+
         // ── UPDATE INVOICE ────────────────────────────────────────────────────────────────
         if ($action === 'update_invoice') {
             $id         = (int)($_POST['id'] ?? 0);
@@ -588,6 +709,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             $paidAmount = max(0, (float)($_POST['paid_amount'] ?? 0));
             $notes      = trim($_POST['notes'] ?? '');
             $taxRate    = max(0, min(100, (float)($_POST['tax_rate'] ?? 0)));
+            $serviceChargeRate = max(0, min(100, (float)($_POST['service_charge_rate'] ?? 0)));
+            $discountRate      = max(0, min(100, (float)($_POST['discount_rate'] ?? 0)));
             if (!$id || !$guestName) throw new Exception('Invalid data');
 
             $items = json_decode($_POST['items'] ?? '[]', true);
@@ -608,15 +731,18 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             }
             unset($item);
 
-            $taxAmount  = round($subtotal * $taxRate / 100, 2);
-            $total      = $subtotal + $taxAmount;
+            $serviceChargeAmount = round($subtotal * $serviceChargeRate / 100, 2);
+            $discountAmount      = round($subtotal * $discountRate / 100, 2);
+            $afterChargeDiscount = $subtotal + $serviceChargeAmount - $discountAmount;
+            $taxAmount           = round($afterChargeDiscount * $taxRate / 100, 2);
+            $total               = $afterChargeDiscount + $taxAmount;
             $paidAmount = min($paidAmount, $total);
             $remaining  = $total - $paidAmount;
             $payStatus  = ($paidAmount <= 0) ? 'unpaid' : ($remaining <= 0 ? 'paid' : 'partial');
 
             $pdo->beginTransaction();
-            $pdo->prepare("UPDATE hotel_invoices SET guest_name=?,guest_phone=?,room_number=?,total=?,paid_amount=?,payment_status=?,payment_method=?,notes=?,tax_rate=?,tax_amount=?,updated_at=NOW() WHERE id=?")
-                ->execute([$guestName, $guestPhone ?: null, $roomNumber ?: null, $total, $paidAmount, $payStatus, $payMethod, $notes ?: null, $taxRate, $taxAmount, $id]);
+            $pdo->prepare("UPDATE hotel_invoices SET guest_name=?,guest_phone=?,room_number=?,total=?,paid_amount=?,payment_status=?,payment_method=?,notes=?,tax_rate=?,tax_amount=?,service_charge_rate=?,service_charge_amount=?,discount_rate=?,discount_amount=?,updated_at=NOW() WHERE id=?")
+                ->execute([$guestName, $guestPhone ?: null, $roomNumber ?: null, $total, $paidAmount, $payStatus, $payMethod, $notes ?: null, $taxRate, $taxAmount, $serviceChargeRate, $serviceChargeAmount, $discountRate, $discountAmount, $id]);
             $pdo->prepare("DELETE FROM hotel_invoice_items WHERE invoice_id=?")->execute([$id]);
             $iStmt = $pdo->prepare("INSERT INTO hotel_invoice_items (invoice_id,service_type,description,quantity,unit_price,total_price) VALUES (?,?,?,?,?,?)");
             foreach ($items as $item) {
@@ -993,8 +1119,8 @@ include '../../includes/header.php';
   </div>
   <button type="button" class="btn-add-item" onclick="addItemRow()">+ Add Service Item</button>
 
-  <!-- PPN / Tax -->
-  <span class="sect-label">PPN / Pajak</span>
+  <!-- Tax, Service Charge, Discount -->
+  <span class="sect-label">Tax, Service Charge & Discount</span>
   <div class="hs-form-row" style="margin-bottom:0.5rem">
     <div class="hs-field">
       <label>Tarif PPN</label>
@@ -1007,8 +1133,18 @@ include '../../includes/header.php';
       </select>
     </div>
     <div class="hs-field" id="customTaxWrap" style="display:none">
-      <label>Persentase Custom (%)</label>
+      <label>Custom PPN (%)</label>
       <input type="number" id="fTaxCustom" value="0" min="0" max="100" step="0.5" placeholder="e.g. 5.5" oninput="refreshTotal()">
+    </div>
+  </div>
+  <div class="hs-form-row" style="margin-bottom:0.5rem">
+    <div class="hs-field">
+      <label>Service Charge (%)</label>
+      <input type="number" id="fServiceCharge" value="0" min="0" max="100" step="0.5" oninput="refreshTotal()">
+    </div>
+    <div class="hs-field">
+      <label>Discount (%)</label>
+      <input type="number" id="fDiscount" value="0" min="0" max="100" step="0.5" oninput="refreshTotal()">
     </div>
   </div>
 
@@ -1038,6 +1174,8 @@ include '../../includes/header.php';
 
   <div class="hs-total-preview" id="totalPreview" style="text-align:left;line-height:1.7">
     <div style="font-size:0.82rem;color:#6b7280">Subtotal: <span id="tpSubtotal">Rp 0</span></div>
+    <div style="font-size:0.82rem;color:#3b82f6" id="tpScRow" style="display:none">Service Charge: <span id="tpSc">Rp 0</span></div>
+    <div style="font-size:0.82rem;color:#ef4444" id="tpDiscRow" style="display:none">Discount: <span id="tpDisc">- Rp 0</span></div>
     <div style="font-size:0.82rem;color:#f59e0b" id="tpTaxRow" style="display:none">PPN: <span id="tpTax">Rp 0</span></div>
     <div style="font-size:1.05rem;font-weight:800;color:#4338ca;border-top:1px solid #dde3ff;padding-top:4px;margin-top:2px">Grand Total: <span id="tpGrand">Rp 0</span></div>
     <div style="font-size:0.82rem;color:#10b981" id="tpDpRow" style="display:none">DP Dibayar: <span id="tpDp">Rp 0</span></div>
@@ -1086,6 +1224,7 @@ include '../../includes/header.php';
   <div class="hs-tabs">
     <button class="hs-tab active" id="tab-inv"    onclick="switchTab('inv')">   🏨 Invoice &amp; Perusahaan</button>
     <button class="hs-tab"        id="tab-catalog" onclick="switchTab('catalog')">📂 Katalog Harga</button>
+    <button class="hs-tab"        id="tab-svctype" onclick="switchTab('svctype')">🏷️ Tipe Layanan</button>
   </div>
 
   <!-- TAB 1: Invoice & Company -->
@@ -1162,8 +1301,44 @@ include '../../includes/header.php';
     </div>
   </div>
 
+  <!-- TAB 3: Tipe Layanan -->
+  <div class="hs-tab-pane" id="pane-svctype">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:0.65rem">
+      <span style="font-size:0.78rem;color:#64748b">Kelola tipe layanan yang tersedia di invoice. Key harus unik (huruf kecil, underscore).</span>
+      <button class="btn-hs btn-hs-primary" style="font-size:0.78rem;padding:0.35rem 0.85rem" onclick="addSvcTypeRow()">+ Tambah Tipe</button>
+    </div>
+    <div style="overflow-x:auto;max-height:55vh;overflow-y:auto">
+      <table class="cat-tbl">
+        <thead><tr>
+          <th style="width:40px">Icon</th>
+          <th style="min-width:110px">Key</th>
+          <th style="min-width:140px">Label</th>
+          <th style="width:50px">Urut</th>
+          <th style="width:80px"></th>
+        </tr></thead>
+        <tbody id="svcTypeBody">
+        <?php
+        $allSvcTypes = $pdo->prepare("SELECT * FROM hotel_service_types WHERE business_id=? ORDER BY sort_order, type_label");
+        $allSvcTypes->execute([$businessId]);
+        foreach ($allSvcTypes->fetchAll(PDO::FETCH_ASSOC) as $st): ?>
+        <tr id="str<?php echo $st['id']; ?>">
+          <td><input type="text" class="stIcon" value="<?php echo htmlspecialchars($st['type_icon'],ENT_QUOTES); ?>" style="width:40px;text-align:center"></td>
+          <td><input type="text" class="stKey" value="<?php echo htmlspecialchars($st['type_key'],ENT_QUOTES); ?>"></td>
+          <td><input type="text" class="stLabel" value="<?php echo htmlspecialchars($st['type_label'],ENT_QUOTES); ?>"></td>
+          <td><input type="number" class="stSort" value="<?php echo $st['sort_order']; ?>" style="width:45px"></td>
+          <td style="display:flex;gap:3px">
+            <button class="btn-cat-save" onclick="saveSvcType(<?php echo $st['id']; ?>)">💾</button>
+            <button class="btn-cat-del" onclick="deleteSvcType(<?php echo $st['id']; ?>)">✕</button>
+          </td>
+        </tr>
+        <?php endforeach; ?>
+        </tbody>
+      </table>
+    </div>
+  </div>
+
  </div>
-</div>
+</div> 
 
 <!-- ══ EDIT INVOICE MODAL ════════════════════════════════════════════════════════════════════ -->
 <div id="editModal" class="hs-modal-overlay" onclick="if(event.target===this)closeEditModal()">
@@ -1194,7 +1369,7 @@ include '../../includes/header.php';
   </div>
   <button type="button" class="btn-add-item" onclick="eAddItemRow()">+ Tambah Item</button>
 
-  <span class="sect-label">PPN / Pajak</span>
+  <span class="sect-label">Tax, Service Charge & Discount</span>
   <div class="hs-form-row" style="margin-bottom:0.5rem">
     <div class="hs-field">
       <label>Tarif PPN</label>
@@ -1207,8 +1382,18 @@ include '../../includes/header.php';
       </select>
     </div>
     <div class="hs-field" id="eCustomTaxWrap" style="display:none">
-      <label>Custom (%)</label>
+      <label>Custom PPN (%)</label>
       <input type="number" id="eTaxCustom" value="0" min="0" max="100" step="0.5" oninput="eRefreshTotal()">
+    </div>
+  </div>
+  <div class="hs-form-row" style="margin-bottom:0.5rem">
+    <div class="hs-field">
+      <label>Service Charge (%)</label>
+      <input type="number" id="eServiceCharge" value="0" min="0" max="100" step="0.5" oninput="eRefreshTotal()">
+    </div>
+    <div class="hs-field">
+      <label>Discount (%)</label>
+      <input type="number" id="eDiscount" value="0" min="0" max="100" step="0.5" oninput="eRefreshTotal()">
     </div>
   </div>
 
@@ -1230,6 +1415,8 @@ include '../../includes/header.php';
 
   <div class="hs-total-preview" id="eTotalPreview" style="text-align:left;line-height:1.7">
     <div style="font-size:0.82rem;color:#6b7280">Subtotal: <span id="etpSub">Rp 0</span></div>
+    <div style="font-size:0.82rem;color:#3b82f6" id="etpScRow" style="display:none">Service Charge: <span id="etpSc">Rp 0</span></div>
+    <div style="font-size:0.82rem;color:#ef4444" id="etpDiscRow" style="display:none">Discount: <span id="etpDisc">- Rp 0</span></div>
     <div style="font-size:0.82rem;color:#f59e0b" id="etpTaxRow">PPN: <span id="etpTax">Rp 0</span></div>
     <div style="font-size:1.05rem;font-weight:800;color:#4338ca;border-top:1px solid #dde3ff;padding-top:4px">Grand Total: <span id="etpGrand">Rp 0</span></div>
   </div>
@@ -1367,8 +1554,13 @@ function getTaxRate() {
 
 function grandTotal() {
     const sub = subtotal();
+    const scRate = parseFloat(document.getElementById('fServiceCharge')?.value) || 0;
+    const discRate = parseFloat(document.getElementById('fDiscount')?.value) || 0;
+    const sc = sub * (scRate / 100);
+    const disc = sub * (discRate / 100);
+    const afterCD = sub + sc - disc;
     const rate = getTaxRate();
-    return sub + sub * (rate / 100);
+    return afterCD + afterCD * (rate / 100);
 }
 
 function onTaxRateChange() {
@@ -1380,14 +1572,27 @@ function onTaxRateChange() {
 function refreshTotal() {
     const sub  = subtotal();
     const rate = getTaxRate();
-    const tax  = sub * (rate / 100);
-    const tot  = sub + tax;
+    const scRate = parseFloat(document.getElementById('fServiceCharge')?.value) || 0;
+    const discRate = parseFloat(document.getElementById('fDiscount')?.value) || 0;
+    const sc   = sub * (scRate / 100);
+    const disc = sub * (discRate / 100);
+    const afterCD = sub + sc - disc;
+    const tax  = afterCD * (rate / 100);
+    const tot  = afterCD + tax;
     const dp   = parseFloat(document.getElementById('fPaid')?.value) || 0;
     const sisa = Math.max(0, tot - dp);
     const fmt  = v => 'Rp ' + Math.round(v).toLocaleString('id-ID');
 
     document.getElementById('tpSubtotal').textContent = fmt(sub);
     document.getElementById('tpGrand').textContent    = fmt(tot);
+
+    const scRow = document.getElementById('tpScRow');
+    scRow.style.display = scRate > 0 ? '' : 'none';
+    document.getElementById('tpSc').textContent = `${fmt(sc)} (${scRate}%)`;
+
+    const discRow = document.getElementById('tpDiscRow');
+    discRow.style.display = discRate > 0 ? '' : 'none';
+    document.getElementById('tpDisc').textContent = `- ${fmt(disc)} (${discRate}%)`;
 
     const taxRow = document.getElementById('tpTaxRow');
     taxRow.style.display = rate > 0 ? '' : 'none';
@@ -1426,6 +1631,8 @@ function openCreateModal() {
     document.getElementById('fTaxRate').value     = '0';
     document.getElementById('customTaxWrap').style.display = 'none';
     if (document.getElementById('fTaxCustom')) document.getElementById('fTaxCustom').value = 0;
+    document.getElementById('fServiceCharge').value = 0;
+    document.getElementById('fDiscount').value = 0;
     document.getElementById('itemsBody').innerHTML = '';
     rowCnt = 0;
     setGuestMode('inhouse');
@@ -1467,6 +1674,8 @@ function submitCreate() {
     fd.append('payment_method', document.getElementById('fPayMethod').value);
     fd.append('paid_amount',    document.getElementById('fPaid').value || 0);
     fd.append('tax_rate',       getTaxRate());
+    fd.append('service_charge_rate', document.getElementById('fServiceCharge').value || 0);
+    fd.append('discount_rate',  document.getElementById('fDiscount').value || 0);
     fd.append('notes',          document.getElementById('fNotes').value.trim());
 
     fetch('hotel-services.php', {method:'POST',body:fd,credentials:'include'})
@@ -1539,7 +1748,7 @@ function submitPay() {
 function openSettingsModal() { document.getElementById('settingsModal').classList.add('open'); switchTab('inv'); }
 function closeSettingsModal() { document.getElementById('settingsModal').classList.remove('open'); }
 function switchTab(t) {
-    ['inv','catalog'].forEach(id => {
+    ['inv','catalog','svctype'].forEach(id => {
         document.getElementById('tab-'+id).classList.toggle('active', id===t);
         document.getElementById('pane-'+id).classList.toggle('active', id===t);
     });
@@ -1657,6 +1866,8 @@ function openEditModal(id) {
             const taxSel = document.getElementById('eTaxRate');
             if (['0','5','10','11'].includes(String(tr2))) { taxSel.value = String(tr2); document.getElementById('eCustomTaxWrap').style.display='none'; }
             else { taxSel.value='custom'; document.getElementById('eCustomTaxWrap').style.display=''; document.getElementById('eTaxCustom').value=tr2; }
+            document.getElementById('eServiceCharge').value = parseFloat(inv.service_charge_rate)||0;
+            document.getElementById('eDiscount').value = parseFloat(inv.discount_rate)||0;
             document.getElementById('eItemsBody').innerHTML='';
             eRowCnt = 0;
             (inv.items||[]).forEach(it => eAddItemRow(it.service_type, it.description, it.quantity, it.unit_price));
@@ -1719,10 +1930,18 @@ function eRefreshTotal() {
     document.querySelectorAll('#eItemsBody tr').forEach(tr=>{ s+=(parseFloat(tr.querySelector('.iQty')?.value)||0)*(parseFloat(tr.querySelector('.iPrice')?.value)||0); });
     const sel=document.getElementById('eTaxRate');
     let r=sel?((sel.value==='custom'?(parseFloat(document.getElementById('eTaxCustom')?.value)||0):(parseFloat(sel.value)||0))):0;
-    const tax=s*(r/100), tot=s+tax;
+    const scRate=parseFloat(document.getElementById('eServiceCharge')?.value)||0;
+    const discRate=parseFloat(document.getElementById('eDiscount')?.value)||0;
+    const sc=s*(scRate/100), disc=s*(discRate/100);
+    const afterCD=s+sc-disc;
+    const tax=afterCD*(r/100), tot=afterCD+tax;
     const fmt=v=>'Rp '+Math.round(v).toLocaleString('id-ID');
     document.getElementById('etpSub').textContent=fmt(s);
     document.getElementById('etpGrand').textContent=fmt(tot);
+    document.getElementById('etpScRow').style.display=scRate>0?'':'none';
+    document.getElementById('etpSc').textContent=fmt(sc)+' ('+scRate+'%)';
+    document.getElementById('etpDiscRow').style.display=discRate>0?'':'none';
+    document.getElementById('etpDisc').textContent='- '+fmt(disc)+' ('+discRate+'%)';
     document.getElementById('etpTaxRow').style.display=r>0?'':'none';
     document.getElementById('etpTax').textContent=fmt(tax)+' ('+r+'%)';
 }
@@ -1747,6 +1966,8 @@ function submitEdit() {
     fd.append('payment_method',document.getElementById('ePayMethod').value);
     fd.append('paid_amount',document.getElementById('ePaid').value||0);
     fd.append('tax_rate',taxR);
+    fd.append('service_charge_rate',document.getElementById('eServiceCharge').value||0);
+    fd.append('discount_rate',document.getElementById('eDiscount').value||0);
     fd.append('notes',document.getElementById('eNotes').value.trim());
     fd.append('items',JSON.stringify(items));
     fetch('hotel-services.php',{method:'POST',body:fd,credentials:'include'})
@@ -1755,6 +1976,55 @@ function submitEdit() {
             if(res.success){closeEditModal();location.reload();}
             else{alert('Error: '+(res.message||'Unknown'));btn.disabled=false;btn.textContent='💾 Simpan Perubahan';}
         }).catch(()=>{alert('Network error');btn.disabled=false;btn.textContent='💾 Simpan Perubahan';});
+}
+
+// ── SERVICE TYPE MANAGEMENT ──────────────────────────────────────────────────
+let stRowCnt = 0;
+function addSvcTypeRow() {
+    stRowCnt++;
+    const id = 'new_' + stRowCnt;
+    const tr = document.createElement('tr');
+    tr.id = 'str' + id;
+    tr.innerHTML =
+        `<td><input type="text" class="stIcon" value="🔹" style="width:40px;text-align:center"></td>`+
+        `<td><input type="text" class="stKey" placeholder="e.g. spa_treatment"></td>`+
+        `<td><input type="text" class="stLabel" placeholder="e.g. Spa Treatment"></td>`+
+        `<td><input type="number" class="stSort" value="0" style="width:45px"></td>`+
+        `<td style="display:flex;gap:3px">`+
+        `<button class="btn-cat-save" onclick="saveSvcType('${id}')">💾</button>`+
+        `<button class="btn-cat-del" onclick="document.getElementById('str${id}').remove()">✕</button>`+
+        `</td>`;
+    document.getElementById('svcTypeBody').prepend(tr);
+}
+function saveSvcType(stId) {
+    const tr = document.getElementById('str'+stId);
+    if (!tr) return;
+    const fd = new FormData();
+    fd.append('action','save_service_type');
+    fd.append('st_id', isNaN(stId) ? 0 : stId);
+    fd.append('type_icon', tr.querySelector('.stIcon').value.trim() || '🔹');
+    fd.append('type_key', tr.querySelector('.stKey').value.trim());
+    fd.append('type_label', tr.querySelector('.stLabel').value.trim());
+    fd.append('sort_order', tr.querySelector('.stSort').value || 0);
+    fetch('hotel-services.php', {method:'POST', body:fd, credentials:'include'})
+        .then(r=>r.json())
+        .then(res=>{
+            if (res.success) {
+                tr.id = 'str' + res.id;
+                tr.querySelectorAll('button')[0].setAttribute('onclick','saveSvcType('+res.id+')');
+                tr.querySelectorAll('button')[1].setAttribute('onclick','deleteSvcType('+res.id+')');
+                tr.style.background='#f0fdf4'; setTimeout(()=>tr.style.background='',1500);
+                alert('✅ Tipe layanan tersimpan! Refresh halaman untuk melihat perubahan di dropdown.');
+            } else { alert('Error: '+(res.message||'failed')); }
+        });
+}
+function deleteSvcType(stId) {
+    if (!confirm('Hapus tipe layanan ini?')) return;
+    const fd = new FormData();
+    fd.append('action','delete_service_type'); fd.append('st_id',stId);
+    fetch('hotel-services.php', {method:'POST', body:fd, credentials:'include'})
+        .then(r=>r.json())
+        .then(res=>{ if (res.success) { const el=document.getElementById('str'+stId); if(el)el.remove(); } else alert('Error: '+(res.message||'Cannot delete')); });
 }
 </script>
 
