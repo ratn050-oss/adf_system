@@ -226,7 +226,6 @@ try {
             LEFT JOIN room_types rt ON r.room_type_id = rt.id
             WHERE b.status = 'checked_in'
             ORDER BY b.check_out_date ASC
-            LIMIT 10
         ");
         $inHouseGuests = $stmt->fetchAll(PDO::FETCH_ASSOC);
 
@@ -907,6 +906,39 @@ function rp($num) {
                 </div>
             </div>
         </div>
+
+        <!-- Room Status Grid (below pie chart) -->
+        <?php if (!empty($calRooms)): ?>
+        <div class="room-status-wrap">
+            <div class="room-status-header">
+                <div class="room-status-label">🏨 Status Kamar</div>
+                <div class="room-status-summary">
+                    <span class="room-status-pill rsp-available">✓ <?= $stats['available'] ?> Available</span>
+                    <span class="room-status-pill rsp-occupied">● <?= $stats['occupied'] ?> Occupied</span>
+                    <?php $maintCount = ($roomStatusMap['maintenance'] ?? 0) + ($roomStatusMap['cleaning'] ?? 0); if ($maintCount > 0): ?>
+                    <span class="room-status-pill rsp-maintenance">🔧 <?= $maintCount ?></span>
+                    <?php endif; ?>
+                </div>
+            </div>
+            <div class="room-grid-owner">
+                <?php foreach ($calRooms as $cr):
+                    $isOcc = ($cr['status'] === 'occupied') || !empty($cr['guest_name']);
+                    $isMaint = in_array($cr['status'], ['maintenance', 'cleaning', 'blocked']);
+                    $cls = $isOcc ? 'rb-occ' : ($isMaint ? 'rb-maint' : 'rb-avail');
+                    $dotCls = $isOcc ? 'rb-dot-occ' : 'rb-dot-avail';
+                ?>
+                <div class="room-box-owner <?= $cls ?>">
+                    <div class="rb-status-dot <?= $dotCls ?>"></div>
+                    <div class="rb-number"><?= htmlspecialchars($cr['room_number']) ?></div>
+                    <div class="rb-type"><?= htmlspecialchars(substr($cr['room_type'], 0, 8)) ?></div>
+                    <?php if ($isOcc && !empty($cr['guest_name'])): ?>
+                    <div class="rb-guest"><?= htmlspecialchars(substr($cr['guest_name'], 0, 12)) ?></div>
+                    <?php endif; ?>
+                </div>
+                <?php endforeach; ?>
+            </div>
+        </div>
+        <?php endif; ?>
         
         <!-- Stats Grid -->
         <div class="stats-grid">
@@ -980,7 +1012,34 @@ function rp($num) {
                 </div>
             </div>
         </div>
-        
+
+        <!-- Booking Calendar Timeline (above In-House Guests) -->
+        <?php if (!empty($calRooms)): ?>
+        <div class="section-title">
+            📅 Booking Calendar
+            <span class="badge"><?= count($calBookings) ?></span>
+        </div>
+        <div class="cal-card-owner">
+            <div class="cal-nav-owner">
+                <button class="cal-nav-btn" onclick="ownerCalNav(-14)">◀ Prev</button>
+                <span class="cal-nav-period" id="ownerCalPeriod"></span>
+                <button class="cal-nav-btn" onclick="ownerCalNav(14)">Next ▶</button>
+            </div>
+            <div class="cal-scroll-owner" id="ownerCalScroll">
+                <div id="ownerCalGrid"></div>
+            </div>
+            <div class="cal-legend-owner">
+                <div class="cal-legend-item-o"><div class="cal-legend-dot-o" style="background:linear-gradient(135deg,#06b6d4,#22d3ee);"></div>Confirmed</div>
+                <div class="cal-legend-item-o"><div class="cal-legend-dot-o" style="background:linear-gradient(135deg,#0ea5e9,#38bdf8);"></div>Pending</div>
+                <div class="cal-legend-item-o"><div class="cal-legend-dot-o" style="background:linear-gradient(135deg,#16a34a,#22c55e);"></div>Checked In</div>
+                <div class="cal-legend-item-o"><div class="cal-legend-dot-o" style="background:linear-gradient(135deg,#9ca3af,#d1d5db);"></div>Checked Out</div>
+            </div>
+        </div>
+        <!-- Booking Popup -->
+        <div class="cal-popup-overlay-o" id="ownerCalOverlay" onclick="closeOwnerCalPopup()"></div>
+        <div class="cal-popup-o" id="ownerCalPopup"></div>
+        <?php endif; ?>
+
         <!-- In-House Guests -->
         <div class="section-title">
             🛏️ In-House Guests
@@ -1010,67 +1069,6 @@ function rp($num) {
             <?php endif; ?>
         </div>
         
-        <?php endif; ?>
-
-        <!-- ══ Room Monitor & Booking Calendar (CloudBeds Style) ══ -->
-        <?php if (!empty($calRooms)): ?>
-        <div class="section-title">
-            📅 Room Monitor & Booking Calendar
-            <span class="badge"><?= count($calBookings) ?></span>
-        </div>
-
-        <!-- Room Status Grid -->
-        <div class="room-status-wrap">
-            <div class="room-status-header">
-                <div class="room-status-label">🏨 Status Kamar</div>
-                <div class="room-status-summary">
-                    <span class="room-status-pill rsp-available">✓ <?= $stats['available'] ?> Available</span>
-                    <span class="room-status-pill rsp-occupied">● <?= $stats['occupied'] ?> Occupied</span>
-                    <?php $maintCount = ($roomStatusMap['maintenance'] ?? 0) + ($roomStatusMap['cleaning'] ?? 0); if ($maintCount > 0): ?>
-                    <span class="room-status-pill rsp-maintenance">🔧 <?= $maintCount ?></span>
-                    <?php endif; ?>
-                </div>
-            </div>
-            <div class="room-grid-owner">
-                <?php foreach ($calRooms as $cr):
-                    $isOcc = ($cr['status'] === 'occupied') || !empty($cr['guest_name']);
-                    $isMaint = in_array($cr['status'], ['maintenance', 'cleaning', 'blocked']);
-                    $cls = $isOcc ? 'rb-occ' : ($isMaint ? 'rb-maint' : 'rb-avail');
-                    $dotCls = $isOcc ? 'rb-dot-occ' : 'rb-dot-avail';
-                ?>
-                <div class="room-box-owner <?= $cls ?>">
-                    <div class="rb-status-dot <?= $dotCls ?>"></div>
-                    <div class="rb-number"><?= htmlspecialchars($cr['room_number']) ?></div>
-                    <div class="rb-type"><?= htmlspecialchars(substr($cr['room_type'], 0, 8)) ?></div>
-                    <?php if ($isOcc && !empty($cr['guest_name'])): ?>
-                    <div class="rb-guest"><?= htmlspecialchars(substr($cr['guest_name'], 0, 12)) ?></div>
-                    <?php endif; ?>
-                </div>
-                <?php endforeach; ?>
-            </div>
-        </div>
-
-        <!-- Booking Calendar Timeline -->
-        <div class="cal-card-owner">
-            <div class="cal-nav-owner">
-                <button class="cal-nav-btn" onclick="ownerCalNav(-14)">◀ Prev</button>
-                <span class="cal-nav-period" id="ownerCalPeriod"></span>
-                <button class="cal-nav-btn" onclick="ownerCalNav(14)">Next ▶</button>
-            </div>
-            <div class="cal-scroll-owner" id="ownerCalScroll">
-                <div id="ownerCalGrid"></div>
-            </div>
-            <div class="cal-legend-owner">
-                <div class="cal-legend-item-o"><div class="cal-legend-dot-o" style="background:linear-gradient(135deg,#06b6d4,#22d3ee);"></div>Confirmed</div>
-                <div class="cal-legend-item-o"><div class="cal-legend-dot-o" style="background:linear-gradient(135deg,#0ea5e9,#38bdf8);"></div>Pending</div>
-                <div class="cal-legend-item-o"><div class="cal-legend-dot-o" style="background:linear-gradient(135deg,#16a34a,#22c55e);"></div>Checked In</div>
-                <div class="cal-legend-item-o"><div class="cal-legend-dot-o" style="background:linear-gradient(135deg,#9ca3af,#d1d5db);"></div>Checked Out</div>
-            </div>
-        </div>
-
-        <!-- Booking Popup -->
-        <div class="cal-popup-overlay-o" id="ownerCalOverlay" onclick="closeOwnerCalPopup()"></div>
-        <div class="cal-popup-o" id="ownerCalPopup"></div>
         <?php endif; ?>
 
         
