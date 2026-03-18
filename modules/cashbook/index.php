@@ -399,6 +399,7 @@ $filterType = trim(getGet('type', 'all'));
 $filterDivision = trim(getGet('division', 'all'));
 $filterPayment = trim(getGet('payment', 'all'));
 $filterUser = trim(getGet('user', 'all'));
+$filterSearch = trim(getGet('search', ''));
 
 // SMART CONFLICT RESOLUTION: If both date and month are provided,
 // and date falls within the selected month, prioritize MONTH filter
@@ -463,6 +464,12 @@ if (!empty($filterPayment) && $filterPayment !== 'all') {
 if (!empty($filterUser) && $filterUser !== 'all') {
     $whereClauses[] = "cb.created_by = :user_id";
     $params['user_id'] = $filterUser;
+}
+
+if (!empty($filterSearch)) {
+    $whereClauses[] = "(cb.description LIKE :search OR c.category_name LIKE :search2)";
+    $params['search'] = '%' . $filterSearch . '%';
+    $params['search2'] = '%' . $filterSearch . '%';
 }
 
 $whereSQL = count($whereClauses) > 0 ? 'WHERE ' . implode(' AND ', $whereClauses) : '';
@@ -1712,6 +1719,11 @@ echo getPrintCSS();
                 </select>
             </div>
             
+            <div class="cqc-filter-group">
+                <label class="cqc-filter-label">🔍 Cari Nama/Ket</label>
+                <input type="text" name="search" value="<?php echo htmlspecialchars($filterSearch); ?>" class="cqc-filter-input" placeholder="Cth: Pak Ipin, BBM..." autocomplete="off">
+            </div>
+            
             <div class="cqc-filter-actions">
                 <button type="submit" class="cqc-btn-filter">
                     <i data-feather="filter" style="width: 16px; height: 16px;"></i> 
@@ -1733,7 +1745,7 @@ echo getPrintCSS();
         </div>
     </form>
     <?php else: ?>
-    <form method="GET" action="" autocomplete="off" style="display: grid; grid-template-columns: repeat(6, 1fr); gap: 0.75rem; margin-bottom: 1.5rem; padding: 1.25rem; background: var(--bg-secondary); border-radius: var(--radius-lg); border: 1px solid var(--bg-tertiary);">
+    <form method="GET" action="" autocomplete="off" style="display: grid; grid-template-columns: repeat(7, 1fr); gap: 0.75rem; margin-bottom: 1.5rem; padding: 1.25rem; background: var(--bg-secondary); border-radius: var(--radius-lg); border: 1px solid var(--bg-tertiary);">
         <div class="form-group" style="margin-bottom: 0;">
             <label class="form-label" style="font-size: 0.75rem; margin-bottom: 0.25rem;">Tanggal</label>
             <input type="date" id="filterDate" name="date" value="<?php echo htmlspecialchars($filterDate); ?>" class="form-control" autocomplete="off" style="height: 38px; font-size: 0.875rem;" onchange="if(this.value) document.getElementById('filterMonth').value=''"<?php echo empty($filterDate) ? ' placeholder="Pilih tanggal"' : ''; ?>>
@@ -1802,7 +1814,12 @@ echo getPrintCSS();
             </select>
         </div>
         
-        <div style="display: flex; align-items: flex-end; gap: 0.625rem; grid-column: span 6;">
+        <div class="form-group" style="margin-bottom: 0;">
+            <label class="form-label" style="font-size: 0.75rem; margin-bottom: 0.25rem;">🔍 Cari Nama/Ket</label>
+            <input type="text" name="search" value="<?php echo htmlspecialchars($filterSearch); ?>" class="form-control" style="height: 38px; font-size: 0.875rem;" placeholder="Cth: Pak Ipin, BBM..." autocomplete="off">
+        </div>
+        
+        <div style="display: flex; align-items: flex-end; gap: 0.625rem; grid-column: span 7;">
             <button type="submit" class="btn btn-primary" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 0.5rem; height: 40px;">
                 <i data-feather="filter" style="width: 16px; height: 16px;"></i> 
                 <span>Filter</span>
