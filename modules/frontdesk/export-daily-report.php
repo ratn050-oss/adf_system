@@ -528,13 +528,21 @@ header('Content-Type: text/html; charset=utf-8');
                 <tr>
                     <td><span class="room-tag"><?php echo htmlspecialchars($order['room_number'] ?: '-'); ?></span></td>
                     <td><?php echo date('H:i', strtotime($order['breakfast_time'])); ?></td>
-                    <td><?php echo htmlspecialchars($order['guest_name']); ?></td>
+                    <td style="max-width:180px;word-wrap:break-word"><?php
+                        // Split combined guest names, show max 4 per line
+                        $names = array_map('trim', explode(',', $order['guest_name']));
+                        $chunks = array_chunk($names, 4);
+                        echo htmlspecialchars(implode(",\n", array_map(function($c){ return implode(', ', $c); }, $chunks)));
+                    ?></td>
                     <td><?php echo $order['total_pax']; ?></td>
                     <td><span class="loc-tag"><?php echo $order['location'] === 'restaurant' ? '🍽️ Restaurant' : ($order['location'] === 'take_away' ? '🥡 Take Away' : '🚪 Room Service'); ?></span></td>
                     <td>
                         <ul class="menu-list">
                             <?php foreach ($order['menu_items'] as $item): ?>
-                            <li><span class="qty">x<?php echo $item['quantity']; ?></span> <?php echo htmlspecialchars($item['menu_name']); ?></li>
+                            <li>
+                                <span class="qty">x<?php echo $item['quantity']; ?></span> <?php echo htmlspecialchars($item['menu_name']); ?>
+                                <?php if (!empty($item['note'])): ?><br><span style="font-size:7.5pt;color:#92400e;font-style:italic;margin-left:18px">↳ <?php echo htmlspecialchars($item['note']); ?></span><?php endif; ?>
+                            </li>
                             <?php endforeach; ?>
                         </ul>
                     </td>
