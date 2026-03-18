@@ -14,11 +14,11 @@ $db = Database::getInstance();
 
 $type = $_GET['type'] ?? 'income';
 
-// Get categories filtered by transaction type
+// Get categories filtered by category_type (was incorrectly 'transaction_type')
 $categories = $db->fetchAll(
     "SELECT id, category_name 
      FROM categories 
-     WHERE transaction_type = :type AND is_active = 1 
+     WHERE category_type = :type AND is_active = 1 
      ORDER BY category_name",
     ['type' => $type]
 );

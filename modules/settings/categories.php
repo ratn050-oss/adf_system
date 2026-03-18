@@ -26,7 +26,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         if ($action === 'add') {
             $data = [
                 'category_name' => $_POST['category_name'],
-                'transaction_type' => $_POST['transaction_type'],
+                'category_type' => $_POST['category_type'],
+                'division_id' => !empty($_POST['division_id']) ? (int)$_POST['division_id'] : null,
                 'description' => $_POST['description'] ?? '',
                 'is_active' => 1
             ];
@@ -35,7 +36,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } elseif ($action === 'edit' && $id > 0) {
             $data = [
                 'category_name' => $_POST['category_name'],
-                'transaction_type' => $_POST['transaction_type'],
+                'category_type' => $_POST['category_type'],
+                'division_id' => !empty($_POST['division_id']) ? (int)$_POST['division_id'] : null,
                 'description' => $_POST['description'] ?? ''
             ];
             $db->update('categories', $data, 'id = :id', ['id' => $id]);
@@ -68,10 +70,12 @@ if ($action === 'edit' && $id > 0) {
     $editCategory = $db->fetchOne("SELECT * FROM categories WHERE id = ?", [$id]);
 }
 
-// Get all categories
+// Get all categories with division name
 $categories = $db->fetchAll("
-    SELECT * FROM categories 
-    ORDER BY transaction_type, category_name
+    SELECT c.*, d.division_name 
+    FROM categories c 
+    LEFT JOIN divisions d ON c.division_id = d.id 
+    ORDER BY c.category_type, c.category_name
 ");
 
 // Group categories by transaction type
@@ -84,6 +88,11 @@ foreach ($categories as $cat) {
 }
 
 include '../../includes/header.php';
+?>
+
+<?php
+// Get divisions for dropdown
+$catDivisions = $db->fetchAll("SELECT id, division_name FROM divisions WHERE is_active = 1 ORDER BY division_name");
 ?>
 
 <div style="max-width: 1400px;">
@@ -104,24 +113,33 @@ include '../../includes/header.php';
             </h3>
         </div>
         <form method="POST" action="?action=<?php echo $action === 'edit' ? 'edit&id=' . $id : 'add'; ?>" style="padding: 1rem;">
-            <div style="display: grid; grid-template-columns: 2fr 1fr 2fr; gap: 1rem;">
+            <div style="display: grid; grid-template-columns: 2fr 1fr 1fr 2fr; gap: 1rem;">
                 <div class="form-group" style="margin: 0;">
                     <label class="form-label">Nama Kategori *</label>
                     <input type="text" name="category_name" class="form-control" 
-                           value="<?php echo $editCategory['category_name'] ?? ''; ?>" 
+                           value="<?php echo htmlspecialchars($editCategory['category_name'] ?? ''); ?>" 
                            placeholder="Room Service, F&B, Laundry..." required>
                 </div>
                 <div class="form-group" style="margin: 0;">
                     <label class="form-label">Tipe Transaksi *</label>
-                    <select name="transaction_type" class="form-control" required>
-                        <option value="income" <?php echo ($editCategory['transaction_type'] ?? '') === 'income' ? 'selected' : ''; ?>>Income</option>
-                        <option value="expense" <?php echo ($editCategory['transaction_type'] ?? '') === 'expense' ? 'selected' : ''; ?>>Expense</option>
+                    <select name="category_type" class="form-control" required>
+                        <option value="income" <?php echo ($editCategory['category_type'] ?? '') === 'income' ? 'selected' : ''; ?>>Income</option>
+                        <option value="expense" <?php echo ($editCategory['category_type'] ?? '') === 'expense' ? 'selected' : ''; ?>>Expense</option>
+                    </select>
+                </div>
+                <div class="form-group" style="margin: 0;">
+                    <label class="form-label">Divisi</label>
+                    <select name="division_id" class="form-control">
+                        <option value="">-- Tanpa Divisi --</option>
+                        <?php foreach ($catDivisions as $dv): ?>
+                        <option value="<?php echo $dv['id']; ?>" <?php echo ($editCategory['division_id'] ?? '') == $dv['id'] ? 'selected' : ''; ?>><?php echo htmlspecialchars($dv['division_name']); ?></option>
+                        <?php endforeach; ?>
                     </select>
                 </div>
                 <div class="form-group" style="margin: 0;">
                     <label class="form-label">Deskripsi</label>
                     <input type="text" name="description" class="form-control" 
-                           value="<?php echo $editCategory['description'] ?? ''; ?>" 
+                           value="<?php echo htmlspecialchars($editCategory['description'] ?? ''); ?>" 
                            placeholder="Catatan tambahan...">
                 </div>
             </div>
@@ -157,6 +175,7 @@ include '../../includes/header.php';
                     <thead>
                         <tr>
                             <th>Nama Kategori</th>
+                            <th>Divisi</th>
                             <th>Deskripsi</th>
                             <th>Status</th>
                             <th style="text-align: center;">Aksi</th>
@@ -165,8 +184,9 @@ include '../../includes/header.php';
                     <tbody>
                         <?php foreach ($categories_list as $cat): ?>
                             <tr>
-                                <td style="font-weight: 600;"><?php echo $cat['category_name']; ?></td>
-                                <td style="color: var(--text-muted); font-size: 0.875rem;"><?php echo $cat['description'] ?: '-'; ?></td>
+                                <td style="font-weight: 600;"><?php echo htmlspecialchars($cat['category_name']); ?></td>
+                                <td style="font-size: 0.875rem;"><span style="color:var(--primary-color);font-weight:500"><?php echo htmlspecialchars($cat['division_name'] ?? '-'); ?></span></td>
+                                <td style="color: var(--text-muted); font-size: 0.875rem;"><?php echo htmlspecialchars($cat['description'] ?: '-'); ?></td>
                                 <td>
                                     <span class="badge" style="background: <?php echo $cat['is_active'] ? 'rgba(16, 185, 129, 0.15)' : 'rgba(148, 163, 184, 0.15)'; ?>; color: <?php echo $cat['is_active'] ? 'var(--success)' : 'var(--text-muted)'; ?>;">
                                         <?php echo $cat['is_active'] ? 'Active' : 'Inactive'; ?>

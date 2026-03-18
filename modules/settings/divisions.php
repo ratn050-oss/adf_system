@@ -27,6 +27,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $data = [
                 'division_code' => strtoupper($_POST['division_code']),
                 'division_name' => $_POST['division_name'],
+                'division_type' => $_POST['division_type'] ?? 'both',
                 'description' => $_POST['description'] ?? '',
                 'is_active' => 1
             ];
@@ -36,6 +37,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $data = [
                 'division_code' => strtoupper($_POST['division_code']),
                 'division_name' => $_POST['division_name'],
+                'division_type' => $_POST['division_type'] ?? 'both',
                 'description' => $_POST['description'] ?? ''
             ];
             $db->update('divisions', $data, 'id = :id', ['id' => $id]);
@@ -96,18 +98,26 @@ include '../../includes/header.php';
             </h3>
         </div>
         <form method="POST" action="?action=<?php echo $action === 'edit' ? 'edit&id=' . $id : 'add'; ?>" style="padding: 1rem;">
-            <div style="display: grid; grid-template-columns: 1fr 3fr; gap: 1rem;">
+            <div style="display: grid; grid-template-columns: 1fr 3fr 1fr; gap: 1rem;">
                 <div class="form-group" style="margin: 0;">
                     <label class="form-label">Kode *</label>
                     <input type="text" name="division_code" class="form-control" 
-                           value="<?php echo $editDivision['division_code'] ?? ''; ?>" 
+                           value="<?php echo htmlspecialchars($editDivision['division_code'] ?? ''); ?>" 
                            placeholder="FO" maxlength="20" style="text-transform: uppercase;" required>
                 </div>
                 <div class="form-group" style="margin: 0;">
                     <label class="form-label">Nama Divisi *</label>
                     <input type="text" name="division_name" class="form-control" 
-                           value="<?php echo $editDivision['division_name'] ?? ''; ?>" 
+                           value="<?php echo htmlspecialchars($editDivision['division_name'] ?? ''); ?>" 
                            placeholder="Front Office" required>
+                </div>
+                <div class="form-group" style="margin: 0;">
+                    <label class="form-label">Tipe</label>
+                    <select name="division_type" class="form-control">
+                        <option value="both" <?php echo ($editDivision['division_type'] ?? 'both') === 'both' ? 'selected' : ''; ?>>Both</option>
+                        <option value="income" <?php echo ($editDivision['division_type'] ?? '') === 'income' ? 'selected' : ''; ?>>Income</option>
+                        <option value="expense" <?php echo ($editDivision['division_type'] ?? '') === 'expense' ? 'selected' : ''; ?>>Expense</option>
+                    </select>
                 </div>
             </div>
             <div class="form-group">
@@ -136,6 +146,7 @@ include '../../includes/header.php';
                     <tr>
                         <th>Kode</th>
                         <th>Nama Divisi</th>
+                        <th>Tipe</th>
                         <th>Deskripsi</th>
                         <th>Status</th>
                         <th style="text-align: center;">Aksi</th>
@@ -145,8 +156,14 @@ include '../../includes/header.php';
                     <?php foreach ($divisions as $div): ?>
                         <tr>
                             <td><span style="font-weight: 700; color: var(--primary-color);"><?php echo $div['division_code']; ?></span></td>
-                            <td style="font-weight: 600;"><?php echo $div['division_name']; ?></td>
-                            <td style="font-size: 0.875rem; color: var(--text-muted);"><?php echo $div['description'] ?: '-'; ?></td>
+                            <td style="font-weight: 600;"><?php echo htmlspecialchars($div['division_name']); ?></td>
+                            <td>
+                                <?php $dt = $div['division_type'] ?? 'both'; ?>
+                                <span class="badge" style="background:<?php echo $dt==='income'?'rgba(16,185,129,.15)':($dt==='expense'?'rgba(239,68,68,.15)':'rgba(99,102,241,.15)'); ?>;color:<?php echo $dt==='income'?'#10b981':($dt==='expense'?'#ef4444':'#6366f1'); ?>;font-size:.7rem">
+                                    <?php echo $dt === 'both' ? 'Income & Expense' : ucfirst($dt); ?>
+                                </span>
+                            </td>
+                            <td style="font-size: 0.875rem; color: var(--text-muted);"><?php echo htmlspecialchars($div['description'] ?: '-'); ?></td>
                             <td>
                                 <span class="badge" style="background: <?php echo $div['is_active'] ? 'rgba(16, 185, 129, 0.15)' : 'rgba(148, 163, 184, 0.15)'; ?>; color: <?php echo $div['is_active'] ? 'var(--success)' : 'var(--text-muted)'; ?>;">
                                     <?php echo $div['is_active'] ? 'Active' : 'Inactive'; ?>
@@ -167,7 +184,7 @@ include '../../includes/header.php';
                     <?php endforeach; ?>
                     <?php if (empty($divisions)): ?>
                         <tr>
-                            <td colspan="6" style="text-align: center; padding: 2rem; color: var(--text-muted);">
+                            <td colspan="7" style="text-align: center; padding: 2rem; color: var(--text-muted);">
                                 Belum ada divisi. Klik "Tambah Divisi" untuk menambahkan.
                             </td>
                         </tr>

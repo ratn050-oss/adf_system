@@ -90,7 +90,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $category = $db->fetchOne("
             SELECT id FROM categories 
             WHERE division_id = ? AND category_name IN ('Penjualan', 'Pendapatan', 'Sales', 'Revenue') 
-            AND transaction_type = 'income' 
+            AND category_type = 'income' 
             LIMIT 1
         ", [$invoice['division_id']]);
         
@@ -99,7 +99,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         } else {
             // Get any income category for this division as fallback
             $fallback = $db->fetchOne(
-                "SELECT id FROM categories WHERE division_id = ? AND transaction_type = 'income' LIMIT 1",
+                "SELECT id FROM categories WHERE division_id = ? AND category_type = 'income' LIMIT 1",
                 [$invoice['division_id']]
             );
             if ($fallback) {
