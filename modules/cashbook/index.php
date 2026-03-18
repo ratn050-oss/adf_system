@@ -614,18 +614,8 @@ try {
         );
         $monthBal = (float)($rMonth['bal'] ?? 0);
         
-        // Guest cash income (cash payments NOT from owner accounts) this month
-        $excludePh = implode(',', array_fill(0, count($allAccIds), '?'));
-        $rGuest = $db->fetchOne(
-            "SELECT COALESCE(SUM(amount), 0) as total FROM cash_book 
-             WHERE transaction_type = 'income' AND payment_method = 'cash'
-             AND (cash_account_id IS NULL OR cash_account_id NOT IN ($excludePh))
-             AND DATE_FORMAT(transaction_date, '%Y-%m') = ?",
-            array_merge($allAccIds, [$thisMonth])
-        );
-        $guestCash = (float)($rGuest['total'] ?? 0);
-        
-        $cashAvailable = $startKas + $monthBal + $guestCash;
+        // Perbaikan: saldo cash hanya dari akun operasional (petty cash & owner_capital)
+        $cashAvailable = $startKas + $monthBal;
     } else {
         // Fallback: simple all-time balance
         $cashAvailRow = $db->fetchOne(
