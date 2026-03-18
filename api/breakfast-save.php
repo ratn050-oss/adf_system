@@ -86,19 +86,13 @@ try {
         throw new Exception('Tidak ada menu valid yang dipilih');
     }
 
-    // Parse fields
-    $guestName = trim($input['guest_name'] ?? '');
+    // Parse common fields
     $totalPax = max(1, (int)($input['total_pax'] ?? 1));
     $breakfastTime = $input['breakfast_time'] ?? '';
     $breakfastDate = $input['breakfast_date'] ?? date('Y-m-d');
     $location = $input['location'] ?? 'restaurant';
     $specialRequests = !empty($input['special_requests']) ? trim($input['special_requests']) : null;
-    $bookingId = !empty($input['booking_id']) ? (int)$input['booking_id'] : null;
-    $guestId = !empty($input['guest_id']) ? (int)$input['guest_id'] : null;
-    $roomNumbers = $input['room_number'] ?? [];
-    if (!is_array($roomNumbers)) $roomNumbers = [$roomNumbers];
 
-    if (empty($guestName)) throw new Exception('Nama tamu harus diisi');
     if (empty($breakfastTime)) throw new Exception('Waktu sarapan harus diisi');
 
     // Validate location
@@ -106,9 +100,65 @@ try {
     if (!in_array($location, $validLocations)) $location = 'restaurant';
 
     $menuJson = json_encode($menuItems);
-    $roomJson = json_encode($roomNumbers);
 
-    if ($action === 'create_order') {
+    if ($action === 'create_bulk') {
+        // Multi-guest order: create one order per guest
+        $guests = $input['guests'] ?? [];
+        if (empty($guests) || !is_array($guests)) throw new Exception('Pilih minimal 1 tamu');
+
+        $created = [];
+        $skipped = [];
+        $stmt = $pdo->prepare("INSERT INTO breakfast_orders 
+            (booking_id, guest_name, room_number, total_pax, breakfast_time, breakfast_date, 
+             location, menu_items, special_requests, total_price, created_by) 
+            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+
+        foreach ($guests as $guest) {
+            $gName = trim($guest['guest_name'] ?? '');
+            if (empty($gName)) continue;
+
+            $gBookingId = !empty($guest['booking_id']) ? (int)$guest['booking_id'] : null;
+            $gRooms = $guest['room_number'] ?? [];
+            if (!is_array($gRooms)) $gRooms = [$gRooms];
+            $gRoomJson = json_encode($gRooms);
+
+            // Check duplicate
+            $existing = $db->fetchOne(
+                "SELECT id FROM breakfast_orders WHERE guest_name = ? AND breakfast_date = ?",
+                [$gName, $breakfastDate]
+            );
+            if ($existing) {
+                $skipped[] = $gName;
+                continue;
+            }
+
+            $stmt->execute([
+                $gBookingId, $gName, $gRoomJson, $totalPax,
+                $breakfastTime, $breakfastDate, $location, $menuJson,
+                $specialRequests, $totalPrice, $validUserId
+            ]);
+            $created[] = $gName;
+        }
+
+        if (count($created) === 0 && count($skipped) > 0) {
+            echo json_encode(['success' => false, 'message' => 'Semua tamu sudah punya order: ' . implode(', ', $skipped)]);
+            exit;
+        }
+
+        $msg = count($created) . ' order tersimpan: ' . implode(', ', $created);
+        if (count($skipped) > 0) $msg .= ' (dilewati: ' . implode(', ', $skipped) . ')';
+        echo json_encode(['success' => true, 'message' => $msg]);
+
+    } elseif ($action === 'create_order') {
+        // Single guest order
+        $guestName = trim($input['guest_name'] ?? '');
+        $bookingId = !empty($input['booking_id']) ? (int)$input['booking_id'] : null;
+        $roomNumbers = $input['room_number'] ?? [];
+        if (!is_array($roomNumbers)) $roomNumbers = [$roomNumbers];
+        $roomJson = json_encode($roomNumbers);
+
+        if (empty($guestName)) throw new Exception('Nama tamu harus diisi');
+
         // DUPLICATE PREVENTION: 1 guest per day (by guest_name + date)
         $existing = $db->fetchOne(
             "SELECT id FROM breakfast_orders WHERE guest_name = ? AND breakfast_date = ?",
@@ -138,6 +188,12 @@ try {
     } elseif ($action === 'update_order') {
         $editId = (int)($input['edit_id'] ?? 0);
         if ($editId <= 0) throw new Exception('ID order tidak valid');
+
+        $guestName = trim($input['guest_name'] ?? '');
+        $bookingId = !empty($input['booking_id']) ? (int)$input['booking_id'] : null;
+        $roomNumbers = $input['room_number'] ?? [];
+        if (!is_array($roomNumbers)) $roomNumbers = [$roomNumbers];
+        $roomJson = json_encode($roomNumbers);
 
         $stmt = $pdo->prepare("UPDATE breakfast_orders SET 
             booking_id=?, guest_name=?, room_number=?, total_pax=?, breakfast_time=?, 
