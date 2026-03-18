@@ -546,10 +546,17 @@ header('Content-Type: text/html; charset=utf-8');
                             <?php foreach ($order['menu_items'] as $item): ?>
                             <li>
                                 <span class="qty">x<?php echo $item['quantity']; ?></span> <?php echo htmlspecialchars($item['menu_name']); ?>
+                                <?php if (!empty($item['is_custom'])): ?><span style="font-size:7pt;color:#f59e0b;font-weight:700"> (Manual)</span><?php endif; ?>
+                                <?php if (empty($item['is_free']) && (float)($item['price'] ?? 0) > 0): ?>
+                                <span style="font-size:7.5pt;color:#10b981;font-weight:600"> — Rp <?php echo number_format((float)$item['price'] * (int)($item['quantity'] ?? 1), 0, ',', '.'); ?></span>
+                                <?php endif; ?>
                                 <?php if (!empty($item['note'])): ?><br><span style="font-size:7.5pt;color:#92400e;font-style:italic;margin-left:18px">↳ <?php echo htmlspecialchars($item['note']); ?></span><?php endif; ?>
                             </li>
                             <?php endforeach; ?>
                         </ul>
+                        <?php if ((float)($order['total_price'] ?? 0) > 0): ?>
+                        <div style="font-size:8pt;font-weight:700;color:#10b981;margin-top:3px;border-top:1px dashed #e5e7eb;padding-top:3px">Total Extra: Rp <?php echo number_format((float)$order['total_price'], 0, ',', '.'); ?></div>
+                        <?php endif; ?>
                     </td>
                 </tr>
                 <?php endforeach; ?>

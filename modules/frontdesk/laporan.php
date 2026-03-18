@@ -492,9 +492,18 @@ include '../../includes/header.php';
                 </div>
                 <div class="bf-card-menus">
                     <?php foreach ($order['menu_items'] as $item): ?>
-                    <span class="bf-menu-tag">x<?php echo $item['quantity']; ?> <?php echo htmlspecialchars($item['menu_name']); ?></span>
+                    <span class="bf-menu-tag">
+                        x<?php echo $item['quantity']; ?> <?php echo htmlspecialchars($item['menu_name']); ?>
+                        <?php if (!empty($item['is_custom'])): ?><span style="font-size:.55rem;color:#f59e0b;font-weight:700"> (Manual)</span><?php endif; ?>
+                        <?php if (empty($item['is_free']) && (float)($item['price'] ?? 0) > 0): ?>
+                        <span style="font-size:.6rem;color:#10b981;font-weight:600;margin-left:2px">Rp <?php echo number_format((float)$item['price'] * (int)($item['quantity'] ?? 1), 0, ',', '.'); ?></span>
+                        <?php endif; ?>
+                    </span>
                     <?php endforeach; ?>
                 </div>
+                <?php if ((float)($order['total_price'] ?? 0) > 0): ?>
+                <div style="font-size:.68rem;font-weight:700;color:#10b981;margin-top:.3rem">💰 Total Extra: Rp <?php echo number_format((float)$order['total_price'], 0, ',', '.'); ?></div>
+                <?php endif; ?>
                 <div class="bf-card-actions">
                     <button class="bf-edit" onclick="editBreakfastOrder(<?php echo $order['id']; ?>)" title="Edit">✏️ Edit</button>
                     <button class="bf-del" onclick="deleteBreakfastOrder(<?php echo $order['id']; ?>, '<?php echo htmlspecialchars(addslashes($order['guest_name'])); ?>')" title="Delete">🗑️</button>
