@@ -54,10 +54,12 @@ try {
     $menuItemIds = $input['menu_items'] ?? [];
     $menuQty = $input['menu_qty'] ?? [];
     $menuNote = $input['menu_note'] ?? [];
+    $customExtras = $input['custom_extras'] ?? [];
 
-    if (empty($menuItemIds) || !is_array($menuItemIds)) {
-        throw new Exception('Pilih minimal 1 menu item');
+    if (empty($menuItemIds) && empty($customExtras)) {
+        throw new Exception('Pilih minimal 1 menu item atau tambahkan extra manual');
     }
+    if (!is_array($menuItemIds)) $menuItemIds = [];
 
     $menuItems = [];
     $totalPrice = 0;
@@ -79,6 +81,28 @@ try {
             if ($note !== '') $item['note'] = $note;
             $menuItems[] = $item;
             if (!$menu['is_free']) $totalPrice += ($menu['price'] * $qty);
+        }
+    }
+
+    // Process custom extras (manual items)
+    if (is_array($customExtras)) {
+        foreach ($customExtras as $ce) {
+            $ceName = trim($ce['name'] ?? '');
+            $cePrice = max(0, (float)($ce['price'] ?? 0));
+            $ceQty = max(1, (int)($ce['quantity'] ?? 1));
+            $ceNote = trim($ce['note'] ?? '');
+            if ($ceName === '') continue;
+            $item = [
+                'menu_id' => 0,
+                'menu_name' => $ceName,
+                'quantity' => $ceQty,
+                'price' => number_format($cePrice, 2, '.', ''),
+                'is_free' => 0,
+                'is_custom' => 1
+            ];
+            if ($ceNote !== '') $item['note'] = $ceNote;
+            $menuItems[] = $item;
+            $totalPrice += ($cePrice * $ceQty);
         }
     }
 

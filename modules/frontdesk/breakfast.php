@@ -89,14 +89,18 @@ try {
 } catch (Exception $e) {}
 
 // Edit mode
-$editOrder = null; $editMenuIds = []; $editMenuQty = []; $editMenuNotes = [];
+$editOrder = null; $editMenuIds = []; $editMenuQty = []; $editMenuNotes = []; $editCustomExtras = [];
 if (!empty($_GET['edit'])) {
     $editOrder = $db->fetchOne("SELECT * FROM breakfast_orders WHERE id = ?", [(int)$_GET['edit']]);
     if ($editOrder) {
         foreach (json_decode($editOrder['menu_items'], true) ?: [] as $item) {
-            $editMenuIds[] = $item['menu_id'];
-            $editMenuQty[$item['menu_id']] = $item['quantity'];
-            if (!empty($item['note'])) $editMenuNotes[$item['menu_id']] = $item['note'];
+            if (!empty($item['is_custom'])) {
+                $editCustomExtras[] = $item;
+            } else {
+                $editMenuIds[] = $item['menu_id'];
+                $editMenuQty[$item['menu_id']] = $item['quantity'];
+                if (!empty($item['note'])) $editMenuNotes[$item['menu_id']] = $item['note'];
+            }
         }
     }
 }
@@ -192,6 +196,8 @@ include '../../includes/header.php';
 .bf-order-note{font-size:.62rem;color:#f59e0b;font-style:italic;margin-left:.2rem}
 .bf-order-special{font-size:.68rem;color:var(--text-muted);background:rgba(245,158,11,.08);padding:.3rem .5rem;border-radius:4px;margin-top:.35rem;font-style:italic;border-left:2px solid #f59e0b}
 .bf-order-btn.print{background:rgba(16,185,129,.15);color:#10b981}
+.bf-custom-extra{background:var(--bg-primary);border:1px solid var(--bg-tertiary);border-radius:8px;padding:.65rem;margin-bottom:.5rem;transition:all .2s}
+.bf-custom-extra:hover{border-color:#f59e0b}
 @media(max-width:900px){.bf-grid{grid-template-columns:1fr}.bf-side{position:static}.bf-menu-grid{grid-template-columns:1fr 1fr}}
 @media(max-width:600px){.bf-row{grid-template-columns:1fr}.bf-menu-grid{grid-template-columns:1fr}.bf-radio-group{flex-direction:column}}
 </style>
@@ -346,6 +352,30 @@ include '../../includes/header.php';
                         </div>
                     </div>
                     <?php endif; ?>
+
+                    <!-- Custom Extra Breakfast (Manual) -->
+                    <div style="margin-top:1rem">
+                        <div style="font-size:.8rem;font-weight:700;margin-bottom:.5rem;display:flex;justify-content:space-between;align-items:center">
+                            <span>🛒 Extra Breakfast (Manual)</span>
+                            <button type="button" onclick="addCustomExtra()" style="padding:.3rem .65rem;background:linear-gradient(135deg,#f59e0b,#f97316);color:#fff;border:none;border-radius:6px;font-size:.72rem;font-weight:700;cursor:pointer">+ Tambah</button>
+                        </div>
+                        <div id="customExtrasContainer">
+                            <?php if (!empty($editCustomExtras)): ?>
+                            <?php foreach ($editCustomExtras as $idx => $ce): ?>
+                            <div class="bf-custom-extra" data-index="<?php echo $idx; ?>">
+                                <div style="display:flex;gap:.5rem;align-items:center">
+                                    <input type="text" class="bf-input custom-extra-name" placeholder="Nama item, cth: Extra Nasi" value="<?php echo htmlspecialchars($ce['menu_name']); ?>" style="flex:1;font-size:.8rem;padding:.45rem .55rem" required>
+                                    <input type="number" class="bf-input custom-extra-price" placeholder="Harga" value="<?php echo (int)$ce['price']; ?>" min="0" step="1000" style="width:110px;font-size:.8rem;padding:.45rem .55rem" required>
+                                    <input type="number" class="bf-input custom-extra-qty" placeholder="Qty" value="<?php echo $ce['quantity'] ?? 1; ?>" min="1" max="20" style="width:55px;font-size:.8rem;padding:.45rem .55rem;text-align:center">
+                                    <button type="button" onclick="this.closest('.bf-custom-extra').remove()" style="padding:.4rem .55rem;background:rgba(239,68,68,.15);color:#ef4444;border:none;border-radius:6px;font-size:.8rem;cursor:pointer;font-weight:700">✕</button>
+                                </div>
+                                <input type="text" class="bf-note-input custom-extra-note" placeholder="Catatan (opsional)" value="<?php echo htmlspecialchars($ce['note'] ?? ''); ?>" style="margin-top:.35rem;width:100%">
+                            </div>
+                            <?php endforeach; ?>
+                            <?php endif; ?>
+                        </div>
+                        <p style="font-size:.65rem;color:var(--text-muted);margin-top:.4rem">Tambahkan item extra breakfast yang tidak ada di daftar menu. Isi nama dan harga manual.</p>
+                    </div>
                 </div>
 
                 <!-- Notes -->
@@ -437,7 +467,20 @@ function collectFormData() {
     if (!pax || parseInt(pax) < 1) { alert('Isi jumlah pax!'); return null; }
     if (!time) { alert('Isi jam sarapan!'); return null; }
     var menus = document.querySelectorAll('input[name="menu_items[]"]:checked');
-    if (menus.length === 0) { alert('Pilih minimal 1 menu!'); return null; }
+    
+    // Collect custom extras
+    var customExtras = [];
+    document.querySelectorAll('.bf-custom-extra').forEach(function(el) {
+        var name = el.querySelector('.custom-extra-name').value.trim();
+        var price = parseFloat(el.querySelector('.custom-extra-price').value) || 0;
+        var qty = parseInt(el.querySelector('.custom-extra-qty').value) || 1;
+        var note = el.querySelector('.custom-extra-note').value.trim();
+        if (name && price >= 0) {
+            customExtras.push({ name: name, price: price, quantity: qty, note: note });
+        }
+    });
+    
+    if (menus.length === 0 && customExtras.length === 0) { alert('Pilih minimal 1 menu atau tambahkan extra manual!'); return null; }
     var menuItems = [], menuQty = {}, menuNote = {};
     menus.forEach(function(cb) {
         var id = cb.value;
@@ -455,7 +498,8 @@ function collectFormData() {
         special_requests: document.querySelector('textarea[name="special_requests"]').value.trim(),
         menu_items: menuItems,
         menu_qty: menuQty,
-        menu_note: menuNote
+        menu_note: menuNote,
+        custom_extras: customExtras
     };
 }
 
@@ -664,6 +708,23 @@ function cetakOrder(order) {
 
 function escHtml(s) { var d = document.createElement('div'); d.textContent = s || ''; return d.innerHTML; }
 function numberFmt(n) { return parseInt(n).toLocaleString('id-ID'); }
+
+function addCustomExtra() {
+    var container = document.getElementById('customExtrasContainer');
+    var idx = container.querySelectorAll('.bf-custom-extra').length;
+    var div = document.createElement('div');
+    div.className = 'bf-custom-extra';
+    div.dataset.index = idx;
+    div.innerHTML = '<div style="display:flex;gap:.5rem;align-items:center">' +
+        '<input type="text" class="bf-input custom-extra-name" placeholder="Nama item, cth: Extra Nasi" style="flex:1;font-size:.8rem;padding:.45rem .55rem" required>' +
+        '<input type="number" class="bf-input custom-extra-price" placeholder="Harga" min="0" step="1000" style="width:110px;font-size:.8rem;padding:.45rem .55rem" required>' +
+        '<input type="number" class="bf-input custom-extra-qty" placeholder="Qty" value="1" min="1" max="20" style="width:55px;font-size:.8rem;padding:.45rem .55rem;text-align:center">' +
+        '<button type="button" onclick="this.closest(\'.bf-custom-extra\').remove()" style="padding:.4rem .55rem;background:rgba(239,68,68,.15);color:#ef4444;border:none;border-radius:6px;font-size:.8rem;cursor:pointer;font-weight:700">✕</button>' +
+        '</div>' +
+        '<input type="text" class="bf-note-input custom-extra-note" placeholder="Catatan (opsional)" style="margin-top:.35rem;width:100%">';
+    container.appendChild(div);
+    div.querySelector('.custom-extra-name').focus();
+}
 </script>
 
 <?php include '../../includes/footer.php'; ?>
