@@ -3,7 +3,7 @@
  * Handles background notifications for end-shift alerts
  */
 
-const CACHE_NAME = 'adf-system-v1';
+const CACHE_NAME = 'adf-system-v2';
 
 // Install event
 self.addEventListener('install', (event) => {
