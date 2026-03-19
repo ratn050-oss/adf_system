@@ -2496,6 +2496,12 @@ function showBookingQuickView(booking) {
     if (booking.payment_status !== 'paid') {
         actionButtons += '<button type="button" class="qv-btn qv-pay-btn" onclick="openBookingPaymentModal()">Pay</button>';
     }
+    
+    // Edit & Delete (only for pending/confirmed bookings)
+    if (booking.status === 'confirmed' || booking.status === 'pending') {
+        actionButtons += '<button type="button" class="qv-btn" onclick="closeBookingQuickView(); openEditReservationModal(' + booking.id + ')" style="background:#f59e0b; color:white; border:none;">✏️ Edit</button>';
+        actionButtons += '<button type="button" class="qv-btn" onclick="quickViewDeleteBooking()" style="background:#ef4444; color:white; border:none;">🗑️ Hapus</button>';
+    }
 
     // Populate modal
     document.getElementById('qv-content').innerHTML = `
@@ -2815,6 +2821,19 @@ window.quickViewCheckIn = function quickViewCheckIn() {
     const paid      = parseFloat(b.paid_amount) || 0;
     const remaining = Math.max(0, total - paid);
 
+    // Detect OTA booking
+    const otaSources = ['ota', 'agoda', 'booking', 'tiket', 'traveloka', 'airbnb', 'expedia', 'pegipegi'];
+    const bookingSource = (b.booking_source || '').toLowerCase().replace(/\.com|\.co\.id|\.id/g, '').replace(/[^a-z0-9]/g, '');
+    const isOTA = otaSources.some(s => bookingSource.includes(s));
+
+    // OTA booking: sudah dibayar via OTA, langsung check-in (uang masuk kas otomatis)
+    if (isOTA) {
+        const sourceLabel = (b.booking_source || 'OTA').charAt(0).toUpperCase() + (b.booking_source || 'OTA').slice(1);
+        if (!confirm(`🏨 Booking via ${sourceLabel}\n\nTamu: ${b.guest_name}\nRoom: ${b.room_number}\nTotal: Rp ${total.toLocaleString('id-ID')}\n\nUang sebesar Rp ${total.toLocaleString('id-ID')} (setelah potong fee OTA) akan otomatis masuk ke Buku Kas.\n\nLanjutkan Check-in?`)) return;
+        performCheckin(0, null, false);
+        return;
+    }
+
     // Jika sudah lunas, langsung konfirmasi check-in
     if (remaining <= 0) {
         if (!confirm(`💳 Tagihan LUNAS\n\nCheck-in ${b.guest_name} ke Room ${b.room_number}?`)) return;
@@ -2911,6 +2930,33 @@ function performCheckin(payAmount, payMethod, payNow) {
         console.error('Error:', error);
         alert('❌ Terjadi kesalahan: ' + error.message);
         if (btn) { btn.innerHTML = 'Check-in'; btn.disabled = false; }
+    });
+}
+
+window.quickViewDeleteBooking = function quickViewDeleteBooking() {
+    if (!currentPaymentBooking) return;
+    const b = currentPaymentBooking;
+    
+    if (!confirm(`⚠️ HAPUS RESERVASI\n\nTamu: ${b.guest_name}\nRoom: ${b.room_number}\nBooking: ${b.booking_code}\n\nReservasi ini akan dihapus permanen.\nLanjutkan?`)) return;
+    
+    fetch('<?php echo BASE_URL; ?>/api/delete-booking.php', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify({ booking_id: b.id })
+    })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            alert('✅ Reservasi berhasil dihapus');
+            closeBookingQuickView();
+            location.reload();
+        } else {
+            alert('❌ ' + data.message);
+        }
+    })
+    .catch(err => {
+        alert('❌ Error: ' + err.message);
     });
 }
 
