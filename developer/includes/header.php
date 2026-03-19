@@ -528,6 +528,9 @@
             <a href="web-settings.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'web-settings.php' ? 'active' : ''; ?>">
                 <i class="bi bi-globe"></i>Web Settings
             </a>
+            <a href="design.php" class="<?php echo basename($_SERVER['PHP_SELF']) == 'design.php' || basename($_SERVER['PHP_SELF']) == 'design-room-image.php' ? 'active' : ''; ?>">
+                <i class="bi bi-palette"></i>Design Tools
+            </a>
             
             <div class="menu-section">Account</div>
             <a href="logout.php">
