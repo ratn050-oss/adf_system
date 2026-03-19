@@ -486,12 +486,17 @@ class CashbookHelper {
             
             // ---- DEDUP CHECK: prevent duplicate cash_book entries ----
             $bookingCode = $paymentData['booking_code'] ?? '';
+            $isOtaCheckin = $paymentData['is_ota_checkin'] ?? false;
             if ($bookingCode) {
+                // OTA check-in: final_price sudah NET, gunakan itu untuk dedup
+                $dedupAmount = ($isOtaCheckin && !empty($paymentData['final_price']) && (float)$paymentData['final_price'] > 0)
+                    ? (float)$paymentData['final_price']
+                    : $paymentData['amount'];
                 // Payment-level dedup: check by booking_code AND amount
                 $existingEntry = $this->db->fetchOne("
                     SELECT id FROM cash_book 
                     WHERE description LIKE ? AND ABS(amount - ?) < 1 AND transaction_type = 'income' LIMIT 1
-                ", ['%' . $bookingCode . '%', $paymentData['amount']]);
+                ", ['%' . $bookingCode . '%', $dedupAmount]);
                 if ($existingEntry) {
                     $result['success'] = true;
                     $result['transaction_id'] = $existingEntry['id'];
@@ -504,9 +509,24 @@ class CashbookHelper {
             
             // Calculate OTA fee if applicable
             $bookingSource = $paymentData['booking_source'] ?? '';
-            $otaCalc = $this->calculateOtaFee($paymentData['amount'], $bookingSource);
+            
+            if ($isOtaCheckin && !empty($paymentData['final_price']) && (float)$paymentData['final_price'] > 0) {
+                // OTA check-in: final_price sudah NET (fee OTA sudah dipotong saat reservasi)
+                // Langsung gunakan final_price, JANGAN hitung ulang fee dari booking_sources
+                $amountToRecord = (float)$paymentData['final_price'];
+                $otaCalc = [
+                    'gross' => (float)$paymentData['amount'],
+                    'fee_percent' => 0,
+                    'fee_amount' => (float)$paymentData['amount'] - $amountToRecord,
+                    'net' => $amountToRecord,
+                    'source' => 'final_price_direct'
+                ];
+                error_log("CashbookHelper: OTA check-in - using final_price directly: {$amountToRecord} (gross: {$paymentData['amount']})");
+            } else {
+                $otaCalc = $this->calculateOtaFee($paymentData['amount'], $bookingSource);
+                $amountToRecord = $otaCalc['net'];
+            }
             $result['ota_fee'] = $otaCalc;
-            $amountToRecord = $otaCalc['net'];
             
             // Get division and category
             $divisionId = $this->getDivisionId();
