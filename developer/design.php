@@ -151,13 +151,10 @@ require_once __DIR__ . '/includes/header.php';
     </div>
     
     <?php
-    // Check if required assets exist
-    $assetsDir = __DIR__ . '/assets/room-design/';
-    $fontFile = $assetsDir . 'font.ttf';
-    $woodFile = $assetsDir . 'wood_texture.jpg';
-    $hasFont = file_exists($fontFile);
-    $hasWood = file_exists($woodFile);
     $gdLoaded = extension_loaded('gd');
+    $assetsDir = __DIR__ . '/assets/room-design/';
+    $hasCustomFont = file_exists($assetsDir . 'font.ttf');
+    $hasCustomWood = file_exists($assetsDir . 'wood_texture.jpg');
     
     // Get all rooms from business databases for quick select
     $allRooms = [];
@@ -178,39 +175,22 @@ require_once __DIR__ . '/includes/header.php';
     } catch (Exception $e) {}
     ?>
     
-    <!-- Status Check -->
-    <?php if (!$gdLoaded || !$hasFont || !$hasWood): ?>
-    <div class="alert alert-warning">
-        <h6 class="alert-heading fw-bold"><i class="bi bi-exclamation-triangle me-1"></i>Requirement Check</h6>
-        <ul class="mb-0 small">
-            <li>GD Extension: <?= $gdLoaded ? '✅ Loaded' : '❌ Tidak aktif — aktifkan di php.ini' ?></li>
-            <li>Font file (<code>developer/assets/room-design/font.ttf</code>): <?= $hasFont ? '✅ Ada' : '❌ Belum ada — upload font TTF' ?></li>
-            <li>Wood texture (<code>developer/assets/room-design/wood_texture.jpg</code>): <?= $hasWood ? '✅ Ada' : '❌ Belum ada — upload gambar tekstur kayu' ?></li>
-        </ul>
-        <?php if (!$hasFont || !$hasWood): ?>
-        <hr>
-        <form method="POST" enctype="multipart/form-data" class="row g-3 align-items-end" action="design.php?section=room-number&action=upload-assets">
-            <?php if (!$hasFont): ?>
-            <div class="col-md-5">
-                <label class="form-label small fw-bold">Upload Font TTF</label>
-                <input type="file" name="font_file" accept=".ttf,.otf" class="form-control form-control-sm">
-            </div>
-            <?php endif; ?>
-            <?php if (!$hasWood): ?>
-            <div class="col-md-5">
-                <label class="form-label small fw-bold">Upload Wood Texture JPG</label>
-                <input type="file" name="wood_file" accept=".jpg,.jpeg,.png" class="form-control form-control-sm">
-            </div>
-            <?php endif; ?>
-            <div class="col-md-2">
-                <button type="submit" name="action" value="upload_assets" class="btn btn-sm btn-primary w-100">
-                    <i class="bi bi-upload me-1"></i>Upload
-                </button>
-            </div>
-        </form>
-        <?php endif; ?>
+    <?php if (!$gdLoaded): ?>
+    <div class="alert alert-danger">
+        <i class="bi bi-exclamation-triangle me-1"></i><strong>GD Extension tidak aktif</strong> — aktifkan di php.ini
     </div>
     <?php endif; ?>
+    
+    <!-- Status Info -->
+    <div class="alert alert-info small mb-3">
+        <i class="bi bi-info-circle me-1"></i>
+        <strong>Status:</strong>
+        Font: <?= $hasCustomFont ? '🎨 Custom (font.ttf)' : '📝 System Font (auto)' ?> · 
+        Tekstur: <?= $hasCustomWood ? '🪵 Custom (wood_texture.jpg)' : '🎨 Auto-generated walnut' ?>
+        <?php if (!$hasCustomFont || !$hasCustomWood): ?>
+        <span class="text-muted">— Upload custom assets di bawah (opsional)</span>
+        <?php endif; ?>
+    </div>
     
     <div class="row g-4">
         <!-- Settings Panel -->
@@ -258,13 +238,30 @@ require_once __DIR__ . '/includes/header.php';
                     <?php endif; ?>
                     
                     <hr>
-                    <button class="btn btn-success w-100" onclick="downloadImage()" <?= (!$gdLoaded || !$hasFont || !$hasWood) ? 'disabled' : '' ?>>
+                    <button class="btn btn-success w-100" onclick="downloadImage()" <?= !$gdLoaded ? 'disabled' : '' ?>>
                         <i class="bi bi-download me-1"></i>Download PNG
                     </button>
                     
-                    <button class="btn btn-outline-primary w-100 mt-2" onclick="generateBatch()" <?= (!$gdLoaded || !$hasFont || !$hasWood) ? 'disabled' : '' ?>>
+                    <button class="btn btn-outline-primary w-100 mt-2" onclick="generateBatch()" <?= !$gdLoaded ? 'disabled' : '' ?>>
                         <i class="bi bi-collection me-1"></i>Generate Semua Room
                     </button>
+                    
+                    <!-- Optional: Upload custom assets -->
+                    <hr>
+                    <div class="small text-muted fw-bold mb-2"><i class="bi bi-cloud-upload me-1"></i>Custom Assets (opsional)</div>
+                    <form method="POST" enctype="multipart/form-data" action="design.php?section=room-number&action=upload-assets">
+                        <div class="mb-2">
+                            <label class="form-label small">Font TTF <?= $hasCustomFont ? '✅' : '' ?></label>
+                            <input type="file" name="font_file" accept=".ttf,.otf" class="form-control form-control-sm">
+                        </div>
+                        <div class="mb-2">
+                            <label class="form-label small">Wood Texture <?= $hasCustomWood ? '✅' : '' ?></label>
+                            <input type="file" name="wood_file" accept=".jpg,.jpeg,.png" class="form-control form-control-sm">
+                        </div>
+                        <button type="submit" name="action" value="upload_assets" class="btn btn-sm btn-outline-secondary w-100">
+                            <i class="bi bi-upload me-1"></i>Upload Custom
+                        </button>
+                    </form>
                 </div>
             </div>
         </div>
@@ -276,15 +273,15 @@ require_once __DIR__ . '/includes/header.php';
                     <h6 class="mb-0"><i class="bi bi-eye me-2"></i>Preview</h6>
                 </div>
                 <div class="p-4 text-center" style="background: #e8e8e8; min-height: 400px; display: flex; align-items: center; justify-content: center;">
-                    <?php if ($gdLoaded && $hasFont && $hasWood): ?>
+                    <?php if ($gdLoaded): ?>
                     <img id="roomPreview" 
                          src="design-room-image.php?no=301&hotel=NARAYANA&sub=HOTEL&t=<?= time() ?>" 
                          alt="Room Number Preview"
-                         style="max-width: 100%; max-height: 500px; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
+                         style="max-width: 100%; max-height: 550px; border-radius: 8px; box-shadow: 0 4px 20px rgba(0,0,0,0.3);">
                     <?php else: ?>
                     <div class="text-muted">
                         <i class="bi bi-image" style="font-size: 64px;"></i>
-                        <p class="mt-2">Upload font & wood texture terlebih dahulu untuk melihat preview</p>
+                        <p class="mt-2">GD Extension diperlukan untuk generate gambar</p>
                     </div>
                     <?php endif; ?>
                 </div>
@@ -338,7 +335,12 @@ require_once __DIR__ . '/includes/header.php';
     function generateBatch() {
         const hotel = document.getElementById('hotelName').value || 'NARAYANA';
         const sub = document.getElementById('subText').value || 'HOTEL';
-        const rooms = <?= json_encode(array_merge(...array_values($allRooms ?: [['301']]))) ?>;
+        const rooms = <?php
+            $roomsList = [];
+            foreach ($allRooms as $rms) { $roomsList = array_merge($roomsList, $rms); }
+            if (empty($roomsList)) $roomsList = ['301'];
+            echo json_encode($roomsList);
+        ?>;
         
         const grid = document.getElementById('batchGrid');
         const wrap = document.getElementById('batchResults');
