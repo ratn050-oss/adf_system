@@ -852,14 +852,21 @@ include '../../includes/header.php';
                     <div class="input-compact">
                         <label>Booking Source</label>
                         <select id="bookingSource" name="booking_source" onchange="onBookingSourceChange()">
-                            <option value="walk_in">Direct (Walk-in)</option>
-                            <option value="phone">Direct (Phone)</option>
-                            <option value="online">Direct Online</option>
-                            <option value="agoda">Agoda</option>
-                            <option value="booking">Booking.com</option>
-                            <option value="tiket">Tiket.com</option>
-                            <option value="airbnb">Airbnb</option>
-                            <option value="ota">OTA Lainnya</option>
+                            <?php
+                            $directKeys = ['walk_in','phone','online'];
+                            $srcDirectR = array_filter($otaProviders, fn($v, $k) => in_array($k, $directKeys), ARRAY_FILTER_USE_BOTH);
+                            $srcOtaR = array_filter($otaProviders, fn($v, $k) => !in_array($k, $directKeys), ARRAY_FILTER_USE_BOTH);
+                            ?>
+                            <optgroup label="Direct">
+                                <?php foreach ($srcDirectR as $key => $src): ?>
+                                <option value="<?php echo htmlspecialchars($key); ?>"><?php echo $src['icon'] . ' ' . htmlspecialchars($src['name']); ?></option>
+                                <?php endforeach; ?>
+                            </optgroup>
+                            <optgroup label="OTA">
+                                <?php foreach ($srcOtaR as $key => $src): ?>
+                                <option value="<?php echo htmlspecialchars($key); ?>"><?php echo $src['icon'] . ' ' . htmlspecialchars($src['name']) . ' (fee ' . $src['fee'] . '%)'; ?></option>
+                                <?php endforeach; ?>
+                            </optgroup>
                         </select>
                     </div>
                     <div class="input-compact">

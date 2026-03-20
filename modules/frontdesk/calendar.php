@@ -3299,13 +3299,14 @@ window.updateSourceDetails = function() {
     
     // AUTO-SELECT PAYMENT METHOD LOGIC
     const pmOtaBtn = document.getElementById('pm-ota'); // The new hidden OTA button
-    const otaSources = ['agoda', 'booking', 'tiket', 'traveloka', 'airbnb', 'ota'];
+    const directSources = ['walk_in', 'phone', 'online'];
+    const isOtaSource = !directSources.includes(currentSource) && feePercent > 0;
     
     const paidAmountInput = document.getElementById('paidAmount');
     const payAllBtn = document.querySelector('.btn-pay-all');
     const pmSelect = document.getElementById('paymentMethod');
     
-    if (otaSources.includes(currentSource)) {
+    if (isOtaSource) {
         // Source is an OTA: set payment method to ota_<source>
         const otaValue = 'ota_' + currentSource;
         const otaNames = {'agoda':'Agoda','booking':'Booking.com','tiket':'Tiket.com','traveloka':'Traveloka','airbnb':'Airbnb','ota':'OTA Lainnya'};
@@ -3420,8 +3421,9 @@ window.calculateFinalPrice = function() {
         }
         
         // Auto-fill paid amount with final price for OTA (Assume prepaid to OTA)
-        // Check if it IS an OTA source (logic: has a fee defined usually implies OTA here)
-        if (['agoda', 'booking', 'tiket', 'traveloka', 'airbnb', 'ota'].includes(currentSource)) {
+        // Check if it IS an OTA source (has fee > 0 and not a direct source)
+        const directSrcs = ['walk_in', 'phone', 'online'];
+        if (!directSrcs.includes(currentSource)) {
              if (paidAmountInput) paidAmountInput.value = final;
              
              // Update payment status dropdown logic locally if function exists
@@ -4462,14 +4464,29 @@ document.addEventListener('DOMContentLoaded', function() {
                     <div class="input-compact">
                         <label>Booking Source</label>
                         <select id="bookingSource" name="booking_source" onchange="updateSourceDetails()">
+                            <?php
+                            $srcDirect = array_filter($bookingSources, fn($s) => ($s['source_type'] ?? '') === 'direct');
+                            $srcOta = array_filter($bookingSources, fn($s) => ($s['source_type'] ?? '') !== 'direct');
+                            if (!empty($srcDirect) || !empty($srcOta)):
+                            ?>
+                            <optgroup label="Direct">
+                                <?php foreach ($srcDirect as $src): ?>
+                                <option value="<?php echo htmlspecialchars($src['source_key']); ?>"><?php echo $src['icon'] . ' ' . htmlspecialchars($src['source_name']); ?></option>
+                                <?php endforeach; ?>
+                            </optgroup>
+                            <optgroup label="OTA">
+                                <?php foreach ($srcOta as $src): ?>
+                                <option value="<?php echo htmlspecialchars($src['source_key']); ?>"><?php echo $src['icon'] . ' ' . htmlspecialchars($src['source_name']) . ' (fee ' . $src['fee_percent'] . '%)'; ?></option>
+                                <?php endforeach; ?>
+                            </optgroup>
+                            <?php else: ?>
                             <option value="walk_in">Direct (Walk-in)</option>
                             <option value="phone">Direct (Phone)</option>
-                            <option value="online">Direct Online</option>
                             <option value="agoda">Agoda</option>
                             <option value="booking">Booking.com</option>
                             <option value="tiket">Tiket.com</option>
-                            <option value="airbnb">Airbnb</option>
                             <option value="ota">OTA Lainnya</option>
+                            <?php endif; ?>
                         </select>
                     </div>
                     <div class="input-compact">
