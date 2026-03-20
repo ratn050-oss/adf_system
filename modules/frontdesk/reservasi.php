@@ -765,7 +765,7 @@ include '../../includes/header.php';
                             $remaining = $booking['final_price'] - max($booking['paid_amount'], $booking['total_paid']);
                             if ($remaining > 0 && $booking['payment_status'] !== 'paid' && $booking['status'] !== 'cancelled' && $booking['status'] !== 'checked_out'): 
                             ?>
-                            <button class="action-btn action-pay" onclick="addPayment(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_code']); ?>', <?php echo $remaining; ?>)">
+                            <button class="action-btn action-pay" onclick="addPayment(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_code']); ?>', <?php echo $remaining; ?>, '<?php echo htmlspecialchars($booking['booking_source']); ?>')">
                                 💰 Pay
                             </button>
                             <?php endif; ?>
@@ -1667,16 +1667,19 @@ function printInvoice(id) {
     window.open('invoice.php?booking_id=' + id, '_blank', 'width=800,height=900');
 }
 
-function addPayment(bookingId, bookingCode, remainingAmount) {
+function addPayment(bookingId, bookingCode, remainingAmount, bookingSource) {
     const formattedRemaining = 'Rp ' + remainingAmount.toLocaleString('id-ID');
+    const feePercent = OTA_FEES[bookingSource] || 0;
+    const sourceName = OTA_NAMES[bookingSource] || bookingSource;
+    const isOta = feePercent > 0;
     
-    const amount = prompt(
-        `💰 TAMBAH PEMBAYARAN\n\n` +
-        `Booking: ${bookingCode}\n` +
-        `Sisa Tagihan: ${formattedRemaining}\n\n` +
-        `Masukkan jumlah pembayaran:`,
-        remainingAmount
-    );
+    let promptMsg = `💰 TAMBAH PEMBAYARAN\n\nBooking: ${bookingCode}\n`;
+    if (isOta) {
+        promptMsg += `Sumber: ${sourceName} (Fee ${feePercent}%)\n`;
+    }
+    promptMsg += `Sisa Tagihan: ${formattedRemaining}\n\nMasukkan jumlah pembayaran:`;
+    
+    const amount = prompt(promptMsg, remainingAmount);
     
     if (amount === null) return; // User cancelled
     
@@ -1692,25 +1695,38 @@ function addPayment(bookingId, bookingCode, remainingAmount) {
         }
     }
     
-    // Ask for payment method
-    const method = prompt(
-        `Pilih metode pembayaran:\n\n` +
-        `1 = Cash\n` +
-        `2 = Transfer\n` +
-        `3 = QRIS\n` +
-        `4 = Card\n\n` +
-        `Masukkan nomor pilihan:`,
-        '1'
-    );
-    
-    const methodMap = {
-        '1': 'cash',
-        '2': 'transfer',
-        '3': 'qris',
-        '4': 'card'
-    };
-    
-    const paymentMethod = methodMap[method] || 'cash';
+    let paymentMethod;
+    if (isOta) {
+        // OTA: auto-set payment method to OTA source
+        paymentMethod = 'ota_' + bookingSource;
+        const feeAmount = Math.round(payAmount * feePercent / 100);
+        const netAmount = payAmount - feeAmount;
+        if (!confirm(
+            `📋 DETAIL PEMBAYARAN OTA\n\n` +
+            `Sumber: ${sourceName}\n` +
+            `Jumlah Bayar: Rp ${payAmount.toLocaleString('id-ID')}\n` +
+            `OTA Fee (${feePercent}%): -Rp ${feeAmount.toLocaleString('id-ID')}\n` +
+            `Net Diterima: Rp ${netAmount.toLocaleString('id-ID')}\n\n` +
+            `Metode: OTA ${sourceName}\n\n` +
+            `Lanjutkan proses pembayaran?`
+        )) {
+            return;
+        }
+    } else {
+        // Direct: ask for payment method
+        const method = prompt(
+            `Pilih metode pembayaran:\n\n` +
+            `1 = Cash\n` +
+            `2 = Transfer\n` +
+            `3 = QRIS\n` +
+            `4 = Card\n\n` +
+            `Masukkan nomor pilihan:`,
+            '1'
+        );
+        if (method === null) return;
+        const methodMap = { '1': 'cash', '2': 'transfer', '3': 'qris', '4': 'card' };
+        paymentMethod = methodMap[method] || 'cash';
+    }
     
     // Submit payment
     const formData = new FormData();
