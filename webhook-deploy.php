@@ -63,14 +63,58 @@ if (file_exists($manifestPath)) {
 
 // POST = try to deploy
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    if (function_exists('exec')) {
-        chdir($deployDir);
+    chdir($deployDir);
+    $pulled = false;
+    $pullOutput = '';
+    
+    // Try multiple shell execution methods
+    $cmd = 'cd ' . escapeshellarg($deployDir) . ' && git pull origin main 2>&1';
+    
+    if (!$pulled && function_exists('exec')) {
         $output = [];
         $code = 0;
-        exec('git pull origin main 2>&1', $output, $code);
-        $result['pull'] = ['status' => $code === 0 ? 'success' : 'error', 'output' => implode("\n", $output)];
+        @exec($cmd, $output, $code);
+        $pullOutput = implode("\n", $output);
+        $pulled = ($code === 0 && !empty($pullOutput));
+    }
+    
+    if (!$pulled && function_exists('shell_exec')) {
+        $pullOutput = @shell_exec($cmd);
+        $pulled = ($pullOutput !== null && $pullOutput !== false);
+    }
+    
+    if (!$pulled && function_exists('system')) {
+        ob_start();
+        @system($cmd, $code);
+        $pullOutput = ob_get_clean();
+        $pulled = ($code === 0);
+    }
+    
+    if (!$pulled && function_exists('passthru')) {
+        ob_start();
+        @passthru($cmd, $code);
+        $pullOutput = ob_get_clean();
+        $pulled = ($code === 0);
+    }
+    
+    if (!$pulled && function_exists('proc_open')) {
+        $descriptors = [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']];
+        $process = @proc_open($cmd, $descriptors, $pipes);
+        if (is_resource($process)) {
+            fclose($pipes[0]);
+            $pullOutput = stream_get_contents($pipes[1]);
+            $pullOutput .= stream_get_contents($pipes[2]);
+            fclose($pipes[1]);
+            fclose($pipes[2]);
+            $code = proc_close($process);
+            $pulled = ($code === 0);
+        }
+    }
+    
+    if ($pulled) {
+        $result['pull'] = ['status' => 'success', 'output' => trim($pullOutput)];
     } else {
-        $result['pull'] = ['status' => 'error', 'output' => 'exec() is disabled on this server'];
+        $result['pull'] = ['status' => 'error', 'output' => 'All shell functions disabled. Output: ' . ($pullOutput ?: 'none')];
     }
 }
 
