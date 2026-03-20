@@ -370,20 +370,32 @@ function saveEdit(event) {
         method: 'POST',
         body: formData
     })
-    .then(r => r.json())
-    .then(data => {
+    .then(r => r.text())
+    .then(text => {
+        let data;
+        try { data = JSON.parse(text); } catch(e) {
+            console.error('Response bukan JSON:', text);
+            throw new Error('Server error: respons tidak valid');
+        }
         const alertBox = document.getElementById('alertBox');
         if (data.success) {
             alertBox.innerHTML = '<div class="alert alert-success">✅ ' + data.message + '</div>';
-            setTimeout(() => { window.location.href = 'reservasi.php'; }, 1500);
+            alertBox.scrollIntoView({ behavior: 'smooth' });
+            alert('✅ ' + data.message);
+            setTimeout(() => { window.location.href = 'reservasi.php'; }, 1000);
         } else {
             alertBox.innerHTML = '<div class="alert alert-error">❌ ' + data.message + '</div>';
+            alertBox.scrollIntoView({ behavior: 'smooth' });
+            alert('❌ ' + data.message);
             btn.innerHTML = '💾 Simpan Perubahan';
             btn.disabled = false;
         }
     })
     .catch(err => {
-        document.getElementById('alertBox').innerHTML = '<div class="alert alert-error">❌ Error: ' + err.message + '</div>';
+        const alertBox = document.getElementById('alertBox');
+        alertBox.innerHTML = '<div class="alert alert-error">❌ Error: ' + err.message + '</div>';
+        alertBox.scrollIntoView({ behavior: 'smooth' });
+        alert('❌ Error: ' + err.message);
         btn.innerHTML = '💾 Simpan Perubahan';
         btn.disabled = false;
     });
