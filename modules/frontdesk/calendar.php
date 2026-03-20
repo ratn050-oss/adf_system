@@ -44,13 +44,15 @@ $otaFees = [
 ];
 try {
     // Read directly from booking_sources table (single source of truth)
-    $feesFromDb = $db->fetchAll("SELECT source_key, fee_percent FROM booking_sources WHERE is_active = 1");
+    $feesFromDb = $db->fetchAll("SELECT source_key, source_name, source_type, fee_percent, icon FROM booking_sources WHERE is_active = 1 ORDER BY sort_order ASC");
+    $bookingSources = $feesFromDb ?: [];
     if ($feesFromDb) {
         foreach ($feesFromDb as $fee) {
             $otaFees[$fee['source_key']] = (float)$fee['fee_percent'];
         }
     }
 } catch (Exception $e) {
+    $bookingSources = [];
     // Keep defaults
 }
 
@@ -5445,7 +5447,7 @@ body[data-theme="dark"] .modal-footer-modern {
 
 <!-- EDIT RESERVATION MODAL -->
 <div id="editResModal" class="edit-res-overlay" onclick="if(event.target===this)closeEditResModal()">
-    <div class="edit-res-modal">
+    <div class="edit-res-modal" style="max-width:520px;">
         <h3>✏️ Edit Reservasi</h3>
         <input type="hidden" id="editResBookingId">
         <div class="form-row">
@@ -5461,11 +5463,11 @@ body[data-theme="dark"] .modal-footer-modern {
         <div class="form-row">
             <div class="form-group">
                 <label>Check-in</label>
-                <input type="date" id="editResCheckIn">
+                <input type="date" id="editResCheckIn" onchange="updateEditResInfo()">
             </div>
             <div class="form-group">
                 <label>Check-out</label>
-                <input type="date" id="editResCheckOut">
+                <input type="date" id="editResCheckOut" onchange="updateEditResInfo()">
             </div>
         </div>
         <div class="form-row">
@@ -5480,12 +5482,46 @@ body[data-theme="dark"] .modal-footer-modern {
         </div>
         <div class="form-row">
             <div class="form-group">
+                <label>Booking Source</label>
+                <select id="editResSource" onchange="updateEditResInfo()">
+                    <?php 
+                    $directSrc = array_filter($bookingSources ?? [], fn($s) => ($s['source_type'] ?? '') === 'direct');
+                    $otaSrcList = array_filter($bookingSources ?? [], fn($s) => ($s['source_type'] ?? '') !== 'direct');
+                    if (!empty($directSrc) || !empty($otaSrcList)): ?>
+                    <optgroup label="Direct">
+                        <?php foreach ($directSrc as $src): ?>
+                        <option value="<?php echo $src['source_key']; ?>"><?php echo $src['icon'] . ' ' . $src['source_name']; ?></option>
+                        <?php endforeach; ?>
+                    </optgroup>
+                    <optgroup label="OTA">
+                        <?php foreach ($otaSrcList as $src): ?>
+                        <option value="<?php echo $src['source_key']; ?>"><?php echo $src['icon'] . ' ' . $src['source_name'] . ' (fee ' . $src['fee_percent'] . '%)'; ?></option>
+                        <?php endforeach; ?>
+                    </optgroup>
+                    <?php else: ?>
+                    <option value="walk_in">Walk-in</option>
+                    <option value="phone">Phone</option>
+                    <option value="agoda">Agoda</option>
+                    <option value="booking">Booking.com</option>
+                    <option value="tiket">Tiket.com</option>
+                    <option value="ota">OTA Lainnya</option>
+                    <?php endif; ?>
+                </select>
+            </div>
+            <div class="form-group">
+                <label>Harga/Malam</label>
+                <input type="number" id="editResRoomPrice" onchange="updateEditResInfo()">
+            </div>
+        </div>
+        <div class="form-row">
+            <div class="form-group">
                 <label>Jumlah Tamu</label>
                 <input type="number" id="editResNumGuests" min="1" max="10" value="1">
             </div>
             <div class="form-group">
-                <label>Harga/Malam</label>
-                <input type="number" id="editResRoomPrice">
+                <label>Diskon (Rp)</label>
+                <input type="number" id="editResDiscount" min="0" value="0" onchange="updateEditResInfo()">
+                <input type="hidden" id="editResDiscountType" value="rp">
             </div>
         </div>
         <div class="form-group">
@@ -5763,6 +5799,18 @@ window.openEditReservationModal = function(bookingId) {
         document.getElementById('editResRoomPrice').value = b.room_price || '';
         document.getElementById('editResSpecialRequests').value = b.special_requests || '';
         
+        // Set booking source
+        const srcSelect = document.getElementById('editResSource');
+        if (srcSelect && b.booking_source) {
+            srcSelect.value = b.booking_source;
+        }
+        
+        // Set discount
+        const discInput = document.getElementById('editResDiscount');
+        if (discInput) {
+            discInput.value = parseFloat(b.discount) || 0;
+        }
+        
         updateEditResInfo();
         document.getElementById('editResModal').classList.add('active');
     })
@@ -5787,19 +5835,35 @@ function updateEditResInfo() {
     const ci = document.getElementById('editResCheckIn').value;
     const co = document.getElementById('editResCheckOut').value;
     const price = parseFloat(document.getElementById('editResRoomPrice').value) || 0;
+    const discount = parseFloat(document.getElementById('editResDiscount').value) || 0;
+    const source = document.getElementById('editResSource').value;
+    const feePercent = (typeof OTA_FEES !== 'undefined' && OTA_FEES[source]) ? OTA_FEES[source] : 0;
     
     if (ci && co) {
         const nights = Math.ceil((new Date(co) - new Date(ci)) / 86400000);
-        const total = price * nights;
-        document.getElementById('editResInfo').innerHTML = `
-            <strong>${nights} malam</strong> × Rp ${new Intl.NumberFormat('id-ID').format(price)} = <strong>Rp ${new Intl.NumberFormat('id-ID').format(total)}</strong>
-        `;
+        const subtotal = price * nights;
+        const afterDiscount = subtotal - discount;
+        const feeAmount = feePercent > 0 ? Math.round(afterDiscount * feePercent / 100) : 0;
+        const total = afterDiscount - feeAmount;
+        
+        let html = `<strong>${nights} malam</strong> × Rp ${new Intl.NumberFormat('id-ID').format(price)} = Rp ${new Intl.NumberFormat('id-ID').format(subtotal)}`;
+        if (discount > 0) {
+            html += `<br>Diskon: <span style="color:#ef4444;">- Rp ${new Intl.NumberFormat('id-ID').format(discount)}</span>`;
+        }
+        if (feePercent > 0) {
+            html += `<br><span style="color:#92400e;">Fee OTA (${feePercent}%): - Rp ${new Intl.NumberFormat('id-ID').format(feeAmount)}</span>`;
+        }
+        html += `<br><strong style="color:#10b981;">Total: Rp ${new Intl.NumberFormat('id-ID').format(total)}</strong>`;
+        document.getElementById('editResInfo').innerHTML = html;
     }
 }
 
 // Live update edit form info
-['editResCheckIn', 'editResCheckOut', 'editResRoomPrice'].forEach(id => {
+['editResCheckIn', 'editResCheckOut', 'editResRoomPrice', 'editResDiscount', 'editResSource'].forEach(id => {
     document.addEventListener('input', function(e) {
+        if (e.target.id === id) updateEditResInfo();
+    });
+    document.addEventListener('change', function(e) {
         if (e.target.id === id) updateEditResInfo();
     });
 });
@@ -5819,6 +5883,9 @@ window.submitEditReservation = function() {
     formData.append('num_guests', document.getElementById('editResNumGuests').value);
     formData.append('room_price', document.getElementById('editResRoomPrice').value);
     formData.append('special_requests', document.getElementById('editResSpecialRequests').value);
+    formData.append('booking_source', document.getElementById('editResSource').value);
+    formData.append('discount_value', document.getElementById('editResDiscount').value);
+    formData.append('discount_type', 'rp');
     
     fetch('../../api/update-reservation.php', {
         method: 'POST',

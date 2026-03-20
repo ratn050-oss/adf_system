@@ -109,11 +109,16 @@ try {
         $updates[] = 'adults = ?';
         $params[] = intval($_POST['num_guests']);
     }
+    if (isset($_POST['booking_source']) && trim($_POST['booking_source'])) {
+        $updates[] = 'booking_source = ?';
+        $params[] = trim($_POST['booking_source']);
+    }
 
     // Date changes
     $checkIn = !empty($_POST['check_in_date']) ? trim($_POST['check_in_date']) : $booking['check_in_date'];
     $checkOut = !empty($_POST['check_out_date']) ? trim($_POST['check_out_date']) : $booking['check_out_date'];
-    $roomId = $booking['room_id']; // Room change not supported in this form
+    $newRoomId = !empty($_POST['room_id']) ? intval($_POST['room_id']) : $booking['room_id'];
+    $roomId = $newRoomId;
 
     $ciDate = new DateTime($checkIn);
     $coDate = new DateTime($checkOut);
@@ -122,8 +127,8 @@ try {
     }
     $nights = $ciDate->diff($coDate)->days;
 
-    // Check availability if dates changed
-    if ($checkIn !== $booking['check_in_date'] || $checkOut !== $booking['check_out_date']) {
+    // Check availability if dates or room changed
+    if ($checkIn !== $booking['check_in_date'] || $checkOut !== $booking['check_out_date'] || $roomId !== intval($booking['room_id'])) {
         $stmt = $conn->prepare("
             SELECT COUNT(*) FROM bookings 
             WHERE room_id = ? AND id != ? 
@@ -134,6 +139,12 @@ try {
         if ($stmt->fetchColumn() > 0) {
             throw new Exception('Room is not available for selected dates');
         }
+    }
+
+    // Handle room change
+    if ($roomId !== intval($booking['room_id'])) {
+        $updates[] = 'room_id = ?';
+        $params[] = $roomId;
     }
 
     // Get room price
@@ -150,8 +161,38 @@ try {
     }
 
     $totalPrice = $roomPrice * $nights;
-    $discount = floatval($booking['discount'] ?? 0);
-    $finalPrice = $totalPrice - $discount;
+    
+    // Discount handling
+    $discountType = $_POST['discount_type'] ?? 'rp';
+    $discountValue = floatval($_POST['discount_value'] ?? 0);
+    if ($discountType === 'percent' && $discountValue > 0) {
+        $discount = round($totalPrice * $discountValue / 100);
+    } else {
+        $discount = $discountValue;
+    }
+    
+    $afterDiscount = $totalPrice - $discount;
+    
+    // OTA fee calculation
+    $bookingSource = trim($_POST['booking_source'] ?? $booking['booking_source']);
+    $otaFeePercent = 0;
+    try {
+        $feeStmt = $conn->prepare("SELECT fee_percent FROM booking_sources WHERE source_key = ? AND is_active = 1 LIMIT 1");
+        $feeStmt->execute([$bookingSource]);
+        $feeRow = $feeStmt->fetch(PDO::FETCH_ASSOC);
+        if ($feeRow) {
+            $otaFeePercent = (float)$feeRow['fee_percent'];
+        }
+    } catch (Exception $e) {
+        // fallback: no fee
+    }
+    
+    $otaFeeAmount = 0;
+    if ($otaFeePercent > 0) {
+        $otaFeeAmount = round($afterDiscount * $otaFeePercent / 100);
+    }
+    
+    $finalPrice = $afterDiscount - $otaFeeAmount;
 
     // Add date/price fields to booking update
     $updates[] = 'check_in_date = ?';
@@ -164,6 +205,8 @@ try {
     $params[] = $roomPrice;
     $updates[] = 'total_price = ?';
     $params[] = $totalPrice;
+    $updates[] = 'discount = ?';
+    $params[] = $discount;
     $updates[] = 'final_price = ?';
     $params[] = $finalPrice;
     $updates[] = 'updated_at = NOW()';
