@@ -765,7 +765,7 @@ include '../../includes/header.php';
                             $remaining = $booking['final_price'] - max($booking['paid_amount'], $booking['total_paid']);
                             if ($remaining > 0 && $booking['payment_status'] !== 'paid' && $booking['status'] !== 'cancelled' && $booking['status'] !== 'checked_out'): 
                             ?>
-                            <button class="action-btn action-pay" onclick="addPayment(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_code']); ?>', <?php echo $remaining; ?>, '<?php echo htmlspecialchars($booking['booking_source']); ?>')">
+                            <button class="action-btn action-pay" onclick="addPayment(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_code']); ?>', <?php echo $remaining; ?>, '<?php echo htmlspecialchars($booking['booking_source']); ?>', <?php echo $otaFee; ?>, '<?php echo addslashes($otaName); ?>')">
                                 💰 Pay
                             </button>
                             <?php endif; ?>
@@ -1667,21 +1667,23 @@ function printInvoice(id) {
     window.open('invoice.php?booking_id=' + id, '_blank', 'width=800,height=900');
 }
 
-function addPayment(bookingId, bookingCode, remainingAmount, bookingSource) {
+function addPayment(bookingId, bookingCode, remainingAmount, bookingSource, otaFeePercent, otaSourceName) {
     const formattedRemaining = 'Rp ' + remainingAmount.toLocaleString('id-ID');
-    const feePercent = OTA_FEES[bookingSource] || 0;
-    const sourceName = OTA_NAMES[bookingSource] || bookingSource;
+    const feePercent = otaFeePercent || OTA_FEES[bookingSource] || 0;
+    const sourceName = otaSourceName || OTA_NAMES[bookingSource] || bookingSource || 'Direct';
     const isOta = feePercent > 0;
     
-    let promptMsg = `💰 TAMBAH PEMBAYARAN\n\nBooking: ${bookingCode}\n`;
-    if (isOta) {
-        promptMsg += `Sumber: ${sourceName} (Fee ${feePercent}%)\n`;
-    }
-    promptMsg += `Sisa Tagihan: ${formattedRemaining}\n\nMasukkan jumlah pembayaran:`;
+    // === STEP 1: Input jumlah pembayaran ===
+    let promptMsg = '━━━━━━━━━━━━━━━━━━━━━━━\n';
+    promptMsg += '💰 PEMBAYARAN - ' + bookingCode + '\n';
+    promptMsg += '━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+    promptMsg += '📌 Sumber: ' + sourceName;
+    if (isOta) promptMsg += ' (OTA Fee ' + feePercent + '%)';
+    promptMsg += '\n💵 Sisa Tagihan: ' + formattedRemaining + '\n\n';
+    promptMsg += 'Masukkan jumlah pembayaran:';
     
     const amount = prompt(promptMsg, remainingAmount);
-    
-    if (amount === null) return; // User cancelled
+    if (amount === null) return;
     
     const payAmount = parseFloat(amount);
     if (isNaN(payAmount) || payAmount <= 0) {
@@ -1690,37 +1692,42 @@ function addPayment(bookingId, bookingCode, remainingAmount, bookingSource) {
     }
     
     if (payAmount > remainingAmount) {
-        if (!confirm(`⚠️ Jumlah melebihi sisa tagihan!\n\nSisa: ${formattedRemaining}\nInput: Rp ${payAmount.toLocaleString('id-ID')}\n\nLanjutkan?`)) {
+        if (!confirm('⚠️ Jumlah melebihi sisa tagihan!\n\nSisa: ' + formattedRemaining + '\nInput: Rp ' + payAmount.toLocaleString('id-ID') + '\n\nLanjutkan?')) {
             return;
         }
     }
     
+    // === STEP 2: Payment method ===
     let paymentMethod;
     if (isOta) {
-        // OTA: auto-set payment method to OTA source
+        // OTA: otomatis set metode pembayaran ke OTA
         paymentMethod = 'ota_' + bookingSource;
         const feeAmount = Math.round(payAmount * feePercent / 100);
         const netAmount = payAmount - feeAmount;
-        if (!confirm(
-            `📋 DETAIL PEMBAYARAN OTA\n\n` +
-            `Sumber: ${sourceName}\n` +
-            `Jumlah Bayar: Rp ${payAmount.toLocaleString('id-ID')}\n` +
-            `OTA Fee (${feePercent}%): -Rp ${feeAmount.toLocaleString('id-ID')}\n` +
-            `Net Diterima: Rp ${netAmount.toLocaleString('id-ID')}\n\n` +
-            `Metode: OTA ${sourceName}\n\n` +
-            `Lanjutkan proses pembayaran?`
-        )) {
-            return;
-        }
+        
+        let confirmMsg = '━━━━━━━━━━━━━━━━━━━━━━━\n';
+        confirmMsg += '📋 KONFIRMASI PEMBAYARAN OTA\n';
+        confirmMsg += '━━━━━━━━━━━━━━━━━━━━━━━\n\n';
+        confirmMsg += '🏷️ Sumber: ' + sourceName + '\n';
+        confirmMsg += '💰 Jumlah Bayar: Rp ' + payAmount.toLocaleString('id-ID') + '\n';
+        confirmMsg += '📉 OTA Fee (' + feePercent + '%): -Rp ' + feeAmount.toLocaleString('id-ID') + '\n';
+        confirmMsg += '✅ Net Diterima: Rp ' + netAmount.toLocaleString('id-ID') + '\n\n';
+        confirmMsg += '💳 Metode: OTA ' + sourceName + '\n\n';
+        confirmMsg += 'Proses pembayaran ini?';
+        
+        if (!confirm(confirmMsg)) return;
     } else {
-        // Direct: ask for payment method
+        // Direct: pilih metode pembayaran
         const method = prompt(
-            `Pilih metode pembayaran:\n\n` +
-            `1 = Cash\n` +
-            `2 = Transfer\n` +
-            `3 = QRIS\n` +
-            `4 = Card\n\n` +
-            `Masukkan nomor pilihan:`,
+            '━━━━━━━━━━━━━━━━━━━━━━━\n' +
+            '💳 METODE PEMBAYARAN\n' +
+            '━━━━━━━━━━━━━━━━━━━━━━━\n\n' +
+            '📌 Sumber: ' + sourceName + '\n\n' +
+            '1 = 💵 Cash\n' +
+            '2 = 🏦 Transfer\n' +
+            '3 = 📱 QRIS\n' +
+            '4 = 💳 Card\n\n' +
+            'Pilih nomor:',
             '1'
         );
         if (method === null) return;
@@ -1728,7 +1735,7 @@ function addPayment(bookingId, bookingCode, remainingAmount, bookingSource) {
         paymentMethod = methodMap[method] || 'cash';
     }
     
-    // Submit payment
+    // === STEP 3: Submit ===
     const formData = new FormData();
     formData.append('booking_id', bookingId);
     formData.append('amount', payAmount);
@@ -1741,7 +1748,7 @@ function addPayment(bookingId, bookingCode, remainingAmount, bookingSource) {
     .then(response => response.json())
     .then(data => {
         if (data.success) {
-            alert('✅ PEMBAYARAN BERHASIL!\n\n' + (data.message || 'Payment recorded successfully'));
+            alert('✅ PEMBAYARAN BERHASIL!\n\n' + (data.message || 'Payment recorded'));
             location.reload();
         } else {
             alert('❌ Error: ' + data.message);
@@ -1749,7 +1756,6 @@ function addPayment(bookingId, bookingCode, remainingAmount, bookingSource) {
     })
     .catch(error => {
         alert('❌ Error: ' + error.message);
-        console.error('Error:', error);
     });
 }
 

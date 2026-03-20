@@ -110,8 +110,11 @@ try {
         $params[] = intval($_POST['num_guests']);
     }
     if (isset($_POST['booking_source']) && trim($_POST['booking_source'])) {
+        $src = trim($_POST['booking_source']);
+        // Map 'other' to 'ota' (OTA Lainnya)
+        if ($src === 'other') $src = 'ota';
         $updates[] = 'booking_source = ?';
-        $params[] = trim($_POST['booking_source']);
+        $params[] = $src;
     }
 
     // Date changes
