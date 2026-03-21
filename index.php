@@ -743,128 +743,165 @@ if ($trialStatus) {
 ?>
 
 <!-- PREMIUM TRADING CHART - PALING ATAS -->
-<div class="card" style="margin-bottom: 1.5rem; background: linear-gradient(135deg, rgba(<?php echo $cPrimaryRgb; ?>, 0.08), rgba(<?php echo $cSecondaryRgb; ?>, 0.05)); border: 2px solid rgba(<?php echo $cPrimaryRgb; ?>, 0.2); box-shadow: 0 10px 40px rgba(<?php echo $cPrimaryRgb; ?>, 0.15);">
-    <div style="padding: 0.75rem; border-bottom: 1px solid rgba(<?php echo $cPrimaryRgb; ?>, 0.15); background: linear-gradient(90deg, rgba(<?php echo $cPrimaryRgb; ?>, 0.1), transparent);">
-        <div style="display: flex; justify-content: space-between; align-items: center;">
+<div id="tradingChartCard" class="card" style="margin-bottom: 1.5rem; overflow: hidden; border-radius: 16px; border: 1px solid rgba(<?php echo $cPrimaryRgb; ?>, 0.15); box-shadow: 0 8px 32px rgba(0,0,0,0.12);">
+    <!-- Header with summary stats -->
+    <div style="padding: 1.25rem 1.5rem 0.75rem;">
+        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
             <div>
-                <h3 style="font-size: 0.95rem; color: var(--text-primary); font-weight: 700; display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0;">
-                    <div style="width: 36px; height: 36px; background: linear-gradient(135deg, var(--primary-color), var(--primary-dark)); border-radius: 8px; display: flex; align-items: center; justify-content: center; box-shadow: 0 4px 12px rgba(<?php echo $cPrimaryRgb; ?>, 0.3);">
-                        <i data-feather="trending-up" style="width: 20px; height: 20px; color: white;"></i>
+                <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 0.25rem;"><?php echo strtoupper(BUSINESS_NAME); ?></div>
+                <div style="font-size: 1rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
+                    Financial Performance
+                    <div id="liveIndicator" style="display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.2rem 0.5rem; background: rgba(16, 185, 129, 0.12); border-radius: 12px;">
+                        <span style="width: 5px; height: 5px; background: #10b981; border-radius: 50%; animation: livePulse 2s infinite;"></span>
+                        <span style="font-size: 0.6rem; font-weight: 700; color: #10b981; text-transform: uppercase;">Live</span>
                     </div>
-                    <div>
-                        <div style="font-size: 0.65rem; color: var(--text-muted); font-weight: 500; text-transform: uppercase; letter-spacing: 0.1em;"><?php echo strtoupper(BUSINESS_NAME); ?></div>
-                        <div style="font-size: 0.875rem;">Financial Performance Monitor</div>
-                        <div style="font-size: 0.688rem; color: var(--success); font-weight: 600; margin-top: 0.125rem;">💰 Revenue / Pemasukan</div>
-                    </div>
-                </h3>
+                </div>
             </div>
-            <div style="display: flex; align-items: center; gap: 1rem;">
-                <div id="liveIndicator" style="display: flex; align-items: center; gap: 0.35rem; padding: 0.35rem 0.75rem; background: rgba(16, 185, 129, 0.15); border-radius: 20px; border: 2px solid rgba(16, 185, 129, 0.3);">
-                    <span style="width: 6px; height: 6px; background: var(--success); border-radius: 50%; animation: pulse 2s infinite; box-shadow: 0 0 8px var(--success);"></span>
-                    <span style="font-size: 0.75rem; font-weight: 700; color: var(--success); text-transform: uppercase; letter-spacing: 0.05em;">Live</span>
+            <!-- View Toggle -->
+            <div style="display: flex; align-items: center; gap: 0.25rem; background: var(--bg-tertiary); padding: 0.2rem; border-radius: 8px;">
+                <button id="btnDaily" onclick="switchView('daily')" class="btn-view-toggle" style="padding: 0.3rem 0.6rem; border: none; background: transparent; color: var(--text-muted); border-radius: 6px; font-size: 0.68rem; font-weight: 600; cursor: pointer; transition: all 0.3s;">Harian</button>
+                <button id="btnMonthly" onclick="switchView('monthly')" class="btn-view-toggle active" style="padding: 0.3rem 0.6rem; border: none; background: var(--primary-color); color: white; border-radius: 6px; font-size: 0.68rem; font-weight: 600; cursor: pointer; transition: all 0.3s;">Bulanan</button>
+                <button id="btnYearly" onclick="switchView('yearly')" class="btn-view-toggle" style="padding: 0.3rem 0.6rem; border: none; background: transparent; color: var(--text-muted); border-radius: 6px; font-size: 0.68rem; font-weight: 600; cursor: pointer; transition: all 0.3s;">Tahunan</button>
+                <button id="btnAllTime" onclick="switchView('alltime')" class="btn-view-toggle" style="padding: 0.3rem 0.6rem; border: none; background: transparent; color: var(--text-muted); border-radius: 6px; font-size: 0.68rem; font-weight: 600; cursor: pointer; transition: all 0.3s;">All Time</button>
+            </div>
+        </div>
+        
+        <!-- Summary Numbers Row -->
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 0.75rem;">
+            <!-- Income -->
+            <div>
+                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
+                    <span style="font-size: 1.5rem; font-weight: 800; color: var(--text-primary);" id="summaryIncome">
+                        <?php 
+                        $totalIncome = array_sum(array_column($dailyData, 'income'));
+                        $displayIncome = $isCQC ? ($totalIncome - ($cqcPettyCashTransfers ?? 0) - ($cqcExpenseFromBank ?? 0)) : $totalIncome;
+                        echo formatCurrency($displayIncome);
+                        ?>
+                    </span>
+                    <?php 
+                    // Calculate % change vs previous period
+                    $prevIncome = 0; // Placeholder
+                    $incomeChange = $totalIncome > 0 ? '+20%' : '0%'; // Will be dynamic
+                    ?>
+                    <span class="chart-badge chart-badge-up">↑</span>
                 </div>
-                
-                <!-- Toggle View Type -->
-                <div style="display: flex; align-items: center; gap: 0.25rem; background: var(--bg-tertiary); padding: 0.25rem; border-radius: 8px;">
-                    <button id="btnDaily" onclick="switchView('daily')" class="btn-view-toggle" style="padding: 0.35rem 0.75rem; border: none; background: transparent; color: var(--text-muted); border-radius: 6px; font-size: 0.75rem; font-weight: 600; cursor: pointer; transition: all 0.3s;">
-                        📅 Harian
-                    </button>
-                    <button id="btnMonthly" onclick="switchView('monthly')" class="btn-view-toggle active" style="padding: 0.35rem 0.75rem; border: none; background: var(--primary-color); color: white; border-radius: 6px; font-size: 0.75rem; font-weight: 600; cursor: pointer; transition: all 0.3s;">
-                        📆 Bulanan
-                    </button>
-                    <button id="btnYearly" onclick="switchView('yearly')" class="btn-view-toggle" style="padding: 0.35rem 0.75rem; border: none; background: transparent; color: var(--text-muted); border-radius: 6px; font-size: 0.75rem; font-weight: 600; cursor: pointer; transition: all 0.3s;">
-                        📊 Tahunan
-                    </button>
-                    <button id="btnAllTime" onclick="switchView('alltime')" class="btn-view-toggle" style="padding: 0.35rem 0.75rem; border: none; background: transparent; color: var(--text-muted); border-radius: 6px; font-size: 0.75rem; font-weight: 600; cursor: pointer; transition: all 0.3s;">
-                        🌍 All Time
-                    </button>
+                <div style="display: flex; align-items: center; gap: 0.35rem;">
+                    <span style="width: 8px; height: 8px; border-radius: 50%; background: #10b981;"></span>
+                    <span style="font-size: 0.7rem; color: var(--text-muted); font-weight: 500;"><?php echo $isCQC ? 'Saldo Kas Besar' : 'Pemasukan'; ?></span>
                 </div>
-                
-                <div id="dailyFilter" style="display: none; align-items: center; gap: 0.5rem;">
-                    <input type="date" id="chartDateFilter" value="<?php echo date('Y-m-d'); ?>" 
-                           class="form-control" style="max-width: 150px; height: 36px; font-size: 0.75rem; font-weight: 600; border: 2px solid var(--bg-tertiary);"
-                           onchange="updateChartDate(this.value)">
+            </div>
+            <!-- Expense -->
+            <div>
+                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
+                    <span style="font-size: 1.5rem; font-weight: 800; color: var(--text-primary);" id="summaryExpense">
+                        <?php 
+                        $totalExpense = array_sum(array_column($dailyData, 'expense'));
+                        echo formatCurrency($totalExpense);
+                        ?>
+                    </span>
+                    <span class="chart-badge chart-badge-down">↓</span>
                 </div>
-                
-                <div id="monthlyFilter" style="display: flex; align-items: center; gap: 0.5rem;">
-                    <input type="month" name="chart_month" id="chartMonthFilter" value="<?php echo $selectedMonth; ?>" 
-                           class="form-control" style="max-width: 150px; height: 36px; font-size: 0.75rem; font-weight: 600; border: 2px solid var(--bg-tertiary);"
-                           onchange="updateChartMonth(this.value)">
+                <div style="display: flex; align-items: center; gap: 0.35rem;">
+                    <span style="width: 8px; height: 8px; border-radius: 50%; background: #f97316;"></span>
+                    <span style="font-size: 0.7rem; color: var(--text-muted); font-weight: 500;">Pengeluaran</span>
                 </div>
-                
-                <div id="yearlyFilter" style="display: none; align-items: center; gap: 0.5rem;">
-                    <label style="font-size: 0.875rem; color: var(--text-muted); font-weight: 600;">Tahun:</label>
-                    <select id="chartYearFilter" class="form-control" style="max-width: 140px; height: 42px; font-size: 0.875rem; font-weight: 600; border: 2px solid var(--bg-tertiary);" onchange="updateChartYear(this.value)">
-                        <?php for($y = date('Y'); $y >= date('Y') - 5; $y--): ?>
-                            <option value="<?php echo $y; ?>" <?php echo $y == date('Y') ? 'selected' : ''; ?>><?php echo $y; ?></option>
-                        <?php endfor; ?>
-                    </select>
+            </div>
+            <!-- Net Balance -->
+            <div>
+                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
+                    <?php 
+                    if ($isCQC) {
+                        $netBalance = ($cqcPettyCashBalance ?? 0) + ($cqcBankBalance ?? 0);
+                    } else {
+                        $netBalance = $totalIncome - $totalExpense;
+                    }
+                    ?>
+                    <span style="font-size: 1.5rem; font-weight: 800; color: <?php echo $netBalance >= 0 ? '#10b981' : '#ef4444'; ?>;" id="summaryNet">
+                        <?php echo formatCurrency($netBalance); ?>
+                    </span>
+                    <span class="chart-badge <?php echo $netBalance >= 0 ? 'chart-badge-up' : 'chart-badge-down'; ?>">
+                        <?php echo $netBalance >= 0 ? '↑' : '↓'; ?>
+                    </span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.35rem;">
+                    <span style="width: 8px; height: 8px; border-radius: 50%; background: rgb(<?php echo $cPrimaryRgb; ?>);"></span>
+                    <span style="font-size: 0.7rem; color: var(--text-muted); font-weight: 500;"><?php echo $isCQC ? 'Saldo Bersih' : 'Net Balance'; ?></span>
                 </div>
             </div>
         </div>
+        
+        <!-- Filters -->
+        <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-bottom: 0.25rem;">
+            <div id="dailyFilter" style="display: none; align-items: center;">
+                <input type="date" id="chartDateFilter" value="<?php echo date('Y-m-d'); ?>" 
+                       class="form-control" style="max-width: 140px; height: 32px; font-size: 0.7rem; font-weight: 600; border: 1px solid var(--bg-tertiary); border-radius: 8px;"
+                       onchange="updateChartDate(this.value)">
+            </div>
+            <div id="monthlyFilter" style="display: flex; align-items: center;">
+                <input type="month" name="chart_month" id="chartMonthFilter" value="<?php echo $selectedMonth; ?>" 
+                       class="form-control" style="max-width: 140px; height: 32px; font-size: 0.7rem; font-weight: 600; border: 1px solid var(--bg-tertiary); border-radius: 8px;"
+                       onchange="updateChartMonth(this.value)">
+            </div>
+            <div id="yearlyFilter" style="display: none; align-items: center;">
+                <select id="chartYearFilter" class="form-control" style="max-width: 120px; height: 32px; font-size: 0.7rem; font-weight: 600; border: 1px solid var(--bg-tertiary); border-radius: 8px;" onchange="updateChartYear(this.value)">
+                    <?php for($y = date('Y'); $y >= date('Y') - 5; $y--): ?>
+                        <option value="<?php echo $y; ?>" <?php echo $y == date('Y') ? 'selected' : ''; ?>><?php echo $y; ?></option>
+                    <?php endfor; ?>
+                </select>
+            </div>
+        </div>
     </div>
-    <div style="position: relative; height: 320px; padding: 1rem;">
+    
+    <!-- Chart Area -->
+    <div style="position: relative; height: 300px; padding: 0 0.75rem 0.75rem;">
         <canvas id="tradingChart"></canvas>
     </div>
-    <div style="padding: 1rem; border-top: 1px solid rgba(<?php echo $cPrimaryRgb; ?>, 0.15); background: var(--bg-secondary);">
-        <div style="display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 1rem;">
-            <div style="padding: 0.75rem; background: linear-gradient(135deg, rgba(<?php echo $cPrimaryRgb; ?>, 0.12), rgba(<?php echo $cSecondaryRgb; ?>, 0.05)); border-radius: 8px; border-left: 4px solid var(--primary-color);">
-                <div style="font-size: 0.75rem; color: var(--text-muted); font-weight: 600; margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.05em;">Periode</div>
-                <div id="periodDisplay" style="font-size: 1rem; font-weight: 700; color: var(--text-primary);">
-                    1 - <?php echo date('t', strtotime($firstDay)); ?> <?php echo date('M Y', strtotime($firstDay)); ?>
-                </div>
+    
+    <!-- Period Info Bar -->
+    <div style="padding: 0.75rem 1.5rem; border-top: 1px solid var(--chart-border-color, rgba(148,163,184,0.1)); display: flex; justify-content: space-between; align-items: center;">
+        <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 500;">
+            <span id="periodDisplay">1 - <?php echo date('t', strtotime($firstDay)); ?> <?php echo date('M Y', strtotime($firstDay)); ?></span>
+        </div>
+        <div style="display: flex; gap: 1rem;">
+            <div style="display: flex; align-items: center; gap: 0.35rem;">
+                <span style="width: 10px; height: 3px; border-radius: 2px; background: #10b981;"></span>
+                <span style="font-size: 0.65rem; color: var(--text-muted);">Pemasukan</span>
             </div>
-            <div style="padding: 0.75rem; background: linear-gradient(135deg, rgba(16, 185, 129, 0.12), rgba(16, 185, 129, 0.05)); border-radius: 8px; border-left: 4px solid var(--success);">
-                <div style="font-size: 0.75rem; color: var(--success); font-weight: 600; margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.05em;"><?php echo $isCQC ? 'Saldo Kas Besar General' : 'Total Pemasukan'; ?></div>
-                <div id="totalIncome" style="font-size: 1.5rem; font-weight: 800; color: var(--success);">
-                    <?php 
-                    $totalIncome = array_sum(array_column($dailyData, 'income'));
-                    // CQC: Show invoice income minus petty cash transfers and bank expenses (money remaining in Kas Besar)
-                    $displayIncome = $isCQC ? ($totalIncome - ($cqcPettyCashTransfers ?? 0) - ($cqcExpenseFromBank ?? 0)) : $totalIncome;
-                    echo formatCurrency($displayIncome);
-                    ?>
-                </div>
+            <div style="display: flex; align-items: center; gap: 0.35rem;">
+                <span style="width: 10px; height: 3px; border-radius: 2px; background: #f97316;"></span>
+                <span style="font-size: 0.65rem; color: var(--text-muted);">Pengeluaran</span>
             </div>
-            <?php if ($isCQC): ?>
-            <div style="padding: 0.75rem; background: linear-gradient(135deg, rgba(251, 191, 36, 0.12), rgba(251, 191, 36, 0.05)); border-radius: 8px; border-left: 4px solid #f0b429;">
-                <div style="font-size: 0.75rem; color: #b45309; font-weight: 600; margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.05em;">Dana Petty Cash</div>
-                <div style="font-size: 1.5rem; font-weight: 800; color: #b45309;">
-                    <?php echo formatCurrency($cqcPettyCashTransfers ?? 0); ?>
-                </div>
-            </div>
-            <?php endif; ?>
-            <div style="padding: 0.75rem; background: linear-gradient(135deg, rgba(239, 68, 68, 0.12), rgba(239, 68, 68, 0.05)); border-radius: 8px; border-left: 4px solid var(--danger);">
-                <div style="font-size: 0.75rem; color: var(--danger); font-weight: 600; margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.05em;"><?php echo $isCQC ? 'Total Pengeluaran' : 'Total Pengeluaran'; ?></div>
-                <div id="totalExpense" style="font-size: 1.5rem; font-weight: 800; color: var(--danger);">
-                    <?php 
-                    $totalExpense = array_sum(array_column($dailyData, 'expense'));
-                    echo formatCurrency($totalExpense);
-                    ?>
-                </div>
-            </div>
-            <div style="padding: 0.75rem; background: linear-gradient(135deg, rgba(<?php echo $cPrimaryRgb; ?>, 0.12), rgba(<?php echo $cSecondaryRgb; ?>, 0.05)); border-radius: 8px; border-left: 4px solid var(--primary-color);">
-                <div style="font-size: 0.75rem; color: var(--primary-color); font-weight: 600; margin-bottom: 0.25rem; text-transform: uppercase; letter-spacing: 0.05em;"><?php echo $isCQC ? 'Saldo Bersih' : 'Net Balance'; ?></div>
-                <?php 
-                // CQC: Saldo Bersih = Petty Cash + Bank (actual cash position)
-                // Non-CQC: Net Balance = Income - Expense
-                if ($isCQC) {
-                    $netBalance = ($cqcPettyCashBalance ?? 0) + ($cqcBankBalance ?? 0);
-                } else {
-                    $netBalance = $totalIncome - $totalExpense;
-                }
-                ?>
-                <div id="netBalance" style="font-size: 1.5rem; font-weight: 800; color: <?php echo $netBalance >= 0 ? 'var(--success)' : 'var(--danger)'; ?>;">
-                    <?php echo formatCurrency($netBalance); ?>
-                </div>
+            <div style="display: flex; align-items: center; gap: 0.35rem;">
+                <span style="width: 10px; height: 3px; border-radius: 2px; background: rgb(<?php echo $cPrimaryRgb; ?>); opacity: 0.5;"></span>
+                <span style="font-size: 0.65rem; color: var(--text-muted);">Net Balance</span>
             </div>
         </div>
     </div>
 </div>
 
 <style>
+@keyframes livePulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.4; transform: scale(1.3); }
+}
 @keyframes pulse {
     0%, 100% { opacity: 1; transform: scale(1); }
     50% { opacity: 0.6; transform: scale(1.1); }
+}
+
+.chart-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: 0.15rem 0.45rem; border-radius: 6px; font-size: 0.65rem; font-weight: 700;
+}
+.chart-badge-up { background: rgba(16,185,129,0.12); color: #10b981; }
+.chart-badge-down { background: rgba(239,68,68,0.12); color: #ef4444; }
+
+#tradingChartCard {
+    background: var(--card-bg);
+    transition: box-shadow 0.3s, border-color 0.3s;
+}
+#tradingChartCard:hover {
+    box-shadow: 0 12px 48px rgba(0,0,0,0.18);
 }
 
 /* Card hover effects for operational section */
@@ -1941,23 +1978,25 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
         cumulativeBalance.push(runningBalance);
     <?php endforeach; ?>
     
-    // Create gradient for income line
-    const incomeGradient = tradingCtx.createLinearGradient(0, 0, 0, 400);
-    incomeGradient.addColorStop(0, 'rgba(16, 185, 129, 0.85)');
-    incomeGradient.addColorStop(1, 'rgba(16, 185, 129, 0.65)');
+    // Area gradient for income (green, top→transparent)
+    const incomeGradient = tradingCtx.createLinearGradient(0, 0, 0, 300);
+    incomeGradient.addColorStop(0, 'rgba(16, 185, 129, 0.35)');
+    incomeGradient.addColorStop(0.6, 'rgba(16, 185, 129, 0.08)');
+    incomeGradient.addColorStop(1, 'rgba(16, 185, 129, 0)');
     
-    // Create gradient for expense line
-    const expenseGradient = tradingCtx.createLinearGradient(0, 0, 0, 400);
-    expenseGradient.addColorStop(0, 'rgba(239, 68, 68, 0.85)');
-    expenseGradient.addColorStop(1, 'rgba(239, 68, 68, 0.65)');
+    // Area gradient for expense (orange, top→transparent)
+    const expenseGradient = tradingCtx.createLinearGradient(0, 0, 0, 300);
+    expenseGradient.addColorStop(0, 'rgba(249, 115, 22, 0.30)');
+    expenseGradient.addColorStop(0.6, 'rgba(249, 115, 22, 0.06)');
+    expenseGradient.addColorStop(1, 'rgba(249, 115, 22, 0)');
     
-    // Create gradient for net balance line (subtle)
-    const netGradient = tradingCtx.createLinearGradient(0, 0, 0, 400);
-    netGradient.addColorStop(0, 'rgba(<?php echo $cPrimaryRgb; ?>, 0.08)');
-    netGradient.addColorStop(1, 'rgba(<?php echo $cPrimaryRgb; ?>, 0.01)');
+    // Area gradient for net balance (primary, very subtle)
+    const netGradient = tradingCtx.createLinearGradient(0, 0, 0, 300);
+    netGradient.addColorStop(0, 'rgba(<?php echo $cPrimaryRgb; ?>, 0.10)');
+    netGradient.addColorStop(1, 'rgba(<?php echo $cPrimaryRgb; ?>, 0)');
     
     let tradingChart = new Chart(tradingCtx, {
-        type: 'bar',
+        type: 'line',
         data: {
             labels: [
                 <?php foreach ($dailyData as $data): ?>
@@ -1972,14 +2011,17 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
                             <?php echo $data['income']; ?>,
                         <?php endforeach; ?>
                     ],
+                    borderColor: '#10b981',
                     backgroundColor: incomeGradient,
-                    borderColor: 'rgb(16, 185, 129)',
-                    borderWidth: 0,
-                    borderRadius: 4,
-                    borderSkipped: false,
-                    order: 2,
-                    barPercentage: 0.7,
-                    categoryPercentage: 0.8
+                    borderWidth: 2.5,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 0,
+                    pointHoverRadius: 5,
+                    pointHoverBackgroundColor: '#10b981',
+                    pointHoverBorderColor: '#fff',
+                    pointHoverBorderWidth: 2,
+                    order: 2
                 },
                 {
                     label: 'Pengeluaran',
@@ -1988,33 +2030,32 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
                             <?php echo $data['expense']; ?>,
                         <?php endforeach; ?>
                     ],
+                    borderColor: '#f97316',
                     backgroundColor: expenseGradient,
-                    borderColor: 'rgb(239, 68, 68)',
-                    borderWidth: 0,
-                    borderRadius: 4,
-                    borderSkipped: false,
-                    order: 3,
-                    barPercentage: 0.7,
-                    categoryPercentage: 0.8
-                },
-                {
-                    label: 'Net Balance (Kumulatif)',
-                    data: cumulativeBalance,
-                    type: 'line',
-                    borderColor: 'rgba(<?php echo $cPrimaryRgb; ?>, 0.5)',
-                    backgroundColor: netGradient,
                     borderWidth: 2.5,
-                    pointRadius: 3,
-                    pointHoverRadius: 6,
-                    pointBackgroundColor: 'rgb(<?php echo $cPrimaryRgb; ?>)',
-                    pointBorderColor: 'rgba(255,255,255,0.9)',
-                    pointBorderWidth: 2,
-                    pointHoverBackgroundColor: '#fff',
-                    pointHoverBorderColor: 'rgb(<?php echo $cPrimaryRgb; ?>)',
-                    pointHoverBorderWidth: 2,
                     fill: true,
                     tension: 0.4,
-                    borderDash: [6, 3],
+                    pointRadius: 0,
+                    pointHoverRadius: 5,
+                    pointHoverBackgroundColor: '#f97316',
+                    pointHoverBorderColor: '#fff',
+                    pointHoverBorderWidth: 2,
+                    order: 3
+                },
+                {
+                    label: 'Net Balance',
+                    data: cumulativeBalance,
+                    borderColor: 'rgba(<?php echo $cPrimaryRgb; ?>, 0.4)',
+                    backgroundColor: netGradient,
+                    borderWidth: 1.5,
+                    fill: true,
+                    tension: 0.4,
+                    pointRadius: 0,
+                    pointHoverRadius: 4,
+                    pointHoverBackgroundColor: 'rgb(<?php echo $cPrimaryRgb; ?>)',
+                    pointHoverBorderColor: '#fff',
+                    pointHoverBorderWidth: 2,
+                    borderDash: [5, 3],
                     order: 1
                 }
             ]
@@ -2027,125 +2068,84 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
                 mode: 'index'
             },
             animation: {
-                duration: 1500,
+                duration: 1200,
                 easing: 'easeInOutQuart'
             },
             plugins: {
                 legend: {
-                    position: 'top',
-                    align: 'end',
-                    labels: {
-                        padding: 15,
-                        font: { 
-                            size: 10, 
-                            weight: '500',
-                            family: "'Inter', sans-serif"
-                        },
-                        color: getLegendTextColor(),
-                        usePointStyle: true,
-                        pointStyle: 'rectRounded',
-                        boxWidth: 10,
-                        boxHeight: 10
-                    }
+                    display: false
                 },
                 tooltip: {
                     enabled: true,
-                    backgroundColor: 'rgba(15, 23, 42, 0.95)',
-                    titleColor: 'rgba(255, 255, 255, 0.9)',
-                    bodyColor: 'rgba(255, 255, 255, 0.85)',
-                    borderColor: 'rgba(<?php echo $cPrimaryRgb; ?>, 0.3)',
+                    backgroundColor: 'rgba(15, 23, 42, 0.92)',
+                    titleColor: 'rgba(255, 255, 255, 0.7)',
+                    bodyColor: 'rgba(255, 255, 255, 0.95)',
+                    borderColor: 'rgba(148, 163, 184, 0.15)',
                     borderWidth: 1,
-                    padding: 12,
-                    titleFont: { 
-                        size: 11, 
-                        weight: '500',
-                        family: "'Inter', sans-serif"
-                    },
-                    bodyFont: { 
-                        size: 10,
-                        weight: '400',
-                        family: "'Inter', sans-serif"
-                    },
-                    cornerRadius: 8,
+                    padding: { top: 10, bottom: 10, left: 14, right: 14 },
+                    titleFont: { size: 10, weight: '500', family: "'Inter', sans-serif" },
+                    bodyFont: { size: 12, weight: '600', family: "'Inter', sans-serif" },
+                    cornerRadius: 10,
                     displayColors: true,
                     boxWidth: 8,
                     boxHeight: 8,
-                    boxPadding: 4,
+                    boxPadding: 6,
+                    usePointStyle: true,
                     callbacks: {
                         title: function(context) {
-                            return 'Tanggal ' + context[0].label + ' <?php echo date('M Y', strtotime($firstDay)); ?>';
+                            return 'Tgl ' + context[0].label;
                         },
                         label: function(context) {
-                            let label = context.dataset.label || '';
                             let value = context.parsed.y || 0;
-                            return label + ': Rp ' + value.toLocaleString('id-ID');
+                            return ' ' + context.dataset.label + ': Rp ' + value.toLocaleString('id-ID');
                         },
                         footer: function(tooltipItems) {
-                            let income = tooltipItems.find(item => item.dataset.label === 'Pemasukan')?.parsed.y || 0;
-                            let expense = tooltipItems.find(item => item.dataset.label === 'Pengeluaran')?.parsed.y || 0;
+                            let income = 0, expense = 0;
+                            tooltipItems.forEach(item => {
+                                if (item.dataset.label === 'Pemasukan') income = item.parsed.y;
+                                if (item.dataset.label === 'Pengeluaran') expense = item.parsed.y;
+                            });
                             let net = income - expense;
-                            return '───────────────\nNet Hari Ini: Rp ' + net.toLocaleString('id-ID');
-                        },
-                        footerColor: function(tooltipItems) {
-                            let income = tooltipItems[0].dataset.label === 'Pemasukan' ? tooltipItems[0].parsed.y : (tooltipItems[1]?.parsed.y || 0);
-                            let expense = tooltipItems[1]?.dataset.label === 'Pengeluaran' ? tooltipItems[1].parsed.y : (tooltipItems[0]?.parsed.y || 0);
-                            let net = income - expense;
-                            return net >= 0 ? 'rgb(16, 185, 129)' : 'rgb(239, 68, 68)';
+                            return '━━━━━━━━━━━━━━━\nNet: Rp ' + net.toLocaleString('id-ID');
                         }
                     },
-                    footerFont: {
-                        size: 10,
-                        weight: '400'
-                    },
-                    footerColor: 'rgba(255, 255, 255, 0.7)'
+                    footerFont: { size: 10, weight: '600' },
+                    footerColor: 'rgba(255, 255, 255, 0.6)'
                 }
             },
             scales: {
                 y: {
                     beginAtZero: true,
                     grid: {
-                        color: 'rgba(148, 163, 184, 0.08)',
+                        color: 'rgba(148, 163, 184, 0.06)',
                         drawBorder: false,
                         lineWidth: 1
                     },
-                    border: {
-                        display: false
-                    },
+                    border: { display: false },
                     ticks: {
-                        padding: 12,
-                        font: {
-                            size: 12,
-                            weight: '600'
-                        },
+                        padding: 8,
+                        font: { size: 10, weight: '500', family: "'Inter', sans-serif" },
                         color: getChartTextColor(),
+                        maxTicksLimit: 6,
                         callback: function(value) {
-                            if (value >= 1000000) {
-                                return 'Rp ' + (value / 1000000).toFixed(1) + 'jt';
-                            } else if (value >= 1000) {
-                                return 'Rp ' + (value / 1000).toFixed(0) + 'rb';
-                            }
+                            if (value >= 1000000) return 'Rp ' + (value / 1000000).toFixed(1) + 'jt';
+                            if (value >= 1000) return 'Rp ' + (value / 1000).toFixed(0) + 'rb';
                             return 'Rp ' + value;
                         }
                     }
                 },
                 x: {
                     grid: {
-                        display: true,
-                        color: 'rgba(148, 163, 184, 0.05)',
-                        drawBorder: false
-                    },
-                    border: {
                         display: false
                     },
+                    border: { display: false },
                     ticks: {
-                        padding: 10,
-                        font: {
-                            size: 12,
-                            weight: '600'
-                        },
+                        padding: 6,
+                        font: { size: 10, weight: '500', family: "'Inter', sans-serif" },
                         color: getChartTextColor(),
                         maxRotation: 0,
-                        minRotation: 0
+                        minRotation: 0,
+                        maxTicksLimit: 15
                     }
                 }
             }
@@ -2214,10 +2214,7 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
                         if (expBankEl) expBankEl.textContent = formatRupiah(expenseFromBank);
                     }
                     
-                    document.getElementById('totalIncome').textContent = formatRupiah(displayIncome);
-                    document.getElementById('totalExpense').textContent = formatRupiah(totalExpense);
-                    document.getElementById('netBalance').textContent = formatRupiah(netBalance);
-                    document.getElementById('netBalance').style.color = netBalance >= 0 ? 'var(--success)' : 'var(--danger)';
+                    updateSummaryCards(displayIncome, totalExpense, netBalance);
                     
                     console.log('Chart updated at:', data.timestamp);
                 }
@@ -2284,10 +2281,7 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
                         if (expBankEl) expBankEl.textContent = formatRupiah(expenseFromBank);
                     }
                     
-                    document.getElementById('totalIncome').textContent = formatRupiah(displayIncome);
-                    document.getElementById('totalExpense').textContent = formatRupiah(totalExpense);
-                    document.getElementById('netBalance').textContent = formatRupiah(netBalance);
-                    document.getElementById('netBalance').style.color = netBalance >= 0 ? 'var(--success)' : 'var(--danger)';
+                    updateSummaryCards(displayIncome, totalExpense, netBalance);
                     
                     // Update period display
                     const monthObj = new Date(month + '-01');
@@ -2307,6 +2301,19 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
     // Helper function to format currency
     function formatRupiah(amount) {
         return 'Rp ' + amount.toLocaleString('id-ID');
+    }
+    
+    // Helper function to update summary cards
+    function updateSummaryCards(income, expense, net) {
+        const incEl = document.getElementById('summaryIncome');
+        const expEl = document.getElementById('summaryExpense');
+        const netEl = document.getElementById('summaryNet');
+        if (incEl) incEl.textContent = formatRupiah(income);
+        if (expEl) expEl.textContent = formatRupiah(expense);
+        if (netEl) {
+            netEl.textContent = formatRupiah(net);
+            netEl.style.color = net >= 0 ? '#10b981' : '#ef4444';
+        }
     }
     
     // Auto refresh every 30 seconds
@@ -2398,10 +2405,7 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
                     const totalExpense = data.expense.reduce((a, b) => a + b, 0);
                     const netBalance = totalIncome - totalExpense;
                     
-                    document.getElementById('totalIncome').textContent = formatRupiah(totalIncome);
-                    document.getElementById('totalExpense').textContent = formatRupiah(totalExpense);
-                    document.getElementById('netBalance').textContent = formatRupiah(netBalance);
-                    document.getElementById('netBalance').style.color = netBalance >= 0 ? 'var(--success)' : 'var(--danger)';
+                    updateSummaryCards(totalIncome, totalExpense, netBalance);
                     
                     // Update period display
                     const dateObj = new Date(date);
@@ -2437,10 +2441,7 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
                     const totalExpense = data.expense.reduce((a, b) => a + b, 0);
                     const netBalance = totalIncome - totalExpense;
                     
-                    document.getElementById('totalIncome').textContent = formatRupiah(totalIncome);
-                    document.getElementById('totalExpense').textContent = formatRupiah(totalExpense);
-                    document.getElementById('netBalance').textContent = formatRupiah(netBalance);
-                    document.getElementById('netBalance').style.color = netBalance >= 0 ? 'var(--success)' : 'var(--danger)';
+                    updateSummaryCards(totalIncome, totalExpense, netBalance);
                     
                     // Update period display
                     if (data.labels.length > 0) {
@@ -2480,10 +2481,7 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
                     const totalExpense = data.expense.reduce((a, b) => a + b, 0);
                     const netBalance = totalIncome - totalExpense;
                     
-                    document.getElementById('totalIncome').textContent = formatRupiah(totalIncome);
-                    document.getElementById('totalExpense').textContent = formatRupiah(totalExpense);
-                    document.getElementById('netBalance').textContent = formatRupiah(netBalance);
-                    document.getElementById('netBalance').style.color = netBalance >= 0 ? 'var(--success)' : 'var(--danger)';
+                    updateSummaryCards(totalIncome, totalExpense, netBalance);
                     
                     // Update period display
                     document.getElementById('periodDisplay').textContent = 'Jan - Des ' + year + ' (12 bulan)';
