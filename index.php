@@ -743,50 +743,46 @@ if ($trialStatus) {
 ?>
 
 <!-- PREMIUM TRADING CHART - PALING ATAS -->
-<div id="tradingChartCard" class="card" style="margin-bottom: 1.5rem; overflow: hidden; border-radius: 16px; border: 1px solid rgba(<?php echo $cPrimaryRgb; ?>, 0.12); box-shadow: 0 8px 32px rgba(0,0,0,0.12);">
+<div id="tradingChartCard" style="margin-bottom: 1.5rem; overflow: hidden; border-radius: 20px; background: var(--chart-card-bg); border: 1px solid var(--chart-card-border); box-shadow: var(--chart-card-shadow);">
     <!-- Header Row -->
     <div style="padding: 1.25rem 1.5rem 0;">
-        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
-            <div style="display: flex; align-items: center; gap: 0.75rem;">
-                <div style="font-size: 0.95rem; font-weight: 700; color: var(--text-primary);">
-                    Financial Performance
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1.15rem;">
+            <div style="display: flex; align-items: center; gap: 0.6rem;">
+                <div style="width: 3px; height: 22px; border-radius: 4px; background: var(--primary-color);"></div>
+                <div>
+                    <div style="font-size: 0.58rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; line-height: 1;"><?php echo strtoupper(BUSINESS_NAME); ?></div>
+                    <div style="font-size: 0.92rem; font-weight: 700; color: var(--text-primary); margin-top: 0.1rem;">Financial Overview</div>
                 </div>
-                <div id="liveIndicator" style="display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.2rem 0.6rem; background: rgba(16, 185, 129, 0.1); border-radius: 20px; border: 1px solid rgba(16,185,129,0.15);">
-                    <span style="width: 5px; height: 5px; background: #10b981; border-radius: 50%; animation: livePulse 2s infinite;"></span>
-                    <span style="font-size: 0.6rem; font-weight: 700; color: #10b981; text-transform: uppercase; letter-spacing: 0.05em;">Live</span>
+                <div id="liveIndicator" class="chart-live-pill">
+                    <span class="chart-live-dot"></span>
+                    <span class="chart-live-text">LIVE</span>
                 </div>
             </div>
             <div style="display: flex; align-items: center; gap: 0.5rem;">
-                <!-- Filters -->
                 <div id="dailyFilter" style="display: none; align-items: center;">
-                    <input type="date" id="chartDateFilter" value="<?php echo date('Y-m-d'); ?>" 
-                           class="form-control" style="max-width: 130px; height: 30px; font-size: 0.68rem; font-weight: 600; border: 1px solid var(--bg-tertiary); border-radius: 8px; background: var(--bg-tertiary); color: var(--text-primary);"
-                           onchange="updateChartDate(this.value)">
+                    <input type="date" id="chartDateFilter" value="<?php echo date('Y-m-d'); ?>" class="chart-filter-input" onchange="updateChartDate(this.value)">
                 </div>
                 <div id="monthlyFilter" style="display: flex; align-items: center;">
-                    <input type="month" name="chart_month" id="chartMonthFilter" value="<?php echo $selectedMonth; ?>" 
-                           class="form-control" style="max-width: 130px; height: 30px; font-size: 0.68rem; font-weight: 600; border: 1px solid var(--bg-tertiary); border-radius: 8px; background: var(--bg-tertiary); color: var(--text-primary);"
-                           onchange="updateChartMonth(this.value)">
+                    <input type="month" name="chart_month" id="chartMonthFilter" value="<?php echo $selectedMonth; ?>" class="chart-filter-input" onchange="updateChartMonth(this.value)">
                 </div>
                 <div id="yearlyFilter" style="display: none; align-items: center;">
-                    <select id="chartYearFilter" class="form-control" style="max-width: 110px; height: 30px; font-size: 0.68rem; font-weight: 600; border: 1px solid var(--bg-tertiary); border-radius: 8px; background: var(--bg-tertiary); color: var(--text-primary);" onchange="updateChartYear(this.value)">
+                    <select id="chartYearFilter" class="chart-filter-input" onchange="updateChartYear(this.value)">
                         <?php for($y = date('Y'); $y >= date('Y') - 5; $y--): ?>
                             <option value="<?php echo $y; ?>" <?php echo $y == date('Y') ? 'selected' : ''; ?>><?php echo $y; ?></option>
                         <?php endfor; ?>
                     </select>
                 </div>
-                <!-- View Toggle -->
                 <div class="chart-view-toggle">
                     <button id="btnDaily" onclick="switchView('daily')" class="btn-view-toggle">Harian</button>
                     <button id="btnMonthly" onclick="switchView('monthly')" class="btn-view-toggle active">Bulanan</button>
                     <button id="btnYearly" onclick="switchView('yearly')" class="btn-view-toggle">Tahunan</button>
-                    <button id="btnAllTime" onclick="switchView('alltime')" class="btn-view-toggle">All Time</button>
+                    <button id="btnAllTime" onclick="switchView('alltime')" class="btn-view-toggle">All</button>
                 </div>
             </div>
         </div>
         
         <!-- Summary Numbers Row -->
-        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; margin-bottom: 1rem;">
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.6rem; margin-bottom: 1.15rem;">
             <?php 
             $totalIncome = array_sum(array_column($dailyData, 'income'));
             $displayIncome = $isCQC ? ($totalIncome - ($cqcPettyCashTransfers ?? 0) - ($cqcExpenseFromBank ?? 0)) : $totalIncome;
@@ -797,60 +793,47 @@ if ($trialStatus) {
                 $netBalance = $totalIncome - $totalExpense;
             }
             ?>
-            <!-- Income Card -->
-            <div class="chart-stat-card chart-stat-income">
-                <div class="chart-stat-icon" style="background: rgba(16,185,129,0.12);">
-                    <span style="color: #10b981; font-size: 1rem;">📈</span>
+            <div class="chart-metric-card">
+                <div class="chart-metric-top">
+                    <div class="chart-metric-dot" style="background: #10b981;"></div>
+                    <span class="chart-metric-name"><?php echo $isCQC ? 'Saldo Kas Besar' : 'Pemasukan'; ?></span>
+                    <span class="chart-badge chart-badge-up">↑</span>
                 </div>
-                <div class="chart-stat-label"><?php echo $isCQC ? 'Saldo Kas Besar' : 'Pemasukan'; ?></div>
-                <div class="chart-stat-value" id="summaryIncome"><?php echo formatCurrency($displayIncome); ?></div>
-                <span class="chart-badge chart-badge-up">↑</span>
+                <div class="chart-metric-amount" id="summaryIncome"><?php echo formatCurrency($displayIncome); ?></div>
             </div>
-            <!-- Expense Card -->
-            <div class="chart-stat-card chart-stat-expense">
-                <div class="chart-stat-icon" style="background: rgba(249,115,22,0.12);">
-                    <span style="color: #f97316; font-size: 1rem;">📉</span>
+            <div class="chart-metric-card">
+                <div class="chart-metric-top">
+                    <div class="chart-metric-dot" style="background: #f97316;"></div>
+                    <span class="chart-metric-name">Pengeluaran</span>
+                    <span class="chart-badge chart-badge-down">↓</span>
                 </div>
-                <div class="chart-stat-label">Pengeluaran</div>
-                <div class="chart-stat-value" id="summaryExpense"><?php echo formatCurrency($totalExpense); ?></div>
-                <span class="chart-badge chart-badge-down">↓</span>
+                <div class="chart-metric-amount" id="summaryExpense"><?php echo formatCurrency($totalExpense); ?></div>
             </div>
-            <!-- Net Balance Card -->
-            <div class="chart-stat-card chart-stat-net">
-                <div class="chart-stat-icon" style="background: rgba(<?php echo $cPrimaryRgb; ?>,0.12);">
-                    <span style="color: rgb(<?php echo $cPrimaryRgb; ?>); font-size: 1rem;">💰</span>
+            <div class="chart-metric-card">
+                <div class="chart-metric-top">
+                    <div class="chart-metric-dot" style="background: rgb(<?php echo $cPrimaryRgb; ?>);"></div>
+                    <span class="chart-metric-name"><?php echo $isCQC ? 'Saldo Bersih' : 'Net Balance'; ?></span>
+                    <span class="chart-badge <?php echo $netBalance >= 0 ? 'chart-badge-up' : 'chart-badge-down'; ?>"><?php echo $netBalance >= 0 ? '↑' : '↓'; ?></span>
                 </div>
-                <div class="chart-stat-label"><?php echo $isCQC ? 'Saldo Bersih' : 'Net Balance'; ?></div>
-                <div class="chart-stat-value" id="summaryNet" style="color: <?php echo $netBalance >= 0 ? '#10b981' : '#ef4444'; ?>;"><?php echo formatCurrency($netBalance); ?></div>
-                <span class="chart-badge <?php echo $netBalance >= 0 ? 'chart-badge-up' : 'chart-badge-down'; ?>"><?php echo $netBalance >= 0 ? '↑' : '↓'; ?></span>
+                <div class="chart-metric-amount" id="summaryNet" style="color: <?php echo $netBalance >= 0 ? '#10b981' : '#ef4444'; ?>;"><?php echo formatCurrency($netBalance); ?></div>
             </div>
         </div>
     </div>
     
-    <!-- Chart Area with dark background -->
+    <!-- Chart Canvas Area -->
     <div class="chart-canvas-wrap">
-        <div style="position: relative; height: 280px; padding: 0.75rem 1rem;">
+        <div style="position: relative; height: 260px; padding: 0.5rem 0.75rem;">
             <canvas id="tradingChart"></canvas>
         </div>
-        <!-- Period + Legend Bar inside dark area -->
-        <div style="padding: 0.5rem 1.25rem 0.75rem; display: flex; justify-content: space-between; align-items: center;">
-            <div style="font-size: 0.68rem; color: rgba(148,163,184,0.7); font-weight: 500;">
-                <span id="periodDisplay">1 - <?php echo date('t', strtotime($firstDay)); ?> <?php echo date('M Y', strtotime($firstDay)); ?></span>
-            </div>
-            <div style="display: flex; gap: 1rem;">
-                <div style="display: flex; align-items: center; gap: 0.35rem;">
-                    <span style="width: 14px; height: 3px; border-radius: 2px; background: #10b981;"></span>
-                    <span style="font-size: 0.62rem; color: rgba(148,163,184,0.6);">Pemasukan</span>
-                </div>
-                <div style="display: flex; align-items: center; gap: 0.35rem;">
-                    <span style="width: 14px; height: 3px; border-radius: 2px; background: #f97316;"></span>
-                    <span style="font-size: 0.62rem; color: rgba(148,163,184,0.6);">Pengeluaran</span>
-                </div>
-                <div style="display: flex; align-items: center; gap: 0.35rem;">
-                    <span style="width: 14px; height: 3px; border-radius: 2px; background: rgb(<?php echo $cPrimaryRgb; ?>); opacity: 0.5;"></span>
-                    <span style="font-size: 0.62rem; color: rgba(148,163,184,0.6);">Net Balance</span>
-                </div>
-            </div>
+    </div>
+    
+    <!-- Footer Bar -->
+    <div class="chart-footer-bar">
+        <span id="periodDisplay" style="font-size: 0.65rem; color: var(--text-muted); font-weight: 500;">1 - <?php echo date('t', strtotime($firstDay)); ?> <?php echo date('M Y', strtotime($firstDay)); ?></span>
+        <div style="display: flex; gap: 0.85rem;">
+            <div class="chart-legend-item"><span class="chart-legend-line" style="background: #10b981;"></span>Pemasukan</div>
+            <div class="chart-legend-item"><span class="chart-legend-line" style="background: #f97316;"></span>Pengeluaran</div>
+            <div class="chart-legend-item"><span class="chart-legend-line chart-legend-line-dash" style="background: rgb(<?php echo $cPrimaryRgb; ?>);"></span>Net</div>
         </div>
     </div>
 </div>
@@ -865,81 +848,143 @@ if ($trialStatus) {
     50% { opacity: 0.6; transform: scale(1.1); }
 }
 
-/* === TRADING CHART CARD === */
+/* === CHART CARD - Modern Digital === */
+:root {
+    --chart-card-bg: linear-gradient(145deg, rgba(30,41,59,0.97), rgba(15,23,42,0.98));
+    --chart-card-border: rgba(148,163,184,0.08);
+    --chart-card-shadow: 0 4px 24px rgba(0,0,0,0.15), 0 1px 3px rgba(0,0,0,0.08);
+    --chart-wrap-bg: rgba(148,163,184,0.04);
+    --chart-wrap-border: rgba(148,163,184,0.06);
+    --chart-tick-color: rgba(148,163,184,0.45);
+    --chart-grid-color: rgba(148,163,184,0.07);
+    --chart-metric-bg: rgba(148,163,184,0.05);
+    --chart-metric-border: rgba(148,163,184,0.08);
+}
+body[data-theme="light"] {
+    --chart-card-bg: linear-gradient(145deg, #ffffff, #f8fafc);
+    --chart-card-border: rgba(148,163,184,0.12);
+    --chart-card-shadow: 0 4px 24px rgba(0,0,0,0.06), 0 1px 3px rgba(0,0,0,0.04);
+    --chart-wrap-bg: rgba(100,116,139,0.04);
+    --chart-wrap-border: rgba(148,163,184,0.10);
+    --chart-tick-color: rgba(100,116,139,0.5);
+    --chart-grid-color: rgba(148,163,184,0.10);
+    --chart-metric-bg: rgba(148,163,184,0.06);
+    --chart-metric-border: rgba(148,163,184,0.10);
+}
+
 #tradingChartCard {
-    background: var(--card-bg, var(--bg-primary));
-    transition: box-shadow 0.3s, border-color 0.3s;
+    background: var(--chart-card-bg);
+    transition: box-shadow 0.3s, transform 0.3s;
 }
 #tradingChartCard:hover {
-    box-shadow: 0 12px 48px rgba(0,0,0,0.18);
+    box-shadow: 0 8px 40px rgba(0,0,0,0.18), 0 2px 6px rgba(0,0,0,0.1);
+    transform: translateY(-1px);
 }
+
+/* Live indicator */
+.chart-live-pill {
+    display: inline-flex; align-items: center; gap: 0.25rem;
+    padding: 0.15rem 0.5rem; border-radius: 20px;
+    background: rgba(16,185,129,0.08); border: 1px solid rgba(16,185,129,0.12);
+}
+.chart-live-dot {
+    width: 5px; height: 5px; background: #10b981; border-radius: 50%;
+    animation: livePulse 2s infinite; box-shadow: 0 0 6px rgba(16,185,129,0.4);
+}
+.chart-live-text {
+    font-size: 0.55rem; font-weight: 700; color: #10b981;
+    letter-spacing: 0.08em;
+}
+
+/* Filter inputs */
+.chart-filter-input {
+    max-width: 125px; height: 28px; font-size: 0.65rem; font-weight: 600;
+    border: 1px solid var(--chart-metric-border); border-radius: 8px;
+    background: var(--chart-wrap-bg); color: var(--text-primary);
+    padding: 0 0.5rem; outline: none; transition: border-color 0.2s;
+}
+.chart-filter-input:focus { border-color: var(--primary-color); }
 
 /* View toggle pill bar */
 .chart-view-toggle {
-    display: flex; align-items: center; gap: 2px;
-    background: var(--bg-tertiary); padding: 3px; border-radius: 8px;
+    display: flex; align-items: center; gap: 1px;
+    background: var(--chart-wrap-bg); padding: 2px; border-radius: 8px;
+    border: 1px solid var(--chart-metric-border);
 }
 .btn-view-toggle {
-    padding: 0.28rem 0.55rem; border: none; background: transparent;
-    color: var(--text-muted); border-radius: 6px; font-size: 0.65rem;
-    font-weight: 600; cursor: pointer; transition: all 0.25s; white-space: nowrap;
+    padding: 0.25rem 0.5rem; border: none; background: transparent;
+    color: var(--text-muted); border-radius: 6px; font-size: 0.62rem;
+    font-weight: 600; cursor: pointer; transition: all 0.2s; white-space: nowrap;
 }
-.btn-view-toggle.active,
-.btn-view-toggle:hover {
+.btn-view-toggle.active {
     background: var(--primary-color); color: #fff;
+    box-shadow: 0 2px 8px rgba(99,102,241,0.25);
+}
+.btn-view-toggle:not(.active):hover {
+    background: var(--chart-metric-bg); color: var(--text-primary);
 }
 
-/* Summary stat cards - centered elegant */
-.chart-stat-card {
-    padding: 0.85rem 0.75rem 0.75rem;
+/* Metric cards */
+.chart-metric-card {
+    padding: 0.7rem 0.85rem;
     border-radius: 12px;
-    border: 1px solid rgba(148,163,184,0.08);
-    text-align: center;
-    position: relative;
-    transition: transform 0.2s, box-shadow 0.2s;
+    background: var(--chart-metric-bg);
+    border: 1px solid var(--chart-metric-border);
+    transition: transform 0.2s, box-shadow 0.2s, border-color 0.2s;
 }
-.chart-stat-card:hover {
-    transform: translateY(-2px);
-    box-shadow: 0 6px 20px rgba(0,0,0,0.08);
+.chart-metric-card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+    border-color: rgba(148,163,184,0.15);
 }
-.chart-stat-income { background: linear-gradient(180deg, rgba(16,185,129,0.06), transparent); border-color: rgba(16,185,129,0.18); }
-.chart-stat-expense { background: linear-gradient(180deg, rgba(249,115,22,0.06), transparent); border-color: rgba(249,115,22,0.18); }
-.chart-stat-net { background: linear-gradient(180deg, rgba(<?php echo $cPrimaryRgb; ?>,0.06), transparent); border-color: rgba(<?php echo $cPrimaryRgb; ?>,0.18); }
-
-.chart-stat-icon {
-    width: 32px; height: 32px; border-radius: 10px;
-    display: flex; align-items: center; justify-content: center;
-    margin: 0 auto 0.4rem;
+.chart-metric-top {
+    display: flex; align-items: center; gap: 0.35rem; margin-bottom: 0.35rem;
 }
-.chart-stat-label {
+.chart-metric-dot {
+    width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
+}
+.chart-metric-name {
     font-size: 0.62rem; color: var(--text-muted); font-weight: 600;
-    text-transform: uppercase; letter-spacing: 0.06em;
-    margin-bottom: 0.25rem;
+    text-transform: uppercase; letter-spacing: 0.04em; flex: 1;
 }
-.chart-stat-value {
-    font-size: 1.2rem; font-weight: 800; color: var(--text-primary);
-    line-height: 1.2; font-variant-numeric: tabular-nums;
-    margin-bottom: 0.15rem;
+.chart-metric-amount {
+    font-size: 1.15rem; font-weight: 800; color: var(--text-primary);
+    line-height: 1.25; font-variant-numeric: tabular-nums;
 }
 
 /* Chart badge */
 .chart-badge {
     display: inline-flex; align-items: center; justify-content: center;
-    padding: 0.1rem 0.4rem; border-radius: 5px; font-size: 0.6rem; font-weight: 700;
+    padding: 0.08rem 0.35rem; border-radius: 4px; font-size: 0.55rem; font-weight: 700;
     flex-shrink: 0;
 }
-.chart-badge-up { background: rgba(16,185,129,0.12); color: #10b981; }
-.chart-badge-down { background: rgba(239,68,68,0.12); color: #ef4444; }
+.chart-badge-up { background: rgba(16,185,129,0.1); color: #10b981; }
+.chart-badge-down { background: rgba(239,68,68,0.1); color: #ef4444; }
 
-/* Elegant dark canvas background */
+/* Canvas area - transparent gray */
 .chart-canvas-wrap {
-    background: linear-gradient(180deg, #151d2e 0%, #1a2540 100%);
-    margin: 0 0.75rem 0.75rem;
+    background: var(--chart-wrap-bg);
+    margin: 0 0.75rem;
     border-radius: 12px;
-    border: 1px solid rgba(148,163,184,0.08);
+    border: 1px solid var(--chart-wrap-border);
 }
-body[data-theme="light"] .chart-canvas-wrap {
-    background: linear-gradient(180deg, #1e293b 0%, #243247 100%);
+
+/* Footer bar */
+.chart-footer-bar {
+    padding: 0.6rem 1.25rem;
+    display: flex; justify-content: space-between; align-items: center;
+}
+.chart-legend-item {
+    display: flex; align-items: center; gap: 0.3rem;
+    font-size: 0.6rem; color: var(--text-muted); font-weight: 500;
+}
+.chart-legend-line {
+    width: 12px; height: 2.5px; border-radius: 2px; flex-shrink: 0;
+}
+.chart-legend-line-dash {
+    opacity: 0.5;
+    background-image: repeating-linear-gradient(90deg, currentColor 0 3px, transparent 3px 5px) !important;
+    background-color: transparent !important;
 }
 
 /* Card hover effects for operational section */
@@ -2016,22 +2061,22 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
         cumulativeBalance.push(runningBalance);
     <?php endforeach; ?>
     
-    // Area gradient for income (brighter green glow)
-    const incomeGradient = tradingCtx.createLinearGradient(0, 0, 0, 280);
-    incomeGradient.addColorStop(0, 'rgba(52, 211, 153, 0.45)');
-    incomeGradient.addColorStop(0.4, 'rgba(52, 211, 153, 0.15)');
-    incomeGradient.addColorStop(1, 'rgba(52, 211, 153, 0)');
+    // Area gradient for income (green glow)
+    const incomeGradient = tradingCtx.createLinearGradient(0, 0, 0, 260);
+    incomeGradient.addColorStop(0, 'rgba(16, 185, 129, 0.25)');
+    incomeGradient.addColorStop(0.5, 'rgba(16, 185, 129, 0.06)');
+    incomeGradient.addColorStop(1, 'rgba(16, 185, 129, 0)');
     
-    // Area gradient for expense (brighter orange glow)
-    const expenseGradient = tradingCtx.createLinearGradient(0, 0, 0, 280);
-    expenseGradient.addColorStop(0, 'rgba(251, 146, 60, 0.40)');
-    expenseGradient.addColorStop(0.4, 'rgba(251, 146, 60, 0.12)');
-    expenseGradient.addColorStop(1, 'rgba(251, 146, 60, 0)');
+    // Area gradient for expense (orange glow)
+    const expenseGradient = tradingCtx.createLinearGradient(0, 0, 0, 260);
+    expenseGradient.addColorStop(0, 'rgba(249, 115, 22, 0.22)');
+    expenseGradient.addColorStop(0.5, 'rgba(249, 115, 22, 0.05)');
+    expenseGradient.addColorStop(1, 'rgba(249, 115, 22, 0)');
     
-    // Area gradient for net balance (primary, subtle glow)
-    const netGradient = tradingCtx.createLinearGradient(0, 0, 0, 280);
-    netGradient.addColorStop(0, 'rgba(<?php echo $cPrimaryRgb; ?>, 0.15)');
-    netGradient.addColorStop(0.5, 'rgba(<?php echo $cPrimaryRgb; ?>, 0.04)');
+    // Area gradient for net balance
+    const netGradient = tradingCtx.createLinearGradient(0, 0, 0, 260);
+    netGradient.addColorStop(0, 'rgba(<?php echo $cPrimaryRgb; ?>, 0.10)');
+    netGradient.addColorStop(0.5, 'rgba(<?php echo $cPrimaryRgb; ?>, 0.02)');
     netGradient.addColorStop(1, 'rgba(<?php echo $cPrimaryRgb; ?>, 0)');
     
     let tradingChart = new Chart(tradingCtx, {
@@ -2050,16 +2095,16 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
                             <?php echo $data['income']; ?>,
                         <?php endforeach; ?>
                     ],
-                    borderColor: '#34d399',
+                    borderColor: '#10b981',
                     backgroundColor: incomeGradient,
-                    borderWidth: 3,
+                    borderWidth: 2.5,
                     fill: true,
                     tension: 0.4,
                     pointRadius: 0,
-                    pointHoverRadius: 6,
-                    pointHoverBackgroundColor: '#34d399',
-                    pointHoverBorderColor: '#fff',
-                    pointHoverBorderWidth: 2.5,
+                    pointHoverRadius: 5,
+                    pointHoverBackgroundColor: '#10b981',
+                    pointHoverBorderColor: 'rgba(255,255,255,0.9)',
+                    pointHoverBorderWidth: 2,
                     order: 2
                 },
                 {
@@ -2069,32 +2114,32 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
                             <?php echo $data['expense']; ?>,
                         <?php endforeach; ?>
                     ],
-                    borderColor: '#fb923c',
+                    borderColor: '#f97316',
                     backgroundColor: expenseGradient,
-                    borderWidth: 3,
+                    borderWidth: 2.5,
                     fill: true,
                     tension: 0.4,
                     pointRadius: 0,
-                    pointHoverRadius: 6,
-                    pointHoverBackgroundColor: '#fb923c',
-                    pointHoverBorderColor: '#fff',
-                    pointHoverBorderWidth: 2.5,
+                    pointHoverRadius: 5,
+                    pointHoverBackgroundColor: '#f97316',
+                    pointHoverBorderColor: 'rgba(255,255,255,0.9)',
+                    pointHoverBorderWidth: 2,
                     order: 3
                 },
                 {
                     label: 'Net Balance',
                     data: cumulativeBalance,
-                    borderColor: 'rgba(<?php echo $cPrimaryRgb; ?>, 0.6)',
+                    borderColor: 'rgba(<?php echo $cPrimaryRgb; ?>, 0.5)',
                     backgroundColor: netGradient,
-                    borderWidth: 2,
+                    borderWidth: 1.5,
                     fill: true,
                     tension: 0.4,
                     pointRadius: 0,
-                    pointHoverRadius: 5,
+                    pointHoverRadius: 4,
                     pointHoverBackgroundColor: 'rgb(<?php echo $cPrimaryRgb; ?>)',
-                    pointHoverBorderColor: '#fff',
+                    pointHoverBorderColor: 'rgba(255,255,255,0.9)',
                     pointHoverBorderWidth: 2,
-                    borderDash: [5, 3],
+                    borderDash: [4, 3],
                     order: 1
                 }
             ]
@@ -2107,8 +2152,8 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
                 mode: 'index'
             },
             animation: {
-                duration: 1200,
-                easing: 'easeInOutQuart'
+                duration: 800,
+                easing: 'easeOutQuart'
             },
             plugins: {
                 legend: {
@@ -2116,19 +2161,19 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
                 },
                 tooltip: {
                     enabled: true,
-                    backgroundColor: 'rgba(15, 23, 42, 0.92)',
-                    titleColor: 'rgba(255, 255, 255, 0.7)',
-                    bodyColor: 'rgba(255, 255, 255, 0.95)',
-                    borderColor: 'rgba(148, 163, 184, 0.15)',
+                    backgroundColor: 'rgba(15, 23, 42, 0.88)',
+                    titleColor: 'rgba(255, 255, 255, 0.6)',
+                    bodyColor: 'rgba(255, 255, 255, 0.92)',
+                    borderColor: 'rgba(148, 163, 184, 0.12)',
                     borderWidth: 1,
-                    padding: { top: 10, bottom: 10, left: 14, right: 14 },
+                    padding: { top: 8, bottom: 8, left: 12, right: 12 },
                     titleFont: { size: 10, weight: '500', family: "'Inter', sans-serif" },
-                    bodyFont: { size: 12, weight: '600', family: "'Inter', sans-serif" },
+                    bodyFont: { size: 11, weight: '600', family: "'Inter', sans-serif" },
                     cornerRadius: 10,
                     displayColors: true,
-                    boxWidth: 8,
-                    boxHeight: 8,
-                    boxPadding: 6,
+                    boxWidth: 7,
+                    boxHeight: 7,
+                    boxPadding: 5,
                     usePointStyle: true,
                     callbacks: {
                         title: function(context) {
@@ -2145,27 +2190,28 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
                                 if (item.dataset.label === 'Pengeluaran') expense = item.parsed.y;
                             });
                             let net = income - expense;
-                            return '━━━━━━━━━━━━━━━\nNet: Rp ' + net.toLocaleString('id-ID');
+                            let sign = net >= 0 ? '+' : '';
+                            return '\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\u2500\nNet: ' + sign + 'Rp ' + net.toLocaleString('id-ID');
                         }
                     },
                     footerFont: { size: 10, weight: '600' },
-                    footerColor: 'rgba(255, 255, 255, 0.6)'
+                    footerColor: 'rgba(255, 255, 255, 0.5)'
                 }
             },
             scales: {
                 y: {
                     beginAtZero: true,
                     grid: {
-                        color: 'rgba(148, 163, 184, 0.12)',
+                        color: getComputedStyle(document.documentElement).getPropertyValue('--chart-grid-color').trim() || 'rgba(148,163,184,0.07)',
                         drawBorder: false,
                         lineWidth: 1
                     },
                     border: { display: false },
                     ticks: {
                         padding: 8,
-                        font: { size: 10, weight: '500', family: "'Inter', sans-serif" },
-                        color: 'rgba(148, 163, 184, 0.55)',
-                        maxTicksLimit: 6,
+                        font: { size: 9.5, weight: '500', family: "'Inter', sans-serif" },
+                        color: getComputedStyle(document.documentElement).getPropertyValue('--chart-tick-color').trim() || 'rgba(148,163,184,0.45)',
+                        maxTicksLimit: 5,
                         callback: function(value) {
                             if (value >= 1000000) return 'Rp ' + (value / 1000000).toFixed(1) + 'jt';
                             if (value >= 1000) return 'Rp ' + (value / 1000).toFixed(0) + 'rb';
@@ -2174,14 +2220,12 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
                     }
                 },
                 x: {
-                    grid: {
-                        display: false
-                    },
+                    grid: { display: false },
                     border: { display: false },
                     ticks: {
                         padding: 6,
-                        font: { size: 10, weight: '500', family: "'Inter', sans-serif" },
-                        color: 'rgba(148, 163, 184, 0.55)',
+                        font: { size: 9.5, weight: '500', family: "'Inter', sans-serif" },
+                        color: getComputedStyle(document.documentElement).getPropertyValue('--chart-tick-color').trim() || 'rgba(148,163,184,0.45)',
                         maxRotation: 0,
                         minRotation: 0,
                         maxTicksLimit: 15
