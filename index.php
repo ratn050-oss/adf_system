@@ -799,34 +799,30 @@ if ($trialStatus) {
             ?>
             <!-- Income Card -->
             <div class="chart-stat-card chart-stat-income">
-                <div class="chart-stat-header">
-                    <div class="chart-stat-dot" style="background: #10b981;"></div>
-                    <span class="chart-stat-label"><?php echo $isCQC ? 'Saldo Kas Besar' : 'Pemasukan'; ?></span>
-                    <span class="chart-badge chart-badge-up">↑</span>
+                <div class="chart-stat-icon" style="background: rgba(16,185,129,0.12);">
+                    <span style="color: #10b981; font-size: 1rem;">📈</span>
                 </div>
+                <div class="chart-stat-label"><?php echo $isCQC ? 'Saldo Kas Besar' : 'Pemasukan'; ?></div>
                 <div class="chart-stat-value" id="summaryIncome"><?php echo formatCurrency($displayIncome); ?></div>
+                <span class="chart-badge chart-badge-up">↑</span>
             </div>
             <!-- Expense Card -->
             <div class="chart-stat-card chart-stat-expense">
-                <div class="chart-stat-header">
-                    <div class="chart-stat-dot" style="background: #f97316;"></div>
-                    <span class="chart-stat-label">Pengeluaran</span>
-                    <span class="chart-badge chart-badge-down">↓</span>
+                <div class="chart-stat-icon" style="background: rgba(249,115,22,0.12);">
+                    <span style="color: #f97316; font-size: 1rem;">📉</span>
                 </div>
+                <div class="chart-stat-label">Pengeluaran</div>
                 <div class="chart-stat-value" id="summaryExpense"><?php echo formatCurrency($totalExpense); ?></div>
+                <span class="chart-badge chart-badge-down">↓</span>
             </div>
             <!-- Net Balance Card -->
             <div class="chart-stat-card chart-stat-net">
-                <div class="chart-stat-header">
-                    <div class="chart-stat-dot" style="background: rgb(<?php echo $cPrimaryRgb; ?>);"></div>
-                    <span class="chart-stat-label"><?php echo $isCQC ? 'Saldo Bersih' : 'Net Balance'; ?></span>
-                    <span class="chart-badge <?php echo $netBalance >= 0 ? 'chart-badge-up' : 'chart-badge-down'; ?>">
-                        <?php echo $netBalance >= 0 ? '↑' : '↓'; ?>
-                    </span>
+                <div class="chart-stat-icon" style="background: rgba(<?php echo $cPrimaryRgb; ?>,0.12);">
+                    <span style="color: rgb(<?php echo $cPrimaryRgb; ?>); font-size: 1rem;">💰</span>
                 </div>
-                <div class="chart-stat-value" id="summaryNet" style="color: <?php echo $netBalance >= 0 ? '#10b981' : '#ef4444'; ?>;">
-                    <?php echo formatCurrency($netBalance); ?>
-                </div>
+                <div class="chart-stat-label"><?php echo $isCQC ? 'Saldo Bersih' : 'Net Balance'; ?></div>
+                <div class="chart-stat-value" id="summaryNet" style="color: <?php echo $netBalance >= 0 ? '#10b981' : '#ef4444'; ?>;"><?php echo formatCurrency($netBalance); ?></div>
+                <span class="chart-badge <?php echo $netBalance >= 0 ? 'chart-badge-up' : 'chart-badge-down'; ?>"><?php echo $netBalance >= 0 ? '↑' : '↓'; ?></span>
             </div>
         </div>
     </div>
@@ -893,34 +889,37 @@ if ($trialStatus) {
     background: var(--primary-color); color: #fff;
 }
 
-/* Summary stat cards */
+/* Summary stat cards - centered elegant */
 .chart-stat-card {
-    padding: 0.75rem 1rem;
+    padding: 0.85rem 0.75rem 0.75rem;
     border-radius: 12px;
     border: 1px solid rgba(148,163,184,0.08);
+    text-align: center;
+    position: relative;
     transition: transform 0.2s, box-shadow 0.2s;
 }
 .chart-stat-card:hover {
-    transform: translateY(-1px);
-    box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+    transform: translateY(-2px);
+    box-shadow: 0 6px 20px rgba(0,0,0,0.08);
 }
-.chart-stat-income { background: linear-gradient(135deg, rgba(16,185,129,0.08), rgba(16,185,129,0.02)); border-color: rgba(16,185,129,0.15); }
-.chart-stat-expense { background: linear-gradient(135deg, rgba(249,115,22,0.08), rgba(249,115,22,0.02)); border-color: rgba(249,115,22,0.15); }
-.chart-stat-net { background: linear-gradient(135deg, rgba(<?php echo $cPrimaryRgb; ?>,0.08), rgba(<?php echo $cPrimaryRgb; ?>,0.02)); border-color: rgba(<?php echo $cPrimaryRgb; ?>,0.15); }
+.chart-stat-income { background: linear-gradient(180deg, rgba(16,185,129,0.06), transparent); border-color: rgba(16,185,129,0.18); }
+.chart-stat-expense { background: linear-gradient(180deg, rgba(249,115,22,0.06), transparent); border-color: rgba(249,115,22,0.18); }
+.chart-stat-net { background: linear-gradient(180deg, rgba(<?php echo $cPrimaryRgb; ?>,0.06), transparent); border-color: rgba(<?php echo $cPrimaryRgb; ?>,0.18); }
 
-.chart-stat-header {
-    display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.4rem;
-}
-.chart-stat-dot {
-    width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+.chart-stat-icon {
+    width: 32px; height: 32px; border-radius: 10px;
+    display: flex; align-items: center; justify-content: center;
+    margin: 0 auto 0.4rem;
 }
 .chart-stat-label {
-    font-size: 0.68rem; color: var(--text-muted); font-weight: 600;
-    text-transform: uppercase; letter-spacing: 0.04em; flex: 1;
+    font-size: 0.62rem; color: var(--text-muted); font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.06em;
+    margin-bottom: 0.25rem;
 }
 .chart-stat-value {
-    font-size: 1.35rem; font-weight: 800; color: var(--text-primary);
+    font-size: 1.2rem; font-weight: 800; color: var(--text-primary);
     line-height: 1.2; font-variant-numeric: tabular-nums;
+    margin-bottom: 0.15rem;
 }
 
 /* Chart badge */
@@ -932,15 +931,15 @@ if ($trialStatus) {
 .chart-badge-up { background: rgba(16,185,129,0.12); color: #10b981; }
 .chart-badge-down { background: rgba(239,68,68,0.12); color: #ef4444; }
 
-/* Dark canvas background */
+/* Elegant dark canvas background */
 .chart-canvas-wrap {
-    background: #0c1222;
+    background: linear-gradient(180deg, #151d2e 0%, #1a2540 100%);
     margin: 0 0.75rem 0.75rem;
     border-radius: 12px;
-    border: 1px solid rgba(148,163,184,0.06);
+    border: 1px solid rgba(148,163,184,0.08);
 }
 body[data-theme="light"] .chart-canvas-wrap {
-    background: #1a2234;
+    background: linear-gradient(180deg, #1e293b 0%, #243247 100%);
 }
 
 /* Card hover effects for operational section */
@@ -2017,21 +2016,22 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
         cumulativeBalance.push(runningBalance);
     <?php endforeach; ?>
     
-    // Area gradient for income (green, top→transparent)
+    // Area gradient for income (brighter green glow)
     const incomeGradient = tradingCtx.createLinearGradient(0, 0, 0, 280);
-    incomeGradient.addColorStop(0, 'rgba(16, 185, 129, 0.40)');
-    incomeGradient.addColorStop(0.5, 'rgba(16, 185, 129, 0.10)');
-    incomeGradient.addColorStop(1, 'rgba(16, 185, 129, 0)');
+    incomeGradient.addColorStop(0, 'rgba(52, 211, 153, 0.45)');
+    incomeGradient.addColorStop(0.4, 'rgba(52, 211, 153, 0.15)');
+    incomeGradient.addColorStop(1, 'rgba(52, 211, 153, 0)');
     
-    // Area gradient for expense (orange, top→transparent)
+    // Area gradient for expense (brighter orange glow)
     const expenseGradient = tradingCtx.createLinearGradient(0, 0, 0, 280);
-    expenseGradient.addColorStop(0, 'rgba(249, 115, 22, 0.35)');
-    expenseGradient.addColorStop(0.5, 'rgba(249, 115, 22, 0.08)');
-    expenseGradient.addColorStop(1, 'rgba(249, 115, 22, 0)');
+    expenseGradient.addColorStop(0, 'rgba(251, 146, 60, 0.40)');
+    expenseGradient.addColorStop(0.4, 'rgba(251, 146, 60, 0.12)');
+    expenseGradient.addColorStop(1, 'rgba(251, 146, 60, 0)');
     
-    // Area gradient for net balance (primary, very subtle)
-    const netGradient = tradingCtx.createLinearGradient(0, 0, 0, 300);
-    netGradient.addColorStop(0, 'rgba(<?php echo $cPrimaryRgb; ?>, 0.10)');
+    // Area gradient for net balance (primary, subtle glow)
+    const netGradient = tradingCtx.createLinearGradient(0, 0, 0, 280);
+    netGradient.addColorStop(0, 'rgba(<?php echo $cPrimaryRgb; ?>, 0.15)');
+    netGradient.addColorStop(0.5, 'rgba(<?php echo $cPrimaryRgb; ?>, 0.04)');
     netGradient.addColorStop(1, 'rgba(<?php echo $cPrimaryRgb; ?>, 0)');
     
     let tradingChart = new Chart(tradingCtx, {
@@ -2050,16 +2050,16 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
                             <?php echo $data['income']; ?>,
                         <?php endforeach; ?>
                     ],
-                    borderColor: '#10b981',
+                    borderColor: '#34d399',
                     backgroundColor: incomeGradient,
-                    borderWidth: 2.5,
+                    borderWidth: 3,
                     fill: true,
                     tension: 0.4,
                     pointRadius: 0,
-                    pointHoverRadius: 5,
-                    pointHoverBackgroundColor: '#10b981',
+                    pointHoverRadius: 6,
+                    pointHoverBackgroundColor: '#34d399',
                     pointHoverBorderColor: '#fff',
-                    pointHoverBorderWidth: 2,
+                    pointHoverBorderWidth: 2.5,
                     order: 2
                 },
                 {
@@ -2069,28 +2069,28 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
                             <?php echo $data['expense']; ?>,
                         <?php endforeach; ?>
                     ],
-                    borderColor: '#f97316',
+                    borderColor: '#fb923c',
                     backgroundColor: expenseGradient,
-                    borderWidth: 2.5,
+                    borderWidth: 3,
                     fill: true,
                     tension: 0.4,
                     pointRadius: 0,
-                    pointHoverRadius: 5,
-                    pointHoverBackgroundColor: '#f97316',
+                    pointHoverRadius: 6,
+                    pointHoverBackgroundColor: '#fb923c',
                     pointHoverBorderColor: '#fff',
-                    pointHoverBorderWidth: 2,
+                    pointHoverBorderWidth: 2.5,
                     order: 3
                 },
                 {
                     label: 'Net Balance',
                     data: cumulativeBalance,
-                    borderColor: 'rgba(<?php echo $cPrimaryRgb; ?>, 0.4)',
+                    borderColor: 'rgba(<?php echo $cPrimaryRgb; ?>, 0.6)',
                     backgroundColor: netGradient,
-                    borderWidth: 1.5,
+                    borderWidth: 2,
                     fill: true,
                     tension: 0.4,
                     pointRadius: 0,
-                    pointHoverRadius: 4,
+                    pointHoverRadius: 5,
                     pointHoverBackgroundColor: 'rgb(<?php echo $cPrimaryRgb; ?>)',
                     pointHoverBorderColor: '#fff',
                     pointHoverBorderWidth: 2,
@@ -2156,7 +2156,7 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
                 y: {
                     beginAtZero: true,
                     grid: {
-                        color: 'rgba(148, 163, 184, 0.08)',
+                        color: 'rgba(148, 163, 184, 0.12)',
                         drawBorder: false,
                         lineWidth: 1
                     },
@@ -2164,7 +2164,7 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
                     ticks: {
                         padding: 8,
                         font: { size: 10, weight: '500', family: "'Inter', sans-serif" },
-                        color: 'rgba(148, 163, 184, 0.5)',
+                        color: 'rgba(148, 163, 184, 0.55)',
                         maxTicksLimit: 6,
                         callback: function(value) {
                             if (value >= 1000000) return 'Rp ' + (value / 1000000).toFixed(1) + 'jt';
@@ -2181,7 +2181,7 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
                     ticks: {
                         padding: 6,
                         font: { size: 10, weight: '500', family: "'Inter', sans-serif" },
-                        color: 'rgba(148, 163, 184, 0.5)',
+                        color: 'rgba(148, 163, 184, 0.55)',
                         maxRotation: 0,
                         minRotation: 0,
                         maxTicksLimit: 15
