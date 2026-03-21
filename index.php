@@ -743,137 +743,117 @@ if ($trialStatus) {
 ?>
 
 <!-- PREMIUM TRADING CHART - PALING ATAS -->
-<div id="tradingChartCard" class="card" style="margin-bottom: 1.5rem; overflow: hidden; border-radius: 16px; border: 1px solid rgba(<?php echo $cPrimaryRgb; ?>, 0.15); box-shadow: 0 8px 32px rgba(0,0,0,0.12);">
-    <!-- Header with summary stats -->
-    <div style="padding: 1.25rem 1.5rem 0.75rem;">
-        <div style="display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 1rem;">
-            <div>
-                <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 600; text-transform: uppercase; letter-spacing: 0.12em; margin-bottom: 0.25rem;"><?php echo strtoupper(BUSINESS_NAME); ?></div>
-                <div style="font-size: 1rem; font-weight: 700; color: var(--text-primary); display: flex; align-items: center; gap: 0.5rem;">
+<div id="tradingChartCard" class="card" style="margin-bottom: 1.5rem; overflow: hidden; border-radius: 16px; border: 1px solid rgba(<?php echo $cPrimaryRgb; ?>, 0.12); box-shadow: 0 8px 32px rgba(0,0,0,0.12);">
+    <!-- Header Row -->
+    <div style="padding: 1.25rem 1.5rem 0;">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+            <div style="display: flex; align-items: center; gap: 0.75rem;">
+                <div style="font-size: 0.95rem; font-weight: 700; color: var(--text-primary);">
                     Financial Performance
-                    <div id="liveIndicator" style="display: inline-flex; align-items: center; gap: 0.25rem; padding: 0.2rem 0.5rem; background: rgba(16, 185, 129, 0.12); border-radius: 12px;">
-                        <span style="width: 5px; height: 5px; background: #10b981; border-radius: 50%; animation: livePulse 2s infinite;"></span>
-                        <span style="font-size: 0.6rem; font-weight: 700; color: #10b981; text-transform: uppercase;">Live</span>
-                    </div>
+                </div>
+                <div id="liveIndicator" style="display: inline-flex; align-items: center; gap: 0.3rem; padding: 0.2rem 0.6rem; background: rgba(16, 185, 129, 0.1); border-radius: 20px; border: 1px solid rgba(16,185,129,0.15);">
+                    <span style="width: 5px; height: 5px; background: #10b981; border-radius: 50%; animation: livePulse 2s infinite;"></span>
+                    <span style="font-size: 0.6rem; font-weight: 700; color: #10b981; text-transform: uppercase; letter-spacing: 0.05em;">Live</span>
                 </div>
             </div>
-            <!-- View Toggle -->
-            <div style="display: flex; align-items: center; gap: 0.25rem; background: var(--bg-tertiary); padding: 0.2rem; border-radius: 8px;">
-                <button id="btnDaily" onclick="switchView('daily')" class="btn-view-toggle" style="padding: 0.3rem 0.6rem; border: none; background: transparent; color: var(--text-muted); border-radius: 6px; font-size: 0.68rem; font-weight: 600; cursor: pointer; transition: all 0.3s;">Harian</button>
-                <button id="btnMonthly" onclick="switchView('monthly')" class="btn-view-toggle active" style="padding: 0.3rem 0.6rem; border: none; background: var(--primary-color); color: white; border-radius: 6px; font-size: 0.68rem; font-weight: 600; cursor: pointer; transition: all 0.3s;">Bulanan</button>
-                <button id="btnYearly" onclick="switchView('yearly')" class="btn-view-toggle" style="padding: 0.3rem 0.6rem; border: none; background: transparent; color: var(--text-muted); border-radius: 6px; font-size: 0.68rem; font-weight: 600; cursor: pointer; transition: all 0.3s;">Tahunan</button>
-                <button id="btnAllTime" onclick="switchView('alltime')" class="btn-view-toggle" style="padding: 0.3rem 0.6rem; border: none; background: transparent; color: var(--text-muted); border-radius: 6px; font-size: 0.68rem; font-weight: 600; cursor: pointer; transition: all 0.3s;">All Time</button>
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <!-- Filters -->
+                <div id="dailyFilter" style="display: none; align-items: center;">
+                    <input type="date" id="chartDateFilter" value="<?php echo date('Y-m-d'); ?>" 
+                           class="form-control" style="max-width: 130px; height: 30px; font-size: 0.68rem; font-weight: 600; border: 1px solid var(--bg-tertiary); border-radius: 8px; background: var(--bg-tertiary); color: var(--text-primary);"
+                           onchange="updateChartDate(this.value)">
+                </div>
+                <div id="monthlyFilter" style="display: flex; align-items: center;">
+                    <input type="month" name="chart_month" id="chartMonthFilter" value="<?php echo $selectedMonth; ?>" 
+                           class="form-control" style="max-width: 130px; height: 30px; font-size: 0.68rem; font-weight: 600; border: 1px solid var(--bg-tertiary); border-radius: 8px; background: var(--bg-tertiary); color: var(--text-primary);"
+                           onchange="updateChartMonth(this.value)">
+                </div>
+                <div id="yearlyFilter" style="display: none; align-items: center;">
+                    <select id="chartYearFilter" class="form-control" style="max-width: 110px; height: 30px; font-size: 0.68rem; font-weight: 600; border: 1px solid var(--bg-tertiary); border-radius: 8px; background: var(--bg-tertiary); color: var(--text-primary);" onchange="updateChartYear(this.value)">
+                        <?php for($y = date('Y'); $y >= date('Y') - 5; $y--): ?>
+                            <option value="<?php echo $y; ?>" <?php echo $y == date('Y') ? 'selected' : ''; ?>><?php echo $y; ?></option>
+                        <?php endfor; ?>
+                    </select>
+                </div>
+                <!-- View Toggle -->
+                <div class="chart-view-toggle">
+                    <button id="btnDaily" onclick="switchView('daily')" class="btn-view-toggle">Harian</button>
+                    <button id="btnMonthly" onclick="switchView('monthly')" class="btn-view-toggle active">Bulanan</button>
+                    <button id="btnYearly" onclick="switchView('yearly')" class="btn-view-toggle">Tahunan</button>
+                    <button id="btnAllTime" onclick="switchView('alltime')" class="btn-view-toggle">All Time</button>
+                </div>
             </div>
         </div>
         
         <!-- Summary Numbers Row -->
-        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 1rem; margin-bottom: 0.75rem;">
-            <!-- Income -->
-            <div>
-                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
-                    <span style="font-size: 1.5rem; font-weight: 800; color: var(--text-primary);" id="summaryIncome">
-                        <?php 
-                        $totalIncome = array_sum(array_column($dailyData, 'income'));
-                        $displayIncome = $isCQC ? ($totalIncome - ($cqcPettyCashTransfers ?? 0) - ($cqcExpenseFromBank ?? 0)) : $totalIncome;
-                        echo formatCurrency($displayIncome);
-                        ?>
-                    </span>
-                    <?php 
-                    // Calculate % change vs previous period
-                    $prevIncome = 0; // Placeholder
-                    $incomeChange = $totalIncome > 0 ? '+20%' : '0%'; // Will be dynamic
-                    ?>
+        <div style="display: grid; grid-template-columns: repeat(3, 1fr); gap: 0.75rem; margin-bottom: 1rem;">
+            <?php 
+            $totalIncome = array_sum(array_column($dailyData, 'income'));
+            $displayIncome = $isCQC ? ($totalIncome - ($cqcPettyCashTransfers ?? 0) - ($cqcExpenseFromBank ?? 0)) : $totalIncome;
+            $totalExpense = array_sum(array_column($dailyData, 'expense'));
+            if ($isCQC) {
+                $netBalance = ($cqcPettyCashBalance ?? 0) + ($cqcBankBalance ?? 0);
+            } else {
+                $netBalance = $totalIncome - $totalExpense;
+            }
+            ?>
+            <!-- Income Card -->
+            <div class="chart-stat-card chart-stat-income">
+                <div class="chart-stat-header">
+                    <div class="chart-stat-dot" style="background: #10b981;"></div>
+                    <span class="chart-stat-label"><?php echo $isCQC ? 'Saldo Kas Besar' : 'Pemasukan'; ?></span>
                     <span class="chart-badge chart-badge-up">↑</span>
                 </div>
-                <div style="display: flex; align-items: center; gap: 0.35rem;">
-                    <span style="width: 8px; height: 8px; border-radius: 50%; background: #10b981;"></span>
-                    <span style="font-size: 0.7rem; color: var(--text-muted); font-weight: 500;"><?php echo $isCQC ? 'Saldo Kas Besar' : 'Pemasukan'; ?></span>
-                </div>
+                <div class="chart-stat-value" id="summaryIncome"><?php echo formatCurrency($displayIncome); ?></div>
             </div>
-            <!-- Expense -->
-            <div>
-                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
-                    <span style="font-size: 1.5rem; font-weight: 800; color: var(--text-primary);" id="summaryExpense">
-                        <?php 
-                        $totalExpense = array_sum(array_column($dailyData, 'expense'));
-                        echo formatCurrency($totalExpense);
-                        ?>
-                    </span>
+            <!-- Expense Card -->
+            <div class="chart-stat-card chart-stat-expense">
+                <div class="chart-stat-header">
+                    <div class="chart-stat-dot" style="background: #f97316;"></div>
+                    <span class="chart-stat-label">Pengeluaran</span>
                     <span class="chart-badge chart-badge-down">↓</span>
                 </div>
-                <div style="display: flex; align-items: center; gap: 0.35rem;">
-                    <span style="width: 8px; height: 8px; border-radius: 50%; background: #f97316;"></span>
-                    <span style="font-size: 0.7rem; color: var(--text-muted); font-weight: 500;">Pengeluaran</span>
-                </div>
+                <div class="chart-stat-value" id="summaryExpense"><?php echo formatCurrency($totalExpense); ?></div>
             </div>
-            <!-- Net Balance -->
-            <div>
-                <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.25rem;">
-                    <?php 
-                    if ($isCQC) {
-                        $netBalance = ($cqcPettyCashBalance ?? 0) + ($cqcBankBalance ?? 0);
-                    } else {
-                        $netBalance = $totalIncome - $totalExpense;
-                    }
-                    ?>
-                    <span style="font-size: 1.5rem; font-weight: 800; color: <?php echo $netBalance >= 0 ? '#10b981' : '#ef4444'; ?>;" id="summaryNet">
-                        <?php echo formatCurrency($netBalance); ?>
-                    </span>
+            <!-- Net Balance Card -->
+            <div class="chart-stat-card chart-stat-net">
+                <div class="chart-stat-header">
+                    <div class="chart-stat-dot" style="background: rgb(<?php echo $cPrimaryRgb; ?>);"></div>
+                    <span class="chart-stat-label"><?php echo $isCQC ? 'Saldo Bersih' : 'Net Balance'; ?></span>
                     <span class="chart-badge <?php echo $netBalance >= 0 ? 'chart-badge-up' : 'chart-badge-down'; ?>">
                         <?php echo $netBalance >= 0 ? '↑' : '↓'; ?>
                     </span>
                 </div>
-                <div style="display: flex; align-items: center; gap: 0.35rem;">
-                    <span style="width: 8px; height: 8px; border-radius: 50%; background: rgb(<?php echo $cPrimaryRgb; ?>);"></span>
-                    <span style="font-size: 0.7rem; color: var(--text-muted); font-weight: 500;"><?php echo $isCQC ? 'Saldo Bersih' : 'Net Balance'; ?></span>
+                <div class="chart-stat-value" id="summaryNet" style="color: <?php echo $netBalance >= 0 ? '#10b981' : '#ef4444'; ?>;">
+                    <?php echo formatCurrency($netBalance); ?>
                 </div>
             </div>
         </div>
-        
-        <!-- Filters -->
-        <div style="display: flex; justify-content: flex-end; gap: 0.5rem; margin-bottom: 0.25rem;">
-            <div id="dailyFilter" style="display: none; align-items: center;">
-                <input type="date" id="chartDateFilter" value="<?php echo date('Y-m-d'); ?>" 
-                       class="form-control" style="max-width: 140px; height: 32px; font-size: 0.7rem; font-weight: 600; border: 1px solid var(--bg-tertiary); border-radius: 8px;"
-                       onchange="updateChartDate(this.value)">
-            </div>
-            <div id="monthlyFilter" style="display: flex; align-items: center;">
-                <input type="month" name="chart_month" id="chartMonthFilter" value="<?php echo $selectedMonth; ?>" 
-                       class="form-control" style="max-width: 140px; height: 32px; font-size: 0.7rem; font-weight: 600; border: 1px solid var(--bg-tertiary); border-radius: 8px;"
-                       onchange="updateChartMonth(this.value)">
-            </div>
-            <div id="yearlyFilter" style="display: none; align-items: center;">
-                <select id="chartYearFilter" class="form-control" style="max-width: 120px; height: 32px; font-size: 0.7rem; font-weight: 600; border: 1px solid var(--bg-tertiary); border-radius: 8px;" onchange="updateChartYear(this.value)">
-                    <?php for($y = date('Y'); $y >= date('Y') - 5; $y--): ?>
-                        <option value="<?php echo $y; ?>" <?php echo $y == date('Y') ? 'selected' : ''; ?>><?php echo $y; ?></option>
-                    <?php endfor; ?>
-                </select>
-            </div>
-        </div>
     </div>
     
-    <!-- Chart Area -->
-    <div style="position: relative; height: 300px; padding: 0 0.75rem 0.75rem;">
-        <canvas id="tradingChart"></canvas>
-    </div>
-    
-    <!-- Period Info Bar -->
-    <div style="padding: 0.75rem 1.5rem; border-top: 1px solid var(--chart-border-color, rgba(148,163,184,0.1)); display: flex; justify-content: space-between; align-items: center;">
-        <div style="font-size: 0.7rem; color: var(--text-muted); font-weight: 500;">
-            <span id="periodDisplay">1 - <?php echo date('t', strtotime($firstDay)); ?> <?php echo date('M Y', strtotime($firstDay)); ?></span>
+    <!-- Chart Area with dark background -->
+    <div class="chart-canvas-wrap">
+        <div style="position: relative; height: 280px; padding: 0.75rem 1rem;">
+            <canvas id="tradingChart"></canvas>
         </div>
-        <div style="display: flex; gap: 1rem;">
-            <div style="display: flex; align-items: center; gap: 0.35rem;">
-                <span style="width: 10px; height: 3px; border-radius: 2px; background: #10b981;"></span>
-                <span style="font-size: 0.65rem; color: var(--text-muted);">Pemasukan</span>
+        <!-- Period + Legend Bar inside dark area -->
+        <div style="padding: 0.5rem 1.25rem 0.75rem; display: flex; justify-content: space-between; align-items: center;">
+            <div style="font-size: 0.68rem; color: rgba(148,163,184,0.7); font-weight: 500;">
+                <span id="periodDisplay">1 - <?php echo date('t', strtotime($firstDay)); ?> <?php echo date('M Y', strtotime($firstDay)); ?></span>
             </div>
-            <div style="display: flex; align-items: center; gap: 0.35rem;">
-                <span style="width: 10px; height: 3px; border-radius: 2px; background: #f97316;"></span>
-                <span style="font-size: 0.65rem; color: var(--text-muted);">Pengeluaran</span>
-            </div>
-            <div style="display: flex; align-items: center; gap: 0.35rem;">
-                <span style="width: 10px; height: 3px; border-radius: 2px; background: rgb(<?php echo $cPrimaryRgb; ?>); opacity: 0.5;"></span>
-                <span style="font-size: 0.65rem; color: var(--text-muted);">Net Balance</span>
+            <div style="display: flex; gap: 1rem;">
+                <div style="display: flex; align-items: center; gap: 0.35rem;">
+                    <span style="width: 14px; height: 3px; border-radius: 2px; background: #10b981;"></span>
+                    <span style="font-size: 0.62rem; color: rgba(148,163,184,0.6);">Pemasukan</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.35rem;">
+                    <span style="width: 14px; height: 3px; border-radius: 2px; background: #f97316;"></span>
+                    <span style="font-size: 0.62rem; color: rgba(148,163,184,0.6);">Pengeluaran</span>
+                </div>
+                <div style="display: flex; align-items: center; gap: 0.35rem;">
+                    <span style="width: 14px; height: 3px; border-radius: 2px; background: rgb(<?php echo $cPrimaryRgb; ?>); opacity: 0.5;"></span>
+                    <span style="font-size: 0.62rem; color: rgba(148,163,184,0.6);">Net Balance</span>
+                </div>
             </div>
         </div>
     </div>
@@ -889,19 +869,78 @@ if ($trialStatus) {
     50% { opacity: 0.6; transform: scale(1.1); }
 }
 
-.chart-badge {
-    display: inline-flex; align-items: center; justify-content: center;
-    padding: 0.15rem 0.45rem; border-radius: 6px; font-size: 0.65rem; font-weight: 700;
-}
-.chart-badge-up { background: rgba(16,185,129,0.12); color: #10b981; }
-.chart-badge-down { background: rgba(239,68,68,0.12); color: #ef4444; }
-
+/* === TRADING CHART CARD === */
 #tradingChartCard {
-    background: var(--card-bg);
+    background: var(--card-bg, var(--bg-primary));
     transition: box-shadow 0.3s, border-color 0.3s;
 }
 #tradingChartCard:hover {
     box-shadow: 0 12px 48px rgba(0,0,0,0.18);
+}
+
+/* View toggle pill bar */
+.chart-view-toggle {
+    display: flex; align-items: center; gap: 2px;
+    background: var(--bg-tertiary); padding: 3px; border-radius: 8px;
+}
+.btn-view-toggle {
+    padding: 0.28rem 0.55rem; border: none; background: transparent;
+    color: var(--text-muted); border-radius: 6px; font-size: 0.65rem;
+    font-weight: 600; cursor: pointer; transition: all 0.25s; white-space: nowrap;
+}
+.btn-view-toggle.active,
+.btn-view-toggle:hover {
+    background: var(--primary-color); color: #fff;
+}
+
+/* Summary stat cards */
+.chart-stat-card {
+    padding: 0.75rem 1rem;
+    border-radius: 12px;
+    border: 1px solid rgba(148,163,184,0.08);
+    transition: transform 0.2s, box-shadow 0.2s;
+}
+.chart-stat-card:hover {
+    transform: translateY(-1px);
+    box-shadow: 0 4px 16px rgba(0,0,0,0.06);
+}
+.chart-stat-income { background: linear-gradient(135deg, rgba(16,185,129,0.08), rgba(16,185,129,0.02)); border-color: rgba(16,185,129,0.15); }
+.chart-stat-expense { background: linear-gradient(135deg, rgba(249,115,22,0.08), rgba(249,115,22,0.02)); border-color: rgba(249,115,22,0.15); }
+.chart-stat-net { background: linear-gradient(135deg, rgba(<?php echo $cPrimaryRgb; ?>,0.08), rgba(<?php echo $cPrimaryRgb; ?>,0.02)); border-color: rgba(<?php echo $cPrimaryRgb; ?>,0.15); }
+
+.chart-stat-header {
+    display: flex; align-items: center; gap: 0.4rem; margin-bottom: 0.4rem;
+}
+.chart-stat-dot {
+    width: 7px; height: 7px; border-radius: 50%; flex-shrink: 0;
+}
+.chart-stat-label {
+    font-size: 0.68rem; color: var(--text-muted); font-weight: 600;
+    text-transform: uppercase; letter-spacing: 0.04em; flex: 1;
+}
+.chart-stat-value {
+    font-size: 1.35rem; font-weight: 800; color: var(--text-primary);
+    line-height: 1.2; font-variant-numeric: tabular-nums;
+}
+
+/* Chart badge */
+.chart-badge {
+    display: inline-flex; align-items: center; justify-content: center;
+    padding: 0.1rem 0.4rem; border-radius: 5px; font-size: 0.6rem; font-weight: 700;
+    flex-shrink: 0;
+}
+.chart-badge-up { background: rgba(16,185,129,0.12); color: #10b981; }
+.chart-badge-down { background: rgba(239,68,68,0.12); color: #ef4444; }
+
+/* Dark canvas background */
+.chart-canvas-wrap {
+    background: #0c1222;
+    margin: 0 0.75rem 0.75rem;
+    border-radius: 12px;
+    border: 1px solid rgba(148,163,184,0.06);
+}
+body[data-theme="light"] .chart-canvas-wrap {
+    background: #1a2234;
 }
 
 /* Card hover effects for operational section */
@@ -1979,15 +2018,15 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
     <?php endforeach; ?>
     
     // Area gradient for income (green, top→transparent)
-    const incomeGradient = tradingCtx.createLinearGradient(0, 0, 0, 300);
-    incomeGradient.addColorStop(0, 'rgba(16, 185, 129, 0.35)');
-    incomeGradient.addColorStop(0.6, 'rgba(16, 185, 129, 0.08)');
+    const incomeGradient = tradingCtx.createLinearGradient(0, 0, 0, 280);
+    incomeGradient.addColorStop(0, 'rgba(16, 185, 129, 0.40)');
+    incomeGradient.addColorStop(0.5, 'rgba(16, 185, 129, 0.10)');
     incomeGradient.addColorStop(1, 'rgba(16, 185, 129, 0)');
     
     // Area gradient for expense (orange, top→transparent)
-    const expenseGradient = tradingCtx.createLinearGradient(0, 0, 0, 300);
-    expenseGradient.addColorStop(0, 'rgba(249, 115, 22, 0.30)');
-    expenseGradient.addColorStop(0.6, 'rgba(249, 115, 22, 0.06)');
+    const expenseGradient = tradingCtx.createLinearGradient(0, 0, 0, 280);
+    expenseGradient.addColorStop(0, 'rgba(249, 115, 22, 0.35)');
+    expenseGradient.addColorStop(0.5, 'rgba(249, 115, 22, 0.08)');
     expenseGradient.addColorStop(1, 'rgba(249, 115, 22, 0)');
     
     // Area gradient for net balance (primary, very subtle)
@@ -2117,7 +2156,7 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
                 y: {
                     beginAtZero: true,
                     grid: {
-                        color: 'rgba(148, 163, 184, 0.06)',
+                        color: 'rgba(148, 163, 184, 0.08)',
                         drawBorder: false,
                         lineWidth: 1
                     },
@@ -2125,7 +2164,7 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
                     ticks: {
                         padding: 8,
                         font: { size: 10, weight: '500', family: "'Inter', sans-serif" },
-                        color: getChartTextColor(),
+                        color: 'rgba(148, 163, 184, 0.5)',
                         maxTicksLimit: 6,
                         callback: function(value) {
                             if (value >= 1000000) return 'Rp ' + (value / 1000000).toFixed(1) + 'jt';
@@ -2142,7 +2181,7 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
                     ticks: {
                         padding: 6,
                         font: { size: 10, weight: '500', family: "'Inter', sans-serif" },
-                        color: getChartTextColor(),
+                        color: 'rgba(148, 163, 184, 0.5)',
                         maxRotation: 0,
                         minRotation: 0,
                         maxTicksLimit: 15
@@ -2338,8 +2377,9 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
         
         // Reset all buttons
         [btnDaily, btnMonthly, btnYearly, btnAllTime].forEach(btn => {
-            btn.style.background = 'transparent';
-            btn.style.color = 'var(--text-muted)';
+            btn.classList.remove('active');
+            btn.style.background = '';
+            btn.style.color = '';
         });
         
         // Hide all filters
@@ -2348,32 +2388,28 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
         yearlyFilter.style.display = 'none';
         
         if (view === 'daily') {
-            btnDaily.style.background = 'var(--primary-color)';
-            btnDaily.style.color = 'white';
+            btnDaily.classList.add('active');
             dailyFilter.style.display = 'flex';
             
             // Load daily data (hourly breakdown)
             const selectedDate = document.getElementById('chartDateFilter').value;
             updateChartDate(selectedDate);
         } else if (view === 'monthly') {
-            btnMonthly.style.background = 'var(--primary-color)';
-            btnMonthly.style.color = 'white';
+            btnMonthly.classList.add('active');
             monthlyFilter.style.display = 'flex';
             
             // Load monthly data (daily breakdown)
             const selectedMonth = document.getElementById('chartMonthFilter').value;
             updateChartMonth(selectedMonth);
         } else if (view === 'yearly') {
-            btnYearly.style.background = 'var(--primary-color)';
-            btnYearly.style.color = 'white';
+            btnYearly.classList.add('active');
             yearlyFilter.style.display = 'flex';
             
             // Load yearly data (monthly breakdown)
             const selectedYear = document.getElementById('chartYearFilter').value;
             updateChartYear(selectedYear);
         } else if (view === 'alltime') {
-            btnAllTime.style.background = 'var(--primary-color)';
-            btnAllTime.style.color = 'white';
+            btnAllTime.classList.add('active');
             
             // Load all-time data (yearly breakdown)
             updateChartAllTime();
