@@ -611,12 +611,12 @@ if ($action === 'face_clock') {
         $scan4 = $att['scan_4'] ?? null;
         $filledScans = array_filter([$scan1, $scan2, $scan3, $scan4], fn($s) => !empty($s));
 
-    // Double scan filter (30 min)
+    // Double scan filter (5 min - prevent accidental double-tap)
     if (!empty($filledScans)) {
         $lastScan = end($filledScans);
         $diffMin = abs(strtotime("2000-01-01 " . $now) - strtotime("2000-01-01 " . $lastScan)) / 60;
-        if ($diffMin < 30) {
-            echo json_encode(['success' => false, 'message' => 'Scan terakhir ' . substr($lastScan,0,5) . ' (' . round($diffMin) . ' menit lalu). Tunggu minimal 30 menit.']); exit;
+        if ($diffMin < 5) {
+            echo json_encode(['success' => false, 'message' => 'Scan terakhir ' . substr($lastScan,0,5) . ' (' . round($diffMin) . ' menit lalu). Tunggu minimal 5 menit.']); exit;
         }
     }
 

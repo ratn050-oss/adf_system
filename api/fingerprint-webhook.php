@@ -82,6 +82,42 @@ try {
     $pdo->exec("ALTER TABLE payroll_employees ADD COLUMN `finger_id` VARCHAR(20) DEFAULT NULL");
 }
 
+// ── Diagnostic mode: GET ?b=xxx&diag=1&token=adf-deploy-2025-secure ──
+if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['diag'])) {
+    $diagToken = $_GET['token'] ?? '';
+    if (!hash_equals('adf-deploy-2025-secure', $diagToken)) {
+        http_response_code(403);
+        echo json_encode(['error' => 'Invalid token']);
+        exit;
+    }
+    
+    $diag = ['time' => date('Y-m-d H:i:s'), 'business' => $bizSlug];
+    
+    // Config
+    $cfg = $pdo->query("SELECT fingerspot_cloud_id, fingerspot_enabled, checkin_end FROM payroll_attendance_config WHERE id = 1")->fetch(PDO::FETCH_ASSOC);
+    $diag['config'] = $cfg;
+    
+    // All employees with finger_id
+    $emps = $pdo->query("SELECT id, employee_code, full_name, finger_id, is_active FROM payroll_employees ORDER BY id")->fetchAll(PDO::FETCH_ASSOC);
+    $diag['employees'] = $emps;
+    
+    // Recent logs (last 30)
+    $logs = $pdo->query("SELECT id, cloud_id, pin, scan_time, verify_method, status_scan, employee_id, processed, process_result, created_at FROM fingerprint_log ORDER BY id DESC LIMIT 30")->fetchAll(PDO::FETCH_ASSOC);
+    $diag['recent_logs'] = $logs;
+    
+    // Unmatched PINs (scans that didn't find an employee)
+    $unmatched = $pdo->query("SELECT pin, process_result, scan_time, created_at FROM fingerprint_log WHERE employee_id IS NULL AND pin IS NOT NULL ORDER BY id DESC LIMIT 20")->fetchAll(PDO::FETCH_ASSOC);
+    $diag['unmatched_pins'] = $unmatched;
+    
+    // Today's attendance
+    $today = date('Y-m-d');
+    $todayAtt = $pdo->query("SELECT pa.*, pe.full_name, pe.finger_id FROM payroll_attendance pa LEFT JOIN payroll_employees pe ON pa.employee_id = pe.id WHERE pa.attendance_date = '{$today}' ORDER BY pa.check_in_time")->fetchAll(PDO::FETCH_ASSOC);
+    $diag['today_attendance'] = $todayAtt;
+    
+    echo json_encode($diag, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE);
+    exit;
+}
+
 // ── Read raw POST body ──
 $rawBody = file_get_contents('php://input');
 $data = json_decode($rawBody, true);
@@ -122,7 +158,7 @@ if (!empty($registeredCloudId) && $cloudId !== $registeredCloudId) {
 
 // ── Process attlog type ──
 // SPLIT SHIFT LOGIC: up to 4 scans/day, paired as shift 1 (scan 1-2) & shift 2 (scan 3-4)
-// Double scan filter: ignore scans < 30 min from last scan
+// Double scan filter: ignore scans < 5 min from last scan (prevent accidental double-tap)
 if ($type === 'attlog' && isset($data['data'])) {
     $pin = $data['data']['pin'] ?? null;
     $scanStr = $data['data']['scan'] ?? null;
@@ -140,13 +176,40 @@ if ($type === 'attlog' && isset($data['data'])) {
     $scanDate = date('Y-m-d', strtotime($scanStr));
     $scanTimeOnly = date('H:i:s', strtotime($scanStr));
 
-    // Find employee by finger_id
-    $empStmt = $pdo->prepare("SELECT id, full_name, employee_code FROM payroll_employees WHERE finger_id = ? AND is_active = 1");
+    // Find employee by finger_id — try multiple matching strategies
+    // Fingerspot may send PIN as "1", "01", "001" etc. DB may store differently
+    $pin = trim($pin);
+    $employee = null;
+    
+    // Strategy 1: Exact match
+    $empStmt = $pdo->prepare("SELECT id, full_name, employee_code FROM payroll_employees WHERE TRIM(finger_id) = ? AND is_active = 1");
     $empStmt->execute([$pin]);
     $employee = $empStmt->fetch(PDO::FETCH_ASSOC);
-
+    
+    // Strategy 2: Numeric match (handles leading zeros: "01" == "1")
+    if (!$employee && is_numeric($pin)) {
+        $empStmt = $pdo->prepare("SELECT id, full_name, employee_code FROM payroll_employees WHERE CAST(TRIM(finger_id) AS UNSIGNED) = CAST(? AS UNSIGNED) AND is_active = 1");
+        $empStmt->execute([$pin]);
+        $employee = $empStmt->fetch(PDO::FETCH_ASSOC);
+    }
+    
+    // Strategy 3: Check if employee exists but is_active = 0
     if (!$employee) {
-        logWebhook($pdo, $cloudId, $type, $pin, $scanTime, $verify, $statusScan, null, 0, "No employee with finger_id={$pin}", $rawBody);
+        $inactiveStmt = $pdo->prepare("SELECT id, full_name, is_active FROM payroll_employees WHERE TRIM(finger_id) = ? OR (? != '' AND CAST(TRIM(finger_id) AS UNSIGNED) = CAST(? AS UNSIGNED))");
+        $inactiveStmt->execute([$pin, $pin, $pin]);
+        $inactive = $inactiveStmt->fetch(PDO::FETCH_ASSOC);
+        if ($inactive) {
+            $msg = "Employee '{$inactive['full_name']}' found with finger_id={$pin} but is_active={$inactive['is_active']}";
+            logWebhook($pdo, $cloudId, $type, $pin, $scanTime, $verify, $statusScan, (int)$inactive['id'], 0, $msg, $rawBody);
+            echo json_encode(['success' => false, 'message' => $msg]);
+            exit;
+        }
+        
+        // Log all registered finger_ids for debugging
+        $allPins = $pdo->query("SELECT id, full_name, finger_id, is_active FROM payroll_employees WHERE finger_id IS NOT NULL AND finger_id != '' ORDER BY id")->fetchAll(PDO::FETCH_ASSOC);
+        $pinList = array_map(fn($e) => "{$e['full_name']}='{$e['finger_id']}'(active:{$e['is_active']})", $allPins);
+        $debugInfo = "No employee with finger_id={$pin}. Registered PINs: " . implode(', ', $pinList);
+        logWebhook($pdo, $cloudId, $type, $pin, $scanTime, $verify, $statusScan, null, 0, substr($debugInfo, 0, 255), $rawBody);
         echo json_encode(['success' => false, 'message' => "Employee with PIN {$pin} not found"]);
         exit;
     }
@@ -174,15 +237,15 @@ if ($type === 'attlog' && isset($data['data'])) {
     $scan4 = $att['scan_4'] ?? null;
     $filledScans = array_filter([$scan1, $scan2, $scan3, $scan4], fn($s) => !empty($s));
 
-    // DOUBLE SCAN FILTER: if last scan was < 30 min ago, skip
+    // DOUBLE SCAN FILTER: if last scan was < 5 min ago, skip (prevents accidental double-tap)
     if (!empty($filledScans)) {
         $lastScan = end($filledScans);
         $lastScanSec = strtotime("2000-01-01 " . $lastScan);
         $newScanSec = strtotime("2000-01-01 " . $scanTimeOnly);
         $diffMinutes = abs($newScanSec - $lastScanSec) / 60;
         
-        if ($diffMinutes < 30) {
-            $result = "Double scan ignored for {$employee['full_name']} (last: {$lastScan}, new: {$scanTimeOnly}, diff: " . round($diffMinutes) . "min < 30min)";
+        if ($diffMinutes < 5) {
+            $result = "Double scan ignored for {$employee['full_name']} (last: {$lastScan}, new: {$scanTimeOnly}, diff: " . round($diffMinutes) . "min < 5min)";
             logWebhook($pdo, $cloudId, $type, $pin, $scanTime, $verify, $statusScan, $empId, 1, $result, $rawBody);
             echo json_encode(['success' => true, 'message' => $result]);
             exit;
