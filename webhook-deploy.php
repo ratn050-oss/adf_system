@@ -79,6 +79,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $pulled = false;
     $pullOutput = '';
     
+    // Reset any local changes first to avoid merge conflicts
+    $resetCmd = 'cd ' . escapeshellarg($deployDir) . ' && git checkout -- . 2>&1';
+    if (function_exists('exec')) { @exec($resetCmd); }
+    elseif (function_exists('shell_exec')) { @shell_exec($resetCmd); }
+    
     // Try multiple shell execution methods
     $cmd = 'cd ' . escapeshellarg($deployDir) . ' && git pull origin main 2>&1';
     

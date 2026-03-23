@@ -27,11 +27,23 @@ $branch = 'main';
 
 // Files to sync 
 $filesToSync = [
-    'modules/frontdesk/reservasi.php',
+    '.htaccess',
+    'config/config.php',
+    'config/.htaccess',
+    'index.php',
+    'login.php',
+    'includes/CashbookHelper.php',
+    'modules/frontdesk/hotel-services.php',
+    'modules/frontdesk/hotel-service-invoice.php',
+    'modules/frontdesk/calendar.php',
+    'api/checkin-guest.php',
     'api/create-reservation.php',
-    'api/update-reservation.php',
     'api/add-booking-payment.php',
+    'api/get-server-ip.php',
+    'password-reset.php',
+    'test-cloudinary-upload.php',
     'webhook-deploy.php',
+    'emergency-deploy.php',
 ];
 
 // Allow custom file list via POST
@@ -51,7 +63,7 @@ foreach ($filesToSync as $file) {
     $file = str_replace(['..', "\0"], '', $file);
     $file = ltrim($file, '/');
     
-    $url = "https://raw.githubusercontent/{$repo}/{$branch}/{$file}";
+    $url = "https://raw.githubusercontent.com/{$repo}/{$branch}/{$file}";
     $localPath = $deployDir . '/' . $file;
     
     $ctx = stream_context_create([
