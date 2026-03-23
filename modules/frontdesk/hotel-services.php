@@ -527,8 +527,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
                     $invRow, $itemGroups, $serviceTypes);
             }
 
-            // Mark as processed regardless of payment (even unpaid invoices can be "issued")
-            $pdo->prepare("UPDATE hotel_invoices SET cashbook_synced=1, updated_at=NOW() WHERE id=?")->execute([$id]);
+            // Only mark as synced if cashbook sync actually succeeded (or no payment to sync)
+            if ($cbOk || (float)$invRow['paid_amount'] <= 0) {
+                $pdo->prepare("UPDATE hotel_invoices SET cashbook_synced=1, updated_at=NOW() WHERE id=?")->execute([$id]);
+            }
 
             ob_clean();
             echo json_encode(['success' => true, 'cashbook' => $cbOk, 'paid_amount' => $invRow['paid_amount']]);

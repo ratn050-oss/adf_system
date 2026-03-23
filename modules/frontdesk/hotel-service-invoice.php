@@ -505,9 +505,16 @@ function processInvoice(id) {
     fetch('<?php echo BASE_URL; ?>/modules/frontdesk/hotel-services.php', {method:'POST', body:fd})
         .then(r => r.json())
         .then(d => {
-            if (d.success) {
+            if (d.success && d.cashbook) {
                 btn.textContent = '✓ Done!';
                 setTimeout(() => location.reload(), 800);
+            } else if (d.success && d.already) {
+                btn.textContent = '✓ Already processed';
+                setTimeout(() => location.reload(), 800);
+            } else if (d.success && !d.cashbook) {
+                alert('⚠️ Gagal sync ke Buku Kas. Silakan coba lagi atau hubungi admin.');
+                btn.disabled = false;
+                btn.textContent = '✅ Process Invoice';
             } else {
                 alert('Error: ' + (d.message || 'Unknown error'));
                 btn.disabled = false;

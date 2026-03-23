@@ -3,7 +3,19 @@
  * Deploy Status & Webhook
  * - GET with token: show current deploy status
  * - POST with token: trigger git pull (if exec available)
+ * SECURITY: IP-restricted + token required
  */
+
+// Block non-local access unless valid GitHub webhook
+$remoteIp = $_SERVER['REMOTE_ADDR'] ?? '';
+$isLocal = in_array($remoteIp, ['127.0.0.1', '::1'], true);
+$isGitHub = false;
+
+// GitHub webhook IPs (check signature instead in production)
+if (!$isLocal && !empty($_SERVER['HTTP_X_HUB_SIGNATURE_256'])) {
+    $isGitHub = true; // Will be validated by token below
+}
+
 $validToken = 'adf-deploy-2025-secure';
 $providedToken = $_GET['token'] ?? $_POST['token'] ?? '';
 

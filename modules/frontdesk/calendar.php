@@ -56,6 +56,13 @@ try {
     // Keep defaults
 }
 
+// Build dynamic OTA source keys from booking_sources table (source_type != 'direct')
+$otaSourceKeys = array_values(array_map(fn($s) => $s['source_key'], array_filter($bookingSources, fn($s) => ($s['source_type'] ?? '') !== 'direct')));
+// Fallback if empty
+if (empty($otaSourceKeys)) {
+    $otaSourceKeys = ['agoda', 'booking', 'tiket', 'traveloka', 'airbnb', 'expedia', 'pegipegi', 'ota'];
+}
+
 // ============================================
 // GET CALENDAR DATE RANGE (Include Past Dates for History)
 // ============================================
@@ -2378,6 +2385,7 @@ body[data-theme="dark"] .stats-list li {
 <script>
 // Initialize OTA Fees from PHP - Create global variable (not just window property)
 var OTA_FEES = <?php echo json_encode($otaFees); ?>;
+var OTA_SOURCE_KEYS = <?php echo json_encode($otaSourceKeys); ?>;
 
 // Global variables for reservation form (used across multiple functions)
 var currentSource = '';
@@ -2473,7 +2481,10 @@ function showBookingQuickView(booking) {
     
     // Override payment status badge for OTA if necessary or make it more detailed
     // Check if it's an OTA booking to show specific status
-    if (['ota', 'agoda', 'booking', 'tiket', 'traveloka', 'airbnb'].includes(booking.booking_source)) {
+    const otaKeysForBadge = (typeof OTA_SOURCE_KEYS !== 'undefined' && OTA_SOURCE_KEYS.length > 0)
+        ? OTA_SOURCE_KEYS
+        : ['ota', 'agoda', 'booking', 'tiket', 'traveloka', 'airbnb', 'expedia', 'pegipegi'];
+    if (otaKeysForBadge.includes(booking.booking_source)) {
          if (booking.payment_status === 'paid') {
              paymentBadge = '<span style="background: #10b981; color: white; padding: 0.25rem 0.6rem; border-radius: 4px; font-size: 0.7rem; font-weight: 700;">LUNAS (By ' + source + ')</span>';
          }
@@ -2823,10 +2834,12 @@ window.quickViewCheckIn = function quickViewCheckIn() {
     const paid      = parseFloat(b.paid_amount) || 0;
     const remaining = Math.max(0, total - paid);
 
-    // Detect OTA booking
-    const otaSources = ['ota', 'agoda', 'booking', 'tiket', 'traveloka', 'airbnb', 'expedia', 'pegipegi'];
+    // Detect OTA booking - use dynamic list from booking_sources table
+    const otaSources = (typeof OTA_SOURCE_KEYS !== 'undefined' && OTA_SOURCE_KEYS.length > 0)
+        ? OTA_SOURCE_KEYS
+        : ['ota', 'agoda', 'booking', 'tiket', 'traveloka', 'airbnb', 'expedia', 'pegipegi'];
     const bookingSource = (b.booking_source || '').toLowerCase().replace(/\.com|\.co\.id|\.id/g, '').replace(/[^a-z0-9]/g, '');
-    const isOTA = otaSources.some(s => bookingSource.includes(s));
+    const isOTA = otaSources.includes(b.booking_source) || otaSources.some(s => bookingSource.includes(s));
 
     // OTA booking: sudah dibayar via OTA, langsung check-in (uang masuk kas otomatis)
     if (isOTA) {
@@ -3299,8 +3312,9 @@ window.updateSourceDetails = function() {
     
     // AUTO-SELECT PAYMENT METHOD LOGIC
     const pmOtaBtn = document.getElementById('pm-ota'); // The new hidden OTA button
-    const directSources = ['walk_in', 'phone', 'online'];
-    const isOtaSource = !directSources.includes(currentSource) && feePercent > 0;
+    const isOtaSource = (typeof OTA_SOURCE_KEYS !== 'undefined' && OTA_SOURCE_KEYS.length > 0)
+        ? OTA_SOURCE_KEYS.includes(currentSource)
+        : (!['walk_in', 'phone', 'online'].includes(currentSource) && feePercent > 0);
     
     const paidAmountInput = document.getElementById('paidAmount');
     const payAllBtn = document.querySelector('.btn-pay-all');

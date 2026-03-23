@@ -118,18 +118,30 @@ try {
             WHERE b.id = ?
         ", [$bookingId]);
         
-        // Normalize booking source for matching (tiket.com -> tiket, Booking.com -> booking)
-        $normalizedSource = strtolower(trim($bookingDetails['booking_source'] ?? ''));
-        $normalizedSource = str_replace(['.com', '.co.id', '.id'], '', $normalizedSource);
-        $normalizedSource = preg_replace('/[^a-z0-9]/', '', $normalizedSource);
-        
-        // Check if OTA booking - OTA payments sync at check-in, not at payment time
-        $otaSources = ['agoda', 'booking', 'bookingcom', 'tiket', 'tiketcom', 'airbnb', 'ota', 'traveloka', 'pegipegi', 'expedia'];
+        // Use booking_sources table (source_type) for reliable OTA detection
         $isOTA = false;
-        foreach ($otaSources as $ota) {
-            if (strpos($normalizedSource, $ota) !== false || $normalizedSource === $ota) {
-                $isOTA = true;
-                break;
+        $sourceInfo = null;
+        try {
+            $sourceInfo = $db->fetchOne("SELECT source_type FROM booking_sources WHERE source_key = ? AND is_active = 1", [$bookingDetails['booking_source']]);
+            if ($sourceInfo) {
+                $isOTA = ($sourceInfo['source_type'] ?? '') !== 'direct';
+            }
+        } catch (\Throwable $e) {
+            // Table might not exist, fall through to hardcoded detection
+        }
+        
+        // Fallback: hardcoded detection if not found in booking_sources table
+        if (!$isOTA && !$sourceInfo) {
+            $normalizedSource = strtolower(trim($bookingDetails['booking_source'] ?? ''));
+            $normalizedSource = str_replace(['.com', '.co.id', '.id'], '', $normalizedSource);
+            $normalizedSource = preg_replace('/[^a-z0-9]/', '', $normalizedSource);
+            
+            $otaSources = ['agoda', 'booking', 'bookingcom', 'tiket', 'tiketcom', 'airbnb', 'ota', 'traveloka', 'pegipegi', 'expedia'];
+            foreach ($otaSources as $ota) {
+                if (strpos($normalizedSource, $ota) !== false || $normalizedSource === $ota) {
+                    $isOTA = true;
+                    break;
+                }
             }
         }
         

@@ -1,12 +1,27 @@
 ﻿<?php
 /**
  * Password Reset Tool - Emergency Access
- * Access at: http://localhost:8080/adf_system/password-reset.php
+ * SECURITY: Only accessible from localhost OR authenticated admin/developer
  */
 
 define("APP_ACCESS", true);
 require_once "config/config.php";
 require_once "config/database.php";
+require_once "includes/auth.php";
+
+// Security: Only allow from localhost OR authenticated admin/developer
+$remoteIp = $_SERVER['REMOTE_ADDR'] ?? '';
+$isLocal = in_array($remoteIp, ['127.0.0.1', '::1'], true) || 
+           (strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost') !== false);
+
+if (!$isLocal) {
+    $auth = new Auth();
+    if (!$auth->isLoggedIn() || !in_array($auth->getCurrentUser()['role'] ?? '', ['admin', 'developer'])) {
+        http_response_code(403);
+        echo '<!DOCTYPE html><html><body><h1>403 Forbidden</h1></body></html>';
+        exit;
+    }
+}
 
 $db = Database::getInstance();
 $message = "";
@@ -21,17 +36,18 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
     if ($username && $newPassword && $confirmPassword) {
         if ($newPassword !== $confirmPassword) {
             $error = "Passwords do not match!";
-        } else if (strlen($newPassword) < 4) {
-            $error = "Password must be at least 4 characters!";
+        } else if (strlen($newPassword) < 6) {
+            $error = "Password must be at least 6 characters!";
         } else {
-            // Hash password (MD5 for compatibility with existing system)
-            $passwordHash = md5($newPassword);
+            // Hash password with bcrypt (secure)
+            $passwordHash = password_hash($newPassword, PASSWORD_BCRYPT);
             
             try {
                 $result = $db->update("users", ["password" => $passwordHash], "username = ?", [$username]);
-                $message = " Password reset successfully for user: <strong>$username</strong>";
+                $message = " Password reset successfully for user: <strong>" . htmlspecialchars($username) . "</strong>";
             } catch (Exception $e) {
-                $error = "Error updating password: " . $e->getMessage();
+                $error = "Error updating password.";
+                error_log("Password reset error: " . $e->getMessage());
             }
         }
     } else {
@@ -44,7 +60,8 @@ $users = [];
 try {
     $users = $db->fetchAll("SELECT id, username, role FROM users ORDER BY username");
 } catch (Exception $e) {
-    $error = "Could not fetch users: " . $e->getMessage();
+    $error = "Could not fetch users.";
+    error_log("Password reset users fetch error: " . $e->getMessage());
 }
 
 function sanitize($input) {

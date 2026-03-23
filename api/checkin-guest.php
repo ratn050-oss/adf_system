@@ -107,19 +107,30 @@ try {
     // ==========================================
     // NEW LOGIC: OTA vs Direct Booking Check-in
     // ==========================================
-    // Normalize booking source for matching (tiket.com -> tiket, Booking.com -> booking)
-    $normalizedSource = strtolower(trim($booking['booking_source'] ?? ''));
-    $normalizedSource = str_replace(['.com', '.co.id', '.id'], '', $normalizedSource);
-    $normalizedSource = preg_replace('/[^a-z0-9]/', '', $normalizedSource);
-    
-    $otaSources = ['agoda', 'booking', 'bookingcom', 'tiket', 'tiketcom', 'airbnb', 'ota', 'traveloka', 'pegipegi', 'expedia'];
-    
-    // Check if any OTA keyword is in the normalized source
+    // Use booking_sources table (source_type) for reliable OTA detection
     $isOTA = false;
-    foreach ($otaSources as $ota) {
-        if (strpos($normalizedSource, $ota) !== false || $normalizedSource === $ota) {
-            $isOTA = true;
-            break;
+    $sourceInfo = null;
+    try {
+        $sourceInfo = $db->fetchOne("SELECT source_type FROM booking_sources WHERE source_key = ? AND is_active = 1", [$booking['booking_source']]);
+        if ($sourceInfo) {
+            $isOTA = ($sourceInfo['source_type'] ?? '') !== 'direct';
+        }
+    } catch (\Throwable $e) {
+        // Table might not exist, fall through to hardcoded detection
+    }
+    
+    // Fallback: hardcoded detection if not found in booking_sources table
+    if (!$isOTA && !$sourceInfo) {
+        $normalizedSource = strtolower(trim($booking['booking_source'] ?? ''));
+        $normalizedSource = str_replace(['.com', '.co.id', '.id'], '', $normalizedSource);
+        $normalizedSource = preg_replace('/[^a-z0-9]/', '', $normalizedSource);
+        
+        $otaSources = ['agoda', 'booking', 'bookingcom', 'tiket', 'tiketcom', 'airbnb', 'ota', 'traveloka', 'pegipegi', 'expedia'];
+        foreach ($otaSources as $ota) {
+            if (strpos($normalizedSource, $ota) !== false || $normalizedSource === $ota) {
+                $isOTA = true;
+                break;
+            }
         }
     }
 
@@ -147,15 +158,23 @@ try {
     if ($isOTA && !$payNow) {
         // OTA: otomatis catat pembayaran saat check-in (uang masuk kas)
         if ($remaining > 0) {
+            $otaSourceKey = strtolower(trim($booking['booking_source'] ?? 'ota'));
             $db->insert('booking_payments', [
                 'booking_id'   => $bookingId,
                 'amount'       => $remaining,
                 'payment_date' => date('Y-m-d H:i:s'),
-                'payment_method' => 'ota_' . $normalizedSource,
+                'payment_method' => 'ota_' . $otaSourceKey,
                 'notes'        => 'Auto-payment check-in OTA: ' . $booking['booking_source'],
                 'processed_by' => $validUserId
             ]);
         }
+
+        // Update paid_amount dan payment_status setelah auto-payment OTA
+        $payment   = $db->fetchOne("SELECT COALESCE(SUM(amount), 0) as paid FROM booking_payments WHERE booking_id = ?", [$bookingId]);
+        $totalPaid = (float)$payment['paid'];
+        $remaining = max(0, (float)$booking['final_price'] - $totalPaid);
+        $newPayStatus = $remaining <= 0 ? 'paid' : ($totalPaid > 0 ? 'partial' : 'unpaid');
+        $db->query("UPDATE bookings SET paid_amount = ?, payment_status = ?, updated_at = NOW() WHERE id = ?", [$totalPaid, $newPayStatus, $bookingId]);
     } elseif (!$isOTA && !$payNow) {
         // Direct booking bayar nanti: buat invoice untuk sisa tagihan
         if ($remaining > 0) {

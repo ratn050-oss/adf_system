@@ -1,8 +1,17 @@
 <?php
 /**
  * Test Cloudinary Upload dari Hosting
- * Akses: https://adf.narayanakarimunjawa.com/test-cloudinary-upload.php?token=test2026
+ * SECURITY: Restricted to localhost only
  */
+
+// Only allow from localhost
+$remoteIp = $_SERVER['REMOTE_ADDR'] ?? '';
+$isLocal = in_array($remoteIp, ['127.0.0.1', '::1'], true) || 
+           (strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost') !== false);
+if (!$isLocal) {
+    http_response_code(403);
+    die('Forbidden');
+}
 
 $token = $_GET['token'] ?? '';
 if ($token !== 'test2026') {

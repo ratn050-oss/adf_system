@@ -38,7 +38,15 @@ $isLocalhost = (strpos($httpHost, 'localhost') !== false || strpos($httpHost, '1
 
 if ($isLocalhost) {
     // Support various port configurations (8081, etc)
-    $hostUrl = $protocol . '://' . $httpHost . '/adf_system/public';
+    // Auto-detect path from SCRIPT_NAME
+    $scriptDir = dirname(dirname($_SERVER['SCRIPT_NAME'])); // Go up from /includes or /api
+    // If accessed directly from public/, use SCRIPT_NAME's directory
+    $scriptName = $_SERVER['SCRIPT_NAME'] ?? '';
+    if (preg_match('#^(/.+/public)#', $scriptName, $m)) {
+        $hostUrl = $protocol . '://' . $httpHost . $m[1];
+    } else {
+        $hostUrl = $protocol . '://' . $httpHost . '/narayanakarimunjawa/adf_system/public';
+    }
     $businessId = 'narayana-hotel'; // Default to narayana-hotel
 } else {
     // Production: Detect by domain

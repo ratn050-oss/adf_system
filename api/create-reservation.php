@@ -225,16 +225,29 @@ try {
         // OTA: SKIP - masuk kas saat tamu check-in
         // ==========================================
         
-        // Detect if OTA booking
-        $normalizedSource = strtolower(trim($originalBookingSource ?? ''));
-        $normalizedSource = str_replace(['.com', '.co.id', '.id'], '', $normalizedSource);
-        $normalizedSource = preg_replace('/[^a-z0-9]/', '', $normalizedSource);
-        $otaSources = ['agoda', 'booking', 'bookingcom', 'tiket', 'tiketcom', 'airbnb', 'ota', 'traveloka', 'pegipegi', 'expedia'];
+        // Detect if OTA booking - use booking_sources table (source_type) for reliable detection
         $isOTA = false;
-        foreach ($otaSources as $otaKey) {
-            if (strpos($normalizedSource, $otaKey) !== false || $normalizedSource === $otaKey) {
-                $isOTA = true;
-                break;
+        $sourceInfo = null;
+        try {
+            $sourceInfo = $db->fetchOne("SELECT source_type FROM booking_sources WHERE source_key = ? AND is_active = 1", [$originalBookingSource]);
+            if ($sourceInfo) {
+                $isOTA = ($sourceInfo['source_type'] ?? '') !== 'direct';
+            }
+        } catch (\Throwable $e) {
+            // Table might not exist, fall through to hardcoded detection
+        }
+        
+        // Fallback: hardcoded detection if not found in booking_sources table
+        if (!$isOTA && !$sourceInfo) {
+            $normalizedSource = strtolower(trim($originalBookingSource ?? ''));
+            $normalizedSource = str_replace(['.com', '.co.id', '.id'], '', $normalizedSource);
+            $normalizedSource = preg_replace('/[^a-z0-9]/', '', $normalizedSource);
+            $otaSources = ['agoda', 'booking', 'bookingcom', 'tiket', 'tiketcom', 'airbnb', 'ota', 'traveloka', 'pegipegi', 'expedia'];
+            foreach ($otaSources as $otaKey) {
+                if (strpos($normalizedSource, $otaKey) !== false || $normalizedSource === $otaKey) {
+                    $isOTA = true;
+                    break;
+                }
             }
         }
         // Also check mapped source

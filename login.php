@@ -60,13 +60,13 @@ try {
     // Settings table might not exist yet, continue without background
 }
 
-// Read saved credentials from cookies (works on iPhone Safari unlike localStorage)
+// Read saved credentials from cookies (only username - password is never stored)
 $savedUser = '';
 $savedCred = '';
 $isRemembered = false;
-if (!empty($_COOKIE['adf_remember']) && !empty($_COOKIE['adf_saved_user']) && !empty($_COOKIE['adf_saved_cred'])) {
+if (!empty($_COOKIE['adf_remember']) && !empty($_COOKIE['adf_saved_user'])) {
     $savedUser = base64_decode($_COOKIE['adf_saved_user']);
-    $savedCred = base64_decode($_COOKIE['adf_saved_cred']);
+    $savedCred = ''; // Password is no longer stored in cookies
     $isRemembered = true;
 }
 
@@ -89,14 +89,15 @@ if (isPost()) {
     $rememberMe = isset($_POST['remember_me']);
     $loginType = getPost('login_type') ?? 'normal'; // owner or normal
     
-    // Handle remember me cookies
-    if ($rememberMe && $username && $password) {
+    // Handle remember me cookies (only save username, NEVER save password)
+    if ($rememberMe && $username) {
         $cookieExpiry = time() + (30 * 24 * 60 * 60); // 30 days
         $cookiePath = parse_url(BASE_URL, PHP_URL_PATH) ?: '/';
         $isSecure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
         setcookie('adf_remember', '1', $cookieExpiry, $cookiePath, '', $isSecure, true);
         setcookie('adf_saved_user', base64_encode($username), $cookieExpiry, $cookiePath, '', $isSecure, true);
-        setcookie('adf_saved_cred', base64_encode($password), $cookieExpiry, $cookiePath, '', $isSecure, true);
+        // Clear old password cookie if exists
+        setcookie('adf_saved_cred', '', time() - 3600, $cookiePath, '', $isSecure, true);
     } else {
         // Clear cookies if not checked
         $cookiePath = parse_url(BASE_URL, PHP_URL_PATH) ?: '/';

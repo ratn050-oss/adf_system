@@ -16,6 +16,17 @@ if (!defined('SESSION_LIFETIME')) define('SESSION_LIFETIME', 3600 * 8);
 // Initialize session BEFORE anything else
 if (session_status() === PHP_SESSION_NONE) {
     session_name(SESSION_NAME);
+    
+    // Secure session cookie settings
+    $isSecure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
+    session_set_cookie_params([
+        'lifetime' => SESSION_LIFETIME,
+        'path' => '/',
+        'secure' => $isSecure,
+        'httponly' => true,
+        'samesite' => 'Lax'
+    ]);
+    
     session_start();
 }
 
@@ -96,8 +107,14 @@ date_default_timezone_set('Asia/Jakarta');
 // ============================================
 // ERROR REPORTING
 // ============================================
-error_reporting(E_ALL);
-ini_set('display_errors', 1);
+if ($isProduction) {
+    error_reporting(0);
+    ini_set('display_errors', 0);
+    ini_set('log_errors', 1);
+} else {
+    error_reporting(E_ALL);
+    ini_set('display_errors', 1);
+}
 
 // ============================================
 // CURRENCY FORMAT

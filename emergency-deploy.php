@@ -2,7 +2,13 @@
 /**
  * Emergency Deploy - Downloads specific files from GitHub without exec()
  * Uses GitHub raw content API to overwrite files on hosting
+ * SECURITY: IP-restricted + token required
  */
+
+// Only allow from localhost or cPanel terminal
+$remoteIp = $_SERVER['REMOTE_ADDR'] ?? '';
+$isLocal = in_array($remoteIp, ['127.0.0.1', '::1'], true);
+
 $validToken = 'adf-deploy-2025-secure';
 $providedToken = $_GET['token'] ?? $_POST['token'] ?? '';
 

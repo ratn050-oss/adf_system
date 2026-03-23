@@ -2,12 +2,21 @@
 /**
  * Get Server IP Address
  * Returns the server's local IP address for mobile access
+ * RESTRICTED: Only works on localhost (development)
  */
 header('Content-Type: application/json');
 
+// Security: Only allow from localhost
+$remoteIp = $_SERVER['REMOTE_ADDR'] ?? '';
+$isLocal = in_array($remoteIp, ['127.0.0.1', '::1'], true) || 
+           (strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost') !== false);
+if (!$isLocal) {
+    http_response_code(403);
+    echo json_encode(['success' => false, 'error' => 'Forbidden']);
+    exit;
+}
+
 function getServerIP() {
-    // Try different methods to get server IP
-    
     // Method 1: $_SERVER variables
     if (!empty($_SERVER['SERVER_ADDR']) && $_SERVER['SERVER_ADDR'] !== '127.0.0.1') {
         return $_SERVER['SERVER_ADDR'];
@@ -17,28 +26,11 @@ function getServerIP() {
         return $_SERVER['LOCAL_ADDR'];
     }
     
-    // Method 2: gethostbyname (Windows)
+    // Method 2: gethostbyname
     $hostname = gethostname();
     $ip = gethostbyname($hostname);
     if ($ip !== $hostname && $ip !== '127.0.0.1') {
         return $ip;
-    }
-    
-    // Method 3: Network interfaces (Windows)
-    if (strtoupper(substr(PHP_OS, 0, 3)) === 'WIN') {
-        $output = shell_exec('ipconfig');
-        if (preg_match('/IPv4 Address[^\:]*\:\s*([0-9\.]+)/', $output, $matches)) {
-            return $matches[1];
-        }
-    } else {
-        // Linux/Mac
-        $output = shell_exec('hostname -I');
-        if ($output) {
-            $ips = explode(' ', trim($output));
-            if (!empty($ips[0])) {
-                return $ips[0];
-            }
-        }
     }
     
     // Fallback

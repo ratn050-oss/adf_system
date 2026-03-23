@@ -1025,9 +1025,10 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
                 <div style="font-size: 1.125rem; font-weight: 700; color: #334155; font-family: 'Monaco', 'Courier New', monospace;"><?php echo formatCurrency($startKasHariIni); ?></div>
             </div>
             <!-- Cash Available -->
-            <div style="background: linear-gradient(135deg, <?php echo $totalOperationalCash >= 0 ? '#ecfdf5' : '#fef2f2'; ?> 0%, <?php echo $totalOperationalCash >= 0 ? '#d1fae5' : '#fee2e2'; ?> 100%); padding: 0.875rem 1rem; border-radius: 10px; border: 1px solid <?php echo $totalOperationalCash >= 0 ? '#a7f3d0' : '#fecaca'; ?>;">
-                <div style="font-size: 0.65rem; color: <?php echo ($totalOperationalCash + $guestCashIncome) >= 0 ? '#047857' : '#b91c1c'; ?>; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 0.25rem;">Cash Available</div>
-                <div style="font-size: 1.125rem; font-weight: 700; color: <?php echo ($totalOperationalCash + $guestCashIncome) >= 0 ? '#059669' : '#dc2626'; ?>; font-family: 'Monaco', 'Courier New', monospace;"><?php echo formatCurrency($totalOperationalCash + $guestCashIncome); ?></div>
+            <?php $dashCashAvailable = $startKasHariIni + $totalOperationalCash; ?>
+            <div style="background: linear-gradient(135deg, <?php echo $dashCashAvailable >= 0 ? '#ecfdf5' : '#fef2f2'; ?> 0%, <?php echo $dashCashAvailable >= 0 ? '#d1fae5' : '#fee2e2'; ?> 100%); padding: 0.875rem 1rem; border-radius: 10px; border: 1px solid <?php echo $dashCashAvailable >= 0 ? '#a7f3d0' : '#fecaca'; ?>;">
+                <div style="font-size: 0.65rem; color: <?php echo $dashCashAvailable >= 0 ? '#047857' : '#b91c1c'; ?>; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 0.25rem;">Cash Available</div>
+                <div style="font-size: 1.125rem; font-weight: 700; color: <?php echo $dashCashAvailable >= 0 ? '#059669' : '#dc2626'; ?>; font-family: 'Monaco', 'Courier New', monospace;"><?php echo formatCurrency($dashCashAvailable); ?></div>
             </div>
         </div>
         
@@ -1081,7 +1082,7 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
             </div>
         </div>
         
-        <?php if ($totalOperationalCash < 0): ?>
+        <?php if ($dashCashAvailable < 0): ?>
         <div style="margin-top: 0.5rem; padding: 0.4rem 0.75rem; background: #fef2f2; border-left: 2px solid #dc2626; border-radius: 4px;">
             <div style="font-size: 0.7rem; color: #dc2626; font-weight: 600;">⚠️ Negative cash!</div>
         </div>

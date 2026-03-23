@@ -290,7 +290,7 @@ class CashbookHelper {
      * Map and validate payment method for cash_book
      */
     public function mapPaymentMethod($paymentMethod) {
-        $pmMap = ['bank_transfer' => 'transfer', 'credit_card' => 'debit', 'credit' => 'debit'];
+        $pmMap = ['bank_transfer' => 'transfer', 'credit_card' => 'debit', 'credit' => 'debit', 'card' => 'debit', 'qris' => 'qr'];
         $cbMethod = $paymentMethod ?? 'cash';
         
         // Keep OTA formats as-is (e.g. "OTA tiket.com", "OTA Agoda")
@@ -306,7 +306,7 @@ class CashbookHelper {
             $cbMethod = in_array('other', $allowedMethods) ? 'other' :
                        (in_array('cash', $allowedMethods) ? 'cash' : $allowedMethods[0]);
         } elseif ($allowedMethods === null) {
-            $validMethods = ['cash', 'debit', 'transfer', 'qr', 'bank_transfer', 'ota', 'agoda', 'booking', 'other'];
+            $validMethods = ['cash', 'debit', 'transfer', 'qr', 'card', 'qris', 'bank_transfer', 'ota', 'agoda', 'booking', 'other'];
             if (!in_array($cbMethod, $validMethods)) {
                 $cbMethod = 'other';
             }
