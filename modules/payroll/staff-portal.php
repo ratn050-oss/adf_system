@@ -2127,6 +2127,8 @@ setTimeout(checkNotifs, 3000);
 
     function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
 
+})(); // end PWA IIFE
+
 // ═══ SLIP GAJI PAGE ═══
 let slipPeriodsLoaded = false;
 async function loadSlipGaji() {
@@ -2146,7 +2148,7 @@ async function loadSlipGaji() {
                 slipPeriodsLoaded = true;
                 return;
             }
-            sel.innerHTML = periods.map(p => `<option value="${p.id}" ${p.is_latest ? 'selected' : ''}>${p.label} — ${p.status_label}</option>`).join('');
+            sel.innerHTML = periods.map(p => `<option value="${p.id}" ${p.is_latest ? 'selected' : ''}>${p.period_label} — ${p.status_label}</option>`).join('');
             slipPeriodsLoaded = true;
         } catch(e) {
             sel.innerHTML = '<option value="">Gagal memuat</option>';
@@ -2238,7 +2240,6 @@ async function loadSlipGaji() {
     }
 }
 
-})();
 </script>
 
 </body>
