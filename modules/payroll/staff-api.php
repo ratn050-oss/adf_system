@@ -769,7 +769,7 @@ if ($action === 'salary_periods') {
                        ELSE '📝 Draft'
                    END as status_label
             FROM payroll_periods p
-            INNER JOIN payroll_slips s ON s.period_id = p.id AND s.employee_id = ?
+            INNER JOIN payroll_slips s ON s.period_id = p.id AND s.employee_id = ? AND s.is_paid = 1
             WHERE p.status IN ('approved', 'paid')
             ORDER BY p.period_year DESC, p.period_month DESC
             LIMIT 24
@@ -810,7 +810,7 @@ if ($action === 'salary_slip') {
             FROM payroll_slips s
             JOIN payroll_periods p ON s.period_id = p.id
             LEFT JOIN payroll_employees e ON s.employee_id = e.id
-            WHERE s.period_id = ? AND s.employee_id = ?
+            WHERE s.period_id = ? AND s.employee_id = ? AND s.is_paid = 1
         ", [$periodId, $empId]);
 
         if (!$slip) {

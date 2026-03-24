@@ -21,6 +21,7 @@ $pageTitle = 'Process Salary';
 try {
     $db->query("ALTER TABLE payroll_slips ADD COLUMN IF NOT EXISTS work_hours DECIMAL(10,2) NOT NULL DEFAULT 200.00 AFTER position");
     $db->query("ALTER TABLE payroll_slips ADD COLUMN IF NOT EXISTS actual_base DECIMAL(15,2) NOT NULL DEFAULT 0.00 AFTER work_hours");
+    $db->query("ALTER TABLE payroll_slips ADD COLUMN IF NOT EXISTS is_paid TINYINT(1) NOT NULL DEFAULT 0");
 } catch (Exception $e) {
     // Column may already exist or not supported
 }
@@ -342,10 +343,75 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['quick_pay'])) {
             );
         }
         
-        // 4. Mark as paid
+        // 4. Mark as paid + mark all slips as is_paid
         $db->query("UPDATE payroll_periods SET status = 'paid', paid_at = NOW() WHERE id = ?", [$period['id']]);
+        $db->query("UPDATE payroll_slips SET is_paid = 1 WHERE period_id = ?", [$period['id']]);
         
         setFlash('success', '✅ Payroll dibayar! Rp ' . number_format($amount, 0, ',', '.') . ' tercatat di cashbook. Slip gaji tersedia di Staff Portal.');
+    } catch (Exception $e) {
+        setFlash('error', 'Error: ' . $e->getMessage());
+    }
+    header("Location: process.php?month=$month&year=$year");
+    exit;
+}
+
+// Handle Quick Pay Selected — pay individual employees
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['quick_pay_selected'])) {
+    $selectedIds = $_POST['selected_slips'] ?? '';
+    $ids = array_filter(array_map('intval', explode(',', $selectedIds)));
+    
+    if (empty($ids)) {
+        setFlash('error', 'Tidak ada staff yang dipilih');
+        header("Location: process.php?month=$month&year=$year");
+        exit;
+    }
+    
+    try {
+        // Ensure period is at least approved (so portal can see it)
+        if ($period['status'] === 'draft') {
+            $db->query("UPDATE payroll_periods SET status = 'approved', submitted_at = NOW(), submitted_by = ?, approved_at = NOW(), approved_by = ? WHERE id = ?", 
+                [$_SESSION['user_id'], $_SESSION['user_id'], $period['id']]);
+        } elseif ($period['status'] === 'submitted') {
+            $db->query("UPDATE payroll_periods SET status = 'approved', approved_at = NOW(), approved_by = ? WHERE id = ?", 
+                [$_SESSION['user_id'], $period['id']]);
+        }
+        
+        // Mark selected slips as paid
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        $params = array_merge($ids, [$period['id']]);
+        $db->query("UPDATE payroll_slips SET is_paid = 1 WHERE id IN ($placeholders) AND period_id = ?", $params);
+        
+        // Calculate total for selected
+        $selectedSlips = $db->fetchAll("SELECT net_salary, employee_name FROM payroll_slips WHERE id IN ($placeholders)", $ids);
+        $totalPaid = 0;
+        $names = [];
+        foreach ($selectedSlips as $s) {
+            $totalPaid += (float)$s['net_salary'];
+            $names[] = $s['employee_name'];
+        }
+        
+        // Record to cashbook
+        $periodLabel = $months[$period['period_month']] . ' ' . $period['period_year'];
+        $description = 'Gaji ' . implode(', ', $names) . ' - ' . $periodLabel;
+        if (strlen($description) > 200) $description = 'Gaji ' . count($names) . ' staff - ' . $periodLabel;
+        
+        $bankAccount = $db->fetchOne("SELECT id FROM cash_accounts WHERE (account_name LIKE '%Bank%' OR account_name LIKE '%BCA%' OR account_name LIKE '%BRI%') AND is_active = 1 LIMIT 1");
+        $accountId = $bankAccount ? $bankAccount['id'] : null;
+        
+        $ref = 'PAYROLL-' . $period['id'] . '-' . implode('_', $ids);
+        $db->query(
+            "INSERT INTO cashbook_transactions (transaction_date, transaction_type, account_id, category, description, amount, payment_method, reference_number, created_by) 
+             VALUES (CURDATE(), 'expense', ?, 'Payroll', ?, ?, 'transfer', ?, ?)",
+            [$accountId, $description, $totalPaid, $ref, $_SESSION['user_id']]
+        );
+        
+        // Check if ALL slips in this period are now paid
+        $unpaid = $db->fetchOne("SELECT COUNT(*) as c FROM payroll_slips WHERE period_id = ? AND is_paid = 0", [$period['id']]);
+        if ((int)($unpaid['c'] ?? 0) === 0) {
+            $db->query("UPDATE payroll_periods SET status = 'paid', paid_at = NOW() WHERE id = ?", [$period['id']]);
+        }
+        
+        setFlash('success', '✅ ' . count($ids) . ' staff dibayar! Rp ' . number_format($totalPaid, 0, ',', '.') . ' tercatat. Slip gaji tersedia di Staff Portal.');
     } catch (Exception $e) {
         setFlash('error', 'Error: ' . $e->getMessage());
     }
@@ -872,6 +938,7 @@ include '../../includes/header.php';
             <table class="ps-table">
                 <thead>
                     <tr>
+                        <th style="width:30px;text-align:center;"><input type="checkbox" id="paySelectAll" onchange="togglePaySelectAll(this)" title="Pilih Semua"></th>
                         <th class="col-employee">Employee</th>
                         <th style="width: 75px;">Base<div class="ps-info">Full</div></th>
                         <th style="width: 55px; background: rgba(245,158,11,0.1);">Hours<div class="ps-info">200</div></th>
@@ -897,6 +964,13 @@ include '../../includes/header.php';
                         data-bpjs="<?php echo $slip['deduction_bpjs']; ?>"
                         data-other="<?php echo $slip['deduction_other']; ?>">
                         
+                        <td style="text-align:center;">
+                            <?php if(empty($slip['is_paid'])): ?>
+                            <input type="checkbox" class="pay-select-cb" value="<?php echo $slip['id']; ?>" data-net="<?php echo $slip['net_salary']; ?>" data-name="<?php echo htmlspecialchars($slip['employee_name']); ?>" onchange="updatePaySelection()">
+                            <?php else: ?>
+                            <span title="Sudah dibayar" style="color:#10b981;font-size:14px;">✅</span>
+                            <?php endif; ?>
+                        </td>
                         <td class="col-employee">
                             <div class="ps-emp-name"><?php echo htmlspecialchars($slip['employee_name']); ?></div>
                             <div class="ps-emp-pos"><?php echo htmlspecialchars($slip['position']); ?></div>
@@ -1157,6 +1231,53 @@ function saveDeduction() {
 document.getElementById('deductionModal')?.addEventListener('click', function(e) {
     if (e.target === this) closeDeductionModal();
 });
+
+// === Pay Selection Functions ===
+function togglePaySelectAll(master) {
+    document.querySelectorAll('.pay-select-cb').forEach(cb => { cb.checked = master.checked; });
+    updatePaySelection();
+}
+
+function updatePaySelection() {
+    const checked = document.querySelectorAll('.pay-select-cb:checked');
+    const bar = document.getElementById('paySelectionBar');
+    if (!bar) return;
+    if (checked.length === 0) {
+        bar.style.display = 'none';
+        return;
+    }
+    let total = 0;
+    checked.forEach(cb => { total += parseFloat(cb.getAttribute('data-net') || 0); });
+    document.getElementById('paySelCount').textContent = checked.length;
+    document.getElementById('paySelTotal').textContent = new Intl.NumberFormat('id-ID').format(total);
+    bar.style.display = 'flex';
+}
+
+function paySelected() {
+    const checked = document.querySelectorAll('.pay-select-cb:checked');
+    if (checked.length === 0) return;
+    let names = [];
+    checked.forEach(cb => names.push(cb.getAttribute('data-name')));
+    const preview = names.length <= 3 ? names.join(', ') : names.slice(0, 3).join(', ') + ' +' + (names.length - 3) + ' lainnya';
+    if (!confirm('Bayar & publish slip gaji untuk ' + checked.length + ' staff?\n' + preview)) return;
+    const ids = Array.from(checked).map(cb => cb.value).join(',');
+    document.getElementById('paySelSlipIds').value = ids;
+    document.getElementById('paySelForm').submit();
+}
 </script>
+
+<!-- Floating Pay Selection Bar -->
+<div id="paySelectionBar" style="display:none; position:fixed; bottom:1rem; left:50%; transform:translateX(-50%); background:linear-gradient(135deg,#059669,#10b981); color:#fff; padding:0.75rem 1.5rem; border-radius:50px; box-shadow:0 4px 20px rgba(0,0,0,0.3); z-index:1000; align-items:center; gap:1rem; font-size:0.85rem;">
+    <span><strong id="paySelCount">0</strong> staff dipilih</span>
+    <span style="opacity:0.8;">|</span>
+    <span>Total: <strong>Rp <span id="paySelTotal">0</span></strong></span>
+    <button onclick="paySelected()" style="background:#fff; color:#059669; border:none; padding:0.5rem 1rem; border-radius:25px; font-weight:600; cursor:pointer; margin-left:0.5rem;">
+        💰 Bayar Selected
+    </button>
+</div>
+<form id="paySelForm" method="POST" style="display:none;">
+    <input type="hidden" name="quick_pay_selected" value="1">
+    <input type="hidden" name="selected_slips" id="paySelSlipIds" value="">
+</form>
 
 <?php include '../../includes/footer.php'; ?>
