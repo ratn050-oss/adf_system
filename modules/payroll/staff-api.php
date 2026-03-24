@@ -754,4 +754,74 @@ if ($action === 'work_schedule') {
     ]); exit;
 }
 
+// ══════════════════════════════════════
+// SALARY PERIODS — list available payroll periods for this employee
+// ══════════════════════════════════════
+if ($action === 'salary_periods') {
+    try {
+        // Get periods where this employee has a slip AND status is approved or paid
+        $rows = $db->fetchAll("
+            SELECT p.id, p.period_label, p.period_month, p.period_year, p.status,
+                   CASE p.status 
+                       WHEN 'paid' THEN '✅ Dibayar'
+                       WHEN 'approved' THEN '✅ Disetujui'
+                       WHEN 'submitted' THEN '⏳ Diproses'
+                       ELSE '📝 Draft'
+                   END as status_label
+            FROM payroll_periods p
+            INNER JOIN payroll_slips s ON s.period_id = p.id AND s.employee_id = ?
+            WHERE p.status IN ('approved', 'paid')
+            ORDER BY p.period_year DESC, p.period_month DESC
+            LIMIT 24
+        ", [$empId]) ?: [];
+
+        // Mark latest
+        if (!empty($rows)) $rows[0]['is_latest'] = true;
+        foreach ($rows as &$r) {
+            if (!isset($r['is_latest'])) $r['is_latest'] = false;
+        }
+
+        echo json_encode(['success' => true, 'data' => $rows]);
+    } catch (Exception $e) {
+        echo json_encode(['success' => true, 'data' => []]);
+    }
+    exit;
+}
+
+// ══════════════════════════════════════
+// SALARY SLIP — get slip detail for a period
+// ══════════════════════════════════════
+if ($action === 'salary_slip') {
+    $periodId = (int)($_GET['period_id'] ?? 0);
+    if (!$periodId) {
+        echo json_encode(['success' => false, 'message' => 'Period ID diperlukan']); exit;
+    }
+
+    try {
+        // Verify period is approved/paid
+        $period = $db->fetchOne("SELECT id, status, period_label FROM payroll_periods WHERE id = ? AND status IN ('approved', 'paid')", [$periodId]);
+        if (!$period) {
+            echo json_encode(['success' => false, 'message' => 'Slip gaji belum tersedia untuk periode ini', 'pending' => true]); exit;
+        }
+
+        $slip = $db->fetchOne("
+            SELECT s.*, p.period_label, p.period_month, p.period_year,
+                   e.bank_name, e.bank_account, e.employee_code, e.department, e.position
+            FROM payroll_slips s
+            JOIN payroll_periods p ON s.period_id = p.id
+            LEFT JOIN payroll_employees e ON s.employee_id = e.id
+            WHERE s.period_id = ? AND s.employee_id = ?
+        ", [$periodId, $empId]);
+
+        if (!$slip) {
+            echo json_encode(['success' => false, 'message' => 'Slip gaji tidak ditemukan untuk Anda di periode ini']); exit;
+        }
+
+        echo json_encode(['success' => true, 'data' => $slip]);
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => 'Gagal memuat slip gaji']);
+    }
+    exit;
+}
+
 echo json_encode(['success' => false, 'message' => 'Unknown action']);

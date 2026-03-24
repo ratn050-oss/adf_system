@@ -191,6 +191,12 @@ try {
         .card { background:#fff; border-radius:12px; padding:16px; border:1px solid var(--border); margin-bottom:12px; }
         .card-title { font-size:13px; font-weight:700; color:var(--navy); margin-bottom:10px; }
 
+        /* Slip Gaji rows */
+        .slip-row { display:flex; justify-content:space-between; padding:6px 0; font-size:11px; border-bottom:1px dashed #e2e8f0; }
+        .slip-row:last-child { border-bottom:none; }
+        .slip-val { font-weight:600; font-family:'SF Mono',Monaco,monospace; color:var(--text); font-size:11px; }
+        .slip-deduct { color:#dc2626; }
+
         /* Table */
         .tbl { width:100%; border-collapse:collapse; font-size:11px; }
         .tbl th { background:var(--bg); padding:8px; text-align:left; font-weight:600; color:var(--muted); font-size:10px; text-transform:uppercase; border-bottom:1px solid var(--border); }
@@ -480,9 +486,9 @@ try {
             <div id="todayStatus"><div class="loading"><span class="spin"></span> Memuat...</div></div>
         </div>
 
-        <!-- Ringkasan Bulan Ini -->
+        <!-- Target Jam - Donut Chart -->
         <div class="card">
-            <div class="card-title">📊 Ringkasan Bulan Ini</div>
+            <div class="card-title">📊 Target Jam Bulan Ini</div>
             <div id="monthlySummary"><div class="loading"><span class="spin"></span> Memuat...</div></div>
         </div>
 
@@ -598,9 +604,23 @@ try {
     </div>
     <?php endif; ?>
 
+    <!-- ═══ SLIP GAJI PAGE ═══ -->
+    <div class="page" id="page-slipgaji">
+        <div class="card">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
+                <div class="card-title" style="margin:0;">💰 Slip Gaji</div>
+                <select id="slipPeriod" class="fi" style="width:auto;padding:5px 8px;font-size:11px;" onchange="loadSlipGaji()">
+                    <option value="">Memuat...</option>
+                </select>
+            </div>
+            <div id="slipGajiContent"><div class="loading"><span class="spin"></span> Memuat...</div></div>
+        </div>
+    </div>
+
     <!-- Bottom Navigation -->
     <div class="bottom-nav">
         <div class="nav-item active" data-page="home"><span class="nav-icon">🏠</span><span class="nav-label">Home</span></div>
+        <div class="nav-item" data-page="slipgaji"><span class="nav-icon">💰</span><span class="nav-label">Slip Gaji</span></div>
         <?php if ($isHotel): ?>
         <div class="nav-item" data-page="occupancy"><span class="nav-icon">🏨</span><span class="nav-label">Room Monitor</span></div>
         <div class="nav-item" data-page="breakfast"><span class="nav-icon">☕</span><span class="nav-label">Breakfast</span></div>
@@ -799,6 +819,7 @@ document.querySelectorAll('.nav-item').forEach(item => {
         const page = item.dataset.page;
         document.getElementById('page-' + page).classList.add('active');
         if (page === 'home') loadHome();
+        if (page === 'slipgaji') loadSlipGaji();
         if (page === 'occupancy' && IS_HOTEL) loadOccupancy();
         if (page === 'breakfast' && IS_HOTEL) loadBreakfast();
         if (page === 'schedule' && IS_CAFE) loadSchedule();
@@ -879,22 +900,71 @@ async function loadAbsen() {
         }
     } catch(e) { document.getElementById('todayStatus').innerHTML = '<div style="color:var(--red);font-size:11px;">Gagal memuat data</div>'; }
 
-    // Monthly summary
+    // Monthly donut chart
     try {
         const m = new Date().toISOString().substring(0,7);
         const res = await fetch(API + '&action=attendance_history&month=' + m);
         const data = await res.json();
         const s = data.summary || {};
-        const pct = s.target > 0 ? Math.min(Math.round(s.total_hours / s.target * 100), 100) : 0;
-        const barColor = pct >= 90 ? 'var(--green)' : pct >= 60 ? 'var(--orange)' : 'var(--red)';
+        const totalHours = s.total_hours || 0;
+        const target = s.target || 200;
+        const pct = target > 0 ? Math.min(Math.round(totalHours / target * 100), 100) : 0;
+        const remaining = Math.max(0, target - totalHours);
+        const daysPresent = s.days_present || 0;
+        const daysLate = s.days_late || 0;
+
+        // Donut chart using SVG conic gradient simulation
+        const radius = 70, cx = 85, cy = 85, stroke = 14;
+        const circumference = 2 * Math.PI * radius;
+        const dashOffset = circumference - (pct / 100) * circumference;
+        const gradColor1 = pct >= 90 ? '#10b981' : pct >= 60 ? '#f59e0b' : '#ef4444';
+        const gradColor2 = pct >= 90 ? '#059669' : pct >= 60 ? '#d97706' : '#dc2626';
+        const gradId = 'donutGrad';
+
         document.getElementById('monthlySummary').innerHTML = `
-            <div class="stat-row" style="margin-bottom:8px;">
-                <div class="stat-card"><div class="sl">Hadir</div><div class="sv" style="color:var(--green);">${s.days_present||0}</div><div class="ss">hari</div></div>
-                <div class="stat-card"><div class="sl">Total Jam</div><div class="sv" style="color:var(--navy);">${(s.total_hours||0).toFixed(1)}</div><div class="ss">dari ${s.target||200}j target</div></div>
-                <div class="stat-card"><div class="sl">Reguler</div><div class="sv" style="color:var(--blue);">${(s.regular_hours||0).toFixed(1)}j</div><div class="ss">max 8j/hari</div></div>
-            </div>
-            <div style="font-size:10px;color:var(--muted);margin-bottom:4px;">Progress Target ${pct}%</div>
-            <div class="progress"><div class="progress-bar" style="width:${pct}%;background:${barColor};"></div></div>`;
+            <div style="display:flex;align-items:center;gap:20px;justify-content:center;">
+                <div style="position:relative;width:170px;height:170px;flex-shrink:0;">
+                    <svg width="170" height="170" viewBox="0 0 170 170" style="transform:rotate(-90deg);">
+                        <defs>
+                            <linearGradient id="${gradId}" x1="0%" y1="0%" x2="100%" y2="100%">
+                                <stop offset="0%" stop-color="${gradColor1}"/>
+                                <stop offset="100%" stop-color="${gradColor2}"/>
+                            </linearGradient>
+                            <filter id="donutShadow"><feDropShadow dx="0" dy="2" stdDeviation="3" flood-color="${gradColor1}" flood-opacity="0.3"/></filter>
+                        </defs>
+                        <circle cx="${cx}" cy="${cy}" r="${radius}" fill="none" stroke="#e2e8f0" stroke-width="${stroke}" />
+                        <circle cx="${cx}" cy="${cy}" r="${radius}" fill="none" stroke="url(#${gradId})" stroke-width="${stroke}" 
+                            stroke-linecap="round" stroke-dasharray="${circumference}" stroke-dashoffset="${circumference}" filter="url(#donutShadow)">
+                            <animate attributeName="stroke-dashoffset" from="${circumference}" to="${dashOffset}" dur="1.2s" fill="freeze" calcMode="spline" keySplines="0.4 0 0.2 1" keyTimes="0;1"/>
+                        </circle>
+                    </svg>
+                    <div style="position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;">
+                        <div style="font-size:28px;font-weight:800;color:${gradColor1};line-height:1;" id="donutPctNum">0</div>
+                        <div style="font-size:10px;font-weight:700;color:${gradColor1};margin-top:1px;">%</div>
+                        <div style="font-size:9px;color:var(--muted);margin-top:3px;">dari ${target}j</div>
+                    </div>
+                </div>
+                <div style="flex:1;min-width:0;">
+                    <div style="display:grid;gap:8px;">
+                        <div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:10px;">
+                            <div style="width:32px;height:32px;background:#10b981;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;">📅</div>
+                            <div><div style="font-size:9px;color:#059669;font-weight:600;text-transform:uppercase;">Hadir</div><div style="font-size:18px;font-weight:800;color:#065f46;">${daysPresent} <span style="font-size:10px;font-weight:400;">hari</span></div></div>
+                        </div>
+                        <div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:10px;">
+                            <div style="width:32px;height:32px;background:#3b82f6;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;">⏱️</div>
+                            <div><div style="font-size:9px;color:#2563eb;font-weight:600;text-transform:uppercase;">Total Jam</div><div style="font-size:18px;font-weight:800;color:#1e3a8a;">${totalHours.toFixed(1)} <span style="font-size:10px;font-weight:400;">jam</span></div></div>
+                        </div>
+                        <div style="background:linear-gradient(135deg,#fefce8,#fef9c3);border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:10px;">
+                            <div style="width:32px;height:32px;background:#eab308;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;">🎯</div>
+                            <div><div style="font-size:9px;color:#a16207;font-weight:600;text-transform:uppercase;">Sisa Target</div><div style="font-size:18px;font-weight:800;color:#854d0e;">${remaining.toFixed(1)} <span style="font-size:10px;font-weight:400;">jam</span></div></div>
+                        </div>
+                    </div>
+                </div>
+            </div>`;
+        // Animate percentage number
+        let cur = 0; const tgt = pct;
+        const animPct = () => { if (cur < tgt) { cur += Math.max(1, Math.round((tgt - cur) / 10)); if (cur > tgt) cur = tgt; document.getElementById('donutPctNum').textContent = cur; requestAnimationFrame(animPct); } };
+        requestAnimationFrame(animPct);
     } catch(e) {}
 }
 
@@ -2056,6 +2126,118 @@ setTimeout(checkNotifs, 3000);
     }
 
     function sleep(ms) { return new Promise(r => setTimeout(r, ms)); }
+
+// ═══ SLIP GAJI PAGE ═══
+let slipPeriodsLoaded = false;
+async function loadSlipGaji() {
+    const sel = document.getElementById('slipPeriod');
+    const content = document.getElementById('slipGajiContent');
+    
+    // Load periods dropdown once
+    if (!slipPeriodsLoaded) {
+        try {
+            const res = await fetch(API + '&action=salary_periods');
+            const data = await res.json();
+            if (!data.success && data.auth === false) { doLogout(); return; }
+            const periods = data.data || [];
+            if (periods.length === 0) {
+                sel.innerHTML = '<option value="">Belum ada data</option>';
+                content.innerHTML = '<div style="text-align:center;padding:30px 16px;"><div style="font-size:48px;margin-bottom:12px;">📋</div><div style="font-size:13px;color:var(--muted);">Belum ada slip gaji yang tersedia.</div><div style="font-size:11px;color:var(--muted);margin-top:4px;">Slip gaji akan muncul setelah payroll diproses admin.</div></div>';
+                slipPeriodsLoaded = true;
+                return;
+            }
+            sel.innerHTML = periods.map(p => `<option value="${p.id}" ${p.is_latest ? 'selected' : ''}>${p.label} — ${p.status_label}</option>`).join('');
+            slipPeriodsLoaded = true;
+        } catch(e) {
+            sel.innerHTML = '<option value="">Gagal memuat</option>';
+            content.innerHTML = '<div style="color:var(--red);font-size:11px;text-align:center;">Gagal memuat data periode</div>';
+            return;
+        }
+    }
+    
+    const periodId = sel.value;
+    if (!periodId) return;
+    
+    content.innerHTML = '<div class="loading"><span class="spin"></span> Memuat slip gaji...</div>';
+    
+    try {
+        const res = await fetch(API + '&action=salary_slip&period_id=' + periodId);
+        const data = await res.json();
+        if (!data.success) {
+            content.innerHTML = `<div style="text-align:center;padding:30px 16px;"><div style="font-size:48px;margin-bottom:12px;">${data.pending ? '⏳' : '📋'}</div><div style="font-size:13px;color:var(--muted);">${data.message || 'Slip gaji tidak ditemukan'}</div></div>`;
+            return;
+        }
+        const slip = data.data;
+        const fmt = (n) => new Intl.NumberFormat('id-ID').format(Math.round(n || 0));
+        
+        // Build earnings rows
+        let earningsRows = '';
+        earningsRows += `<div class="slip-row"><span>Gaji Pokok (${slip.work_hours||0}j)</span><span class="slip-val">Rp ${fmt(slip.actual_base)}</span></div>`;
+        if (parseFloat(slip.incentive) > 0) earningsRows += `<div class="slip-row"><span>Insentif</span><span class="slip-val">Rp ${fmt(slip.incentive)}</span></div>`;
+        if (parseFloat(slip.allowance) > 0) earningsRows += `<div class="slip-row"><span>Tunjangan</span><span class="slip-val">Rp ${fmt(slip.allowance)}</span></div>`;
+        if (parseFloat(slip.bonus) > 0) earningsRows += `<div class="slip-row"><span>Bonus</span><span class="slip-val">Rp ${fmt(slip.bonus)}</span></div>`;
+        if (parseFloat(slip.other_income) > 0) earningsRows += `<div class="slip-row"><span>Lainnya</span><span class="slip-val">Rp ${fmt(slip.other_income)}</span></div>`;
+        
+        // Build deduction rows
+        let deductRows = '';
+        if (parseFloat(slip.deduction_loan) > 0) deductRows += `<div class="slip-row"><span>Pinjaman</span><span class="slip-val slip-deduct">-Rp ${fmt(slip.deduction_loan)}</span></div>`;
+        if (parseFloat(slip.deduction_absence) > 0) deductRows += `<div class="slip-row"><span>Ketidakhadiran</span><span class="slip-val slip-deduct">-Rp ${fmt(slip.deduction_absence)}</span></div>`;
+        if (parseFloat(slip.deduction_tax) > 0) deductRows += `<div class="slip-row"><span>Pajak</span><span class="slip-val slip-deduct">-Rp ${fmt(slip.deduction_tax)}</span></div>`;
+        if (parseFloat(slip.deduction_bpjs) > 0) deductRows += `<div class="slip-row"><span>BPJS</span><span class="slip-val slip-deduct">-Rp ${fmt(slip.deduction_bpjs)}</span></div>`;
+        if (parseFloat(slip.deduction_other) > 0) deductRows += `<div class="slip-row"><span>Potongan Lainnya</span><span class="slip-val slip-deduct">-Rp ${fmt(slip.deduction_other)}</span></div>`;
+        
+        const hasDeductions = deductRows !== '';
+
+        content.innerHTML = `
+            <div style="margin-bottom:14px;">
+                <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
+                    <div style="width:40px;height:40px;background:linear-gradient(135deg,var(--navy),#1a3a5c);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;color:#fff;">👤</div>
+                    <div>
+                        <div style="font-size:14px;font-weight:700;color:var(--text);">${slip.employee_name}</div>
+                        <div style="font-size:10px;color:var(--muted);">${slip.position || ''} ${slip.employee_code ? '• ' + slip.employee_code : ''}</div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Net Salary Hero -->
+            <div style="background:linear-gradient(135deg,#10b981,#059669);border-radius:14px;padding:18px;color:#fff;margin-bottom:14px;text-align:center;box-shadow:0 4px 15px rgba(16,185,129,.3);">
+                <div style="font-size:9px;text-transform:uppercase;letter-spacing:1.5px;opacity:.85;">Gaji Bersih</div>
+                <div style="font-size:28px;font-weight:800;margin:6px 0;font-family:'SF Mono',Monaco,monospace;">Rp ${fmt(slip.net_salary)}</div>
+                <div style="font-size:10px;opacity:.75;">${slip.period_label}</div>
+            </div>
+
+            <!-- Pendapatan -->
+            <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:14px;margin-bottom:10px;">
+                <div style="font-size:10px;font-weight:700;color:#059669;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">💚 Pendapatan</div>
+                ${earningsRows}
+                <div class="slip-row" style="border-top:2px solid #86efac;padding-top:8px;margin-top:4px;"><span style="font-weight:700;">Total Pendapatan</span><span class="slip-val" style="font-weight:800;color:#059669;">Rp ${fmt(slip.total_earnings)}</span></div>
+            </div>
+
+            ${hasDeductions ? `
+            <!-- Potongan -->
+            <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:14px;margin-bottom:10px;">
+                <div style="font-size:10px;font-weight:700;color:#dc2626;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">🔻 Potongan</div>
+                ${deductRows}
+                <div class="slip-row" style="border-top:2px solid #fca5a5;padding-top:8px;margin-top:4px;"><span style="font-weight:700;">Total Potongan</span><span class="slip-val slip-deduct" style="font-weight:800;">-Rp ${fmt(slip.total_deductions)}</span></div>
+            </div>` : ''}
+
+            ${slip.bank_name ? `
+            <!-- Bank Transfer -->
+            <div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #bfdbfe;border-radius:12px;padding:14px;margin-bottom:10px;">
+                <div style="font-size:10px;font-weight:700;color:#2563eb;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">🏦 Transfer Bank</div>
+                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                    <div><div style="font-size:9px;color:var(--muted);">Bank</div><div style="font-size:12px;font-weight:700;color:#1e3a8a;">${slip.bank_name}</div></div>
+                    <div><div style="font-size:9px;color:var(--muted);">No. Rekening</div><div style="font-size:12px;font-weight:700;color:#1e3a8a;font-family:monospace;">${slip.bank_account || '-'}</div></div>
+                </div>
+            </div>` : ''}
+
+            <div style="text-align:center;font-size:9px;color:var(--muted);padding:8px 0;">Dokumen ini digenerate otomatis oleh sistem</div>
+        `;
+    } catch(e) {
+        content.innerHTML = '<div style="color:var(--red);font-size:11px;text-align:center;padding:20px;">Gagal memuat slip gaji</div>';
+    }
+}
+
 })();
 </script>
 
