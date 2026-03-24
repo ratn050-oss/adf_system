@@ -329,16 +329,13 @@ include '../../includes/header.php';
 }
 .action-dropdown-menu {
     display: none;
-    position: absolute;
-    right: 0;
-    top: 100%;
-    margin-top: 4px;
+    position: fixed;
     background: var(--card-bg, #fff);
     border: 1px solid rgba(99,102,241,0.15);
     border-radius: 8px;
     box-shadow: 0 8px 24px rgba(0,0,0,0.15);
     min-width: 160px;
-    z-index: 1000;
+    z-index: 9999;
     overflow: hidden;
 }
 .action-dropdown.open .action-dropdown-menu {
@@ -1170,11 +1167,18 @@ include '../../includes/header.php';
 <script>
 // Dropdown toggle
 function toggleDropdown(btn) {
+    event.stopPropagation();
     const dropdown = btn.closest('.action-dropdown');
     const wasOpen = dropdown.classList.contains('open');
     // Close all open dropdowns first
     document.querySelectorAll('.action-dropdown.open').forEach(d => d.classList.remove('open'));
-    if (!wasOpen) dropdown.classList.add('open');
+    if (!wasOpen) {
+        dropdown.classList.add('open');
+        const menu = dropdown.querySelector('.action-dropdown-menu');
+        const rect = btn.getBoundingClientRect();
+        menu.style.top = (rect.bottom + 4) + 'px';
+        menu.style.left = Math.max(0, rect.right - menu.offsetWidth) + 'px';
+    }
 }
 // Close dropdowns on outside click
 document.addEventListener('click', function(e) {
