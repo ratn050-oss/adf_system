@@ -34,13 +34,16 @@ if (!empty($absenConfig['app_logo'])) {
     $appLogo = (str_starts_with($absenConfig['app_logo'], 'http')) ? $absenConfig['app_logo'] : $baseUrl . '/' . ltrim($absenConfig['app_logo'], '/');
 }
 
-// Invoice/PDF logo (same as report-settings) for slip gaji
+// Invoice/PDF logo (same as report-settings) for slip gaji — from MASTER DB
 $slipLogo = null;
-$invoiceLogoRow = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = :key", ['key' => 'invoice_logo_' . ACTIVE_BUSINESS_ID]);
-if ($invoiceLogoRow && !empty($invoiceLogoRow['setting_value'])) {
-    $val = $invoiceLogoRow['setting_value'];
-    $slipLogo = (strpos($val, 'http') === 0) ? $val : $baseUrl . '/uploads/logos/' . $val;
-}
+try {
+    $masterDb = Database::getInstance();
+    $invoiceLogoRow = $masterDb->fetchOne("SELECT setting_value FROM settings WHERE setting_key = :key", ['key' => 'invoice_logo_' . ACTIVE_BUSINESS_ID]);
+    if ($invoiceLogoRow && !empty($invoiceLogoRow['setting_value'])) {
+        $val = $invoiceLogoRow['setting_value'];
+        $slipLogo = (strpos($val, 'http') === 0) ? $val : $baseUrl . '/uploads/logos/' . $val;
+    }
+} catch (Exception $e) {}
 
 // PWA Icon — use login_logo from settings (same DB as login.php & developer-settings.php)
 $pwaIconUrl = 'absen-icon.php?size=192'; // fallback
@@ -2206,7 +2209,7 @@ function renderSlipGaji(slip) {
     const totalDeductions = parseFloat(slip.total_deductions) || 0;
     const netSalary = parseFloat(slip.net_salary) || 0;
 
-    const logoHtml = SLIP_LOGO_URL ? `<img src="${SLIP_LOGO_URL}" style="height:36px;object-fit:contain;" crossorigin="anonymous">` : `<span style="font-size:22px;">🏨</span>`;
+    const logoHtml = SLIP_LOGO_URL ? `<img src="${SLIP_LOGO_URL}" style="height:52px;object-fit:contain;" crossorigin="anonymous">` : `<span style="font-size:28px;">🏨</span>`;
 
     const monthNames = ['','Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
     const periodText = monthNames[parseInt(slip.period_month)] + ' ' + slip.period_year;
