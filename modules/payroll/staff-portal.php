@@ -34,6 +34,14 @@ if (!empty($absenConfig['app_logo'])) {
     $appLogo = (str_starts_with($absenConfig['app_logo'], 'http')) ? $absenConfig['app_logo'] : $baseUrl . '/' . ltrim($absenConfig['app_logo'], '/');
 }
 
+// Invoice/PDF logo (same as report-settings) for slip gaji
+$slipLogo = null;
+$invoiceLogoRow = $db->fetchOne("SELECT setting_value FROM settings WHERE setting_key = :key", ['key' => 'invoice_logo_' . ACTIVE_BUSINESS_ID]);
+if ($invoiceLogoRow && !empty($invoiceLogoRow['setting_value'])) {
+    $val = $invoiceLogoRow['setting_value'];
+    $slipLogo = (strpos($val, 'http') === 0) ? $val : $baseUrl . '/uploads/logos/' . $val;
+}
+
 // PWA Icon — use login_logo from settings (same DB as login.php & developer-settings.php)
 $pwaIconUrl = 'absen-icon.php?size=192'; // fallback
 try {
@@ -683,6 +691,7 @@ const BIZ_TYPE = '<?php echo $bizType; ?>';
 const IS_HOTEL = <?php echo $isHotel ? 'true' : 'false'; ?>;
 const IS_CAFE = <?php echo $isCafe ? 'true' : 'false'; ?>;
 const LOGO_URL = '<?php echo $appLogo ?: ''; ?>';
+const SLIP_LOGO_URL = '<?php echo $slipLogo ?: ($appLogo ?: ''); ?>';
 const BIZ_NAME = '<?php echo $bizName; ?>';
 
 // ═══ PASSWORD TOGGLE ═══
@@ -949,10 +958,6 @@ async function loadAbsen() {
                         <div style="background:linear-gradient(135deg,#f0fdf4,#dcfce7);border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:10px;">
                             <div style="width:32px;height:32px;background:#10b981;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;">📅</div>
                             <div><div style="font-size:9px;color:#059669;font-weight:600;text-transform:uppercase;">Hadir</div><div style="font-size:18px;font-weight:800;color:#065f46;">${daysPresent} <span style="font-size:10px;font-weight:400;">hari</span></div></div>
-                        </div>
-                        <div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:10px;">
-                            <div style="width:32px;height:32px;background:#3b82f6;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;">⏱️</div>
-                            <div><div style="font-size:9px;color:#2563eb;font-weight:600;text-transform:uppercase;">Total Jam</div><div style="font-size:18px;font-weight:800;color:#1e3a8a;">${totalHours.toFixed(1)} <span style="font-size:10px;font-weight:400;">jam</span></div></div>
                         </div>
                         <div style="background:linear-gradient(135deg,#fefce8,#fef9c3);border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:10px;">
                             <div style="width:32px;height:32px;background:#eab308;border-radius:8px;display:flex;align-items:center;justify-content:center;color:#fff;font-size:14px;">🎯</div>
@@ -2202,7 +2207,7 @@ function renderSlipGaji(slip) {
     const totalDeductions = parseFloat(slip.total_deductions) || 0;
     const netSalary = parseFloat(slip.net_salary) || 0;
 
-    const logoHtml = LOGO_URL ? `<img src="${LOGO_URL}" style="height:38px;width:38px;object-fit:contain;border-radius:8px;">` : `<div style="width:38px;height:38px;background:linear-gradient(135deg,#0f172a,#1e3a5f);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;color:#fff;">🏨</div>`;
+    const logoHtml = SLIP_LOGO_URL ? `<img src="${SLIP_LOGO_URL}" style="height:38px;width:38px;object-fit:contain;border-radius:8px;" crossorigin="anonymous">` : `<div style="width:38px;height:38px;background:linear-gradient(135deg,#0f172a,#1e3a5f);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;color:#fff;">🏨</div>`;
 
     const monthNames = ['','Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
     const periodText = monthNames[parseInt(slip.period_month)] + ' ' + slip.period_year;
