@@ -2838,13 +2838,31 @@ window.quickViewCheckIn = function quickViewCheckIn() {
     const otaSources = (typeof OTA_SOURCE_KEYS !== 'undefined' && OTA_SOURCE_KEYS.length > 0)
         ? OTA_SOURCE_KEYS
         : ['ota', 'agoda', 'booking', 'tiket', 'traveloka', 'airbnb', 'expedia', 'pegipegi'];
-    const bookingSource = (b.booking_source || '').toLowerCase().replace(/\.com|\.co\.id|\.id/g, '').replace(/[^a-z0-9]/g, '');
-    const isOTA = otaSources.includes(b.booking_source) || otaSources.some(s => bookingSource.includes(s));
+    const rawSource = (b.booking_source || '').trim();
+    const bookingSource = rawSource.toLowerCase().replace(/\.com|\.co\.id|\.id/g, '').replace(/[^a-z0-9]/g, '');
+    // Check: exact match in OTA list OR fuzzy match (source contains OTA keyword or vice versa)
+    const isOTA = rawSource && (
+        otaSources.includes(rawSource) || 
+        otaSources.includes(rawSource.toLowerCase()) ||
+        otaSources.some(s => bookingSource.includes(s) || s.includes(bookingSource))
+    );
+    
+    console.log('OTA Detection:', { rawSource, bookingSource, otaSources, isOTA });
 
-    // OTA booking: sudah dibayar via OTA, langsung check-in (uang masuk kas otomatis)
+    // OTA booking: sudah dibayar via OTA, langsung check-in (uang masuk kas bank otomatis)
     if (isOTA) {
-        const sourceLabel = (b.booking_source || 'OTA').charAt(0).toUpperCase() + (b.booking_source || 'OTA').slice(1);
-        if (!confirm(`🏨 Booking via ${sourceLabel}\n\nTamu: ${b.guest_name}\nRoom: ${b.room_number}\nTotal: Rp ${total.toLocaleString('id-ID')}\n\nUang sebesar Rp ${total.toLocaleString('id-ID')} (setelah potong fee OTA) akan otomatis masuk ke Buku Kas.\n\nLanjutkan Check-in?`)) return;
+        const sourceLabel = rawSource.charAt(0).toUpperCase() + rawSource.slice(1);
+        // Get OTA fee percentage for display
+        const feePercent = (typeof OTA_FEES !== 'undefined' && OTA_FEES[rawSource]) ? OTA_FEES[rawSource] : 0;
+        const feeAmount = Math.round(total * feePercent / 100);
+        const netAmount = total - feeAmount;
+        let feeInfo = '';
+        if (feePercent > 0) {
+            feeInfo = `\n\n💰 Total: Rp ${total.toLocaleString('id-ID')}\n📉 Fee OTA ${sourceLabel} (${feePercent}%): -Rp ${feeAmount.toLocaleString('id-ID')}\n✅ Masuk Kas Bank: Rp ${netAmount.toLocaleString('id-ID')}`;
+        } else {
+            feeInfo = `\n\nRp ${total.toLocaleString('id-ID')} akan otomatis masuk ke Kas Bank.`;
+        }
+        if (!confirm(`🏨 Booking via OTA ${sourceLabel}\n\nTamu: ${b.guest_name}\nRoom: ${b.room_number}${feeInfo}\n\nLanjutkan Check-in?`)) return;
         performCheckin(0, null, false);
         return;
     }

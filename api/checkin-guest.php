@@ -337,10 +337,17 @@ try {
     $successMessage = "Check-in berhasil! {$booking['guest_name']} - Room {$booking['room_number']}";
 
     if ($cashbookSynced) {
-        $syncedAmt = ($payNow && $payAmount > 0) ? $payAmount : $totalPaid;
-        $successMessage .= "\n\n✅ Rp " . number_format($syncedAmt, 0, ',', '.') . " tercatat di Buku Kas";
-        if ($isOTA && !$payNow) {
-            $successMessage .= "\n💳 OTA (" . $booking['booking_source'] . ") - otomatis masuk kas saat check-in";
+        if ($isOTA && !$payNow && !empty($syncResult['ota_fee'])) {
+            $otaFee = $syncResult['ota_fee'];
+            $netAmt = $otaFee['net'] ?? $totalPaid;
+            $successMessage .= "\n\n💳 OTA " . ucfirst($booking['booking_source']) . " - otomatis masuk kas bank";
+            if ($otaFee['fee_percent'] > 0) {
+                $successMessage .= "\n📉 Fee OTA (" . $otaFee['fee_percent'] . "%): -Rp " . number_format($otaFee['fee_amount'], 0, ',', '.');
+            }
+            $successMessage .= "\n✅ Rp " . number_format($netAmt, 0, ',', '.') . " tercatat di Buku Kas (Kas Bank)";
+        } else {
+            $syncedAmt = ($payNow && $payAmount > 0) ? $payAmount : $totalPaid;
+            $successMessage .= "\n\n✅ Rp " . number_format($syncedAmt, 0, ',', '.') . " tercatat di Buku Kas";
         }
     } elseif ($payNow && !$cashbookSynced) {
         $successMessage .= "\n\n⚠️ Pembayaran tersimpan namun gagal sync ke buku kas";

@@ -293,22 +293,24 @@ class CashbookHelper {
         $pmMap = ['bank_transfer' => 'transfer', 'credit_card' => 'debit', 'credit' => 'debit', 'card' => 'debit', 'qris' => 'qr'];
         $cbMethod = $paymentMethod ?? 'cash';
         
-        // Keep OTA formats as-is (e.g. "OTA tiket.com", "OTA Agoda")
+        // OTA payments come via bank transfer from OTA platform → map to 'transfer'
+        // OTA source label is stored in description instead
         if (stripos($cbMethod, 'OTA ') === 0 || stripos($cbMethod, 'ota_') === 0) {
-            return $cbMethod;
+            $cbMethod = 'transfer';
+        } else {
+            $cbMethod = strtolower($cbMethod);
+            $cbMethod = $pmMap[$cbMethod] ?? $cbMethod;
         }
-        
-        $cbMethod = strtolower($cbMethod);
-        $cbMethod = $pmMap[$cbMethod] ?? $cbMethod;
         
         $allowedMethods = $this->getAllowedPaymentMethods();
         if ($allowedMethods !== null && !in_array($cbMethod, $allowedMethods)) {
-            $cbMethod = in_array('other', $allowedMethods) ? 'other' :
-                       (in_array('cash', $allowedMethods) ? 'cash' : $allowedMethods[0]);
+            $cbMethod = in_array('transfer', $allowedMethods) ? 'transfer' :
+                       (in_array('other', $allowedMethods) ? 'other' :
+                       (in_array('cash', $allowedMethods) ? 'cash' : $allowedMethods[0]));
         } elseif ($allowedMethods === null) {
             $validMethods = ['cash', 'debit', 'transfer', 'qr', 'card', 'qris', 'bank_transfer', 'ota', 'agoda', 'booking', 'other'];
             if (!in_array($cbMethod, $validMethods)) {
-                $cbMethod = 'other';
+                $cbMethod = 'transfer';
             }
         }
         
@@ -381,13 +383,29 @@ class CashbookHelper {
         error_log("CashbookHelper::calculateOtaFee: source='{$bookingSource}' normalized='{$normalizedSource}' matched='{$matchedSource}'");
         
         try {
-            // Primary: read fee directly from booking_sources table (single source of truth)
-            $feeStmt = $this->masterDb->prepare("SELECT fee_percent FROM booking_sources WHERE source_key = ? AND is_active = 1 LIMIT 1");
-            $feeStmt->execute([$matchedSource]);
-            $feeQuery = $feeStmt->fetch(PDO::FETCH_ASSOC);
+            // Primary: read fee directly from booking_sources table in BUSINESS DB (single source of truth)
+            $feeQuery = null;
+            try {
+                $feeStmt = $this->db->getConnection()->prepare("SELECT fee_percent FROM booking_sources WHERE source_key = ? AND is_active = 1 LIMIT 1");
+                $feeStmt->execute([$matchedSource]);
+                $feeQuery = $feeStmt->fetch(PDO::FETCH_ASSOC);
+            } catch (\Throwable $e) {
+                error_log("CashbookHelper::calculateOtaFee: booking_sources not in business DB: " . $e->getMessage());
+            }
+            
+            // Fallback 1: try booking_sources in master DB
+            if (!$feeQuery) {
+                try {
+                    $feeStmt = $this->masterDb->prepare("SELECT fee_percent FROM booking_sources WHERE source_key = ? AND is_active = 1 LIMIT 1");
+                    $feeStmt->execute([$matchedSource]);
+                    $feeQuery = $feeStmt->fetch(PDO::FETCH_ASSOC);
+                } catch (\Throwable $e) {
+                    // Table might not exist in master DB either
+                }
+            }
             
             if (!$feeQuery) {
-                // Fallback: read from settings table
+                // Fallback 2: read from settings table
                 $settingKey = $settingKeyMap[$matchedSource] ?? 'ota_fee_other_ota';
                 error_log("CashbookHelper::calculateOtaFee: booking_sources miss, fallback to settings key '{$settingKey}'");
                 $feeStmt = $this->masterDb->prepare("SELECT setting_value as fee_percent FROM settings WHERE setting_key = ?");
@@ -488,15 +506,11 @@ class CashbookHelper {
             $bookingCode = $paymentData['booking_code'] ?? '';
             $isOtaCheckin = $paymentData['is_ota_checkin'] ?? false;
             if ($bookingCode) {
-                // OTA check-in: final_price sudah NET, gunakan itu untuk dedup
-                $dedupAmount = ($isOtaCheckin && !empty($paymentData['final_price']) && (float)$paymentData['final_price'] > 0)
-                    ? (float)$paymentData['final_price']
-                    : $paymentData['amount'];
-                // Payment-level dedup: check by booking_code AND amount
+                // Payment-level dedup: check by booking_code (amount may differ due to OTA fee)
                 $existingEntry = $this->db->fetchOne("
                     SELECT id FROM cash_book 
-                    WHERE description LIKE ? AND ABS(amount - ?) < 1 AND transaction_type = 'income' LIMIT 1
-                ", ['%' . $bookingCode . '%', $dedupAmount]);
+                    WHERE description LIKE ? AND transaction_type = 'income' LIMIT 1
+                ", ['%' . $bookingCode . '%']);
                 if ($existingEntry) {
                     $result['success'] = true;
                     $result['transaction_id'] = $existingEntry['id'];
@@ -510,18 +524,13 @@ class CashbookHelper {
             // Calculate OTA fee if applicable
             $bookingSource = $paymentData['booking_source'] ?? '';
             
-            if ($isOtaCheckin && !empty($paymentData['final_price']) && (float)$paymentData['final_price'] > 0) {
-                // OTA check-in: final_price sudah NET (fee OTA sudah dipotong saat reservasi)
-                // Langsung gunakan final_price, JANGAN hitung ulang fee dari booking_sources
-                $amountToRecord = (float)$paymentData['final_price'];
-                $otaCalc = [
-                    'gross' => (float)$paymentData['amount'],
-                    'fee_percent' => 0,
-                    'fee_amount' => (float)$paymentData['amount'] - $amountToRecord,
-                    'net' => $amountToRecord,
-                    'source' => 'final_price_direct'
-                ];
-                error_log("CashbookHelper: OTA check-in - using final_price directly: {$amountToRecord} (gross: {$paymentData['amount']})");
+            if ($isOtaCheckin) {
+                // OTA check-in: calculate NET amount (gross - OTA commission)
+                // final_price is GROSS (room_price * nights - discount), OTA fee not yet deducted
+                $grossAmount = (float)($paymentData['final_price'] ?: $paymentData['amount']);
+                $otaCalc = $this->calculateOtaFee($grossAmount, $bookingSource);
+                $amountToRecord = $otaCalc['net'];
+                error_log("CashbookHelper: OTA check-in - gross={$grossAmount}, fee={$otaCalc['fee_percent']}%, net={$amountToRecord}");
             } else {
                 $otaCalc = $this->calculateOtaFee($paymentData['amount'], $bookingSource);
                 $amountToRecord = $otaCalc['net'];
@@ -570,6 +579,15 @@ class CashbookHelper {
             // Add booking notes if available
             if ($bookingNotes) {
                 $description .= ' - ' . $bookingNotes;
+            }
+            
+            // Add OTA source label to description (since payment_method is mapped to 'transfer')
+            if ($isOtaCheckin && !empty($bookingSource)) {
+                $sourceLabel = ucfirst($bookingSource);
+                $description .= " [OTA {$sourceLabel}]";
+                if ($otaCalc['fee_percent'] > 0) {
+                    $description .= " (fee {$otaCalc['fee_percent']}%)";
+                }
             }
             
             // Check if this is OTA check-in (should be editable for reconciliation)
