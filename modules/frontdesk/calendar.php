@@ -2516,12 +2516,36 @@ function showBookingQuickView(booking) {
         actionButtons += '<button type="button" class="qv-btn" onclick="quickViewDeleteBooking()" style="background:#ef4444; color:white; border:none;">🗑️ Hapus</button>';
     }
 
+    // Format extra fields
+    const waPhone = booking.guest_phone ? booking.guest_phone.replace(/^0/, '62').replace(/[^0-9]/g, '') : '';
+    const waLink = waPhone ? `https://wa.me/${waPhone}` : '';
+    const roomPrice = new Intl.NumberFormat('id-ID').format(booking.room_price || 0);
+    const discountAmt = new Intl.NumberFormat('id-ID').format(booking.discount || 0);
+    const createdAt = booking.created_at ? new Date(booking.created_at).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' }) : '-';
+    
+    // Payment history rows
+    let paymentRows = '';
+    if (booking.payments && booking.payments.length > 0) {
+        booking.payments.forEach(function(p) {
+            const pDate = new Date(p.payment_date).toLocaleDateString('id-ID', { day: 'numeric', month: 'short' });
+            const pAmt = new Intl.NumberFormat('id-ID').format(p.amount);
+            const pMethod = (p.payment_method || '-').toUpperCase();
+            paymentRows += `<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;font-size:0.72rem;">
+                <span style="color:var(--text-secondary);">${pDate} • ${pMethod}</span>
+                <span style="font-weight:700;color:#10b981;">Rp ${pAmt}</span>
+            </div>`;
+        });
+    }
+
     // Populate modal
     document.getElementById('qv-content').innerHTML = `
         <div style="text-align: center; padding-bottom: 0.75rem; border-bottom: 2px solid rgba(99, 102, 241, 0.2);">
             <div style="font-size: 0.7rem; color: var(--text-secondary); margin-bottom: 0.25rem;">BOOKING CODE</div>
             <div style="font-size: 1.1rem; font-weight: 800; color: #6366f1; font-family: 'Courier New', monospace;">${booking.booking_code}</div>
-            <div style="font-size: 0.7rem; font-weight: 700; background:${booking.status === 'checked_in' ? '#10b981' : '#6366f1'}; color:white; display:inline-block; padding:2px 8px; border-radius:4px; margin-top:4px;">${booking.status.toUpperCase().replace('_',' ')}</div>
+            <div style="display:flex; justify-content:center; gap:6px; margin-top:4px; flex-wrap:wrap;">
+                <span style="font-size: 0.7rem; font-weight: 700; background:${booking.status === 'checked_in' ? '#10b981' : '#6366f1'}; color:white; padding:2px 8px; border-radius:4px;">${booking.status.toUpperCase().replace('_',' ')}</span>
+                <span style="font-size: 0.7rem; font-weight: 600; background:rgba(99,102,241,0.1); color:#6366f1; padding:2px 8px; border-radius:4px;">${source}</span>
+            </div>
         </div>
         
         <div style="padding: 0.75rem 0;">
@@ -2530,15 +2554,29 @@ function showBookingQuickView(booking) {
                 <div style="flex: 1;">
                     <div style="font-size: 0.65rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.3px;">Tamu</div>
                     <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-primary);">${booking.guest_name}</div>
+                    ${booking.guest_id_number && booking.guest_id_number !== '-' ? `<div style="font-size:0.7rem;color:var(--text-secondary);">ID: ${booking.guest_id_number}</div>` : ''}
                 </div>
             </div>
             
-            ${booking.guest_phone ? `
+            ${booking.guest_phone && booking.guest_phone !== '-' ? `
             <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
                 <span style="font-size: 1.25rem;">📞</span>
                 <div style="flex: 1;">
-                    <div style="font-size: 0.65rem; color: var(--text-secondary);">Phone</div>
-                    <div style="font-size: 0.85rem; color: var(--text-primary);">${booking.guest_phone}</div>
+                    <div style="font-size: 0.65rem; color: var(--text-secondary);">Phone / WhatsApp</div>
+                    <div style="font-size: 0.85rem; color: var(--text-primary); display:flex; align-items:center; gap:6px;">
+                        ${booking.guest_phone}
+                        ${waLink ? `<a href="${waLink}" target="_blank" style="background:#25D366;color:white;font-size:0.6rem;padding:2px 6px;border-radius:4px;text-decoration:none;font-weight:700;">WA</a>` : ''}
+                    </div>
+                </div>
+            </div>
+            ` : ''}
+
+            ${booking.guest_email && booking.guest_email !== '-' ? `
+            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                <span style="font-size: 1.25rem;">📧</span>
+                <div style="flex: 1;">
+                    <div style="font-size: 0.65rem; color: var(--text-secondary);">Email</div>
+                    <div style="font-size: 0.8rem; color: var(--text-primary);">${booking.guest_email}</div>
                 </div>
             </div>
             ` : ''}
@@ -2555,32 +2593,69 @@ function showBookingQuickView(booking) {
                 <span style="font-size: 1.25rem;">📅</span>
                 <div style="flex: 1;">
                     <div style="font-size: 0.65rem; color: var(--text-secondary);">Check-in / Check-out</div>
-                    <div style="font-size: 0.8rem; color: var(--text-primary);">${checkIn} → ${checkOut}</div>
-                    <div style="font-size: 0.7rem; color: var(--text-secondary);">${booking.total_nights} malam • ${source}</div>
+                    <div style="font-size: 0.8rem; color: var(--text-primary);">${checkIn} — ${checkOut}</div>
+                    <div style="font-size: 0.7rem; color: var(--text-secondary);">${booking.total_nights} malam • ${booking.adults || 1} dewasa${booking.children > 0 ? ' + ' + booking.children + ' anak' : ''}</div>
+                </div>
+            </div>
+
+            ${booking.special_requests ? `
+            <div style="display: flex; align-items: flex-start; gap: 0.5rem; margin-bottom: 0.5rem;">
+                <span style="font-size: 1.25rem;">📝</span>
+                <div style="flex: 1;">
+                    <div style="font-size: 0.65rem; color: var(--text-secondary);">Catatan</div>
+                    <div style="font-size: 0.78rem; color: var(--text-primary); font-style:italic;">${booking.special_requests}</div>
+                </div>
+            </div>
+            ` : ''}
+
+            <div style="display: flex; align-items: center; gap: 0.5rem;">
+                <span style="font-size: 1.25rem;">🕐</span>
+                <div style="flex: 1;">
+                    <div style="font-size: 0.65rem; color: var(--text-secondary);">Dibooking</div>
+                    <div style="font-size: 0.75rem; color: var(--text-secondary);">${createdAt}</div>
                 </div>
             </div>
         </div>
         
-        <div style="background: rgba(99, 102, 241, 0.05); border-radius: 8px; padding: 0.75rem; margin-top: 0.75rem;">
+        <div style="background: rgba(99, 102, 241, 0.05); border-radius: 8px; padding: 0.75rem; margin-top: 0.5rem;">
             <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
                 <div style="font-size: 0.7rem; color: var(--text-secondary); font-weight: 600;">STATUS PEMBAYARAN</div>
                 ${paymentBadge}
             </div>
             
-            <div style="display: flex; justify-content: space-between; margin-bottom: 0.35rem;">
-                <span style="font-size: 0.75rem; color: var(--text-secondary);">Total Harga:</span>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+                <span style="font-size: 0.72rem; color: var(--text-secondary);">Harga/malam:</span>
+                <span style="font-size: 0.8rem; color: var(--text-primary);">Rp ${roomPrice} × ${booking.total_nights}</span>
+            </div>
+            
+            ${parseFloat(booking.discount) > 0 ? `
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
+                <span style="font-size: 0.72rem; color: var(--text-secondary);">Diskon:</span>
+                <span style="font-size: 0.8rem; color: #f59e0b; font-weight:600;">-Rp ${discountAmt}</span>
+            </div>
+            ` : ''}
+            
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem; padding-top:0.25rem; border-top:1px solid rgba(99,102,241,0.1);">
+                <span style="font-size: 0.75rem; color: var(--text-secondary); font-weight:600;">Total:</span>
                 <span style="font-size: 0.85rem; font-weight: 700; color: var(--text-primary);">Rp ${totalPrice}</span>
             </div>
             
-            <div style="display: flex; justify-content: space-between; margin-bottom: 0.35rem;">
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
                 <span style="font-size: 0.75rem; color: var(--text-secondary);">Sudah Bayar:</span>
                 <span style="font-size: 0.85rem; font-weight: 700; color: #10b981;">Rp ${paidAmount}</span>
             </div>
             
             ${booking.payment_status !== 'paid' ? `
-            <div style="display: flex; justify-content: space-between; padding-top: 0.35rem; border-top: 1px dashed rgba(99, 102, 241, 0.3);">
+            <div style="display: flex; justify-content: space-between; padding-top: 0.25rem; border-top: 1px dashed rgba(99, 102, 241, 0.3);">
                 <span style="font-size: 0.75rem; color: var(--text-secondary);">Sisa:</span>
                 <span style="font-size: 0.9rem; font-weight: 800; color: #ef4444;">Rp ${remaining}</span>
+            </div>
+            ` : ''}
+            
+            ${paymentRows ? `
+            <div style="margin-top:0.5rem; padding-top:0.5rem; border-top:1px solid rgba(99,102,241,0.15);">
+                <div style="font-size:0.65rem;color:var(--text-secondary);font-weight:600;margin-bottom:3px;">RIWAYAT PEMBAYARAN</div>
+                ${paymentRows}
             </div>
             ` : ''}
         </div>

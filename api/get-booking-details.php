@@ -79,6 +79,23 @@ try {
     $booking['guest_email'] = $booking['guest_email'] ?? '-';
     $booking['guest_id_number'] = $booking['guest_id_number'] ?? '-';
     
+    // Fetch payment history
+    $payments = [];
+    try {
+        $pStmt = $conn->prepare("SELECT amount, payment_method, payment_date, notes FROM booking_payments WHERE booking_id = ? ORDER BY payment_date DESC");
+        $pStmt->execute([$bookingId]);
+        $payments = $pStmt->fetchAll(PDO::FETCH_ASSOC);
+    } catch (Exception $e) { /* ignore */ }
+    $booking['payments'] = $payments;
+    
+    // Fetch created_at
+    try {
+        $cStmt = $conn->prepare("SELECT created_at FROM bookings WHERE id = ?");
+        $cStmt->execute([$bookingId]);
+        $cRow = $cStmt->fetch(PDO::FETCH_ASSOC);
+        $booking['created_at'] = $cRow['created_at'] ?? null;
+    } catch (Exception $e) { /* ignore */ }
+    
     echo json_encode([
         'success' => true,
         'booking' => $booking
