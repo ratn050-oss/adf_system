@@ -518,18 +518,26 @@ $divisionColors = [
         </div>
     <?php endif; ?>
     
-    <!-- Recent Transactions -->
-    <?php if (!empty($divisionTransactions)): ?>
-        <div class="card" style="padding: 1rem;">
+    <!-- Transaction Details - Separated by type -->
+    <?php if (!empty($divisionTransactions)): 
+        // Separate income and expense
+        $incomeTransactions = array_filter($divisionTransactions, function($t) { return $t['transaction_type'] === 'income'; });
+        $expenseTransactions = array_filter($divisionTransactions, function($t) { return $t['transaction_type'] === 'expense'; });
+        $totalMasuk = array_sum(array_column($incomeTransactions, 'amount'));
+        $totalKeluar = array_sum(array_column($expenseTransactions, 'amount'));
+    ?>
+
+        <!-- PEMASUKAN (Income) -->
+        <?php if (!empty($incomeTransactions)): ?>
+        <div class="card" style="padding: 1rem; margin-bottom: 1.25rem; border-left: 3px solid #10b981;">
             <div class="section-header" style="margin-bottom: 0.75rem; padding-bottom: 0.5rem;">
                 <h3 class="section-title" style="font-size: 0.9rem;">
-                    <span>📝</span> Rincian Transaksi
+                    <span>📈</span> Pemasukan
                 </h3>
-                <span class="section-subtitle">
-                    <?php echo count($divisionTransactions); ?> transaksi
+                <span class="section-subtitle" style="color: #10b981; font-weight: 700;">
+                    <?php echo count($incomeTransactions); ?> transaksi
                 </span>
             </div>
-            
             <div class="table-responsive">
                 <table class="table" style="font-size: 0.8rem;">
                     <thead>
@@ -538,41 +546,104 @@ $divisionColors = [
                             <th>Kategori</th>
                             <th>Metode</th>
                             <th>Keterangan</th>
-                            <th style="width: 70px;">Tipe</th>
                             <th class="text-right" style="width: 110px;">Jumlah</th>
                             <th>Input By</th>
                         </tr>
                     </thead>
                     <tbody>
-                        <?php foreach ($divisionTransactions as $trans): ?>
-                            <tr>
-                                <td style="white-space: nowrap;">
-                                    <?php echo date('d/m/y', strtotime($trans['transaction_date'])); ?>
-                                </td>
-                                <td><?php echo $trans['category_name'] ?: '-'; ?></td>
-                                <td style="text-transform: uppercase; font-size: 0.7rem; font-weight: 600;">
-                                    <?php echo strtoupper($trans['payment_method'] ?? '-'); ?>
-                                </td>
-                                <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
-                                    <?php echo $trans['description'] ?: '-'; ?>
-                                </td>
-                                <td>
-                                    <span class="badge badge-<?php echo $trans['transaction_type'] === 'income' ? 'success' : 'danger'; ?>" style="font-size: 0.65rem;">
-                                        <?php echo $trans['transaction_type'] === 'income' ? '↗ Masuk' : '↘ Keluar'; ?>
-                                    </span>
-                                </td>
-                                <td class="text-right" style="font-weight: 700; color: <?php echo $trans['transaction_type'] === 'income' ? '#10b981' : '#ef4444'; ?>;">
-                                    <?php echo formatCurrency($trans['amount']); ?>
-                                </td>
-                                <td style="font-size: 0.7rem; color: var(--text-muted);">
-                                    <?php echo $trans['created_by_name'] ?? 'System'; ?>
-                                </td>
-                            </tr>
+                        <?php foreach ($incomeTransactions as $trans): ?>
+                        <tr>
+                            <td style="white-space: nowrap;"><?php echo date('d/m/y', strtotime($trans['transaction_date'])); ?></td>
+                            <td><?php echo $trans['category_name'] ?: '-'; ?></td>
+                            <td style="text-transform: uppercase; font-size: 0.7rem; font-weight: 600;"><?php echo strtoupper($trans['payment_method'] ?? '-'); ?></td>
+                            <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><?php echo $trans['description'] ?: '-'; ?></td>
+                            <td class="text-right" style="font-weight: 700; color: #10b981;"><?php echo formatCurrency($trans['amount']); ?></td>
+                            <td style="font-size: 0.7rem; color: var(--text-muted);"><?php echo $trans['created_by_name'] ?? 'System'; ?></td>
+                        </tr>
                         <?php endforeach; ?>
                     </tbody>
+                    <tfoot>
+                        <tr style="background: rgba(16,185,129,0.08); border-top: 2px solid #10b981;">
+                            <td colspan="4" style="font-weight: 700; color: #10b981; font-size: 0.85rem;">Total Pemasukan</td>
+                            <td class="text-right" style="font-weight: 800; color: #10b981; font-size: 0.9rem;">+<?php echo formatCurrency($totalMasuk); ?></td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
                 </table>
             </div>
         </div>
+        <?php endif; ?>
+
+        <!-- PENGELUARAN (Expense) -->
+        <?php if (!empty($expenseTransactions)): ?>
+        <div class="card" style="padding: 1rem; margin-bottom: 1.25rem; border-left: 3px solid #ef4444;">
+            <div class="section-header" style="margin-bottom: 0.75rem; padding-bottom: 0.5rem;">
+                <h3 class="section-title" style="font-size: 0.9rem;">
+                    <span>📉</span> Pengeluaran
+                </h3>
+                <span class="section-subtitle" style="color: #ef4444; font-weight: 700;">
+                    <?php echo count($expenseTransactions); ?> transaksi
+                </span>
+            </div>
+            <div class="table-responsive">
+                <table class="table" style="font-size: 0.8rem;">
+                    <thead>
+                        <tr>
+                            <th style="width: 80px;">Tanggal</th>
+                            <th>Kategori</th>
+                            <th>Metode</th>
+                            <th>Keterangan</th>
+                            <th class="text-right" style="width: 110px;">Jumlah</th>
+                            <th>Input By</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php foreach ($expenseTransactions as $trans): ?>
+                        <tr>
+                            <td style="white-space: nowrap;"><?php echo date('d/m/y', strtotime($trans['transaction_date'])); ?></td>
+                            <td><?php echo $trans['category_name'] ?: '-'; ?></td>
+                            <td style="text-transform: uppercase; font-size: 0.7rem; font-weight: 600;"><?php echo strtoupper($trans['payment_method'] ?? '-'); ?></td>
+                            <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;"><?php echo $trans['description'] ?: '-'; ?></td>
+                            <td class="text-right" style="font-weight: 700; color: #ef4444;"><?php echo formatCurrency($trans['amount']); ?></td>
+                            <td style="font-size: 0.7rem; color: var(--text-muted);"><?php echo $trans['created_by_name'] ?? 'System'; ?></td>
+                        </tr>
+                        <?php endforeach; ?>
+                    </tbody>
+                    <tfoot>
+                        <tr style="background: rgba(239,68,68,0.08); border-top: 2px solid #ef4444;">
+                            <td colspan="4" style="font-weight: 700; color: #ef4444; font-size: 0.85rem;">Total Pengeluaran</td>
+                            <td class="text-right" style="font-weight: 800; color: #ef4444; font-size: 0.9rem;">-<?php echo formatCurrency($totalKeluar); ?></td>
+                            <td></td>
+                        </tr>
+                    </tfoot>
+                </table>
+            </div>
+        </div>
+        <?php endif; ?>
+
+        <!-- NET SUMMARY -->
+        <div class="card" style="padding: 1rem; background: linear-gradient(135deg, #f8fafc, #f1f5f9);">
+            <div style="display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 1rem;">
+                <div style="text-align: center; flex: 1;">
+                    <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Total Masuk</div>
+                    <div style="font-size: 1.1rem; font-weight: 800; color: #10b981;">+<?php echo formatCurrency($totalMasuk); ?></div>
+                </div>
+                <div style="font-size: 1.2rem; color: var(--text-muted);">−</div>
+                <div style="text-align: center; flex: 1;">
+                    <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Total Keluar</div>
+                    <div style="font-size: 1.1rem; font-weight: 800; color: #ef4444;">-<?php echo formatCurrency($totalKeluar); ?></div>
+                </div>
+                <div style="font-size: 1.2rem; color: var(--text-muted);">=</div>
+                <div style="text-align: center; flex: 1;">
+                    <?php $netDiv = $totalMasuk - $totalKeluar; ?>
+                    <div style="font-size: 0.7rem; color: var(--text-muted); text-transform: uppercase; font-weight: 600;">Net Balance</div>
+                    <div style="font-size: 1.1rem; font-weight: 800; color: <?php echo $netDiv >= 0 ? '#10b981' : '#ef4444'; ?>;">
+                        <?php echo ($netDiv >= 0 ? '+' : '') . formatCurrency($netDiv); ?>
+                    </div>
+                </div>
+            </div>
+        </div>
+
     <?php else: ?>
         <div class="card" style="padding: 2rem; text-align: center;">
             <div style="font-size: 2rem; margin-bottom: 0.5rem;">📭</div>
