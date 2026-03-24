@@ -109,12 +109,13 @@ try {
         $updates[] = 'adults = ?';
         $params[] = intval($_POST['num_guests']);
     }
-    if (isset($_POST['booking_source']) && trim($_POST['booking_source'])) {
+    if (isset($_POST['booking_source'])) {
         $src = trim($_POST['booking_source']);
-        // Map 'other' to 'ota' (OTA Lainnya)
+        if (!$src) $src = $booking['booking_source']; // Keep existing if empty
         if ($src === 'other') $src = 'ota';
         $updates[] = 'booking_source = ?';
         $params[] = $src;
+        error_log("booking_source will be updated to: " . $src);
     }
 
     // Date changes
@@ -217,8 +218,14 @@ try {
     // Execute booking update
     $params[] = $bookingId;
     $sql = "UPDATE bookings SET " . implode(', ', $updates) . " WHERE id = ?";
+    error_log("SQL: " . $sql);
+    error_log("Params: " . json_encode($params));
     $stmt = $conn->prepare($sql);
     $stmt->execute($params);
+    error_log("Rows affected: " . $stmt->rowCount());
+
+    // Return final booking_source for verification
+    $savedSource = trim($_POST['booking_source'] ?? $booking['booking_source']);
 
     echo json_encode([
         'success' => true,
@@ -229,7 +236,8 @@ try {
             'check_out' => $checkOut,
             'nights' => $nights,
             'total_price' => $totalPrice,
-            'final_price' => $finalPrice
+            'final_price' => $finalPrice,
+            'booking_source' => $savedSource
         ]
     ]);
 

@@ -6027,7 +6027,8 @@ window.submitEditReservation = function() {
     })
     .then(data => {
         if (data.success) {
-            alert('✅ ' + data.message);
+            console.log('✅ Update result:', data);
+            alert('✅ ' + data.message + (data.data && data.data.booking_source ? '\nSource: ' + data.data.booking_source : ''));
             closeEditResModal();
             location.reload();
         } else {
