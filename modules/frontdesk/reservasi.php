@@ -736,7 +736,7 @@ include '../../includes/header.php';
                     <td>
                         <?php $remaining = $booking['final_price'] - max($booking['paid_amount'], $booking['total_paid']); ?>
                         <div class="action-dropdown">
-                            <button type="button" class="action-dropdown-btn" onclick="toggleDropdown(event)">Aksi ▾</button>
+                            <button type="button" class="action-dropdown-btn" onclick="toggleActionMenu(event)">Aksi ▾</button>
                             <div class="action-dropdown-menu">
                                 <?php if ($booking['status'] === 'confirmed'): ?>
                                 <button class="action-dropdown-item item-checkin" onclick="checkinBooking(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_code']); ?>')">✅ Check-in</button>
@@ -1165,8 +1165,8 @@ include '../../includes/header.php';
 <input type="hidden" id="cancelBookingId" value="">
 
 <script>
-// Dropdown toggle
-function toggleDropdown(e) {
+// Action dropdown toggle (named differently from main.js toggleDropdown)
+function toggleActionMenu(e) {
     e = e || window.event;
     e.stopPropagation();
     e.preventDefault();
@@ -1184,13 +1184,13 @@ function toggleDropdown(e) {
         dropdown.classList.add('open');
     }
 }
-// Close dropdowns on outside click
+// Close action dropdowns on outside click
 document.addEventListener('click', function(e) {
     if (!e.target.closest('.action-dropdown')) {
         document.querySelectorAll('.action-dropdown.open').forEach(function(d) { d.classList.remove('open'); });
     }
 });
-// Close dropdowns on scroll
+// Close action dropdowns on scroll
 document.addEventListener('scroll', function() {
     document.querySelectorAll('.action-dropdown.open').forEach(function(d) { d.classList.remove('open'); });
 }, true);
