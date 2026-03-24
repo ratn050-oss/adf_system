@@ -2387,6 +2387,15 @@ body[data-theme="dark"] .stats-list li {
 var OTA_FEES = <?php echo json_encode($otaFees); ?>;
 var OTA_SOURCE_KEYS = <?php echo json_encode($otaSourceKeys); ?>;
 
+// Dynamic source name map from booking_sources table
+var SOURCE_NAMES = <?php 
+$sourceNames = [];
+foreach ($bookingSources as $bs) {
+    $sourceNames[$bs['source_key']] = ($bs['icon'] ?? '') . ' ' . ($bs['source_name'] ?? ucfirst($bs['source_key']));
+}
+echo json_encode($sourceNames, JSON_UNESCAPED_UNICODE);
+?>;
+
 // Global variables for reservation form (used across multiple functions)
 var currentSource = '';
 var currentFees = OTA_FEES;
@@ -2460,22 +2469,23 @@ function showBookingQuickView(booking) {
         paymentBadge = '<span style="background: #ef4444; color: white; padding: 0.25rem 0.6rem; border-radius: 4px; font-size: 0.7rem; font-weight: 700;">BELUM BAYAR</span>';
     }
     
-    // Booking source
-    const sourceMap = {
-        'walk_in': 'Walk-in',
-        'phone': 'Phone',
-        'online': 'Online',
-        'ota': 'OTA',
-        'agoda': 'Agoda',
-        'booking': 'Booking.com',
-        'tiket': 'Tiket.com',
-        'traveloka': 'Traveloka',
-        'airbnb': 'Airbnb'
-    };
-    // Capitalize source if not in map
-    let displaySource = sourceMap[booking.booking_source];
-    if (!displaySource) {
-        displaySource = booking.booking_source.charAt(0).toUpperCase() + booking.booking_source.slice(1);
+    // Booking source - use dynamic SOURCE_NAMES from booking_sources table
+    let displaySource = '';
+    if (typeof SOURCE_NAMES !== 'undefined' && SOURCE_NAMES[booking.booking_source]) {
+        displaySource = SOURCE_NAMES[booking.booking_source];
+    } else {
+        const sourceMapFallback = {
+            'walk_in': 'Walk-in',
+            'phone': 'Phone',
+            'online': 'Online',
+            'ota': 'OTA Lainnya',
+            'agoda': 'OTA Agoda',
+            'booking': 'OTA Booking.com',
+            'tiket': 'OTA Tiket.com',
+            'traveloka': 'OTA Traveloka',
+            'airbnb': 'OTA Airbnb'
+        };
+        displaySource = sourceMapFallback[booking.booking_source] || booking.booking_source.charAt(0).toUpperCase() + booking.booking_source.slice(1);
     }
     const source = displaySource;
     
@@ -5927,6 +5937,16 @@ window.openEditReservationModal = function(bookingId) {
         const srcSelect = document.getElementById('editResSource');
         if (srcSelect && b.booking_source) {
             srcSelect.value = b.booking_source;
+            // If value didn't match any option, try adding it dynamically
+            if (srcSelect.value !== b.booking_source) {
+                const opt = document.createElement('option');
+                opt.value = b.booking_source;
+                opt.text = (typeof SOURCE_NAMES !== 'undefined' && SOURCE_NAMES[b.booking_source]) 
+                    ? SOURCE_NAMES[b.booking_source] 
+                    : b.booking_source.charAt(0).toUpperCase() + b.booking_source.slice(1);
+                srcSelect.appendChild(opt);
+                srcSelect.value = b.booking_source;
+            }
         }
         
         // Set discount
