@@ -620,13 +620,13 @@ try {
     <!-- Bottom Navigation -->
     <div class="bottom-nav">
         <div class="nav-item active" data-page="home"><span class="nav-icon">🏠</span><span class="nav-label">Home</span></div>
-        <div class="nav-item" data-page="slipgaji"><span class="nav-icon">💰</span><span class="nav-label">Slip Gaji</span></div>
         <?php if ($isHotel): ?>
         <div class="nav-item" data-page="occupancy"><span class="nav-icon">🏨</span><span class="nav-label">Room Monitor</span></div>
         <div class="nav-item" data-page="breakfast"><span class="nav-icon">☕</span><span class="nav-label">Breakfast</span></div>
         <?php elseif ($isCafe): ?>
         <div class="nav-item" data-page="schedule"><span class="nav-icon">⏰</span><span class="nav-label">Jadwal</span></div>
         <?php endif; ?>
+        <div class="nav-item" data-page="slipgaji"><span class="nav-icon">💰</span><span class="nav-label">Slip Gaji</span></div>
     </div>
 </div>
 
