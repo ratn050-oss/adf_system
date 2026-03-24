@@ -2471,9 +2471,25 @@ function showBookingQuickView(booking) {
     
     // Booking source - use dynamic SOURCE_NAMES from booking_sources table
     let displaySource = '';
-    if (typeof SOURCE_NAMES !== 'undefined' && SOURCE_NAMES[booking.booking_source]) {
-        displaySource = SOURCE_NAMES[booking.booking_source];
-    } else {
+    let bkSrc = booking.booking_source || '';
+    
+    // Fallback: if booking_source is empty, try to detect from payment_method
+    if (!bkSrc && booking.payments && booking.payments.length > 0) {
+        for (let i = 0; i < booking.payments.length; i++) {
+            const pm = (booking.payments[i].payment_method || '').toLowerCase();
+            if (pm.startsWith('ota_')) {
+                bkSrc = pm.replace('ota_', '');
+                break;
+            } else if (pm === 'ota') {
+                bkSrc = 'ota';
+                break;
+            }
+        }
+    }
+    
+    if (bkSrc && typeof SOURCE_NAMES !== 'undefined' && SOURCE_NAMES[bkSrc]) {
+        displaySource = SOURCE_NAMES[bkSrc];
+    } else if (bkSrc) {
         const sourceMapFallback = {
             'walk_in': 'Walk-in',
             'phone': 'Phone',
@@ -2482,10 +2498,13 @@ function showBookingQuickView(booking) {
             'agoda': 'OTA Agoda',
             'booking': 'OTA Booking.com',
             'tiket': 'OTA Tiket.com',
+            'tiket_com': 'OTA Tiket.com',
             'traveloka': 'OTA Traveloka',
             'airbnb': 'OTA Airbnb'
         };
-        displaySource = sourceMapFallback[booking.booking_source] || booking.booking_source.charAt(0).toUpperCase() + booking.booking_source.slice(1);
+        displaySource = sourceMapFallback[bkSrc] || bkSrc.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+    } else {
+        displaySource = 'Tidak diketahui';
     }
     const source = displaySource;
     
@@ -2494,7 +2513,7 @@ function showBookingQuickView(booking) {
     const otaKeysForBadge = (typeof OTA_SOURCE_KEYS !== 'undefined' && OTA_SOURCE_KEYS.length > 0)
         ? OTA_SOURCE_KEYS
         : ['ota', 'agoda', 'booking', 'tiket', 'traveloka', 'airbnb', 'expedia', 'pegipegi'];
-    if (otaKeysForBadge.includes(booking.booking_source)) {
+    if (otaKeysForBadge.includes(bkSrc)) {
          if (booking.payment_status === 'paid') {
              paymentBadge = '<span style="background: #10b981; color: white; padding: 0.25rem 0.6rem; border-radius: 4px; font-size: 0.7rem; font-weight: 700;">LUNAS (By ' + source + ')</span>';
          }
