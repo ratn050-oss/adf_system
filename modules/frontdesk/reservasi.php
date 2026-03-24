@@ -736,7 +736,7 @@ include '../../includes/header.php';
                     <td>
                         <?php $remaining = $booking['final_price'] - max($booking['paid_amount'], $booking['total_paid']); ?>
                         <div class="action-dropdown">
-                            <button class="action-dropdown-btn" onclick="toggleDropdown(this)">Aksi ▾</button>
+                            <button type="button" class="action-dropdown-btn" onclick="toggleDropdown(event)">Aksi ▾</button>
                             <div class="action-dropdown-menu">
                                 <?php if ($booking['status'] === 'confirmed'): ?>
                                 <button class="action-dropdown-item item-checkin" onclick="checkinBooking(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_code']); ?>')">✅ Check-in</button>
@@ -1166,26 +1166,34 @@ include '../../includes/header.php';
 
 <script>
 // Dropdown toggle
-function toggleDropdown(btn) {
-    event.stopPropagation();
-    const dropdown = btn.closest('.action-dropdown');
-    const wasOpen = dropdown.classList.contains('open');
+function toggleDropdown(e) {
+    e = e || window.event;
+    e.stopPropagation();
+    e.preventDefault();
+    var btn = e.currentTarget || e.target;
+    var dropdown = btn.closest('.action-dropdown');
+    var wasOpen = dropdown.classList.contains('open');
     // Close all open dropdowns first
-    document.querySelectorAll('.action-dropdown.open').forEach(d => d.classList.remove('open'));
+    document.querySelectorAll('.action-dropdown.open').forEach(function(d) { d.classList.remove('open'); });
     if (!wasOpen) {
-        dropdown.classList.add('open');
-        const menu = dropdown.querySelector('.action-dropdown-menu');
-        const rect = btn.getBoundingClientRect();
+        var menu = dropdown.querySelector('.action-dropdown-menu');
+        var rect = btn.getBoundingClientRect();
+        // Position menu below button, right-aligned
         menu.style.top = (rect.bottom + 4) + 'px';
-        menu.style.left = Math.max(0, rect.right - menu.offsetWidth) + 'px';
+        menu.style.left = Math.max(8, rect.right - 170) + 'px';
+        dropdown.classList.add('open');
     }
 }
 // Close dropdowns on outside click
 document.addEventListener('click', function(e) {
     if (!e.target.closest('.action-dropdown')) {
-        document.querySelectorAll('.action-dropdown.open').forEach(d => d.classList.remove('open'));
+        document.querySelectorAll('.action-dropdown.open').forEach(function(d) { d.classList.remove('open'); });
     }
 });
+// Close dropdowns on scroll
+document.addEventListener('scroll', function() {
+    document.querySelectorAll('.action-dropdown.open').forEach(function(d) { d.classList.remove('open'); });
+}, true);
 
 // OTA Fee percentages from settings
 var OTA_FEES = {
