@@ -606,15 +606,13 @@ try {
 
     <!-- ═══ SLIP GAJI PAGE ═══ -->
     <div class="page" id="page-slipgaji">
-        <div class="card">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;">
-                <div class="card-title" style="margin:0;">💰 Slip Gaji</div>
-                <select id="slipPeriod" class="fi" style="width:auto;padding:5px 8px;font-size:11px;" onchange="loadSlipGaji()">
-                    <option value="">Memuat...</option>
-                </select>
-            </div>
-            <div id="slipGajiContent"><div class="loading"><span class="spin"></span> Memuat...</div></div>
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;padding:0 2px;">
+            <select id="slipPeriod" class="fi" style="width:auto;padding:6px 10px;font-size:11px;border-radius:8px;" onchange="loadSlipGaji()">
+                <option value="">Memuat...</option>
+            </select>
+            <button id="btnDownloadSlip" onclick="downloadSlipGaji()" style="display:none;background:linear-gradient(135deg,#2563eb,#1d4ed8);color:#fff;border:none;padding:7px 14px;border-radius:8px;font-size:11px;font-weight:600;cursor:pointer;display:none;align-items:center;gap:5px;">📥 Download</button>
         </div>
+        <div id="slipGajiContent"><div class="loading"><span class="spin"></span> Memuat...</div></div>
     </div>
 
     <!-- Bottom Navigation -->
@@ -684,6 +682,8 @@ const FACE_MODEL_CDN = 'https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.j
 const BIZ_TYPE = '<?php echo $bizType; ?>';
 const IS_HOTEL = <?php echo $isHotel ? 'true' : 'false'; ?>;
 const IS_CAFE = <?php echo $isCafe ? 'true' : 'false'; ?>;
+const LOGO_URL = '<?php echo $appLogo ?: ''; ?>';
+const BIZ_NAME = '<?php echo $bizName; ?>';
 
 // ═══ PASSWORD TOGGLE ═══
 function togglePw(inputId, btn) {
@@ -2131,9 +2131,13 @@ setTimeout(checkNotifs, 3000);
 
 // ═══ SLIP GAJI PAGE ═══
 let slipPeriodsLoaded = false;
+let currentSlipData = null;
+
 async function loadSlipGaji() {
     const sel = document.getElementById('slipPeriod');
     const content = document.getElementById('slipGajiContent');
+    const dlBtn = document.getElementById('btnDownloadSlip');
+    if (dlBtn) dlBtn.style.display = 'none';
     
     // Load periods dropdown once
     if (!slipPeriodsLoaded) {
@@ -2144,7 +2148,7 @@ async function loadSlipGaji() {
             const periods = data.data || [];
             if (periods.length === 0) {
                 sel.innerHTML = '<option value="">Belum ada data</option>';
-                content.innerHTML = '<div style="text-align:center;padding:30px 16px;"><div style="font-size:48px;margin-bottom:12px;">📋</div><div style="font-size:13px;color:var(--muted);">Belum ada slip gaji yang tersedia.</div><div style="font-size:11px;color:var(--muted);margin-top:4px;">Slip gaji akan muncul setelah payroll diproses admin.</div></div>';
+                content.innerHTML = '<div style="text-align:center;padding:40px 16px;"><div style="font-size:48px;margin-bottom:12px;">📋</div><div style="font-size:13px;color:var(--muted);">Belum ada slip gaji yang tersedia.</div><div style="font-size:11px;color:var(--muted);margin-top:4px;">Slip gaji akan muncul setelah payroll diproses admin.</div></div>';
                 slipPeriodsLoaded = true;
                 return;
             }
@@ -2166,77 +2170,225 @@ async function loadSlipGaji() {
         const res = await fetch(API + '&action=salary_slip&period_id=' + periodId);
         const data = await res.json();
         if (!data.success) {
-            content.innerHTML = `<div style="text-align:center;padding:30px 16px;"><div style="font-size:48px;margin-bottom:12px;">${data.pending ? '⏳' : '📋'}</div><div style="font-size:13px;color:var(--muted);">${data.message || 'Slip gaji tidak ditemukan'}</div></div>`;
+            content.innerHTML = `<div style="text-align:center;padding:40px 16px;"><div style="font-size:48px;margin-bottom:12px;">${data.pending ? '⏳' : '📋'}</div><div style="font-size:13px;color:var(--muted);">${data.message || 'Slip gaji tidak ditemukan'}</div></div>`;
             return;
         }
-        const slip = data.data;
-        const fmt = (n) => new Intl.NumberFormat('id-ID').format(Math.round(n || 0));
-        
-        // Build earnings rows
-        let earningsRows = '';
-        earningsRows += `<div class="slip-row"><span>Gaji Pokok (${slip.work_hours||0}j)</span><span class="slip-val">Rp ${fmt(slip.actual_base)}</span></div>`;
-        if (parseFloat(slip.incentive) > 0) earningsRows += `<div class="slip-row"><span>Insentif</span><span class="slip-val">Rp ${fmt(slip.incentive)}</span></div>`;
-        if (parseFloat(slip.allowance) > 0) earningsRows += `<div class="slip-row"><span>Tunjangan</span><span class="slip-val">Rp ${fmt(slip.allowance)}</span></div>`;
-        if (parseFloat(slip.bonus) > 0) earningsRows += `<div class="slip-row"><span>Bonus</span><span class="slip-val">Rp ${fmt(slip.bonus)}</span></div>`;
-        if (parseFloat(slip.other_income) > 0) earningsRows += `<div class="slip-row"><span>Lainnya</span><span class="slip-val">Rp ${fmt(slip.other_income)}</span></div>`;
-        
-        // Build deduction rows
-        let deductRows = '';
-        if (parseFloat(slip.deduction_loan) > 0) deductRows += `<div class="slip-row"><span>Pinjaman</span><span class="slip-val slip-deduct">-Rp ${fmt(slip.deduction_loan)}</span></div>`;
-        if (parseFloat(slip.deduction_absence) > 0) deductRows += `<div class="slip-row"><span>Ketidakhadiran</span><span class="slip-val slip-deduct">-Rp ${fmt(slip.deduction_absence)}</span></div>`;
-        if (parseFloat(slip.deduction_tax) > 0) deductRows += `<div class="slip-row"><span>Pajak</span><span class="slip-val slip-deduct">-Rp ${fmt(slip.deduction_tax)}</span></div>`;
-        if (parseFloat(slip.deduction_bpjs) > 0) deductRows += `<div class="slip-row"><span>BPJS</span><span class="slip-val slip-deduct">-Rp ${fmt(slip.deduction_bpjs)}</span></div>`;
-        if (parseFloat(slip.deduction_other) > 0) deductRows += `<div class="slip-row"><span>Potongan Lainnya</span><span class="slip-val slip-deduct">-Rp ${fmt(slip.deduction_other)}</span></div>`;
-        
-        const hasDeductions = deductRows !== '';
-
-        content.innerHTML = `
-            <div style="margin-bottom:14px;">
-                <div style="display:flex;align-items:center;gap:10px;margin-bottom:12px;">
-                    <div style="width:40px;height:40px;background:linear-gradient(135deg,var(--navy),#1a3a5c);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:18px;color:#fff;">👤</div>
-                    <div>
-                        <div style="font-size:14px;font-weight:700;color:var(--text);">${slip.employee_name}</div>
-                        <div style="font-size:10px;color:var(--muted);">${slip.position || ''} ${slip.employee_code ? '• ' + slip.employee_code : ''}</div>
-                    </div>
-                </div>
-            </div>
-
-            <!-- Net Salary Hero -->
-            <div style="background:linear-gradient(135deg,#10b981,#059669);border-radius:14px;padding:18px;color:#fff;margin-bottom:14px;text-align:center;box-shadow:0 4px 15px rgba(16,185,129,.3);">
-                <div style="font-size:9px;text-transform:uppercase;letter-spacing:1.5px;opacity:.85;">Gaji Bersih</div>
-                <div style="font-size:28px;font-weight:800;margin:6px 0;font-family:'SF Mono',Monaco,monospace;">Rp ${fmt(slip.net_salary)}</div>
-                <div style="font-size:10px;opacity:.75;">${slip.period_label}</div>
-            </div>
-
-            <!-- Pendapatan -->
-            <div style="background:#f0fdf4;border:1px solid #bbf7d0;border-radius:12px;padding:14px;margin-bottom:10px;">
-                <div style="font-size:10px;font-weight:700;color:#059669;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">💚 Pendapatan</div>
-                ${earningsRows}
-                <div class="slip-row" style="border-top:2px solid #86efac;padding-top:8px;margin-top:4px;"><span style="font-weight:700;">Total Pendapatan</span><span class="slip-val" style="font-weight:800;color:#059669;">Rp ${fmt(slip.total_earnings)}</span></div>
-            </div>
-
-            ${hasDeductions ? `
-            <!-- Potongan -->
-            <div style="background:#fef2f2;border:1px solid #fecaca;border-radius:12px;padding:14px;margin-bottom:10px;">
-                <div style="font-size:10px;font-weight:700;color:#dc2626;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">🔻 Potongan</div>
-                ${deductRows}
-                <div class="slip-row" style="border-top:2px solid #fca5a5;padding-top:8px;margin-top:4px;"><span style="font-weight:700;">Total Potongan</span><span class="slip-val slip-deduct" style="font-weight:800;">-Rp ${fmt(slip.total_deductions)}</span></div>
-            </div>` : ''}
-
-            ${slip.bank_name ? `
-            <!-- Bank Transfer -->
-            <div style="background:linear-gradient(135deg,#eff6ff,#dbeafe);border:1px solid #bfdbfe;border-radius:12px;padding:14px;margin-bottom:10px;">
-                <div style="font-size:10px;font-weight:700;color:#2563eb;text-transform:uppercase;letter-spacing:.5px;margin-bottom:8px;">🏦 Transfer Bank</div>
-                <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
-                    <div><div style="font-size:9px;color:var(--muted);">Bank</div><div style="font-size:12px;font-weight:700;color:#1e3a8a;">${slip.bank_name}</div></div>
-                    <div><div style="font-size:9px;color:var(--muted);">No. Rekening</div><div style="font-size:12px;font-weight:700;color:#1e3a8a;font-family:monospace;">${slip.bank_account || '-'}</div></div>
-                </div>
-            </div>` : ''}
-
-            <div style="text-align:center;font-size:9px;color:var(--muted);padding:8px 0;">Dokumen ini digenerate otomatis oleh sistem</div>
-        `;
+        currentSlipData = data.data;
+        renderSlipGaji(data.data);
+        if (dlBtn) dlBtn.style.display = 'flex';
     } catch(e) {
         content.innerHTML = '<div style="color:var(--red);font-size:11px;text-align:center;padding:20px;">Gagal memuat slip gaji</div>';
+    }
+}
+
+function renderSlipGaji(slip) {
+    const content = document.getElementById('slipGajiContent');
+    const fmt = (n) => new Intl.NumberFormat('id-ID').format(Math.round(n || 0));
+    const workHours = parseFloat(slip.work_hours) || 0;
+    const overtimeHours = parseFloat(slip.overtime_hours) || 0;
+    const baseSalary = parseFloat(slip.base_salary) || 0;
+    const actualBase = parseFloat(slip.actual_base) || 0;
+    const overtimeAmount = parseFloat(slip.overtime_amount) || 0;
+    const incentive = parseFloat(slip.incentive) || 0;
+    const allowance = parseFloat(slip.allowance) || 0;
+    const bonus = parseFloat(slip.bonus) || 0;
+    const otherIncome = parseFloat(slip.other_income) || 0;
+    const totalEarnings = parseFloat(slip.total_earnings) || 0;
+    const dLoan = parseFloat(slip.deduction_loan) || 0;
+    const dAbsence = parseFloat(slip.deduction_absence) || 0;
+    const dTax = parseFloat(slip.deduction_tax) || 0;
+    const dBpjs = parseFloat(slip.deduction_bpjs) || 0;
+    const dOther = parseFloat(slip.deduction_other) || 0;
+    const totalDeductions = parseFloat(slip.total_deductions) || 0;
+    const netSalary = parseFloat(slip.net_salary) || 0;
+
+    const logoHtml = LOGO_URL ? `<img src="${LOGO_URL}" style="height:38px;width:38px;object-fit:contain;border-radius:8px;">` : `<div style="width:38px;height:38px;background:linear-gradient(135deg,#0f172a,#1e3a5f);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;color:#fff;">🏨</div>`;
+
+    const monthNames = ['','Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
+    const periodText = monthNames[parseInt(slip.period_month)] + ' ' + slip.period_year;
+
+    const slipRow = (label, value, isDeduct, isBold) => {
+        const color = isDeduct ? '#dc2626' : (isBold ? '#059669' : '#1e293b');
+        const weight = isBold ? '700' : '400';
+        const prefix = isDeduct ? '-' : '';
+        return `<tr><td style="padding:5px 0;font-size:11px;color:#475569;border-bottom:1px solid #f1f5f9;">${label}</td><td style="padding:5px 0;font-size:11px;color:${color};font-weight:${weight};text-align:right;border-bottom:1px solid #f1f5f9;font-family:'SF Mono',Monaco,Consolas,monospace;">${prefix}Rp ${fmt(Math.abs(value))}</td></tr>`;
+    };
+
+    const totalRow = (label, value, bgColor, textColor) => {
+        return `<tr><td style="padding:7px 0;font-size:11.5px;font-weight:700;color:${textColor};">${label}</td><td style="padding:7px 0;font-size:11.5px;font-weight:800;color:${textColor};text-align:right;font-family:'SF Mono',Monaco,Consolas,monospace;">Rp ${fmt(value)}</td></tr>`;
+    };
+
+    content.innerHTML = `
+    <div id="slipGajiPrintArea" style="background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 2px 20px rgba(0,0,0,.08);border:1px solid #e2e8f0;">
+        
+        <!-- Header -->
+        <div style="background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%);padding:18px 16px;position:relative;overflow:hidden;">
+            <div style="position:absolute;top:-30px;right:-30px;width:100px;height:100px;background:rgba(255,255,255,.03);border-radius:50%;"></div>
+            <div style="position:absolute;bottom:-20px;left:-20px;width:80px;height:80px;background:rgba(255,255,255,.02);border-radius:50%;"></div>
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;position:relative;z-index:1;">
+                ${logoHtml}
+                <div>
+                    <div style="font-size:14px;font-weight:800;color:#fff;letter-spacing:.3px;">${BIZ_NAME}</div>
+                    <div style="font-size:9px;color:rgba(255,255,255,.5);letter-spacing:.5px;">Karimunjawa, Jepara</div>
+                </div>
+            </div>
+            <div style="background:rgba(255,255,255,.1);border-radius:8px;padding:8px 12px;position:relative;z-index:1;">
+                <div style="font-size:9px;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:1px;">Slip Gaji</div>
+                <div style="font-size:15px;font-weight:700;color:#fff;margin-top:2px;">Periode ${periodText}</div>
+            </div>
+        </div>
+
+        <!-- Employee Info -->
+        <div style="padding:14px 16px;background:linear-gradient(135deg,#f8fafc,#f1f5f9);border-bottom:1px solid #e2e8f0;">
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                <div>
+                    <div style="font-size:8px;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;">Nama Karyawan</div>
+                    <div style="font-size:12px;font-weight:700;color:#0f172a;margin-top:1px;">${slip.employee_name}</div>
+                </div>
+                <div>
+                    <div style="font-size:8px;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;">Jabatan</div>
+                    <div style="font-size:12px;font-weight:600;color:#334155;margin-top:1px;">${slip.position || '-'}</div>
+                </div>
+                <div>
+                    <div style="font-size:8px;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;">NIK / Kode</div>
+                    <div style="font-size:12px;font-weight:600;color:#334155;margin-top:1px;font-family:monospace;">${slip.employee_code || '-'}</div>
+                </div>
+                <div>
+                    <div style="font-size:8px;color:#94a3b8;text-transform:uppercase;letter-spacing:.5px;">Departemen</div>
+                    <div style="font-size:12px;font-weight:600;color:#334155;margin-top:1px;">${slip.department || '-'}</div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Work Summary -->
+        <div style="padding:12px 16px;display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;border-bottom:1px solid #e2e8f0;">
+            <div style="text-align:center;background:linear-gradient(135deg,#eff6ff,#dbeafe);border-radius:10px;padding:10px 6px;">
+                <div style="font-size:18px;font-weight:800;color:#2563eb;">${workHours}</div>
+                <div style="font-size:8px;color:#64748b;margin-top:2px;">Jam Kerja</div>
+            </div>
+            <div style="text-align:center;background:linear-gradient(135deg,#fef3c7,#fde68a);border-radius:10px;padding:10px 6px;">
+                <div style="font-size:18px;font-weight:800;color:#b45309;">${overtimeHours}</div>
+                <div style="font-size:8px;color:#64748b;margin-top:2px;">Jam Lembur</div>
+            </div>
+            <div style="text-align:center;background:linear-gradient(135deg,#f0fdf4,#bbf7d0);border-radius:10px;padding:10px 6px;">
+                <div style="font-size:14px;font-weight:800;color:#059669;">Rp ${fmt(baseSalary)}</div>
+                <div style="font-size:8px;color:#64748b;margin-top:2px;">Gaji Pokok</div>
+            </div>
+        </div>
+
+        <!-- Earnings Table -->
+        <div style="padding:14px 16px;border-bottom:1px solid #e2e8f0;">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;">
+                <div style="width:6px;height:6px;background:#10b981;border-radius:50%;"></div>
+                <div style="font-size:10px;font-weight:700;color:#059669;text-transform:uppercase;letter-spacing:.8px;">Pendapatan</div>
+            </div>
+            <table style="width:100%;border-collapse:collapse;">
+                ${slipRow('Gaji Pokok (Full)', baseSalary, false, false)}
+                ${slipRow('Gaji Aktual (' + workHours + ' jam / 200 target)', actualBase, false, false)}
+                ${slipRow('Uang Lembur (' + overtimeHours + ' jam)', overtimeAmount, false, false)}
+                ${slipRow('Insentif', incentive, false, false)}
+                ${slipRow('Tunjangan', allowance, false, false)}
+                ${slipRow('Bonus', bonus, false, false)}
+                ${slipRow('Pendapatan Lainnya', otherIncome, false, false)}
+                ${totalRow('Total Pendapatan', totalEarnings, '#f0fdf4', '#059669')}
+            </table>
+        </div>
+
+        <!-- Deductions Table -->
+        <div style="padding:14px 16px;border-bottom:1px solid #e2e8f0;">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:10px;">
+                <div style="width:6px;height:6px;background:#ef4444;border-radius:50%;"></div>
+                <div style="font-size:10px;font-weight:700;color:#dc2626;text-transform:uppercase;letter-spacing:.8px;">Potongan</div>
+            </div>
+            <table style="width:100%;border-collapse:collapse;">
+                ${slipRow('Pinjaman / Kasbon', dLoan, true, false)}
+                ${slipRow('Potongan Absensi', dAbsence, true, false)}
+                ${slipRow('Pajak (PPh 21)', dTax, true, false)}
+                ${slipRow('BPJS', dBpjs, true, false)}
+                ${slipRow('Potongan Lainnya', dOther, true, false)}
+                ${totalRow('Total Potongan', totalDeductions, '#fef2f2', '#dc2626')}
+            </table>
+        </div>
+
+        <!-- Net Salary -->
+        <div style="padding:16px;background:linear-gradient(135deg,#059669,#10b981);">
+            <div style="display:flex;justify-content:space-between;align-items:center;">
+                <div>
+                    <div style="font-size:9px;color:rgba(255,255,255,.7);text-transform:uppercase;letter-spacing:1px;">Gaji Bersih (Take Home Pay)</div>
+                    <div style="font-size:22px;font-weight:800;color:#fff;margin-top:3px;font-family:'SF Mono',Monaco,Consolas,monospace;">Rp ${fmt(netSalary)}</div>
+                </div>
+                <div style="font-size:28px;">💰</div>
+            </div>
+        </div>
+
+        ${slip.bank_name ? `
+        <!-- Bank Transfer -->
+        <div style="padding:14px 16px;background:#f8fafc;border-top:1px solid #e2e8f0;">
+            <div style="display:flex;align-items:center;gap:6px;margin-bottom:8px;">
+                <div style="width:6px;height:6px;background:#2563eb;border-radius:50%;"></div>
+                <div style="font-size:10px;font-weight:700;color:#2563eb;text-transform:uppercase;letter-spacing:.8px;">Transfer Bank</div>
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;">
+                <div>
+                    <div style="font-size:8px;color:#94a3b8;text-transform:uppercase;">Bank</div>
+                    <div style="font-size:12px;font-weight:700;color:#1e3a8a;">${slip.bank_name}</div>
+                </div>
+                <div>
+                    <div style="font-size:8px;color:#94a3b8;text-transform:uppercase;">No. Rekening</div>
+                    <div style="font-size:12px;font-weight:700;color:#1e3a8a;font-family:monospace;">${slip.bank_account || '-'}</div>
+                </div>
+            </div>
+        </div>` : ''}
+
+        <!-- Footer -->
+        <div style="padding:10px 16px;background:#f8fafc;border-top:1px solid #e2e8f0;text-align:center;">
+            <div style="font-size:8px;color:#94a3b8;">Dokumen resmi — digenerate otomatis oleh ${BIZ_NAME} Payroll System</div>
+            <div style="font-size:8px;color:#cbd5e1;margin-top:2px;">Slip ID: #${slip.id} • ${new Date().toLocaleDateString('id-ID', {day:'numeric',month:'long',year:'numeric'})}</div>
+        </div>
+    </div>
+    `;
+}
+
+// Download slip gaji as image
+async function downloadSlipGaji() {
+    if (!currentSlipData) return;
+    const btn = document.getElementById('btnDownloadSlip');
+    const origText = btn.innerHTML;
+    btn.innerHTML = '⏳ Proses...';
+    btn.disabled = true;
+
+    try {
+        // Load html2canvas dynamically
+        if (typeof html2canvas === 'undefined') {
+            await new Promise((resolve, reject) => {
+                const sc = document.createElement('script');
+                sc.src = 'https://cdnjs.cloudflare.com/ajax/libs/html2canvas/1.4.1/html2canvas.min.js';
+                sc.onload = resolve;
+                sc.onerror = reject;
+                document.head.appendChild(sc);
+            });
+        }
+
+        const el = document.getElementById('slipGajiPrintArea');
+        const canvas = await html2canvas(el, {
+            scale: 2,
+            backgroundColor: '#ffffff',
+            useCORS: true,
+            logging: false
+        });
+
+        const link = document.createElement('a');
+        const monthNames = ['','Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'];
+        const fname = 'SlipGaji_' + currentSlipData.employee_name.replace(/\s+/g,'_') + '_' + monthNames[parseInt(currentSlipData.period_month)] + currentSlipData.period_year + '.png';
+        link.download = fname;
+        link.href = canvas.toDataURL('image/png');
+        link.click();
+    } catch(e) {
+        alert('Gagal download slip gaji. Coba lagi.');
+        console.error(e);
+    } finally {
+        btn.innerHTML = origText;
+        btn.disabled = false;
     }
 }
 
