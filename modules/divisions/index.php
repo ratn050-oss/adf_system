@@ -72,14 +72,15 @@ if ($division_id > 0) {
     $divisionDetail = $db->fetchOne("SELECT * FROM divisions WHERE id = ?", [$division_id]);
     
     // Get transactions for this division
+    $masterDbName = DB_NAME;
     $divisionTransactions = $db->fetchAll("
         SELECT 
             cb.*,
             c.category_name,
-            u.full_name as created_by_name
+            COALESCE(u.full_name, 'System') as created_by_name
         FROM cash_book cb
         LEFT JOIN categories c ON cb.category_id = c.id
-        LEFT JOIN users u ON cb.created_by = u.user_id
+        LEFT JOIN {$masterDbName}.users u ON cb.created_by = u.id
         WHERE cb.division_id = :division_id
             AND YEAR(cb.transaction_date) = :year
             AND MONTH(cb.transaction_date) = :month
@@ -535,9 +536,11 @@ $divisionColors = [
                         <tr>
                             <th style="width: 80px;">Tanggal</th>
                             <th>Kategori</th>
+                            <th>Metode</th>
                             <th>Keterangan</th>
                             <th style="width: 70px;">Tipe</th>
                             <th class="text-right" style="width: 110px;">Jumlah</th>
+                            <th>Input By</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -547,7 +550,10 @@ $divisionColors = [
                                     <?php echo date('d/m/y', strtotime($trans['transaction_date'])); ?>
                                 </td>
                                 <td><?php echo $trans['category_name'] ?: '-'; ?></td>
-                                <td style="max-width: 180px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
+                                <td style="text-transform: uppercase; font-size: 0.7rem; font-weight: 600;">
+                                    <?php echo strtoupper($trans['payment_method'] ?? '-'); ?>
+                                </td>
+                                <td style="max-width: 200px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;">
                                     <?php echo $trans['description'] ?: '-'; ?>
                                 </td>
                                 <td>
@@ -557,6 +563,9 @@ $divisionColors = [
                                 </td>
                                 <td class="text-right" style="font-weight: 700; color: <?php echo $trans['transaction_type'] === 'income' ? '#10b981' : '#ef4444'; ?>;">
                                     <?php echo formatCurrency($trans['amount']); ?>
+                                </td>
+                                <td style="font-size: 0.7rem; color: var(--text-muted);">
+                                    <?php echo $trans['created_by_name'] ?? 'System'; ?>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
