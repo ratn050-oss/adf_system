@@ -892,7 +892,6 @@ async function loadAbsen() {
                 <div class="stat-card"><div class="sl">Hadir</div><div class="sv" style="color:var(--green);">${s.days_present||0}</div><div class="ss">hari</div></div>
                 <div class="stat-card"><div class="sl">Total Jam</div><div class="sv" style="color:var(--navy);">${(s.total_hours||0).toFixed(1)}</div><div class="ss">dari ${s.target||200}j target</div></div>
                 <div class="stat-card"><div class="sl">Reguler</div><div class="sv" style="color:var(--blue);">${(s.regular_hours||0).toFixed(1)}j</div><div class="ss">max 8j/hari</div></div>
-                <div class="stat-card"><div class="sl">🔥 Lembur</div><div class="sv" style="color:var(--purple);">${(s.overtime_hours||0).toFixed(1)}j</div><div class="ss">×45 menit</div></div>
             </div>
             <div style="font-size:10px;color:var(--muted);margin-bottom:4px;">Progress Target ${pct}%</div>
             <div class="progress"><div class="progress-bar" style="width:${pct}%;background:${barColor};"></div></div>`;
@@ -914,7 +913,6 @@ async function loadMonitoring() {
                 <div class="stat-card"><div class="sl">Hadir</div><div class="sv" style="color:var(--green);">${s.days_present||0}</div></div>
                 <div class="stat-card"><div class="sl">Terlambat</div><div class="sv" style="color:var(--orange);">${s.days_late||0}</div></div>
                 <div class="stat-card"><div class="sl">Total Jam</div><div class="sv">${(s.total_hours||0).toFixed(1)}</div></div>
-                <div class="stat-card"><div class="sl">🔥 Lembur</div><div class="sv" style="color:var(--purple);">${(s.overtime_hours||0).toFixed(1)}j</div></div>
             </div>
             <div class="card" style="margin-bottom:12px;">
                 <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px;">
