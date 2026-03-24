@@ -1908,6 +1908,40 @@ echo getPrintCSS();
                         }
                     }
 
+                    // Pre-calculate cash available at END of each day
+                    // $cashAvailable = total cash right now, transactions are DESC
+                    // Walk newest→oldest: subtract each day's net to get balance at end of each day
+                    $cashByDate = [];
+                    $dailyNet = []; // net change per day (income - expense) for cash accounts
+                    $cashAccSet = isset($allAccIds) ? array_flip($allAccIds) : [];
+                    foreach ($transactions as $t) {
+                        $d = date('Y-m-d', strtotime($t['transaction_date']));
+                        if (!isset($dailyNet[$d])) $dailyNet[$d] = 0;
+                        // Only count cash account transactions (petty cash + owner capital)
+                        if (!empty($cashAccSet) && isset($t['cash_account_id']) && isset($cashAccSet[$t['cash_account_id']])) {
+                            if ($t['transaction_type'] === 'income') {
+                                $dailyNet[$d] += (float)$t['amount'];
+                            } else {
+                                $dailyNet[$d] -= (float)$t['amount'];
+                            }
+                        } elseif (empty($cashAccSet)) {
+                            // Fallback: count all transactions
+                            if ($t['transaction_type'] === 'income') {
+                                $dailyNet[$d] += (float)$t['amount'];
+                            } else {
+                                $dailyNet[$d] -= (float)$t['amount'];
+                            }
+                        }
+                    }
+                    // Build end-of-day cash: start from $cashAvailable, subtract days newest→oldest
+                    $runCash = $cashAvailable;
+                    $sortedDates = array_keys($dailyNet);
+                    usort($sortedDates, function($a, $b) { return strcmp($b, $a); }); // DESC
+                    foreach ($sortedDates as $d) {
+                        $cashByDate[$d] = $runCash; // cash at END of this day
+                        $runCash -= $dailyNet[$d];   // remove this day's net to get previous day's end
+                    }
+
                     $previousDate = null;
                     foreach ($transactions as $trans): 
                         // Date Separator Logic
@@ -1916,6 +1950,7 @@ echo getPrintCSS();
                         if ($previousDate === null || $currentDate !== $previousDate):
                             // Get users for this specific date
                             $shiftUsers = implode(', ', $usersByDate[$currentDate] ?? []);
+                            $dayCash = $cashByDate[$currentDate] ?? 0;
                     ?>
                         <tr style="background: linear-gradient(135deg, #f1f5f9, #e2e8f0);">
                             <td colspan="10" style="text-align: center; font-weight: 700; color: #475569; padding: 0.5rem; font-size: 0.8rem;">
@@ -1923,6 +1958,9 @@ echo getPrintCSS();
                                 <span style="margin-left: 15px; font-weight: 500; color: #64748b; font-size: 0.85em;">
                                     <i data-feather="users" style="width: 14px; height: 14px; vertical-align: middle; margin-right: 4px;"></i>
                                     Shift: <?php echo $shiftUsers; ?>
+                                </span>
+                                <span style="margin-left: 15px; font-weight: 700; color: <?php echo $dayCash >= 0 ? '#16a34a' : '#dc2626'; ?>; font-size: 0.85em; background: <?php echo $dayCash >= 0 ? 'rgba(22,163,74,0.1)' : 'rgba(220,38,38,0.1)'; ?>; padding: 2px 8px; border-radius: 4px;">
+                                    💰 Cash: Rp <?php echo number_format($dayCash, 0, ',', '.'); ?>
                                 </span>
                             </td>
                         </tr>
