@@ -64,34 +64,36 @@ try {
     // ==========================================
     // VALIDASI: Tagihan HARUS LUNAS untuk checkout
     // ==========================================
-    $totalPaid = $db->fetchOne("
-        SELECT COALESCE(SUM(amount), 0) as total 
-        FROM booking_payments 
-        WHERE booking_id = ?
-    ", [$bookingId]);
-    $paidAmount = (float)($totalPaid['total'] ?? 0);
-    
-    // Fallback: use bookings.paid_amount if booking_payments empty
-    if ($paidAmount == 0) {
-        $paidAmount = (float)($booking['paid_amount'] ?? 0);
-    }
-    
     $finalPrice = (float)($booking['final_price'] ?? 0);
-    $remainingBalance = $finalPrice - $paidAmount;
     
-    // Toleransi 1000 rupiah untuk pembulatan
-    if ($remainingBalance > 1000) {
-        echo json_encode([
-            'success' => false,
-            'message' => "Tidak bisa check-out! Tagihan belum LUNAS.\n\nTotal Tagihan: Rp " . number_format($finalPrice, 0, ',', '.') . 
-                         "\nSudah Dibayar: Rp " . number_format($paidAmount, 0, ',', '.') . 
-                         "\nKekurangan: Rp " . number_format($remainingBalance, 0, ',', '.') .
-                         "\n\nSilakan selesaikan pembayaran terlebih dahulu.",
-            'remaining_balance' => $remainingBalance,
-            'final_price' => $finalPrice,
-            'paid_amount' => $paidAmount
-        ]);
-        exit;
+    // If payment_status already marked as 'paid', skip amount validation
+    if ($booking['payment_status'] !== 'paid') {
+        $totalPaid = $db->fetchOne("
+            SELECT COALESCE(SUM(amount), 0) as total 
+            FROM booking_payments 
+            WHERE booking_id = ?
+        ", [$bookingId]);
+        $bpTotal = (float)($totalPaid['total'] ?? 0);
+        
+        // Use max of booking_payments sum and bookings.paid_amount (consistent with add-booking-payment logic)
+        $paidAmount = max($bpTotal, (float)($booking['paid_amount'] ?? 0));
+        
+        $remainingBalance = $finalPrice - $paidAmount;
+        
+        // Toleransi 1000 rupiah untuk pembulatan
+        if ($remainingBalance > 1000) {
+            echo json_encode([
+                'success' => false,
+                'message' => "Tidak bisa check-out! Tagihan belum LUNAS.\n\nTotal Tagihan: Rp " . number_format($finalPrice, 0, ',', '.') . 
+                             "\nSudah Dibayar: Rp " . number_format($paidAmount, 0, ',', '.') . 
+                             "\nKekurangan: Rp " . number_format($remainingBalance, 0, ',', '.') .
+                             "\n\nSilakan selesaikan pembayaran terlebih dahulu.",
+                'remaining_balance' => $remainingBalance,
+                'final_price' => $finalPrice,
+                'paid_amount' => $paidAmount
+            ]);
+            exit;
+        }
     }
     
     // Start transaction
