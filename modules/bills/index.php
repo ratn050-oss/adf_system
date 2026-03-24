@@ -8,6 +8,10 @@ require_once '../../config/config.php';
 require_once '../../config/database.php';
 require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
+require_once '../../includes/report_helper.php';
+
+// Get company info for report
+$company = getCompanyInfo();
 
 // Prevent browser caching to always show fresh data
 header("Cache-Control: no-cache, no-store, must-revalidate");
@@ -710,12 +714,149 @@ include '../../includes/header.php';
     font-size: 0.72rem;
 }
 
+/* Checkbox in table */
+.bills-table .bill-check { width: 16px; height: 16px; accent-color: var(--primary-color); cursor: pointer; }
+.bills-table tbody tr.row-selected { background: rgba(99,102,241,0.08); }
+[data-theme="dark"] .bills-table tbody tr.row-selected { background: rgba(99,102,241,0.15); }
+
+/* Floating Selection Bar */
+.bills-selection-bar {
+    position: fixed;
+    bottom: -80px;
+    left: 50%;
+    transform: translateX(-50%);
+    background: linear-gradient(135deg, #4f46e5, #6366f1);
+    color: white;
+    padding: 0.75rem 1.25rem;
+    border-radius: 16px;
+    box-shadow: 0 8px 32px rgba(79,70,229,0.4);
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    z-index: 999;
+    transition: bottom 0.3s ease;
+    max-width: 95vw;
+    flex-wrap: wrap;
+    justify-content: center;
+}
+.bills-selection-bar.visible { bottom: 1.5rem; }
+.bills-selection-bar .sel-info { font-size: 0.8rem; font-weight: 600; white-space: nowrap; }
+.bills-selection-bar .sel-total { font-size: 0.95rem; font-weight: 800; white-space: nowrap; }
+.bills-selection-bar .sel-btn {
+    padding: 0.45rem 1rem;
+    border: none;
+    border-radius: 8px;
+    font-size: 0.78rem;
+    font-weight: 700;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    transition: all 0.2s;
+    white-space: nowrap;
+}
+.bills-selection-bar .sel-btn:hover { transform: translateY(-1px); box-shadow: 0 3px 10px rgba(0,0,0,0.2); }
+.sel-btn.btn-pdf { background: #fff; color: #4f46e5; }
+.sel-btn.btn-wa { background: #22c55e; color: #fff; }
+.sel-btn.btn-clear { background: rgba(255,255,255,0.2); color: #fff; font-size: 0.72rem; }
+
+/* Print Report Overlay */
+.report-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(4px);
+    z-index: 1001;
+    overflow-y: auto;
+    padding: 1rem;
+}
+.report-overlay.active { display: flex; align-items: flex-start; justify-content: center; }
+.report-paper {
+    background: #fff;
+    color: #1a1a2e;
+    width: 100%;
+    max-width: 800px;
+    border-radius: 12px;
+    box-shadow: 0 25px 60px rgba(0,0,0,0.3);
+    padding: 2rem;
+    margin: 1rem auto;
+    position: relative;
+}
+.report-close-btn {
+    position: absolute;
+    top: 0.75rem;
+    right: 0.75rem;
+    background: #f1f5f9;
+    border: none;
+    width: 32px;
+    height: 32px;
+    border-radius: 50%;
+    font-size: 1.1rem;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: #64748b;
+    z-index: 10;
+}
+.report-close-btn:hover { background: #e2e8f0; }
+.rpt-head { display: flex; justify-content: space-between; align-items: center; padding-bottom: 0.75rem; border-bottom: 3px solid #4f46e5; margin-bottom: 1.25rem; gap: 0.75rem; }
+.rpt-head .rpt-logo { width: 52px; height: 52px; border-radius: 10px; object-fit: contain; }
+.rpt-head .rpt-logo-icon { width: 52px; height: 52px; border-radius: 10px; background: #eef2ff; display: flex; align-items: center; justify-content: center; font-size: 1.6rem; }
+.rpt-head .rpt-company { font-size: 1.15rem; font-weight: 800; color: #1e293b; margin: 0; }
+.rpt-head .rpt-address { font-size: 0.65rem; color: #64748b; line-height: 1.4; margin-top: 2px; }
+.rpt-head .rpt-title-box { text-align: right; }
+.rpt-head .rpt-doc-title { font-size: 0.85rem; font-weight: 800; color: #4f46e5; text-transform: uppercase; letter-spacing: 1.5px; margin: 0; }
+.rpt-head .rpt-doc-sub { font-size: 0.7rem; color: #64748b; margin-top: 2px; }
+.rpt-head .rpt-doc-no { font-size: 0.65rem; color: #94a3b8; margin-top: 1px; font-family: monospace; }
+.rpt-meta { display: flex; justify-content: space-between; padding: 0.6rem 0; border-bottom: 1px solid #e2e8f0; margin-bottom: 1rem; font-size: 0.78rem; color: #475569; }
+.rpt-print-table { width: 100%; border-collapse: collapse; font-size: 0.78rem; margin-bottom: 1rem; }
+.rpt-print-table th { background: #f1f5f9; padding: 0.55rem 0.6rem; text-align: left; font-weight: 700; border: 1px solid #e2e8f0; color: #374151; font-size: 0.7rem; text-transform: uppercase; letter-spacing: 0.3px; }
+.rpt-print-table td { padding: 0.55rem 0.6rem; border: 1px solid #e2e8f0; color: #334155; }
+.rpt-print-table .text-right { text-align: right; }
+.rpt-print-table .text-center { text-align: center; }
+.rpt-print-table tfoot td { background: #f8fafc; font-weight: 700; font-size: 0.85rem; }
+.rpt-print-table .item-name { font-weight: 600; color: #1e293b; }
+.rpt-print-table .item-vendor { font-size: 0.68rem; color: #64748b; }
+.rpt-print-table .item-account { font-size: 0.68rem; color: #94a3b8; font-family: monospace; }
+.rpt-note { background: #f0fdf4; border-radius: 8px; padding: 0.75rem; margin: 1rem 0; font-size: 0.72rem; color: #166534; border-left: 4px solid #22c55e; }
+.rpt-sig-row { display: flex; justify-content: space-between; margin-top: 2.5rem; }
+.rpt-sig-box { text-align: center; min-width: 180px; }
+.rpt-sig-box .sig-title { font-size: 0.72rem; color: #64748b; margin-bottom: 3.5rem; }
+.rpt-sig-box .sig-line { border-top: 1px solid #cbd5e1; padding-top: 0.5rem; font-size: 0.78rem; font-weight: 700; color: #1e293b; }
+.rpt-sig-box .sig-role { font-size: 0.65rem; color: #94a3b8; margin-top: 2px; }
+.rpt-footer { text-align: center; margin-top: 1.5rem; padding-top: 0.75rem; border-top: 1px dashed #e2e8f0; }
+.rpt-footer .sys-name { font-weight: 700; color: #4f46e5; font-size: 0.62rem; letter-spacing: 0.5px; }
+.rpt-footer .sys-time { font-size: 0.58rem; color: #94a3b8; }
+.report-actions-bar { display: flex; gap: 0.5rem; justify-content: center; margin-top: 1.25rem; padding-top: 1rem; border-top: 1px solid #e2e8f0; }
+.report-actions-bar .btn { padding: 0.55rem 1.25rem; border: none; border-radius: 8px; font-size: 0.8rem; font-weight: 700; cursor: pointer; display: inline-flex; align-items: center; gap: 0.4rem; transition: all 0.2s; }
+.report-actions-bar .btn:hover { transform: translateY(-1px); box-shadow: 0 3px 10px rgba(0,0,0,0.15); }
+.report-actions-bar .btn-print { background: #4f46e5; color: #fff; }
+.report-actions-bar .btn-wa2 { background: #22c55e; color: #fff; }
+.report-actions-bar .btn-close { background: #e2e8f0; color: #64748b; }
+
+/* Print styles */
+@media print {
+    body * { visibility: hidden; }
+    .report-overlay.active, .report-overlay.active * { visibility: visible; }
+    .report-overlay.active { position: absolute; left: 0; top: 0; width: 100%; padding: 10mm; background: white !important; backdrop-filter: none !important; }
+    .report-paper { box-shadow: none !important; max-width: 100%; padding: 0; }
+    .report-close-btn, .report-actions-bar { display: none !important; }
+    .rpt-print-table th { background: #f3f4f6 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    .rpt-note { background: #f0fdf4 !important; -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+}
+
 /* Responsive */
 @media (max-width: 768px) {
     .bills-stats { grid-template-columns: 1fr; gap: 0.5rem; }
     .bills-table { font-size: 0.72rem; }
     .bill-info-name { max-width: 120px; }
     .bills-filter { flex-direction: column; }
+    .bills-selection-bar { flex-direction: column; gap: 0.5rem; padding: 0.6rem 1rem; }
+    .report-paper { padding: 1.25rem; }
+    .rpt-head { flex-direction: column; align-items: flex-start; }
+    .rpt-head .rpt-title-box { text-align: left; }
 }
 </style>
 
@@ -838,6 +979,7 @@ include '../../includes/header.php';
         <table class="bills-table">
             <thead>
                 <tr>
+                    <th style="width:35px;text-align:center"><input type="checkbox" id="selectAllBills" onchange="toggleAllBills(this)" style="width:16px;height:16px;accent-color:var(--primary-color);cursor:pointer" title="Pilih Semua"></th>
                     <th>Tagihan</th>
                     <th>Kategori</th>
                     <th>Jatuh Tempo</th>
@@ -868,7 +1010,21 @@ include '../../includes/header.php';
                     }
                     $rowClass = $bill['status'] === 'overdue' ? 'row-overdue' : '';
                 ?>
-                <tr class="<?= $rowClass ?>">
+                <tr class="<?= $rowClass ?>" data-bill-id="<?= $bill['id'] ?>">
+                    <td style="text-align:center">
+                        <input type="checkbox" class="bill-check bill-select-item"
+                               data-id="<?= $bill['id'] ?>"
+                               data-name="<?= htmlspecialchars($bill['bill_name']) ?>"
+                               data-vendor="<?= htmlspecialchars($bill['vendor_name'] ?? '-') ?>"
+                               data-account="<?= htmlspecialchars($bill['account_number'] ?? '-') ?>"
+                               data-due="<?= date('d M Y', strtotime($bill['due_date'])) ?>"
+                               data-amount="<?= $bill['amount'] ?>"
+                               data-status="<?= $bill['status'] ?>"
+                               data-category="<?= $catInfo['label'] ?>"
+                               data-icon="<?= $catInfo['icon'] ?>"
+                               data-division="<?= htmlspecialchars($bill['division_name'] ?? '-') ?>"
+                               onchange="updateBillSelection()">
+                    </td>
                     <td>
                         <div class="bill-name-cell">
                             <div class="bill-icon" style="background: <?= $catInfo['color'] ?>20; color: <?= $catInfo['color'] ?>;">
@@ -994,6 +1150,114 @@ include '../../includes/header.php';
     </div>
 </div>
 
+<!-- Floating Selection Bar -->
+<div class="bills-selection-bar" id="selectionBar">
+    <span class="sel-info">✅ <span id="selCount">0</span> tagihan dipilih</span>
+    <span class="sel-total">Rp <span id="selTotal">0</span></span>
+    <button type="button" class="sel-btn btn-pdf" onclick="generateBillReport()">📄 Ajukan Pembayaran</button>
+    <button type="button" class="sel-btn btn-wa" onclick="sendBillWA()">📱 Kirim WA</button>
+    <button type="button" class="sel-btn btn-clear" onclick="clearBillSelection()">✕ Batal</button>
+</div>
+
+<!-- Report Overlay -->
+<div class="report-overlay" id="reportOverlay">
+    <div class="report-paper">
+        <button type="button" class="report-close-btn" onclick="closeReport()">✕</button>
+        
+        <!-- Report Header -->
+        <div class="rpt-head">
+            <div style="display:flex;align-items:center;gap:0.75rem">
+                <?php
+                $logoUrl = $company['invoice_logo'] ?? $company['logo'] ?? null;
+                if ($logoUrl): ?>
+                <img src="<?= htmlspecialchars($logoUrl) ?>" alt="Logo" class="rpt-logo">
+                <?php else: ?>
+                <div class="rpt-logo-icon"><?= $company['icon'] ?></div>
+                <?php endif; ?>
+                <div>
+                    <div class="rpt-company"><?= htmlspecialchars($company['name']) ?></div>
+                    <div class="rpt-address">
+                        <?php if ($company['address']): echo htmlspecialchars($company['address']); endif; ?>
+                        <?php if ($company['phone']): ?> | Tel: <?= htmlspecialchars($company['phone']) ?><?php endif; ?>
+                        <?php if ($company['email']): ?> | <?= htmlspecialchars($company['email']) ?><?php endif; ?>
+                    </div>
+                </div>
+            </div>
+            <div class="rpt-title-box">
+                <div class="rpt-doc-title">Pengajuan Pencairan Dana</div>
+                <div class="rpt-doc-sub">Pembayaran Tagihan Operasional</div>
+                <div class="rpt-doc-no" id="rptDocNo">REQ-<?= date('Ymd-His') ?></div>
+            </div>
+        </div>
+        
+        <!-- Meta -->
+        <div class="rpt-meta">
+            <div><strong>Periode:</strong> <?= date('F Y', strtotime($filterMonth . '-01')) ?></div>
+            <div><strong>Tanggal Pengajuan:</strong> <?= date('d F Y') ?></div>
+        </div>
+        
+        <!-- Table -->
+        <table class="rpt-print-table">
+            <thead>
+                <tr>
+                    <th style="width:30px" class="text-center">No</th>
+                    <th>Tagihan</th>
+                    <th>Kategori</th>
+                    <th>Jatuh Tempo</th>
+                    <th>No. Rek / ID</th>
+                    <th>Status</th>
+                    <th class="text-right">Nominal</th>
+                </tr>
+            </thead>
+            <tbody id="rptTableBody"></tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="6" class="text-right"><strong>TOTAL PENCAIRAN</strong></td>
+                    <td class="text-right" id="rptTableTotal" style="color:#4f46e5;font-size:0.9rem;">Rp 0</td>
+                </tr>
+            </tfoot>
+        </table>
+        
+        <!-- Terbilang -->
+        <div style="background:#f8fafc;padding:0.6rem 0.75rem;border-radius:6px;margin-bottom:1rem;font-size:0.75rem;color:#475569;">
+            <strong>Terbilang:</strong> <em id="rptTerbilang">-</em>
+        </div>
+        
+        <!-- Note -->
+        <div class="rpt-note">
+            <strong>📋 Catatan:</strong> Mohon persetujuan pencairan dana untuk pembayaran tagihan operasional di atas. 
+            Dana akan digunakan sesuai dengan rincian tagihan yang tertera.
+        </div>
+        
+        <!-- Signatures -->
+        <div class="rpt-sig-row">
+            <div class="rpt-sig-box">
+                <div class="sig-title">Diajukan oleh,</div>
+                <div class="sig-line"><?= htmlspecialchars($currentUser['full_name'] ?? $currentUser['username'] ?? 'Staff') ?></div>
+                <div class="sig-role">Staff Operasional</div>
+            </div>
+            <div class="rpt-sig-box">
+                <div class="sig-title">Disetujui oleh,</div>
+                <div class="sig-line">Owner / Pimpinan</div>
+                <div class="sig-role">Penanggung Jawab</div>
+            </div>
+        </div>
+        
+        <!-- Footer -->
+        <div class="rpt-footer">
+            <div class="sys-name">Dicetak dari ADF System — <?= htmlspecialchars($company['name']) ?> © <?= date('Y') ?></div>
+            <div class="sys-time" id="rptPrintTime"><?= date('d M Y, H:i') ?> WIB</div>
+        </div>
+        
+        <!-- Action Buttons -->
+        <div class="report-actions-bar">
+            <button type="button" class="btn btn-print" onclick="printReport()">🖨️ Cetak PDF</button>
+            <button type="button" class="btn btn-wa2" onclick="sendBillWA()">📱 Kirim WA</button>
+            <button type="button" class="btn btn-close" onclick="closeReport()">Tutup</button>
+        </div>
+    </div>
+</div>
+
 <script>
 // Pay Modal - Fetch fresh data via AJAX
 async function openPayModal(billId) {
@@ -1052,6 +1316,170 @@ document.querySelector('#payModal form').addEventListener('submit', function(e) 
 
 // Initialize feather icons for dynamic content
 if (typeof feather !== 'undefined') feather.replace();
+
+// ===== BILL SELECTION & REPORT =====
+function toggleAllBills(checkbox) {
+    document.querySelectorAll('.bill-select-item').forEach(item => {
+        item.checked = checkbox.checked;
+        const row = item.closest('tr');
+        if (row) row.classList.toggle('row-selected', checkbox.checked);
+    });
+    updateBillSelection();
+}
+
+function updateBillSelection() {
+    const checked = document.querySelectorAll('.bill-select-item:checked');
+    let total = 0;
+    checked.forEach(item => { total += parseInt(item.dataset.amount) || 0; });
+    
+    document.getElementById('selCount').textContent = checked.length;
+    document.getElementById('selTotal').textContent = total.toLocaleString('id-ID');
+    
+    const bar = document.getElementById('selectionBar');
+    if (checked.length > 0) {
+        bar.classList.add('visible');
+    } else {
+        bar.classList.remove('visible');
+    }
+    
+    // Highlight rows
+    document.querySelectorAll('.bill-select-item').forEach(item => {
+        const row = item.closest('tr');
+        if (row) row.classList.toggle('row-selected', item.checked);
+    });
+    
+    // Update selectAll state
+    const all = document.querySelectorAll('.bill-select-item');
+    const selAll = document.getElementById('selectAllBills');
+    if (selAll) selAll.checked = all.length > 0 && all.length === checked.length;
+}
+
+function clearBillSelection() {
+    document.querySelectorAll('.bill-select-item').forEach(item => {
+        item.checked = false;
+        const row = item.closest('tr');
+        if (row) row.classList.remove('row-selected');
+    });
+    const selAll = document.getElementById('selectAllBills');
+    if (selAll) selAll.checked = false;
+    updateBillSelection();
+}
+
+function getSelectedBills() {
+    const items = [];
+    document.querySelectorAll('.bill-select-item:checked').forEach(item => {
+        items.push({
+            id: item.dataset.id,
+            name: item.dataset.name,
+            vendor: item.dataset.vendor,
+            account: item.dataset.account,
+            due: item.dataset.due,
+            amount: parseInt(item.dataset.amount) || 0,
+            status: item.dataset.status,
+            category: item.dataset.category,
+            icon: item.dataset.icon,
+            division: item.dataset.division
+        });
+    });
+    return items;
+}
+
+// Terbilang (angka ke kata)
+function terbilang(n) {
+    if (n === 0) return 'nol';
+    const satuan = ['', 'satu', 'dua', 'tiga', 'empat', 'lima', 'enam', 'tujuh', 'delapan', 'sembilan', 'sepuluh', 'sebelas'];
+    if (n < 12) return satuan[n];
+    if (n < 20) return satuan[n - 10] + ' belas';
+    if (n < 100) return satuan[Math.floor(n / 10)] + ' puluh' + (n % 10 ? ' ' + satuan[n % 10] : '');
+    if (n < 200) return 'seratus' + (n % 100 ? ' ' + terbilang(n % 100) : '');
+    if (n < 1000) return satuan[Math.floor(n / 100)] + ' ratus' + (n % 100 ? ' ' + terbilang(n % 100) : '');
+    if (n < 2000) return 'seribu' + (n % 1000 ? ' ' + terbilang(n % 1000) : '');
+    if (n < 1000000) return terbilang(Math.floor(n / 1000)) + ' ribu' + (n % 1000 ? ' ' + terbilang(n % 1000) : '');
+    if (n < 1000000000) return terbilang(Math.floor(n / 1000000)) + ' juta' + (n % 1000000 ? ' ' + terbilang(n % 1000000) : '');
+    if (n < 1000000000000) return terbilang(Math.floor(n / 1000000000)) + ' miliar' + (n % 1000000000 ? ' ' + terbilang(n % 1000000000) : '');
+    return terbilang(Math.floor(n / 1000000000000)) + ' triliun' + (n % 1000000000000 ? ' ' + terbilang(n % 1000000000000) : '');
+}
+
+function generateBillReport() {
+    const items = getSelectedBills();
+    if (items.length === 0) { alert('Pilih minimal 1 tagihan!'); return; }
+    
+    const tbody = document.getElementById('rptTableBody');
+    let html = '';
+    let total = 0;
+    
+    items.forEach((bill, idx) => {
+        total += bill.amount;
+        const statusLabel = bill.status === 'overdue' ? '<span style="color:#dc2626;font-weight:600">TERLAMBAT</span>' : 
+                           bill.status === 'paid' ? '<span style="color:#059669;font-weight:600">LUNAS</span>' : 
+                           '<span style="color:#d97706;font-weight:600">PENDING</span>';
+        html += '<tr>' +
+            '<td class="text-center">' + (idx + 1) + '</td>' +
+            '<td><div class="item-name">' + bill.name + '</div><div class="item-vendor">' + bill.vendor + '</div></td>' +
+            '<td>' + bill.icon + ' ' + bill.category + '</td>' +
+            '<td style="font-size:0.75rem">' + bill.due + '</td>' +
+            '<td><div class="item-account">' + bill.account + '</div></td>' +
+            '<td style="text-align:center">' + statusLabel + '</td>' +
+            '<td class="text-right" style="font-weight:600">Rp ' + bill.amount.toLocaleString('id-ID') + '</td>' +
+            '</tr>';
+    });
+    
+    tbody.innerHTML = html;
+    document.getElementById('rptTableTotal').textContent = 'Rp ' + total.toLocaleString('id-ID');
+    document.getElementById('rptTerbilang').textContent = terbilang(total).replace(/^\w/, c => c.toUpperCase()) + ' rupiah';
+    document.getElementById('rptDocNo').textContent = 'REQ-' + new Date().toISOString().slice(0,10).replace(/-/g, '') + '-' + String(Date.now()).slice(-4);
+    document.getElementById('rptPrintTime').textContent = new Date().toLocaleString('id-ID', {day:'numeric',month:'short',year:'numeric',hour:'2-digit',minute:'2-digit'}) + ' WIB';
+    
+    document.getElementById('reportOverlay').classList.add('active');
+}
+
+function closeReport() {
+    document.getElementById('reportOverlay').classList.remove('active');
+}
+
+function printReport() {
+    window.print();
+}
+
+function sendBillWA() {
+    const items = getSelectedBills();
+    if (items.length === 0) { alert('Pilih minimal 1 tagihan!'); return; }
+    
+    let total = 0;
+    let message = '*PENGAJUAN PENCAIRAN DANA*\n';
+    message += '_<?= htmlspecialchars($company['name']) ?>_\n';
+    message += '━━━━━━━━━━━━━━━\n\n';
+    message += '📅 *Periode:* <?= date('F Y', strtotime($filterMonth . '-01')) ?>\n';
+    message += '📆 *Tanggal:* ' + new Date().toLocaleDateString('id-ID', {day:'numeric',month:'long',year:'numeric'}) + '\n\n';
+    message += '*Daftar Tagihan:*\n\n';
+    
+    items.forEach((bill, idx) => {
+        total += bill.amount;
+        const statusIcon = bill.status === 'overdue' ? '🔴' : (bill.status === 'paid' ? '🟢' : '🟡');
+        message += '*' + (idx+1) + '. ' + bill.name + '*\n';
+        message += '   ' + bill.icon + ' ' + bill.category + '\n';
+        message += '   ' + statusIcon + ' Rp ' + bill.amount.toLocaleString('id-ID') + '\n';
+        message += '   📆 Jatuh tempo: ' + bill.due + '\n';
+        if (bill.account && bill.account !== '-') {
+            message += '   🏦 No: ' + bill.account + '\n';
+        }
+        message += '\n';
+    });
+    
+    message += '━━━━━━━━━━━━━━━\n';
+    message += '💰 *TOTAL: Rp ' + total.toLocaleString('id-ID') + '*\n\n';
+    message += 'Mohon persetujuan untuk pencairan dana.\n\n';
+    message += '_Diajukan oleh:_\n';
+    message += '*<?= htmlspecialchars($currentUser['full_name'] ?? $currentUser['username'] ?? 'Staff') ?>*\n';
+    message += '_' + new Date().toLocaleString('id-ID', {day:'numeric',month:'long',year:'numeric',hour:'2-digit',minute:'2-digit'}) + ' WIB_';
+    
+    window.open('https://wa.me/?text=' + encodeURIComponent(message), '_blank');
+}
+
+// Close report overlay on background click
+document.getElementById('reportOverlay').addEventListener('click', function(e) {
+    if (e.target === this) closeReport();
+});
 </script>
 
 <?php include '../../includes/footer.php'; ?>
