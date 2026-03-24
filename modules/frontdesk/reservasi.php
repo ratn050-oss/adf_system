@@ -1760,7 +1760,7 @@ function addPayment(bookingId, bookingCode, remainingAmount, bookingSource, otaF
 }
 
 function checkinBooking(id, bookingCode) {
-    // First, check payment status
+    // First, check payment status and booking source
     fetch('../../api/get-booking-details.php?id=' + id)
     .then(response => response.json())
     .then(data => {
@@ -1774,7 +1774,32 @@ function checkinBooking(id, bookingCode) {
         const paidAmount = parseFloat(booking.paid_amount);
         const remaining = finalPrice - paidAmount;
         
-        // If not fully paid, ask user what to do
+        // Detect OTA booking from booking_source
+        const bookingSource = (booking.booking_source || '').toLowerCase();
+        const isOta = !DIRECT_SOURCES.includes(bookingSource) && bookingSource !== '' && bookingSource !== 'other';
+        const sourceName = OTA_NAMES[bookingSource] || (booking.booking_source || '').charAt(0).toUpperCase() + (booking.booking_source || '').slice(1);
+        const feePercent = OTA_FEES[bookingSource] || 0;
+        
+        // OTA booking: auto check-in (payment already handled by OTA platform)
+        if (isOta) {
+            let otaMsg = `🏨 Booking via OTA: ${sourceName}\n\n`;
+            otaMsg += `Tamu: ${booking.guest_name}\n`;
+            otaMsg += `Room: ${booking.room_number}\n`;
+            otaMsg += `Total: Rp ${finalPrice.toLocaleString('id-ID')}\n`;
+            if (feePercent > 0) {
+                const feeAmount = Math.round(finalPrice * feePercent / 100);
+                const netAmount = finalPrice - feeAmount;
+                otaMsg += `\n📉 Fee OTA (${feePercent}%): -Rp ${feeAmount.toLocaleString('id-ID')}`;
+                otaMsg += `\n✅ Net masuk Kas Bank: Rp ${netAmount.toLocaleString('id-ID')}`;
+            }
+            otaMsg += `\n\nStatus otomatis LUNAS. Uang masuk ke Kas Bank.\nLanjutkan Check-in?`;
+            
+            if (!confirm(otaMsg)) return;
+            proceedCheckin(id, bookingCode);
+            return;
+        }
+        
+        // If not fully paid (direct booking), ask user what to do
         if (remaining > 0) {
             const formattedRemaining = 'Rp ' + remaining.toLocaleString('id-ID');
             const formattedTotal = 'Rp ' + finalPrice.toLocaleString('id-ID');
