@@ -2618,6 +2618,14 @@ function showBookingQuickView(booking) {
             </div>
             ` : ''}
 
+            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
+                <span style="font-size: 1.25rem;">🌐</span>
+                <div style="flex: 1;">
+                    <div style="font-size: 0.65rem; color: var(--text-secondary);">Sumber Booking</div>
+                    <div style="font-size: 0.8rem; color: var(--text-primary); font-weight: 600;">${source}</div>
+                </div>
+            </div>
+
             <div style="display: flex; align-items: center; gap: 0.5rem;">
                 <span style="font-size: 1.25rem;">🕐</span>
                 <div style="flex: 1;">
