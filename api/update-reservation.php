@@ -222,21 +222,36 @@ try {
     error_log("Params: " . json_encode($params));
     $stmt = $conn->prepare($sql);
     $stmt->execute($params);
-    error_log("Rows affected: " . $stmt->rowCount());
+    $mainRows = $stmt->rowCount();
+    error_log("Rows affected: " . $mainRows);
 
     // NUCLEAR FIX: Separate standalone update for booking_source to guarantee it saves
     $intendedSource = trim($_POST['booking_source'] ?? $booking['booking_source']);
+    $standaloneRows = -1;
+    $standaloneError = '';
     if (!empty($intendedSource)) {
-        $srcStmt = $conn->prepare("UPDATE bookings SET booking_source = ? WHERE id = ?");
-        $srcStmt->execute([$intendedSource, $bookingId]);
-        error_log("STANDALONE booking_source update: '{$intendedSource}' for booking #{$bookingId}, rows=" . $srcStmt->rowCount());
+        try {
+            $srcSql = "UPDATE bookings SET booking_source = '{$intendedSource}' WHERE id = {$bookingId}";
+            error_log("STANDALONE RAW SQL: " . $srcSql);
+            $srcStmt = $conn->exec($srcSql);
+            $standaloneRows = $srcStmt;
+            error_log("STANDALONE rows: " . $standaloneRows);
+        } catch (Exception $se) {
+            $standaloneError = $se->getMessage();
+            error_log("STANDALONE ERROR: " . $standaloneError);
+        }
     }
 
-    // VERIFY: Re-read from database to confirm the value was saved
-    $verifyStmt = $conn->prepare("SELECT booking_source FROM bookings WHERE id = ?");
+    // VERIFY: Re-read FULL row from database
+    $verifyStmt = $conn->prepare("SELECT id, booking_source, status, room_id FROM bookings WHERE id = ?");
     $verifyStmt->execute([$bookingId]);
-    $verifiedSource = $verifyStmt->fetchColumn();
-    error_log("VERIFIED booking_source in DB: '{$verifiedSource}' (intended: '{$intendedSource}')");
+    $verifyRow = $verifyStmt->fetch(PDO::FETCH_ASSOC);
+    $verifiedSource = $verifyRow ? $verifyRow['booking_source'] : '__ROW_NOT_FOUND__';
+    error_log("VERIFIED row: " . json_encode($verifyRow));
+    
+    // Also check current database name
+    $dbNameStmt = $conn->query("SELECT DATABASE()");
+    $currentDb = $dbNameStmt->fetchColumn();
 
     echo json_encode([
         'success' => true,
@@ -250,6 +265,15 @@ try {
             'final_price' => $finalPrice,
             'booking_source' => $verifiedSource,
             'intended_source' => $intendedSource
+        ],
+        'debug' => [
+            'main_update_rows' => $mainRows,
+            'standalone_rows' => $standaloneRows,
+            'standalone_error' => $standaloneError,
+            'verified_row' => $verifyRow,
+            'current_db' => $currentDb,
+            'post_booking_source' => $_POST['booking_source'] ?? '__NOT_SET__',
+            'original_source' => $booking['booking_source']
         ]
     ]);
 

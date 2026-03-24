@@ -6052,17 +6052,25 @@ window.submitEditReservation = function() {
     })
     .then(data => {
         if (data.success) {
-            console.log('✅ Update result:', data);
+            console.log('✅ Update result:', JSON.stringify(data));
             let msg = '✅ ' + data.message;
             if (data.data) {
-                msg += '\nSource tersimpan: ' + (data.data.booking_source || '?');
-                if (data.data.intended_source && data.data.intended_source !== data.data.booking_source) {
-                    msg += '\n⚠️ MISMATCH! Intended: ' + data.data.intended_source + ' vs DB: ' + data.data.booking_source;
-                }
+                msg += '\nSource DB: ' + (data.data.booking_source || '(kosong)');
+                msg += '\nIntended: ' + (data.data.intended_source || '?');
+            }
+            if (data.debug) {
+                msg += '\n\n--- DEBUG ---';
+                msg += '\nDB: ' + (data.debug.current_db || '?');
+                msg += '\nMain rows: ' + data.debug.main_update_rows;
+                msg += '\nStandalone rows: ' + data.debug.standalone_rows;
+                msg += '\nStandalone err: ' + (data.debug.standalone_error || 'none');
+                msg += '\nPOST val: ' + data.debug.post_booking_source;
+                msg += '\nOriginal: ' + data.debug.original_source;
+                msg += '\nVerified row: ' + JSON.stringify(data.debug.verified_row);
             }
             alert(msg);
             closeEditResModal();
-            location.reload();
+            // location.reload();
         } else {
             alert('❌ ' + data.message);
         }
