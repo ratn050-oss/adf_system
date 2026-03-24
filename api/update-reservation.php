@@ -224,8 +224,19 @@ try {
     $stmt->execute($params);
     error_log("Rows affected: " . $stmt->rowCount());
 
-    // Return final booking_source for verification
-    $savedSource = trim($_POST['booking_source'] ?? $booking['booking_source']);
+    // NUCLEAR FIX: Separate standalone update for booking_source to guarantee it saves
+    $intendedSource = trim($_POST['booking_source'] ?? $booking['booking_source']);
+    if (!empty($intendedSource)) {
+        $srcStmt = $conn->prepare("UPDATE bookings SET booking_source = ? WHERE id = ?");
+        $srcStmt->execute([$intendedSource, $bookingId]);
+        error_log("STANDALONE booking_source update: '{$intendedSource}' for booking #{$bookingId}, rows=" . $srcStmt->rowCount());
+    }
+
+    // VERIFY: Re-read from database to confirm the value was saved
+    $verifyStmt = $conn->prepare("SELECT booking_source FROM bookings WHERE id = ?");
+    $verifyStmt->execute([$bookingId]);
+    $verifiedSource = $verifyStmt->fetchColumn();
+    error_log("VERIFIED booking_source in DB: '{$verifiedSource}' (intended: '{$intendedSource}')");
 
     echo json_encode([
         'success' => true,
@@ -237,7 +248,8 @@ try {
             'nights' => $nights,
             'total_price' => $totalPrice,
             'final_price' => $finalPrice,
-            'booking_source' => $savedSource
+            'booking_source' => $verifiedSource,
+            'intended_source' => $intendedSource
         ]
     ]);
 

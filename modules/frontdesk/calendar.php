@@ -6016,6 +6016,11 @@ window.submitEditReservation = function() {
     const bookingId = document.getElementById('editResBookingId').value;
     if (!bookingId) return;
     
+    const sourceVal = document.getElementById('editResSource').value;
+    console.log('🔍 SUBMIT DEBUG - booking_source value:', sourceVal);
+    console.log('🔍 SUBMIT DEBUG - select selectedIndex:', document.getElementById('editResSource').selectedIndex);
+    console.log('🔍 SUBMIT DEBUG - select options:', Array.from(document.getElementById('editResSource').options).map(o => o.value + '=' + o.text));
+    
     const formData = new FormData();
     formData.append('booking_id', bookingId);
     formData.append('guest_name', document.getElementById('editResGuestName').value);
@@ -6048,7 +6053,14 @@ window.submitEditReservation = function() {
     .then(data => {
         if (data.success) {
             console.log('✅ Update result:', data);
-            alert('✅ ' + data.message + (data.data && data.data.booking_source ? '\nSource: ' + data.data.booking_source : ''));
+            let msg = '✅ ' + data.message;
+            if (data.data) {
+                msg += '\nSource tersimpan: ' + (data.data.booking_source || '?');
+                if (data.data.intended_source && data.data.intended_source !== data.data.booking_source) {
+                    msg += '\n⚠️ MISMATCH! Intended: ' + data.data.intended_source + ' vs DB: ' + data.data.booking_source;
+                }
+            }
+            alert(msg);
             closeEditResModal();
             location.reload();
         } else {
