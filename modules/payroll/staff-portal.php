@@ -225,8 +225,11 @@ try {
         .room-box { padding:10px 6px; border-radius:8px; text-align:center; font-weight:700; font-size:12px; border:1px solid var(--border); }
         .room-box.avail { background:#f0fdf4; color:var(--green); border-color:#bbf7d0; }
         .room-box.occ { background:#fef2f2; color:var(--red); border-color:#fca5a5; }
+        .room-box.b2b { background:#fef2f2; color:var(--red); border-color:#fca5a5; position:relative; }
+        .room-box.b2b::after { content:'B2B'; position:absolute; top:-6px; right:-6px; background:#16a34a; color:#fff; font-size:7px; font-weight:700; padding:1px 4px; border-radius:6px; line-height:1.2; }
         .room-box .room-type { font-size:8px; color:var(--muted); font-weight:400; margin-top:1px; }
         .room-box .room-guest { font-size:8px; color:var(--red); font-weight:500; margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+        .room-box .room-next { font-size:7px; color:#16a34a; font-weight:600; margin-top:1px; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
 
         /* Booking Calendar - Frontdesk Style */
         .cal-nav { display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; gap:6px; }
@@ -1208,11 +1211,11 @@ async function loadOccupancy() {
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;">
                     <div style="background:linear-gradient(135deg,#ecfdf5,#d1fae5);border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:10px;">
                         <div style="width:36px;height:36px;background:#16a34a;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;">✈️</div>
-                        <div><div style="font-size:8px;font-weight:700;color:#16a34a;text-transform:uppercase;">Arrivals Besok</div><div style="font-size:20px;font-weight:900;color:#16a34a;">${arrivals}</div></div>
+                        <div><div style="font-size:8px;font-weight:700;color:#16a34a;text-transform:uppercase;">Cekin Besok</div><div style="font-size:20px;font-weight:900;color:#16a34a;">${arrivals}</div></div>
                     </div>
                     <div style="background:linear-gradient(135deg,#fff7ed,#fed7aa);border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:10px;">
                         <div style="width:36px;height:36px;background:#ea580c;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;">🚪</div>
-                        <div><div style="font-size:8px;font-weight:700;color:#ea580c;text-transform:uppercase;">Departures Besok</div><div style="font-size:20px;font-weight:900;color:#ea580c;">${departures}</div></div>
+                        <div><div style="font-size:8px;font-weight:700;color:#ea580c;text-transform:uppercase;">Cekout Besok</div><div style="font-size:20px;font-weight:900;color:#ea580c;">${departures}</div></div>
                     </div>
                 </div>
             </div>`;
@@ -1225,10 +1228,13 @@ async function loadOccupancy() {
             let rh = '<div class="room-grid">';
             rooms.forEach(r => {
                 const isOcc = r.status === 'occupied';
-                rh += `<div class="room-box ${isOcc?'occ':'avail'}">
+                const hasB2B = isOcc && r.next_guest;
+                const boxClass = hasB2B ? 'b2b' : (isOcc ? 'occ' : 'avail');
+                rh += `<div class="room-box ${boxClass}">
                     ${r.room_number}
                     <div class="room-type">${r.room_type||''}</div>
                     ${isOcc ? `<div class="room-guest">${r.guest_name||''}</div>` : ''}
+                    ${hasB2B ? `<div class="room-next">→ ${r.next_guest}</div>` : ''}
                 </div>`;
             });
             rh += '</div>';

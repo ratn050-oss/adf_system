@@ -230,16 +230,19 @@ if ($action === 'occupancy') {
         $available = max(0, $totalRooms - $occupied);
         $rate = $totalRooms > 0 ? round($occupied / $totalRooms * 100, 1) : 0;
         
-        // Room list with type info
+        // Room list with type info + B2B detection
         $rooms = $db->fetchAll("SELECT r.id, r.room_number, r.floor_number,
             COALESCE(rt.type_name, 'Standard') as room_type,
             CASE WHEN b.id IS NOT NULL THEN 'occupied' ELSE 'available' END as status,
-            g.guest_name, b.check_in_date, b.check_out_date
+            g.guest_name, b.check_in_date, b.check_out_date,
+            (SELECT g2.guest_name FROM bookings b2 LEFT JOIN guests g2 ON b2.guest_id = g2.id
+             WHERE b2.room_id = r.id AND DATE(b2.check_in_date) = ? AND b2.status IN ('confirmed','pending')
+             LIMIT 1) as next_guest
             FROM rooms r
             LEFT JOIN room_types rt ON r.room_type_id = rt.id
             LEFT JOIN bookings b ON b.room_id = r.id AND b.status = 'checked_in'
             LEFT JOIN guests g ON b.guest_id = g.id
-            ORDER BY rt.type_name ASC, r.room_number ASC") ?: [];
+            ORDER BY rt.type_name ASC, r.room_number ASC", [$tomorrow]) ?: [];
 
         // Arrivals tomorrow (confirmed bookings checking in tomorrow)
         $arrivals = $db->fetchOne("SELECT COUNT(*) as c FROM bookings WHERE DATE(check_in_date) = ? AND status = 'confirmed'", [$tomorrow])['c'] ?? 0;
@@ -329,7 +332,7 @@ if ($action === 'breakfast_orders') {
             FROM breakfast_orders bo
             WHERE bo.breakfast_date = ?
             AND bo.id = (SELECT MAX(bo2.id) FROM breakfast_orders bo2 
-                WHERE bo2.guest_name = bo.guest_name AND bo2.breakfast_date = bo.breakfast_date AND bo2.room_number = bo.room_number)
+                WHERE bo2.guest_name = bo.guest_name AND bo2.breakfast_date = bo.breakfast_date)
             ORDER BY bo.breakfast_time ASC, bo.id ASC
         ", [$today]) ?: [];
 
