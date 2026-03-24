@@ -987,7 +987,6 @@ async function loadMonitoring() {
             <div class="stat-row">
                 <div class="stat-card"><div class="sl">Hadir</div><div class="sv" style="color:var(--green);">${s.days_present||0}</div></div>
                 <div class="stat-card"><div class="sl">Terlambat</div><div class="sv" style="color:var(--orange);">${s.days_late||0}</div></div>
-                <div class="stat-card"><div class="sl">Total Jam</div><div class="sv">${(s.total_hours||0).toFixed(1)}</div></div>
             </div>
             <div class="card" style="margin-bottom:12px;">
                 <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:4px;">
@@ -2207,7 +2206,7 @@ function renderSlipGaji(slip) {
     const totalDeductions = parseFloat(slip.total_deductions) || 0;
     const netSalary = parseFloat(slip.net_salary) || 0;
 
-    const logoHtml = SLIP_LOGO_URL ? `<img src="${SLIP_LOGO_URL}" style="height:38px;width:38px;object-fit:contain;border-radius:8px;" crossorigin="anonymous">` : `<div style="width:38px;height:38px;background:linear-gradient(135deg,#0f172a,#1e3a5f);border-radius:8px;display:flex;align-items:center;justify-content:center;font-size:16px;color:#fff;">🏨</div>`;
+    const logoHtml = SLIP_LOGO_URL ? `<img src="${SLIP_LOGO_URL}" style="height:36px;object-fit:contain;" crossorigin="anonymous">` : `<span style="font-size:22px;">🏨</span>`;
 
     const monthNames = ['','Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
     const periodText = monthNames[parseInt(slip.period_month)] + ' ' + slip.period_year;
@@ -2227,19 +2226,20 @@ function renderSlipGaji(slip) {
     <div id="slipGajiPrintArea" style="background:#fff;border-radius:16px;overflow:hidden;box-shadow:0 2px 20px rgba(0,0,0,.08);border:1px solid #e2e8f0;">
         
         <!-- Header -->
-        <div style="background:linear-gradient(135deg,#0f172a 0%,#1e3a5f 100%);padding:18px 16px;position:relative;overflow:hidden;">
-            <div style="position:absolute;top:-30px;right:-30px;width:100px;height:100px;background:rgba(255,255,255,.03);border-radius:50%;"></div>
-            <div style="position:absolute;bottom:-20px;left:-20px;width:80px;height:80px;background:rgba(255,255,255,.02);border-radius:50%;"></div>
-            <div style="display:flex;align-items:center;gap:12px;margin-bottom:12px;position:relative;z-index:1;">
+        <div style="background:#fff;padding:20px 16px 16px;border-bottom:2px solid #0f172a;">
+            <div style="display:flex;align-items:center;gap:12px;margin-bottom:14px;">
                 ${logoHtml}
-                <div>
-                    <div style="font-size:14px;font-weight:800;color:#fff;letter-spacing:.3px;">${BIZ_NAME}</div>
-                    <div style="font-size:9px;color:rgba(255,255,255,.5);letter-spacing:.5px;">Karimunjawa, Jepara</div>
+                <div style="flex:1;">
+                    <div style="font-size:15px;font-weight:800;color:#0f172a;letter-spacing:.3px;line-height:1.2;">${BIZ_NAME}</div>
+                    <div style="font-size:9px;color:#64748b;letter-spacing:.3px;margin-top:2px;">Karimunjawa, Jepara • Indonesia</div>
                 </div>
             </div>
-            <div style="background:rgba(255,255,255,.1);border-radius:8px;padding:8px 12px;position:relative;z-index:1;">
-                <div style="font-size:9px;color:rgba(255,255,255,.6);text-transform:uppercase;letter-spacing:1px;">Slip Gaji</div>
-                <div style="font-size:15px;font-weight:700;color:#fff;margin-top:2px;">Periode ${periodText}</div>
+            <div style="background:linear-gradient(135deg,#0f172a,#1e3a5f);border-radius:10px;padding:12px 14px;display:flex;align-items:center;justify-content:space-between;">
+                <div>
+                    <div style="font-size:8px;color:rgba(255,255,255,.5);text-transform:uppercase;letter-spacing:1.5px;font-weight:600;">Slip Gaji Karyawan</div>
+                    <div style="font-size:16px;font-weight:700;color:#fff;margin-top:3px;">Periode ${periodText}</div>
+                </div>
+                <div style="width:40px;height:40px;background:rgba(255,255,255,.1);border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:20px;">💰</div>
             </div>
         </div>
 
