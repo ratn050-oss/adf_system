@@ -304,94 +304,82 @@ include '../../includes/header.php';
     color: #f59e0b;
 }
 
-/* Actions */
-.row-actions {
-    display: flex;
-    gap: 0.4rem;
-    flex-wrap: wrap;
+/* Action Dropdown */
+.action-dropdown {
+    position: relative;
+    display: inline-block;
 }
-
-.action-btn {
-    padding: 0.3rem 0.6rem;
-    border: none;
-    border-radius: 4px;
+.action-dropdown-btn {
+    padding: 0.4rem 0.8rem;
+    background: #6366f1;
+    color: white;
+    border: 1px solid #4f46e5;
+    border-radius: 6px;
     cursor: pointer;
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     font-weight: 600;
-    transition: all 0.2s ease;
-    color: #ffffff !important;
+    display: flex;
+    align-items: center;
+    gap: 0.3rem;
+    white-space: nowrap;
+    transition: background 0.15s;
+}
+.action-dropdown-btn:hover {
+    background: #4f46e5;
+}
+.action-dropdown-menu {
+    display: none;
+    position: absolute;
+    right: 0;
+    top: 100%;
+    margin-top: 4px;
+    background: var(--card-bg, #fff);
+    border: 1px solid rgba(99,102,241,0.15);
+    border-radius: 8px;
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
+    min-width: 160px;
+    z-index: 1000;
+    overflow: hidden;
+}
+.action-dropdown.open .action-dropdown-menu {
+    display: block;
+}
+.action-dropdown-item {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    width: 100%;
+    padding: 0.55rem 0.85rem;
+    border: none;
+    background: none;
+    cursor: pointer;
+    font-size: 0.78rem;
+    color: var(--text-primary, #1e293b);
+    text-align: left;
+    transition: background 0.1s;
     white-space: nowrap;
 }
-
-/* View - Biru (informasi) */
-.action-btn.action-view {
-    background: #3b82f6 !important;
-    border: 1px solid #2563eb;
+.action-dropdown-item:hover {
+    background: rgba(99,102,241,0.08);
 }
-.action-btn.action-view:hover {
-    background: #2563eb !important;
-    border-color: #1d4ed8;
+.action-dropdown-item.item-checkin {
+    color: #16a34a;
+    font-weight: 600;
 }
-
-/* Edit - Ungu (modifikasi) */
-.action-btn.action-edit {
-    background: #8b5cf6 !important;
-    border: 1px solid #7c3aed;
+.action-dropdown-item.item-pay {
+    color: #ca8a04;
+    font-weight: 600;
 }
-.action-btn.action-edit:hover {
-    background: #7c3aed !important;
-    border-color: #6d28d9;
+.action-dropdown-item.item-cancel {
+    color: #ea580c;
 }
-
-/* Invoice - Abu-abu biru (dokumen) */
-.action-btn.action-invoice {
-    background: #475569 !important;
-    border: 1px solid #334155;
+.action-dropdown-item.item-delete {
+    color: #dc2626;
 }
-.action-btn.action-invoice:hover {
-    background: #334155 !important;
-    border-color: #1e293b;
-}
-
-/* Pay - Kuning keemasan (pembayaran) */
-.action-btn.action-pay {
-    background: #eab308 !important;
-    color: #1a1a2e !important;
-    border: 1px solid #ca8a04;
-}
-.action-btn.action-pay:hover {
-    background: #ca8a04 !important;
-    border-color: #a16207;
-}
-
-/* Check-in - Hijau terang (aksi positif) */
-.action-btn.action-checkin {
-    background: #22c55e !important;
-    border: 1px solid #16a34a;
-}
-.action-btn.action-checkin:hover {
-    background: #16a34a !important;
-    border-color: #15803d;
-}
-
-/* Cancel - Oranye (peringatan) */
-.action-btn.action-cancel {
-    background: #f97316 !important;
-    border: 1px solid #ea580c;
-}
-.action-btn.action-cancel:hover {
-    background: #ea580c !important;
-    border-color: #c2410c;
-}
-
-/* Delete - Merah (bahaya) */
-.action-btn.action-delete {
-    background: #ef4444 !important;
-    border: 1px solid #dc2626;
-}
-.action-btn.action-delete:hover {
-    background: #dc2626 !important;
-    border-color: #b91c1c;
+.action-dropdown-divider {
+    height: 1px;
+    background: rgba(0,0,0,0.08);
+    margin: 2px 0;
 }
 
 .empty-state {
@@ -749,45 +737,29 @@ include '../../includes/header.php';
 
                     <!-- Actions -->
                     <td>
-                        <div class="row-actions">
-                            <button class="action-btn action-view" onclick="viewBooking(<?php echo $booking['id']; ?>)">
-                                👁 View
-                            </button>
-                            <button class="action-btn action-edit" onclick="editBooking(<?php echo $booking['id']; ?>)">
-                                ✏️ Edit
-                            </button>
-                            <button class="action-btn action-invoice" onclick="printInvoice(<?php echo $booking['id']; ?>)">
-                                📄 Invoice
-                            </button>
-                            
-                            <?php 
-                            // Calculate remaining balance
-                            $remaining = $booking['final_price'] - max($booking['paid_amount'], $booking['total_paid']);
-                            if ($remaining > 0 && $booking['payment_status'] !== 'paid' && $booking['status'] !== 'cancelled' && $booking['status'] !== 'checked_out'): 
-                            ?>
-                            <button class="action-btn action-pay" onclick="addPayment(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_code']); ?>', <?php echo $remaining; ?>, '<?php echo htmlspecialchars($booking['booking_source']); ?>', <?php echo $otaFee; ?>, '<?php echo addslashes($otaName); ?>')">
-                                💰 Pay
-                            </button>
-                            <?php endif; ?>
-                            
-                            <?php if ($booking['status'] === 'confirmed'): ?>
-                            <button class="action-btn action-checkin" onclick="checkinBooking(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_code']); ?>')">
-                                ✅ Check-in
-                            </button>
-                            <?php endif; ?>
-
-                            <?php if ($booking['status'] !== 'checked_in' && $booking['status'] !== 'checked_out'): ?>
-                            <button class="action-btn action-cancel" onclick="cancelBooking(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_code']); ?>')">
-                                ⚠️ Cancel
-                            </button>
-                            <button class="action-btn action-delete" onclick="deleteBooking(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_code']); ?>')">
-                                🗑️ Delete
-                            </button>
-                            <?php elseif ($currentUser['role'] === 'developer'): ?>
-                            <button class="action-btn action-delete" onclick="deleteBooking(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_code']); ?>')">
-                                🗑️ Delete
-                            </button>
-                            <?php endif; ?>
+                        <?php $remaining = $booking['final_price'] - max($booking['paid_amount'], $booking['total_paid']); ?>
+                        <div class="action-dropdown">
+                            <button class="action-dropdown-btn" onclick="toggleDropdown(this)">Aksi ▾</button>
+                            <div class="action-dropdown-menu">
+                                <?php if ($booking['status'] === 'confirmed'): ?>
+                                <button class="action-dropdown-item item-checkin" onclick="checkinBooking(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_code']); ?>')">✅ Check-in</button>
+                                <?php endif; ?>
+                                <?php if ($remaining > 0 && $booking['payment_status'] !== 'paid' && $booking['status'] !== 'cancelled' && $booking['status'] !== 'checked_out'): ?>
+                                <button class="action-dropdown-item item-pay" onclick="addPayment(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_code']); ?>', <?php echo $remaining; ?>, '<?php echo htmlspecialchars($booking['booking_source']); ?>', <?php echo $otaFee; ?>, '<?php echo addslashes($otaName); ?>')">💰 Bayar</button>
+                                <?php endif; ?>
+                                <div class="action-dropdown-divider"></div>
+                                <button class="action-dropdown-item" onclick="viewBooking(<?php echo $booking['id']; ?>)">👁 Lihat</button>
+                                <button class="action-dropdown-item" onclick="editBooking(<?php echo $booking['id']; ?>)">✏️ Edit</button>
+                                <button class="action-dropdown-item" onclick="printInvoice(<?php echo $booking['id']; ?>)">📄 Invoice</button>
+                                <?php if ($booking['status'] !== 'checked_in' && $booking['status'] !== 'checked_out'): ?>
+                                <div class="action-dropdown-divider"></div>
+                                <button class="action-dropdown-item item-cancel" onclick="cancelBooking(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_code']); ?>')">⚠️ Cancel</button>
+                                <button class="action-dropdown-item item-delete" onclick="deleteBooking(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_code']); ?>')">🗑️ Hapus</button>
+                                <?php elseif ($currentUser['role'] === 'developer'): ?>
+                                <div class="action-dropdown-divider"></div>
+                                <button class="action-dropdown-item item-delete" onclick="deleteBooking(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_code']); ?>')">🗑️ Hapus</button>
+                                <?php endif; ?>
+                            </div>
                         </div>
                     </td>
                 </tr>
@@ -1196,6 +1168,21 @@ include '../../includes/header.php';
 <input type="hidden" id="cancelBookingId" value="">
 
 <script>
+// Dropdown toggle
+function toggleDropdown(btn) {
+    const dropdown = btn.closest('.action-dropdown');
+    const wasOpen = dropdown.classList.contains('open');
+    // Close all open dropdowns first
+    document.querySelectorAll('.action-dropdown.open').forEach(d => d.classList.remove('open'));
+    if (!wasOpen) dropdown.classList.add('open');
+}
+// Close dropdowns on outside click
+document.addEventListener('click', function(e) {
+    if (!e.target.closest('.action-dropdown')) {
+        document.querySelectorAll('.action-dropdown.open').forEach(d => d.classList.remove('open'));
+    }
+});
+
 // OTA Fee percentages from settings
 var OTA_FEES = {
 <?php 
