@@ -306,6 +306,53 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['mark_paid'])) {
     exit;
 }
 
+// Handle Quick Pay — Save + Approve + Record Cashbook + Mark Paid in one step
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['quick_pay'])) {
+    try {
+        // 1. Auto-save slips first
+        $slips = $db->fetchAll("SELECT id, employee_id FROM payroll_slips WHERE period_id = ?", [$period['id']]) ?: [];
+        $totalNet = 0;
+        foreach ($slips as $sl) {
+            $slip = $db->fetchOne("SELECT * FROM payroll_slips WHERE id = ?", [$sl['id']]);
+            $totalNet += (float)($slip['net_salary'] ?? 0);
+        }
+        
+        // 2. Update period totals
+        $db->query("UPDATE payroll_periods SET total_net = ?, total_employees = ? WHERE id = ?", 
+            [$totalNet, count($slips), $period['id']]);
+        
+        // 3. Skip to approved + cashbook
+        $db->query("UPDATE payroll_periods SET status = 'approved', submitted_at = NOW(), submitted_by = ?, approved_at = NOW(), approved_by = ? WHERE id = ?", 
+            [$_SESSION['user_id'], $_SESSION['user_id'], $period['id']]);
+        
+        $periodLabel = $months[$period['period_month']] . ' ' . $period['period_year'];
+        $description = 'Payroll ' . $periodLabel . ' - Bank Transfer';
+        $amount = $totalNet ?: $period['total_net'];
+        
+        $bankAccount = $db->fetchOne("SELECT id FROM cash_accounts WHERE (account_name LIKE '%Bank%' OR account_name LIKE '%BCA%' OR account_name LIKE '%BRI%') AND is_active = 1 LIMIT 1");
+        $accountId = $bankAccount ? $bankAccount['id'] : null;
+        
+        // Check if cashbook entry already exists
+        $existing = $db->fetchOne("SELECT id FROM cashbook_transactions WHERE reference_number = ?", ['PAYROLL-' . $period['id']]);
+        if (!$existing) {
+            $db->query(
+                "INSERT INTO cashbook_transactions (transaction_date, transaction_type, account_id, category, description, amount, payment_method, reference_number, created_by) 
+                 VALUES (CURDATE(), 'expense', ?, 'Payroll', ?, ?, 'transfer', ?, ?)",
+                [$accountId, $description, $amount, 'PAYROLL-' . $period['id'], $_SESSION['user_id']]
+            );
+        }
+        
+        // 4. Mark as paid
+        $db->query("UPDATE payroll_periods SET status = 'paid', paid_at = NOW() WHERE id = ?", [$period['id']]);
+        
+        setFlash('success', '✅ Payroll dibayar! Rp ' . number_format($amount, 0, ',', '.') . ' tercatat di cashbook. Slip gaji tersedia di Staff Portal.');
+    } catch (Exception $e) {
+        setFlash('error', 'Error: ' . $e->getMessage());
+    }
+    header("Location: process.php?month=$month&year=$year");
+    exit;
+}
+
 // Handle Refresh Employees (Sync: add new, remove deleted, update info)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['refresh_employees'])) {
     $employees = $db->fetchAll("SELECT * FROM payroll_employees WHERE is_active = 1");
@@ -773,6 +820,13 @@ include '../../includes/header.php';
                     <button type="submit" class="ps-btn ps-btn-warning">
                         <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="22" y1="2" x2="11" y2="13"></line><polygon points="22 2 15 22 11 13 2 9 22 2"></polygon></svg>
                         Submit to Owner
+                    </button>
+                </form>
+                <form method="POST" onsubmit="return confirm('Bayar langsung & publish slip gaji ke Staff Portal?')" style="display:inline;">
+                    <input type="hidden" name="quick_pay" value="1">
+                    <button type="submit" class="ps-btn ps-btn-success" style="margin-left:0.5rem;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M12 1v22M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+                        💰 Bayar & Publish
                     </button>
                 </form>
             <?php elseif($period['status'] == 'submitted'): ?>
