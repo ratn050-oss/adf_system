@@ -223,6 +223,7 @@ if ($action === 'attendance_history') {
 // ── ROOM OCCUPANCY ──
 if ($action === 'occupancy') {
     $today = date('Y-m-d');
+    $tomorrow = date('Y-m-d', strtotime('+1 day'));
     try {
         $totalRooms = $db->fetchOne("SELECT COUNT(*) as c FROM rooms")['c'] ?? 0;
         $occupied = $db->fetchOne("SELECT COUNT(DISTINCT room_id) as c FROM bookings WHERE status = 'checked_in'")['c'] ?? 0;
@@ -240,9 +241,10 @@ if ($action === 'occupancy') {
             LEFT JOIN guests g ON b.guest_id = g.id
             ORDER BY rt.type_name ASC, r.room_number ASC") ?: [];
 
-        // Arrivals today
-        $arrivals = $db->fetchOne("SELECT COUNT(*) as c FROM bookings WHERE DATE(check_in_date) = ? AND status IN ('confirmed','checked_in')", [$today])['c'] ?? 0;
-        $departures = $db->fetchOne("SELECT COUNT(*) as c FROM bookings WHERE DATE(check_out_date) = ? AND status = 'checked_in'", [$today])['c'] ?? 0;
+        // Arrivals tomorrow (confirmed bookings checking in tomorrow)
+        $arrivals = $db->fetchOne("SELECT COUNT(*) as c FROM bookings WHERE DATE(check_in_date) = ? AND status = 'confirmed'", [$tomorrow])['c'] ?? 0;
+        // Departures tomorrow (checked-in guests checking out tomorrow)
+        $departures = $db->fetchOne("SELECT COUNT(*) as c FROM bookings WHERE DATE(check_out_date) = ? AND status = 'checked_in'", [$tomorrow])['c'] ?? 0;
 
         // Calendar bookings (14 days from start_date param or today)
         $startDate = $_GET['start'] ?? $today;
@@ -257,11 +259,11 @@ if ($action === 'occupancy') {
         echo json_encode(['success' => true, 'data' => [
             'total_rooms' => $totalRooms, 'occupied' => $occupied, 'available' => $available,
             'occupancy_rate' => $rate, 'rooms' => $rooms,
-            'arrivals_today' => $arrivals, 'departures_today' => $departures,
+            'arrivals_tomorrow' => $arrivals, 'departures_tomorrow' => $departures,
             'bookings' => $bookings, 'calendar_start' => $startDate, 'calendar_end' => $endDate
         ]]);
     } catch (Exception $e) {
-        echo json_encode(['success' => true, 'data' => ['total_rooms' => 0, 'occupied' => 0, 'available' => 0, 'occupancy_rate' => 0, 'rooms' => [], 'arrivals_today' => 0, 'departures_today' => 0, 'bookings' => []]]);
+        echo json_encode(['success' => true, 'data' => ['total_rooms' => 0, 'occupied' => 0, 'available' => 0, 'occupancy_rate' => 0, 'rooms' => [], 'arrivals_tomorrow' => 0, 'departures_tomorrow' => 0, 'bookings' => []]]);
     }
     exit;
 }
@@ -327,7 +329,7 @@ if ($action === 'breakfast_orders') {
             FROM breakfast_orders bo
             WHERE bo.breakfast_date = ?
             AND bo.id = (SELECT MAX(bo2.id) FROM breakfast_orders bo2 
-                WHERE bo2.guest_name = bo.guest_name AND bo2.breakfast_date = bo.breakfast_date)
+                WHERE bo2.guest_name = bo.guest_name AND bo2.breakfast_date = bo.breakfast_date AND bo2.room_number = bo.room_number)
             ORDER BY bo.breakfast_time ASC, bo.id ASC
         ", [$today]) ?: [];
 

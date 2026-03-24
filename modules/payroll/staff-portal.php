@@ -1149,8 +1149,8 @@ async function loadOccupancy() {
         const avail = parseInt(d.available)||0;
         const total = parseInt(d.total_rooms)||0;
         const rate = parseFloat(d.occupancy_rate)||0;
-        const arrivals = parseInt(d.arrivals_today)||0;
-        const departures = parseInt(d.departures_today)||0;
+        const arrivals = parseInt(d.arrivals_tomorrow)||0;
+        const departures = parseInt(d.departures_tomorrow)||0;
 
         // SVG donut chart
         const radius = 54, cx = 65, cy = 65, stroke = 14;
@@ -1208,11 +1208,11 @@ async function loadOccupancy() {
                 <div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px;">
                     <div style="background:linear-gradient(135deg,#ecfdf5,#d1fae5);border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:10px;">
                         <div style="width:36px;height:36px;background:#16a34a;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;">✈️</div>
-                        <div><div style="font-size:8px;font-weight:700;color:#16a34a;text-transform:uppercase;">Arrivals</div><div style="font-size:20px;font-weight:900;color:#16a34a;">${arrivals}</div></div>
+                        <div><div style="font-size:8px;font-weight:700;color:#16a34a;text-transform:uppercase;">Arrivals Besok</div><div style="font-size:20px;font-weight:900;color:#16a34a;">${arrivals}</div></div>
                     </div>
                     <div style="background:linear-gradient(135deg,#fff7ed,#fed7aa);border-radius:10px;padding:10px 12px;display:flex;align-items:center;gap:10px;">
                         <div style="width:36px;height:36px;background:#ea580c;border-radius:10px;display:flex;align-items:center;justify-content:center;font-size:16px;">🚪</div>
-                        <div><div style="font-size:8px;font-weight:700;color:#ea580c;text-transform:uppercase;">Departures</div><div style="font-size:20px;font-weight:900;color:#ea580c;">${departures}</div></div>
+                        <div><div style="font-size:8px;font-weight:700;color:#ea580c;text-transform:uppercase;">Departures Besok</div><div style="font-size:20px;font-weight:900;color:#ea580c;">${departures}</div></div>
                     </div>
                 </div>
             </div>`;
