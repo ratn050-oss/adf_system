@@ -29,8 +29,13 @@
     } catch (Exception $e) {}
     
     // Helper: build URL — if path is already absolute (http/https), use as-is
-    function assetUrl($path) {
+    // If just a filename (no slashes), prepend known upload directory
+    function assetUrl($path, $uploadDir = '') {
         if (preg_match('#^https?://#i', $path)) return $path;
+        // If it's just a filename without directory, prepend upload dir
+        if ($uploadDir && strpos($path, '/') === false) {
+            return BASE_URL . '/' . rtrim($uploadDir, '/') . '/' . $path;
+        }
         return BASE_URL . '/' . $path;
     }
     
@@ -147,8 +152,8 @@
         $mimeMap = ['ico' => 'image/x-icon', 'png' => 'image/png', 'svg' => 'image/svg+xml', 'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'webp' => 'image/webp'];
         $mimeType = $mimeMap[$ext] ?? 'image/png';
     ?>
-    <link rel="icon" type="<?= $mimeType ?>" href="<?= htmlspecialchars(assetUrl($faviconPath)) ?>">
-    <link rel="shortcut icon" type="<?= $mimeType ?>" href="<?= htmlspecialchars(assetUrl($faviconPath)) ?>">
+    <link rel="icon" type="<?= $mimeType ?>" href="<?= htmlspecialchars(assetUrl($faviconPath, 'uploads/favicon')) ?>">
+    <link rel="shortcut icon" type="<?= $mimeType ?>" href="<?= htmlspecialchars(assetUrl($faviconPath, 'uploads/favicon')) ?>">
     <?php endif; ?>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -164,7 +169,7 @@
     <div class="container">
         <a href="<?= BASE_URL ?>/" class="navbar-brand">
             <?php if (!empty($logoPath)): ?>
-            <img src="<?= htmlspecialchars(assetUrl($logoPath)) ?>" alt="Narayana" class="brand-img">
+            <img src="<?= htmlspecialchars(assetUrl($logoPath, 'uploads/logo')) ?>" alt="Narayana" class="brand-img">
             <?php endif; ?>
             <div class="brand-text">
                 <div class="brand-logo">Narayana</div>
