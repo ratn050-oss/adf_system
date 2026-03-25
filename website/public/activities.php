@@ -19,57 +19,67 @@ $actHeroTitle    = $_heroA['web_hero_act_title']    ?? 'Things to Do During<br>Y
 $actHeroSubtitle = $_heroA['web_hero_act_subtitle'] ?? 'Karimunjawa is more than a destination — it\'s a world of its own. Here\'s what awaits you.';
 $actHeroBg       = $_heroA['web_hero_act_background'] ?? 'https://images.unsplash.com/photo-1589308078059-be1415eab4c3?w=1920&q=80';
 
-// Activities — editorial guide style
-$activities = [
-    [
-        'id'       => 'snorkeling',
-        'eyebrow'  => 'Underwater World',
-        'title'    => 'Snorkelling in Crystal Waters',
-        'image'    => 'https://images.unsplash.com/photo-1534258936925-c58bed479fcb?w=900&q=80',
-        'body'     => 'The waters around Karimunjawa are among the clearest in Java. Just a short boat ride from Narayana, you\'ll be floating above <strong>vibrant coral gardens</strong> alive with clownfish, parrotfish, and sea turtles. Look down and you\'ll see coral structures that rise like underwater mountains — some reaching several metres from the sandy floor. The visibility here often exceeds 15 metres, making it feel like swimming inside an aquarium. Whether you\'re a first-timer or an experienced snorkeller, the reefs of Karimunjawa never disappoint.',
-        'details'  => ['Best time: 7am–11am', 'Distance from hotel: ~15 min by boat', 'Suitable for all ages', 'Equipment available nearby'],
-    ],
-    [
-        'id'       => 'island-hopping',
-        'eyebrow'  => 'Island Exploration',
-        'title'    => 'Hopping Between Islands',
-        'image'    => 'https://images.unsplash.com/photo-1559128010-7c1ad6e1b6a5?w=900&q=80',
-        'body'     => 'The Karimunjawa archipelago is made up of 27 islands — most of them uninhabited and <strong>entirely untouched</strong>. Spend a day sailing between them and you\'ll find white sand beaches with no footprints, shallow lagoons with water the colour of aquamarine glass, and hillsides draped in tropical forest. From Narayana, you can arrange a traditional wooden boat to take you wherever the wind goes. Stop at Geleang Island for snorkelling, Cemara Kecil for its leaning palm trees, or Menjangan Besar to watch the sunset from a deserted shore.',
-        'details'  => ['Full day excursion', 'Customisable route', 'Bring sunscreen & hat', 'Lunch included in most trips'],
-    ],
-    [
-        'id'       => 'sunset',
-        'eyebrow'  => 'Golden Hour',
-        'title'    => 'Sunsets from the Hilltop',
-        'image'    => 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=900&q=80',
-        'body'     => 'Narayana is uniquely positioned <strong>close to the island\'s highest viewpoint</strong>, and the sunsets here are unlike anything you\'ve seen. As the sun drops behind the Java Sea, the sky turns a deep amber — silhouetting the palm trees, fishing boats, and distant islands in gold. Many of our guests say the sunset walk is the highlight of their entire trip. You can reach the viewpoint on foot or by motorbike in under ten minutes from the hotel. Bring your camera, arrive about 30 minutes before sunset, and simply watch.',
-        'details'  => ['5-10 min from hotel', 'Best visited on clear evenings', 'Walk or motorbike', 'Best from April–October'],
-    ],
-    [
-        'id'       => 'diving',
-        'eyebrow'  => 'Deep Exploration',
-        'title'    => 'Scuba Diving the Marine Park',
-        'image'    => 'https://images.unsplash.com/photo-1682687220742-aba13b6e50ba?w=900&q=80',
-        'body'     => 'Karimunjawa is a designated <strong>Marine National Park</strong>, meaning the reefs here are protected and thriving. Below the surface you\'ll find giant sea fans, staghorn coral colonies, and a rich variety of reef fish. Divers regularly encounter reef sharks, Napoleon wrasse, and on lucky days — whale sharks passing through the deeper channels. The underwater topography is dramatic, with walls dropping into blue water and swim-throughs carved by centuries of current. Dive operators near the hotel can arrange everything, from introductory dives for beginners to multi-tank trips for certified divers.',
-        'details'  => ['Multiple dive sites nearby', 'Beginner & advanced options', 'Rental equipment available', 'Best visibility: April–September'],
-    ],
-    [
-        'id'       => 'mangrove',
-        'eyebrow'  => 'Nature & Ecosystem',
-        'title'    => 'Exploring Mangrove Forests',
-        'image'    => 'https://images.unsplash.com/photo-1504681869696-d977211a5f4c?w=900&q=80',
-        'body'     => 'Along the southern shores of Karimunjawa stretch dense <strong>mangrove forests</strong> — one of the most important ecosystems on the island. Paddle or glide through narrow waterways shaded by arching roots, and you\'ll enter a world of deep quiet. Kingfishers dart between branches, mudskippers skip across the water, and the occasional monitor lizard watches from the bank. The mangroves are the nursery of the sea — sheltering juvenile fish, filtering the water, and protecting the coastline. A short trip from Narayana, this is a journey worth making for any nature lover.',
-        'details'  => ['Calm & quiet environment', 'Great for photography', 'Morning visits recommended', 'Boat or kayak options'],
-    ],
-    [
-        'id'       => 'motorbike',
-        'eyebrow'  => 'Freedom to Roam',
-        'title'    => 'Exploring the Island by Motorbike',
-        'image'    => 'https://images.unsplash.com/photo-1558981806-ec527fa84c39?w=900&q=80',
-        'body'     => 'The best way to discover Karimunjawa is on a motorbike, with no itinerary and all the time in the world. The island is small enough to circle in a morning, but rich enough to fill a week. Ride past <strong>fishing villages</strong> where colourful boats are pulled up on the beach, stop at a local warung for grilled fish, or follow a dirt track into the jungle to find a hidden viewpoint. You\'ll pass coconut groves, traditional houses, and small temples. Motorbikes are available for rental just a short walk from Narayana — your reception team can point you in the right direction.',
-        'details'  => ['Rentals available nearby', 'Easy island roads', 'Full or half-day', 'Helmets provided'],
-    ],
-];
+// Activities — load from database (or use defaults)
+$_actRow = dbFetch("SELECT setting_value FROM settings WHERE setting_key = 'web_activities'");
+$_actFromDb = $_actRow ? json_decode($_actRow['setting_value'], true) : [];
+// Filter active only and sort by order
+if (!empty($_actFromDb)) {
+    $_actFromDb = array_filter($_actFromDb, function($a) { return $a['active'] ?? true; });
+    usort($_actFromDb, function($a, $b) { return ($a['order'] ?? 0) - ($b['order'] ?? 0); });
+    $activities = array_values($_actFromDb);
+} else {
+    // Fallback: hardcoded defaults (will be used until activities are configured in developer panel)
+    $activities = [
+        [
+            'id'       => 'snorkeling',
+            'eyebrow'  => 'Underwater World',
+            'title'    => 'Snorkelling in Crystal Waters',
+            'image'    => 'https://images.unsplash.com/photo-1534258936925-c58bed479fcb?w=900&q=80',
+            'body'     => 'The waters around Karimunjawa are among the clearest in Java. Just a short boat ride from Narayana, you\'ll be floating above <strong>vibrant coral gardens</strong> alive with clownfish, parrotfish, and sea turtles.',
+            'details'  => ['Best time: 7am–11am', 'Distance from hotel: ~15 min by boat', 'Suitable for all ages', 'Equipment available nearby'],
+        ],
+        [
+            'id'       => 'island-hopping',
+            'eyebrow'  => 'Island Exploration',
+            'title'    => 'Hopping Between Islands',
+            'image'    => 'https://images.unsplash.com/photo-1559128010-7c1ad6e1b6a5?w=900&q=80',
+            'body'     => 'The Karimunjawa archipelago is made up of 27 islands — most of them uninhabited and <strong>entirely untouched</strong>.',
+            'details'  => ['Full day excursion', 'Customisable route', 'Bring sunscreen & hat', 'Lunch included in most trips'],
+        ],
+        [
+            'id'       => 'sunset',
+            'eyebrow'  => 'Golden Hour',
+            'title'    => 'Sunsets from the Hilltop',
+            'image'    => 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=900&q=80',
+            'body'     => 'Narayana is uniquely positioned <strong>close to the island\'s highest viewpoint</strong>, and the sunsets here are unlike anything you\'ve seen.',
+            'details'  => ['5-10 min from hotel', 'Best visited on clear evenings', 'Walk or motorbike', 'Best from April–October'],
+        ],
+        [
+            'id'       => 'diving',
+            'eyebrow'  => 'Deep Exploration',
+            'title'    => 'Scuba Diving the Marine Park',
+            'image'    => 'https://images.unsplash.com/photo-1682687220742-aba13b6e50ba?w=900&q=80',
+            'body'     => 'Karimunjawa is a designated <strong>Marine National Park</strong>, meaning the reefs here are protected and thriving.',
+            'details'  => ['Multiple dive sites nearby', 'Beginner & advanced options', 'Rental equipment available', 'Best visibility: April–September'],
+        ],
+        [
+            'id'       => 'mangrove',
+            'eyebrow'  => 'Nature & Ecosystem',
+            'title'    => 'Exploring Mangrove Forests',
+            'image'    => 'https://images.unsplash.com/photo-1504681869696-d977211a5f4c?w=900&q=80',
+            'body'     => 'Along the southern shores of Karimunjawa stretch dense <strong>mangrove forests</strong> — one of the most important ecosystems on the island.',
+            'details'  => ['Calm & quiet environment', 'Great for photography', 'Morning visits recommended', 'Boat or kayak options'],
+        ],
+        [
+            'id'       => 'motorbike',
+            'eyebrow'  => 'Freedom to Roam',
+            'title'    => 'Exploring the Island by Motorbike',
+            'image'    => 'https://images.unsplash.com/photo-1558981806-ec527fa84c39?w=900&q=80',
+            'body'     => 'The best way to discover Karimunjawa is on a motorbike, with no itinerary and all the time in the world.',
+            'details'  => ['Rentals available nearby', 'Easy island roads', 'Full or half-day', 'Helmets provided'],
+        ],
+    ];
+}
 
 require_once __DIR__ . '/includes/header.php';
 ?>

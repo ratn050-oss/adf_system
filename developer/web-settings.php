@@ -41,6 +41,9 @@ $webSettings = [
     // Destinations (JSON array of destination objects)
     'web_destinations'       => '[]',
 
+    // Activities (JSON array of activity objects)
+    'web_activities'         => '[]',
+
     // Hero — Home
     'web_hero_accent'              => 'Welcome to Paradise',
     'web_hero_title'               => 'Experience Karimunjawa<br>Like Never Before',
@@ -807,6 +810,133 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $webSettings['web_destinations'] = $destJson;
     }
 
+    elseif ($action === 'save_activities') {
+        $redirectTab = 'activities';
+        
+        // Load existing activities
+        $existingAct = json_decode($webSettings['web_activities'] ?? '[]', true) ?: [];
+        
+        // Handle adding new activity
+        if (!empty($_POST['act_title'])) {
+            $newAct = [
+                'id' => uniqid('act_'),
+                'eyebrow' => trim($_POST['act_eyebrow'] ?? ''),
+                'title' => trim($_POST['act_title']),
+                'image' => trim($_POST['act_image'] ?? ''),
+                'body' => trim($_POST['act_body'] ?? ''),
+                'details' => array_filter(array_map('trim', explode("\n", $_POST['act_details'] ?? ''))),
+                'order' => count($existingAct) + 1,
+                'active' => true,
+            ];
+            
+            // Handle image upload for new activity
+            if (isset($_FILES['act_image_file']) && $_FILES['act_image_file']['error'] === UPLOAD_ERR_OK) {
+                $fileInfo = pathinfo($_FILES['act_image_file']['name']);
+                $allowedExts = ['jpg', 'jpeg', 'png', 'webp'];
+                if (in_array(strtolower($fileInfo['extension']), $allowedExts)) {
+                    $localFilename = 'act-' . time() . '.' . $fileInfo['extension'];
+                    $cloudinary = CloudinaryHelper::getInstance();
+                    $uploadResult = $cloudinary->smartUpload($_FILES['act_image_file'], 'uploads/activities', $localFilename, 'activities', 'act_' . $newAct['id']);
+                    if ($uploadResult['success']) {
+                        $newAct['image'] = $uploadResult['path'];
+                        if (!$uploadResult['is_cloud']) {
+                            $websiteActDir = $websitePublicDir . '/uploads/activities/';
+                            if (!is_dir($websiteActDir)) @mkdir($websiteActDir, 0755, true);
+                            @copy(dirname(dirname(__FILE__)) . '/' . $uploadResult['path'], $websiteActDir . $localFilename);
+                        }
+                    }
+                }
+            }
+            
+            $existingAct[] = $newAct;
+            $success = 'Activity "' . $newAct['title'] . '" added!';
+        }
+        
+        // Handle update existing activities
+        if (isset($_POST['act_update_id']) && is_array($_POST['act_update_id'])) {
+            foreach ($_POST['act_update_id'] as $idx => $actId) {
+                foreach ($existingAct as &$a) {
+                    if ($a['id'] === $actId) {
+                        $a['eyebrow'] = trim($_POST['act_update_eyebrow'][$idx] ?? $a['eyebrow']);
+                        $a['title'] = trim($_POST['act_update_title'][$idx] ?? $a['title']);
+                        $a['body'] = trim($_POST['act_update_body'][$idx] ?? $a['body']);
+                        $a['order'] = (int)($_POST['act_update_order'][$idx] ?? $a['order']);
+                        $a['active'] = isset($_POST['act_update_active']) && in_array($actId, $_POST['act_update_active']);
+                        
+                        // Details: one per line
+                        $rawDetails = $_POST['act_update_details'][$idx] ?? '';
+                        $a['details'] = array_values(array_filter(array_map('trim', explode("\n", $rawDetails))));
+                        
+                        // Image URL (text field)
+                        if (isset($_POST['act_update_image'][$idx]) && trim($_POST['act_update_image'][$idx]) !== '') {
+                            $a['image'] = trim($_POST['act_update_image'][$idx]);
+                        }
+                        
+                        // Handle image upload for update
+                        $fileKey = 'act_update_image_file_' . $actId;
+                        if (isset($_FILES[$fileKey]) && $_FILES[$fileKey]['error'] === UPLOAD_ERR_OK) {
+                            $fileInfo = pathinfo($_FILES[$fileKey]['name']);
+                            $allowedExts = ['jpg', 'jpeg', 'png', 'webp'];
+                            if (in_array(strtolower($fileInfo['extension']), $allowedExts)) {
+                                $localFilename = 'act-' . time() . '-' . $idx . '.' . $fileInfo['extension'];
+                                $cloudinary = CloudinaryHelper::getInstance();
+                                $uploadResult = $cloudinary->smartUpload($_FILES[$fileKey], 'uploads/activities', $localFilename, 'activities', 'act_' . $actId);
+                                if ($uploadResult['success']) {
+                                    if (!empty($a['image']) && strpos($a['image'], 'http') !== 0) {
+                                        $old1 = dirname(dirname(__FILE__)) . '/' . $a['image'];
+                                        $old2 = $websitePublicDir . '/' . $a['image'];
+                                        if (file_exists($old1)) @unlink($old1);
+                                        if (file_exists($old2)) @unlink($old2);
+                                    }
+                                    $a['image'] = $uploadResult['path'];
+                                    if (!$uploadResult['is_cloud']) {
+                                        $websiteActDir = $websitePublicDir . '/uploads/activities/';
+                                        if (!is_dir($websiteActDir)) @mkdir($websiteActDir, 0755, true);
+                                        @copy(dirname(dirname(__FILE__)) . '/' . $uploadResult['path'], $websiteActDir . $localFilename);
+                                    }
+                                }
+                            }
+                        }
+                        break;
+                    }
+                }
+            }
+            unset($a);
+            if (!$success) $success = 'Activities updated!';
+        }
+        
+        // Handle delete activities
+        if (isset($_POST['delete_act']) && is_array($_POST['delete_act'])) {
+            foreach ($_POST['delete_act'] as $actId) {
+                foreach ($existingAct as $ak => $a) {
+                    if ($a['id'] === $actId) {
+                        if (!empty($a['image']) && strpos($a['image'], 'http') !== 0) {
+                            $f1 = dirname(dirname(__FILE__)) . '/' . $a['image'];
+                            $f2 = $websitePublicDir . '/' . $a['image'];
+                            if (file_exists($f1)) @unlink($f1);
+                            if (file_exists($f2)) @unlink($f2);
+                        }
+                        unset($existingAct[$ak]);
+                        break;
+                    }
+                }
+            }
+            $existingAct = array_values($existingAct);
+            $success = 'Activity deleted!';
+        }
+        
+        // Sort by order
+        usort($existingAct, function($a, $b) { return ($a['order'] ?? 0) - ($b['order'] ?? 0); });
+        
+        // Save to database
+        $actJson = json_encode($existingAct);
+        $stmt = $webDb->prepare("INSERT INTO settings (setting_key, setting_value, setting_type, description) 
+                    VALUES ('web_activities', ?, 'text', 'Website Activities') 
+                    ON DUPLICATE KEY UPDATE setting_value = ?");
+        $stmt->execute([$actJson, $actJson]);
+        $webSettings['web_activities'] = $actJson;
+    }
+
     // For AJAX requests: return JSON response
     if ($isAjax) {
         header('Content-Type: application/json');
@@ -1246,6 +1376,7 @@ require_once __DIR__ . '/includes/header.php';
         <button class="settings-tab <?= $activeTab === 'appearance' ? 'active' : '' ?>" data-tab="appearance"><i class="bi bi-palette me-1"></i>Appearance</button>
         <button class="settings-tab <?= $activeTab === 'booking' ? 'active' : '' ?>" data-tab="booking"><i class="bi bi-calendar-check me-1"></i>Booking</button>
         <button class="settings-tab <?= $activeTab === 'destinations' ? 'active' : '' ?>" data-tab="destinations"><i class="bi bi-geo-alt me-1"></i>Destinations</button>
+        <button class="settings-tab <?= $activeTab === 'activities' ? 'active' : '' ?>" data-tab="activities"><i class="bi bi-compass me-1"></i>Activities</button>
         <button class="settings-tab <?= $activeTab === 'agent' ? 'active' : '' ?>" data-tab="agent"><i class="bi bi-robot me-1"></i>AI Agent</button>
     </div>
     
@@ -2105,6 +2236,125 @@ require_once __DIR__ . '/includes/header.php';
                     <?php endforeach; ?>
                     <button type="submit" class="btn btn-primary w-100">
                         <i class="bi bi-check-lg me-1"></i>Save All Destinations
+                    </button>
+                </form>
+                <?php endif; ?>
+            </div>
+        </div>
+    </div>
+
+    <!-- ============== ACTIVITIES TAB ============== -->
+    <?php $activitiesList = json_decode($webSettings['web_activities'] ?? '[]', true) ?: []; ?>
+    <div class="tab-content <?= $activeTab === 'activities' ? 'active' : '' ?>" id="tab-activities">
+        <div class="settings-card">
+            <div class="settings-card-header">
+                <div class="icon" style="background: rgba(13,110,253,0.15); color: #0d6efd;">
+                    <i class="bi bi-compass-fill"></i>
+                </div>
+                <div>
+                    <h5>Activities & Experiences</h5>
+                    <small>Manage activities shown on the website's Activities page</small>
+                </div>
+            </div>
+            <div class="settings-card-body">
+                <!-- Add New Activity -->
+                <div class="p-3 mb-4 rounded" style="background: #eff6ff; border: 1px solid #bfdbfe;">
+                    <h6 class="mb-3"><i class="bi bi-plus-circle me-1"></i>Add New Activity</h6>
+                    <form method="POST" enctype="multipart/form-data">
+                        <input type="hidden" name="action" value="save_activities">
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Title <span class="text-danger">*</span></label>
+                                <input type="text" name="act_title" class="form-control" placeholder="e.g. Snorkelling in Crystal Waters" required>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Eyebrow / Category</label>
+                                <input type="text" name="act_eyebrow" class="form-control" placeholder="e.g. Underwater World">
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Body / Description</label>
+                            <textarea name="act_body" class="form-control" rows="4" placeholder="Write a detailed description about this activity... HTML tags allowed."></textarea>
+                            <div class="form-text">Supports HTML tags for formatting (e.g. &lt;strong&gt;, &lt;a&gt;, &lt;em&gt;)</div>
+                        </div>
+                        <div class="mb-3">
+                            <label class="form-label">Details (one per line)</label>
+                            <textarea name="act_details" class="form-control" rows="3" placeholder="Best time: 7am–11am&#10;Distance from hotel: ~15 min&#10;Suitable for all ages"></textarea>
+                            <div class="form-text">Each line becomes a bullet point on the website</div>
+                        </div>
+                        <div class="row">
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Image URL</label>
+                                <input type="text" name="act_image" class="form-control" placeholder="https://images.unsplash.com/...">
+                                <div class="form-text">Paste an external image URL, or upload below</div>
+                            </div>
+                            <div class="col-md-6 mb-3">
+                                <label class="form-label">Or Upload Image</label>
+                                <input type="file" name="act_image_file" class="form-control" accept="image/jpeg,image/png,image/webp">
+                                <div class="form-text">Recommended: 900×600px landscape photo</div>
+                            </div>
+                        </div>
+                        <button type="submit" class="btn btn-primary">
+                            <i class="bi bi-plus-lg me-1"></i>Add Activity
+                        </button>
+                    </form>
+                </div>
+
+                <?php if (empty($activitiesList)): ?>
+                <div class="text-center p-4" style="color: #999;">
+                    <i class="bi bi-compass" style="font-size: 48px; opacity: 0.3;"></i>
+                    <p class="mt-2">No activities added yet. Add your first activity above.</p>
+                </div>
+                <?php else: ?>
+                <!-- Existing Activities -->
+                <h6 class="mb-3"><i class="bi bi-list-ul me-1"></i>Current Activities (<?= count($activitiesList) ?>)</h6>
+                <form method="POST" enctype="multipart/form-data">
+                    <input type="hidden" name="action" value="save_activities">
+                    <?php foreach ($activitiesList as $ai => $act): ?>
+                    <div class="p-3 mb-3 rounded" style="background: #f8f9fa; border: 1px solid #dee2e6;">
+                        <div class="d-flex align-items-start gap-3">
+                            <?php if (!empty($act['image'])): ?>
+                            <div style="width: 120px; min-width: 120px; height: 80px; border-radius: 8px; overflow: hidden;">
+                                <img src="<?= (strpos($act['image'], 'http') === 0) ? htmlspecialchars($act['image']) : '../' . htmlspecialchars($act['image']) ?>" style="width: 100%; height: 100%; object-fit: cover;" alt="">
+                            </div>
+                            <?php endif; ?>
+                            <div style="flex: 1;">
+                                <input type="hidden" name="act_update_id[]" value="<?= htmlspecialchars($act['id']) ?>">
+                                <div class="row mb-2">
+                                    <div class="col-md-3">
+                                        <input type="text" name="act_update_eyebrow[]" class="form-control form-control-sm" value="<?= htmlspecialchars($act['eyebrow'] ?? '') ?>" placeholder="Eyebrow" title="Category/Eyebrow">
+                                    </div>
+                                    <div class="col-md-4">
+                                        <input type="text" name="act_update_title[]" class="form-control form-control-sm" value="<?= htmlspecialchars($act['title']) ?>" placeholder="Title">
+                                    </div>
+                                    <div class="col-md-3">
+                                        <input type="text" name="act_update_image[]" class="form-control form-control-sm" value="<?= htmlspecialchars($act['image'] ?? '') ?>" placeholder="Image URL" title="Image URL">
+                                    </div>
+                                    <div class="col-md-1">
+                                        <input type="number" name="act_update_order[]" class="form-control form-control-sm" value="<?= (int)($act['order'] ?? $ai + 1) ?>" min="1" title="Display order">
+                                    </div>
+                                    <div class="col-md-1 d-flex align-items-center">
+                                        <label title="Active" style="cursor: pointer;">
+                                            <input type="checkbox" name="act_update_active[]" value="<?= htmlspecialchars($act['id']) ?>" <?= ($act['active'] ?? true) ? 'checked' : '' ?>>
+                                            <i class="bi bi-eye ms-1"></i>
+                                        </label>
+                                    </div>
+                                </div>
+                                <textarea name="act_update_body[]" class="form-control form-control-sm mb-2" rows="2" placeholder="Body / Description (HTML allowed)"><?= htmlspecialchars($act['body'] ?? '') ?></textarea>
+                                <textarea name="act_update_details[]" class="form-control form-control-sm mb-2" rows="2" placeholder="Details (one per line)"><?= htmlspecialchars(implode("\n", $act['details'] ?? [])) ?></textarea>
+                                <div class="d-flex align-items-center gap-2">
+                                    <input type="file" name="act_update_image_file_<?= htmlspecialchars($act['id']) ?>" class="form-control form-control-sm" accept="image/jpeg,image/png,image/webp" style="max-width: 250px;">
+                                    <label style="font-size: 12px; color: #dc3545; cursor: pointer; white-space: nowrap;">
+                                        <input type="checkbox" name="delete_act[]" value="<?= htmlspecialchars($act['id']) ?>" style="margin-right: 3px;">
+                                        <i class="bi bi-trash"></i> Delete
+                                    </label>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <?php endforeach; ?>
+                    <button type="submit" class="btn btn-primary w-100">
+                        <i class="bi bi-check-lg me-1"></i>Save All Activities
                     </button>
                 </form>
                 <?php endif; ?>
