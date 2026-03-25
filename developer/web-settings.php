@@ -2244,7 +2244,36 @@ require_once __DIR__ . '/includes/header.php';
     </div>
 
     <!-- ============== ACTIVITIES TAB ============== -->
-    <?php $activitiesList = json_decode($webSettings['web_activities'] ?? '[]', true) ?: []; ?>
+    <?php 
+    $activitiesList = json_decode($webSettings['web_activities'] ?? '[]', true) ?: [];
+    
+    // Auto-seed default activities if empty
+    if (empty($activitiesList)) {
+        $activitiesList = [
+            ['id' => 'snorkeling', 'eyebrow' => 'Underwater World', 'title' => 'Snorkelling in Crystal-Clear Waters', 'image' => 'https://images.unsplash.com/photo-1534258936925-c58bed479fcb?w=900&q=80', 'body' => 'Karimunjawa\'s waters are among the clearest in the entire Java Sea, with visibility regularly reaching <strong>15 to 20 metres</strong> on calm days. Just a short boat ride from Narayana, you\'ll be floating above vibrant coral gardens teeming with life — clownfish darting between anemones, parrotfish grazing on coral, giant clams wedged into reef crevices, and green sea turtles gliding through the blue. The archipelago\'s most celebrated snorkelling spots include <strong>Menjangan Kecil</strong>, <strong>Gosong Cemara</strong>, and <strong>Taka Menyawakan</strong>. The marine biodiversity here is extraordinary — over 240 species of coral and more than 240 species of reef fish have been recorded within Karimunjawa National Marine Park.', 'details' => ['Best time: 7:00–11:00 (calmest water, best visibility)', 'Top spots: Menjangan Kecil, Gosong Cemara, Taka Menyawakan', 'Distance from hotel: 10–30 min by boat', 'Suitable for all ages and skill levels', 'Equipment rental available on most boat trips', 'Over 240 coral species and 240+ fish species recorded'], 'order' => 1, 'active' => true],
+            ['id' => 'island-hopping', 'eyebrow' => 'Island Exploration', 'title' => 'Hopping Between 27 Islands', 'image' => 'https://images.unsplash.com/photo-1559128010-7c1ad6e1b6a5?w=900&q=80', 'body' => 'The Karimunjawa archipelago comprises <strong>27 islands</strong>, and only five of them are inhabited — the rest remain wild, forested, and fringed by powdery white sand. An island-hopping trip is the quintessential Karimunjawa experience. <strong>Cemara Kecil</strong> is famous for its iconic leaning coconut palm. <strong>Menjangan Besar</strong> has a hilltop viewpoint and a shark conservation area. Most tours last a full day and include stops at 3–5 islands, a freshly grilled seafood lunch on the beach, and plenty of time to snorkel, swim, or simply sit on a deserted shore.', 'details' => ['Full-day excursion (08:00–16:00)', 'Visit 3–5 islands per trip', 'Popular stops: Cemara Kecil, Cemara Besar, Menjangan Besar, Geleang', 'Grilled seafood lunch included on most trips', 'Customisable routes available for private charters', 'Bring sunscreen, hat, and waterproof bag'], 'order' => 2, 'active' => true],
+            ['id' => 'diving', 'eyebrow' => 'Deep Exploration', 'title' => 'Scuba Diving the Marine National Park', 'image' => 'https://images.unsplash.com/photo-1682687220742-aba13b6e50ba?w=900&q=80', 'body' => 'Karimunjawa has been a <strong>National Marine Park</strong> since 2001. Below the surface you\'ll find towering sea fans, dense staghorn coral, barrel sponges, and astonishing marine life. Divers regularly encounter <strong>blacktip and whitetip reef sharks</strong>, Napoleon wrasse, schools of barracuda, and on lucky days — <strong>whale sharks</strong>. Top sites include wall dives at <strong>Taka Malang</strong>, the wreck at <strong>Kapal Tenggelam</strong> (patrol vessel at 25m), and the coral gardens of <strong>Pulau Sintok</strong>.', 'details' => ['Over 30 mapped dive sites', 'Depth range: 5–40+ metres', 'Marine life: reef sharks, Napoleon wrasse, sea turtles, whale sharks (seasonal)', 'Top sites: Taka Malang, Kapal Tenggelam wreck, Pulau Sintok', 'PADI courses: DSD, Open Water, Advanced', 'Best visibility: April–September', 'Water temperature: 27–30°C year-round'], 'order' => 3, 'active' => true],
+            ['id' => 'shark-encounter', 'eyebrow' => 'Wildlife Encounter', 'title' => 'Swimming with Sharks & Rays', 'image' => 'https://images.unsplash.com/photo-1560275619-4662e36fa65c?w=900&q=80', 'body' => 'At <strong>Menjangan Besar Island</strong>, a natural ocean enclosure allows visitors to swim alongside <strong>blacktip reef sharks and giant stingrays</strong>. This community-run conservation initiative has local fishermen partnering with the national park to protect juvenile sharks. You wade into chest-deep water while reef sharks circle with calm, elegant movements. The experience is both exhilarating and surprisingly peaceful. Guides are always present, making it safe even for children.', 'details' => ['Location: Menjangan Besar Island (15 min by boat)', 'Species: Blacktip reef sharks & giant stingrays', 'Safe for children under adult supervision', 'Community-run conservation initiative', 'Entrance fee supports local shark protection', 'Waterproof camera highly recommended'], 'order' => 4, 'active' => true],
+            ['id' => 'sunset', 'eyebrow' => 'Golden Hour', 'title' => 'Watching the Sunset from Bukit Love', 'image' => 'https://images.unsplash.com/photo-1507525428034-b723cf961d3e?w=900&q=80', 'body' => 'Karimunjawa faces west across the open Java Sea — <strong>the sunsets are extraordinary</strong>. The most famous viewpoint is <strong>Bukit Love</strong> (Love Hill) with its heart-shaped sign framing the horizon. The walk up takes about 10 minutes. Another popular spot is <strong>Legon Lele</strong> beach. For something special, consider a <strong>sunset boat cruise</strong> on a traditional wooden boat.', 'details' => ['Bukit Love: 10 min walk/ride from most hotels', 'Sunset time: ~17:15–17:45 depending on season', 'Alternative spots: Legon Lele beach, Sunset Pier, boat cruise', 'Best from April–October (dry season)', 'Free access to all hilltop viewpoints'], 'order' => 5, 'active' => true],
+            ['id' => 'mangrove', 'eyebrow' => 'Nature & Conservation', 'title' => 'Exploring the Mangrove Forest Trail', 'image' => 'https://images.unsplash.com/photo-1504681869696-d977211a5f4c?w=900&q=80', 'body' => 'The <strong>Mangrove Tracking Area</strong> near Kemujan features a well-maintained wooden boardwalk through dense mangrove forest. The canopy is alive with <strong>kingfishers</strong>, <strong>white-bellied sea eagles</strong>, and the rare mangrove pitta. For a more immersive experience, explore the channels <strong>by kayak</strong>, paddling silently through shaded waterways. 15+ mangrove species have been identified in the park.', 'details' => ['Location: Mangrove Tracking Area, near Kemujan', 'Duration: 1–2 hours (walk) or 2–3 hours (kayak)', 'Wooden boardwalk suitable for all fitness levels', 'Best visited early morning (cooler, more wildlife)', 'Kayak rentals available on-site', 'Birdlife: kingfishers, sea eagles, herons, mangrove pittas'], 'order' => 6, 'active' => true],
+            ['id' => 'motorbike', 'eyebrow' => 'Freedom to Roam', 'title' => 'Exploring the Island by Motorbike', 'image' => 'https://images.unsplash.com/photo-1558981806-ec527fa84c39?w=900&q=80', 'body' => 'The best way to discover Karimunjawa at your own pace is on a <strong>motorbike</strong>. Ride through <strong>traditional fishing villages</strong>, stop at a roadside <strong>warung</strong> for grilled fish and sambal, or follow a dirt track to a hidden viewpoint. The <strong>west coast</strong> road passes a string of secluded beaches. The <strong>eastern road to Kemujan</strong> crosses a narrow bridge between islands through mangrove-lined channels.', 'details' => ['Scooter rental: ~IDR 75,000–100,000 per day', 'Main roads paved and well-maintained', 'Helmets provided with rental', 'Recommended: West coast beach road + Kemujan bridge', 'Full island circuit: ~2–3 hours with stops'], 'order' => 7, 'active' => true],
+            ['id' => 'fishing', 'eyebrow' => 'Ocean Tradition', 'title' => 'Traditional & Sport Fishing', 'image' => 'https://images.unsplash.com/photo-1544551763-46a013bb70d5?w=900&q=80', 'body' => 'Join a <strong>traditional fishing trip</strong> on a wooden boat alongside experienced local fishermen. The waters are rich with <strong>snapper, grouper, trevally, barracuda, and tuna</strong>. For something exciting, try <strong>night fishing (mancing malam)</strong>: head out after sunset, fish by lamplight under the Milky Way while the crew grills your earlier catch over charcoal on the back of the boat.', 'details' => ['Traditional fishing: half-day trips from harbour', 'Species: snapper, grouper, trevally, barracuda, tuna, GT', 'Night fishing: depart ~18:00, return by 22:00', 'No experience necessary — local guides teach you', 'Catch can be grilled on the boat', 'Best fishing months: March–October'], 'order' => 8, 'active' => true],
+            ['id' => 'kayaking', 'eyebrow' => 'Coastal Adventure', 'title' => 'Kayaking & Stand-Up Paddleboarding', 'image' => 'https://images.unsplash.com/photo-1472745433479-4556f22e32c2?w=900&q=80', 'body' => 'Karimunjawa\'s calm, sheltered bays are ideal for <strong>kayaking and SUP</strong>. Paddle along the coastline over coral gardens visible through transparent water. The <strong>mangrove channels</strong> on the eastern side offer a quiet, meditative journey. For SUP, the <strong>shallow lagoon near Cemara Kecil</strong> is a dream — paddle over white sand and turquoise water so clear it feels like floating on air.', 'details' => ['Best conditions: morning before 11:00', 'Kayak rental: ~IDR 50,000–75,000/hour', 'SUP rental: ~IDR 75,000–100,000/hour', 'Top routes: mangrove channels, Cemara Kecil lagoon', 'No experience needed for calm-water paddling', 'Suitable for ages 8 and up'], 'order' => 9, 'active' => true],
+            ['id' => 'trekking', 'eyebrow' => 'Highland Adventure', 'title' => 'Jungle Trekking & Hill Walks', 'image' => 'https://images.unsplash.com/photo-1551632811-561732d1e306?w=900&q=80', 'body' => 'The interior of the main island is covered in dense <strong>tropical lowland forest</strong>. The <strong>Bukit Gajah trail</strong> passes the rare <em>Dewadaru</em> tree (sacred, found almost nowhere else) and endemic <strong>Karimunjawa white-eye</strong> bird (critically endangered). The summit offers a <strong>360-degree panorama</strong> over the entire archipelago.', 'details' => ['Trail options: 30 min easy to 3–4 hour challenging', 'Highlights: Dewadaru sacred tree, endemic bird species', 'Bukit Gajah: moderate difficulty, panoramic summit views', 'Guides available through National Park office', 'Bring: water, closed shoes, insect repellent'], 'order' => 10, 'active' => true],
+            ['id' => 'beach-camping', 'eyebrow' => 'Under the Stars', 'title' => 'Camping on Uninhabited Islands', 'image' => 'https://images.unsplash.com/photo-1504280390367-361c6d9f38f4?w=900&q=80', 'body' => 'Spend a night <strong>camping on an uninhabited island</strong>. Popular islands include <strong>Cemara Besar</strong> and <strong>Geleang</strong>. Local operators arrange everything: boat transfer, tents, sleeping mats, and a crew who grills fresh fish over an open fire. The <strong>Milky Way</strong> arcs overhead with astonishing clarity — zero light pollution.', 'details' => ['Popular islands: Cemara Besar, Geleang, Menjangan Kecil', 'Duration: overnight or extended (2 nights)', 'All equipment provided: tents, mats, cooking gear', 'Fresh seafood dinner by local crew', 'Zero light pollution — exceptional stargazing', 'Best during dry season: April–October'], 'order' => 11, 'active' => true],
+            ['id' => 'village-culture', 'eyebrow' => 'Local Heritage', 'title' => 'Village Tours & Local Culture', 'image' => 'https://images.unsplash.com/photo-1590523741831-ab7e8b8f9c7f?w=900&q=80', 'body' => 'Visit <strong>Karimunjawa Village</strong> — walk through narrow lanes past traditional wooden houses, visit the <strong>historic cemetery of Sunan Nyamplungan</strong> (15th century Islamic missionary), and watch traditional boatbuilders at work. The <strong>Bugis community in Kemujan</strong> maintains distinct cultural traditions. Try local cuisine: <strong>nasi goreng ikan</strong>, <strong>sate kelapa</strong>, and <strong>bakso ikan</strong>.', 'details' => ['Karimunjawa Village: walking distance from harbour', 'Sunan Nyamplungan: historic Islamic heritage site', 'Bugis community in Kemujan', 'Traditional boatbuilding at main harbour', 'Local cuisine: nasi goreng ikan, sate kelapa, bakso ikan', 'Best with a local guide (arranged via hotel)'], 'order' => 12, 'active' => true],
+        ];
+        // Save seed to database
+        try {
+            $seedJson = json_encode($activitiesList);
+            $stmt = $webDb->prepare("INSERT INTO settings (setting_key, setting_value, setting_type, description) 
+                        VALUES ('web_activities', ?, 'text', 'Website Activities') 
+                        ON DUPLICATE KEY UPDATE setting_value = CASE WHEN setting_value = '[]' OR setting_value = '' OR setting_value IS NULL THEN VALUES(setting_value) ELSE setting_value END");
+            $stmt->execute([$seedJson]);
+            $webSettings['web_activities'] = $seedJson;
+        } catch (Exception $e) { /* silently fail */ }
+    }
+    ?>
     <div class="tab-content <?= $activeTab === 'activities' ? 'active' : '' ?>" id="tab-activities">
         <div class="settings-card">
             <div class="settings-card-header">
@@ -2312,44 +2341,68 @@ require_once __DIR__ . '/includes/header.php';
                     <input type="hidden" name="action" value="save_activities">
                     <?php foreach ($activitiesList as $ai => $act): ?>
                     <div class="p-3 mb-3 rounded" style="background: #f8f9fa; border: 1px solid #dee2e6;">
-                        <div class="d-flex align-items-start gap-3">
-                            <?php if (!empty($act['image'])): ?>
-                            <div style="width: 120px; min-width: 120px; height: 80px; border-radius: 8px; overflow: hidden;">
-                                <img src="<?= (strpos($act['image'], 'http') === 0) ? htmlspecialchars($act['image']) : '../' . htmlspecialchars($act['image']) ?>" style="width: 100%; height: 100%; object-fit: cover;" alt="">
-                            </div>
-                            <?php endif; ?>
-                            <div style="flex: 1;">
-                                <input type="hidden" name="act_update_id[]" value="<?= htmlspecialchars($act['id']) ?>">
-                                <div class="row mb-2">
-                                    <div class="col-md-3">
-                                        <input type="text" name="act_update_eyebrow[]" class="form-control form-control-sm" value="<?= htmlspecialchars($act['eyebrow'] ?? '') ?>" placeholder="Eyebrow" title="Category/Eyebrow">
-                                    </div>
-                                    <div class="col-md-4">
-                                        <input type="text" name="act_update_title[]" class="form-control form-control-sm" value="<?= htmlspecialchars($act['title']) ?>" placeholder="Title">
-                                    </div>
-                                    <div class="col-md-3">
-                                        <input type="text" name="act_update_image[]" class="form-control form-control-sm" value="<?= htmlspecialchars($act['image'] ?? '') ?>" placeholder="Image URL" title="Image URL">
-                                    </div>
-                                    <div class="col-md-1">
-                                        <input type="number" name="act_update_order[]" class="form-control form-control-sm" value="<?= (int)($act['order'] ?? $ai + 1) ?>" min="1" title="Display order">
-                                    </div>
-                                    <div class="col-md-1 d-flex align-items-center">
-                                        <label title="Active" style="cursor: pointer;">
-                                            <input type="checkbox" name="act_update_active[]" value="<?= htmlspecialchars($act['id']) ?>" <?= ($act['active'] ?? true) ? 'checked' : '' ?>>
-                                            <i class="bi bi-eye ms-1"></i>
-                                        </label>
+                        <input type="hidden" name="act_update_id[]" value="<?= htmlspecialchars($act['id']) ?>">
+                        
+                        <!-- Header: Number + Title + Order + Active -->
+                        <div class="d-flex align-items-center gap-2 mb-3">
+                            <span class="badge bg-primary" style="font-size: 0.9rem; padding: 6px 10px;"><?= str_pad($ai + 1, 2, '0', STR_PAD_LEFT) ?></span>
+                            <input type="text" name="act_update_title[]" class="form-control form-control-sm fw-bold" value="<?= htmlspecialchars($act['title']) ?>" placeholder="Activity Title" style="flex: 1;">
+                            <input type="text" name="act_update_eyebrow[]" class="form-control form-control-sm" value="<?= htmlspecialchars($act['eyebrow'] ?? '') ?>" placeholder="Category" style="max-width: 160px;">
+                            <input type="number" name="act_update_order[]" class="form-control form-control-sm text-center" value="<?= (int)($act['order'] ?? $ai + 1) ?>" min="1" title="Display order" style="max-width: 60px;">
+                            <label title="Active" style="cursor: pointer; white-space: nowrap;">
+                                <input type="checkbox" name="act_update_active[]" value="<?= htmlspecialchars($act['id']) ?>" <?= ($act['active'] ?? true) ? 'checked' : '' ?>>
+                                <i class="bi bi-eye ms-1"></i>
+                            </label>
+                        </div>
+
+                        <!-- Image Section -->
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <label class="form-label" style="font-size: 0.8rem; font-weight: 600;"><i class="bi bi-image me-1"></i>Current Image</label>
+                                <?php if (!empty($act['image'])): ?>
+                                <div style="width: 100%; height: 160px; border-radius: 10px; overflow: hidden; border: 2px solid #dee2e6; margin-bottom: 8px;">
+                                    <img src="<?= (strpos($act['image'], 'http') === 0) ? htmlspecialchars($act['image']) : '../' . htmlspecialchars($act['image']) ?>" style="width: 100%; height: 100%; object-fit: cover;" alt="<?= htmlspecialchars($act['title']) ?>">
+                                </div>
+                                <?php else: ?>
+                                <div style="width: 100%; height: 160px; border-radius: 10px; border: 2px dashed #dee2e6; display: flex; align-items: center; justify-content: center; color: #adb5bd; margin-bottom: 8px;">
+                                    <div class="text-center">
+                                        <i class="bi bi-image" style="font-size: 2rem;"></i>
+                                        <div style="font-size: 0.75rem;">No image</div>
                                     </div>
                                 </div>
-                                <textarea name="act_update_body[]" class="form-control form-control-sm mb-2" rows="2" placeholder="Body / Description (HTML allowed)"><?= htmlspecialchars($act['body'] ?? '') ?></textarea>
-                                <textarea name="act_update_details[]" class="form-control form-control-sm mb-2" rows="2" placeholder="Details (one per line)"><?= htmlspecialchars(implode("\n", $act['details'] ?? [])) ?></textarea>
-                                <div class="d-flex align-items-center gap-2">
-                                    <input type="file" name="act_update_image_file_<?= htmlspecialchars($act['id']) ?>" class="form-control form-control-sm" accept="image/jpeg,image/png,image/webp" style="max-width: 250px;">
-                                    <label style="font-size: 12px; color: #dc3545; cursor: pointer; white-space: nowrap;">
-                                        <input type="checkbox" name="delete_act[]" value="<?= htmlspecialchars($act['id']) ?>" style="margin-right: 3px;">
-                                        <i class="bi bi-trash"></i> Delete
-                                    </label>
+                                <?php endif; ?>
+                            </div>
+                            <div class="col-md-8">
+                                <label class="form-label" style="font-size: 0.8rem; font-weight: 600;"><i class="bi bi-pencil-square me-1"></i>Change Image</label>
+                                <div class="mb-2">
+                                    <input type="text" name="act_update_image[]" class="form-control form-control-sm" value="<?= htmlspecialchars($act['image'] ?? '') ?>" placeholder="Image URL (e.g. https://images.unsplash.com/...)">
+                                    <div class="form-text">Paste any image URL — or upload a file below</div>
+                                </div>
+                                <div class="mb-2">
+                                    <input type="file" name="act_update_image_file_<?= htmlspecialchars($act['id']) ?>" class="form-control form-control-sm" accept="image/jpeg,image/png,image/webp">
+                                    <div class="form-text">Upload replaces the URL above · Recommended: 900×600px landscape</div>
                                 </div>
                             </div>
+                        </div>
+
+                        <!-- Body -->
+                        <div class="mb-2">
+                            <label class="form-label" style="font-size: 0.8rem; font-weight: 600;"><i class="bi bi-text-paragraph me-1"></i>Description</label>
+                            <textarea name="act_update_body[]" class="form-control form-control-sm" rows="3" placeholder="Body / Description (HTML allowed)"><?= htmlspecialchars($act['body'] ?? '') ?></textarea>
+                        </div>
+
+                        <!-- Details -->
+                        <div class="mb-2">
+                            <label class="form-label" style="font-size: 0.8rem; font-weight: 600;"><i class="bi bi-list-check me-1"></i>Details (one per line)</label>
+                            <textarea name="act_update_details[]" class="form-control form-control-sm" rows="3" placeholder="Details (one per line)"><?= htmlspecialchars(implode("\n", $act['details'] ?? [])) ?></textarea>
+                        </div>
+
+                        <!-- Delete -->
+                        <div class="text-end">
+                            <label style="font-size: 12px; color: #dc3545; cursor: pointer;">
+                                <input type="checkbox" name="delete_act[]" value="<?= htmlspecialchars($act['id']) ?>" style="margin-right: 3px;">
+                                <i class="bi bi-trash"></i> Delete this activity
+                            </label>
                         </div>
                     </div>
                     <?php endforeach; ?>
