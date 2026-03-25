@@ -272,7 +272,7 @@ try {
         .bbar:hover { transform:skewX(-20deg) scaleY(1.15); box-shadow:0 8px 24px rgba(0,0,0,.3); z-index:20; }
         .bbar.s-confirmed { background:linear-gradient(135deg,#06b6d4,#22d3ee)!important; border-color:#06b6d4; }
         .bbar.s-pending { background:linear-gradient(135deg,#0ea5e9,#38bdf8)!important; border-color:#0ea5e9; }
-        .bbar.s-checked-in { background:linear-gradient(135deg,#0284c7,#0ea5e9)!important; border-color:#0284c7; }
+        .bbar.s-checked-in { background:linear-gradient(135deg,#16a34a,#22c55e)!important; border-color:#16a34a; }
         .bbar.s-checked-out { background:linear-gradient(135deg,#9ca3af,#d1d5db)!important; border-color:#9ca3af; opacity:.4; }
         .bbar.s-checked-out > span { color:#6b7280!important; text-shadow:0 1px 2px rgba(0,0,0,.1)!important; }
         .bbar.s-checked-out:hover { opacity:.6; }
@@ -592,7 +592,7 @@ try {
             <div class="cal-legend">
                 <div class="cal-legend-item"><div class="cal-legend-dot" style="background:#06b6d4;"></div>Confirmed</div>
                 <div class="cal-legend-item"><div class="cal-legend-dot" style="background:#0ea5e9;"></div>Pending</div>
-                <div class="cal-legend-item"><div class="cal-legend-dot" style="background:#0284c7;"></div>Checked In</div>
+                <div class="cal-legend-item"><div class="cal-legend-dot" style="background:#16a34a;"></div>Checked In</div>
                 <div class="cal-legend-item"><div class="cal-legend-dot" style="background:#9ca3af;opacity:.4;"></div>Checked Out</div>
             </div>
         </div>
