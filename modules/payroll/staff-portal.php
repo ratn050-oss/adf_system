@@ -241,40 +241,49 @@ try {
         .cal-grid-header { display:contents; }
         .cal-grid-footer { display:contents; }
         /* Header cells */
-        .cg-hdr-room { background:linear-gradient(135deg,#f1f5f9,#fff); border-right:2px solid #e2e8f0; border-bottom:2px solid #cbd5e1; padding:4px; font-weight:800; text-align:center; position:sticky; left:0; z-index:40; font-size:9px; color:#475569; letter-spacing:.8px; text-transform:uppercase; display:flex; align-items:center; justify-content:center; min-width:70px; max-width:70px; box-shadow:2px 0 6px rgba(0,0,0,.04); }
-        .cg-hdr-date { background:linear-gradient(180deg,#f8fafc,#f1f5f9); border-right:1px solid #e2e8f0; border-bottom:2px solid #cbd5e1; padding:3px 2px; text-align:center; font-weight:700; font-size:9px; color:#334155; min-width:100px; }
+        .cg-hdr-room { background:linear-gradient(135deg,#f1f5f9,#fff); border-right:2px solid #e2e8f0; border-bottom:2px solid #cbd5e1; padding:4px; font-weight:800; text-align:center; position:sticky; left:0; z-index:40; font-size:9px; color:#475569; letter-spacing:.8px; text-transform:uppercase; display:flex; align-items:center; justify-content:center; min-width:95px; max-width:95px; box-shadow:2px 0 6px rgba(0,0,0,.04); min-height:28px; }
+        .cg-hdr-date { background:linear-gradient(180deg,#f8fafc,#f1f5f9); border-right:1px solid #e2e8f0; border-bottom:2px solid #cbd5e1; padding:3px 2px; text-align:center; font-weight:700; font-size:9px; color:#334155; min-width:130px; min-height:28px; }
         .cg-hdr-date.today { background:rgba(99,102,241,.12)!important; }
         .cg-hdr-day { font-size:9px; text-transform:uppercase; font-weight:600; color:#64748b; letter-spacing:.3px; }
         .cg-hdr-num { font-size:13px; font-weight:900; color:#1e293b; margin-left:2px; }
         .cg-hdr-date.today .cg-hdr-num { color:#6366f1; }
         /* Footer cells */
-        .cg-ftr-room { background:linear-gradient(135deg,#f1f5f9,#fff); border-right:2px solid #e2e8f0; border-top:2px solid #cbd5e1; padding:4px; font-weight:800; text-align:center; position:sticky; left:0; z-index:40; font-size:9px; color:#475569; letter-spacing:.8px; text-transform:uppercase; display:flex; align-items:center; justify-content:center; min-width:70px; max-width:70px; box-shadow:2px 0 6px rgba(0,0,0,.04); }
-        .cg-ftr-date { background:linear-gradient(180deg,#f8fafc,#f1f5f9); border-right:1px solid #e2e8f0; border-top:2px solid #cbd5e1; padding:3px 2px; text-align:center; font-weight:700; font-size:9px; color:#334155; }
+        .cg-ftr-room { background:linear-gradient(135deg,#f1f5f9,#fff); border-right:2px solid #e2e8f0; border-top:2px solid #cbd5e1; padding:4px; font-weight:800; text-align:center; position:sticky; left:0; z-index:40; font-size:9px; color:#475569; letter-spacing:.8px; text-transform:uppercase; display:flex; align-items:center; justify-content:center; min-width:95px; max-width:95px; box-shadow:2px 0 6px rgba(0,0,0,.04); min-height:28px; }
+        .cg-ftr-date { background:linear-gradient(180deg,#f8fafc,#f1f5f9); border-right:1px solid #e2e8f0; border-top:2px solid #cbd5e1; padding:3px 2px; text-align:center; font-weight:700; font-size:9px; color:#334155; min-height:28px; }
         .cg-ftr-date.today { background:rgba(99,102,241,.12)!important; }
         /* Type header row */
-        .cg-type-hdr { background:linear-gradient(135deg,#eef2ff,#e0e7ff); border-right:2px solid #a5b4fc; border-bottom:1px solid #c7d2fe; padding:3px 6px; font-weight:800; color:#4338ca; position:sticky; left:0; z-index:30; display:flex; align-items:center; font-size:10px; gap:4px; min-width:70px; max-width:70px; box-shadow:2px 0 6px rgba(0,0,0,.04); }
-        .cg-type-price { background:linear-gradient(135deg,#eef2ff,#e0e7ff); border-right:1px solid #c7d2fe; border-bottom:1px solid #a5b4fc; display:flex; align-items:center; justify-content:center; font-size:9px; font-weight:800; color:#4338ca; letter-spacing:.3px; }
+        .cg-type-hdr { background:linear-gradient(135deg,#eef2ff,#e0e7ff); border-right:2px solid #a5b4fc; border-bottom:1px solid #c7d2fe; padding:3px 6px; font-weight:800; color:#4338ca; position:sticky; left:0; z-index:30; display:flex; align-items:center; font-size:10px; gap:4px; min-width:95px; max-width:95px; box-shadow:2px 0 6px rgba(0,0,0,.04); min-height:24px; }
+        .cg-type-price { background:linear-gradient(135deg,#eef2ff,#e0e7ff); border-right:1px solid #c7d2fe; border-bottom:1px solid #a5b4fc; display:flex; align-items:center; justify-content:center; font-size:9px; font-weight:800; color:#4338ca; letter-spacing:.3px; min-height:24px; }
         /* Room labels */
-        .cg-room { background:linear-gradient(135deg,#f8fafc,#fff); border-right:2px solid #e2e8f0; border-bottom:1px solid #f1f5f9; padding:2px 4px; font-weight:700; color:#334155; position:sticky; left:0; z-index:30; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; min-width:70px; max-width:70px; box-shadow:2px 0 6px rgba(0,0,0,.04); transition:.15s; }
-        .cg-room:hover { background:linear-gradient(135deg,#eef2ff,#e0e7ff); }
-        .cg-room-type { font-size:7px; font-weight:600; color:#6366f1; text-transform:uppercase; letter-spacing:.5px; line-height:1; }
-        .cg-room-num { font-size:13px; color:#1e293b; font-weight:900; line-height:1; }
+        .cg-room { background:linear-gradient(135deg,#f8fafc,#fff); border-right:2px solid #e2e8f0; border-bottom:1px solid #f1f5f9; padding:2px 4px; font-weight:700; color:#334155; position:sticky; left:0; z-index:30; display:flex; flex-direction:column; justify-content:center; align-items:center; text-align:center; min-width:95px; max-width:95px; box-shadow:2px 0 6px rgba(0,0,0,.04); transition:.15s; min-height:28px; }
+        .cg-room:hover { background:linear-gradient(135deg,#eef2ff,#e0e7ff); border-right-color:#a5b4fc; }
+        .cg-room-type { font-size:8px; font-weight:600; color:#6366f1; text-transform:uppercase; letter-spacing:.5px; line-height:1; }
+        .cg-room-num { font-size:14px; color:#1e293b; font-weight:900; line-height:1; letter-spacing:.3px; }
         /* Date cells */
-        .cg-cell { border-right:.5px solid rgba(51,65,85,.12); border-bottom:.5px solid rgba(51,65,85,.12); min-width:100px; min-height:28px; position:relative; background:transparent; }
+        .cg-cell { border-right:1px solid rgba(51,65,85,.12); border-bottom:1px solid rgba(51,65,85,.12); min-width:130px; min-height:28px; position:relative; background:transparent; cursor:pointer; }
         .cg-cell.today { background:rgba(99,102,241,.05)!important; }
         .cg-cell:hover { background:rgba(99,102,241,.04); }
         /* Booking bars - Skewed CloudBed style */
         .bbar-wrap { position:absolute; top:2px; left:50%; height:24px; display:flex; align-items:center; overflow:visible; z-index:10; margin-left:4px; cursor:pointer; }
         .bbar { width:100%; height:22px; padding:0 6px; display:flex; align-items:center; justify-content:center; text-align:center; box-shadow:0 2px 6px rgba(0,0,0,.15),0 1px 2px rgba(0,0,0,.1); font-weight:700; font-size:10px; line-height:1.1; position:relative; border-radius:3px; white-space:nowrap; transform:skewX(-20deg); color:#fff!important; transition:all .2s; overflow:hidden; }
-        .bbar > span { transform:skewX(20deg); color:#fff!important; text-shadow:0 1px 3px rgba(0,0,0,.6); font-weight:800; font-size:9px; display:block; }
+        .bbar > span { transform:skewX(20deg); color:#fff!important; text-shadow:0 1px 3px rgba(0,0,0,.6); font-weight:800; font-size:10px; display:block; }
         .bbar::before { content:''; position:absolute; left:-8px; top:50%; transform:translateY(-50%); width:0; height:0; border-top:10px solid transparent; border-bottom:10px solid transparent; border-right:5px solid; border-right-color:inherit; }
         .bbar::after { content:''; position:absolute; right:-8px; top:50%; transform:translateY(-50%); width:0; height:0; border-top:10px solid transparent; border-bottom:10px solid transparent; border-left:5px solid; border-left-color:inherit; }
         .bbar:hover { transform:skewX(-20deg) scaleY(1.15); box-shadow:0 8px 24px rgba(0,0,0,.3); z-index:20; }
         .bbar.s-confirmed { background:linear-gradient(135deg,#06b6d4,#22d3ee)!important; border-color:#06b6d4; }
         .bbar.s-pending { background:linear-gradient(135deg,#0ea5e9,#38bdf8)!important; border-color:#0ea5e9; }
-        .bbar.s-checked-in { background:linear-gradient(135deg,#16a34a,#22c55e)!important; border-color:#16a34a; }
+        .bbar.s-checked-in { background:linear-gradient(135deg,#0284c7,#0ea5e9)!important; border-color:#0284c7; }
         .bbar.s-checked-out { background:linear-gradient(135deg,#9ca3af,#d1d5db)!important; border-color:#9ca3af; opacity:.4; }
         .bbar.s-checked-out > span { color:#6b7280!important; text-shadow:0 1px 2px rgba(0,0,0,.1)!important; }
+        .bbar.s-checked-out:hover { opacity:.6; }
+        .bbar::after { content:''; position:absolute; right:-8px; top:50%; transform:translateY(-50%); width:0; height:0; border-top:10px solid transparent; border-bottom:10px solid transparent; border-left:5px solid; border-left-color:inherit; }
+        .bbar:hover { transform:skewX(-20deg) scaleY(1.15); box-shadow:0 8px 24px rgba(0,0,0,.3); z-index:20; }
+        .bbar.s-confirmed { background:linear-gradient(135deg,#06b6d4,#22d3ee)!important; border-color:#06b6d4; }
+        .bbar.s-pending { background:linear-gradient(135deg,#0ea5e9,#38bdf8)!important; border-color:#0ea5e9; }
+        .bbar.s-checked-in { background:linear-gradient(135deg,#0284c7,#0ea5e9)!important; border-color:#0284c7; }
+        .bbar.s-checked-out { background:linear-gradient(135deg,#9ca3af,#d1d5db)!important; border-color:#9ca3af; opacity:.4; }
+        .bbar.s-checked-out > span { color:#6b7280!important; text-shadow:0 1px 2px rgba(0,0,0,.1)!important; }
+        .bbar.s-checked-out:hover { opacity:.6; }
         /* Legend */
         .cal-legend { display:flex; flex-wrap:wrap; gap:10px; margin-top:10px; justify-content:center; }
         .cal-legend-item { display:flex; align-items:center; gap:4px; font-size:9px; color:var(--muted); font-weight:500; }
@@ -583,8 +592,8 @@ try {
             <div class="cal-legend">
                 <div class="cal-legend-item"><div class="cal-legend-dot" style="background:#06b6d4;"></div>Confirmed</div>
                 <div class="cal-legend-item"><div class="cal-legend-dot" style="background:#0ea5e9;"></div>Pending</div>
-                <div class="cal-legend-item"><div class="cal-legend-dot" style="background:#16a34a;"></div>Checked In</div>
-                <div class="cal-legend-item"><div class="cal-legend-dot" style="background:#9ca3af;"></div>Checked Out</div>
+                <div class="cal-legend-item"><div class="cal-legend-dot" style="background:#0284c7;"></div>Checked In</div>
+                <div class="cal-legend-item"><div class="cal-legend-dot" style="background:#9ca3af;opacity:.4;"></div>Checked Out</div>
             </div>
         </div>
     </div>
@@ -1120,23 +1129,48 @@ function closeCalPopup() {
 }
 
 function showBookingPopup(b) {
-    const statusMap = {'pending':'⏳ Pending','confirmed':'✅ Confirmed','checked_in':'🏨 Checked In','checked_out':'🚪 Checked Out'};
-    const sourceMap = {'walk_in':'Walk In','agoda':'Agoda','booking':'Booking.com','traveloka':'Traveloka','airbnb':'Airbnb','tiket':'Tiket.com','phone':'Phone'};
+    const statusMap = {'pending':'⏳ Pending','confirmed':'✅ Confirmed','checked_in':'🏨 Checked In','checked_out':'� Checked Out'};
+    const sourceMap = {'walk_in':'🚶 Walk In','agoda':'🟠 Agoda','booking':'🔵 Booking.com','traveloka':'🔷 Traveloka','airbnb':'🏠 Airbnb','tiket':'🎫 Tiket.com','phone':'📞 Phone','whatsapp':'💬 WhatsApp'};
     const payMap = {'unpaid':'❌ Belum Bayar','partial':'⚠️ Sebagian','paid':'✅ Lunas'};
+    const statusColor = {'pending':'#0ea5e9','confirmed':'#06b6d4','checked_in':'#0284c7','checked_out':'#9ca3af'};
+    const cin = b.check_in_date ? new Date(b.check_in_date+'T00:00:00') : null;
+    const cout = b.check_out_date ? new Date(b.check_out_date+'T00:00:00') : null;
+    const nights = cin && cout ? Math.round((cout - cin) / 86400000) : '-';
+    const fmtDate = d => d ? d.getDate() + ' ' + ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'][d.getMonth()] + ' ' + d.getFullYear() : '-';
     document.getElementById('calPopup').innerHTML = `
-        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+        <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">
             <div style="font-weight:800;font-size:14px;color:var(--navy);">📋 Detail Booking</div>
-            <button onclick="closeCalPopup()" style="background:none;border:none;font-size:18px;cursor:pointer;">✕</button>
+            <button onclick="closeCalPopup()" style="background:none;border:none;font-size:18px;cursor:pointer;color:var(--muted);">✕</button>
         </div>
-        <div style="font-size:12px;line-height:2;">
-            <div><strong>Kode:</strong> ${b.booking_code||'-'}</div>
-            <div><strong>Tamu:</strong> ${b.guest_name||'-'}</div>
-            <div><strong>Check-in:</strong> ${b.check_in_date}</div>
-            <div><strong>Check-out:</strong> ${b.check_out_date}</div>
-            <div><strong>Status:</strong> ${statusMap[b.status]||b.status}</div>
-            <div><strong>Sumber:</strong> ${sourceMap[b.booking_source]||b.booking_source||'-'}</div>
-            <div><strong>Bayar:</strong> ${payMap[b.payment_status]||b.payment_status||'-'}</div>
-        </div>`;
+        <div style="background:linear-gradient(135deg,${statusColor[b.status]||'#64748b'}20,${statusColor[b.status]||'#64748b'}10);border-left:3px solid ${statusColor[b.status]||'#64748b'};border-radius:0 8px 8px 0;padding:8px 10px;margin-bottom:10px;">
+            <div style="font-size:15px;font-weight:800;color:var(--navy);">${b.guest_name||'-'}</div>
+            <div style="font-size:10px;color:var(--muted);margin-top:2px;">Kode: <strong>${b.booking_code||'-'}</strong></div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-bottom:10px;">
+            <div style="background:#f0fdf4;border-radius:8px;padding:8px;text-align:center;">
+                <div style="font-size:8px;font-weight:700;color:#16a34a;text-transform:uppercase;">Check-in</div>
+                <div style="font-size:11px;font-weight:800;color:#166534;">${fmtDate(cin)}</div>
+            </div>
+            <div style="background:#fef2f2;border-radius:8px;padding:8px;text-align:center;">
+                <div style="font-size:8px;font-weight:700;color:#dc2626;text-transform:uppercase;">Check-out</div>
+                <div style="font-size:11px;font-weight:800;color:#991b1b;">${fmtDate(cout)}</div>
+            </div>
+        </div>
+        <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:10px;">
+            <div style="background:#f8fafc;border-radius:8px;padding:6px;text-align:center;">
+                <div style="font-size:8px;font-weight:700;color:var(--muted);text-transform:uppercase;">Malam</div>
+                <div style="font-size:16px;font-weight:900;color:var(--navy);">${nights}</div>
+            </div>
+            <div style="background:#f8fafc;border-radius:8px;padding:6px;text-align:center;">
+                <div style="font-size:8px;font-weight:700;color:var(--muted);text-transform:uppercase;">Status</div>
+                <div style="font-size:10px;font-weight:700;color:${statusColor[b.status]||'#64748b'};">${statusMap[b.status]||b.status}</div>
+            </div>
+            <div style="background:#f8fafc;border-radius:8px;padding:6px;text-align:center;">
+                <div style="font-size:8px;font-weight:700;color:var(--muted);text-transform:uppercase;">Bayar</div>
+                <div style="font-size:10px;font-weight:700;">${payMap[b.payment_status]||b.payment_status||'-'}</div>
+            </div>
+        </div>
+        <div style="font-size:11px;color:var(--muted);text-align:center;">Sumber: ${sourceMap[b.booking_source]||b.booking_source||'-'}</div>`;
     document.getElementById('calPopup').style.display = 'block';
     document.getElementById('calPopupOverlay').style.display = 'block';
 }
@@ -1242,7 +1276,7 @@ async function loadOccupancy() {
         }
 
         // ── Calendar (Frontdesk Style) ──
-        const COL_W = 100; // pixels per day column
+        const COL_W = 130; // pixels per day column (match frontdesk)
         const bookings = d.bookings || [];
         const start = new Date(d.calendar_start || calStartDate);
         const days = 14;
@@ -1286,7 +1320,7 @@ async function loadOccupancy() {
         });
 
         const dayNames = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
-        let g = `<div class="cal-grid" style="grid-template-columns:70px repeat(${days},${COL_W}px);">`;
+        let g = `<div class="cal-grid" style="grid-template-columns:95px repeat(${days},${COL_W}px);">`;
 
         // Header row
         g += `<div class="cal-grid-header">`;
@@ -1318,10 +1352,12 @@ async function loadOccupancy() {
                     // Render bars starting on this cell
                     roomBookings.forEach(rb => {
                         if (rb.startCol === i) {
-                            const barW = (rb.span * COL_W) - 12;
-                            const cls = 's-' + (rb.status||'').replace('_','-');
+                            const barW = (rb.span * COL_W) - 10;
+                            let cls = 's-' + (rb.status||'').replace('_','-');
                             const isCheckedIn = rb.status === 'checked_in';
-                            const icon = isCheckedIn ? '✓ ' : '';
+                            const isCheckedOut = rb.status === 'checked_out';
+                            const isPast = rb.check_out_date < today;
+                            const icon = isCheckedIn ? '✓ ' : (isCheckedOut || isPast ? '📭 ' : '');
                             const name = (rb.guest_name||'Guest').substring(0, 12);
                             const code = (rb.booking_code||'').substring(0, 8);
                             const bData = JSON.stringify({booking_code:rb.booking_code,guest_name:rb.guest_name,check_in_date:rb.check_in_date,check_out_date:rb.check_out_date,status:rb.status,booking_source:rb.booking_source,payment_status:rb.payment_status}).replace(/'/g,'&#39;');
