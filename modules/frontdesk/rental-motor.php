@@ -119,85 +119,105 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['action'])) {
             exit;
         }
 
-        // ── CREATE RENTAL ───────────────────────────────────────────────────
+        // ── CREATE RENTAL (supports multiple motors) ────────────────────────
         if ($action === 'create_rental') {
-            $motorId    = (int)($_POST['motor_id'] ?? 0);
             $guestName  = trim($_POST['guest_name'] ?? '');
             $guestPhone = trim($_POST['guest_phone'] ?? '');
             $roomNumber = trim($_POST['room_number'] ?? '');
             $bookingId  = (int)($_POST['booking_id'] ?? 0) ?: null;
             $startDt    = trim($_POST['start_datetime'] ?? '');
             $endDt      = trim($_POST['end_datetime'] ?? '');
-            $dailyRate  = max(0, (float)($_POST['daily_rate'] ?? 0));
             $deposit    = max(0, (float)($_POST['deposit'] ?? 0));
             $notes      = trim($_POST['notes'] ?? '');
             $createInvoice = !empty($_POST['create_invoice']);
 
-            if (!$motorId || !$guestName || !$startDt || !$endDt) throw new Exception('Data tidak lengkap');
+            // Parse motors array (JSON)
+            $motors = json_decode($_POST['motors'] ?? '[]', true);
+            if (empty($motors)) throw new Exception('Pilih minimal 1 motor');
+            if (!$guestName || !$startDt || !$endDt) throw new Exception('Data tidak lengkap');
 
-            // Validate motor exists & is available
-            $motor = $pdo->prepare("SELECT * FROM rental_motors WHERE id=? AND business_id=?");
-            $motor->execute([$motorId, $businessId]);
-            $motorRow = $motor->fetch(PDO::FETCH_ASSOC);
-            if (!$motorRow) throw new Exception('Motor tidak ditemukan');
-            if ($motorRow['status'] === 'rented') throw new Exception('Motor sedang disewa');
-            if ($motorRow['status'] === 'maintenance') throw new Exception('Motor sedang maintenance');
-
-            // Calculate total
             $start = new DateTime($startDt);
             $end   = new DateTime($endDt);
             if ($end <= $start) throw new Exception('Tanggal selesai harus setelah tanggal mulai');
             $days  = max(1, (int)ceil($start->diff($end)->days));
-            $totalPrice = round($days * $dailyRate, 2);
+
+            // Validate all motors
+            $motorRows = [];
+            $grandTotal = 0;
+            foreach ($motors as $mi) {
+                $mid  = (int)($mi['motor_id'] ?? 0);
+                $rate = max(0, (float)($mi['daily_rate'] ?? 0));
+                if (!$mid) throw new Exception('Motor tidak valid');
+
+                $motor = $pdo->prepare("SELECT * FROM rental_motors WHERE id=? AND business_id=?");
+                $motor->execute([$mid, $businessId]);
+                $motorRow = $motor->fetch(PDO::FETCH_ASSOC);
+                if (!$motorRow) throw new Exception('Motor tidak ditemukan: ID ' . $mid);
+                if ($motorRow['status'] === 'rented') throw new Exception("Motor {$motorRow['plate_number']} sedang disewa");
+                if ($motorRow['status'] === 'maintenance') throw new Exception("Motor {$motorRow['plate_number']} sedang maintenance");
+
+                $itemTotal = round($days * $rate, 2);
+                $grandTotal += $itemTotal;
+                $motorRows[] = ['row' => $motorRow, 'rate' => $rate, 'total' => $itemTotal];
+            }
 
             $pdo->beginTransaction();
 
             $invoiceId = null;
             if ($createInvoice) {
-                // Create hotel service invoice
                 $prefix = 'HSV-' . date('Ym') . '-';
                 $last   = $pdo->query("SELECT invoice_number FROM hotel_invoices WHERE invoice_number LIKE '{$prefix}%' ORDER BY invoice_number DESC LIMIT 1")->fetchColumn();
                 $seq    = $last ? ((int)substr($last, -4) + 1) : 1;
                 $invNo  = $prefix . str_pad($seq, 4, '0', STR_PAD_LEFT);
 
-                $paidAmt   = min($deposit, $totalPrice);
-                $payStatus = ($paidAmt <= 0) ? 'unpaid' : ($paidAmt >= $totalPrice ? 'paid' : 'partial');
+                $paidAmt   = min($deposit, $grandTotal);
+                $payStatus = ($paidAmt <= 0) ? 'unpaid' : ($paidAmt >= $grandTotal ? 'paid' : 'partial');
+
+                $motorLabels = array_map(fn($m) => $m['row']['motor_name'] . ' (' . $m['row']['plate_number'] . ')', $motorRows);
+                $invNotes = "Rental Motor: " . implode(', ', $motorLabels) . ($notes ? " - {$notes}" : '');
 
                 $pdo->prepare("INSERT INTO hotel_invoices
                     (business_id, invoice_number, booking_id, guest_name, guest_phone, room_number,
                      total, paid_amount, payment_status, payment_method, status, notes, created_by, created_at)
                     VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,NOW())")
                     ->execute([$businessId, $invNo, $bookingId, $guestName, $guestPhone ?: null,
-                        $roomNumber ?: null, $totalPrice, $paidAmt, $payStatus, 'cash',
-                        'confirmed', "Rental Motor: {$motorRow['motor_name']} ({$motorRow['plate_number']})" . ($notes ? " - {$notes}" : ''),
-                        $currentUser['id'] ?? null]);
+                        $roomNumber ?: null, $grandTotal, $paidAmt, $payStatus, 'cash',
+                        'confirmed', $invNotes, $currentUser['id'] ?? null]);
                 $invoiceId = (int)$pdo->lastInsertId();
 
-                // Add invoice item
-                $pdo->prepare("INSERT INTO hotel_invoice_items
+                // Add invoice items — one per motor
+                $iiStmt = $pdo->prepare("INSERT INTO hotel_invoice_items
                     (invoice_id, service_type, description, quantity, unit_price, total_price, start_datetime, end_datetime)
-                    VALUES (?,?,?,?,?,?,?,?)")
-                    ->execute([$invoiceId, 'motor_rental',
-                        "{$motorRow['motor_name']} ({$motorRow['plate_number']})" . ($notes ? " - {$notes}" : ''),
-                        $days, $dailyRate, $totalPrice, $startDt, $endDt]);
+                    VALUES (?,?,?,?,?,?,?,?)");
+                foreach ($motorRows as $mr) {
+                    $iiStmt->execute([$invoiceId, 'motor_rental',
+                        "{$mr['row']['motor_name']} ({$mr['row']['plate_number']})",
+                        $days, $mr['rate'], $mr['total'], $startDt, $endDt]);
+                }
             }
 
-            // Create rental booking record
-            $pdo->prepare("INSERT INTO rental_motor_bookings
+            // Create rental booking records — one per motor
+            $rbStmt = $pdo->prepare("INSERT INTO rental_motor_bookings
                 (business_id, motor_id, invoice_id, guest_name, guest_phone, room_number, booking_id,
                  start_datetime, end_datetime, daily_rate, total_price, deposit, status, notes, created_by)
-                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)")
-                ->execute([$businessId, $motorId, $invoiceId, $guestName, $guestPhone ?: null,
-                    $roomNumber ?: null, $bookingId, $startDt, $endDt, $dailyRate, $totalPrice,
-                    $deposit, 'active', $notes ?: null, $currentUser['id'] ?? null]);
-            $rentalId = (int)$pdo->lastInsertId();
+                VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?,?)");
+            $rentalIds = [];
+            $depositPerMotor = count($motorRows) > 0 ? round($deposit / count($motorRows), 2) : 0;
+            foreach ($motorRows as $idx => $mr) {
+                // Last item gets deposit remainder to avoid rounding loss
+                $dep = ($idx === count($motorRows) - 1) ? round($deposit - ($depositPerMotor * (count($motorRows) - 1)), 2) : $depositPerMotor;
+                $rbStmt->execute([$businessId, $mr['row']['id'], $invoiceId, $guestName, $guestPhone ?: null,
+                    $roomNumber ?: null, $bookingId, $startDt, $endDt, $mr['rate'], $mr['total'],
+                    $dep, 'active', $notes ?: null, $currentUser['id'] ?? null]);
+                $rentalIds[] = (int)$pdo->lastInsertId();
 
-            // Update motor status to rented
-            $pdo->prepare("UPDATE rental_motors SET status='rented', updated_at=NOW() WHERE id=?")->execute([$motorId]);
+                // Update motor status to rented
+                $pdo->prepare("UPDATE rental_motors SET status='rented', updated_at=NOW() WHERE id=?")->execute([$mr['row']['id']]);
+            }
 
             $pdo->commit();
             ob_clean();
-            echo json_encode(['success' => true, 'rental_id' => $rentalId, 'invoice_id' => $invoiceId]);
+            echo json_encode(['success' => true, 'rental_ids' => $rentalIds, 'invoice_id' => $invoiceId, 'count' => count($rentalIds)]);
             exit;
         }
 
@@ -472,6 +492,15 @@ include '../../includes/header.php';
 .rm-tab-pane { display:none; }
 .rm-tab-pane.active { display:block; }
 .rm-total-preview { background:linear-gradient(135deg,#f0f4ff,#e8edff); border-radius:8px; padding:0.75rem 1rem; text-align:center; margin:0.75rem 0; font-size:1.1rem; font-weight:700; color:#4338ca; }
+/* Motor items table */
+.motor-items-tbl { width:100%; border-collapse:collapse; margin-bottom:0.5rem; font-size:0.8rem; }
+.motor-items-tbl th { background:#f8fafc; padding:0.45rem 0.5rem; font-size:0.7rem; font-weight:600; color:var(--text-secondary); text-transform:uppercase; border-bottom:1px solid #e2e8f0; white-space:nowrap; }
+.motor-items-tbl td { padding:0.35rem 0.3rem; border-bottom:1px solid #f1f5f9; vertical-align:middle; }
+.motor-items-tbl td select, .motor-items-tbl td input { padding:0.35rem 0.4rem; border:1px solid #e2e8f0; border-radius:5px; font-size:0.78rem; background:white; box-sizing:border-box; width:100%; }
+.motor-items-tbl td select:focus, .motor-items-tbl td input:focus { outline:none; border-color:#6366f1; }
+.btn-add-motor { background:#f0f4ff; color:#4338ca; border:1px dashed #6366f1; border-radius:7px; padding:0.4rem 0.8rem; font-size:0.78rem; font-weight:600; cursor:pointer; width:100%; margin-bottom:0.75rem; }
+.btn-add-motor:hover { background:#ede9fe; }
+.btn-del-mrow { background:#fee2e2; color:#b91c1c; border:none; border-radius:4px; padding:0.25rem 0.45rem; cursor:pointer; font-size:0.78rem; font-weight:700; }
 @media(max-width:580px) {
     .rm-form-row { grid-template-columns:1fr; }
     .rm-stats { grid-template-columns:repeat(2,1fr); }
@@ -852,23 +881,21 @@ include '../../includes/header.php';
 
         <input type="hidden" id="fr_booking_id" value="">
 
-        <div class="rm-form-row">
-            <div class="rm-field">
-                <label>Pilih Motor *</label>
-                <select id="fr_motor" onchange="onMotorSelect()">
-                    <option value="">-- Pilih Motor --</option>
-                    <?php foreach ($motorList as $m): if ($m['status'] !== 'available') continue; ?>
-                    <option value="<?php echo $m['id']; ?>" data-rate="<?php echo $m['daily_rate']; ?>">
-                        <?php echo htmlspecialchars("{$m['plate_number']} - {$m['motor_name']}"); ?>
-                        (Rp <?php echo number_format($m['daily_rate'],0,',','.'); ?>/hari)
-                    </option>
-                    <?php endforeach; ?>
-                </select>
-            </div>
-            <div class="rm-field">
-                <label>Tarif / Hari (Rp)</label>
-                <input type="number" id="fr_rate" placeholder="0" min="0" onchange="calcRentalTotal()">
-            </div>
+        <!-- Multi-motor selection table -->
+        <div style="margin-bottom:0.5rem">
+            <label style="font-size:0.75rem;font-weight:700;color:var(--text-secondary);display:block;margin-bottom:0.4rem">🏍️ Motor yang Disewa</label>
+            <table class="motor-items-tbl">
+                <thead>
+                    <tr>
+                        <th style="width:55%">Motor</th>
+                        <th style="width:30%">Tarif/Hari (Rp)</th>
+                        <th style="width:15%"></th>
+                    </tr>
+                </thead>
+                <tbody id="motorItemsBody">
+                </tbody>
+            </table>
+            <button type="button" class="btn-add-motor" onclick="addMotorRow()">+ Tambah Motor</button>
         </div>
 
         <div class="rm-form-row">
@@ -1023,6 +1050,10 @@ function deleteMotor(id, plate) {
 }
 
 // ── Rental Modal ────────────────────────────────────────────────────────────
+// Available motors data for JS
+const availableMotors = <?php echo json_encode(array_values(array_filter($motorList, fn($m) => $m['status'] === 'available')), JSON_HEX_APOS | JSON_HEX_QUOT); ?>;
+let motorRowCnt = 0;
+
 function openRentalModal(preselectedMotorId) {
     // Reset form
     document.getElementById('fr_guest_select').value = '';
@@ -1030,11 +1061,13 @@ function openRentalModal(preselectedMotorId) {
     document.getElementById('fr_guest_phone').value = '';
     document.getElementById('fr_room').value = '';
     document.getElementById('fr_booking_id').value = '';
-    document.getElementById('fr_motor').value = preselectedMotorId || '';
-    document.getElementById('fr_rate').value = '';
     document.getElementById('fr_deposit').value = '0';
     document.getElementById('fr_notes').value = '';
     document.getElementById('fr_create_invoice').checked = true;
+
+    // Reset motor rows
+    document.getElementById('motorItemsBody').innerHTML = '';
+    motorRowCnt = 0;
 
     // Set default dates
     const now = new Date();
@@ -1043,9 +1076,9 @@ function openRentalModal(preselectedMotorId) {
     document.getElementById('fr_start').value = formatDateTimeLocal(now);
     document.getElementById('fr_end').value = formatDateTimeLocal(tomorrow);
 
-    if (preselectedMotorId) {
-        onMotorSelect();
-    }
+    // Add first motor row (potentially preselected)
+    addMotorRow(preselectedMotorId);
+
     calcRentalTotal();
     document.getElementById('rentalModal').classList.add('open');
 }
@@ -1078,48 +1111,127 @@ function onGuestSelect() {
     }
 }
 
-function onMotorSelect() {
-    const sel = document.getElementById('fr_motor');
+// ── Multi-motor row management ──────────────────────────────────────────────
+function getSelectedMotorIds() {
+    const ids = [];
+    document.querySelectorAll('#motorItemsBody tr').forEach(tr => {
+        const sel = tr.querySelector('select');
+        if (sel && sel.value) ids.push(sel.value);
+    });
+    return ids;
+}
+
+function addMotorRow(preselectedId) {
+    motorRowCnt++;
+    const rid = 'mr' + motorRowCnt;
+    const usedIds = getSelectedMotorIds();
+    const tbody = document.getElementById('motorItemsBody');
+
+    let optionsHtml = '<option value="">-- Pilih Motor --</option>';
+    availableMotors.forEach(m => {
+        // Don't show motors already selected in other rows (unless it's the preselected one for this row)
+        if (usedIds.includes(String(m.id)) && String(m.id) !== String(preselectedId || '')) return;
+        const selected = preselectedId && String(m.id) === String(preselectedId) ? ' selected' : '';
+        optionsHtml += '<option value="' + m.id + '" data-rate="' + m.daily_rate + '"' + selected + '>'
+            + m.plate_number + ' - ' + m.motor_name
+            + ' (Rp ' + Number(m.daily_rate).toLocaleString('id-ID') + '/hari)</option>';
+    });
+
+    const tr = document.createElement('tr');
+    tr.id = rid;
+    tr.innerHTML = '<td><select onchange="onMotorRowChange(\'' + rid + '\')">' + optionsHtml + '</select></td>'
+        + '<td><input type="number" min="0" value="' + (preselectedId ? (availableMotors.find(m => String(m.id) === String(preselectedId))?.daily_rate || 0) : 0) + '" onchange="calcRentalTotal()" placeholder="0"></td>'
+        + '<td style="text-align:center"><button type="button" class="btn-del-mrow" onclick="removeMotorRow(\'' + rid + '\')" title="Hapus">✕</button></td>';
+    tbody.appendChild(tr);
+
+    // If preselected, auto-fill rate
+    if (preselectedId) {
+        onMotorRowChange(rid);
+    }
+    calcRentalTotal();
+}
+
+function removeMotorRow(rid) {
+    const tr = document.getElementById(rid);
+    if (tr) tr.remove();
+    calcRentalTotal();
+}
+
+function onMotorRowChange(rid) {
+    const tr = document.getElementById(rid);
+    if (!tr) return;
+    const sel = tr.querySelector('select');
+    const rateInput = tr.querySelector('input[type="number"]');
     const opt = sel.options[sel.selectedIndex];
     if (opt && opt.value) {
-        document.getElementById('fr_rate').value = opt.dataset.rate || 0;
+        rateInput.value = opt.dataset.rate || 0;
     }
     calcRentalTotal();
 }
 
 function calcRentalTotal() {
-    const rate  = parseFloat(document.getElementById('fr_rate').value) || 0;
     const start = new Date(document.getElementById('fr_start').value);
     const end   = new Date(document.getElementById('fr_end').value);
-    let days = 0, total = 0;
+    let days = 0, grandTotal = 0, unitCount = 0;
     if (start && end && end > start) {
         days = Math.max(1, Math.ceil((end - start) / (1000 * 60 * 60 * 24)));
-        total = days * rate;
     }
+    document.querySelectorAll('#motorItemsBody tr').forEach(tr => {
+        const sel = tr.querySelector('select');
+        const rateInput = tr.querySelector('input[type="number"]');
+        if (sel && sel.value) {
+            unitCount++;
+            const rate = parseFloat(rateInput.value) || 0;
+            grandTotal += days * rate;
+        }
+    });
     document.getElementById('rentalTotalPreview').textContent =
-        'Total: Rp ' + total.toLocaleString('id-ID') + ' (' + days + ' hari)';
+        'Total: Rp ' + grandTotal.toLocaleString('id-ID') + ' (' + unitCount + ' unit × ' + days + ' hari)';
 }
 
 function createRental() {
     // Determine guest name from in-house or manual
     const inhouseMode = document.getElementById('guestInhouse').style.display !== 'none';
     let guestName = document.getElementById('fr_guest_name').value;
+    let guestPhone = document.getElementById('fr_guest_phone').value;
+    let roomNumber = document.getElementById('fr_room').value;
     if (inhouseMode) {
         const sel = document.getElementById('fr_guest_select');
         const opt = sel.options[sel.selectedIndex];
-        if (opt && opt.value) guestName = opt.dataset.name;
+        if (opt && opt.value) {
+            guestName = opt.dataset.name;
+            guestPhone = opt.dataset.phone || guestPhone;
+            roomNumber = opt.dataset.room || roomNumber;
+        }
+    }
+
+    // Collect motors from dynamic table
+    const motors = [];
+    document.querySelectorAll('#motorItemsBody tr').forEach(tr => {
+        const sel = tr.querySelector('select');
+        const rateInput = tr.querySelector('input[type="number"]');
+        if (sel && sel.value) {
+            motors.push({
+                motor_id: parseInt(sel.value),
+                daily_rate: parseFloat(rateInput.value) || 0
+            });
+        }
+    });
+
+    if (motors.length === 0) {
+        alert('Pilih minimal 1 motor');
+        return;
     }
 
     const fd = new FormData();
     fd.append('action', 'create_rental');
-    fd.append('motor_id', document.getElementById('fr_motor').value);
+    fd.append('motors', JSON.stringify(motors));
     fd.append('guest_name', guestName);
-    fd.append('guest_phone', document.getElementById('fr_guest_phone').value);
-    fd.append('room_number', document.getElementById('fr_room').value);
+    fd.append('guest_phone', guestPhone);
+    fd.append('room_number', roomNumber);
     fd.append('booking_id', document.getElementById('fr_booking_id').value);
     fd.append('start_datetime', document.getElementById('fr_start').value);
     fd.append('end_datetime', document.getElementById('fr_end').value);
-    fd.append('daily_rate', document.getElementById('fr_rate').value);
     fd.append('deposit', document.getElementById('fr_deposit').value);
     fd.append('notes', document.getElementById('fr_notes').value);
     if (document.getElementById('fr_create_invoice').checked) {
@@ -1131,12 +1243,13 @@ function createRental() {
         .then(d => {
             if (d.success) {
                 closeRentalModal();
+                const unitText = d.count > 1 ? d.count + ' unit motor' : '1 motor';
                 if (d.invoice_id) {
-                    if (confirm('Rental berhasil dibuat! Buka invoice?')) {
+                    if (confirm('Rental ' + unitText + ' berhasil dibuat! Buka invoice?')) {
                         window.open('hotel-service-invoice.php?id=' + d.invoice_id, '_blank');
                     }
                 } else {
-                    alert('Rental berhasil dibuat!');
+                    alert('Rental ' + unitText + ' berhasil dibuat!');
                 }
                 location.reload();
             } else {
