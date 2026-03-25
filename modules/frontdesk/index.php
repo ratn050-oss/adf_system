@@ -750,9 +750,14 @@ include '../../includes/header.php';
 
         <div class="fd-card">
             <div class="fd-card-title">🗓️ Booking Calendar</div>
-            <p style="color: var(--text-secondary); text-align: center; padding: 2rem;">
-                Calendar view akan ditampilkan di sini
-            </p>
+            <div style="border: 1px solid var(--glass-border); border-radius: 12px; overflow: hidden; background: var(--bg-secondary);">
+                <iframe
+                    src="calendar.php?staff_view=1"
+                    title="Booking Calendar"
+                    loading="lazy"
+                    style="width: 100%; height: 78vh; min-height: 720px; border: 0; background: transparent;"
+                ></iframe>
+            </div>
         </div>
     </div>
 

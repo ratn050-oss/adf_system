@@ -26,6 +26,7 @@ if (!$auth->hasPermission('frontdesk')) {
 }
 
 $pageTitle = 'Calendar Booking';
+$isStaffView = isset($_GET['staff_view']) && $_GET['staff_view'] === '1';
 
 // ============================================
 // GET OTA FEES (For Frontend Logic) - Load from booking_sources table
@@ -2159,7 +2160,11 @@ body[data-theme="dark"] .stats-list li {
                 </div>
                 <?php foreach ($dates as $date): ?>
                 <div class="grid-type-price-cell">
+                    <?php if (!$isStaffView): ?>
                     Rp<?php echo number_format($typePrice, 0, ',', '.'); ?>
+                    <?php else: ?>
+                    &nbsp;
+                    <?php endif; ?>
                 </div>
                 <?php endforeach; ?>
                 
@@ -2395,6 +2400,7 @@ foreach ($bookingSources as $bs) {
 }
 echo json_encode($sourceNames, JSON_UNESCAPED_UNICODE);
 ?>;
+const IS_STAFF_VIEW = <?php echo $isStaffView ? 'true' : 'false'; ?>;
 
 // Global variables for reservation form (used across multiple functions)
 var currentSource = '';
@@ -2458,6 +2464,24 @@ function showBookingQuickView(booking) {
     const totalPrice = new Intl.NumberFormat('id-ID').format(booking.final_price);
     const paidAmount = new Intl.NumberFormat('id-ID').format(booking.paid_amount);
     const remaining = new Intl.NumberFormat('id-ID').format(booking.final_price - booking.paid_amount);
+    const paymentBreakdownHtml = IS_STAFF_VIEW
+        ? ''
+        : `
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.35rem;">
+                <span style="font-size: 0.75rem; color: var(--text-secondary);">Total Harga:</span>
+                <span style="font-size: 0.85rem; font-weight: 700; color: var(--text-primary);">Rp ${totalPrice}</span>
+            </div>
+            <div style="display: flex; justify-content: space-between; margin-bottom: 0.35rem;">
+                <span style="font-size: 0.75rem; color: var(--text-secondary);">Sudah Bayar:</span>
+                <span style="font-size: 0.85rem; font-weight: 700; color: #10b981;">Rp ${paidAmount}</span>
+            </div>
+            ${booking.payment_status !== 'paid' ? `
+            <div style="display: flex; justify-content: space-between; padding-top: 0.35rem; border-top: 1px dashed rgba(99, 102, 241, 0.3);">
+                <span style="font-size: 0.75rem; color: var(--text-secondary);">Sisa:</span>
+                <span style="font-size: 0.9rem; font-weight: 800; color: #ef4444;">Rp ${remaining}</span>
+            </div>
+            ` : ''}
+        `;
     
     // Payment status badge color
     let paymentBadge = '';
@@ -2659,42 +2683,43 @@ function showBookingQuickView(booking) {
                 <div style="font-size: 0.7rem; color: var(--text-secondary); font-weight: 600;">STATUS PEMBAYARAN</div>
                 ${paymentBadge}
             </div>
-            
+            ${IS_STAFF_VIEW ? '' : `
             <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
                 <span style="font-size: 0.72rem; color: var(--text-secondary);">Harga/malam:</span>
                 <span style="font-size: 0.8rem; color: var(--text-primary);">Rp ${roomPrice} × ${booking.total_nights}</span>
             </div>
-            
+
             ${parseFloat(booking.discount) > 0 ? `
             <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
                 <span style="font-size: 0.72rem; color: var(--text-secondary);">Diskon:</span>
                 <span style="font-size: 0.8rem; color: #f59e0b; font-weight:600;">-Rp ${discountAmt}</span>
             </div>
             ` : ''}
-            
+
             <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem; padding-top:0.25rem; border-top:1px solid rgba(99,102,241,0.1);">
                 <span style="font-size: 0.75rem; color: var(--text-secondary); font-weight:600;">Total:</span>
                 <span style="font-size: 0.85rem; font-weight: 700; color: var(--text-primary);">Rp ${totalPrice}</span>
             </div>
-            
+
             <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
                 <span style="font-size: 0.75rem; color: var(--text-secondary);">Sudah Bayar:</span>
                 <span style="font-size: 0.85rem; font-weight: 700; color: #10b981;">Rp ${paidAmount}</span>
             </div>
-            
+
             ${booking.payment_status !== 'paid' ? `
             <div style="display: flex; justify-content: space-between; padding-top: 0.25rem; border-top: 1px dashed rgba(99, 102, 241, 0.3);">
                 <span style="font-size: 0.75rem; color: var(--text-secondary);">Sisa:</span>
                 <span style="font-size: 0.9rem; font-weight: 800; color: #ef4444;">Rp ${remaining}</span>
             </div>
             ` : ''}
-            
+
             ${paymentRows ? `
             <div style="margin-top:0.5rem; padding-top:0.5rem; border-top:1px solid rgba(99,102,241,0.15);">
                 <div style="font-size:0.65rem;color:var(--text-secondary);font-weight:600;margin-bottom:3px;">RIWAYAT PEMBAYARAN</div>
                 ${paymentRows}
             </div>
             ` : ''}
+            `}
         </div>
 
         <div class="qv-actions">
@@ -2743,7 +2768,7 @@ window.showBookingDetailsModal = function showBookingDetailsModal(booking) {
     document.getElementById('detailPaymentStatus').className = 'status-badge status-' + booking.payment_status;
     document.getElementById('detailBookingStatus').textContent = booking.status.toUpperCase().replace('_', ' ');
     document.getElementById('detailBookingStatus').className = 'status-badge status-' + booking.status;
-    document.getElementById('detailTotalPrice').textContent = 'Rp ' + formatNumberIDR(booking.final_price);
+    document.getElementById('detailTotalPrice').textContent = IS_STAFF_VIEW ? '-' : ('Rp ' + formatNumberIDR(booking.final_price));
     
     // Set booking ID for action buttons
     modal.dataset.bookingId = booking.id;
@@ -3675,6 +3700,9 @@ async function loadAvailableRoomsCalendar() {
         if (result.success && result.rooms.length > 0) {
             let html = '';
             result.rooms.forEach(room => {
+                const roomRateBadge = IS_STAFF_VIEW
+                    ? ''
+                    : `<span style="color: #10b981; font-weight: bold;">(Rp ${parseInt(room.base_price).toLocaleString('id-ID')}/night)</span>`;
                 html += `
                     <label class="room-checkbox-item" style="display: block; padding: 8px; margin-bottom: 5px; background: white; border-radius: 3px; cursor: pointer; transition: all 0.2s;">
                         <input type="checkbox" name="rooms[]" value="${room.id}" 
@@ -3684,7 +3712,7 @@ async function loadAvailableRoomsCalendar() {
                                onchange="calculateMultiRoomTotalCalendar()"
                                style="margin-right: 8px;">
                         <strong>Room ${room.room_number}</strong> - ${room.type_name}
-                        <span style="color: #10b981; font-weight: bold;">(Rp ${parseInt(room.base_price).toLocaleString('id-ID')}/night)</span>
+                        ${roomRateBadge}
                     </label>
                 `;
             });
