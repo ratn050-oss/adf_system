@@ -12,7 +12,7 @@ deployment:
     # 2. DEPLOY WEBSITE → narayanakarimunjawa.com
     # ==========================================
     - export WEBPATH=/home/adfb2574/public_html/narayanakarimunjawa.com
-    # Public PHP files
+    # Deploy to ROOT level
     - /bin/cp -f $(pwd)/website/public/*.php $WEBPATH/ 2>/dev/null || true
     - /bin/cp -f $(pwd)/website/public/.htaccess.production $WEBPATH/.htaccess 2>/dev/null || true
     - /bin/cp -f $(pwd)/website/public/robots.txt $WEBPATH/robots.txt 2>/dev/null || true
@@ -34,6 +34,14 @@ deployment:
     - /bin/mkdir -p $WEBPATH/developer/includes
     - /bin/cp -f $(pwd)/website/developer/*.php $WEBPATH/developer/ 2>/dev/null || true
     - /bin/cp -f $(pwd)/website/developer/includes/*.php $WEBPATH/developer/includes/ 2>/dev/null || true
+    # Deploy ALSO to public/ subdirectory (original repo structure)
+    - /bin/mkdir -p $WEBPATH/public/includes
+    - /bin/mkdir -p $WEBPATH/public/assets/css
+    - /bin/mkdir -p $WEBPATH/public/api
+    - /bin/cp -f $(pwd)/website/public/*.php $WEBPATH/public/ 2>/dev/null || true
+    - /bin/cp -f $(pwd)/website/public/includes/*.php $WEBPATH/public/includes/ 2>/dev/null || true
+    - /bin/cp -f $(pwd)/website/public/assets/css/style.css $WEBPATH/public/assets/css/style.css 2>/dev/null || true
+    - /bin/cp -f $(pwd)/website/public/api/*.php $WEBPATH/public/api/ 2>/dev/null || true
     # Logs & uploads directories
     - /bin/mkdir -p $WEBPATH/logs
     - /bin/mkdir -p $WEBPATH/uploads/hero
