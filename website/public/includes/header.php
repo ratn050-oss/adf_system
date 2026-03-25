@@ -28,6 +28,12 @@
         $logoPath = $seo['web_logo'] ?? '';
     } catch (Exception $e) {}
     
+    // Helper: build URL — if path is already absolute (http/https), use as-is
+    function assetUrl($path) {
+        if (preg_match('#^https?://#i', $path)) return $path;
+        return BASE_URL . '/' . $path;
+    }
+    
     $metaTitle = $seo['web_meta_title'] ?? SITE_NAME . ' — ' . SITE_TAGLINE;
     $metaDesc = $seo['web_meta_description'] ?? SITE_DESCRIPTION;
     $metaKeywords = $seo['web_meta_keywords'] ?? 'karimunjawa hotel, island resort, luxury accommodation';
@@ -55,7 +61,7 @@
     <meta property="og:site_name" content="<?= htmlspecialchars($siteName) ?>">
     <meta property="og:locale" content="<?= htmlspecialchars($ogLocale) ?>">
     <?php if (!empty($ogImage)): ?>
-    <meta property="og:image" content="<?= htmlspecialchars($canonicalUrl . '/' . $ogImage) ?>">
+    <meta property="og:image" content="<?= htmlspecialchars(preg_match('#^https?://#i', $ogImage) ? $ogImage : $canonicalUrl . '/' . $ogImage) ?>">
     <meta property="og:image:width" content="1200">
     <meta property="og:image:height" content="630">
     <?php endif; ?>
@@ -65,7 +71,7 @@
     <meta name="twitter:title" content="<?= htmlspecialchars($pageFullTitle) ?>">
     <meta name="twitter:description" content="<?= htmlspecialchars($metaDesc) ?>">
     <?php if (!empty($ogImage)): ?>
-    <meta name="twitter:image" content="<?= htmlspecialchars($canonicalUrl . '/' . $ogImage) ?>">
+    <meta name="twitter:image" content="<?= htmlspecialchars(preg_match('#^https?://#i', $ogImage) ? $ogImage : $canonicalUrl . '/' . $ogImage) ?>">
     <?php endif; ?>
     
     <!-- Search Engine Verification -->
@@ -84,7 +90,7 @@
         "name": "<?= htmlspecialchars($siteName) ?>",
         "description": "<?= htmlspecialchars($metaDesc) ?>",
         "url": "<?= htmlspecialchars($canonicalUrl) ?>",
-        <?php if (!empty($ogImage)): ?>"image": "<?= htmlspecialchars($canonicalUrl . '/' . $ogImage) ?>",<?php endif; ?>
+        <?php if (!empty($ogImage)): ?>"image": "<?= htmlspecialchars(preg_match('#^https?://#i', $ogImage) ? $ogImage : $canonicalUrl . '/' . $ogImage) ?>",<?php endif; ?>
         "starRating": {
             "@type": "Rating",
             "ratingValue": "<?= $seo['web_schema_star_rating'] ?? '5' ?>"
@@ -141,8 +147,8 @@
         $mimeMap = ['ico' => 'image/x-icon', 'png' => 'image/png', 'svg' => 'image/svg+xml', 'jpg' => 'image/jpeg', 'jpeg' => 'image/jpeg', 'webp' => 'image/webp'];
         $mimeType = $mimeMap[$ext] ?? 'image/png';
     ?>
-    <link rel="icon" type="<?= $mimeType ?>" href="<?= BASE_URL ?>/<?= htmlspecialchars($faviconPath) ?>">
-    <link rel="shortcut icon" type="<?= $mimeType ?>" href="<?= BASE_URL ?>/<?= htmlspecialchars($faviconPath) ?>">
+    <link rel="icon" type="<?= $mimeType ?>" href="<?= htmlspecialchars(assetUrl($faviconPath)) ?>">
+    <link rel="shortcut icon" type="<?= $mimeType ?>" href="<?= htmlspecialchars(assetUrl($faviconPath)) ?>">
     <?php endif; ?>
 
     <link rel="preconnect" href="https://fonts.googleapis.com">
@@ -158,7 +164,7 @@
     <div class="container">
         <a href="<?= BASE_URL ?>/" class="navbar-brand">
             <?php if (!empty($logoPath)): ?>
-            <img src="<?= BASE_URL ?>/<?= htmlspecialchars($logoPath) ?>" alt="Narayana" class="brand-img">
+            <img src="<?= htmlspecialchars(assetUrl($logoPath)) ?>" alt="Narayana" class="brand-img">
             <?php endif; ?>
             <div class="brand-text">
                 <div class="brand-logo">Narayana</div>
