@@ -2011,8 +2011,8 @@ textarea.form-control { resize: vertical; }
     .brand-logo { font-size: 1.2rem; letter-spacing: 0.5px; }
     .brand-sub { font-size: 8px; letter-spacing: 2px; }
     .navbar-brand { gap: 8px; }
-    .brand-img { width: 32px; height: 32px; }
-    .navbar.scrolled .brand-img { width: 28px; height: 28px; }
+    .brand-img { width: 40px; height: 40px; }
+    .navbar.scrolled .brand-img { width: 36px; height: 36px; }
     
     /* ─── HERO — Luxury compact with cards ─── */
     .luxury-hero { background-attachment: scroll; }
@@ -2400,16 +2400,16 @@ textarea.form-control { resize: vertical; }
    LOGO IN NAVBAR
 ======================================== */
 .brand-img {
-    width: 38px;
-    height: 38px;
+    width: 48px;
+    height: 48px;
     object-fit: contain;
     border-radius: 4px;
     transition: all 0.4s var(--ease);
     flex-shrink: 0;
 }
 .navbar.scrolled .brand-img {
-    width: 34px;
-    height: 34px;
+    width: 42px;
+    height: 42px;
 }
 .brand-text {
     display: flex;
@@ -2807,8 +2807,8 @@ textarea.form-control { resize: vertical; }
     .btn-primary-dest, .btn-outline-dest { width: 100%; text-align: center; justify-content: center; }
     .dest-cta-box { padding: 28px 20px; }
     .dest-cta-section h2 { font-size: 1.5rem; }
-    .brand-img { width: 32px; height: 32px; }
-    .navbar.scrolled .brand-img { width: 28px; height: 28px; }
+    .brand-img { width: 40px; height: 40px; }
+    .navbar.scrolled .brand-img { width: 36px; height: 36px; }
 }
 
 @media (max-width: 420px) {
@@ -2822,8 +2822,8 @@ textarea.form-control { resize: vertical; }
     .dest-card-body h3 { font-size: 1.1rem; }
     .dest-hero-title { font-size: 1.5rem; }
     .dest-detail-text { font-size: 0.95rem; }
-    .brand-img { width: 28px; height: 28px; }
-    .navbar.scrolled .brand-img { width: 24px; height: 24px; }
+    .brand-img { width: 36px; height: 36px; }
+    .navbar.scrolled .brand-img { width: 32px; height: 32px; }
     .brand-logo { font-size: 1.05rem; }
     .brand-sub { font-size: 7px; letter-spacing: 1.5px; }
     .navbar-brand { gap: 6px; }
