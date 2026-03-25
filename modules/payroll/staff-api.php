@@ -154,6 +154,12 @@ if ($action === 'login') {
     exit;
 }
 
+// Hotel operational date: day changes at noon (12:00), not midnight
+// Before noon = still yesterday's hotel day (guests haven't checked out)
+function getHotelDate() {
+    return (int)date('H') < 12 ? date('Y-m-d', strtotime('-1 day')) : date('Y-m-d');
+}
+
 // ══════════════════════════════════════
 // LOGOUT
 // ══════════════════════════════════════
@@ -223,7 +229,8 @@ if ($action === 'attendance_history') {
 // ── ROOM OCCUPANCY ──
 if ($action === 'occupancy') {
     $today = date('Y-m-d');
-    $tomorrow = date('Y-m-d', strtotime('+1 day'));
+    $hotelDate = getHotelDate();
+    $hotelTomorrow = date('Y-m-d', strtotime($hotelDate . ' +1 day'));
     try {
         $totalRooms = $db->fetchOne("SELECT COUNT(*) as c FROM rooms")['c'] ?? 0;
         $occupied = $db->fetchOne("SELECT COUNT(DISTINCT room_id) as c FROM bookings WHERE status = 'checked_in'")['c'] ?? 0;
@@ -242,12 +249,12 @@ if ($action === 'occupancy') {
             LEFT JOIN room_types rt ON r.room_type_id = rt.id
             LEFT JOIN bookings b ON b.room_id = r.id AND b.status = 'checked_in'
             LEFT JOIN guests g ON b.guest_id = g.id
-            ORDER BY rt.type_name ASC, r.room_number ASC", [$tomorrow]) ?: [];
+            ORDER BY rt.type_name ASC, r.room_number ASC", [$hotelTomorrow]) ?: [];
 
-        // Arrivals tomorrow (confirmed bookings checking in tomorrow)
-        $arrivals = $db->fetchOne("SELECT COUNT(*) as c FROM bookings WHERE DATE(check_in_date) = ? AND status = 'confirmed'", [$tomorrow])['c'] ?? 0;
-        // Departures tomorrow (checked-in guests checking out tomorrow)
-        $departures = $db->fetchOne("SELECT COUNT(*) as c FROM bookings WHERE DATE(check_out_date) = ? AND status = 'checked_in'", [$tomorrow])['c'] ?? 0;
+        // Arrivals tomorrow (confirmed bookings checking in hotel-tomorrow)
+        $arrivals = $db->fetchOne("SELECT COUNT(*) as c FROM bookings WHERE DATE(check_in_date) = ? AND status = 'confirmed'", [$hotelTomorrow])['c'] ?? 0;
+        // Departures tomorrow (checked-in guests checking out hotel-tomorrow)
+        $departures = $db->fetchOne("SELECT COUNT(*) as c FROM bookings WHERE DATE(check_out_date) = ? AND status = 'checked_in'", [$hotelTomorrow])['c'] ?? 0;
 
         // Calendar bookings (14 days from start_date param or today)
         $startDate = $_GET['start'] ?? $today;
@@ -284,7 +291,7 @@ if ($action === 'breakfast_menu') {
 
 if ($action === 'breakfast_submit') {
     $menuId = (int)($_POST['menu_id'] ?? 0);
-    $date = $_POST['date'] ?? date('Y-m-d');
+    $date = $_POST['date'] ?? getHotelDate();
     $staffName = $_SESSION['staff_name'] ?? 'Staff';
     
     if ($menuId <= 0) {
@@ -315,15 +322,15 @@ if ($action === 'breakfast_submit') {
 }
 
 if ($action === 'breakfast_today') {
-    $today = date('Y-m-d');
+    $hotelDate = getHotelDate();
     $staffName = $_SESSION['staff_name'] ?? '';
-    $order = $db->fetchOne("SELECT * FROM breakfast_orders WHERE guest_name = ? AND breakfast_date = ?", [$staffName, $today]);
+    $order = $db->fetchOne("SELECT * FROM breakfast_orders WHERE guest_name = ? AND breakfast_date = ?", [$staffName, $hotelDate]);
     echo json_encode(['success' => true, 'data' => $order]); exit;
 }
 
 // ── ALL TODAY'S BREAKFAST ORDERS (Staff Monitor) ──
 if ($action === 'breakfast_orders') {
-    $today = date('Y-m-d');
+    $today = getHotelDate();
     try {
         $orders = $db->fetchAll("
             SELECT bo.id, bo.guest_name, bo.room_number, bo.total_pax, bo.breakfast_time,

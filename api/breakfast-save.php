@@ -113,7 +113,9 @@ try {
     // Parse common fields
     $totalPax = max(1, (int)($input['total_pax'] ?? 1));
     $breakfastTime = $input['breakfast_time'] ?? '';
-    $breakfastDate = $input['breakfast_date'] ?? date('Y-m-d');
+    // Hotel date: before noon = yesterday (guests still checked in)
+    $defaultDate = (int)date('H') < 12 ? date('Y-m-d', strtotime('-1 day')) : date('Y-m-d');
+    $breakfastDate = $input['breakfast_date'] ?? $defaultDate;
     $location = $input['location'] ?? 'restaurant';
     $specialRequests = !empty($input['special_requests']) ? trim($input['special_requests']) : null;
 
