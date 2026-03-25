@@ -1,0 +1,7 @@
+User-agent: *
+Disallow: /config/
+Disallow: /logs/
+Disallow: /api/
+Disallow: /patch.php
+
+Sitemap: https://narayanakarimunjawa.com/sitemap.xml
