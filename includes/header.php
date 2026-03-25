@@ -235,8 +235,8 @@ if (isset($_SESSION['user_id'])) {
                     <?php endif; ?>
                     
                     <?php if ($auth->hasPermission('frontdesk') && isModuleEnabled('frontdesk')): ?>
-                    <li class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/frontdesk/') !== false && strpos($_SERVER['REQUEST_URI'], 'hotel-services.php') === false) ? 'open' : ''; ?>">
-                        <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo (strpos($_SERVER['REQUEST_URI'], 'hotel-services.php') === false) ? activeMenu('frontdesk') : ''; ?>">
+                    <li class="nav-item has-submenu <?php echo (strpos($_SERVER['REQUEST_URI'], '/frontdesk/') !== false && strpos($_SERVER['REQUEST_URI'], 'hotel-services.php') === false && strpos($_SERVER['REQUEST_URI'], 'rental-motor.php') === false) ? 'open' : ''; ?>">
+                        <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo (strpos($_SERVER['REQUEST_URI'], 'hotel-services.php') === false && strpos($_SERVER['REQUEST_URI'], 'rental-motor.php') === false) ? activeMenu('frontdesk') : ''; ?>">
                             <i data-feather="home" class="nav-icon"></i>
                             <span><?php echo __('menu.frontdesk'); ?></span>
                         </a>
@@ -291,11 +291,25 @@ if (isset($_SESSION['user_id'])) {
 
                     <!-- Hotel Services Menu (hotel only) -->
                     <?php if (defined('BUSINESS_TYPE') && BUSINESS_TYPE === 'hotel' && $auth->hasPermission('frontdesk')): ?>
-                    <li class="nav-item <?php echo activeMenu('hotel-services.php') ? 'active' : ''; ?>">
-                        <a href="<?php echo BASE_URL; ?>/modules/frontdesk/hotel-services.php" class="nav-link <?php echo activeMenu('hotel-services.php'); ?>">
+                    <li class="nav-item has-submenu <?php echo (activeMenu('hotel-services.php') || activeMenu('rental-motor.php')) ? 'open' : ''; ?>">
+                        <a href="javascript:void(0)" class="nav-link dropdown-toggle <?php echo (activeMenu('hotel-services.php') || activeMenu('rental-motor.php')) ? 'active' : ''; ?>">
                             <i data-feather="briefcase" class="nav-icon"></i>
                             <span>Hotel Services</span>
                         </a>
+                        <ul class="submenu">
+                            <li class="submenu-item">
+                                <a href="<?php echo BASE_URL; ?>/modules/frontdesk/hotel-services.php" class="submenu-link <?php echo activeMenu('hotel-services.php'); ?>">
+                                    <i data-feather="file-text" class="submenu-icon"></i>
+                                    <span>Invoice & Layanan</span>
+                                </a>
+                            </li>
+                            <li class="submenu-item">
+                                <a href="<?php echo BASE_URL; ?>/modules/frontdesk/rental-motor.php" class="submenu-link <?php echo activeMenu('rental-motor.php'); ?>">
+                                    <i data-feather="truck" class="submenu-icon"></i>
+                                    <span>Rental Motor</span>
+                                </a>
+                            </li>
+                        </ul>
                     </li>
                     <?php endif; ?>
                     
