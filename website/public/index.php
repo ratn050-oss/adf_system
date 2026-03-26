@@ -20,10 +20,14 @@ foreach ($heroSettings as $setting) {
 // Extract hero values with defaults
 $heroBg = $hero['web_hero_background'] ?? '';
 $heroAccent = $hero['web_hero_accent'] ?? 'Karimunjawa Islands · Indonesia';
-$heroTitle = $hero['web_hero_title'] ?? 'Experience Karimunjawa<br><em>Like Never Before</em>';
-// Ensure title wraps at "Like Never Before" onto second line
-if (strpos($heroTitle, '<br>') === false && stripos($heroTitle, 'Like Never') !== false) {
-    $heroTitle = preg_replace('/\s*(Like Never)/i', '<br><em>$1', $heroTitle) . '</em>';
+$heroTitle = $hero['web_hero_title'] ?? 'Experience Karimunjawa Like Never Before';
+// Force 2-line layout: "Experience Karimunjawa" + "Like Never Before"
+$heroTitle = strip_tags($heroTitle, '<em><br><strong>');
+if (stripos($heroTitle, 'Experience') !== false && stripos($heroTitle, 'Like Never') !== false) {
+    // Remove any existing <br> first, then re-insert cleanly
+    $heroTitle = str_replace(['<br>', '<br/>', '<br />'], ' ', $heroTitle);
+    $heroTitle = preg_replace('/\s+/', ' ', trim($heroTitle));
+    $heroTitle = preg_replace('/(Experience Karimunjawa)\s*(Like Never Before)/i', '$1<br><em>$2</em>', $heroTitle);
 }
 $heroSubtitle = $hero['web_hero_subtitle'] ?? 'An exclusive island retreat where tropical luxury meets the pristine beauty of the Java Sea';
 $heroCards = json_decode($hero['web_hero_cards'] ?? '[]', true) ?: [];
