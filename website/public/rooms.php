@@ -114,8 +114,12 @@ include __DIR__ . '/includes/header.php';
         <div class="room-detail <?= $reverse ? 'reverse' : '' ?> fade-in">
             <!-- Image -->
             <div class="room-detail-image">
-                <?php if ($firstImage): ?>
-                    <img src="<?= BASE_URL ?>/<?= htmlspecialchars($firstImage) ?>" alt="<?= htmlspecialchars($typeName) ?> Room" style="width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0;">
+                <?php if ($firstImage): 
+                    $imgSrc = (str_starts_with($firstImage, 'http://') || str_starts_with($firstImage, 'https://')) 
+                        ? $firstImage 
+                        : BASE_URL . '/' . $firstImage;
+                ?>
+                    <img src="<?= htmlspecialchars($imgSrc) ?>" alt="<?= htmlspecialchars($typeName) ?> Room" style="width: 100%; height: 100%; object-fit: cover; position: absolute; top: 0; left: 0;">
                 <?php else: ?>
                     <span class="room-emoji"><?= $icon ?></span>
                 <?php endif; ?>
