@@ -2765,7 +2765,7 @@ textarea.form-control { resize: vertical; }
     background: var(--dark);
     background-size: cover;
     background-position: center;
-    padding: 140px 0 80px;
+    padding: 120px 0 48px;
     text-align: center;
     position: relative;
 }
@@ -2774,34 +2774,34 @@ textarea.form-control { resize: vertical; }
 }
 .dest-page-title {
     font-family: var(--font-heading);
-    font-size: 3rem;
+    font-size: clamp(1.8rem, 3.5vw, 2.6rem);
     font-weight: 400;
     color: var(--white);
-    margin: 16px 0 20px;
+    margin: 12px 0 14px;
 }
 .dest-page-desc {
     color: rgba(255,255,255,0.7);
-    font-size: 1.1rem;
-    max-width: 700px;
+    font-size: 14px;
+    max-width: 560px;
     margin: 0 auto;
     line-height: 1.7;
 }
 
 /* Featured Destination */
 .dest-featured-section {
-    padding: 80px 0;
+    padding: 48px 0;
     background: var(--cream);
 }
 .dest-featured {
     display: grid;
-    grid-template-columns: 1.2fr 1fr;
+    grid-template-columns: 1.1fr 1fr;
     gap: 0;
     background: var(--white);
-    border-radius: 16px;
+    border-radius: 12px;
     overflow: hidden;
     text-decoration: none;
     color: inherit;
-    box-shadow: 0 10px 40px rgba(0,0,0,0.08);
+    box-shadow: 0 8px 32px rgba(0,0,0,0.08);
     transition: transform 0.4s var(--ease), box-shadow 0.4s var(--ease);
 }
 .dest-featured:hover {
@@ -2809,7 +2809,7 @@ textarea.form-control { resize: vertical; }
     box-shadow: 0 20px 60px rgba(0,0,0,0.12);
 }
 .dest-featured-image {
-    height: 400px;
+    height: 320px;
     overflow: hidden;
 }
 .dest-featured-image img {
@@ -2822,57 +2822,60 @@ textarea.form-control { resize: vertical; }
     transform: scale(1.05);
 }
 .dest-featured-content {
-    padding: 48px 40px;
+    padding: 32px 28px;
     display: flex;
     flex-direction: column;
     justify-content: center;
 }
 .dest-featured-badge {
-    display: inline-block;
+    display: inline-flex;
+    align-items: center;
+    gap: 6px;
     background: var(--gold);
     color: var(--white);
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 600;
     text-transform: uppercase;
-    letter-spacing: 2px;
-    padding: 6px 16px;
+    letter-spacing: 1.5px;
+    padding: 5px 14px;
     border-radius: 20px;
-    margin-bottom: 20px;
+    margin-bottom: 16px;
     width: fit-content;
 }
 .dest-featured-content h2 {
     font-family: var(--font-heading);
-    font-size: 2rem;
+    font-size: 1.5rem;
     font-weight: 400;
     color: var(--dark);
-    margin-bottom: 12px;
+    margin-bottom: 8px;
 }
 .dest-featured-subtitle {
     color: var(--gold);
-    font-size: 0.95rem;
+    font-size: 0.85rem;
     font-weight: 500;
-    margin-bottom: 16px;
+    margin-bottom: 12px;
 }
 .dest-featured-excerpt {
     color: var(--mid-gray);
+    font-size: 13px;
     line-height: 1.7;
-    margin-bottom: 24px;
+    margin-bottom: 16px;
 }
 
 /* Destination Cards Grid */
 .dest-grid {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 32px;
-    margin-top: 48px;
+    grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
+    gap: 24px;
+    margin-top: 0;
 }
 .dest-card {
     background: var(--white);
-    border-radius: 12px;
+    border-radius: 10px;
     overflow: hidden;
     text-decoration: none;
     color: inherit;
-    box-shadow: 0 4px 20px rgba(0,0,0,0.06);
+    box-shadow: 0 2px 16px rgba(0,0,0,0.06);
     transition: transform 0.4s var(--ease), box-shadow 0.4s var(--ease);
 }
 .dest-card:hover {
@@ -2880,7 +2883,7 @@ textarea.form-control { resize: vertical; }
     box-shadow: 0 12px 40px rgba(0,0,0,0.12);
 }
 .dest-card-image {
-    height: 220px;
+    height: 180px;
     overflow: hidden;
     position: relative;
 }
@@ -2926,36 +2929,62 @@ textarea.form-control { resize: vertical; }
     font-size: 40px;
 }
 .dest-card-body {
-    padding: 24px;
+    padding: 18px;
 }
 .dest-card-body h3 {
     font-family: var(--font-heading);
-    font-size: 1.3rem;
+    font-size: 1.1rem;
     font-weight: 400;
     color: var(--dark);
-    margin-bottom: 8px;
+    margin-bottom: 4px;
 }
 .dest-card-subtitle {
     color: var(--gold);
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     font-weight: 500;
-    margin-bottom: 10px;
+    margin-bottom: 8px;
 }
 .dest-card-excerpt {
     color: var(--mid-gray);
-    font-size: 0.9rem;
+    font-size: 0.82rem;
     line-height: 1.6;
-    margin-bottom: 16px;
+    margin-bottom: 12px;
+}
+.dest-card-meta {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    font-size: 0.78rem;
+    color: var(--mid-gray);
+}
+.dest-card-meta i {
+    color: var(--gold);
+    margin-right: 4px;
+}
+.dest-card-cat {
+    position: absolute;
+    top: 12px;
+    left: 12px;
+    background: rgba(0,0,0,0.6);
+    color: var(--white);
+    font-size: 9px;
+    font-weight: 600;
+    letter-spacing: 1.5px;
+    text-transform: uppercase;
+    padding: 4px 10px;
+    border-radius: 3px;
+    backdrop-filter: blur(4px);
+    z-index: 2;
 }
 .dest-read-more {
     color: var(--gold);
-    font-size: 0.85rem;
+    font-size: 0.78rem;
     font-weight: 600;
     text-transform: uppercase;
     letter-spacing: 1px;
     display: inline-flex;
     align-items: center;
-    gap: 8px;
+    gap: 6px;
     transition: gap 0.3s var(--ease);
 }
 .dest-card:hover .dest-read-more,
@@ -2968,7 +2997,7 @@ textarea.form-control { resize: vertical; }
     background: var(--dark);
     background-size: cover;
     background-position: center;
-    padding: 140px 0 80px;
+    padding: 120px 0 48px;
 }
 .dest-hero-content {
     max-width: 700px;
@@ -2994,7 +3023,7 @@ textarea.form-control { resize: vertical; }
 }
 .dest-hero-title {
     font-family: var(--font-heading);
-    font-size: 3rem;
+    font-size: clamp(1.6rem, 3vw, 2.4rem);
     font-weight: 400;
     color: var(--white);
 }
@@ -3029,23 +3058,24 @@ textarea.form-control { resize: vertical; }
 
 /* Destination CTA */
 .dest-detail-cta {
-    margin-top: 48px;
+    margin-top: 32px;
 }
 .dest-cta-box {
     background: var(--cream);
-    border-radius: 12px;
-    padding: 40px;
+    border-radius: 10px;
+    padding: 28px;
     text-align: center;
 }
 .dest-cta-box h3 {
     font-family: var(--font-heading);
-    font-size: 1.5rem;
+    font-size: 1.2rem;
     color: var(--dark);
-    margin-bottom: 12px;
+    margin-bottom: 8px;
 }
 .dest-cta-box p {
     color: var(--mid-gray);
-    margin-bottom: 24px;
+    font-size: 13px;
+    margin-bottom: 20px;
 }
 .dest-cta-buttons {
     display: flex;
@@ -3091,29 +3121,29 @@ textarea.form-control { resize: vertical; }
 /* CTA Section */
 .dest-cta-section {
     background: var(--dark);
-    padding: 80px 0;
+    padding: 56px 0;
 }
 .dest-cta-section h2 {
     font-family: var(--font-heading);
-    font-size: 2rem;
+    font-size: clamp(1.3rem, 2.5vw, 1.8rem);
     color: var(--white);
-    margin-bottom: 16px;
+    margin-bottom: 10px;
 }
 .dest-cta-section p {
     color: rgba(255,255,255,0.7);
-    font-size: 1.05rem;
-    margin-bottom: 32px;
+    font-size: 14px;
+    margin-bottom: 24px;
 }
 
 /* Other Destinations */
 .dest-other-section {
-    margin-top: 80px;
-    padding-top: 60px;
+    margin-top: 48px;
+    padding-top: 36px;
     border-top: 1px solid #eee;
 }
 .dest-other-title {
     font-family: var(--font-heading);
-    font-size: 1.8rem;
+    font-size: 1.4rem;
     color: var(--dark);
     text-align: center;
     margin-bottom: 16px;
@@ -3124,43 +3154,43 @@ textarea.form-control { resize: vertical; }
 ======================================== */
 @media (max-width: 1024px) {
     .dest-featured { grid-template-columns: 1fr 1fr; }
-    .dest-featured-image { height: 350px; }
-    .dest-featured-content { padding: 32px; }
-    .dest-grid { grid-template-columns: repeat(2, 1fr); gap: 24px; }
-    .dest-page-title { font-size: 2.4rem; }
+    .dest-featured-image { height: 280px; }
+    .dest-featured-content { padding: 24px; }
+    .dest-grid { grid-template-columns: repeat(2, 1fr); gap: 20px; }
+    .dest-page-title { font-size: 2rem; }
 }
 
 @media (max-width: 768px) {
-    .dest-page-hero { padding: 120px 0 60px; }
-    .dest-page-title { font-size: 2rem; }
-    .dest-page-desc { font-size: 0.95rem; }
+    .dest-page-hero { padding: 100px 0 40px; }
+    .dest-page-title { font-size: 1.6rem; }
+    .dest-page-desc { font-size: 0.85rem; }
     .dest-featured { grid-template-columns: 1fr; }
-    .dest-featured-image { height: 260px; }
-    .dest-featured-content { padding: 28px 24px; }
-    .dest-featured-content h2 { font-size: 1.5rem; }
-    .dest-grid { grid-template-columns: 1fr; gap: 20px; }
-    .dest-card-image { height: 200px; }
-    .dest-hero { padding: 120px 0 60px; }
-    .dest-hero-title { font-size: 2rem; }
+    .dest-featured-image { height: 220px; }
+    .dest-featured-content { padding: 24px 20px; }
+    .dest-featured-content h2 { font-size: 1.3rem; }
+    .dest-grid { grid-template-columns: 1fr; gap: 16px; }
+    .dest-card-image { height: 170px; }
+    .dest-hero { padding: 100px 0 40px; }
+    .dest-hero-title { font-size: 1.6rem; }
     .dest-cta-buttons { flex-direction: column; }
-    .btn-primary-dest, .btn-outline-dest { width: 100%; text-align: center; justify-content: center; }
-    .dest-cta-box { padding: 28px 20px; }
-    .dest-cta-section h2 { font-size: 1.5rem; }
+    .btn-primary-dest, .btn-outline-dest { width: 100%; text-align: center; justify-content: center; padding: 10px 24px; font-size: 0.8rem; }
+    .dest-cta-box { padding: 24px 16px; }
+    .dest-cta-section h2 { font-size: 1.3rem; }
     .brand-img { width: 48px; height: 48px; padding: 3px; }
     .navbar.scrolled .brand-img { width: 40px; height: 40px; padding: 2px; }
 }
 
 @media (max-width: 420px) {
-    .dest-page-hero { padding: 100px 0 40px; }
-    .dest-page-title { font-size: 1.5rem; }
-    .dest-featured-section { padding: 40px 0; }
-    .dest-featured-image { height: 200px; }
+    .dest-page-hero { padding: 90px 0 32px; }
+    .dest-page-title { font-size: 1.3rem; }
+    .dest-featured-section { padding: 32px 0; }
+    .dest-featured-image { height: 180px; }
     .dest-featured-content { padding: 20px 16px; }
-    .dest-featured-content h2 { font-size: 1.25rem; }
-    .dest-card-body { padding: 16px; }
-    .dest-card-body h3 { font-size: 1.1rem; }
-    .dest-hero-title { font-size: 1.5rem; }
-    .dest-detail-text { font-size: 0.95rem; }
+    .dest-featured-content h2 { font-size: 1.15rem; }
+    .dest-card-body { padding: 14px; }
+    .dest-card-body h3 { font-size: 1rem; }
+    .dest-hero-title { font-size: 1.3rem; }
+    .dest-detail-text { font-size: 0.9rem; }
     .brand-img { width: 42px; height: 42px; padding: 2px; }
     .navbar.scrolled .brand-img { width: 36px; height: 36px; padding: 2px; }
     .brand-logo { font-size: 1.05rem; }

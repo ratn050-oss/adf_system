@@ -265,6 +265,7 @@ $filesToSync = [
     'website/public/index.php',
     'website/public/rooms.php',
     'website/public/activities.php',
+    'website/public/destinations.php',
     'website/public/includes/header.php',
     'website/public/assets/css/style.css',
     '.cpanel.yml',
@@ -278,12 +279,14 @@ $websiteDeploy = [
     ['src' => 'website/public/index.php', 'dest' => $webBase . '/public/index.php'],
     ['src' => 'website/public/rooms.php', 'dest' => $webBase . '/public/rooms.php'],
     ['src' => 'website/public/activities.php', 'dest' => $webBase . '/public/activities.php'],
+    ['src' => 'website/public/destinations.php', 'dest' => $webBase . '/public/destinations.php'],
     ['src' => 'website/public/includes/header.php', 'dest' => $webBase . '/public/includes/header.php'],
     ['src' => 'website/public/assets/css/style.css', 'dest' => $webBase . '/public/assets/css/style.css'],
     // Also deploy to root level (for .cpanel.yml compatibility)
     ['src' => 'website/public/index.php', 'dest' => $webBase . '/index.php'],
     ['src' => 'website/public/rooms.php', 'dest' => $webBase . '/rooms.php'],
     ['src' => 'website/public/activities.php', 'dest' => $webBase . '/activities.php'],
+    ['src' => 'website/public/destinations.php', 'dest' => $webBase . '/destinations.php'],
     ['src' => 'website/public/includes/header.php', 'dest' => $webBase . '/includes/header.php'],
     ['src' => 'website/public/assets/css/style.css', 'dest' => $webBase . '/assets/css/style.css'],
 ];
