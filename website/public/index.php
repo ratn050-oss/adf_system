@@ -190,7 +190,7 @@ require_once __DIR__ . '/includes/header.php';
 
             <?php if (!empty($homeActivities)): ?>
             <!-- Activities Slideshow (right side) -->
-            <div class="act-slideshow fade-in">
+            <div class="act-slideshow">
                 <div class="act-slideshow-viewport">
                     <?php foreach ($homeActivities as $ai => $act): ?>
                     <div class="act-ss-slide <?= $ai === 0 ? 'active' : '' ?>" data-index="<?= $ai ?>">
