@@ -2275,6 +2275,69 @@ require_once __DIR__ . '/includes/header.php';
     }
     ?>
     <div class="tab-content <?= $activeTab === 'activities' ? 'active' : '' ?>" id="tab-activities">
+
+        <!-- Activities Hero Section -->
+        <div class="settings-card mb-4">
+            <div class="settings-card-header">
+                <div class="icon" style="background: rgba(23,162,184,0.15); color: #17a2b8;">
+                    <i class="bi bi-image-fill"></i>
+                </div>
+                <div>
+                    <h5>Activities Page — Hero Banner</h5>
+                    <small>Background image, title, and subtitle for the Activities hero section</small>
+                </div>
+            </div>
+            <div class="settings-card-body">
+                <form method="POST" enctype="multipart/form-data">
+                    <input type="hidden" name="action" value="save_hero">
+
+                    <!-- Current Hero Preview -->
+                    <div class="mb-3">
+                        <label class="form-label fw-bold"><i class="bi bi-image me-1"></i>Hero Background Image</label>
+                        <?php if (!empty($webSettings['web_hero_act_background'])): ?>
+                        <div class="current-bg-preview mb-2" style="position: relative; border-radius: 12px; overflow: hidden;">
+                            <img src="<?= (strpos($webSettings['web_hero_act_background'], 'http') === 0) ? htmlspecialchars($webSettings['web_hero_act_background']) : '../' . htmlspecialchars($webSettings['web_hero_act_background']) ?>" 
+                                 style="width:100%; max-height:220px; object-fit:cover; border-radius:12px;" alt="Activities Hero">
+                            <div style="position:absolute; bottom:10px; right:10px;">
+                                <button type="button" class="btn btn-sm btn-danger" onclick="this.closest('.current-bg-preview').querySelector('.rm-input').value='1';this.closest('.current-bg-preview').style.opacity='0.3';">
+                                    <i class="bi bi-trash me-1"></i>Remove
+                                </button>
+                                <input type="hidden" class="rm-input" name="remove_act_background" value="0">
+                            </div>
+                        </div>
+                        <?php else: ?>
+                        <div class="mb-2 p-4 text-center rounded" style="border: 2px dashed #dee2e6; color: #adb5bd;">
+                            <i class="bi bi-image" style="font-size: 2.5rem;"></i>
+                            <p class="mt-2 mb-0" style="font-size: 0.85rem;">No hero background set — upload one below</p>
+                        </div>
+                        <?php endif; ?>
+                        <input type="file" name="web_hero_act_background" class="form-control" accept="image/jpeg,image/jpg,image/png,image/webp">
+                        <div class="form-text">Upload: JPG/PNG/WEBP, recommended 1920×1080px.<?= !empty($webSettings['web_hero_act_background']) ? ' Leave empty to keep current image.' : '' ?></div>
+                    </div>
+
+                    <!-- Hero Text -->
+                    <div class="row">
+                        <div class="col-md-4 mb-3">
+                            <label class="form-label">Eyebrow</label>
+                            <input type="text" name="web_hero_act_eyebrow" class="form-control" value="<?= htmlspecialchars($webSettings['web_hero_act_eyebrow']) ?>" placeholder="e.g. Karimunjawa Islands">
+                        </div>
+                        <div class="col-md-8 mb-3">
+                            <label class="form-label">Title <small class="text-muted">(use &lt;br&gt; for line break, &lt;em&gt; for italic)</small></label>
+                            <input type="text" name="web_hero_act_title" class="form-control" value="<?= htmlspecialchars($webSettings['web_hero_act_title']) ?>">
+                        </div>
+                    </div>
+                    <div class="mb-3">
+                        <label class="form-label">Subtitle</label>
+                        <textarea name="web_hero_act_subtitle" class="form-control" rows="2"><?= htmlspecialchars($webSettings['web_hero_act_subtitle']) ?></textarea>
+                    </div>
+                    <button type="submit" class="btn btn-info text-white w-100">
+                        <i class="bi bi-check-lg me-1"></i>Save Hero Banner
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Activities Management -->
         <div class="settings-card">
             <div class="settings-card-header">
                 <div class="icon" style="background: rgba(13,110,253,0.15); color: #0d6efd;">
