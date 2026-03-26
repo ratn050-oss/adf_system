@@ -668,23 +668,23 @@ h3 { font-size: clamp(1.2rem, 2vw, 1.6rem); }
 
 .about-layout {
     display: grid;
-    grid-template-columns: 1fr 1fr;
-    gap: 48px;
+    grid-template-columns: 1.1fr 1fr;
+    gap: 40px;
     align-items: center;
 }
 
 .about-content .section-title {
     font-family: var(--font-heading);
-    font-size: 2.4rem;
+    font-size: 2rem;
     color: var(--dark);
-    margin: 8px 0 0;
+    margin: 6px 0 0;
 }
 
 .about-lead {
-    font-size: 1.1rem;
-    line-height: 1.8;
+    font-size: 0.98rem;
+    line-height: 1.75;
     color: var(--charcoal);
-    margin-bottom: 16px;
+    margin-bottom: 12px;
 }
 
 .about-lead strong {
@@ -692,17 +692,17 @@ h3 { font-size: clamp(1.2rem, 2vw, 1.6rem); }
 }
 
 .about-text {
-    font-size: 0.95rem;
-    line-height: 1.9;
+    font-size: 0.88rem;
+    line-height: 1.8;
     color: var(--warm-gray);
-    margin-bottom: 24px;
+    margin-bottom: 18px;
 }
 
 .about-highlight {
     display: flex;
-    gap: 16px;
+    gap: 14px;
     background: var(--white);
-    padding: 24px;
+    padding: 18px 20px;
     border-radius: var(--radius-lg);
     border-left: 4px solid var(--gold);
     box-shadow: 0 2px 12px rgba(0,0,0,.05);
@@ -710,27 +710,27 @@ h3 { font-size: clamp(1.2rem, 2vw, 1.6rem); }
 
 .about-highlight-icon {
     flex-shrink: 0;
-    width: 48px;
-    height: 48px;
+    width: 40px;
+    height: 40px;
     background: linear-gradient(135deg, var(--gold), var(--gold-light));
     border-radius: 50%;
     display: flex;
     align-items: center;
     justify-content: center;
     color: var(--white);
-    font-size: 1.1rem;
+    font-size: 1rem;
 }
 
 .about-highlight strong {
     display: block;
-    font-size: 1rem;
+    font-size: 0.9rem;
     color: var(--dark);
-    margin-bottom: 6px;
+    margin-bottom: 4px;
 }
 
 .about-highlight p {
-    font-size: 0.88rem;
-    line-height: 1.7;
+    font-size: 0.82rem;
+    line-height: 1.65;
     color: var(--warm-gray);
     margin: 0;
 }
@@ -820,8 +820,8 @@ h3 { font-size: clamp(1.2rem, 2vw, 1.6rem); }
     overflow: hidden;
     box-shadow: var(--shadow-lg);
     background: var(--dark);
-    aspect-ratio: 5 / 6;
-    max-height: 440px;
+    aspect-ratio: 3 / 4;
+    max-height: 400px;
 }
 .act-slideshow-viewport {
     position: relative;
@@ -937,9 +937,9 @@ h3 { font-size: clamp(1.2rem, 2vw, 1.6rem); }
 .services-row {
     display: grid;
     grid-template-columns: repeat(6, 1fr);
-    gap: 16px;
-    margin-top: 48px;
-    padding-top: 40px;
+    gap: 14px;
+    margin-top: 36px;
+    padding-top: 32px;
     border-top: 1px solid var(--border);
 }
 .service-item {
@@ -2327,24 +2327,24 @@ textarea.form-control { resize: vertical; }
     /* ─── About Section — single column on mobile ─── */
     .about-layout {
         grid-template-columns: 1fr;
-        gap: 32px;
+        gap: 24px;
     }
     .about-content .section-title {
-        font-size: 1.6rem;
+        font-size: 1.5rem;
     }
     .about-lead {
-        font-size: 0.95rem;
+        font-size: 0.9rem;
     }
     .about-text {
-        font-size: 0.88rem;
+        font-size: 0.84rem;
     }
     .about-highlight {
-        padding: 18px;
+        padding: 16px;
     }
     .about-highlight-icon {
-        width: 40px;
-        height: 40px;
-        font-size: 0.95rem;
+        width: 36px;
+        height: 36px;
+        font-size: 0.9rem;
     }
     .about-features {
         grid-template-columns: 1fr;
@@ -2364,24 +2364,29 @@ textarea.form-control { resize: vertical; }
 
     /* ─── Activities Slideshow — Mobile ─── */
     .act-slideshow {
-        aspect-ratio: 4 / 5;
-        max-height: 320px;
-        margin-top: 24px;
+        aspect-ratio: 3 / 4;
+        max-height: 300px;
+        margin: 0 auto;
+        width: 80%;
     }
-    .act-ss-title { font-size: 1rem; }
-    .act-ss-caption { padding: 16px 20px 48px; }
-    .act-ss-controls { left: 20px; right: 20px; bottom: 12px; }
+    .act-ss-title { font-size: 0.95rem; }
+    .act-ss-eyebrow { font-size: 0.55rem; letter-spacing: 1.5px; }
+    .act-ss-caption { padding: 14px 16px 44px; }
+    .act-ss-controls { left: 16px; right: 16px; bottom: 10px; }
+    .act-ss-dot { width: 5px; height: 5px; }
+    .act-ss-dot.active { width: 14px; }
+    .act-ss-link { font-size: 0.6rem; }
 
     /* ─── Services Row — Mobile ─── */
     .services-row {
         grid-template-columns: repeat(3, 1fr);
-        gap: 12px;
-        margin-top: 32px;
-        padding-top: 28px;
+        gap: 10px;
+        margin-top: 28px;
+        padding-top: 24px;
     }
-    .service-icon { width: 34px; height: 34px; font-size: 0.8rem; }
-    .service-item h4 { font-size: 0.75rem; }
-    .service-item p { font-size: 0.65rem; }
+    .service-icon { width: 32px; height: 32px; font-size: 0.75rem; margin-bottom: 6px; }
+    .service-item h4 { font-size: 0.72rem; }
+    .service-item p { font-size: 0.62rem; line-height: 1.4; }
     
     /* ─── Stats — 4 inline compact ─── */
     .section-dark { padding: 0; }
@@ -2557,14 +2562,33 @@ textarea.form-control { resize: vertical; }
     .feature-card p { font-size: 11px; line-height: 1.4; }
     
     /* About section — ultra compact */
-    .about-content .section-title { font-size: 1.3rem; }
-    .about-content .section-eyebrow { font-size: 9px; }
-    .about-lead { font-size: 0.85rem; line-height: 1.7; }
-    .about-text { font-size: 0.82rem; margin-bottom: 16px; }
-    .about-highlight { padding: 14px; gap: 12px; }
-    .about-highlight-icon { width: 36px; height: 36px; font-size: 0.85rem; }
-    .about-highlight strong { font-size: 0.88rem; }
-    .about-highlight p { font-size: 0.78rem; }
+    .about-content .section-title { font-size: 1.2rem; }
+    .about-content .section-eyebrow { font-size: 8px; }
+    .about-lead { font-size: 0.82rem; line-height: 1.65; }
+    .about-text { font-size: 0.78rem; margin-bottom: 14px; }
+    .about-highlight { padding: 12px; gap: 10px; }
+    .about-highlight-icon { width: 32px; height: 32px; font-size: 0.8rem; }
+    .about-highlight strong { font-size: 0.82rem; }
+    .about-highlight p { font-size: 0.72rem; }
+
+    /* Activities slideshow — small phone */
+    .act-slideshow {
+        width: 100%;
+        max-height: 260px;
+    }
+    .act-ss-caption { padding: 12px 14px 40px; }
+    .act-ss-title { font-size: 0.88rem; }
+
+    /* Services — 2 col on tiny screens */
+    .services-row {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 8px;
+        margin-top: 20px;
+        padding-top: 18px;
+    }
+    .service-icon { width: 28px; height: 28px; font-size: 0.7rem; }
+    .service-item h4 { font-size: 0.68rem; }
+    .service-item p { display: none; }
     .about-feature-item { padding: 14px; gap: 12px; }
     .about-feature-icon { width: 34px; height: 34px; font-size: 0.85rem; }
     .about-feature-item h4 { font-size: 0.82rem; }
