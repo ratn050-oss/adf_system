@@ -54,6 +54,16 @@ $availableNow = dbFetch("
 
 $roomIcons = ['King' => '👑', 'Queen' => '🌙', 'Twin' => '🛏️'];
 
+// Load activities for homepage slideshow
+$_actRow = dbFetch("SELECT setting_value FROM settings WHERE setting_key = 'web_activities'");
+$_actList = $_actRow ? json_decode($_actRow['setting_value'], true) : [];
+$homeActivities = [];
+if (!empty($_actList)) {
+    $_actList = array_filter($_actList, function($a) { return ($a['active'] ?? true) && !empty($a['image']); });
+    usort($_actList, function($a, $b) { return ($a['order'] ?? 0) - ($b['order'] ?? 0); });
+    $homeActivities = array_values($_actList);
+}
+
 // Load room gallery images from settings
 $gallerySettings = dbFetchAll("SELECT setting_key, setting_value FROM settings WHERE setting_key LIKE 'web_room_gallery_%' OR setting_key LIKE 'web_room_primary_%'");
 $roomGalleries = [];
@@ -140,6 +150,71 @@ require_once __DIR__ . '/includes/header.php';
     </div>
 </div>
 
+<?php if (!empty($homeActivities)): ?>
+<!-- Activities Showcase -->
+<section class="section act-showcase">
+    <div class="container">
+        <div class="section-header text-center fade-in">
+            <div class="section-eyebrow">Experiences</div>
+            <h2 class="section-title">Activities at Narayana</h2>
+            <div class="divider center"></div>
+            <p class="section-desc center">Discover unforgettable island experiences — from crystal-clear snorkelling to breathtaking sunsets — all arranged for our guests.</p>
+        </div>
+
+        <div class="act-slider fade-in">
+            <div class="act-slider-track">
+                <?php foreach ($homeActivities as $ai => $act): ?>
+                <div class="act-slide <?= $ai === 0 ? 'active' : '' ?>" data-index="<?= $ai ?>">
+                    <div class="act-slide-img">
+                        <img src="<?= htmlspecialchars($act['image']) ?>" alt="<?= htmlspecialchars($act['title'] ?? '') ?>" loading="<?= $ai < 2 ? 'eager' : 'lazy' ?>">
+                        <div class="act-slide-overlay"></div>
+                    </div>
+                    <div class="act-slide-content">
+                        <?php if (!empty($act['eyebrow'])): ?>
+                        <span class="act-slide-eyebrow"><?= htmlspecialchars($act['eyebrow']) ?></span>
+                        <?php endif; ?>
+                        <h3 class="act-slide-title"><?= htmlspecialchars($act['title'] ?? '') ?></h3>
+                        <?php
+                            $excerpt = strip_tags($act['body'] ?? '');
+                            if (mb_strlen($excerpt) > 140) $excerpt = mb_substr($excerpt, 0, 140) . '…';
+                        ?>
+                        <p class="act-slide-desc"><?= htmlspecialchars($excerpt) ?></p>
+                        <?php if (!empty($act['details']) && is_array($act['details'])): ?>
+                        <div class="act-slide-tags">
+                            <?php foreach (array_slice($act['details'], 0, 3) as $d): ?>
+                            <span class="act-tag"><?= htmlspecialchars($d) ?></span>
+                            <?php endforeach; ?>
+                        </div>
+                        <?php endif; ?>
+                    </div>
+                </div>
+                <?php endforeach; ?>
+            </div>
+
+            <!-- Navigation & Controls -->
+            <div class="act-slider-nav">
+                <button class="act-nav-btn act-nav-prev" aria-label="Previous activity">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="15 18 9 12 15 6"/></svg>
+                </button>
+                <div class="act-slider-dots">
+                    <?php foreach ($homeActivities as $ai => $act): ?>
+                    <button class="act-dot <?= $ai === 0 ? 'active' : '' ?>" data-index="<?= $ai ?>" aria-label="Activity <?= $ai + 1 ?>"></button>
+                    <?php endforeach; ?>
+                </div>
+                <button class="act-nav-btn act-nav-next" aria-label="Next activity">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="9 18 15 12 9 6"/></svg>
+                </button>
+            </div>
+            <div class="act-slider-progress"><div class="act-progress-fill"></div></div>
+        </div>
+
+        <div class="text-center fade-in" style="margin-top: 32px;">
+            <a href="<?= BASE_URL ?>/activities.php" class="btn btn-outline-dark">View All Activities &rarr;</a>
+        </div>
+    </div>
+</section>
+<?php endif; ?>
+
 <!-- About Narayana -->
 <section class="section about-section">
     <div class="container">
@@ -158,7 +233,7 @@ require_once __DIR__ . '/includes/header.php';
                     </div>
                 </div>
             </div>
-            <div class="about-features">
+            <div class="about-features about-features-compact">
                 <div class="about-feature-item fade-in">
                     <div class="about-feature-icon"><i class="fas fa-map-marker-alt"></i></div>
                     <div>
@@ -451,4 +526,64 @@ document.querySelectorAll('.room-card-image.has-gallery').forEach(card => {
         distX = 0;
     }, { passive: true });
 });
+
+// ── Activities Slideshow ──
+(function() {
+    const slider = document.querySelector('.act-slider');
+    if (!slider) return;
+
+    const slides = slider.querySelectorAll('.act-slide');
+    const dots = slider.querySelectorAll('.act-dot');
+    const prevBtn = slider.querySelector('.act-nav-prev');
+    const nextBtn = slider.querySelector('.act-nav-next');
+    const progressFill = slider.querySelector('.act-progress-fill');
+    const total = slides.length;
+    if (total === 0) return;
+
+    let current = 0;
+    let autoTimer = null;
+    const INTERVAL = 5000;
+    let paused = false;
+
+    function goTo(idx) {
+        slides[current].classList.remove('active');
+        dots[current].classList.remove('active');
+        current = ((idx % total) + total) % total;
+        slides[current].classList.add('active');
+        dots[current].classList.add('active');
+        restartProgress();
+    }
+
+    function next() { goTo(current + 1); }
+    function prev() { goTo(current - 1); }
+
+    function restartProgress() {
+        if (progressFill) {
+            progressFill.style.transition = 'none';
+            progressFill.style.width = '0%';
+            progressFill.offsetHeight; // force reflow
+            progressFill.style.transition = 'width ' + INTERVAL + 'ms linear';
+            progressFill.style.width = '100%';
+        }
+        clearInterval(autoTimer);
+        if (!paused) autoTimer = setInterval(next, INTERVAL);
+    }
+
+    prevBtn.addEventListener('click', prev);
+    nextBtn.addEventListener('click', next);
+    dots.forEach(d => d.addEventListener('click', () => goTo(+d.dataset.index)));
+
+    // Pause on hover
+    slider.addEventListener('mouseenter', () => { paused = true; clearInterval(autoTimer); });
+    slider.addEventListener('mouseleave', () => { paused = false; restartProgress(); });
+
+    // Touch swipe
+    let sx = 0, dx = 0;
+    slider.addEventListener('touchstart', e => { sx = e.touches[0].clientX; dx = 0; }, { passive: true });
+    slider.addEventListener('touchmove', e => { dx = e.touches[0].clientX - sx; }, { passive: true });
+    slider.addEventListener('touchend', () => { if (Math.abs(dx) > 50) dx < 0 ? next() : prev(); dx = 0; }, { passive: true });
+
+    // Start
+    restartProgress();
+})();
 </script>
