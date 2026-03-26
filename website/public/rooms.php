@@ -123,7 +123,7 @@ include __DIR__ . '/includes/header.php';
                 <?php else: ?>
                     <span class="room-emoji"><?= $icon ?></span>
                 <?php endif; ?>
-                <div style="position:absolute; bottom:16px; left:16px; z-index: 2;">
+                <div style="position:absolute; bottom:12px; left:12px; z-index: 2;">
                     <span class="avail-badge <?= $ac ?>"><span class="avail-dot"></span><?= $at ?></span>
                 </div>
             </div>
@@ -133,7 +133,7 @@ include __DIR__ . '/includes/header.php';
                 <div class="section-eyebrow"><?= htmlspecialchars($typeName) ?> Room</div>
                 <h2><?= htmlspecialchars($typeName) ?></h2>
                 <div class="divider"></div>
-                <p style="color:var(--warm-gray); line-height:1.8; margin-bottom:20px;"><?= $desc ?></p>
+                <p style="color:var(--warm-gray); line-height:1.7; margin-bottom:12px; font-size:13px;"><?= $desc ?></p>
 
                 <div class="room-specs">
                     <div class="room-spec"><i class="fas fa-user"></i> Up to <?= $room['max_occupancy'] ?> Guests</div>
@@ -150,8 +150,8 @@ include __DIR__ . '/includes/header.php';
                 </div>
 
                 <!-- Room Status -->
-                <div style="margin-top:8px;">
-                    <div style="font-size:11px; font-weight:600; letter-spacing:1px; text-transform:uppercase; color:var(--mid-gray); margin-bottom:8px;">Room Status</div>
+                <div style="margin-top:6px;">
+                    <div style="font-size:10px; font-weight:600; letter-spacing:1px; text-transform:uppercase; color:var(--mid-gray); margin-bottom:4px;">Room Status</div>
                     <div class="room-status-grid">
                         <?php foreach ($typeRooms as $tr):
                             $sc = match($tr['live_status']) {
