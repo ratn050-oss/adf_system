@@ -114,9 +114,6 @@ require_once __DIR__ . '/includes/header.php';
             <p class="hero-eyebrow">&mdash; <?= htmlspecialchars($heroAccent) ?></p>
             <h1 class="hero-title"><?= $heroTitle ?></h1>
             <p class="hero-subtitle"><?= htmlspecialchars($heroSubtitle) ?></p>
-            <div class="hero-actions">
-                <a href="<?= BASE_URL ?>/booking.php" class="btn btn-white btn-lg">Discover Location</a>
-            </div>
         </div>
         <?php if (!empty($heroCards)): ?>
         <div class="hero-right">
