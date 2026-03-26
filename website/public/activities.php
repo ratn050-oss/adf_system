@@ -184,15 +184,15 @@ require_once __DIR__ . '/includes/header.php';
 </section>
 
 <!-- Intro -->
-<section class="section" style="padding: 80px 0;">
+<section class="section" style="padding: 56px 0 48px;">
     <div class="container">
         <div class="act-intro fade-in">
             <div class="act-intro-text">
                 <div class="section-eyebrow">During Your Stay</div>
-                <h2 class="section-title">Life at Narayana</h2>
+                <h2 class="section-title" style="font-size: clamp(1.5rem, 2.5vw, 2rem);">Life at Narayana</h2>
                 <div class="divider"></div>
-                <p style="color: var(--warm-gray); font-size: 1.02rem; line-height: 1.95; max-width: 560px;">
-                    Narayana sits at the heart of Karimunjawa — a cluster of islands in the Java Sea where the water is warm, the reefs are alive, and the pace of life slows to something worth remembering. Here is what you can do, see, and feel during your time with us.
+                <p style="color: var(--warm-gray); font-size: 0.92rem; line-height: 1.85; max-width: 520px;">
+                    Narayana sits at the heart of Karimunjawa — a cluster of islands in the Java Sea where the water is warm, the reefs are alive, and the pace of life slows to something worth remembering.
                 </p>
             </div>
             <div class="act-intro-meta">
