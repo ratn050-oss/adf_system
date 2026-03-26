@@ -173,15 +173,15 @@ require_once __DIR__ . '/includes/header.php';
 </section>
 
 <!-- Intro -->
-<section class="section" style="padding: 56px 0 48px;">
+<section class="section" style="padding: 36px 0 28px;">
     <div class="container">
         <div class="act-intro fade-in">
             <div class="act-intro-text">
                 <div class="section-eyebrow">During Your Stay</div>
-                <h2 class="section-title" style="font-size: clamp(1.5rem, 2.5vw, 2rem);">Life at Narayana</h2>
+                <h2 class="section-title" style="font-size: clamp(1.4rem, 2.2vw, 1.8rem);">Life at Narayana</h2>
                 <div class="divider"></div>
-                <p style="color: var(--warm-gray); font-size: 0.92rem; line-height: 1.85; max-width: 520px;">
-                    Narayana sits at the heart of Karimunjawa — a cluster of islands in the Java Sea where the water is warm, the reefs are alive, and the pace of life slows to something worth remembering.
+                <p style="color: var(--warm-gray); font-size: 0.88rem; line-height: 1.8; max-width: 480px;">
+                    Narayana sits at the heart of Karimunjawa — where the water is warm, the reefs are alive, and the pace of life slows to something worth remembering.
                 </p>
             </div>
             <div class="act-intro-meta">
@@ -192,10 +192,6 @@ require_once __DIR__ . '/includes/header.php';
                 <div class="act-intro-stat">
                     <span class="act-intro-stat-num">27</span>
                     <span class="act-intro-stat-label">Islands</span>
-                </div>
-                <div class="act-intro-stat">
-                    <span class="act-intro-stat-num">∞</span>
-                    <span class="act-intro-stat-label">Memories</span>
                 </div>
             </div>
         </div>

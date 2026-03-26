@@ -3222,8 +3222,16 @@ textarea.form-control { resize: vertical; }
 
 /* Activities Hero override */
 .hero-activities {
-    min-height: 45vh;
+    min-height: 40vh;
     padding: 0;
+}
+
+.hero-activities .hero-bg {
+    background-position: center bottom;
+}
+
+.hero-activities .hero-bg::after {
+    background: none;
 }
 
 /* Activities Grid */
@@ -3418,7 +3426,7 @@ textarea.form-control { resize: vertical; }
    ========================================================= */
 
 .act-story {
-    padding: 64px 0;
+    padding: 48px 0;
     position: relative;
 }
 .act-story + .act-story {
@@ -3428,17 +3436,17 @@ textarea.form-control { resize: vertical; }
     background: var(--cream);
 }
 
-/* Two-column grid: image 45%, text 55% */
+/* Two-column grid: image 42%, text 58% */
 .act-story-inner {
     display: grid;
-    grid-template-columns: 45% 1fr;
-    gap: 56px;
+    grid-template-columns: 42% 1fr;
+    gap: 40px;
     align-items: start;
 }
 
 /* Reversed: swap columns visually using grid placement */
 .act-story-reverse .act-story-inner {
-    grid-template-columns: 1fr 45%;
+    grid-template-columns: 1fr 42%;
 }
 .act-story-reverse .act-story-image {
     grid-column: 2;
@@ -3594,18 +3602,19 @@ textarea.form-control { resize: vertical; }
 
 /* ---- Tablet (< 1000px) ---- */
 @media (max-width: 1000px) {
-    .act-story { padding: 48px 0; }
+    .act-story { padding: 36px 0; }
     .act-story-inner {
-        gap: 36px;
+        gap: 28px;
     }
 }
 
 /* ---- Mobile (< 800px): stack vertically, image always on top ---- */
 @media (max-width: 800px) {
-    .act-story { padding: 40px 0; }
+    .hero-activities { min-height: 30vh; }
+    .act-story { padding: 32px 0; }
     .act-story-inner {
         grid-template-columns: 1fr !important;
-        gap: 24px;
+        gap: 20px;
     }
     /* Reset grid placement for reverse */
     .act-story-reverse .act-story-image,
@@ -3624,8 +3633,9 @@ textarea.form-control { resize: vertical; }
 
 /* ---- Small phone (< 540px) ---- */
 @media (max-width: 540px) {
-    .act-story { padding: 32px 0; }
-    .act-story-inner { gap: 20px; }
+    .hero-activities { min-height: 25vh; }
+    .act-story { padding: 24px 0; }
+    .act-story-inner { gap: 16px; }
     .act-story-image { aspect-ratio: 16 / 9; border-radius: 3px; }
     .act-story-image-label { padding: 32px 14px 12px; font-size: 0.55rem; }
     .act-story-content h2 { font-size: clamp(1.2rem, 5vw, 1.5rem); }
