@@ -198,8 +198,8 @@ h3 { font-size: clamp(1.2rem, 2vw, 1.6rem); }
 }
 
 .btn-lg {
-    padding: 16px 36px;
-    font-size: 14px;
+    padding: 13px 28px;
+    font-size: 12px;
 }
 
 .btn-sm {
@@ -387,7 +387,8 @@ h3 { font-size: clamp(1.2rem, 2vw, 1.6rem); }
     position: relative;
     width: 100%;
     height: 100vh;
-    min-height: 650px;
+    min-height: 600px;
+    max-height: 900px;
     background: linear-gradient(135deg, #0f1419 0%, #1a2a4a 50%, #2c4a6a 100%);
     background-size: cover;
     background-position: center;
@@ -402,25 +403,25 @@ h3 { font-size: clamp(1.2rem, 2vw, 1.6rem); }
     z-index: 2;
     display: flex;
     align-items: center;
-    justify-content: space-between;
-    gap: 3rem;
-    padding: 2rem;
-    max-width: 1300px;
+    justify-content: center;
+    gap: clamp(1.5rem, 3vw, 3rem);
+    padding: 2rem clamp(1.5rem, 3vw, 2.5rem);
+    max-width: 1200px;
     width: 100%;
     margin: 0 auto;
 }
 
 .hero-left {
     flex: 1;
-    max-width: 520px;
+    max-width: 480px;
     animation: heroFadeUp 0.8s ease;
 }
 
 .hero-eyebrow {
-    font-size: 0.85rem;
+    font-size: clamp(0.7rem, 1vw, 0.82rem);
     color: rgba(255,255,255,0.7);
     letter-spacing: 1px;
-    margin: 0 0 1rem 0;
+    margin: 0 0 0.8rem 0;
     font-weight: 400;
 }
 
@@ -428,12 +429,12 @@ h3 { font-size: clamp(1.2rem, 2vw, 1.6rem); }
 
 .hero-title {
     font-family: 'Playfair Display', 'Georgia', serif;
-    font-size: 3.8rem;
+    font-size: clamp(2rem, 3.2vw, 2.8rem);
     font-weight: 800;
     color: #fff;
-    line-height: 1.1;
-    margin: 0 0 1.2rem 0;
-    letter-spacing: -0.5px;
+    line-height: 1.15;
+    margin: 0 0 1rem 0;
+    letter-spacing: -0.3px;
 }
 
 .hero-title em {
@@ -442,18 +443,18 @@ h3 { font-size: clamp(1.2rem, 2vw, 1.6rem); }
 }
 
 .hero-subtitle {
-    font-size: 0.95rem;
+    font-size: clamp(0.82rem, 1vw, 0.92rem);
     color: rgba(255,255,255,0.65);
     line-height: 1.7;
-    margin: 0 0 2rem 0;
-    max-width: 420px;
+    margin: 0 0 1.5rem 0;
+    max-width: 400px;
     font-weight: 300;
 }
 
 .hero-actions {
     display: flex;
     align-items: center;
-    gap: 1rem;
+    gap: 0.8rem;
 }
 
 /* --- Right: Room Cards --- */
@@ -471,9 +472,9 @@ h3 { font-size: clamp(1.2rem, 2vw, 1.6rem); }
 }
 
 .hero-room-card {
-    width: 195px;
-    height: 260px;
-    border-radius: 16px;
+    width: clamp(140px, 13vw, 180px);
+    height: clamp(190px, 17vw, 240px);
+    border-radius: 14px;
     overflow: hidden;
     position: relative;
     cursor: pointer;
@@ -481,12 +482,12 @@ h3 { font-size: clamp(1.2rem, 2vw, 1.6rem); }
     box-shadow: 0 8px 30px rgba(0,0,0,0.3);
 }
 .hero-room-card:hover {
-    transform: translateY(-6px);
-    box-shadow: 0 16px 40px rgba(0,0,0,0.4);
+    transform: translateY(-4px);
+    box-shadow: 0 12px 36px rgba(0,0,0,0.4);
 }
 .hero-room-card.active {
-    width: 210px;
-    height: 275px;
+    width: clamp(150px, 14vw, 195px);
+    height: clamp(200px, 18vw, 255px);
 }
 
 .hero-card-img {
@@ -532,13 +533,13 @@ h3 { font-size: clamp(1.2rem, 2vw, 1.6rem); }
 .hero-cards-nav {
     display: flex;
     align-items: center;
-    gap: 12px;
+    gap: 10px;
     padding-left: 4px;
 }
 
 .hero-nav-btn {
-    width: 36px;
-    height: 36px;
+    width: 32px;
+    height: 32px;
     border-radius: 50%;
     border: 1px solid rgba(255,255,255,0.3);
     background: rgba(255,255,255,0.08);
@@ -571,11 +572,11 @@ h3 { font-size: clamp(1.2rem, 2vw, 1.6rem); }
 }
 
 .hero-counter {
-    font-size: 1.4rem;
+    font-size: 1.1rem;
     color: rgba(255,255,255,0.5);
     font-weight: 700;
     letter-spacing: 1px;
-    min-width: 28px;
+    min-width: 24px;
     text-align: right;
 }
 
@@ -595,20 +596,20 @@ h3 { font-size: clamp(1.2rem, 2vw, 1.6rem); }
 .booking-bar {
     position: relative;
     z-index: 10;
-    margin-top: -48px;
+    margin-top: -40px;
 }
 
 .booking-bar-inner {
     background: var(--white);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-xl);
-    padding: 20px 28px;
+    padding: 16px 24px;
 }
 
 .booking-bar-form {
     display: flex;
     align-items: flex-end;
-    gap: 16px;
+    gap: 14px;
 }
 
 .booking-bar-form .form-group {
@@ -617,21 +618,21 @@ h3 { font-size: clamp(1.2rem, 2vw, 1.6rem); }
 
 .booking-bar-form label {
     display: block;
-    font-size: 11px;
+    font-size: 10px;
     font-weight: 600;
     letter-spacing: 1px;
     text-transform: uppercase;
     color: var(--warm-gray);
-    margin-bottom: 6px;
+    margin-bottom: 5px;
 }
 
 .booking-bar-form input,
 .booking-bar-form select {
     width: 100%;
-    padding: 10px 12px;
+    padding: 9px 10px;
     border: 1px solid var(--light-gray);
     border-radius: var(--radius);
-    font-size: 14px;
+    font-size: 13px;
     color: var(--black);
     background: var(--white);
     transition: border-color var(--duration) var(--ease);
@@ -645,7 +646,9 @@ h3 { font-size: clamp(1.2rem, 2vw, 1.6rem); }
 
 .booking-bar-form .btn {
     flex-shrink: 0;
-    height: 42px;
+    height: 40px;
+    font-size: 12px;
+    padding: 0 24px;
 }
 
 /* ═══════════════════════════════════════
@@ -2135,25 +2138,29 @@ textarea.form-control { resize: vertical; }
     .luxury-hero {
         height: auto;
         min-height: 100vh;
+        max-height: none;
     }
     .hero-content-luxury {
         flex-direction: column;
         text-align: center;
-        padding: 6rem 2rem 3rem;
+        padding: 5rem 1.5rem 2.5rem;
+        gap: 1.5rem;
     }
-    .hero-left { max-width: 100%; }
-    .hero-subtitle { max-width: 100%; }
+    .hero-left { max-width: 480px; margin: 0 auto; }
+    .hero-subtitle { max-width: 100%; margin-left: auto; margin-right: auto; }
     .hero-actions { justify-content: center; }
     .hero-right { align-items: center; }
-    .hero-room-card { width: 170px; height: 230px; }
-    .hero-room-card.active { width: 180px; height: 240px; }
+    .hero-room-card { width: 155px; height: 210px; }
+    .hero-room-card.active { width: 165px; height: 220px; }
+    .hero-cards-row { gap: 12px; }
+    .hero-cards-nav { gap: 8px; }
 
     .about-layout {
-        gap: 40px;
+        gap: 32px;
     }
 
     .about-content .section-title {
-        font-size: 2rem;
+        font-size: 1.8rem;
     }
 }
 
@@ -2208,14 +2215,22 @@ textarea.form-control { resize: vertical; }
     /* ─── HERO — Luxury compact with cards ─── */
     .luxury-hero { background-attachment: scroll; }
     .hero-content-luxury {
-        padding: 5rem 1.2rem 2rem;
-        gap: 2rem;
+        padding: 4.5rem 1rem 2rem;
+        gap: 1.5rem;
     }
-    .hero-title { font-size: 2.5rem; }
-    .hero-cards-row { gap: 10px; }
-    .hero-room-card { width: 140px; height: 195px; }
-    .hero-room-card.active { width: 150px; height: 205px; }
-    .hero-cards-nav { padding: 0; }
+    .hero-title { font-size: 1.8rem; }
+    .hero-eyebrow { font-size: 0.7rem; margin-bottom: 0.5rem; }
+    .hero-subtitle { font-size: 0.8rem; margin-bottom: 1rem; }
+    .hero-cards-row { gap: 8px; }
+    .hero-room-card { width: 120px; height: 165px; border-radius: 10px; }
+    .hero-room-card.active { width: 130px; height: 175px; }
+    .hero-card-overlay { padding: 12px 10px; }
+    .hero-card-sub { font-size: 0.6rem; }
+    .hero-card-title { font-size: 0.75rem; }
+    .hero-nav-btn { width: 28px; height: 28px; }
+    .hero-nav-btn svg { width: 12px; height: 12px; }
+    .hero-counter { font-size: 0.9rem; }
+    .hero-cards-nav { padding: 0; gap: 8px; }
     
     /* ─── Booking Bar — Compact single-row ─── */
     .booking-bar { margin-top: -32px; }
@@ -2504,18 +2519,30 @@ textarea.form-control { resize: vertical; }
     
     /* Hero — ultra compact with cards */
     .luxury-hero { min-height: auto; }
-    .hero-title { font-size: 2rem; }
+    .hero-content-luxury { padding: 4rem 0.8rem 1.5rem; gap: 1.2rem; }
+    .hero-title { font-size: 1.5rem; }
+    .hero-eyebrow { font-size: 0.62rem; }
+    .hero-subtitle { font-size: 0.75rem; line-height: 1.6; margin-bottom: 0.8rem; }
+    .hero-actions .btn { padding: 10px 20px; font-size: 10px; }
     .hero-cards-row {
         flex-wrap: nowrap;
         overflow-x: auto;
-        padding-bottom: 8px;
+        padding-bottom: 6px;
+        gap: 6px;
     }
     .hero-room-card,
     .hero-room-card.active {
-        width: 140px;
-        height: 190px;
+        width: 110px;
+        height: 150px;
         flex-shrink: 0;
+        border-radius: 8px;
     }
+    .hero-card-overlay { padding: 8px; gap: 2px; }
+    .hero-card-sub { font-size: 0.5rem; }
+    .hero-card-title { font-size: 0.65rem; }
+    .hero-nav-btn { width: 24px; height: 24px; }
+    .hero-nav-btn svg { width: 10px; height: 10px; }
+    .hero-counter { font-size: 0.8rem; min-width: 20px; }
     
     /* Navbar */
     .navbar { height: 52px; }
