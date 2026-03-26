@@ -55,13 +55,17 @@ $availableNow = dbFetch("
 $roomIcons = ['King' => '👑', 'Queen' => '🌙', 'Twin' => '🛏️'];
 
 // Load activities for homepage slideshow
-$_actRow = dbFetch("SELECT setting_value FROM settings WHERE setting_key = 'web_activities'");
-$_actList = $_actRow ? json_decode($_actRow['setting_value'], true) : [];
 $homeActivities = [];
-if (!empty($_actList)) {
-    $_actList = array_filter($_actList, function($a) { return ($a['active'] ?? true) && !empty($a['image']); });
-    usort($_actList, function($a, $b) { return ($a['order'] ?? 0) - ($b['order'] ?? 0); });
-    $homeActivities = array_values($_actList);
+try {
+    $_actRow = dbFetch("SELECT setting_value FROM settings WHERE setting_key = 'web_activities'");
+    $_actList = $_actRow ? json_decode($_actRow['setting_value'], true) : [];
+    if (!empty($_actList)) {
+        $_actList = array_filter($_actList, function($a) { return ($a['active'] ?? true) && !empty($a['image']); });
+        usort($_actList, function($a, $b) { return ($a['order'] ?? 0) - ($b['order'] ?? 0); });
+        $homeActivities = array_values($_actList);
+    }
+} catch (Exception $e) {
+    // Activities query failed — don't break the page
 }
 // Fallback defaults if DB empty
 if (empty($homeActivities)) {
