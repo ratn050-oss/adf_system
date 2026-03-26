@@ -669,8 +669,8 @@ h3 { font-size: clamp(1.2rem, 2vw, 1.6rem); }
 .about-layout {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 64px;
-    align-items: start;
+    gap: 48px;
+    align-items: center;
 }
 
 .about-content .section-title {
@@ -820,8 +820,8 @@ h3 { font-size: clamp(1.2rem, 2vw, 1.6rem); }
     overflow: hidden;
     box-shadow: var(--shadow-lg);
     background: var(--dark);
-    aspect-ratio: 4 / 5;
-    max-height: 520px;
+    aspect-ratio: 5 / 6;
+    max-height: 440px;
 }
 .act-slideshow-viewport {
     position: relative;
@@ -2364,8 +2364,8 @@ textarea.form-control { resize: vertical; }
 
     /* ─── Activities Slideshow — Mobile ─── */
     .act-slideshow {
-        aspect-ratio: 3 / 4;
-        max-height: 360px;
+        aspect-ratio: 4 / 5;
+        max-height: 320px;
         margin-top: 24px;
     }
     .act-ss-title { font-size: 1rem; }
