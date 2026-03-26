@@ -3140,7 +3140,87 @@ textarea.form-control { resize: vertical; }
    ACTIVITIES PAGE — Elegant Island Experiences
    ═══════════════════════════════════════ */
 
-/* Activities Hero — Uses same .hero class as homepage */
+/* Base hero for activities/subpages */
+.hero {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    color: var(--white);
+    text-align: center;
+    overflow: hidden;
+    min-height: 60vh;
+    padding: 120px 0 60px;
+}
+
+.hero-bg {
+    position: absolute;
+    inset: 0;
+    background-size: cover;
+    background-position: center;
+    z-index: 0;
+}
+
+.hero-bg::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(180deg, rgba(0,0,0,0.35) 0%, rgba(0,0,0,0.55) 100%);
+}
+
+.hero .container {
+    position: relative;
+    z-index: 1;
+}
+
+.hero-content {
+    max-width: 700px;
+    margin: 0 auto;
+}
+
+.hero-content h1 {
+    font-family: 'Playfair Display', 'Georgia', serif;
+    font-size: clamp(2rem, 4vw, 3rem);
+    font-weight: 700;
+    color: var(--white);
+    line-height: 1.2;
+    margin-bottom: 16px;
+}
+
+.hero-content .hero-eyebrow {
+    font-size: 0.75rem;
+    letter-spacing: 2px;
+    text-transform: uppercase;
+    color: var(--gold-light);
+    margin-bottom: 12px;
+}
+
+.hero-text {
+    color: rgba(255,255,255,0.8);
+    font-size: 1rem;
+    line-height: 1.7;
+    margin-bottom: 24px;
+}
+
+.btn-group {
+    display: flex;
+    gap: 12px;
+    justify-content: center;
+    flex-wrap: wrap;
+}
+
+.btn-outline-white {
+    background: transparent;
+    color: var(--white);
+    border-color: rgba(255,255,255,0.5);
+}
+.btn-outline-white:hover {
+    background: var(--white);
+    color: var(--black);
+    border-color: var(--white);
+}
+
+/* Activities Hero override */
 .hero-activities {
     min-height: 85vh;
 }
