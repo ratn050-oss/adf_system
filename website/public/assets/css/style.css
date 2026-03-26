@@ -3222,7 +3222,8 @@ textarea.form-control { resize: vertical; }
 
 /* Activities Hero override */
 .hero-activities {
-    min-height: 65vh;
+    min-height: 45vh;
+    padding: 0;
 }
 
 /* Activities Grid */

@@ -167,20 +167,9 @@ if (!empty($_actFromDb)) {
 require_once __DIR__ . '/includes/header.php';
 ?>
 
-<!-- Hero — same as Home -->
+<!-- Hero -->
 <section class="hero hero-activities">
     <div class="hero-bg" style="background-image: url('<?= htmlspecialchars($actHeroBg) ?>');"></div>
-    <div class="container">
-        <div class="hero-content">
-            <div class="hero-eyebrow"><?= htmlspecialchars($actHeroEyebrow) ?></div>
-            <h1><?= $actHeroTitle ?></h1>
-            <p class="hero-text"><?= htmlspecialchars($actHeroSubtitle) ?></p>
-            <div class="btn-group">
-                <a href="#activities-guide" class="btn btn-white btn-lg">Discover More</a>
-                <a href="<?= BASE_URL ?>/booking.php" class="btn btn-outline-white btn-lg">Book Your Stay</a>
-            </div>
-        </div>
-    </div>
 </section>
 
 <!-- Intro -->
