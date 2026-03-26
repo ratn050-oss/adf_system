@@ -187,31 +187,6 @@ require_once __DIR__ . '/includes/header.php';
                     </div>
                 </div>
             </div>
-            <?php if (!empty($homeActivities)): ?>
-            <div class="act-cards-wrap fade-in">
-                <div class="act-cards-header">
-                    <h4 class="act-cards-label"><i class="fas fa-compass"></i> Activities</h4>
-                    <div class="act-cards-arrows">
-                        <button class="act-arrow act-arrow-prev" aria-label="Previous"><i class="fas fa-chevron-left"></i></button>
-                        <button class="act-arrow act-arrow-next" aria-label="Next"><i class="fas fa-chevron-right"></i></button>
-                    </div>
-                </div>
-                <div class="act-cards-track">
-                    <?php foreach ($homeActivities as $ai => $act): ?>
-                    <a href="<?= BASE_URL ?>/activities.php" class="act-card">
-                        <div class="act-card-img">
-                            <img src="<?= htmlspecialchars($act['image']) ?>" alt="<?= htmlspecialchars($act['title'] ?? '') ?>" loading="lazy">
-                        </div>
-                        <div class="act-card-body">
-                            <span class="act-card-eyebrow"><?= htmlspecialchars($act['eyebrow'] ?? '') ?></span>
-                            <h5 class="act-card-title"><?= htmlspecialchars($act['title'] ?? '') ?></h5>
-                        </div>
-                    </a>
-                    <?php endforeach; ?>
-                </div>
-                <a href="<?= BASE_URL ?>/activities.php" class="act-cards-more">View all activities &rarr;</a>
-            </div>
-            <?php else: ?>
             <div class="about-features about-features-compact">
                 <div class="about-feature-item fade-in">
                     <div class="about-feature-icon"><i class="fas fa-map-marker-alt"></i></div>
@@ -256,10 +231,43 @@ require_once __DIR__ . '/includes/header.php';
                     </div>
                 </div>
             </div>
-            <?php endif; ?>
         </div>
     </div>
 </section>
+
+<?php if (!empty($homeActivities)): ?>
+<!-- Activities Strip -->
+<section class="section act-strip-section">
+    <div class="container">
+        <div class="act-strip-header fade-in">
+            <div>
+                <div class="section-eyebrow">Experiences</div>
+                <h2 class="act-strip-title">Island Activities</h2>
+            </div>
+            <div class="act-strip-controls">
+                <button class="act-arrow act-arrow-prev" aria-label="Previous"><i class="fas fa-chevron-left"></i></button>
+                <button class="act-arrow act-arrow-next" aria-label="Next"><i class="fas fa-chevron-right"></i></button>
+            </div>
+        </div>
+        <div class="act-cards-track fade-in">
+            <?php foreach ($homeActivities as $ai => $act): ?>
+            <a href="<?= BASE_URL ?>/activities.php" class="act-card">
+                <div class="act-card-img">
+                    <img src="<?= htmlspecialchars($act['image']) ?>" alt="<?= htmlspecialchars($act['title'] ?? '') ?>" loading="lazy">
+                </div>
+                <div class="act-card-body">
+                    <span class="act-card-eyebrow"><?= htmlspecialchars($act['eyebrow'] ?? '') ?></span>
+                    <h5 class="act-card-title"><?= htmlspecialchars($act['title'] ?? '') ?></h5>
+                </div>
+            </a>
+            <?php endforeach; ?>
+        </div>
+        <div class="text-center fade-in" style="margin-top: 24px;">
+            <a href="<?= BASE_URL ?>/activities.php" class="btn btn-outline-dark btn-sm">Explore All Activities &rarr;</a>
+        </div>
+    </div>
+</section>
+<?php endif; ?>
 
 <!-- Rooms -->
 <section class="section">
@@ -509,27 +517,27 @@ document.querySelectorAll('.room-card-image.has-gallery').forEach(card => {
 
 // ── Activities Card Slider ──
 (function() {
-    const wrap = document.querySelector('.act-cards-wrap');
-    if (!wrap) return;
-    const track = wrap.querySelector('.act-cards-track');
-    const prevBtn = wrap.querySelector('.act-arrow-prev');
-    const nextBtn = wrap.querySelector('.act-arrow-next');
+    const section = document.querySelector('.act-strip-section');
+    if (!section) return;
+    const track = section.querySelector('.act-cards-track');
+    const prevBtn = section.querySelector('.act-arrow-prev');
+    const nextBtn = section.querySelector('.act-arrow-next');
     if (!track || !prevBtn || !nextBtn) return;
 
-    const scrollAmt = 220;
-    prevBtn.addEventListener('click', () => track.scrollBy({ left: -scrollAmt, behavior: 'smooth' }));
-    nextBtn.addEventListener('click', () => track.scrollBy({ left: scrollAmt, behavior: 'smooth' }));
+    const cardW = track.querySelector('.act-card')?.offsetWidth + 14 || 220;
+    prevBtn.addEventListener('click', () => track.scrollBy({ left: -cardW * 2, behavior: 'smooth' }));
+    nextBtn.addEventListener('click', () => track.scrollBy({ left: cardW * 2, behavior: 'smooth' }));
 
     // Auto-slide
-    let autoTimer = setInterval(() => track.scrollBy({ left: scrollAmt, behavior: 'smooth' }), 4000);
-    wrap.addEventListener('mouseenter', () => clearInterval(autoTimer));
-    wrap.addEventListener('mouseleave', () => {
-        autoTimer = setInterval(() => track.scrollBy({ left: scrollAmt, behavior: 'smooth' }), 4000);
+    let autoTimer = setInterval(() => track.scrollBy({ left: cardW, behavior: 'smooth' }), 3500);
+    section.addEventListener('mouseenter', () => clearInterval(autoTimer));
+    section.addEventListener('mouseleave', () => {
+        autoTimer = setInterval(() => track.scrollBy({ left: cardW, behavior: 'smooth' }), 3500);
     });
-    // Loop back to start
+    // Loop back
     track.addEventListener('scroll', () => {
         if (track.scrollLeft + track.clientWidth >= track.scrollWidth - 10) {
-            setTimeout(() => track.scrollTo({ left: 0, behavior: 'smooth' }), 1500);
+            setTimeout(() => track.scrollTo({ left: 0, behavior: 'smooth' }), 2000);
         }
     });
 })();
