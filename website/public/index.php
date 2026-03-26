@@ -187,87 +187,71 @@ require_once __DIR__ . '/includes/header.php';
                     </div>
                 </div>
             </div>
-            <div class="about-features about-features-compact">
-                <div class="about-feature-item fade-in">
-                    <div class="about-feature-icon"><i class="fas fa-map-marker-alt"></i></div>
-                    <div>
-                        <h4>Prime Location</h4>
-                        <p>Steps from the town centre with easy access to the harbour, local market, and every major island destination.</p>
-                    </div>
-                </div>
-                <div class="about-feature-item fade-in">
-                    <div class="about-feature-icon"><i class="fas fa-mountain"></i></div>
-                    <div>
-                        <h4>Mountain Views & Sunset</h4>
-                        <p>A unique vantage point offering sweeping mountain panoramas and proximity to the island's most stunning sunset spot.</p>
-                    </div>
-                </div>
-                <div class="about-feature-item fade-in">
-                    <div class="about-feature-icon"><i class="fas fa-motorcycle"></i></div>
-                    <div>
-                        <h4>Motorbike Rental</h4>
-                        <p>Explore Karimunjawa at your own pace — rent a motorbike directly from the hotel, ready whenever you are.</p>
-                    </div>
-                </div>
-                <div class="about-feature-item fade-in">
-                    <div class="about-feature-icon"><i class="fas fa-ship"></i></div>
-                    <div>
-                        <h4>Ocean Trips & Snorkelling</h4>
-                        <p>Curated sea excursions including island hopping, coral reef snorkelling, and visits to secluded hidden beaches.</p>
-                    </div>
-                </div>
-                <div class="about-feature-item fade-in">
-                    <div class="about-feature-icon"><i class="fas fa-utensils"></i></div>
-                    <div>
-                        <h4>Hotel & Restaurant</h4>
-                        <p>Comfortable rooms paired with an in-house restaurant serving freshly caught seafood and authentic local cuisine.</p>
-                    </div>
-                </div>
-                <div class="about-feature-item fade-in">
-                    <div class="about-feature-icon"><i class="fas fa-spa"></i></div>
-                    <div>
-                        <h4>Peaceful & Comfortable</h4>
-                        <p>Thoughtfully designed architecture crafted for tranquillity, enveloped by lush tropical greenery and fresh island air.</p>
-                    </div>
-                </div>
-            </div>
-        </div>
-    </div>
-</section>
 
-<?php if (!empty($homeActivities)): ?>
-<!-- Activities Strip -->
-<section class="section act-strip-section">
-    <div class="container">
-        <div class="act-strip-header fade-in">
-            <div>
-                <div class="section-eyebrow">Experiences</div>
-                <h2 class="act-strip-title">Island Activities</h2>
-            </div>
-            <div class="act-strip-controls">
-                <button class="act-arrow act-arrow-prev" aria-label="Previous"><i class="fas fa-chevron-left"></i></button>
-                <button class="act-arrow act-arrow-next" aria-label="Next"><i class="fas fa-chevron-right"></i></button>
-            </div>
-        </div>
-        <div class="act-cards-track fade-in">
-            <?php foreach ($homeActivities as $ai => $act): ?>
-            <a href="<?= BASE_URL ?>/activities.php" class="act-card">
-                <div class="act-card-img">
-                    <img src="<?= htmlspecialchars($act['image']) ?>" alt="<?= htmlspecialchars($act['title'] ?? '') ?>" loading="lazy">
+            <?php if (!empty($homeActivities)): ?>
+            <!-- Activities Slideshow (right side) -->
+            <div class="act-slideshow fade-in">
+                <div class="act-slideshow-viewport">
+                    <?php foreach ($homeActivities as $ai => $act): ?>
+                    <div class="act-ss-slide <?= $ai === 0 ? 'active' : '' ?>" data-index="<?= $ai ?>">
+                        <div class="act-ss-img">
+                            <img src="<?= htmlspecialchars($act['image']) ?>" alt="<?= htmlspecialchars($act['title'] ?? '') ?>" loading="<?= $ai < 2 ? 'eager' : 'lazy' ?>">
+                            <div class="act-ss-gradient"></div>
+                        </div>
+                        <div class="act-ss-caption">
+                            <span class="act-ss-eyebrow"><?= htmlspecialchars($act['eyebrow'] ?? '') ?></span>
+                            <h4 class="act-ss-title"><?= htmlspecialchars($act['title'] ?? '') ?></h4>
+                        </div>
+                    </div>
+                    <?php endforeach; ?>
                 </div>
-                <div class="act-card-body">
-                    <span class="act-card-eyebrow"><?= htmlspecialchars($act['eyebrow'] ?? '') ?></span>
-                    <h5 class="act-card-title"><?= htmlspecialchars($act['title'] ?? '') ?></h5>
+                <div class="act-ss-controls">
+                    <div class="act-ss-dots">
+                        <?php foreach (array_slice($homeActivities, 0, 8) as $ai => $a): ?>
+                        <span class="act-ss-dot <?= $ai === 0 ? 'active' : '' ?>" data-index="<?= $ai ?>"></span>
+                        <?php endforeach; ?>
+                    </div>
+                    <a href="<?= BASE_URL ?>/activities.php" class="act-ss-link">All Activities <i class="fas fa-arrow-right"></i></a>
                 </div>
-            </a>
-            <?php endforeach; ?>
+            </div>
+            <?php endif; ?>
         </div>
-        <div class="text-center fade-in" style="margin-top: 24px;">
-            <a href="<?= BASE_URL ?>/activities.php" class="btn btn-outline-dark btn-sm">Explore All Activities &rarr;</a>
+
+        <!-- Services row below -->
+        <div class="services-row fade-in">
+            <div class="service-item">
+                <div class="service-icon"><i class="fas fa-map-marker-alt"></i></div>
+                <h4>Prime Location</h4>
+                <p>Steps from the town centre with easy access to the harbour, local market, and every major island destination.</p>
+            </div>
+            <div class="service-item">
+                <div class="service-icon"><i class="fas fa-mountain"></i></div>
+                <h4>Mountain Views</h4>
+                <p>Sweeping mountain panoramas and proximity to the island's most stunning sunset spot.</p>
+            </div>
+            <div class="service-item">
+                <div class="service-icon"><i class="fas fa-motorcycle"></i></div>
+                <h4>Motorbike Rental</h4>
+                <p>Explore Karimunjawa at your own pace — rent a motorbike directly from the hotel.</p>
+            </div>
+            <div class="service-item">
+                <div class="service-icon"><i class="fas fa-ship"></i></div>
+                <h4>Ocean Trips</h4>
+                <p>Island hopping, coral reef snorkelling, and visits to secluded hidden beaches.</p>
+            </div>
+            <div class="service-item">
+                <div class="service-icon"><i class="fas fa-utensils"></i></div>
+                <h4>Restaurant</h4>
+                <p>Freshly caught seafood and authentic local cuisine prepared by our chefs.</p>
+            </div>
+            <div class="service-item">
+                <div class="service-icon"><i class="fas fa-spa"></i></div>
+                <h4>Peaceful Stay</h4>
+                <p>Architecture crafted for tranquillity, enveloped by tropical greenery.</p>
+            </div>
         </div>
     </div>
 </section>
-<?php endif; ?>
 
 <!-- Rooms -->
 <section class="section">
@@ -515,30 +499,28 @@ document.querySelectorAll('.room-card-image.has-gallery').forEach(card => {
     }, { passive: true });
 });
 
-// ── Activities Card Slider ──
+// ── Activities Slideshow (crossfade) ──
 (function() {
-    const section = document.querySelector('.act-strip-section');
-    if (!section) return;
-    const track = section.querySelector('.act-cards-track');
-    const prevBtn = section.querySelector('.act-arrow-prev');
-    const nextBtn = section.querySelector('.act-arrow-next');
-    if (!track || !prevBtn || !nextBtn) return;
+    const ss = document.querySelector('.act-slideshow');
+    if (!ss) return;
+    const slides = ss.querySelectorAll('.act-ss-slide');
+    const dots = ss.querySelectorAll('.act-ss-dot');
+    const total = slides.length;
+    if (total === 0) return;
 
-    const cardW = track.querySelector('.act-card')?.offsetWidth + 14 || 220;
-    prevBtn.addEventListener('click', () => track.scrollBy({ left: -cardW * 2, behavior: 'smooth' }));
-    nextBtn.addEventListener('click', () => track.scrollBy({ left: cardW * 2, behavior: 'smooth' }));
+    let current = 0;
+    function goTo(idx) {
+        slides[current].classList.remove('active');
+        if (dots[current]) dots[current].classList.remove('active');
+        current = ((idx % total) + total) % total;
+        slides[current].classList.add('active');
+        if (dots[current]) dots[current].classList.add('active');
+    }
 
-    // Auto-slide
-    let autoTimer = setInterval(() => track.scrollBy({ left: cardW, behavior: 'smooth' }), 3500);
-    section.addEventListener('mouseenter', () => clearInterval(autoTimer));
-    section.addEventListener('mouseleave', () => {
-        autoTimer = setInterval(() => track.scrollBy({ left: cardW, behavior: 'smooth' }), 3500);
-    });
-    // Loop back
-    track.addEventListener('scroll', () => {
-        if (track.scrollLeft + track.clientWidth >= track.scrollWidth - 10) {
-            setTimeout(() => track.scrollTo({ left: 0, behavior: 'smooth' }), 2000);
-        }
-    });
+    dots.forEach(d => d.addEventListener('click', () => goTo(+d.dataset.index)));
+
+    let timer = setInterval(() => goTo(current + 1), 4000);
+    ss.addEventListener('mouseenter', () => clearInterval(timer));
+    ss.addEventListener('mouseleave', () => { timer = setInterval(() => goTo(current + 1), 4000); });
 })();
 </script>
