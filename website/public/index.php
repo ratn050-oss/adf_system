@@ -20,8 +20,12 @@ foreach ($heroSettings as $setting) {
 // Extract hero values with defaults
 $heroBg = $hero['web_hero_background'] ?? '';
 $heroAccent = $hero['web_hero_accent'] ?? 'Karimunjawa Islands · Indonesia';
-$heroTitle = $hero['web_hero_title'] ?? 'Where the Ocean<br>Meets <em>Tranquility</em>';
-$heroSubtitle = $hero['web_hero_subtitle'] ?? 'Escape to our island resort surrounded by crystal-clear waters, pristine beaches, and the serenity of an untouched tropical paradise.';
+$heroTitle = $hero['web_hero_title'] ?? 'Experience Karimunjawa<br><em>Like Never Before</em>';
+// Ensure title wraps at "Like Never Before" onto second line
+if (strpos($heroTitle, '<br>') === false && stripos($heroTitle, 'Like Never') !== false) {
+    $heroTitle = preg_replace('/\s*(Like Never)/i', '<br><em>$1', $heroTitle) . '</em>';
+}
+$heroSubtitle = $hero['web_hero_subtitle'] ?? 'An exclusive island retreat where tropical luxury meets the pristine beauty of the Java Sea';
 $heroCards = json_decode($hero['web_hero_cards'] ?? '[]', true) ?: [];
 
 // Room types with availability

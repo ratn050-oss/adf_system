@@ -37,7 +37,7 @@
     
     /* Spacing */
     --container: 1200px;
-    --section-pad: 80px;
+    --section-pad: 60px;
     --radius: 4px;
     --radius-lg: 8px;
     --radius-xl: 12px;
@@ -601,6 +601,7 @@ h3 { font-size: clamp(1.2rem, 2vw, 1.6rem); }
     position: relative;
     z-index: 10;
     margin-top: -40px;
+    margin-bottom: 0;
 }
 
 .booking-bar-inner {
@@ -640,6 +641,8 @@ h3 { font-size: clamp(1.2rem, 2vw, 1.6rem); }
     color: var(--black);
     background: var(--white);
     transition: border-color var(--duration) var(--ease);
+    height: 38px;
+    box-sizing: border-box;
 }
 
 .booking-bar-form input:focus,
@@ -650,9 +653,11 @@ h3 { font-size: clamp(1.2rem, 2vw, 1.6rem); }
 
 .booking-bar-form .btn {
     flex-shrink: 0;
-    height: 40px;
+    height: 38px;
     font-size: 12px;
     padding: 0 24px;
+    line-height: 38px;
+    box-sizing: border-box;
 }
 
 /* ═══════════════════════════════════════
@@ -671,6 +676,7 @@ h3 { font-size: clamp(1.2rem, 2vw, 1.6rem); }
    ═══════════════════════════════════════ */
 .about-section {
     background: var(--cream);
+    padding-top: 40px;
 }
 
 .about-layout {
