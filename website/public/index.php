@@ -169,7 +169,10 @@ require_once __DIR__ . '/includes/header.php';
                         <option value="4">4 Guests</option>
                     </select>
                 </div>
-                <button type="submit" class="btn btn-primary">Find Rooms</button>
+                <div class="form-group form-group-btn">
+                    <label>&nbsp;</label>
+                    <button type="submit" class="btn btn-primary">Find Rooms</button>
+                </div>
             </form>
         </div>
     </div>

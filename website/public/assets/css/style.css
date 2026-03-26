@@ -600,7 +600,7 @@ h3 { font-size: clamp(1.2rem, 2vw, 1.6rem); }
 .booking-bar {
     position: relative;
     z-index: 10;
-    margin-top: -40px;
+    margin-top: -36px;
     margin-bottom: 0;
 }
 
@@ -608,40 +608,52 @@ h3 { font-size: clamp(1.2rem, 2vw, 1.6rem); }
     background: var(--white);
     border-radius: var(--radius-lg);
     box-shadow: var(--shadow-xl);
-    padding: 16px 24px;
+    padding: 14px 22px;
 }
 
 .booking-bar-form {
     display: flex;
-    align-items: flex-end;
-    gap: 14px;
+    align-items: stretch;
+    gap: 12px;
 }
 
 .booking-bar-form .form-group {
     flex: 1;
+    display: flex;
+    flex-direction: column;
+    margin: 0;
+}
+
+.booking-bar-form .form-group-btn {
+    flex: 0 0 auto;
 }
 
 .booking-bar-form label {
     display: block;
-    font-size: 10px;
+    font-size: 9px;
     font-weight: 600;
     letter-spacing: 1px;
     text-transform: uppercase;
     color: var(--warm-gray);
-    margin-bottom: 5px;
+    margin-bottom: 4px;
+    line-height: 1.2;
+}
+
+.booking-bar-form .form-group-btn label {
+    visibility: hidden;
 }
 
 .booking-bar-form input,
 .booking-bar-form select {
     width: 100%;
-    padding: 9px 10px;
+    padding: 8px 10px;
     border: 1px solid var(--light-gray);
     border-radius: var(--radius);
     font-size: 13px;
     color: var(--black);
     background: var(--white);
     transition: border-color var(--duration) var(--ease);
-    height: 40px;
+    height: 36px;
     box-sizing: border-box;
 }
 
@@ -651,18 +663,19 @@ h3 { font-size: clamp(1.2rem, 2vw, 1.6rem); }
     border-color: var(--gold);
 }
 
-.booking-bar-form .btn {
-    flex-shrink: 0;
-    height: 40px;
-    font-size: 12px;
-    padding: 0 28px;
+.booking-bar-form .form-group-btn .btn {
+    height: 36px;
+    font-size: 11px;
+    padding: 0 26px;
     border: 1px solid transparent;
     box-sizing: border-box;
     display: inline-flex;
     align-items: center;
     justify-content: center;
     line-height: 1;
-    margin-bottom: 0;
+    margin: 0;
+    white-space: nowrap;
+    width: 100%;
 }
 
 /* ═══════════════════════════════════════
@@ -2261,6 +2274,12 @@ textarea.form-control { resize: vertical; }
         gap: 10px;
     }
     .booking-bar-form .form-group { margin-bottom: 0; }
+    .booking-bar-form .form-group-btn {
+        grid-column: 1 / -1;
+    }
+    .booking-bar-form .form-group-btn label {
+        display: none;
+    }
     .booking-bar-form label { 
         font-size: 9px; 
         margin-bottom: 3px;
@@ -2273,9 +2292,10 @@ textarea.form-control { resize: vertical; }
         font-size: 12px;
         text-align: center;
     }
-    .booking-bar-form .btn {
+    .booking-bar-form .form-group-btn .btn {
         grid-column: 1 / -1;
         width: 100%;
+        height: auto;
         padding: 11px 20px;
         font-size: 11px;
         letter-spacing: 1px;
