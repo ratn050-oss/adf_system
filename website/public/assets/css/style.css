@@ -812,169 +812,133 @@ h3 { font-size: clamp(1.2rem, 2vw, 1.6rem); }
 }
 
 /* ═══════════════════════════════════════
-   ACTIVITIES SHOWCASE — Homepage Slider
+   ACTIVITIES CARDS — Compact Horizontal Slider
    ═══════════════════════════════════════ */
-.act-showcase {
-    background: var(--cream);
-}
-.act-slider {
-    position: relative;
-    border-radius: var(--radius-xl);
-    overflow: hidden;
-    box-shadow: var(--shadow-xl);
-    background: var(--black);
-}
-.act-slider-track {
-    position: relative;
-    width: 100%;
-    aspect-ratio: 16 / 7;
-    min-height: 380px;
-}
-.act-slide {
-    position: absolute;
-    inset: 0;
-    opacity: 0;
-    transition: opacity 0.8s var(--ease);
+.act-cards-wrap {
     display: flex;
-    pointer-events: none;
+    flex-direction: column;
+    gap: 12px;
 }
-.act-slide.active {
-    opacity: 1;
-    pointer-events: auto;
-    z-index: 1;
+.act-cards-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
 }
-.act-slide-img {
-    position: absolute;
-    inset: 0;
+.act-cards-label {
+    font-family: var(--font-heading);
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--dark);
+    margin: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
 }
-.act-slide-img img {
+.act-cards-label i {
+    color: var(--gold);
+    font-size: 0.85rem;
+}
+.act-cards-arrows {
+    display: flex;
+    gap: 6px;
+}
+.act-arrow {
+    width: 30px;
+    height: 30px;
+    border-radius: 50%;
+    border: 1.5px solid var(--border);
+    background: var(--white);
+    color: var(--dark);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+    font-size: 0.65rem;
+    transition: all 0.25s var(--ease);
+}
+.act-arrow:hover {
+    background: var(--gold);
+    border-color: var(--gold);
+    color: var(--white);
+}
+.act-cards-track {
+    display: flex;
+    gap: 12px;
+    overflow-x: auto;
+    scroll-snap-type: x mandatory;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+    scroll-behavior: smooth;
+    padding-bottom: 4px;
+}
+.act-cards-track::-webkit-scrollbar {
+    display: none;
+}
+.act-card {
+    flex: 0 0 190px;
+    scroll-snap-align: start;
+    border-radius: var(--radius-lg);
+    overflow: hidden;
+    background: var(--white);
+    box-shadow: 0 1px 4px rgba(0,0,0,.06);
+    border: 1px solid var(--border);
+    text-decoration: none;
+    color: inherit;
+    transition: transform 0.25s var(--ease), box-shadow 0.25s var(--ease);
+}
+.act-card:hover {
+    transform: translateY(-3px);
+    box-shadow: 0 6px 20px rgba(0,0,0,.1);
+}
+.act-card-img {
+    width: 100%;
+    height: 110px;
+    overflow: hidden;
+}
+.act-card-img img {
     width: 100%;
     height: 100%;
     object-fit: cover;
     display: block;
+    transition: transform 0.4s var(--ease);
 }
-.act-slide-overlay {
-    position: absolute;
-    inset: 0;
-    background: linear-gradient(
-        90deg,
-        rgba(0,0,0,0.72) 0%,
-        rgba(0,0,0,0.45) 45%,
-        rgba(0,0,0,0.05) 100%
-    );
+.act-card:hover .act-card-img img {
+    transform: scale(1.08);
 }
-.act-slide-content {
-    position: relative;
-    z-index: 2;
-    display: flex;
-    flex-direction: column;
-    justify-content: center;
-    padding: 48px 56px;
-    max-width: 520px;
-    color: var(--white);
+.act-card-body {
+    padding: 10px 12px 12px;
 }
-.act-slide-eyebrow {
-    display: inline-block;
-    font-size: 0.72rem;
-    letter-spacing: 2.5px;
+.act-card-eyebrow {
+    display: block;
+    font-size: 0.6rem;
+    letter-spacing: 1.5px;
     text-transform: uppercase;
-    color: var(--gold-light);
-    margin-bottom: 12px;
+    color: var(--gold);
     font-weight: 600;
+    margin-bottom: 4px;
 }
-.act-slide-title {
+.act-card-title {
     font-family: var(--font-heading);
-    font-size: 1.75rem;
-    font-weight: 700;
-    line-height: 1.25;
-    margin: 0 0 14px;
-    color: var(--white);
+    font-size: 0.78rem;
+    font-weight: 600;
+    line-height: 1.35;
+    color: var(--dark);
+    margin: 0;
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+    overflow: hidden;
 }
-.act-slide-desc {
-    font-size: 0.88rem;
-    line-height: 1.65;
-    color: rgba(255,255,255,.82);
-    margin: 0 0 18px;
+.act-cards-more {
+    font-size: 0.75rem;
+    color: var(--gold);
+    font-weight: 600;
+    text-decoration: none;
+    align-self: flex-end;
+    transition: color 0.2s;
 }
-.act-slide-tags {
-    display: flex;
-    flex-wrap: wrap;
-    gap: 8px;
-}
-.act-tag {
-    font-size: 0.7rem;
-    padding: 4px 12px;
-    background: rgba(255,255,255,.12);
-    backdrop-filter: blur(6px);
-    border: 1px solid rgba(255,255,255,.18);
-    border-radius: 20px;
-    color: rgba(255,255,255,.88);
-    white-space: nowrap;
-}
-
-/* Slider Navigation */
-.act-slider-nav {
-    position: absolute;
-    bottom: 24px;
-    right: 32px;
-    z-index: 5;
-    display: flex;
-    align-items: center;
-    gap: 10px;
-}
-.act-nav-btn {
-    width: 40px;
-    height: 40px;
-    border-radius: 50%;
-    border: 1.5px solid rgba(255,255,255,.35);
-    background: rgba(0,0,0,.3);
-    backdrop-filter: blur(6px);
-    color: var(--white);
-    display: flex;
-    align-items: center;
-    justify-content: center;
-    cursor: pointer;
-    transition: all 0.3s var(--ease);
-}
-.act-nav-btn:hover {
-    background: var(--gold);
-    border-color: var(--gold);
-}
-.act-slider-dots {
-    display: flex;
-    gap: 6px;
-    align-items: center;
-}
-.act-dot {
-    width: 8px;
-    height: 8px;
-    border-radius: 50%;
-    border: none;
-    background: rgba(255,255,255,.35);
-    cursor: pointer;
-    transition: all 0.3s var(--ease);
-    padding: 0;
-}
-.act-dot.active {
-    background: var(--gold-light);
-    width: 24px;
-    border-radius: 4px;
-}
-
-/* Progress bar */
-.act-slider-progress {
-    position: absolute;
-    bottom: 0;
-    left: 0;
-    right: 0;
-    height: 3px;
-    background: rgba(255,255,255,.12);
-    z-index: 5;
-}
-.act-progress-fill {
-    height: 100%;
-    width: 0%;
-    background: var(--gold);
+.act-cards-more:hover {
+    color: var(--dark);
 }
 
 .section-dark {
@@ -2367,35 +2331,11 @@ textarea.form-control { resize: vertical; }
     .about-feature-item p { font-size: 0.8rem; }
     .about-features-compact { grid-template-columns: 1fr; }
 
-    /* ─── Activities Slider — Mobile ─── */
-    .act-slider-track {
-        aspect-ratio: auto;
-        min-height: 420px;
-    }
-    .act-slide-overlay {
-        background: linear-gradient(
-            180deg,
-            rgba(0,0,0,0.1) 0%,
-            rgba(0,0,0,0.7) 60%,
-            rgba(0,0,0,0.85) 100%
-        );
-    }
-    .act-slide-content {
-        padding: 24px 24px 72px;
-        max-width: 100%;
-        justify-content: flex-end;
-    }
-    .act-slide-title { font-size: 1.3rem; }
-    .act-slide-desc { font-size: 0.8rem; margin-bottom: 12px; }
-    .act-slide-eyebrow { font-size: 0.65rem; margin-bottom: 8px; }
-    .act-tag { font-size: 0.62rem; padding: 3px 8px; }
-    .act-slider-nav {
-        bottom: 16px;
-        right: 16px;
-        left: 16px;
-        justify-content: center;
-    }
-    .act-nav-btn { width: 34px; height: 34px; }
+    /* ─── Activities Cards — Mobile ─── */
+    .act-card { flex: 0 0 160px; }
+    .act-card-img { height: 90px; }
+    .act-card-title { font-size: 0.72rem; }
+    .act-card-eyebrow { font-size: 0.55rem; }
     
     /* ─── Stats — 4 inline compact ─── */
     .section-dark { padding: 0; }
