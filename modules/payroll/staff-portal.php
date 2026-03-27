@@ -359,6 +359,9 @@ try {
         .face-btn-register { margin-top:20px; padding:14px 40px; background:linear-gradient(135deg,#f0b429,#e09800); color:var(--navy); border:none; border-radius:14px; font-size:14px; font-weight:700; cursor:pointer; display:none; transition:all .2s; box-shadow:0 4px 24px rgba(240,180,41,.25); letter-spacing:.5px; text-transform:uppercase; }
         .face-btn-register:active { transform:scale(.96); }
         .face-btn-register:disabled { opacity:.5; transform:none; }
+        .face-btn-reregister { margin-top:12px; padding:10px 28px; background:transparent; color:rgba(255,255,255,.5); border:1.5px solid rgba(255,255,255,.12); border-radius:12px; font-size:11px; font-weight:600; cursor:pointer; display:none; transition:all .2s; letter-spacing:.3px; backdrop-filter:blur(8px); }
+        .face-btn-reregister:hover { border-color:rgba(255,255,255,.25); color:rgba(255,255,255,.8); background:rgba(255,255,255,.04); }
+        .face-btn-reregister:active { transform:scale(.96); }
         .face-gps-info { color:rgba(255,255,255,.3); font-size:9px; text-align:center; margin-top:14px; min-height:14px; padding:0 20px; font-variant-numeric:tabular-nums; }
         .face-particles { position:absolute; inset:0; pointer-events:none; overflow:hidden; }
         .face-particle { position:absolute; width:2px; height:2px; background:rgba(240,180,41,.2); border-radius:50%; animation:particleFloat linear infinite; }
@@ -678,6 +681,7 @@ try {
     </div>
     <div class="face-meter-label" id="faceMeterLabel"></div>
     <button class="face-btn-register" id="btnFaceRegister" onclick="registerFace()">Daftarkan Wajah</button>
+    <button class="face-btn-reregister" id="btnFaceReregister" onclick="reregisterFace()">🔄 Daftar Ulang Wajah</button>
     <div class="face-gps-info" id="faceGpsInfo"></div>
 </div>
 
@@ -1651,6 +1655,11 @@ let faceDetected = false;
 let faceProcessing = false;
 let faceScanActive = false;
 let faceMatchCount = 0;
+let lastRecognitionTime = 0;
+let nativeFaceDetector = null;
+
+// Try hardware-accelerated FaceDetector API (Chrome Android, ~1-5ms vs 50-200ms)
+try { if ('FaceDetector' in window) nativeFaceDetector = new FaceDetector({ fastMode: true, maxDetectedFaces: 1 }); } catch(e) {}
 
 // Generate floating particles
 function initFaceParticles() {
@@ -1683,6 +1692,12 @@ async function loadFaceModels() {
         setFaceStatus('Loading recognizer...', '3/3 modules');
         await faceapi.nets.faceRecognitionNet.loadFromUri(url);
         faceModelsLoaded = true;
+        // Warm up model (pre-compiles WebGL shaders for faster first detection)
+        try {
+            const wu = document.createElement('canvas'); wu.width = wu.height = 128;
+            await faceapi.detectSingleFace(wu, new faceapi.TinyFaceDetectorOptions({ inputSize: 128 }));
+        } catch(e) {}
+        setFaceStatus('Model siap', nativeFaceDetector ? 'Hardware-accelerated mode' : 'AI detection mode');
         return true;
     } catch(e) {
         setFaceStatus('Gagal memuat model', e.message);
@@ -1755,14 +1770,16 @@ async function openFaceScan() {
         canvas.height = video.videoHeight;
 
         if (faceVerifyMode) {
-            setFaceStatus('Arahkan wajah ke kamera', 'Verifikasi otomatis');
+            setFaceStatus('Arahkan wajah ke kamera', (nativeFaceDetector ? 'Hardware-accelerated' : 'AI') + ' face scanning');
             document.getElementById('faceTitle').textContent = 'Verifikasi Wajah';
             document.getElementById('faceMeter').style.display = 'block';
             document.getElementById('btnFaceRegister').style.display = 'none';
+            document.getElementById('btnFaceReregister').style.display = 'block';
         } else {
             setFaceStatus('Wajah belum terdaftar', 'Posisikan wajah lalu tap tombol daftar');
             document.getElementById('faceTitle').textContent = 'Registrasi Wajah';
             document.getElementById('btnFaceRegister').style.display = 'block';
+            document.getElementById('btnFaceReregister').style.display = 'none';
             document.getElementById('faceMeter').style.display = 'none';
         }
         // Use requestAnimationFrame loop with throttle for faster response
@@ -1796,6 +1813,7 @@ function closeFaceScan() {
     document.getElementById('faceMeterFill').style.width = '0%';
     document.getElementById('faceMeterLabel').textContent = '';
     document.getElementById('btnFaceRegister').style.display = 'none';
+    document.getElementById('btnFaceReregister').style.display = 'none';
     document.getElementById('faceGpsInfo').textContent = '';
     document.getElementById('faceRing').classList.remove('matched');
     document.getElementById('faceRingScan').classList.remove('matched');
@@ -1836,35 +1854,34 @@ function haversineDist(lat1, lng1, lat2, lng2) {
     return Math.round(2*R*Math.asin(Math.sqrt(a)));
 }
 
-let faceFrameCount = 0;
-let faceLastDescriptor = null;
-
 async function faceDetectLoop() {
     const video = document.getElementById('faceVideo');
-    if (!video || !video.readyState || video.readyState < 2) return;
+    if (!video || video.readyState < 2) return;
 
-    faceFrameCount++;
+    // ═══ Phase 1: Ultra-fast face PRESENCE detection ═══
+    let facePresent = false;
 
-    // Fast detection: inputSize 160 = ~2x faster than 224, lower threshold for quicker pickup
-    const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.3 });
-
-    let detection;
-    if (faceVerifyMode) {
-        // Full pipeline with descriptor for verification
-        detection = await faceapi.detectSingleFace(video, options)
-            .withFaceLandmarks(true)
-            .withFaceDescriptor();
-    } else {
-        // Registration mode: just detect face presence (fast), get descriptor only when registering
-        detection = await faceapi.detectSingleFace(video, options);
+    if (nativeFaceDetector) {
+        // Hardware-accelerated browser FaceDetector API (~1-5ms)
+        try {
+            const faces = await nativeFaceDetector.detect(video);
+            facePresent = faces.length > 0;
+        } catch(e) {
+            nativeFaceDetector = null; // Fallback if API fails
+        }
     }
 
-    faceDetected = !!detection;
+    if (!nativeFaceDetector) {
+        // Fallback: face-api.js minimal detect (inputSize 128, no landmarks/descriptor)
+        const quickOpts = new faceapi.TinyFaceDetectorOptions({ inputSize: 128, scoreThreshold: 0.25 });
+        const quickDet = await faceapi.detectSingleFace(video, quickOpts);
+        facePresent = !!quickDet;
+    }
 
-    if (!detection) {
-        if (faceFrameCount % 3 === 0) {
-            setFaceStatus('Posisikan wajah', 'Pastikan pencahayaan cukup');
-        }
+    faceDetected = facePresent;
+
+    if (!facePresent) {
+        setFaceStatus('Posisikan wajah', 'Pastikan pencahayaan cukup');
         document.getElementById('faceRing').classList.remove('matched');
         document.getElementById('faceRingScan').classList.remove('matched');
         if (faceVerifyMode) {
@@ -1872,36 +1889,55 @@ async function faceDetectLoop() {
             document.getElementById('faceMeterLabel').textContent = '';
         }
         faceMatchCount = 0;
-        faceLastDescriptor = null;
         return;
     }
 
-    if (faceVerifyMode) {
-        const dist = faceapi.euclideanDistance(faceStoredDescriptor, detection.descriptor);
-        const score = Math.max(0, Math.min(100, Math.round((1 - dist / 0.6) * 100)));
-        const fill = document.getElementById('faceMeterFill');
-        fill.style.width = score + '%';
-        fill.style.background = score > 75 ? '#34d399' : score > 40 ? '#fbbf24' : '#f87171';
-        document.getElementById('faceMeterLabel').textContent = score + '% match';
-
-        if (dist < 0.5) {
-            faceMatchCount++;
-            if (faceMatchCount >= 1) {
-                setFaceStatus('✓ Wajah terverifikasi', 'Identitas dikonfirmasi');
-                document.getElementById('faceRing').classList.add('matched');
-                document.getElementById('faceRingScan').classList.add('matched');
-                faceScanActive = false;
-                setTimeout(doFaceClock, 300);
-            }
-        } else if (dist < 0.6) {
-            setFaceStatus('Mencocokkan...', 'Sesuaikan posisi sedikit');
-            faceMatchCount = Math.max(0, faceMatchCount - 1);
-        } else {
-            setFaceStatus('Wajah tidak cocok', 'Pastikan wajah terdaftar');
-            faceMatchCount = 0;
-        }
-    } else {
+    // Face found! Immediate UI feedback
+    if (!faceVerifyMode) {
         setFaceStatus('Wajah terdeteksi ✓', 'Tap tombol di bawah untuk mendaftar');
+        return;
+    }
+
+    // ═══ Phase 2: Face RECOGNITION (verify mode, throttled every 150ms) ═══
+    const now = Date.now();
+    if (now - lastRecognitionTime < 150) {
+        setFaceStatus('Menganalisis wajah...', 'AI recognition aktif');
+        return;
+    }
+    lastRecognitionTime = now;
+
+    const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.3 });
+    const detection = await faceapi.detectSingleFace(video, options)
+        .withFaceLandmarks(true)
+        .withFaceDescriptor();
+
+    if (!detection) {
+        setFaceStatus('Menganalisis...', 'Sesuaikan posisi wajah');
+        return;
+    }
+
+    const dist = faceapi.euclideanDistance(faceStoredDescriptor, detection.descriptor);
+    const score = Math.max(0, Math.min(100, Math.round((1 - dist / 0.6) * 100)));
+    const fill = document.getElementById('faceMeterFill');
+    fill.style.width = score + '%';
+    fill.style.background = score > 75 ? '#34d399' : score > 40 ? '#fbbf24' : '#f87171';
+    document.getElementById('faceMeterLabel').textContent = score + '% match';
+
+    if (dist < 0.5) {
+        faceMatchCount++;
+        if (faceMatchCount >= 1) {
+            setFaceStatus('✓ Wajah terverifikasi', 'Identitas dikonfirmasi');
+            document.getElementById('faceRing').classList.add('matched');
+            document.getElementById('faceRingScan').classList.add('matched');
+            faceScanActive = false;
+            setTimeout(doFaceClock, 300);
+        }
+    } else if (dist < 0.6) {
+        setFaceStatus('Mencocokkan...', 'Sesuaikan posisi sedikit');
+        faceMatchCount = Math.max(0, faceMatchCount - 1);
+    } else {
+        setFaceStatus('Wajah tidak cocok', 'Coba daftar ulang wajah');
+        faceMatchCount = 0;
     }
 }
 
@@ -1951,6 +1987,25 @@ async function registerFace() {
         btn.disabled = false; btn.textContent = 'Daftarkan Wajah';
         faceScanActive = true; faceDetectRAF();
     }
+}
+
+function reregisterFace() {
+    faceVerifyMode = false;
+    faceStoredDescriptor = null;
+    faceMatchCount = 0;
+    lastRecognitionTime = 0;
+    document.getElementById('faceTitle').textContent = 'Registrasi Ulang Wajah';
+    document.getElementById('faceSubtitle').textContent = 'Update data wajah karyawan';
+    document.getElementById('btnFaceRegister').style.display = 'block';
+    document.getElementById('btnFaceRegister').disabled = false;
+    document.getElementById('btnFaceRegister').textContent = 'Daftarkan Wajah Baru';
+    document.getElementById('btnFaceReregister').style.display = 'none';
+    document.getElementById('faceMeter').style.display = 'none';
+    document.getElementById('faceMeterFill').style.width = '0%';
+    document.getElementById('faceMeterLabel').textContent = '';
+    document.getElementById('faceRing').classList.remove('matched');
+    document.getElementById('faceRingScan').classList.remove('matched');
+    setFaceStatus('Posisikan wajah baru', 'Tap tombol daftar setelah wajah terdeteksi');
 }
 
 async function doFaceClock() {
