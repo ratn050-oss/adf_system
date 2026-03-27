@@ -317,24 +317,24 @@ try {
         .absen-link .al-title { font-size:16px; font-weight:700; }
         .absen-link .al-sub { font-size:11px; color:rgba(255,255,255,.7); margin-top:4px; }
 
-        /* Face Scan Modal — 2028 Vibe */
+        /* Face Scan Modal — Professional Biometric */
         .face-overlay { display:none; position:fixed; inset:0; background:linear-gradient(160deg,#050a18 0%,#0a1628 40%,#0f1d35 100%); z-index:1000; flex-direction:column; align-items:center; justify-content:center; }
-        .face-overlay.show { display:flex; animation:faceIn .4s cubic-bezier(.16,1,.3,1); }
-        @keyframes faceIn { from { opacity:0; transform:scale(1.05); } to { opacity:1; transform:scale(1); } }
-        .face-close { position:absolute; top:env(safe-area-inset-top,16px); right:16px; margin-top:16px; background:rgba(255,255,255,.08); backdrop-filter:blur(10px); border:1px solid rgba(255,255,255,.1); color:rgba(255,255,255,.7); font-size:18px; width:40px; height:40px; border-radius:50%; cursor:pointer; z-index:10; transition:all .2s; }
-        .face-close:hover { background:rgba(255,255,255,.15); color:#fff; }
-        .face-header { text-align:center; margin-bottom:24px; }
-        .face-header h3 { color:#fff; font-size:16px; font-weight:700; margin:0 0 4px; letter-spacing:.5px; }
-        .face-header p { color:rgba(255,255,255,.45); font-size:11px; margin:0; }
-        .face-ring-wrap { position:relative; width:240px; height:240px; }
-        .face-ring-outer { position:absolute; inset:-12px; border-radius:50%; border:2px solid rgba(240,180,41,.15); }
-        .face-ring-scan { position:absolute; inset:-12px; border-radius:50%; border:2px solid transparent; border-top-color:rgba(240,180,41,.6); animation:faceSpin 2s linear infinite; }
+        .face-overlay.show { display:flex; animation:faceIn .3s cubic-bezier(.16,1,.3,1); }
+        @keyframes faceIn { from { opacity:0; transform:scale(1.03); } to { opacity:1; transform:scale(1); } }
+        .face-close { position:absolute; top:env(safe-area-inset-top,16px); right:16px; margin-top:16px; background:rgba(255,255,255,.06); backdrop-filter:blur(12px); border:1px solid rgba(255,255,255,.08); color:rgba(255,255,255,.6); font-size:18px; width:40px; height:40px; border-radius:50%; cursor:pointer; z-index:10; transition:all .2s; }
+        .face-close:hover { background:rgba(255,255,255,.12); color:#fff; }
+        .face-header { text-align:center; margin-bottom:20px; }
+        .face-header h3 { color:#fff; font-size:15px; font-weight:700; margin:0 0 4px; letter-spacing:.8px; text-transform:uppercase; }
+        .face-header p { color:rgba(255,255,255,.35); font-size:10px; margin:0; letter-spacing:.5px; }
+        .face-ring-wrap { position:relative; width:260px; height:260px; }
+        .face-ring-outer { position:absolute; inset:-14px; border-radius:50%; border:1.5px solid rgba(240,180,41,.12); }
+        .face-ring-scan { position:absolute; inset:-14px; border-radius:50%; border:2.5px solid transparent; border-top-color:rgba(240,180,41,.7); border-right-color:rgba(240,180,41,.2); animation:faceSpin 1.5s linear infinite; }
         @keyframes faceSpin { to { transform:rotate(360deg); } }
-        .face-ring-scan.matched { border-top-color:#34d399; animation-duration:1s; }
-        .face-ring-pulse { position:absolute; inset:-20px; border-radius:50%; border:1px solid rgba(240,180,41,.1); animation:ringPulse 2.5s ease-out infinite; }
-        @keyframes ringPulse { 0% { transform:scale(.95); opacity:1; } 100% { transform:scale(1.08); opacity:0; } }
-        .face-container { position:relative; width:240px; height:240px; border-radius:50%; overflow:hidden; border:3px solid rgba(255,255,255,.1); transition:border-color .4s; }
-        .face-container.matched { border-color:#34d399; box-shadow:0 0 40px rgba(52,211,153,.25); }
+        .face-ring-scan.matched { border-top-color:#34d399; border-right-color:rgba(52,211,153,.3); animation-duration:.8s; }
+        .face-ring-pulse { position:absolute; inset:-22px; border-radius:50%; border:1px solid rgba(240,180,41,.08); animation:ringPulse 2s ease-out infinite; }
+        @keyframes ringPulse { 0% { transform:scale(.96); opacity:1; } 100% { transform:scale(1.06); opacity:0; } }
+        .face-container { position:relative; width:260px; height:260px; border-radius:50%; overflow:hidden; border:3px solid rgba(255,255,255,.08); transition:border-color .3s, box-shadow .3s; }
+        .face-container.matched { border-color:#34d399; box-shadow:0 0 50px rgba(52,211,153,.2), 0 0 100px rgba(52,211,153,.08); }
         .face-container video { width:100%; height:100%; object-fit:cover; transform:scaleX(-1); }
         .face-container canvas { position:absolute; top:0; left:0; width:100%; height:100%; pointer-events:none; }
         .face-corners { position:absolute; inset:0; pointer-events:none; }
@@ -346,23 +346,23 @@ try {
         .face-corners-b::before { bottom:12px; left:12px; border-width:0 0 2px 2px; border-radius:0 0 0 4px; }
         .face-corners-b::after { bottom:12px; right:12px; border-width:0 2px 2px 0; border-radius:0 0 4px 0; }
         .face-container.matched .face-corners::before, .face-container.matched .face-corners::after,
-        .face-container.matched .face-corners-b::before, .face-container.matched .face-corners-b::after { border-color:#34d399; }
-        .face-scan-line { position:absolute; left:10%; right:10%; height:2px; background:linear-gradient(90deg,transparent,rgba(240,180,41,.6),transparent); top:20%; animation:scanLine 2s ease-in-out infinite; pointer-events:none; }
-        @keyframes scanLine { 0%,100% { top:20%; opacity:.5; } 50% { top:75%; opacity:1; } }
-        .face-container.matched .face-scan-line { background:linear-gradient(90deg,transparent,rgba(52,211,153,.6),transparent); }
-        .face-status { color:#fff; font-size:14px; text-align:center; margin-top:20px; font-weight:600; min-height:20px; letter-spacing:.3px; }
-        .face-status-sub { color:rgba(255,255,255,.35); font-size:10px; text-align:center; margin-top:4px; min-height:14px; }
-        .face-meter { width:200px; height:4px; background:rgba(255,255,255,.08); border-radius:2px; margin-top:16px; overflow:hidden; position:relative; }
-        .face-meter::before { content:''; position:absolute; inset:0; background:rgba(255,255,255,.03); border-radius:2px; }
-        .face-meter-fill { height:100%; border-radius:2px; width:0%; transition:width .4s cubic-bezier(.4,0,.2,1), background .4s; }
-        .face-meter-label { color:rgba(255,255,255,.5); font-size:11px; text-align:center; margin-top:8px; min-height:14px; font-weight:500; font-variant-numeric:tabular-nums; }
-        .face-btn-register { margin-top:20px; padding:14px 36px; background:linear-gradient(135deg,#f0b429,#e09800); color:var(--navy); border:none; border-radius:14px; font-size:14px; font-weight:700; cursor:pointer; display:none; transition:all .2s; box-shadow:0 4px 20px rgba(240,180,41,.3); letter-spacing:.3px; }
+        .face-container.matched .face-corners-b::before, .face-container.matched .face-corners-b::after { border-color:#34d399; transition:border-color .3s; }
+        .face-scan-line { position:absolute; left:10%; right:10%; height:1.5px; background:linear-gradient(90deg,transparent,rgba(240,180,41,.5),transparent); top:20%; animation:scanLine 1.8s ease-in-out infinite; pointer-events:none; }
+        @keyframes scanLine { 0%,100% { top:20%; opacity:.4; } 50% { top:75%; opacity:1; } }
+        .face-container.matched .face-scan-line { background:linear-gradient(90deg,transparent,rgba(52,211,153,.5),transparent); animation-duration:1s; }
+        .face-status { color:#fff; font-size:15px; text-align:center; margin-top:18px; font-weight:700; min-height:20px; letter-spacing:.3px; transition:color .3s; }
+        .face-status-sub { color:rgba(255,255,255,.4); font-size:10px; text-align:center; margin-top:4px; min-height:14px; letter-spacing:.3px; }
+        .face-meter { width:220px; height:5px; background:rgba(255,255,255,.06); border-radius:3px; margin-top:14px; overflow:hidden; position:relative; }
+        .face-meter::before { content:''; position:absolute; inset:0; background:rgba(255,255,255,.02); border-radius:3px; }
+        .face-meter-fill { height:100%; border-radius:3px; width:0%; transition:width .25s cubic-bezier(.4,0,.2,1), background .3s; }
+        .face-meter-label { color:rgba(255,255,255,.55); font-size:12px; text-align:center; margin-top:6px; min-height:14px; font-weight:600; font-variant-numeric:tabular-nums; }
+        .face-btn-register { margin-top:20px; padding:14px 40px; background:linear-gradient(135deg,#f0b429,#e09800); color:var(--navy); border:none; border-radius:14px; font-size:14px; font-weight:700; cursor:pointer; display:none; transition:all .2s; box-shadow:0 4px 24px rgba(240,180,41,.25); letter-spacing:.5px; text-transform:uppercase; }
         .face-btn-register:active { transform:scale(.96); }
         .face-btn-register:disabled { opacity:.5; transform:none; }
-        .face-gps-info { color:rgba(255,255,255,.35); font-size:10px; text-align:center; margin-top:16px; min-height:14px; padding:0 20px; }
+        .face-gps-info { color:rgba(255,255,255,.3); font-size:9px; text-align:center; margin-top:14px; min-height:14px; padding:0 20px; font-variant-numeric:tabular-nums; }
         .face-particles { position:absolute; inset:0; pointer-events:none; overflow:hidden; }
-        .face-particle { position:absolute; width:2px; height:2px; background:rgba(240,180,41,.3); border-radius:50%; animation:particleFloat linear infinite; }
-        @keyframes particleFloat { 0% { transform:translateY(100vh) scale(0); opacity:0; } 10% { opacity:1; } 90% { opacity:1; } 100% { transform:translateY(-20px) scale(1); opacity:0; } }
+        .face-particle { position:absolute; width:2px; height:2px; background:rgba(240,180,41,.2); border-radius:50%; animation:particleFloat linear infinite; }
+        @keyframes particleFloat { 0% { transform:translateY(100vh) scale(0); opacity:0; } 10% { opacity:.8; } 90% { opacity:.8; } 100% { transform:translateY(-20px) scale(1); opacity:0; } }
 
         /* Loading */
         .loading { text-align:center; padding:30px; color:var(--muted); font-size:12px; }
@@ -1740,14 +1740,16 @@ async function openFaceScan() {
     // 3. GPS
     startFaceGps();
 
-    // 4. Camera — request higher res for faster detection
+    // 4. Camera — lower res for faster processing, high framerate
     try {
         faceStream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 640 } }
+            video: { facingMode: 'user', width: { ideal: 480 }, height: { ideal: 480 }, frameRate: { ideal: 30 } }
         });
         const video = document.getElementById('faceVideo');
         video.srcObject = faceStream;
-        await new Promise(r => video.onloadedmetadata = r);
+        video.setAttribute('playsinline', '');
+        await new Promise(r => { video.onloadedmetadata = r; });
+        await video.play().catch(() => {});
         const canvas = document.getElementById('faceCanvas');
         canvas.width = video.videoWidth;
         canvas.height = video.videoHeight;
@@ -1834,20 +1836,35 @@ function haversineDist(lat1, lng1, lat2, lng2) {
     return Math.round(2*R*Math.asin(Math.sqrt(a)));
 }
 
+let faceFrameCount = 0;
+let faceLastDescriptor = null;
+
 async function faceDetectLoop() {
     const video = document.getElementById('faceVideo');
     if (!video || !video.readyState || video.readyState < 2) return;
 
-    // Smaller inputSize = faster detection; scoreThreshold lowered for quicker pickup
-    const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 224, scoreThreshold: 0.4 });
-    const detection = await faceapi.detectSingleFace(video, options)
-        .withFaceLandmarks(true)
-        .withFaceDescriptor();
+    faceFrameCount++;
+
+    // Fast detection: inputSize 160 = ~2x faster than 224, lower threshold for quicker pickup
+    const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.3 });
+
+    let detection;
+    if (faceVerifyMode) {
+        // Full pipeline with descriptor for verification
+        detection = await faceapi.detectSingleFace(video, options)
+            .withFaceLandmarks(true)
+            .withFaceDescriptor();
+    } else {
+        // Registration mode: just detect face presence (fast), get descriptor only when registering
+        detection = await faceapi.detectSingleFace(video, options);
+    }
 
     faceDetected = !!detection;
 
     if (!detection) {
-        setFaceStatus('Posisikan wajah', 'Pastikan pencahayaan cukup');
+        if (faceFrameCount % 3 === 0) {
+            setFaceStatus('Posisikan wajah', 'Pastikan pencahayaan cukup');
+        }
         document.getElementById('faceRing').classList.remove('matched');
         document.getElementById('faceRingScan').classList.remove('matched');
         if (faceVerifyMode) {
@@ -1855,6 +1872,7 @@ async function faceDetectLoop() {
             document.getElementById('faceMeterLabel').textContent = '';
         }
         faceMatchCount = 0;
+        faceLastDescriptor = null;
         return;
     }
 
@@ -1863,30 +1881,27 @@ async function faceDetectLoop() {
         const score = Math.max(0, Math.min(100, Math.round((1 - dist / 0.6) * 100)));
         const fill = document.getElementById('faceMeterFill');
         fill.style.width = score + '%';
-        fill.style.background = score > 70 ? '#34d399' : score > 45 ? '#fbbf24' : '#f87171';
+        fill.style.background = score > 75 ? '#34d399' : score > 40 ? '#fbbf24' : '#f87171';
         document.getElementById('faceMeterLabel').textContent = score + '% match';
 
-        if (dist < 0.45) {
+        if (dist < 0.5) {
             faceMatchCount++;
-            // Require 2 consecutive matches for reliability
-            if (faceMatchCount >= 2) {
-                setFaceStatus('Wajah terverifikasi', 'Identitas dikonfirmasi');
+            if (faceMatchCount >= 1) {
+                setFaceStatus('✓ Wajah terverifikasi', 'Identitas dikonfirmasi');
                 document.getElementById('faceRing').classList.add('matched');
                 document.getElementById('faceRingScan').classList.add('matched');
                 faceScanActive = false;
-                setTimeout(doFaceClock, 500);
-            } else {
-                setFaceStatus('Mengenali wajah...', 'Konfirmasi ' + faceMatchCount + '/2');
+                setTimeout(doFaceClock, 300);
             }
         } else if (dist < 0.6) {
-            setFaceStatus('Hampir cocok', 'Atur posisi & pencahayaan');
-            faceMatchCount = 0;
+            setFaceStatus('Mencocokkan...', 'Sesuaikan posisi sedikit');
+            faceMatchCount = Math.max(0, faceMatchCount - 1);
         } else {
             setFaceStatus('Wajah tidak cocok', 'Pastikan wajah terdaftar');
             faceMatchCount = 0;
         }
     } else {
-        setFaceStatus('Wajah terdeteksi', 'Tap tombol di bawah untuk mendaftar');
+        setFaceStatus('Wajah terdeteksi ✓', 'Tap tombol di bawah untuk mendaftar');
     }
 }
 
