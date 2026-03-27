@@ -23,8 +23,8 @@ return [
     ],
     
     'theme' => [
-        'color_primary' => '#92400e',
-        'color_secondary' => '#78350f',
+        'color_primary' => '#1e3a5f',
+        'color_secondary' => '#2563eb',
         'icon' => '☕'
     ],
     

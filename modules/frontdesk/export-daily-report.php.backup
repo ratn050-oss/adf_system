@@ -1,0 +1,594 @@
+<?php
+/**
+ * EXPORT DAILY REPORT TO PDF
+ * Generates PDF with logo, header, and professional formatting
+ */
+
+define('APP_ACCESS', true);
+require_once '../../config/config.php';
+require_once '../../config/database.php';
+require_once '../../includes/auth.php';
+require_once '../../includes/report_helper.php';
+
+$auth = new Auth();
+$auth->requireLogin();
+
+if (!$auth->hasPermission('frontdesk')) {
+    http_response_code(403);
+    exit('Access denied');
+}
+
+$db = Database::getInstance();
+$currentUser = $auth->getCurrentUser();
+$printerName = $currentUser['username'] ?? 'System';
+$printerRole = $currentUser['role'] ?? 'Staff';
+$today = date('Y-m-d');
+$todayDisplay = date('l, d F Y');
+$printTime = date('d F Y H:i:s');
+
+// Get company info with logo
+$company = getCompanyInfo();
+
+// Collect data
+try {
+    // Occupancy
+    $totalRooms = $db->fetchOne("SELECT COUNT(*) as total FROM rooms WHERE status != 'maintenance'")['total'];
+    $occupiedRooms = $db->fetchOne("SELECT COUNT(DISTINCT room_id) as occupied FROM bookings WHERE status = 'checked_in'")['occupied'];
+    $occupancyRate = $totalRooms > 0 ? round(($occupiedRooms / $totalRooms) * 100, 1) : 0;
+    
+    // In-house
+    $inHouseGuests = $db->fetchAll("SELECT b.booking_code, g.guest_name, r.room_number, b.check_in_date, b.check_out_date, b.payment_status
+        FROM bookings b INNER JOIN guests g ON b.guest_id = g.id INNER JOIN rooms r ON b.room_id = r.id
+        WHERE b.status = 'checked_in' ORDER BY r.room_number ASC");
+    
+    // Check-in today
+    $checkInToday = $db->fetchAll("SELECT b.booking_code, g.guest_name, r.room_number, b.actual_checkin_time, b.check_out_date
+        FROM bookings b INNER JOIN guests g ON b.guest_id = g.id INNER JOIN rooms r ON b.room_id = r.id
+        WHERE DATE(b.actual_checkin_time) = ? ORDER BY b.actual_checkin_time DESC", [$today]);
+    
+    // Check-out today
+    $checkOutToday = $db->fetchAll("SELECT b.booking_code, g.guest_name, r.room_number, b.check_in_date, b.check_out_date
+        FROM bookings b INNER JOIN guests g ON b.guest_id = g.id INNER JOIN rooms r ON b.room_id = r.id
+        WHERE b.check_out_date = ? ORDER BY r.room_number ASC", [$today]);
+    
+    // Check-in tomorrow
+    $tomorrow = date('Y-m-d', strtotime('+1 day'));
+    $checkInTomorrow = $db->fetchAll("SELECT b.booking_code, g.guest_name, r.room_number, b.check_in_date, b.check_out_date, g.phone
+        FROM bookings b INNER JOIN guests g ON b.guest_id = g.id INNER JOIN rooms r ON b.room_id = r.id
+        WHERE b.check_in_date = ? AND b.status = 'confirmed' ORDER BY r.room_number ASC", [$tomorrow]);
+    
+    // Arrival tomorrow (reservations)
+    $arrivalTomorrow = $db->fetchAll("SELECT b.booking_code, g.guest_name, r.room_number, b.check_in_date, b.check_out_date, g.phone, b.guest_count
+        FROM bookings b INNER JOIN guests g ON b.guest_id = g.id INNER JOIN rooms r ON b.room_id = r.id
+        WHERE b.check_in_date = ? AND b.status IN ('confirmed', 'pending') ORDER BY r.room_number ASC", [$tomorrow]);
+    
+    // Breakfast orders
+    $breakfastOrders = $db->fetchAll("SELECT bo.*, b.booking_code, g.guest_name, r.room_number
+        FROM breakfast_orders bo INNER JOIN bookings b ON bo.booking_id = b.id
+        INNER JOIN guests g ON b.guest_id = g.id INNER JOIN rooms r ON b.room_id = r.id
+        WHERE bo.breakfast_date = ? ORDER BY bo.breakfast_time ASC", [$today]);
+    
+    foreach ($breakfastOrders as &$order) {
+        $order['menu_items'] = json_decode($order['menu_items'], true) ?: [];
+    }
+    
+} catch (Exception $e) {
+    error_log("Export PDF Error: " . $e->getMessage());
+    exit('Error loading data');
+}
+
+// Set headers for PDF download
+header('Content-Type: text/html; charset=utf-8');
+?>
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>Daily Report - <?php echo $todayDisplay; ?></title>
+    <style>
+        @page {
+            size: A4;
+            margin: 15mm;
+        }
+        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Arial, sans-serif;
+            font-size: 9pt;
+            line-height: 1.4;
+            color: #333;
+        }
+        
+        /* Header Layout - Similar to Financial Report */
+        .report-header {
+            display: flex;
+            gap: 15px;
+            margin-bottom: 15px;
+            padding-bottom: 12px;
+            border-bottom: 3px solid <?php echo $company['color']; ?>;
+            align-items: center;
+        }
+        
+        .logo-section {
+            flex-shrink: 0;
+            width: 80px;
+            height: 80px;
+        }
+        
+        .logo-section img {
+            width: 100%;
+            height: 100%;
+            object-fit: contain;
+        }
+        
+        .logo-icon {
+            width: 80px;
+            height: 80px;
+            font-size: 48pt;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .company-info {
+            flex: 1;
+        }
+        
+        .company-name {
+            font-size: 16pt;
+            font-weight: 700;
+            color: <?php echo $company['color']; ?>;
+            margin-bottom: 3px;
+            letter-spacing: -0.3px;
+        }
+        
+        .company-details {
+            font-size: 8pt;
+            color: #666;
+            line-height: 1.5;
+        }
+        
+        .report-info {
+            text-align: right;
+            min-width: 180px;
+        }
+        
+        .report-label {
+            font-size: 9pt;
+            color: #666;
+            margin-bottom: 3px;
+        }
+        
+        .report-title {
+            font-size: 12pt;
+            font-weight: 700;
+            color: <?php echo $company['color']; ?>;
+            margin-bottom: 5px;
+        }
+        
+        .report-date {
+            font-size: 9pt;
+            color: #666;
+            font-weight: 600;
+        }
+        
+        /* Stats Container - Horizontal Layout */
+        .stats-container {
+            display: flex;
+            gap: 8px;
+            margin-bottom: 15px;
+            border: 2px solid #e5e7eb;
+            border-radius: 8px;
+            padding: 8px;
+            background: #f9fafb;
+        }
+        
+        .stat-box {
+            flex: 1;
+            text-align: center;
+            padding: 8px;
+            border: 1px solid #e5e7eb;
+            border-radius: 6px;
+            background: white;
+        }
+        
+        .stat-label {
+            font-size: 8pt;
+            color: #666;
+            margin-bottom: 3px;
+            font-weight: 600;
+        }
+        
+        .stat-value {
+            font-size: 14pt;
+            font-weight: 700;
+            color: <?php echo $company['color']; ?>;
+        }
+        
+        .stat-icon {
+            font-size: 14pt;
+            margin-bottom: 2px;
+        }
+        
+        .section {
+            margin-bottom: 15px;
+            page-break-inside: avoid;
+        }
+        
+        .section-header {
+            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
+            color: white;
+            padding: 6px 10px;
+            border-radius: 5px;
+            margin-bottom: 8px;
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .section-icon {
+            font-size: 14pt;
+        }
+        
+        .section-title {
+            font-size: 11pt;
+            font-weight: 700;
+            flex: 1;
+        }
+        
+        .section-badge {
+            background: rgba(255, 255, 255, 0.3);
+            padding: 2px 8px;
+            border-radius: 10px;
+            font-size: 8pt;
+            font-weight: 600;
+        }
+        
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            margin-bottom: 5px;
+        }
+        
+        th {
+            background: #f3f4f6;
+            padding: 6px;
+            text-align: left;
+            font-size: 9pt;
+            font-weight: 600;
+            border-bottom: 2px solid #6366f1;
+        }
+        
+        td {
+            padding: 5px 6px;
+            border-bottom: 1px solid #e5e7eb;
+            font-size: 9pt;
+        }
+        
+        tr:hover {
+            background: #f9fafb;
+        }
+        
+        .room-badge {
+            background: #6366f1;
+            color: white;
+            padding: 3px 8px;
+            border-radius: 4px;
+            font-weight: 600;
+            font-size: 9pt;
+        }
+        
+        .status-paid { color: #10b981; font-weight: 600; }
+        .status-unpaid { color: #ef4444; font-weight: 600; }
+        .status-partial { color: #f59e0b; font-weight: 600; }
+        
+        .menu-list {
+            list-style: none;
+            padding: 0;
+            margin: 0;
+            font-size: 8pt;
+        }
+        
+        .menu-item {
+            padding: 1px 0;
+        }
+        
+        .menu-qty {
+            color: <?php echo $company['color']; ?>;
+            font-weight: 600;
+            margin-right: 3px;
+        }
+        
+        .empty-state {
+            text-align: center;
+            padding: 10px;
+            color: #999;
+            font-style: italic;
+            font-size: 9pt;
+        }
+        
+        .footer {
+            margin-top: 20px;
+            padding-top: 10px;
+            border-top: 2px solid #e5e7eb;
+            text-align: center;
+            font-size: 9pt;
+            color: #666;
+        }
+        
+        @media print {
+            body {
+                -webkit-print-color-adjust: exact;
+                print-color-adjust: exact;
+            }
+        }
+    </style>
+</head>
+<body>
+    <!-- Header with Logo -->
+    <div class="header">
+        <div class="logo">🏨</div>
+        <div class="hotel-name">Narayana Hotel Karimunjawa</div>
+        <div class="hotel-address">Jl. Pantai Karimunjawa, Karimunjawa, Jepara, Jawa Tengah</div>
+        <div class="hotel-address">📞 Phone: +62 xxx xxxx xxxx | 📧 Email: info@narayanahotel.com</div>
+        <div class="report-title">DAILY REPORT - BREAKFAST & OCCUPANCY</div>
+        <div class="report-date"><?php echo $todayDisplay; ?></div>
+        <div class="printer-info">Printed by: <?php echo htmlspecialchars($printerName); ?> (<?php echo htmlspecialchars($printerRole); ?>) on <?php echo $printTime; ?></div>
+    </div>
+
+    <!-- Statistics -->
+    <div class="stats-grid">
+        <div class="stat-box">
+            <div class="stat-icon">🏨</div>
+            <div class="stat-value"><?php echo $occupancyRate; ?>%</div>
+            <div class="stat-label">Occupancy Rate</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-icon">👥</div>
+            <div class="stat-value"><?php echo count($inHouseGuests); ?></div>
+            <div class="stat-label">In House</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-icon">📥</div>
+            <div class="stat-value"><?php echo count($checkInToday); ?></div>
+            <div class="stat-label">Check-in Today</div>
+        </div>
+        <div class="stat-box">
+            <div class="stat-icon">📤</div>
+            <div class="stat-value"><?php echo count($checkOutToday); ?></div>
+            <div class="stat-label">Check-out Today</div>
+        </div>
+    </div>
+
+    <!-- In-House Guests -->
+    <div class="section">
+        <div class="section-header">👥 In-House Guests (<?php echo count($inHouseGuests); ?>)</div>
+        
+        <?php if (count($inHouseGuests) > 0): ?>
+        <table>
+            <thead>
+                <tr>
+                    <th>Room</th>
+                    <th>Guest Name</th>
+                    <th>Booking Code</th>
+                    <th>Check-in</th>
+                    <th>Check-out</th>
+                    <th>Payment</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($inHouseGuests as $guest): ?>
+                <tr>
+                    <td><span class="room-badge"><?php echo $guest['room_number']; ?></span></td>
+                    <td><?php echo $guest['guest_name']; ?></td>
+                    <td><?php echo $guest['booking_code']; ?></td>
+                    <td><?php echo date('d M', strtotime($guest['check_in_date'])); ?></td>
+                    <td><?php echo date('d M', strtotime($guest['check_out_date'])); ?></td>
+                    <td><span class="status-<?php echo $guest['payment_status']; ?>"><?php echo strtoupper($guest['payment_status']); ?></span></td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+        <?php else: ?>
+        <div class="empty-state">No in-house guests</div>
+        <?php endif; ?>
+    </div>
+
+    <!-- Check-in Today -->
+    <div class="section">
+        <div class="section-header">📥 Check-in Today (<?php echo count($checkInToday); ?>)</div>
+        
+        <?php if (count($checkInToday) > 0): ?>
+        <table>
+            <thead>
+                <tr>
+                    <th>Time</th>
+                    <th>Room</th>
+                    <th>Guest Name</th>
+                    <th>Booking Code</th>
+                    <th>Check-out</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($checkInToday as $guest): ?>
+                <tr>
+                    <td><?php echo date('H:i', strtotime($guest['actual_checkin_time'])); ?></td>
+                    <td><span class="room-badge"><?php echo $guest['room_number']; ?></span></td>
+                    <td><?php echo $guest['guest_name']; ?></td>
+                    <td><?php echo $guest['booking_code']; ?></td>
+                    <td><?php echo date('d M', strtotime($guest['check_out_date'])); ?></td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+        <?php else: ?>
+        <div class="empty-state">No check-in today</div>
+        <?php endif; ?>
+    </div>
+
+    <!-- Check-out Today -->
+    <div class="section">
+        <div class="section-header">
+            <span class="section-icon">📤</span>
+            <span class="section-title">Check-out Today</span>
+            <span class="section-badge"><?php echo count($checkOutToday); ?> Guests</span>
+        </div>📤 Check-out Today (<?php echo count($checkOutToday); ?>)    <thead>
+                <tr>
+                    <th>Room</th>
+                    <th>Guest Name</th>
+                    <th>Booking Code</th>
+                    <th>Check-in</th>
+                    <th>Check-out</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($checkOutToday as $guest): ?>
+                <tr>
+                    <td><span class="room-badge"><?php echo $guest['room_number']; ?></span></td>
+                    <td><?php echo $guest['guest_name']; ?></td>
+                    <td><?php echo $guest['booking_code']; ?></td>
+                    <td><?php echo date('d M', strtotime($guest['check_in_date'])); ?></td>
+                    <td><?php echo date('d M', strtotime($guest['check_out_date'])); ?></td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+        <?php else: ?>
+        <div class="empty-state">No check-out today</div>
+        <?php endif; ?>
+    </div>
+
+    <!-- Check-in Tomorrow -->
+    <div class="section">
+        <div class="section-header">
+            <span class="section-icon">📅</span>
+            <span class="section-title">Check-in Tomorrow</span>
+            <span class="section-badge"><?php echo count($checkInTomorrow); ?> Guests</span>
+        </div>📅 Check-in Tomorrow (<?php echo count($checkInTomorrow); ?>)    <thead>
+                <tr>
+                    <th>Room</th>
+                    <th>Guest Name</th>
+                    <th>Phone</th>
+                    <th>Booking Code</th>
+                    <th>Check-in</th>
+                    <th>Check-out</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($checkInTomorrow as $guest): ?>
+                <tr>
+                    <td><span class="room-badge"><?php echo $guest['room_number']; ?></span></td>
+                    <td><?php echo $guest['guest_name']; ?></td>
+                    <td><?php echo $guest['phone'] ?: '-'; ?></td>
+                    <td><?php echo $guest['booking_code']; ?></td>
+                    <td><?php echo date('d M', strtotime($guest['check_in_date'])); ?></td>
+                    <td><?php echo date('d M', strtotime($guest['check_out_date'])); ?></td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+        <?php else: ?>
+        <div class="empty-state">No check-in tomorrow</div>
+        <?php endif; ?>
+    </div>
+
+    <!-- Arrival Tomorrow (All Reservations) -->
+    <div class="section">
+        <div class="section-header">
+            <span class="section-icon">✈️</span>
+            <span class="section-title">Arrival Tomorrow (Reservations)</span>
+            <span class="section-badge"><?php echo count($arrivalTomorrow); ?> Bookings</span>
+        </div>
+        
+        <?php if (count($arrivalTomorrow) > 0): ?>
+        <table>
+            <thead>✈️ Arrival Tomorrow - Reservations (<?php echo count($arrivalTomorrow); ?>)            <th>Phone</th>
+                    <th>Booking Code</th>
+                    <th>Pax</th>
+                    <th>Check-in</th>
+                    <th>Check-out</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($arrivalTomorrow as $guest): ?>
+                <tr>
+                    <td><span class="room-badge"><?php echo $guest['room_number']; ?></span></td>
+                    <td><?php echo $guest['guest_name']; ?></td>
+                    <td><?php echo $guest['phone'] ?: '-'; ?></td>
+                    <td><?php echo $guest['booking_code']; ?></td>
+                    <td><?php echo $guest['guest_count'] ?: '1'; ?> pax</td>
+                    <td><?php echo date('d M', strtotime($guest['check_in_date'])); ?></td>
+                    <td><?php echo date('d M', strtotime($guest['check_out_date'])); ?></td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+        <?php else: ?>
+        <div class="empty-state">No arrival tomorrow</div>
+        <?php endif; ?>
+    </div>
+
+    <!-- Breakfast Orders -->
+    <div class="section">
+        <div class="section-header">
+            <span class="section-icon">🍳</span>
+            <span class="section-title">Breakfast Orders Today</span>
+            <span class="section-badge"><?php echo count($breakfastOrders); ?> Orders</span>
+        </div>
+        
+        <?php if (count($breakfastOrders) > 0): ?>
+        <table>
+            <thead>🍳 Breakfast Orders Today (<?php echo count($breakfastOrders); ?>)            <th>Guest Name</th>
+                    <th>Pax</th>
+                    <th>Location</th>
+                    <th>Menu</th>
+                </tr>
+            </thead>
+            <tbody>
+                <?php foreach ($breakfastOrders as $order): ?>
+                <tr>
+                    <td><?php echo date('H:i', strtotime($order['breakfast_time'])); ?></td>
+                    <td><span class="room-badge"><?php echo $order['room_number']; ?></span></td>
+                    <td><?php echo $order['guest_name']; ?></td>
+                    <td><?php echo $order['total_pax']; ?> pax</td>
+                    <td><span class="location-<?php echo $order['location']; ?>"><?php echo $order['location'] === 'restaurant' ? '🍽️ Restaurant' : '🚪 Room'; ?></span></td>
+                    <td>
+                        <ul class="menu-list">
+                            <?php foreach ($order['menu_items'] as $item): ?>
+                            <li class="menu-item">
+                                <span class="menu-qty">x<?php echo $item['quantity']; ?></span>
+                                <span><?php echo $item['menu_name']; ?></span>
+                            </li>
+                            <?php endforeach; ?>
+                        </ul>
+                    </td>
+                </tr>
+                <?php endforeach; ?>
+            </tbody>
+        </table>
+        <?php else: ?>
+        <div class="empty-state">No breakfast orders today</div>
+        <?php endif; ?>
+    </div>
+
+    <!-- Footer -->
+    <div class="footer">
+        <p>Report generated on <?php echo $printTime; ?> by <?php echo htmlspecialchars($printerName); ?></p>
+        <p>Narayana Hotel Karimunjawa - Frontdesk Management System</p>
+    </div>
+
+    <script>
+        // Auto print when page loads
+        window.onload = function() {
+            window.print();
+        };
+    </script>
+</body>
+</html>
+Printed by: <?php echo htmlspecialchars($printerName); ?> (<?php echo htmlspecialchars($printerRole); ?>) | <?php echo $printTime; ?></p>
+        <p><?php echo htmlspecialchars($company['name']); ?>

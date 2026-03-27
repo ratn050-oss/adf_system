@@ -1,0 +1,62 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Test Create Staff User</title>
+</head>
+<body>
+    <h1>Test Create Staff User</h1>
+    <form id="testForm">
+        <p>Username: <input type="text" id="username" value="staff1" required></p>
+        <p>Password: <input type="password" id="password" value="staff123" required></p>
+        <p>Full Name: <input type="text" id="fullname" value="Staff Demo" required></p>
+        <p>Role: 
+            <select id="role">
+                <option value="staff">Staff</option>
+                <option value="manager">Manager</option>
+            </select>
+        </p>
+        <p>Businesses: 
+            <label><input type="checkbox" value="1" checked> Bens Cafe</label>
+            <label><input type="checkbox" value="2" checked> Hotel</label>
+        </p>
+        <button type="submit">Create User</button>
+    </form>
+    <div id="result"></div>
+    
+    <script>
+        document.getElementById('testForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            
+            const data = {
+                username: document.getElementById('username').value,
+                password: document.getElementById('password').value,
+                full_name: document.getElementById('fullname').value,
+                role: document.getElementById('role').value,
+                business_ids: Array.from(document.querySelectorAll('input[type="checkbox"]:checked')).map(cb => parseInt(cb.value))
+            };
+            
+            console.log('Sending:', data);
+            
+            try {
+                const response = await fetch('http://localhost:8080/narayana/api/create-user.php', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                console.log('Response:', result);
+                
+                document.getElementById('result').innerHTML = '<pre>' + JSON.stringify(result, null, 2) + '</pre>';
+                
+                if (result.success) {
+                    alert('✅ User created! Try login at: http://localhost:8080/narayana/login.php');
+                }
+            } catch (error) {
+                console.error('Error:', error);
+                document.getElementById('result').innerHTML = '<pre>Error: ' + error.message + '</pre>';
+            }
+        });
+    </script>
+</body>
+</html>

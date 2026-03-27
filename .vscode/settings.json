@@ -1,0 +1,14 @@
+{
+  "files.watcherExclude": {
+    "**/.git/objects/**": true,
+    "**/.git/subtree-cache/**": true,
+    "**/.venv/**": true,
+    "**/uploads/**": true
+  },
+  "search.exclude": {
+    "**/.git/**": true,
+    "**/.venv/**": true,
+    "**/uploads/**": true
+  },
+  "git.ignoreLimitWarning": true
+}

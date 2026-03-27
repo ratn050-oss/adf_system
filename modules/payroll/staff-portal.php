@@ -25,6 +25,7 @@ $bizType = $bizConfig['business_type'] ?? 'general';
 $isHotel = ($bizType === 'hotel');
 $isCafe = in_array($bizType, ['cafe', 'restaurant']);
 $themeColor = $bizConfig['theme']['color_primary'] ?? '#0d1f3c';
+$themeSecondary = $bizConfig['theme']['color_secondary'] ?? ($isCafe ? '#2563eb' : '#1a3a5c');
 $bizIcon = $bizConfig['theme']['icon'] ?? '🏢';
 
 // Logo
@@ -83,11 +84,11 @@ try {
     <link rel="apple-touch-icon" href="<?php echo htmlspecialchars($pwaIconUrl); ?>">
     <style>
         * { margin:0; padding:0; box-sizing:border-box; }
-        :root { --navy:<?php echo htmlspecialchars($themeColor); ?>; --gold:#f0b429; --green:#059669; --red:#dc2626; --orange:#ea580c; --blue:#2563eb; --purple:#7c3aed; --bg:#f1f5f9; --card:#fff; --border:#e2e8f0; --muted:#64748b; --text:#1e293b; }
+        :root { --navy:<?php echo htmlspecialchars($themeColor); ?>; --navy2:<?php echo htmlspecialchars($themeSecondary); ?>; --gold:#f0b429; --green:#059669; --red:#dc2626; --orange:#ea580c; --blue:#2563eb; --purple:#7c3aed; --bg:#f1f5f9; --card:#fff; --border:#e2e8f0; --muted:#64748b; --text:#1e293b; }
         body { font-family:'Inter','Segoe UI',system-ui,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; -webkit-font-smoothing:antialiased; }
 
         /* ── Auth Screen ── */
-        .auth-wrap { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px; background:linear-gradient(135deg,var(--navy) 0%,<?php echo $isCafe ? '#a0522d' : '#1a3a5c'; ?> 100%); }
+        .auth-wrap { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px; background:linear-gradient(135deg,var(--navy) 0%,var(--navy2) 100%); }
         .auth-card { background:#fff; border-radius:20px; padding:32px 28px; width:100%; max-width:380px; box-shadow:0 20px 60px rgba(0,0,0,.3); }
         .auth-logo { text-align:center; margin-bottom:20px; }
         .auth-logo img { height:50px; max-width:180px; object-fit:contain; }
@@ -119,8 +120,8 @@ try {
 
         /* ── App Shell ── */
         .app-wrap { display:none; min-height:100vh; padding-bottom:70px; background:var(--bg); }
-        .app-header { background:var(--navy); padding:14px 16px; display:flex; align-items:center; gap:10px; position:sticky; top:0; z-index:100; }
-        .app-header .logo { height:30px; border-radius:6px; }
+        .app-header { background:linear-gradient(135deg,var(--navy),var(--navy2)); padding:14px 16px; display:flex; align-items:center; gap:10px; position:sticky; top:0; z-index:100; }
+        .app-header .logo { height:36px; border-radius:8px; box-shadow:0 2px 8px rgba(0,0,0,.2); }
         .app-header .title { color:#fff; font-size:14px; font-weight:700; flex:1; }
         .app-header .user-badge { background:rgba(255,255,255,.15); color:var(--gold); padding:4px 10px; border-radius:20px; font-size:11px; font-weight:600; }
         .app-header .logout-btn { background:none; border:1px solid rgba(255,255,255,.2); color:#fff; padding:5px 10px; border-radius:6px; font-size:11px; cursor:pointer; }
@@ -139,7 +140,7 @@ try {
         .notif-dot.show { display:block; }
 
         /* Install banner — fixed bottom, visible everywhere */
-        .install-banner { position:fixed; bottom:0; left:0; right:0; z-index:900; background:linear-gradient(135deg,#0d1f3c 0%,#1a3a5c 100%); color:#fff; padding:16px 16px calc(16px + env(safe-area-inset-bottom,0px)); display:none; align-items:center; gap:12px; cursor:pointer; border-top:1px solid rgba(240,180,41,.3); box-shadow:0 -4px 30px rgba(0,0,0,.3); }
+        .install-banner { position:fixed; bottom:0; left:0; right:0; z-index:900; background:linear-gradient(135deg,var(--navy) 0%,var(--navy2) 100%); color:#fff; padding:16px 16px calc(16px + env(safe-area-inset-bottom,0px)); display:none; align-items:center; gap:12px; cursor:pointer; border-top:1px solid rgba(240,180,41,.3); box-shadow:0 -4px 30px rgba(0,0,0,.3); }
         .install-banner::before { content:''; position:absolute; top:-50%; right:-20%; width:120px; height:120px; background:radial-gradient(circle,rgba(240,180,41,.15),transparent 70%); border-radius:50%; pointer-events:none; }
         .install-banner.show { display:flex; animation:ibSlideUp .5s cubic-bezier(.16,1,.3,1); }
         @keyframes ibSlideUp { from { opacity:0; transform:translateY(100%); } to { opacity:1; transform:translateY(0); } }
@@ -312,10 +313,13 @@ try {
         .bf-price { font-size:11px; font-weight:800; color:#059669; }
 
         /* Absen button */
-        .absen-link { display:block; background:linear-gradient(135deg,var(--navy),#1a3a5c); color:#fff; text-decoration:none; border-radius:14px; padding:16px; text-align:center; margin-bottom:14px; cursor:pointer; }
-        .absen-link .al-icon { font-size:36px; margin-bottom:6px; }
-        .absen-link .al-title { font-size:16px; font-weight:700; }
-        .absen-link .al-sub { font-size:11px; color:rgba(255,255,255,.7); margin-top:4px; }
+        .absen-link { display:block; background:linear-gradient(135deg,var(--navy),var(--navy2)); color:#fff; text-decoration:none; border-radius:16px; padding:20px 16px; text-align:center; margin-bottom:14px; cursor:pointer; position:relative; overflow:hidden; transition:transform .15s; }
+        .absen-link:active { transform:scale(.98); }
+        .absen-link::before { content:''; position:absolute; top:-50%; right:-30%; width:150px; height:150px; background:radial-gradient(circle,rgba(255,255,255,.06),transparent 70%); border-radius:50%; pointer-events:none; }
+        .absen-link .al-icon { margin-bottom:8px; }
+        .absen-link .al-icon svg { width:44px; height:44px; }
+        .absen-link .al-title { font-size:15px; font-weight:700; letter-spacing:.3px; }
+        .absen-link .al-sub { font-size:11px; color:rgba(255,255,255,.6); margin-top:4px; }
 
         /* Face Scan Modal — Professional Biometric */
         .face-overlay { display:none; position:fixed; inset:0; background:linear-gradient(160deg,#050a18 0%,#0a1628 40%,#0f1d35 100%); z-index:1000; flex-direction:column; align-items:center; justify-content:center; }
@@ -457,7 +461,9 @@ try {
 <div class="app-wrap" id="appShell">
     <!-- Header -->
     <div class="app-header">
-        <?php if ($appLogo): ?><img src="<?php echo $appLogo; ?>" class="logo"><?php endif; ?>
+        <?php 
+        $headerLogo = $appLogo ?: (strpos($pwaIconUrl, 'absen-icon.php') === false ? $pwaIconUrl : null);
+        if ($headerLogo): ?><img src="<?php echo htmlspecialchars($headerLogo); ?>" class="logo"><?php endif; ?>
         <span class="title"><?php echo $bizName; ?></span>
         <div class="notif-bell" onclick="toggleNotifs()">
             🔔
@@ -501,9 +507,9 @@ try {
 
         <!-- Scan Wajah -->
         <div class="absen-link" onclick="openFaceScan()">
-            <div class="al-icon">👁️</div>
-            <div class="al-title">Scan Wajah — Absen Sekarang</div>
-            <div class="al-sub">Tap untuk buka kamera & scan wajah</div>
+            <div class="al-icon"><svg viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg"><rect x="4" y="8" width="56" height="48" rx="10" stroke="rgba(255,255,255,.25)" stroke-width="2"/><rect x="4" y="8" width="18" height="14" rx="4" stroke="white" stroke-width="2.5" stroke-linecap="round" fill="none" style="clip-path:inset(0 50% 50% 0)"/><rect x="42" y="8" width="18" height="14" rx="4" stroke="white" stroke-width="2.5" stroke-linecap="round" fill="none" style="clip-path:inset(0 0 50% 50%)"/><rect x="4" y="42" width="18" height="14" rx="4" stroke="white" stroke-width="2.5" fill="none" style="clip-path:inset(50% 50% 0 0)"/><rect x="42" y="42" width="18" height="14" rx="4" stroke="white" stroke-width="2.5" fill="none" style="clip-path:inset(50% 0 0 50%)"/><circle cx="32" cy="28" r="8" stroke="white" stroke-width="2"/><path d="M22 46c0-5.523 4.477-10 10-10s10 4.477 10 10" stroke="white" stroke-width="2" stroke-linecap="round"/><line x1="4" y1="32" x2="12" y2="32" stroke="rgba(255,255,255,.4)" stroke-width="1.5" stroke-dasharray="2 2"/><line x1="52" y1="32" x2="60" y2="32" stroke="rgba(255,255,255,.4)" stroke-width="1.5" stroke-dasharray="2 2"/></svg></div>
+            <div class="al-title">Face Scan — Absen Sekarang</div>
+            <div class="al-sub">Tap untuk verifikasi wajah otomatis</div>
         </div>
 
         <!-- Status Hari Ini -->
@@ -654,11 +660,12 @@ try {
     </div>
 </div>
 
-<!-- Face Scan Overlay — 2028 Vibe -->
+<!-- Face Scan Overlay — Professional Biometric -->
 <div class="face-overlay" id="faceOverlay">
     <div class="face-particles" id="faceParticles"></div>
     <button class="face-close" onclick="closeFaceScan()">✕</button>
     <div class="face-header">
+        <div style="margin-bottom:10px;"><svg width="32" height="32" viewBox="0 0 64 64" fill="none" xmlns="http://www.w3.org/2000/svg"><path d="M8 20V14a6 6 0 016-6h6" stroke="rgba(255,255,255,.5)" stroke-width="2.5" stroke-linecap="round"/><path d="M44 8h6a6 6 0 016 6v6" stroke="rgba(255,255,255,.5)" stroke-width="2.5" stroke-linecap="round"/><path d="M56 44v6a6 6 0 01-6 6h-6" stroke="rgba(255,255,255,.5)" stroke-width="2.5" stroke-linecap="round"/><path d="M20 56h-6a6 6 0 01-6-6v-6" stroke="rgba(255,255,255,.5)" stroke-width="2.5" stroke-linecap="round"/><circle cx="32" cy="26" r="10" stroke="white" stroke-width="2"/><path d="M20 48c0-6.627 5.373-12 12-12s12 5.373 12 12" stroke="white" stroke-width="2" stroke-linecap="round"/></svg></div>
         <h3 id="faceTitle">Face Recognition</h3>
         <p id="faceSubtitle">Verifikasi identitas karyawan</p>
     </div>
@@ -1065,7 +1072,7 @@ async function loadSchedule() {
 
         let html = '<div style="margin-bottom:12px;">';
         // Today highlight
-        html += `<div style="background:linear-gradient(135deg,var(--navy),${IS_CAFE?'#a0522d':'#1a3a5c'});color:#fff;border-radius:12px;padding:16px;margin-bottom:12px;text-align:center;">
+        html += `<div style="background:linear-gradient(135deg,var(--navy),var(--navy2));color:#fff;border-radius:12px;padding:16px;margin-bottom:12px;text-align:center;">
             <div style="font-size:11px;opacity:.7;">Jadwal Hari Ini — ${dayNames[todayIdx]}</div>
             <div style="font-size:28px;font-weight:800;margin:6px 0;">${s.start_time?.substring(0,5) || '—'} — ${s.end_time?.substring(0,5) || '—'}</div>
             <div style="font-size:12px;opacity:.8;">${s.total_hours || 8} jam kerja${s.break_minutes ? ' · istirahat ' + s.break_minutes + ' menit' : ''}</div>
