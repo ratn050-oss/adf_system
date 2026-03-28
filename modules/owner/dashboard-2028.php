@@ -552,13 +552,13 @@ try {
         $attEmployees = $stmt->fetchAll(PDO::FETCH_ASSOC);
         $attStats['total'] = count($attEmployees);
         
-        // Get today's attendance records
+        // Get today's attendance records (include scan_3, scan_4, late_minutes, notes)
         $stmt = $pdo->prepare("
             SELECT a.*, e.full_name, e.employee_code, e.position, e.department
             FROM payroll_attendance a
             JOIN payroll_employees e ON e.id = a.employee_id
             WHERE a.attendance_date = ?
-            ORDER BY e.full_name
+            ORDER BY a.check_in_time ASC, e.full_name
         ");
         $stmt->execute([$attDate]);
         $attRecords = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -2257,27 +2257,29 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
         .att-list-title { font-size: 12px; font-weight: 700; color: var(--text-primary); }
         .att-list-count { font-size: 10px; color: var(--text-muted); font-weight: 600; }
         .att-emp-row {
-            display: flex; align-items: center; padding: 10px 14px;
-            border-bottom: 1px solid rgba(0,0,0,0.04); gap: 10px;
+            display: flex; align-items: flex-start; padding: 7px 12px;
+            border-bottom: 1px solid rgba(0,0,0,0.04); gap: 8px;
             transition: background 0.15s;
         }
         .att-emp-row:last-child { border-bottom: none; }
         .att-emp-avatar {
-            width: 36px; height: 36px; border-radius: 10px;
+            width: 28px; height: 28px; border-radius: 8px;
             display: flex; align-items: center; justify-content: center;
-            font-size: 14px; font-weight: 900; color: #fff; flex-shrink: 0;
+            font-size: 11px; font-weight: 900; color: #fff; flex-shrink: 0; margin-top: 1px;
         }
         .att-emp-avatar.av-present { background: linear-gradient(135deg, #16a34a, #22c55e); }
         .att-emp-avatar.av-late { background: linear-gradient(135deg, #d97706, #f59e0b); }
         .att-emp-avatar.av-leave { background: linear-gradient(135deg, #2563eb, #3b82f6); }
         .att-emp-avatar.av-absent { background: linear-gradient(135deg, #dc2626, #ef4444); }
         .att-emp-info { flex: 1; min-width: 0; }
-        .att-emp-name { font-size: 12px; font-weight: 700; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .att-emp-pos { font-size: 9px; color: var(--text-muted); font-weight: 600; margin-top: 1px; }
-        .att-emp-times { text-align: right; flex-shrink: 0; }
-        .att-emp-time-row { font-size: 10px; color: var(--text-secondary); font-weight: 600; line-height: 1.4; }
-        .att-emp-time-row strong { color: var(--text-primary); }
-        .att-emp-hours { font-size: 9px; color: #6366f1; font-weight: 700; }
+        .att-emp-name { font-size: 11px; font-weight: 700; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .att-emp-pos { font-size: 8px; color: var(--text-muted); font-weight: 600; margin-top: 1px; }
+        .att-emp-scans { text-align: right; flex-shrink: 0; }
+        .att-scan-grid { display: grid; grid-template-columns: auto auto; gap: 0 6px; font-size: 9px; line-height: 1.5; }
+        .att-scan-grid .att-scan-lbl { color: var(--text-muted); font-weight: 600; text-align: left; }
+        .att-scan-grid .att-scan-val { color: var(--text-primary); font-weight: 700; text-align: right; font-family: 'Monaco','Courier New',monospace; font-size: 9px; }
+        .att-emp-note { font-size: 8px; color: #f59e0b; font-weight: 600; margin-top: 1px; text-align: right; }
+        .att-emp-hours { font-size: 8px; color: #6366f1; font-weight: 700; text-align: right; margin-top: 1px; }
         .att-status-badge {
             display: inline-block; font-size: 8px; font-weight: 800;
             padding: 2px 7px; border-radius: 6px; text-transform: uppercase;
@@ -2376,7 +2378,7 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
                         <div class="hero-subtitle"><?= date('F Y') ?></div>
                     </div>
                     <div style="text-align:right;">
-                        <div style="font-size:9px;text-transform:uppercase;letter-spacing:1.5px;opacity:0.4;font-weight:600;">Net Profit</div>
+                        <div style="font-size:9px;text-transform:uppercase;letter-spacing:1.5px;opacity:0.6;font-weight:600;color:#fff;">Net Profit</div>
                         <div style="font-size:20px;font-weight:800;letter-spacing:-0.5px;color:<?= $netProfit >= 0 ? '#34d399' : '#fb7185' ?>;"><?= $netProfit >= 0 ? '+' : '' ?><?= rp($netProfit) ?></div>
                     </div>
                 </div>
@@ -3121,20 +3123,29 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
                         elseif ($ar['status'] === 'leave') { $statusCls = 'av-leave'; $badgeCls = 'asb-leave'; $badgeText = 'Izin'; }
                         elseif ($ar['status'] === 'holiday') { $statusCls = 'av-leave'; $badgeCls = 'asb-holiday'; $badgeText = 'Libur'; }
                         elseif ($ar['status'] === 'half_day') { $statusCls = 'av-late'; $badgeCls = 'asb-half_day'; $badgeText = 'Half Day'; }
-                        $cin = $ar['check_in_time'] ? substr($ar['check_in_time'], 0, 5) : '-';
-                        $cout = $ar['check_out_time'] ? substr($ar['check_out_time'], 0, 5) : '-';
-                        $wh = $ar['work_hours'] ? number_format((float)$ar['work_hours'], 1) . ' jam' : '';
+                        $s1 = $ar['check_in_time'] ? substr($ar['check_in_time'], 0, 5) : '-';
+                        $s2 = $ar['check_out_time'] ? substr($ar['check_out_time'], 0, 5) : '-';
+                        $s3 = !empty($ar['scan_3']) ? substr($ar['scan_3'], 0, 5) : '';
+                        $s4 = !empty($ar['scan_4']) ? substr($ar['scan_4'], 0, 5) : '';
+                        $wh = $ar['work_hours'] ? number_format((float)$ar['work_hours'], 1) . 'h' : '';
+                        $lateMins = (int)($ar['late_minutes'] ?? 0);
+                        $noteText = trim($ar['notes'] ?? '');
                     ?>
                     <div class="att-emp-row">
                         <div class="att-emp-avatar <?= $statusCls ?>"><?= $initial ?></div>
                         <div class="att-emp-info">
                             <div class="att-emp-name"><?= htmlspecialchars($ar['full_name']) ?></div>
-                            <div class="att-emp-pos"><?= htmlspecialchars($ar['position'] ?? '-') ?> <span class="att-status-badge <?= $badgeCls ?>"><?= $badgeText ?></span></div>
+                            <div class="att-emp-pos"><?= htmlspecialchars($ar['position'] ?? '-') ?> <span class="att-status-badge <?= $badgeCls ?>"><?= $badgeText ?></span><?php if ($lateMins > 0): ?> <span style="font-size:7px;color:#f59e0b;font-weight:700;">+<?= $lateMins ?>m</span><?php endif; ?></div>
                         </div>
-                        <div class="att-emp-times">
-                            <div class="att-emp-time-row">In: <strong><?= $cin ?></strong></div>
-                            <div class="att-emp-time-row">Out: <strong><?= $cout ?></strong></div>
+                        <div class="att-emp-scans">
+                            <div class="att-scan-grid">
+                                <span class="att-scan-lbl">S1</span><span class="att-scan-val"><?= $s1 ?></span>
+                                <span class="att-scan-lbl">S2</span><span class="att-scan-val"><?= $s2 ?></span>
+                                <?php if ($s3): ?><span class="att-scan-lbl">S3</span><span class="att-scan-val"><?= $s3 ?></span><?php endif; ?>
+                                <?php if ($s4): ?><span class="att-scan-lbl">S4</span><span class="att-scan-val"><?= $s4 ?></span><?php endif; ?>
+                            </div>
                             <?php if ($wh): ?><div class="att-emp-hours"><?= $wh ?></div><?php endif; ?>
+                            <?php if ($noteText): ?><div class="att-emp-note"><?= htmlspecialchars(mb_substr($noteText, 0, 20)) ?></div><?php endif; ?>
                         </div>
                     </div>
                     <?php endforeach; ?>
@@ -3152,8 +3163,8 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
                             <div class="att-emp-name"><?= htmlspecialchars($emp['full_name']) ?></div>
                             <div class="att-emp-pos"><?= htmlspecialchars($emp['position'] ?? '-') ?> <span class="att-status-badge asb-absent">Alpha</span></div>
                         </div>
-                        <div class="att-emp-times">
-                            <div class="att-emp-time-row" style="color:#dc2626;font-weight:700;">Tidak hadir</div>
+                        <div class="att-emp-scans">
+                            <div style="font-size:9px;color:#dc2626;font-weight:700;">Tidak hadir</div>
                         </div>
                     </div>
                     <?php endforeach; ?>
@@ -3633,18 +3644,29 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
                         else if (ar.status === 'leave') { statusCls = 'av-leave'; badgeCls = 'asb-leave'; badgeText = 'Izin'; }
                         else if (ar.status === 'holiday') { statusCls = 'av-leave'; badgeCls = 'asb-holiday'; badgeText = 'Libur'; }
                         else if (ar.status === 'half_day') { statusCls = 'av-late'; badgeCls = 'asb-half_day'; badgeText = 'Half Day'; }
-                        const cin = ar.check_in_time ? ar.check_in_time.substring(0,5) : '-';
-                        const cout = ar.check_out_time ? ar.check_out_time.substring(0,5) : '-';
-                        const wh = ar.work_hours ? parseFloat(ar.work_hours).toFixed(1) + ' jam' : '';
+                        const s1 = ar.check_in_time ? ar.check_in_time.substring(0,5) : '-';
+                        const s2 = ar.check_out_time ? ar.check_out_time.substring(0,5) : '-';
+                        const s3 = ar.scan_3 ? ar.scan_3.substring(0,5) : '';
+                        const s4 = ar.scan_4 ? ar.scan_4.substring(0,5) : '';
+                        const wh = ar.work_hours ? parseFloat(ar.work_hours).toFixed(1) + 'h' : '';
+                        const lateMins = parseInt(ar.late_minutes || 0);
+                        const noteText = (ar.notes || '').trim();
                         const initial = (ar.full_name || '?')[0].toUpperCase();
                         
                         html += '<div class="att-emp-row">';
                         html += '<div class="att-emp-avatar ' + statusCls + '">' + initial + '</div>';
                         html += '<div class="att-emp-info"><div class="att-emp-name">' + (ar.full_name||'-') + '</div>';
-                        html += '<div class="att-emp-pos">' + (ar.position||'-') + ' <span class="att-status-badge ' + badgeCls + '">' + badgeText + '</span></div></div>';
-                        html += '<div class="att-emp-times"><div class="att-emp-time-row">In: <strong>' + cin + '</strong></div>';
-                        html += '<div class="att-emp-time-row">Out: <strong>' + cout + '</strong></div>';
+                        html += '<div class="att-emp-pos">' + (ar.position||'-') + ' <span class="att-status-badge ' + badgeCls + '">' + badgeText + '</span>';
+                        if (lateMins > 0) html += ' <span style="font-size:7px;color:#f59e0b;font-weight:700;">+' + lateMins + 'm</span>';
+                        html += '</div></div>';
+                        html += '<div class="att-emp-scans"><div class="att-scan-grid">';
+                        html += '<span class="att-scan-lbl">S1</span><span class="att-scan-val">' + s1 + '</span>';
+                        html += '<span class="att-scan-lbl">S2</span><span class="att-scan-val">' + s2 + '</span>';
+                        if (s3) html += '<span class="att-scan-lbl">S3</span><span class="att-scan-val">' + s3 + '</span>';
+                        if (s4) html += '<span class="att-scan-lbl">S4</span><span class="att-scan-val">' + s4 + '</span>';
+                        html += '</div>';
                         if (wh) html += '<div class="att-emp-hours">' + wh + '</div>';
+                        if (noteText) html += '<div class="att-emp-note">' + noteText.substring(0,20) + '</div>';
                         html += '</div></div>';
                     });
                     
@@ -3655,7 +3677,7 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
                         html += '<div class="att-emp-avatar av-absent">' + initial + '</div>';
                         html += '<div class="att-emp-info"><div class="att-emp-name">' + (emp.full_name||'-') + '</div>';
                         html += '<div class="att-emp-pos">' + (emp.position||'-') + ' <span class="att-status-badge asb-absent">Alpha</span></div></div>';
-                        html += '<div class="att-emp-times"><div class="att-emp-time-row" style="color:#dc2626;font-weight:700;">Tidak hadir</div></div>';
+                        html += '<div class="att-emp-scans"><div style="font-size:9px;color:#dc2626;font-weight:700;">Tidak hadir</div></div>';
                         html += '</div>';
                     });
                     
