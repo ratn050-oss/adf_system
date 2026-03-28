@@ -2200,89 +2200,133 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
         /* ══════════════════════════════════════════ */
         /* ATTENDANCE MONITORING                      */
         /* ══════════════════════════════════════════ */
-        .att-section { margin-top: 16px; }
-        .att-section-title {
-            display: flex; align-items: center; gap: 8px; margin-bottom: 12px;
-            font-size: 14px; font-weight: 700; color: var(--text-primary);
+        .att-section { margin-top: 20px; }
+        .att-hero {
+            background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%);
+            border-radius: 18px; padding: 18px 16px 14px;
+            position: relative; overflow: hidden;
+            box-shadow: 0 4px 20px rgba(67, 56, 202, 0.25);
         }
-        .att-section-title .att-badge {
-            background: linear-gradient(135deg, #6366f1, #818cf8);
-            color: #fff; font-size: 9px; font-weight: 800; padding: 3px 8px;
-            border-radius: 6px; letter-spacing: 0.5px;
+        .att-hero::before {
+            content: ''; position: absolute; top: -30px; right: -30px;
+            width: 120px; height: 120px; border-radius: 50%;
+            background: radial-gradient(circle, rgba(129,140,248,0.2) 0%, transparent 70%);
         }
+        .att-hero-top {
+            display: flex; align-items: center; justify-content: space-between;
+            margin-bottom: 14px; position: relative; z-index: 1;
+        }
+        .att-hero-title {
+            font-size: 14px; font-weight: 800; color: #e0e7ff;
+            letter-spacing: 0.3px;
+        }
+        .att-hero-badge {
+            background: rgba(129,140,248,0.25); border: 1px solid rgba(129,140,248,0.35);
+            color: #a5b4fc; font-size: 8px; font-weight: 800; padding: 3px 10px;
+            border-radius: 20px; letter-spacing: 1px; text-transform: uppercase;
+            animation: attPulse 2s ease-in-out infinite;
+        }
+        @keyframes attPulse { 0%,100%{opacity:1;} 50%{opacity:0.6;} }
         .att-date-nav {
             display: flex; align-items: center; justify-content: center;
-            gap: 10px; margin-bottom: 12px;
+            gap: 8px; margin-bottom: 16px; position: relative; z-index: 1;
         }
         .att-date-btn {
-            background: linear-gradient(135deg, #6366f1, #818cf8);
-            color: #fff; border: none; border-radius: 8px; padding: 6px 14px;
-            font-size: 11px; font-weight: 700; cursor: pointer; transition: 0.15s;
+            background: rgba(255,255,255,0.1); backdrop-filter: blur(4px);
+            color: #c7d2fe; border: 1px solid rgba(255,255,255,0.12);
+            border-radius: 10px; width: 34px; height: 34px;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 12px; font-weight: 700; cursor: pointer;
+            transition: all 0.2s;
         }
-        .att-date-btn:active { opacity: 0.7; transform: scale(0.96); }
+        .att-date-btn:active { background: rgba(255,255,255,0.2); transform: scale(0.92); }
         .att-date-label {
-            font-size: 13px; font-weight: 800; color: var(--text-primary);
-            letter-spacing: 0.3px; min-width: 140px; text-align: center;
+            font-size: 13px; font-weight: 800; color: #fff;
+            letter-spacing: 0.3px; min-width: 160px; text-align: center;
         }
-        /* Stats cards */
+        /* Stats row inside hero */
         .att-stats {
             display: grid; grid-template-columns: repeat(4, 1fr);
-            gap: 8px; margin-bottom: 14px;
+            gap: 6px; position: relative; z-index: 1;
         }
         .att-stat-card {
-            background: var(--surface); border-radius: 12px; padding: 10px 8px;
-            text-align: center; box-shadow: 0 1px 4px rgba(0,0,0,0.06);
-            border: 1.5px solid var(--border);
+            background: rgba(255,255,255,0.08); backdrop-filter: blur(8px);
+            border-radius: 12px; padding: 10px 6px;
+            text-align: center; border: 1px solid rgba(255,255,255,0.08);
+            transition: background 0.2s;
         }
-        .att-stat-icon { font-size: 18px; margin-bottom: 2px; }
-        .att-stat-num { font-size: 20px; font-weight: 900; line-height: 1.1; }
-        .att-stat-label { font-size: 8px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.5px; color: var(--text-muted); margin-top: 2px; }
-        .att-stat-card.asc-present { border-color: #86efac; }
-        .att-stat-card.asc-present .att-stat-num { color: #16a34a; }
-        .att-stat-card.asc-late { border-color: #fcd34d; }
-        .att-stat-card.asc-late .att-stat-num { color: #d97706; }
-        .att-stat-card.asc-leave { border-color: #93c5fd; }
-        .att-stat-card.asc-leave .att-stat-num { color: #2563eb; }
-        .att-stat-card.asc-absent { border-color: #fca5a5; }
-        .att-stat-card.asc-absent .att-stat-num { color: #dc2626; }
+        .att-stat-card:active { background: rgba(255,255,255,0.14); }
+        .att-stat-num { font-size: 22px; font-weight: 900; line-height: 1.1; color: #fff; }
+        .att-stat-label {
+            font-size: 8px; font-weight: 700; text-transform: uppercase;
+            letter-spacing: 0.6px; margin-top: 3px;
+        }
+        .att-stat-card.asc-present .att-stat-label { color: #86efac; }
+        .att-stat-card.asc-late .att-stat-label { color: #fcd34d; }
+        .att-stat-card.asc-leave .att-stat-label { color: #93c5fd; }
+        .att-stat-card.asc-absent .att-stat-label { color: #fca5a5; }
+        .att-stat-dot {
+            width: 6px; height: 6px; border-radius: 50%;
+            display: inline-block; margin-right: 2px; vertical-align: middle;
+        }
+        .asd-present { background: #22c55e; }
+        .asd-late { background: #f59e0b; }
+        .asd-leave { background: #3b82f6; }
+        .asd-absent { background: #ef4444; }
         /* Staff list */
         .att-list-wrap {
-            background: var(--surface); border-radius: 14px;
-            box-shadow: 0 1px 4px rgba(0,0,0,0.06); overflow: hidden;
+            background: var(--surface); border-radius: 16px;
+            box-shadow: 0 2px 12px rgba(0,0,0,0.06); overflow: hidden;
+            margin-top: 12px;
         }
         .att-list-header {
             display: flex; align-items: center; justify-content: space-between;
-            padding: 10px 14px; border-bottom: 1px solid var(--border);
+            padding: 12px 16px; border-bottom: 1px solid var(--border);
         }
-        .att-list-title { font-size: 12px; font-weight: 700; color: var(--text-primary); }
-        .att-list-count { font-size: 10px; color: var(--text-muted); font-weight: 600; }
+        .att-list-title { font-size: 12px; font-weight: 800; color: var(--text-primary); letter-spacing: 0.2px; }
+        .att-list-count {
+            font-size: 9px; color: #818cf8; font-weight: 700;
+            background: rgba(99,102,241,0.08); padding: 3px 10px;
+            border-radius: 20px;
+        }
         .att-emp-row {
-            display: flex; align-items: flex-start; padding: 7px 12px;
-            border-bottom: 1px solid rgba(0,0,0,0.04); gap: 8px;
+            display: flex; align-items: center; padding: 9px 14px;
+            border-bottom: 1px solid rgba(0,0,0,0.03); gap: 10px;
             transition: background 0.15s;
         }
         .att-emp-row:last-child { border-bottom: none; }
+        .att-emp-row:active { background: rgba(99,102,241,0.04); }
         .att-emp-avatar {
-            width: 28px; height: 28px; border-radius: 8px;
+            width: 32px; height: 32px; border-radius: 10px;
             display: flex; align-items: center; justify-content: center;
-            font-size: 11px; font-weight: 900; color: #fff; flex-shrink: 0; margin-top: 1px;
+            font-size: 12px; font-weight: 900; color: #fff; flex-shrink: 0;
         }
-        .att-emp-avatar.av-present { background: linear-gradient(135deg, #16a34a, #22c55e); }
-        .att-emp-avatar.av-late { background: linear-gradient(135deg, #d97706, #f59e0b); }
-        .att-emp-avatar.av-leave { background: linear-gradient(135deg, #2563eb, #3b82f6); }
-        .att-emp-avatar.av-absent { background: linear-gradient(135deg, #dc2626, #ef4444); }
+        .att-emp-avatar.av-present { background: linear-gradient(135deg, #16a34a, #4ade80); }
+        .att-emp-avatar.av-late { background: linear-gradient(135deg, #d97706, #fbbf24); }
+        .att-emp-avatar.av-leave { background: linear-gradient(135deg, #2563eb, #60a5fa); }
+        .att-emp-avatar.av-absent { background: linear-gradient(135deg, #dc2626, #f87171); }
         .att-emp-info { flex: 1; min-width: 0; }
-        .att-emp-name { font-size: 11px; font-weight: 700; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-        .att-emp-pos { font-size: 8px; color: var(--text-muted); font-weight: 600; margin-top: 1px; }
+        .att-emp-name { font-size: 12px; font-weight: 700; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+        .att-emp-meta { display: flex; align-items: center; gap: 6px; margin-top: 2px; flex-wrap: wrap; }
+        .att-emp-pos { font-size: 9px; color: var(--text-muted); font-weight: 600; }
         .att-emp-scans { text-align: right; flex-shrink: 0; }
-        .att-scan-grid { display: grid; grid-template-columns: auto auto; gap: 0 6px; font-size: 9px; line-height: 1.5; }
-        .att-scan-grid .att-scan-lbl { color: var(--text-muted); font-weight: 600; text-align: left; }
-        .att-scan-grid .att-scan-val { color: var(--text-primary); font-weight: 700; text-align: right; font-family: 'Monaco','Courier New',monospace; font-size: 9px; }
-        .att-emp-note { font-size: 8px; color: #f59e0b; font-weight: 600; margin-top: 1px; text-align: right; }
-        .att-emp-hours { font-size: 8px; color: #6366f1; font-weight: 700; text-align: right; margin-top: 1px; }
+        .att-scan-pills { display: flex; gap: 3px; flex-wrap: wrap; justify-content: flex-end; }
+        .att-scan-pill {
+            background: rgba(99,102,241,0.06); border: 1px solid rgba(99,102,241,0.1);
+            border-radius: 6px; padding: 2px 6px; font-size: 9px;
+            display: flex; align-items: center; gap: 2px;
+        }
+        .att-scan-pill .att-sp-lbl { color: var(--text-muted); font-weight: 600; font-size: 7px; text-transform: uppercase; }
+        .att-scan-pill .att-sp-val { color: var(--text-primary); font-weight: 800; font-family: 'Monaco','Courier New',monospace; font-size: 9px; }
+        .att-emp-note { font-size: 8px; color: #f59e0b; font-weight: 600; margin-top: 2px; text-align: right; }
+        .att-emp-hours {
+            font-size: 8px; color: #818cf8; font-weight: 800;
+            background: rgba(99,102,241,0.06); padding: 1px 6px; border-radius: 4px;
+            display: inline-block; margin-top: 2px;
+        }
         .att-status-badge {
-            display: inline-block; font-size: 8px; font-weight: 800;
-            padding: 2px 7px; border-radius: 6px; text-transform: uppercase;
+            display: inline-block; font-size: 7px; font-weight: 800;
+            padding: 2px 7px; border-radius: 20px; text-transform: uppercase;
             letter-spacing: 0.3px;
         }
         .asb-present { background: #dcfce7; color: #15803d; }
@@ -2291,6 +2335,7 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
         .asb-absent { background: #fee2e2; color: #991b1b; }
         .asb-holiday { background: #f3e8ff; color: #6b21a8; }
         .asb-half_day { background: #ffedd5; color: #9a3412; }
+        .att-late-tag { font-size: 7px; color: #f59e0b; font-weight: 800; background: rgba(245,158,11,0.1); padding: 1px 5px; border-radius: 10px; }
     </style>
 </head>
 <body>
@@ -3064,56 +3109,54 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
         <!-- ATTENDANCE MONITORING                      -->
         <!-- ═══════════════════════════════════════════ -->
         <div class="att-section">
-            <div class="att-section-title">
-                <span class="att-badge">LIVE</span>
-                👥 Monitoring Absensi Staff
-            </div>
-            
-            <!-- Date Navigation -->
-            <div class="att-date-nav">
-                <button class="att-date-btn" onclick="attNavDate(-1)">◀</button>
-                <span class="att-date-label" id="attDateLabel"><?php
-                    $hariIndo = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
-                    $bulanIndoShort = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
-                    $dt = new DateTime($attDate);
-                    echo $hariIndo[(int)$dt->format('w')] . ', ' . $dt->format('d') . ' ' . $bulanIndoShort[(int)$dt->format('n')-1] . ' ' . $dt->format('Y');
-                ?></span>
-                <button class="att-date-btn" onclick="attNavDate(1)">▶</button>
-            </div>
-            
-            <!-- Stats Cards -->
-            <div class="att-stats">
-                <div class="att-stat-card asc-present">
-                    <div class="att-stat-icon">✅</div>
-                    <div class="att-stat-num" id="attStatPresent"><?= $attStats['present'] ?></div>
-                    <div class="att-stat-label">Hadir</div>
+            <!-- Hero Card with Stats -->
+            <div class="att-hero">
+                <div class="att-hero-top">
+                    <div class="att-hero-title">👥 Staff Attendance</div>
+                    <span class="att-hero-badge">● Live</span>
                 </div>
-                <div class="att-stat-card asc-late">
-                    <div class="att-stat-icon">⏰</div>
-                    <div class="att-stat-num" id="attStatLate"><?= $attStats['late'] ?></div>
-                    <div class="att-stat-label">Terlambat</div>
+                
+                <!-- Date Navigation -->
+                <div class="att-date-nav">
+                    <button class="att-date-btn" onclick="attNavDate(-1)">◀</button>
+                    <span class="att-date-label" id="attDateLabel"><?php
+                        $hariIndo = ['Minggu','Senin','Selasa','Rabu','Kamis','Jumat','Sabtu'];
+                        $bulanIndoShort = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
+                        $dt = new DateTime($attDate);
+                        echo $hariIndo[(int)$dt->format('w')] . ', ' . $dt->format('d') . ' ' . $bulanIndoShort[(int)$dt->format('n')-1] . ' ' . $dt->format('Y');
+                    ?></span>
+                    <button class="att-date-btn" onclick="attNavDate(1)">▶</button>
                 </div>
-                <div class="att-stat-card asc-leave">
-                    <div class="att-stat-icon">📋</div>
-                    <div class="att-stat-num" id="attStatLeave"><?= $attStats['leave'] ?></div>
-                    <div class="att-stat-label">Izin</div>
-                </div>
-                <div class="att-stat-card asc-absent">
-                    <div class="att-stat-icon">❌</div>
-                    <div class="att-stat-num" id="attStatAbsent"><?= $attStats['absent'] ?></div>
-                    <div class="att-stat-label">Alpha</div>
+                
+                <!-- Stats Cards -->
+                <div class="att-stats">
+                    <div class="att-stat-card asc-present">
+                        <div class="att-stat-num" id="attStatPresent"><?= $attStats['present'] ?></div>
+                        <div class="att-stat-label"><span class="att-stat-dot asd-present"></span> Hadir</div>
+                    </div>
+                    <div class="att-stat-card asc-late">
+                        <div class="att-stat-num" id="attStatLate"><?= $attStats['late'] ?></div>
+                        <div class="att-stat-label"><span class="att-stat-dot asd-late"></span> Terlambat</div>
+                    </div>
+                    <div class="att-stat-card asc-leave">
+                        <div class="att-stat-num" id="attStatLeave"><?= $attStats['leave'] ?></div>
+                        <div class="att-stat-label"><span class="att-stat-dot asd-leave"></span> Izin</div>
+                    </div>
+                    <div class="att-stat-card asc-absent">
+                        <div class="att-stat-num" id="attStatAbsent"><?= $attStats['absent'] ?></div>
+                        <div class="att-stat-label"><span class="att-stat-dot asd-absent"></span> Alpha</div>
+                    </div>
                 </div>
             </div>
             
             <!-- Staff List -->
             <div class="att-list-wrap">
                 <div class="att-list-header">
-                    <div class="att-list-title">📋 Daftar Kehadiran</div>
+                    <div class="att-list-title">Daftar Kehadiran</div>
                     <div class="att-list-count" id="attListCount"><?= count($attRecords) ?>/<?= $attStats['total'] ?> staff</div>
                 </div>
                 <div id="attStaffList">
                     <?php
-                    // Show present/late employees first
                     foreach ($attRecords as $ar):
                         $statusCls = 'av-present';
                         $badgeCls = 'asb-present';
@@ -3135,14 +3178,18 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
                         <div class="att-emp-avatar <?= $statusCls ?>"><?= $initial ?></div>
                         <div class="att-emp-info">
                             <div class="att-emp-name"><?= htmlspecialchars($ar['full_name']) ?></div>
-                            <div class="att-emp-pos"><?= htmlspecialchars($ar['position'] ?? '-') ?> <span class="att-status-badge <?= $badgeCls ?>"><?= $badgeText ?></span><?php if ($lateMins > 0): ?> <span style="font-size:7px;color:#f59e0b;font-weight:700;">+<?= $lateMins ?>m</span><?php endif; ?></div>
+                            <div class="att-emp-meta">
+                                <span class="att-emp-pos"><?= htmlspecialchars($ar['position'] ?? '-') ?></span>
+                                <span class="att-status-badge <?= $badgeCls ?>"><?= $badgeText ?></span>
+                                <?php if ($lateMins > 0): ?><span class="att-late-tag">+<?= $lateMins ?>m</span><?php endif; ?>
+                            </div>
                         </div>
                         <div class="att-emp-scans">
-                            <div class="att-scan-grid">
-                                <span class="att-scan-lbl">S1</span><span class="att-scan-val"><?= $s1 ?></span>
-                                <span class="att-scan-lbl">S2</span><span class="att-scan-val"><?= $s2 ?></span>
-                                <?php if ($s3): ?><span class="att-scan-lbl">S3</span><span class="att-scan-val"><?= $s3 ?></span><?php endif; ?>
-                                <?php if ($s4): ?><span class="att-scan-lbl">S4</span><span class="att-scan-val"><?= $s4 ?></span><?php endif; ?>
+                            <div class="att-scan-pills">
+                                <div class="att-scan-pill"><span class="att-sp-lbl">S1</span><span class="att-sp-val"><?= $s1 ?></span></div>
+                                <div class="att-scan-pill"><span class="att-sp-lbl">S2</span><span class="att-sp-val"><?= $s2 ?></span></div>
+                                <?php if ($s3): ?><div class="att-scan-pill"><span class="att-sp-lbl">S3</span><span class="att-sp-val"><?= $s3 ?></span></div><?php endif; ?>
+                                <?php if ($s4): ?><div class="att-scan-pill"><span class="att-sp-lbl">S4</span><span class="att-sp-val"><?= $s4 ?></span></div><?php endif; ?>
                             </div>
                             <?php if ($wh): ?><div class="att-emp-hours"><?= $wh ?></div><?php endif; ?>
                             <?php if ($noteText): ?><div class="att-emp-note"><?= htmlspecialchars(mb_substr($noteText, 0, 20)) ?></div><?php endif; ?>
@@ -3151,7 +3198,6 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
                     <?php endforeach; ?>
                     
                     <?php
-                    // Show absent employees (no attendance record)
                     $recordedIds = array_column($attRecords, 'employee_id');
                     foreach ($attEmployees as $emp):
                         if (in_array($emp['id'], $recordedIds)) continue;
@@ -3161,7 +3207,10 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
                         <div class="att-emp-avatar av-absent"><?= $initial ?></div>
                         <div class="att-emp-info">
                             <div class="att-emp-name"><?= htmlspecialchars($emp['full_name']) ?></div>
-                            <div class="att-emp-pos"><?= htmlspecialchars($emp['position'] ?? '-') ?> <span class="att-status-badge asb-absent">Alpha</span></div>
+                            <div class="att-emp-meta">
+                                <span class="att-emp-pos"><?= htmlspecialchars($emp['position'] ?? '-') ?></span>
+                                <span class="att-status-badge asb-absent">Alpha</span>
+                            </div>
                         </div>
                         <div class="att-emp-scans">
                             <div style="font-size:9px;color:#dc2626;font-weight:700;">Tidak hadir</div>
@@ -3622,7 +3671,7 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
             const list = document.getElementById('attStaffList');
             list.innerHTML = '<div style="text-align:center;padding:20px;color:var(--text-muted);font-size:12px;">Memuat data...</div>';
             
-            fetch('<?= BASE_URL ?>api/owner-attendance.php?date=' + encodeURIComponent(dateStr) + '&business_id=' + businessId)
+            fetch(basePath + '/api/owner-attendance.php?date=' + encodeURIComponent(dateStr) + '&business_id=' + businessId)
                 .then(r => r.json())
                 .then(data => {
                     if (!data.success) {
@@ -3656,14 +3705,15 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
                         html += '<div class="att-emp-row">';
                         html += '<div class="att-emp-avatar ' + statusCls + '">' + initial + '</div>';
                         html += '<div class="att-emp-info"><div class="att-emp-name">' + (ar.full_name||'-') + '</div>';
-                        html += '<div class="att-emp-pos">' + (ar.position||'-') + ' <span class="att-status-badge ' + badgeCls + '">' + badgeText + '</span>';
-                        if (lateMins > 0) html += ' <span style="font-size:7px;color:#f59e0b;font-weight:700;">+' + lateMins + 'm</span>';
+                        html += '<div class="att-emp-meta"><span class="att-emp-pos">' + (ar.position||'-') + '</span>';
+                        html += '<span class="att-status-badge ' + badgeCls + '">' + badgeText + '</span>';
+                        if (lateMins > 0) html += '<span class="att-late-tag">+' + lateMins + 'm</span>';
                         html += '</div></div>';
-                        html += '<div class="att-emp-scans"><div class="att-scan-grid">';
-                        html += '<span class="att-scan-lbl">S1</span><span class="att-scan-val">' + s1 + '</span>';
-                        html += '<span class="att-scan-lbl">S2</span><span class="att-scan-val">' + s2 + '</span>';
-                        if (s3) html += '<span class="att-scan-lbl">S3</span><span class="att-scan-val">' + s3 + '</span>';
-                        if (s4) html += '<span class="att-scan-lbl">S4</span><span class="att-scan-val">' + s4 + '</span>';
+                        html += '<div class="att-emp-scans"><div class="att-scan-pills">';
+                        html += '<div class="att-scan-pill"><span class="att-sp-lbl">S1</span><span class="att-sp-val">' + s1 + '</span></div>';
+                        html += '<div class="att-scan-pill"><span class="att-sp-lbl">S2</span><span class="att-sp-val">' + s2 + '</span></div>';
+                        if (s3) html += '<div class="att-scan-pill"><span class="att-sp-lbl">S3</span><span class="att-sp-val">' + s3 + '</span></div>';
+                        if (s4) html += '<div class="att-scan-pill"><span class="att-sp-lbl">S4</span><span class="att-sp-val">' + s4 + '</span></div>';
                         html += '</div>';
                         if (wh) html += '<div class="att-emp-hours">' + wh + '</div>';
                         if (noteText) html += '<div class="att-emp-note">' + noteText.substring(0,20) + '</div>';
@@ -3676,7 +3726,8 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
                         html += '<div class="att-emp-row">';
                         html += '<div class="att-emp-avatar av-absent">' + initial + '</div>';
                         html += '<div class="att-emp-info"><div class="att-emp-name">' + (emp.full_name||'-') + '</div>';
-                        html += '<div class="att-emp-pos">' + (emp.position||'-') + ' <span class="att-status-badge asb-absent">Alpha</span></div></div>';
+                        html += '<div class="att-emp-meta"><span class="att-emp-pos">' + (emp.position||'-') + '</span>';
+                        html += '<span class="att-status-badge asb-absent">Alpha</span></div></div>';
                         html += '<div class="att-emp-scans"><div style="font-size:9px;color:#dc2626;font-weight:700;">Tidak hadir</div></div>';
                         html += '</div>';
                     });

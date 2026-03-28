@@ -11,7 +11,7 @@ header('Content-Type: application/json');
 // Auth check
 $role = $_SESSION['role'] ?? null;
 $isLoggedIn = $_SESSION['logged_in'] ?? false;
-if (!$isLoggedIn || !in_array($role, ['owner', 'admin', 'super_admin'])) {
+if (!$isLoggedIn || !in_array($role, ['owner', 'admin', 'super_admin', 'developer', 'manager'])) {
     echo json_encode(['success' => false, 'error' => 'Unauthorized']);
     exit;
 }
