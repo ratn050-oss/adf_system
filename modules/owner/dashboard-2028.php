@@ -855,67 +855,67 @@ if (!empty($topExpenseCategories)) {
     $topCat = $topExpenseCategories[0];
     $topPct = $aiHotelExpense > 0 ? ($topCat['total'] / $aiHotelExpense) * 100 : 0;
     if ($topPct > 30) {
-        $aiAlerts[] = '⚠️ <strong>' . htmlspecialchars($topCat['category_name'] ?? 'Unknown') . '</strong> menyerap ' . number_format($topPct, 0) . '% pengeluaran hotel (' . rp($topCat['total']) . '). Evaluasi apakah bisa dioptimalkan.';
+        $aiAlerts[] = '⚠️ <strong>' . htmlspecialchars($topCat['category_name'] ?? 'Unknown') . '</strong> absorbs ' . number_format($topPct, 0) . '% of hotel expenses (' . rp($topCat['total']) . '). Consider optimizing.';
     }
 }
 
 if ($aiExpenseRatio > 75) {
-    $aiAlerts[] = '🔴 Rasio biaya hotel ' . number_format($aiExpenseRatio, 1) . '% dari pendapatan. Perlu segera kurangi pengeluaran atau tingkatkan revenue.';
+    $aiAlerts[] = '🔴 Hotel expense ratio ' . number_format($aiExpenseRatio, 1) . '% of revenue. Reduce costs or increase revenue urgently.';
 } elseif ($aiExpenseRatio > 60) {
-    $aiAlerts[] = '🟠 Rasio biaya hotel ' . number_format($aiExpenseRatio, 1) . '% — cukup tinggi. Pantau agar tidak naik lebih jauh.';
+    $aiAlerts[] = '🟠 Hotel expense ratio ' . number_format($aiExpenseRatio, 1) . '% — fairly high. Monitor closely.';
 }
 
 if ($incomeGrowth < -10) {
-    $aiAlerts[] = '📉 Pendapatan turun ' . number_format(abs($incomeGrowth), 1) . '% dari bulan lalu. Perlu strategi marketing atau promosi.';
+    $aiAlerts[] = '📉 Revenue dropped ' . number_format(abs($incomeGrowth), 1) . '% vs last month. Marketing push needed.';
 } elseif ($incomeGrowth < 0) {
-    $aiAlerts[] = '📉 Pendapatan sedikit turun ' . number_format(abs($incomeGrowth), 1) . '% dari bulan lalu.';
+    $aiAlerts[] = '📉 Revenue slightly down ' . number_format(abs($incomeGrowth), 1) . '% vs last month.';
 }
 
 if ($avgDailyFlow < 0) {
-    $aiAlerts[] = '💸 Cash flow harian negatif (avg ' . rp(abs($avgDailyFlow)) . '/hari). Perhatikan arus kas.';
+    $aiAlerts[] = '💸 Negative daily cash flow (avg ' . rp(abs($avgDailyFlow)) . '/day). Watch cash position.';
 }
 
 // --- FRONTDESK INTELLIGENCE ---
 // Current occupancy status
 if ($totalRooms > 0) {
-    $occLabel = $occupancyRate >= 80 ? '🟢 Tinggi' : ($occupancyRate >= 50 ? '🟡 Sedang' : '🔴 Rendah');
-    $aiFrontdesk[] = '🏨 <strong>Sekarang:</strong> ' . $occupiedRooms . '/' . $totalRooms . ' kamar terisi (' . number_format($occupancyRate, 0) . '%) — ' . $occLabel;
+    $occLabel = $occupancyRate >= 80 ? '🟢 High' : ($occupancyRate >= 50 ? '🟡 Medium' : '🔴 Low');
+    $aiFrontdesk[] = '🏨 <strong>Now:</strong> ' . $occupiedRooms . '/' . $totalRooms . ' rooms occupied (' . number_format($occupancyRate, 0) . '%) — ' . $occLabel;
 }
 
 // Monthly occupancy trend
 if ($monthlyOccupancyRate > 0) {
     $trendIcon = $occupancyGrowth > 0 ? '📈' : ($occupancyGrowth < 0 ? '📉' : '➡️');
-    $trendText = abs($occupancyGrowth) > 0 ? ' (' . ($occupancyGrowth > 0 ? '+' : '') . number_format($occupancyGrowth, 1) . '% vs bulan lalu)' : '';
-    $aiFrontdesk[] = $trendIcon . ' <strong>Occupancy bulan ini:</strong> ' . number_format($monthlyOccupancyRate, 1) . '%' . $trendText;
+    $trendText = abs($occupancyGrowth) > 0 ? ' (' . ($occupancyGrowth > 0 ? '+' : '') . number_format($occupancyGrowth, 1) . '% vs last month)' : '';
+    $aiFrontdesk[] = $trendIcon . ' <strong>Monthly occupancy:</strong> ' . number_format($monthlyOccupancyRate, 1) . '%' . $trendText;
 }
 
 // RevPAR analysis
 if ($revPAR > 0) {
-    $revparLabel = $revPAR >= 300000 ? 'Excellent' : ($revPAR >= 200000 ? 'Baik' : ($revPAR >= 100000 ? 'Cukup' : 'Rendah'));
-    $aiFrontdesk[] = '💰 <strong>RevPAR:</strong> ' . rp($revPAR) . '/malam — ' . $revparLabel;
+    $revparLabel = $revPAR >= 300000 ? 'Excellent' : ($revPAR >= 200000 ? 'Good' : ($revPAR >= 100000 ? 'Fair' : 'Low'));
+    $aiFrontdesk[] = '💰 <strong>RevPAR:</strong> ' . rp($revPAR) . '/night — ' . $revparLabel;
 }
 
 // Average room rate
 if ($avgRoomRate > 0) {
-    $aiFrontdesk[] = '🏷️ <strong>Rata-rata harga kamar:</strong> ' . rp($avgRoomRate) . '/malam';
+    $aiFrontdesk[] = '🏷️ <strong>Avg room rate:</strong> ' . rp($avgRoomRate) . '/night';
 }
 
 // Average stay duration
 if ($avgStayDuration > 0) {
-    $stayLabel = $avgStayDuration >= 3 ? '(long stay, bagus!)' : ($avgStayDuration >= 2 ? '(normal)' : '(singkat, peluang upsell)');
-    $aiFrontdesk[] = '🛏️ <strong>Rata-rata inap:</strong> ' . $avgStayDuration . ' malam ' . $stayLabel;
+    $stayLabel = $avgStayDuration >= 3 ? '(long stay, great!)' : ($avgStayDuration >= 2 ? '(normal)' : '(short, upsell opportunity)');
+    $aiFrontdesk[] = '🛏️ <strong>Avg stay:</strong> ' . $avgStayDuration . ' nights ' . $stayLabel;
 }
 
 // Today activity
 if ($todayCheckins > 0 || $todayCheckouts > 0) {
-    $aiFrontdesk[] = '📋 <strong>Hari ini:</strong> ' . $todayCheckins . ' check-in, ' . $todayCheckouts . ' check-out';
+    $aiFrontdesk[] = '📋 <strong>Today:</strong> ' . $todayCheckins . ' check-in, ' . $todayCheckouts . ' check-out';
 }
 
 // Upcoming bookings
 if ($upcomingBookings > 0) {
-    $aiFrontdesk[] = '📅 <strong>7 hari kedepan:</strong> ' . $upcomingBookings . ' booking masuk';
+    $aiFrontdesk[] = '📅 <strong>Next 7 days:</strong> ' . $upcomingBookings . ' bookings';
 } else {
-    $aiAlerts[] = '📅 Tidak ada booking 7 hari kedepan. Tingkatkan promosi OTA & sosial media.';
+    $aiAlerts[] = '📅 No bookings in next 7 days. Boost OTA & social media promotions.';
 }
 
 // Booking source insights
@@ -923,7 +923,7 @@ if (!empty($bookingSourceStats)) {
     $sourceLabels = ['walk_in' => 'Walk-in', 'phone' => 'Telepon', 'online' => 'Online', 'agoda' => 'Agoda', 'booking' => 'Booking.com', 'tiket' => 'Tiket.com', 'airbnb' => 'Airbnb', 'ota' => 'OTA'];
     $topSource = $bookingSourceStats[0];
     $sourceName = $sourceLabels[$topSource['booking_source']] ?? ucfirst($topSource['booking_source'] ?? 'Lainnya');
-    $aiFrontdesk[] = '🔗 <strong>Sumber utama:</strong> ' . $sourceName . ' (' . $topSource['count'] . ' booking, ' . rp($topSource['revenue']) . ')';
+    $aiFrontdesk[] = '🔗 <strong>Top source:</strong> ' . $sourceName . ' (' . $topSource['count'] . ' bookings, ' . rp($topSource['revenue']) . ')';
     
     // Check OTA dependency
     $otaSources = ['agoda', 'booking', 'tiket', 'airbnb', 'ota', 'online'];
@@ -934,60 +934,60 @@ if (!empty($bookingSourceStats)) {
     }
     $otaPct = $totalCount > 0 ? ($otaCount / $totalCount) * 100 : 0;
     if ($otaPct > 80) {
-        $aiAlerts[] = '🌐 ' . number_format($otaPct, 0) . '% booking dari OTA. Diversifikasi ke direct booking untuk kurangi komisi.';
+        $aiAlerts[] = '🌐 ' . number_format($otaPct, 0) . '% bookings from OTA. Diversify to direct bookings to reduce commission.';
     } elseif ($otaPct < 30 && $totalCount > 3) {
-        $aiStrengths[] = '✅ Direct booking ' . number_format(100 - $otaPct, 0) . '% — hemat biaya komisi OTA';
+        $aiStrengths[] = '✅ Direct booking ' . number_format(100 - $otaPct, 0) . '% — saving on OTA commissions';
     }
 }
 
 // Occupancy-based alerts
 if ($totalRooms > 0 && $occForScore < 40) {
-    $aiAlerts[] = '🏨 Occupancy rendah ' . number_format($occForScore, 0) . '%. Strategi: flash sale OTA, promo weekend, paket long stay.';
+    $aiAlerts[] = '🏨 Low occupancy ' . number_format($occForScore, 0) . '%. Try: OTA flash sale, weekend promos, long stay packages.';
 } elseif ($totalRooms > 0 && $occForScore < 60) {
-    $aiAlerts[] = '🏨 Occupancy ' . number_format($occForScore, 0) . '% — masih bisa ditingkatkan. Coba optimalkan listing OTA & review management.';
+    $aiAlerts[] = '🏨 Occupancy ' . number_format($occForScore, 0) . '% — room for improvement. Optimize OTA listings & reviews.';
 }
 
 // Revenue per room insight
 if ($revenuePerRoom > 0 && $totalRooms > 0) {
-    $rprLabel = $revenuePerRoom >= 5000000 ? 'Excellent' : ($revenuePerRoom >= 3000000 ? 'Baik' : ($revenuePerRoom >= 1500000 ? 'Cukup' : 'Perlu ditingkatkan'));
+    $rprLabel = $revenuePerRoom >= 5000000 ? 'Excellent' : ($revenuePerRoom >= 3000000 ? 'Good' : ($revenuePerRoom >= 1500000 ? 'Fair' : 'Needs improvement'));
     if ($revenuePerRoom < 1500000) {
-        $aiAlerts[] = '💵 Revenue/kamar hanya ' . rp($revenuePerRoom) . ' bulan ini. Tingkatkan harga atau occupancy.';
+        $aiAlerts[] = '💵 Revenue/room only ' . rp($revenuePerRoom) . ' this month. Increase rates or occupancy.';
     }
 }
 
 // --- STRENGTHS ---
 if ($aiProfitMargin >= 30) {
-    $aiStrengths[] = '✅ Profit margin hotel sangat baik (' . number_format($aiProfitMargin, 1) . '%)';
+    $aiStrengths[] = '✅ Excellent profit margin (' . number_format($aiProfitMargin, 1) . '%)';
 } elseif ($aiProfitMargin >= 20) {
-    $aiStrengths[] = '✅ Profit margin hotel sehat (' . number_format($aiProfitMargin, 1) . '%)';
+    $aiStrengths[] = '✅ Healthy profit margin (' . number_format($aiProfitMargin, 1) . '%)';
 }
 if ($incomeGrowth > 10) {
-    $aiStrengths[] = '✅ Pertumbuhan pendapatan +' . number_format($incomeGrowth, 1) . '%';
+    $aiStrengths[] = '✅ Revenue growth +' . number_format($incomeGrowth, 1) . '%';
 }
 if ($aiExpenseRatio < 50) {
-    $aiStrengths[] = '✅ Kontrol biaya hotel excellent (' . number_format($aiExpenseRatio, 1) . '%)';
+    $aiStrengths[] = '✅ Excellent cost control (' . number_format($aiExpenseRatio, 1) . '%)';
 }
 if ($totalRooms > 0 && $occForScore >= 75) {
-    $aiStrengths[] = '✅ Occupancy tinggi ' . number_format($occForScore, 0) . '%';
+    $aiStrengths[] = '✅ High occupancy ' . number_format($occForScore, 0) . '%';
 }
 if ($avgStayDuration >= 3) {
-    $aiStrengths[] = '✅ Avg stay ' . $avgStayDuration . ' malam — tamu betah menginap';
+    $aiStrengths[] = '✅ Avg stay ' . $avgStayDuration . ' nights — guests love it';
 }
 if ($revPAR >= 300000) {
-    $aiStrengths[] = '✅ RevPAR ' . rp($revPAR) . ' — performa pendapatan per kamar sangat baik';
+    $aiStrengths[] = '✅ RevPAR ' . rp($revPAR) . ' — strong room revenue';
 }
 if ($upcomingBookings >= 5) {
-    $aiStrengths[] = '✅ Pipeline booking kuat (' . $upcomingBookings . ' booking dalam 7 hari)';
+    $aiStrengths[] = '✅ Strong pipeline (' . $upcomingBookings . ' bookings in 7 days)';
 }
 if ($occupancyGrowth > 10) {
-    $aiStrengths[] = '✅ Occupancy naik +' . number_format($occupancyGrowth, 1) . '% dari bulan lalu';
+    $aiStrengths[] = '✅ Occupancy up +' . number_format($occupancyGrowth, 1) . '% vs last month';
 }
 
 // Health status text
-if ($healthScore >= 80) { $healthStatus = 'Sangat Sehat'; $healthEmoji = '🟢'; }
-elseif ($healthScore >= 65) { $healthStatus = 'Sehat'; $healthEmoji = '🟡'; }
-elseif ($healthScore >= 50) { $healthStatus = 'Cukup'; $healthEmoji = '🟠'; }
-else { $healthStatus = 'Perlu Perhatian'; $healthEmoji = '🔴'; }
+if ($healthScore >= 80) { $healthStatus = 'Very Healthy'; $healthEmoji = '🟢'; }
+elseif ($healthScore >= 65) { $healthStatus = 'Healthy'; $healthEmoji = '🟡'; }
+elseif ($healthScore >= 50) { $healthStatus = 'Fair'; $healthEmoji = '🟠'; }
+else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
 ?>
 <!DOCTYPE html>
 <html lang="en">
@@ -2883,75 +2883,88 @@ else { $healthStatus = 'Perlu Perhatian'; $healthEmoji = '🔴'; }
         </div>
         <?php endif; // end of isCQC ?>
         
-        <!-- AI Health - Smart Hotel Analysis -->
-        <div class="ai-card">
-            <div class="ai-header">
+        <!-- AI Health - Compact with Click to Expand -->
+        <div class="ai-card" onclick="toggleAiHealth()" style="cursor:pointer;">
+            <!-- COMPACT VIEW (always visible) -->
+            <div class="ai-header" style="margin-bottom:0;">
                 <div class="ai-title-wrap">
                     <span class="ai-badge">✨ AI</span>
-                    <span class="ai-title">Hotel Health Monitor</span>
+                    <span class="ai-title">Health Monitor</span>
                 </div>
-                <div class="ai-score">
-                    <div class="ai-score-value"><?= number_format($healthScore, 0) ?></div>
-                    <div class="ai-score-label">Score</div>
+                <div style="display:flex;align-items:center;gap:10px;">
+                    <?php if ($totalRooms > 0): ?>
+                    <div style="display:flex;gap:6px;">
+                        <span style="font-size:11px;font-weight:700;color:<?= $occupancyRate >= 60 ? '#10b981' : ($occupancyRate >= 40 ? '#f59e0b' : '#ef4444') ?>"><?= number_format($occupancyRate, 0) ?>% occ</span>
+                        <span style="font-size:11px;opacity:0.4;">|</span>
+                    </div>
+                    <?php endif; ?>
+                    <div class="ai-score" style="padding:6px 10px;">
+                        <div class="ai-score-value" style="font-size:18px;"><?= number_format($healthScore, 0) ?></div>
+                        <div class="ai-score-label"><?= $healthStatus ?></div>
+                    </div>
+                    <svg id="aiChevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" style="transition:transform 0.3s;opacity:0.4;flex-shrink:0;"><polyline points="6 9 12 15 18 9"/></svg>
                 </div>
             </div>
-            <div class="ai-content">
-                <div class="ai-status">
-                    <?= $healthEmoji ?> <strong><?= $healthStatus ?></strong> — Margin hotel <?= number_format($aiProfitMargin, 1) ?>%, biaya hotel <?= number_format($aiExpenseRatio, 1) ?>%<?= $prevIncome > 0 ? ', growth ' . ($incomeGrowth >= 0 ? '+' : '') . number_format($incomeGrowth, 1) . '%' : '' ?>
-                </div>
-                
-                <?php if ($totalRooms > 0): ?>
-                <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin:10px 0;">
-                    <div style="text-align:center;padding:8px 4px;background:rgba(255,255,255,0.5);border-radius:8px;">
-                        <div style="font-size:16px;font-weight:800;color:<?= $occupancyRate >= 60 ? '#10b981' : ($occupancyRate >= 40 ? '#f59e0b' : '#ef4444') ?>"><?= number_format($occupancyRate, 0) ?>%</div>
-                        <div style="font-size:8px;text-transform:uppercase;font-weight:600;letter-spacing:0.5px;opacity:0.7;margin-top:2px;">Occupancy Now</div>
+            <div style="font-size:11px;margin-top:6px;opacity:0.7;">
+                <?= $healthEmoji ?> Margin <?= number_format($aiProfitMargin, 1) ?>% · Expense <?= number_format($aiExpenseRatio, 1) ?>%<?= $prevIncome > 0 ? ' · Growth ' . ($incomeGrowth >= 0 ? '+' : '') . number_format($incomeGrowth, 1) . '%' : '' ?><?php if (!empty($aiAlerts)): ?> · <span style="color:#ef4444;font-weight:600;"><?= count($aiAlerts) ?> alert<?= count($aiAlerts) > 1 ? 's' : '' ?></span><?php endif; ?>
+            </div>
+
+            <!-- EXPANDED VIEW (hidden by default) -->
+            <div id="aiHealthDetail" style="display:none;margin-top:14px;border-top:1px solid <?= $aiBorderTint ?>;padding-top:12px;" onclick="event.stopPropagation();">
+                <div class="ai-content">
+                    <?php if ($totalRooms > 0): ?>
+                    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:6px;margin-bottom:10px;">
+                        <div style="text-align:center;padding:8px 4px;background:rgba(255,255,255,0.5);border-radius:8px;">
+                            <div style="font-size:16px;font-weight:800;color:<?= $occupancyRate >= 60 ? '#10b981' : ($occupancyRate >= 40 ? '#f59e0b' : '#ef4444') ?>"><?= number_format($occupancyRate, 0) ?>%</div>
+                            <div style="font-size:8px;text-transform:uppercase;font-weight:600;letter-spacing:0.5px;opacity:0.7;margin-top:2px;">Occupancy Now</div>
+                        </div>
+                        <div style="text-align:center;padding:8px 4px;background:rgba(255,255,255,0.5);border-radius:8px;">
+                            <div style="font-size:16px;font-weight:800;color:<?= $monthlyOccupancyRate >= 60 ? '#10b981' : ($monthlyOccupancyRate >= 40 ? '#f59e0b' : '#ef4444') ?>"><?= number_format($monthlyOccupancyRate, 1) ?>%</div>
+                            <div style="font-size:8px;text-transform:uppercase;font-weight:600;letter-spacing:0.5px;opacity:0.7;margin-top:2px;">Monthly Avg</div>
+                        </div>
+                        <div style="text-align:center;padding:8px 4px;background:rgba(255,255,255,0.5);border-radius:8px;">
+                            <div style="font-size:16px;font-weight:800;color:#6366f1"><?= rp($revPAR) ?></div>
+                            <div style="font-size:8px;text-transform:uppercase;font-weight:600;letter-spacing:0.5px;opacity:0.7;margin-top:2px;">RevPAR</div>
+                        </div>
                     </div>
-                    <div style="text-align:center;padding:8px 4px;background:rgba(255,255,255,0.5);border-radius:8px;">
-                        <div style="font-size:16px;font-weight:800;color:<?= $monthlyOccupancyRate >= 60 ? '#10b981' : ($monthlyOccupancyRate >= 40 ? '#f59e0b' : '#ef4444') ?>"><?= number_format($monthlyOccupancyRate, 1) ?>%</div>
-                        <div style="font-size:8px;text-transform:uppercase;font-weight:600;letter-spacing:0.5px;opacity:0.7;margin-top:2px;">Avg Bulan Ini</div>
+                    <?php endif; ?>
+
+                    <?php if (!empty($aiFrontdesk)): ?>
+                    <div class="ai-section-title">🏨 Frontdesk Intelligence</div>
+                    <?php foreach ($aiFrontdesk as $fd): ?>
+                    <div class="ai-alert-item"><?= $fd ?></div>
+                    <?php endforeach; ?>
+                    <?php endif; ?>
+
+                    <?php if (!empty($topExpenseCategories)): ?>
+                    <div class="ai-section-title">💰 Top Expenses</div>
+                    <?php 
+                    $maxExp = $topExpenseCategories[0]['total'];
+                    foreach (array_slice($topExpenseCategories, 0, 5) as $cat): 
+                        $pct = $maxExp > 0 ? ($cat['total'] / $maxExp) * 100 : 0;
+                    ?>
+                    <div class="ai-expense-bar">
+                        <span class="ai-expense-name"><?= htmlspecialchars($cat['category_name'] ?? 'Other') ?></span>
+                        <span class="ai-expense-track"><span class="ai-expense-fill" style="width:<?= $pct ?>%"></span></span>
+                        <span class="ai-expense-amount"><?= rp($cat['total']) ?></span>
                     </div>
-                    <div style="text-align:center;padding:8px 4px;background:rgba(255,255,255,0.5);border-radius:8px;">
-                        <div style="font-size:16px;font-weight:800;color:#6366f1"><?= rp($revPAR) ?></div>
-                        <div style="font-size:8px;text-transform:uppercase;font-weight:600;letter-spacing:0.5px;opacity:0.7;margin-top:2px;">RevPAR</div>
-                    </div>
+                    <?php endforeach; ?>
+                    <?php endif; ?>
+
+                    <?php if (!empty($aiAlerts)): ?>
+                    <div class="ai-section-title">⚠️ Alerts</div>
+                    <?php foreach ($aiAlerts as $alert): ?>
+                    <div class="ai-alert-item"><?= $alert ?></div>
+                    <?php endforeach; ?>
+                    <?php endif; ?>
+
+                    <?php if (!empty($aiStrengths)): ?>
+                    <div class="ai-section-title">💪 Strengths</div>
+                    <?php foreach ($aiStrengths as $str): ?>
+                    <div class="ai-alert-item"><?= $str ?></div>
+                    <?php endforeach; ?>
+                    <?php endif; ?>
                 </div>
-                <?php endif; ?>
-
-                <?php if (!empty($aiFrontdesk)): ?>
-                <div class="ai-section-title">🏨 Frontdesk Intelligence</div>
-                <?php foreach ($aiFrontdesk as $fd): ?>
-                <div class="ai-alert-item"><?= $fd ?></div>
-                <?php endforeach; ?>
-                <?php endif; ?>
-
-                <?php if (!empty($topExpenseCategories)): ?>
-                <div class="ai-section-title">💰 Pengeluaran Hotel Terbesar</div>
-                <?php 
-                $maxExp = $topExpenseCategories[0]['total'];
-                foreach (array_slice($topExpenseCategories, 0, 5) as $cat): 
-                    $pct = $maxExp > 0 ? ($cat['total'] / $maxExp) * 100 : 0;
-                ?>
-                <div class="ai-expense-bar">
-                    <span class="ai-expense-name"><?= htmlspecialchars($cat['category_name'] ?? 'Lainnya') ?></span>
-                    <span class="ai-expense-track"><span class="ai-expense-fill" style="width:<?= $pct ?>%"></span></span>
-                    <span class="ai-expense-amount"><?= rp($cat['total']) ?></span>
-                </div>
-                <?php endforeach; ?>
-                <?php endif; ?>
-
-                <?php if (!empty($aiAlerts)): ?>
-                <div class="ai-section-title">⚠️ Peringatan</div>
-                <?php foreach ($aiAlerts as $alert): ?>
-                <div class="ai-alert-item"><?= $alert ?></div>
-                <?php endforeach; ?>
-                <?php endif; ?>
-
-                <?php if (!empty($aiStrengths)): ?>
-                <div class="ai-section-title">💪 Kekuatan</div>
-                <?php foreach ($aiStrengths as $str): ?>
-                <div class="ai-alert-item"><?= $str ?></div>
-                <?php endforeach; ?>
-                <?php endif; ?>
             </div>
         </div>
         
@@ -3482,6 +3495,22 @@ else { $healthStatus = 'Perlu Perhatian'; $healthEmoji = '🔴'; }
         }
     }
     
+    // ═══════════════════════════════════════════
+    // AI HEALTH - Toggle Expand/Collapse
+    // ═══════════════════════════════════════════
+    function toggleAiHealth() {
+        const detail = document.getElementById('aiHealthDetail');
+        const chevron = document.getElementById('aiChevron');
+        if (detail.style.display === 'none') {
+            detail.style.display = 'block';
+            detail.style.animation = 'fadeIn 0.3s ease';
+            chevron.style.transform = 'rotate(180deg)';
+        } else {
+            detail.style.display = 'none';
+            chevron.style.transform = 'rotate(0deg)';
+        }
+    }
+
     // ═══════════════════════════════════════════
     // ATTENDANCE MONITORING - Date Navigation
     // ═══════════════════════════════════════════
