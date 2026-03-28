@@ -1294,16 +1294,16 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
             color: #dc2626;
         }
         
-        /* Hero Section - Digital Premium 2027 */
+        /* Hero Section - Premium 2028 */
         .hero {
-            background: linear-gradient(160deg, #0f0c29 0%, #302b63 40%, #24243e 100%);
+            background: linear-gradient(160deg, #0f0c29 0%, #1a1640 35%, #302b63 70%, #24243e 100%);
             border-radius: 20px;
-            padding: 18px 16px 14px;
+            padding: 20px 18px 14px;
             margin-bottom: 16px;
             color: white;
             position: relative;
             overflow: hidden;
-            box-shadow: 0 12px 40px rgba(15, 12, 41, 0.5), inset 0 1px 0 rgba(255,255,255,0.08);
+            box-shadow: 0 12px 40px rgba(15, 12, 41, 0.5), inset 0 1px 0 rgba(255,255,255,0.06);
         }
         
         .hero::before {
@@ -1313,7 +1313,7 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
             right: -60px;
             width: 220px;
             height: 220px;
-            background: radial-gradient(circle, rgba(99,102,241,0.15) 0%, transparent 70%);
+            background: radial-gradient(circle, rgba(99,102,241,0.12) 0%, transparent 70%);
             border-radius: 50%;
         }
         .hero::after {
@@ -1323,7 +1323,7 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
             left: -30px;
             width: 160px;
             height: 160px;
-            background: radial-gradient(circle, rgba(139,92,246,0.1) 0%, transparent 70%);
+            background: radial-gradient(circle, rgba(139,92,246,0.08) 0%, transparent 70%);
             border-radius: 50%;
         }
         
@@ -1333,42 +1333,29 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
         }
         
         .hero-title {
-            font-size: 15px;
+            font-size: 14px;
             font-weight: 700;
             letter-spacing: -0.2px;
-            margin-bottom: 1px;
+            opacity: 0.9;
         }
         
         .hero-subtitle {
             font-size: 10px;
-            opacity: 0.55;
+            opacity: 0.4;
             font-weight: 400;
             letter-spacing: 0.3px;
         }
         
-        .hero-date {
-            font-size: 10px;
-            opacity: 0.5;
-        }
-        
-        /* Chart Container - Compact */
-        .chart-container {
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            gap: 18px;
-            margin: 14px 0 0 0;
-        }
-        
+        /* Donut Chart */
         .pie-wrapper {
             position: relative;
-            width: 160px;
-            height: 160px;
+            width: 140px;
+            height: 140px;
             flex-shrink: 0;
         }
         
         #pieChart {
-            filter: drop-shadow(0 0 24px rgba(16, 185, 129, 0.3)) drop-shadow(0 8px 16px rgba(0,0,0,0.4));
+            filter: drop-shadow(0 0 20px rgba(16, 185, 129, 0.2)) drop-shadow(0 6px 12px rgba(0,0,0,0.3));
         }
         
         .pie-center {
@@ -1380,34 +1367,88 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
             background: rgba(15, 23, 42, 0.85);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
-            border: 2px solid rgba(255,255,255,0.08);
+            border: 1.5px solid rgba(255,255,255,0.06);
             border-radius: 50%;
-            width: 80px;
-            height: 80px;
+            width: 68px;
+            height: 68px;
             display: flex;
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 8px 32px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.1);
+            box-shadow: 0 6px 24px rgba(0,0,0,0.4), inset 0 1px 0 rgba(255,255,255,0.08);
         }
         
         .pie-center-label {
-            font-size: 8px;
-            opacity: 0.5;
+            font-size: 7px;
+            opacity: 0.45;
             text-transform: uppercase;
             letter-spacing: 1.5px;
             font-weight: 600;
-            margin-bottom: 2px;
+            margin-bottom: 1px;
         }
         
         .pie-center-value {
-            font-size: 22px;
+            font-size: 20px;
             font-weight: 800;
             font-family: 'Inter', system-ui, sans-serif;
             letter-spacing: -1px;
         }
         .pie-center-value.positive {
             color: #10b981;
+            text-shadow: 0 0 16px rgba(16, 185, 129, 0.4);
+        }
+        .pie-center-value.negative {
+            color: #ef4444;
+            text-shadow: 0 0 16px rgba(239, 68, 68, 0.4);
+        }
+        .pie-center-value.zero {
+            color: #9ca3af;
+        }
+
+        /* Financial Stat Rows */
+        .fp-stat-row {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            padding: 7px 10px;
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 10px;
+        }
+        .fp-stat-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            flex-shrink: 0;
+        }
+        .fp-stat-info {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 1px;
+            min-width: 0;
+        }
+        .fp-stat-label {
+            font-size: 9px;
+            opacity: 0.45;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            font-weight: 600;
+        }
+        .fp-stat-val {
+            font-size: 14px;
+            font-weight: 700;
+            letter-spacing: -0.3px;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .fp-stat-pct {
+            font-size: 10px;
+            font-weight: 700;
+            opacity: 0.35;
+            flex-shrink: 0;
+        }
             text-shadow: 0 0 20px rgba(16, 185, 129, 0.5);
         }
         .pie-center-value.negative {
@@ -1416,62 +1457,6 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
         }
         .pie-center-value.zero {
             color: #9ca3af;
-        }
-        
-        /* Legend - Minimal Compact */
-        .legend {
-            display: flex;
-            flex-direction: column;
-            gap: 6px;
-            flex: 1;
-            min-width: 0;
-        }
-        
-        .legend-item {
-            display: flex;
-            align-items: center;
-            gap: 8px;
-            background: rgba(255,255,255,0.05);
-            border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 8px;
-            padding: 6px 10px;
-        }
-        
-        .legend-dot {
-            width: 8px;
-            height: 8px;
-            border-radius: 50%;
-            flex-shrink: 0;
-        }
-        
-        .legend-dot.income { background: #10b981; }
-        .legend-dot.expense { background: #ef4444; }
-        .legend-dot.profit { background: #f59e0b; }
-        
-        .legend-text {
-            display: flex;
-            flex-direction: column;
-            gap: 1px;
-            min-width: 0;
-        }
-        
-        .legend-label {
-            font-size: 10px;
-            color: #9ca3af;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            font-weight: 500;
-        }
-        
-        .legend-value {
-            font-size: 14px;
-            font-weight: 700;
-            letter-spacing: -0.3px;
-            white-space: nowrap;
-            overflow: hidden;
-            text-overflow: ellipsis;
-            color: #fbbf24;
-            text-decoration: none;
         }
         
         /* Kas Harian Section - Elegant & Compact */
@@ -2183,29 +2168,19 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
         /* Mobile Optimizations */
         @media (max-width: 380px) {
             .pie-wrapper {
-                width: 130px;
-                height: 130px;
+                width: 110px;
+                height: 110px;
             }
             .pie-center {
-                width: 65px;
-                height: 65px;
+                width: 56px;
+                height: 56px;
             }
-            .pie-center-value { font-size: 18px; }
-            .legend-item { padding: 5px 8px; }
-            .legend-value { font-size: 11px; }
+            .pie-center-value { font-size: 16px; }
+            .fp-stat-val { font-size: 12px; }
+            .fp-stat-row { padding: 5px 8px; }
             .hero-today-value { font-size: 11px; }
         }
         @media (max-width: 340px) {
-            .chart-container {
-                flex-direction: column;
-                gap: 12px;
-            }
-            .legend {
-                flex-direction: row;
-                flex-wrap: wrap;
-                justify-content: center;
-                gap: 6px;
-            }
             .operational-grid {
                 grid-template-columns: 1fr;
             }
@@ -2391,16 +2366,26 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
         <?php endif; ?>
         
         <?php if (!$error): ?>
-        <!-- Hero with Pie Chart -->
+        <!-- Financial Performance — Premium 2028 -->
         <div class="hero">
             <div class="hero-content">
-                <div class="hero-title">Financial Performance</div>
-                <div class="hero-subtitle"><?= date('F Y') ?> &nbsp;·&nbsp; <?= date('d M Y') ?></div>
+                <!-- Top Row: Title + Date -->
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:16px;">
+                    <div>
+                        <div class="hero-title">Financial Performance</div>
+                        <div class="hero-subtitle"><?= date('F Y') ?></div>
+                    </div>
+                    <div style="text-align:right;">
+                        <div style="font-size:9px;text-transform:uppercase;letter-spacing:1.5px;opacity:0.4;font-weight:600;">Net Profit</div>
+                        <div style="font-size:20px;font-weight:800;letter-spacing:-0.5px;color:<?= $netProfit >= 0 ? '#34d399' : '#fb7185' ?>;"><?= $netProfit >= 0 ? '+' : '' ?><?= rp($netProfit) ?></div>
+                    </div>
+                </div>
 
-                <div class="chart-container">
-                    <!-- Pie Chart -->
+                <!-- Main Grid: Chart + Stats -->
+                <div style="display:flex;gap:16px;align-items:center;">
+                    <!-- Donut Chart -->
                     <div class="pie-wrapper">
-                        <canvas id="pieChart" width="160" height="160"></canvas>
+                        <canvas id="pieChart" width="140" height="140"></canvas>
                         <?php 
                         $profitMargin = $stats['month_income'] > 0 
                             ? round((($stats['month_income'] - $stats['month_expense']) / $stats['month_income']) * 100) 
@@ -2412,33 +2397,45 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
                             <div class="pie-center-value <?= $profitClass ?>"><?= $profitMargin ?>%</div>
                         </div>
                     </div>
-                    <!-- Legend -->
-                    <div class="legend">
-                        <div class="legend-item">
-                            <span class="legend-dot income"></span>
-                            <div class="legend-text">
-                                <span class="legend-label">Income</span>
-                                <span class="legend-value"><?= rp($stats['month_income']) ?></span>
+
+                    <!-- Right Stats Column -->
+                    <div style="flex:1;display:flex;flex-direction:column;gap:8px;min-width:0;">
+                        <!-- Income -->
+                        <div class="fp-stat-row">
+                            <div class="fp-stat-dot" style="background:#10b981;"></div>
+                            <div class="fp-stat-info">
+                                <span class="fp-stat-label">Income</span>
+                                <span class="fp-stat-val" style="color:#34d399;"><?= rp($stats['month_income']) ?></span>
                             </div>
+                            <?php if ($stats['month_income'] > 0 && ($stats['month_income'] + $stats['month_expense']) > 0): ?>
+                            <span class="fp-stat-pct"><?= round($stats['month_income'] / ($stats['month_income'] + $stats['month_expense']) * 100) ?>%</span>
+                            <?php endif; ?>
                         </div>
-                        <div class="legend-item">
-                            <span class="legend-dot expense"></span>
-                            <div class="legend-text">
-                                <span class="legend-label">Expense</span>
-                                <span class="legend-value"><?= rp($stats['month_expense']) ?></span>
+                        <!-- Expense -->
+                        <div class="fp-stat-row">
+                            <div class="fp-stat-dot" style="background:#ef4444;"></div>
+                            <div class="fp-stat-info">
+                                <span class="fp-stat-label">Expense</span>
+                                <span class="fp-stat-val" style="color:#fb7185;"><?= rp($stats['month_expense']) ?></span>
                             </div>
+                            <?php if ($stats['month_expense'] > 0 && ($stats['month_income'] + $stats['month_expense']) > 0): ?>
+                            <span class="fp-stat-pct"><?= round($stats['month_expense'] / ($stats['month_income'] + $stats['month_expense']) * 100) ?>%</span>
+                            <?php endif; ?>
                         </div>
-                        <div class="legend-item">
-                            <span class="legend-dot profit"></span>
-                            <div class="legend-text">
-                                <span class="legend-label">Profit</span>
-                                <span class="legend-value"><?= $netProfit >= 0 ? '+' : '' ?><?= rp($netProfit) ?></span>
+                        <!-- Expense Ratio Bar -->
+                        <div style="margin-top:4px;">
+                            <div style="display:flex;justify-content:space-between;margin-bottom:3px;">
+                                <span style="font-size:9px;opacity:0.5;font-weight:600;text-transform:uppercase;letter-spacing:0.5px;">Expense Ratio</span>
+                                <span style="font-size:10px;font-weight:700;color:<?= $expenseRatio > 70 ? '#fb7185' : ($expenseRatio > 50 ? '#fbbf24' : '#34d399') ?>"><?= number_format($expenseRatio, 1) ?>%</span>
+                            </div>
+                            <div style="height:4px;background:rgba(255,255,255,0.08);border-radius:2px;overflow:hidden;">
+                                <div style="height:100%;width:<?= min($expenseRatio, 100) ?>%;background:linear-gradient(90deg,<?= $expenseRatio > 70 ? '#ef4444,#fb7185' : ($expenseRatio > 50 ? '#f59e0b,#fbbf24' : '#10b981,#34d399') ?>);border-radius:2px;transition:width 0.6s ease;"></div>
                             </div>
                         </div>
                     </div>
                 </div>
 
-                <!-- Today Quick Stats -->
+                <!-- Today Strip -->
                 <div class="hero-today-row">
                     <div class="hero-today-item">
                         <span class="hero-today-label">Today In</span>
@@ -2451,8 +2448,8 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
                     </div>
                     <div class="hero-today-divider"></div>
                     <div class="hero-today-item">
-                        <span class="hero-today-label">Expense Ratio</span>
-                        <span class="hero-today-value"><?= number_format($expenseRatio, 1) ?>%</span>
+                        <span class="hero-today-label">Today Net</span>
+                        <span class="hero-today-value" style="color:<?= $netToday >= 0 ? '#34d399' : '#fb7185' ?>"><?= $netToday >= 0 ? '+' : '' ?><?= rp($netToday) ?></span>
                     </div>
                 </div>
             </div>
@@ -3273,90 +3270,69 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
         };
 
         // ============================================
-        // MAIN PIE CHART - Income vs Expense (Digital 2027)
+        // MAIN DONUT CHART - Income vs Expense (Premium 2028)
         // ============================================
         var canvas = document.getElementById('pieChart');
         if (!canvas) return;
-        var ctx = canvas.getContext('2d');
-        var dpr = window.devicePixelRatio || 1;
-        var size = 160;
-        canvas.width = size * dpr;
-        canvas.height = size * dpr;
-        canvas.style.width = size + 'px';
-        canvas.style.height = size + 'px';
-        ctx.scale(dpr, dpr);
-
+        
         var income = <?= (float)$stats['month_income'] ?>;
         var expense = <?= (float)$stats['month_expense'] ?>;
-        var total = income + expense;
-        if (total === 0) { income = 1; expense = 1; total = 2; }
+        if (income === 0 && expense === 0) { income = 1; expense = 1; }
 
-        var cx = 80, cy = 80, r = 72, innerR = 42, gap = 0.03;
-        var startAngle = -Math.PI / 2;
-        var incomeAngle = (income / total) * 2 * Math.PI;
-        var expenseAngle = (expense / total) * 2 * Math.PI;
+        var pieCtx = canvas.getContext('2d');
+        var incomeGrad = pieCtx.createLinearGradient(0, 0, 140, 140);
+        incomeGrad.addColorStop(0, '#10b981');
+        incomeGrad.addColorStop(1, '#34d399');
+        var expenseGrad = pieCtx.createLinearGradient(0, 0, 140, 140);
+        expenseGrad.addColorStop(0, '#ef4444');
+        expenseGrad.addColorStop(1, '#fb7185');
 
-        // Outer subtle ring
-        ctx.beginPath();
-        ctx.arc(cx, cy, r + 3, 0, 2 * Math.PI);
-        ctx.strokeStyle = 'rgba(255,255,255,0.06)';
-        ctx.lineWidth = 1;
-        ctx.stroke();
-
-        // Draw donut arc helper
-        function drawArc(start, end, color) {
-            ctx.beginPath();
-            ctx.arc(cx, cy, r, start, end);
-            ctx.arc(cx, cy, innerR, end, start, true);
-            ctx.closePath();
-            ctx.fillStyle = color;
-            ctx.fill();
-        }
-
-        // DEBUG: Check if this code is running - VERSION 2026-03-01-D
-        console.log('PIE CHART DEBUG: Income=' + income + ', Expense=' + expense);
-        console.log('incomeAngle=' + incomeAngle + ', expenseAngle=' + expenseAngle);
-
-        // TEST: Draw FULL circle in GREEN to verify color works
-        ctx.beginPath();
-        ctx.arc(cx, cy, r, 0, 2 * Math.PI);
-        ctx.arc(cx, cy, innerR, 2 * Math.PI, 0, true);
-        ctx.closePath();
-        ctx.fillStyle = '#10b981';  // GREEN
-        ctx.fill();
-        
-        // Draw small red slice for expense (if any)
-        if (expense > 0 && expenseAngle > 0.01) {
-            ctx.beginPath();
-            ctx.arc(cx, cy, r, startAngle + incomeAngle, startAngle + incomeAngle + expenseAngle);
-            ctx.arc(cx, cy, innerR, startAngle + incomeAngle + expenseAngle, startAngle + incomeAngle, true);
-            ctx.closePath();
-            ctx.fillStyle = '#ef4444';  // RED
-            ctx.fill();
-        }
-
-        // Inner hole - dark glass
-        ctx.beginPath();
-        ctx.arc(cx, cy, innerR, 0, 2 * Math.PI);
-        var holeFill = ctx.createRadialGradient(cx, cy, 0, cx, cy, innerR);
-        holeFill.addColorStop(0, 'rgba(48,43,99,0.9)');
-        holeFill.addColorStop(1, 'rgba(15,12,41,0.95)');
-        ctx.fillStyle = holeFill;
-        ctx.fill();
-
-        // Inner glow ring
-        ctx.beginPath();
-        ctx.arc(cx, cy, innerR, 0, 2 * Math.PI);
-        ctx.strokeStyle = 'rgba(99,102,241,0.25)';
-        ctx.lineWidth = 1.5;
-        ctx.stroke();
-
-        // Outer glow ring
-        ctx.beginPath();
-        ctx.arc(cx, cy, r, 0, 2 * Math.PI);
-        ctx.strokeStyle = 'rgba(255,255,255,0.08)';
-        ctx.lineWidth = 0.5;
-        ctx.stroke();
+        new Chart(pieCtx, {
+            type: 'doughnut',
+            data: {
+                labels: ['Income', 'Expense'],
+                datasets: [{
+                    data: [income, expense],
+                    backgroundColor: [incomeGrad, expenseGrad],
+                    borderWidth: 0,
+                    borderRadius: 6,
+                    hoverOffset: 6,
+                    spacing: 2
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: true,
+                cutout: '68%',
+                rotation: -90,
+                plugins: {
+                    legend: { display: false },
+                    tooltip: {
+                        backgroundColor: 'rgba(15,23,42,0.95)',
+                        titleColor: '#e5e7eb',
+                        bodyColor: '#e5e7eb',
+                        cornerRadius: 10,
+                        padding: 12,
+                        displayColors: true,
+                        titleFont: { size: 12, weight: '700' },
+                        bodyFont: { size: 11 },
+                        callbacks: {
+                            label: function(ctx) {
+                                var val = ctx.parsed || 0;
+                                var total = ctx.dataset.data.reduce(function(a,b){return a+b;},0);
+                                var pct = total > 0 ? ((val/total)*100).toFixed(1) : 0;
+                                return ctx.label + ': Rp ' + val.toLocaleString('id-ID') + ' (' + pct + '%)';
+                            }
+                        }
+                    }
+                },
+                animation: {
+                    animateRotate: true,
+                    duration: 800,
+                    easing: 'easeOutQuart'
+                }
+            }
+        });
     });
     
     <?php if ($isCQC && !empty($cqcProjects)): ?>
