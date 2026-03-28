@@ -2455,11 +2455,12 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
             </div>
         </div>
         
-        <!-- Daily Cash Section - CLONE FROM index.php (ONLY CASH: Owner + Guest) -->
+        <!-- Daily Cash Section - SYNCED WITH index.php -->
         <?php
         // ============================================
-        // DAILY CASH - SAME LOGIC AS index.php
-        // Only count: owner_capital + petty_cash accounts (Cash dari Owner)
+        // DAILY CASH - SYNCED WITH index.php
+        // Same logic: separate capital + petty cash stats (MONTHLY)
+        // Then: startKas (carry-over) + monthly net = Cash Available
         // Plus: guestCashIncome (Cash dari Tamu - payment_method='cash')
         // ============================================
         $todayKas = [];
@@ -2469,6 +2470,8 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
         $totalOperationalExpense = 0;
         $totalOperationalCash = 0;
         $guestCashIncome = 0;
+        $capitalStats = ['received' => 0, 'used' => 0, 'balance' => 0];
+        $pettyCashStats = ['received' => 0, 'used' => 0, 'balance' => 0];
         
         try {
             // Connect to master DB to get cash account IDs
@@ -2497,22 +2500,92 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
             $thisMonth = date('Y-m');
             $firstDayOfMonth = date('Y-m-01');
             
+            // Query Modal Owner stats THIS MONTH (same as index.php)
+            if (!empty($capitalAccounts)) {
+                $placeholders = implode(',', array_fill(0, count($capitalAccounts), '?'));
+                $sqlCapital = "
+                    SELECT 
+                        COALESCE(SUM(CASE WHEN transaction_type='income' THEN amount ELSE 0 END),0) as received,
+                        COALESCE(SUM(CASE WHEN transaction_type='expense' THEN amount ELSE 0 END),0) as used,
+                        (COALESCE(SUM(CASE WHEN transaction_type='income' THEN amount ELSE 0 END),0) -
+                         COALESCE(SUM(CASE WHEN transaction_type='expense' THEN amount ELSE 0 END),0)) as balance
+                    FROM cash_book 
+                    WHERE cash_account_id IN ($placeholders)
+                    AND DATE_FORMAT(transaction_date, '%Y-%m') = ?
+                ";
+                $stmtCapital = $kasDb->prepare($sqlCapital);
+                $stmtCapital->execute(array_merge($capitalAccounts, [$thisMonth]));
+                $capResult = $stmtCapital->fetch(PDO::FETCH_ASSOC);
+                $capitalStats['received'] = (float)($capResult['received'] ?? 0);
+                $capitalStats['used'] = (float)($capResult['used'] ?? 0);
+                $capitalStats['balance'] = (float)($capResult['balance'] ?? 0);
+            }
+            
+            // Query Petty Cash / Kas Operasional stats THIS MONTH (same as index.php)
+            if (!empty($pettyCashAccounts)) {
+                $placeholders = implode(',', array_fill(0, count($pettyCashAccounts), '?'));
+                $sqlPetty = "
+                    SELECT 
+                        COALESCE(SUM(CASE WHEN transaction_type='income' THEN amount ELSE 0 END),0) as received,
+                        COALESCE(SUM(CASE WHEN transaction_type='expense' THEN amount ELSE 0 END),0) as used,
+                        (COALESCE(SUM(CASE WHEN transaction_type='income' THEN amount ELSE 0 END),0) -
+                         COALESCE(SUM(CASE WHEN transaction_type='expense' THEN amount ELSE 0 END),0)) as balance
+                    FROM cash_book 
+                    WHERE cash_account_id IN ($placeholders)
+                    AND DATE_FORMAT(transaction_date, '%Y-%m') = ?
+                ";
+                $stmtPetty2 = $kasDb->prepare($sqlPetty);
+                $stmtPetty2->execute(array_merge($pettyCashAccounts, [$thisMonth]));
+                $pettyResult = $stmtPetty2->fetch(PDO::FETCH_ASSOC);
+                $pettyCashStats['received'] = (float)($pettyResult['received'] ?? 0);
+                $pettyCashStats['used'] = (float)($pettyResult['used'] ?? 0);
+                $pettyCashStats['balance'] = (float)($pettyResult['balance'] ?? 0);
+            }
+            
+            // TOTAL KAS OPERASIONAL = Petty Cash + Modal Owner (MONTHLY net - same as index.php)
+            $totalOperationalCash = $pettyCashStats['balance'] + $capitalStats['balance'];
+            
+            // TOTAL PENGELUARAN OPERASIONAL = Petty Cash expense + Modal Owner expense
+            $totalOperationalExpense = $pettyCashStats['used'] + $capitalStats['used'];
+            
+            // TOTAL UANG MASUK = Petty Cash received + Modal Owner received
+            $totalOperationalIncome = $pettyCashStats['received'] + $capitalStats['received'];
+            
             if (!empty($allAccounts)) {
                 $placeholders = implode(',', array_fill(0, count($allAccounts), '?'));
                 
-                // Get start kas = Saldo akhir bulan lalu (sebelum bulan ini)
-                $sqlSaldo = "
-                    SELECT 
-                        COALESCE(SUM(CASE WHEN transaction_type='income' THEN amount ELSE 0 END),0) -
-                        COALESCE(SUM(CASE WHEN transaction_type='expense' THEN amount ELSE 0 END),0) as bal
-                    FROM cash_book 
-                    WHERE cash_account_id IN ($placeholders) AND transaction_date < ?
-                ";
-                $stmtSaldo = $kasDb->prepare($sqlSaldo);
-                $stmtSaldo->execute(array_merge($allAccounts, [$firstDayOfMonth]));
-                $startKasHariIni = (float)($stmtSaldo->fetchColumn() ?: 0);
+                // START KAS = Saldo akhir bulan sebelumnya (same as index.php)
+                // Modal Owner: all transactions before THIS MONTH
+                $startKasOwner = 0;
+                $startKasPetty = 0;
                 
-                // Get Owner Transfer THIS MONTH only (income to capital + petty accounts this month)
+                if (!empty($capitalAccounts)) {
+                    $capPh = implode(',', array_fill(0, count($capitalAccounts), '?'));
+                    $sqlStartOwner = "
+                        SELECT COALESCE(SUM(CASE WHEN transaction_type='income' THEN amount ELSE 0 END),0) -
+                               COALESCE(SUM(CASE WHEN transaction_type='expense' THEN amount ELSE 0 END),0) as bal
+                        FROM cash_book WHERE cash_account_id IN ($capPh) AND transaction_date < ?
+                    ";
+                    $stmtStartOwner = $kasDb->prepare($sqlStartOwner);
+                    $stmtStartOwner->execute(array_merge($capitalAccounts, [$firstDayOfMonth]));
+                    $startKasOwner = (float)($stmtStartOwner->fetchColumn() ?: 0);
+                }
+                
+                if (!empty($pettyCashAccounts)) {
+                    $pettyPh = implode(',', array_fill(0, count($pettyCashAccounts), '?'));
+                    $sqlStartPetty = "
+                        SELECT COALESCE(SUM(CASE WHEN transaction_type='income' THEN amount ELSE 0 END),0) -
+                               COALESCE(SUM(CASE WHEN transaction_type='expense' THEN amount ELSE 0 END),0) as bal
+                        FROM cash_book WHERE cash_account_id IN ($pettyPh) AND transaction_date < ?
+                    ";
+                    $stmtStartPetty = $kasDb->prepare($sqlStartPetty);
+                    $stmtStartPetty->execute(array_merge($pettyCashAccounts, [$firstDayOfMonth]));
+                    $startKasPetty = (float)($stmtStartPetty->fetchColumn() ?: 0);
+                }
+                
+                $startKasHariIni = $startKasOwner + $startKasPetty;
+                
+                // Owner Transfer THIS MONTH (income to capital + petty accounts - same as index.php)
                 $sqlOwnerTransfer = "
                     SELECT COALESCE(SUM(amount), 0) as total
                     FROM cash_book 
@@ -2523,33 +2596,6 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
                 $stmtOwnerTransfer = $kasDb->prepare($sqlOwnerTransfer);
                 $stmtOwnerTransfer->execute(array_merge($allAccounts, [$thisMonth]));
                 $ownerTransferThisMonth = (float)($stmtOwnerTransfer->fetchColumn() ?: 0);
-                
-                // Get this month's expense - filtered by accounts
-                $sqlExpense = "
-                    SELECT COALESCE(SUM(amount), 0) as keluar
-                    FROM cash_book 
-                    WHERE cash_account_id IN ($placeholders) 
-                    AND transaction_type = 'expense'
-                    AND DATE_FORMAT(transaction_date, '%Y-%m') = ?
-                ";
-                $stmtExpense = $kasDb->prepare($sqlExpense);
-                $stmtExpense->execute(array_merge($allAccounts, [$thisMonth]));
-                $totalOperationalExpense = (float)($stmtExpense->fetchColumn() ?: 0);
-                
-                // Calculate kas available (all time balance) - filtered by accounts
-                $sqlAll = "
-                    SELECT 
-                        COALESCE(SUM(CASE WHEN transaction_type='income' THEN amount ELSE 0 END),0) -
-                        COALESCE(SUM(CASE WHEN transaction_type='expense' THEN amount ELSE 0 END),0) as bal
-                    FROM cash_book
-                    WHERE cash_account_id IN ($placeholders)
-                ";
-                $stmtAll = $kasDb->prepare($sqlAll);
-                $stmtAll->execute($allAccounts);
-                $totalOperationalCash = (float)($stmtAll->fetchColumn() ?: 0);
-                
-                // Total operational income this month
-                $totalOperationalIncome = $ownerTransferThisMonth;
                 
                 // Get recent transactions - filtered by accounts (ONLY CASH TRANSACTIONS)
                 $sqlKas = "
@@ -2566,8 +2612,7 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
                 $todayKas = $stmtKas->fetchAll(PDO::FETCH_ASSOC);
             }
             
-            // Get Guest/Cash Income this month - EXCLUDE owner accounts to avoid double counting
-            // This is cash payment from guests (room, F&B, etc) - NOT from owner accounts
+            // Get Guest/Cash Income this month - EXCLUDE owner accounts (same as index.php)
             if (!empty($allAccounts)) {
                 $placeholders = implode(',', array_fill(0, count($allAccounts), '?'));
                 $sqlCashIncome = "
@@ -2582,7 +2627,6 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
                 $stmtCashIncome->execute(array_merge($allAccounts, [$thisMonth]));
                 $guestCashIncome = (float)($stmtCashIncome->fetchColumn() ?: 0);
             } else {
-                // Fallback: all cash income if no owner accounts
                 $sqlCashIncome = "
                     SELECT COALESCE(SUM(amount), 0) as total 
                     FROM cash_book 
@@ -2596,9 +2640,11 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
             }
             
         } catch (PDOException $e) {
-            // Silent fail - error_log for debugging
             error_log("Daily Cash Error: " . $e->getMessage());
         }
+        
+        // CASH AVAILABLE = Start Cash + Monthly Net (same as index.php)
+        $dashCashAvailable = $startKasHariIni + $totalOperationalCash;
         ?>
         <div class="kas-harian-section">
             <div class="kas-harian-header">
@@ -2609,13 +2655,25 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
                 <div class="kas-harian-date"><?= date('M Y') ?></div>
             </div>
             
+            <!-- Start Cash + Cash Available (same as index.php) -->
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
+                <div style="background: rgba(255,255,255,0.05); padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.08);">
+                    <div style="font-size: 9px; color: rgba(255,255,255,0.5); font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 3px;">Start Cash (<?= date('M') ?>)</div>
+                    <div style="font-size: 15px; font-weight: 700; color: rgba(255,255,255,0.85); font-family: 'Monaco','Courier New',monospace;"><?= number_format($startKasHariIni, 0, ',', '.') ?></div>
+                </div>
+                <div style="background: <?= $dashCashAvailable >= 0 ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)' ?>; padding: 10px 12px; border-radius: 10px; border: 1px solid <?= $dashCashAvailable >= 0 ? 'rgba(16,185,129,0.25)' : 'rgba(239,68,68,0.25)' ?>;">
+                    <div style="font-size: 9px; color: <?= $dashCashAvailable >= 0 ? '#34d399' : '#fb7185' ?>; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 3px;">Cash Available</div>
+                    <div style="font-size: 15px; font-weight: 700; color: <?= $dashCashAvailable >= 0 ? '#10b981' : '#ef4444' ?>; font-family: 'Monaco','Courier New',monospace;"><?= number_format($dashCashAvailable, 0, ',', '.') ?></div>
+                </div>
+            </div>
+            
             <?php if ($guestCashIncome > 0): ?>
-            <div style="margin-bottom: 12px; padding: 10px 12px; background: linear-gradient(135deg, rgba(59,130,246,0.15) 0%, rgba(37,99,235,0.1) 100%); border-radius: 10px; border: 1px solid rgba(59,130,246,0.3); display: flex; align-items: center; gap: 10px;">
+            <div style="margin-bottom: 10px; padding: 10px 12px; background: linear-gradient(135deg, rgba(59,130,246,0.15) 0%, rgba(37,99,235,0.1) 100%); border-radius: 10px; border: 1px solid rgba(59,130,246,0.3); display: flex; align-items: center; gap: 10px;">
                 <div style="width: 32px; height: 32px; border-radius: 8px; background: linear-gradient(135deg, #3b82f6, #2563eb); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
                 </div>
                 <div style="flex: 1;">
-                    <div style="font-size: 9px; color: #60a5fa; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Cash Income (Tamu)</div>
+                    <div style="font-size: 9px; color: #60a5fa; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Cash Income</div>
                     <div style="font-size: 15px; font-weight: 700; color: #93c5fd; display: flex; align-items: center; gap: 4px;">
                         <span style="color: #10b981;">+</span><?= number_format($guestCashIncome, 0, ',', '.') ?>
                     </div>
@@ -2624,20 +2682,27 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
             </div>
             <?php endif; ?>
             
+            <!-- 3 Detail Cards: Owner Transfer | Owner + Guest | Expense (same as index.php) -->
             <div class="kas-summary-row">
                 <div class="kas-summary-box">
-                    <div class="kas-summary-label">Balance</div>
-                    <div class="kas-summary-value <?= ($totalOperationalCash + $guestCashIncome) >= 0 ? 'saldo' : 'keluar' ?>"><?= number_format($totalOperationalCash + $guestCashIncome, 0, ',', '.') ?></div>
+                    <div class="kas-summary-label">Owner Transfer</div>
+                    <div class="kas-summary-value masuk"><?= number_format($ownerTransferThisMonth, 0, ',', '.') ?></div>
                 </div>
                 <div class="kas-summary-box">
                     <div class="kas-summary-label">Owner + Guest</div>
-                    <div class="kas-summary-value masuk"><?= number_format($ownerTransferThisMonth + $guestCashIncome, 0, ',', '.') ?></div>
+                    <div class="kas-summary-value masuk"><?= number_format($totalOperationalIncome + $guestCashIncome, 0, ',', '.') ?></div>
                 </div>
                 <div class="kas-summary-box">
                     <div class="kas-summary-label">Expense</div>
                     <div class="kas-summary-value keluar"><?= number_format($totalOperationalExpense, 0, ',', '.') ?></div>
                 </div>
             </div>
+            
+            <?php if ($dashCashAvailable < 0): ?>
+            <div style="margin-top: 8px; padding: 6px 10px; background: rgba(239,68,68,0.1); border-left: 2px solid #ef4444; border-radius: 4px;">
+                <div style="font-size: 11px; color: #fb7185; font-weight: 600;">⚠️ Negative cash!</div>
+            </div>
+            <?php endif; ?>
             
             <div class="kas-table-wrapper">
                 <?php if (empty($todayKas)): ?>
