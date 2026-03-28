@@ -2500,6 +2500,15 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
             $thisMonth = date('Y-m');
             $firstDayOfMonth = date('Y-m-01');
             
+            // Check if source_type column exists (same as index.php)
+            $hasSourceTypeCol = false;
+            try {
+                $colCheck = $kasDb->query("SHOW COLUMNS FROM cash_book LIKE 'source_type'");
+                $hasSourceTypeCol = $colCheck && $colCheck->rowCount() > 0;
+            } catch (\Throwable $e) {
+                $hasSourceTypeCol = false;
+            }
+            
             // Query Modal Owner stats THIS MONTH (same as index.php)
             if (!empty($capitalAccounts)) {
                 $placeholders = implode(',', array_fill(0, count($capitalAccounts), '?'));
@@ -2585,30 +2594,48 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
                 
                 $startKasHariIni = $startKasOwner + $startKasPetty;
                 
-                // Owner Transfer THIS MONTH (income to capital + petty accounts - same as index.php)
-                $sqlOwnerTransfer = "
-                    SELECT COALESCE(SUM(amount), 0) as total
-                    FROM cash_book 
-                    WHERE cash_account_id IN ($placeholders) 
-                    AND transaction_type = 'income'
-                    AND DATE_FORMAT(transaction_date, '%Y-%m') = ?
-                ";
-                $stmtOwnerTransfer = $kasDb->prepare($sqlOwnerTransfer);
-                $stmtOwnerTransfer->execute(array_merge($allAccounts, [$thisMonth]));
-                $ownerTransferThisMonth = (float)($stmtOwnerTransfer->fetchColumn() ?: 0);
+                // Owner Transfer THIS MONTH - ONLY actual owner fund transfers (source_type='owner_fund')
+                if ($hasSourceTypeCol) {
+                    $sqlOwnerTransfer = "
+                        SELECT COALESCE(SUM(amount), 0) as total
+                        FROM cash_book 
+                        WHERE transaction_type = 'income'
+                        AND source_type = 'owner_fund'
+                        AND DATE_FORMAT(transaction_date, '%Y-%m') = ?
+                    ";
+                    $stmtOwnerTransfer = $kasDb->prepare($sqlOwnerTransfer);
+                    $stmtOwnerTransfer->execute([$thisMonth]);
+                } else {
+                    // Fallback: only count income to owner_capital accounts (not petty cash)
+                    if (!empty($capitalAccounts)) {
+                        $capPh = implode(',', array_fill(0, count($capitalAccounts), '?'));
+                        $sqlOwnerTransfer = "
+                            SELECT COALESCE(SUM(amount), 0) as total
+                            FROM cash_book 
+                            WHERE cash_account_id IN ($capPh) 
+                            AND transaction_type = 'income'
+                            AND DATE_FORMAT(transaction_date, '%Y-%m') = ?
+                        ";
+                        $stmtOwnerTransfer = $kasDb->prepare($sqlOwnerTransfer);
+                        $stmtOwnerTransfer->execute(array_merge($capitalAccounts, [$thisMonth]));
+                    } else {
+                        $stmtOwnerTransfer = null;
+                    }
+                }
+                $ownerTransferThisMonth = $stmtOwnerTransfer ? (float)($stmtOwnerTransfer->fetchColumn() ?: 0) : 0;
                 
-                // Get recent transactions - filtered by accounts (ONLY CASH TRANSACTIONS)
+                // Get ALL recent transactions (not filtered by account - same as index.php)
                 $sqlKas = "
                     SELECT id, transaction_type, description, amount,
                            TIME_FORMAT(CONCAT(transaction_date, ' ', COALESCE(transaction_time, '00:00:00')), '%H:%i') as jam,
                            transaction_date
                     FROM cash_book 
-                    WHERE cash_account_id IN ($placeholders) AND DATE_FORMAT(transaction_date, '%Y-%m') = ?
-                    ORDER BY transaction_date DESC, id DESC
+                    WHERE DATE_FORMAT(transaction_date, '%Y-%m') = ?
+                    ORDER BY transaction_date DESC, transaction_time DESC, id DESC
                     LIMIT 8
                 ";
                 $stmtKas = $kasDb->prepare($sqlKas);
-                $stmtKas->execute(array_merge($allAccounts, [$thisMonth]));
+                $stmtKas->execute([$thisMonth]);
                 $todayKas = $stmtKas->fetchAll(PDO::FETCH_ASSOC);
             }
             
