@@ -1464,8 +1464,8 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
             margin: 16px 0;
             background: linear-gradient(180deg, rgba(15,23,42,0.95) 0%, rgba(30,41,59,0.95) 100%);
             backdrop-filter: blur(20px);
-            border-radius: 16px;
-            padding: 16px;
+            border-radius: 18px;
+            padding: 18px;
             border: 1px solid rgba(255,255,255,0.08);
         }
         
@@ -1473,12 +1473,12 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
             display: flex;
             align-items: center;
             justify-content: space-between;
-            margin-bottom: 12px;
+            margin-bottom: 14px;
         }
         
         .kas-harian-title {
             font-size: 14px;
-            font-weight: 700;
+            font-weight: 800;
             color: #fff;
             display: flex;
             align-items: center;
@@ -1486,47 +1486,92 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
         }
         
         .kas-harian-date {
-            font-size: 11px;
-            color: #9ca3af;
+            font-size: 10px;
+            color: #64748b;
+            font-weight: 600;
+            background: rgba(255,255,255,0.06);
+            padding: 3px 10px;
+            border-radius: 20px;
         }
-        
-        .kas-summary-row {
+
+        /* Cash Hero - Start Cash + Cash Available */
+        .kas-hero-row {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
-            gap: 10px;
-            margin-bottom: 14px;
+            grid-template-columns: 1fr 1fr;
+            gap: 8px;
+            margin-bottom: 10px;
         }
-        
-        .kas-summary-box {
-            background: rgba(255,255,255,0.05);
+        .kas-hero-card {
+            padding: 12px 14px;
+            border-radius: 12px;
             border: 1px solid rgba(255,255,255,0.08);
-            border-radius: 10px;
-            padding: 10px 12px;
-            text-align: center;
         }
-        
-        .kas-summary-label {
-            font-size: 9px;
+        .kas-hero-card.start {
+            background: rgba(255,255,255,0.04);
+        }
+        .kas-hero-card.available-pos {
+            background: rgba(16,185,129,0.1);
+            border-color: rgba(16,185,129,0.2);
+        }
+        .kas-hero-card.available-neg {
+            background: rgba(239,68,68,0.1);
+            border-color: rgba(239,68,68,0.2);
+        }
+        .kas-hero-label {
+            font-size: 8px;
+            font-weight: 700;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
-            color: #9ca3af;
+            letter-spacing: 0.6px;
             margin-bottom: 4px;
         }
-        
-        .kas-summary-value {
+        .kas-hero-label.muted { color: rgba(255,255,255,0.4); }
+        .kas-hero-label.green { color: #34d399; }
+        .kas-hero-label.red { color: #fb7185; }
+        .kas-hero-value {
             font-size: 16px;
-            font-weight: 700;
+            font-weight: 800;
+            font-family: 'Monaco','Courier New',monospace;
+            letter-spacing: -0.3px;
         }
-        
-        .kas-summary-value.saldo { color: #60a5fa; }
-        .kas-summary-value.masuk { color: #10b981; }
-        .kas-summary-value.keluar { color: #ef4444; }
-        
+        .kas-hero-value.white { color: rgba(255,255,255,0.85); }
+        .kas-hero-value.green { color: #10b981; }
+        .kas-hero-value.red { color: #ef4444; }
+
+        /* Summary strip */
+        .kas-summary-strip {
+            display: grid;
+            grid-template-columns: repeat(3, 1fr);
+            gap: 6px;
+            margin-bottom: 12px;
+        }
+        .kas-strip-item {
+            background: rgba(255,255,255,0.04);
+            border: 1px solid rgba(255,255,255,0.06);
+            border-radius: 10px;
+            padding: 10px 8px;
+            text-align: center;
+        }
+        .kas-strip-label {
+            font-size: 8px;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            color: #64748b;
+            margin-bottom: 4px;
+        }
+        .kas-strip-value {
+            font-size: 14px;
+            font-weight: 800;
+            font-family: 'Monaco','Courier New',monospace;
+        }
+        .kas-strip-value.green { color: #10b981; }
+        .kas-strip-value.red { color: #ef4444; }
+
         .kas-table-wrapper {
-            max-height: 220px;
+            max-height: 240px;
             overflow-y: auto;
-            border-radius: 8px;
-            border: 1px solid rgba(255,255,255,0.08);
+            border-radius: 10px;
+            border: 1px solid rgba(255,255,255,0.06);
         }
         
         .kas-table {
@@ -1536,13 +1581,14 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
         }
         
         .kas-table th {
-            background: rgb(20, 28, 46);
+            background: rgba(15,23,42,0.95);
             padding: 8px 10px;
             text-align: left;
-            font-weight: 600;
-            font-size: 10px;
+            font-weight: 700;
+            font-size: 9px;
             text-transform: uppercase;
-            color: #9ca3af;
+            letter-spacing: 0.5px;
+            color: #64748b;
             position: sticky;
             top: 0;
             z-index: 10;
@@ -1550,7 +1596,7 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
         
         .kas-table td {
             padding: 8px 10px;
-            border-bottom: 1px solid rgba(255,255,255,0.05);
+            border-bottom: 1px solid rgba(255,255,255,0.04);
             color: #e5e7eb;
         }
         
@@ -1562,24 +1608,34 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
             display: inline-block;
             padding: 2px 6px;
             border-radius: 4px;
-            font-size: 9px;
-            font-weight: 600;
+            font-size: 8px;
+            font-weight: 700;
         }
         
-        .kas-badge-masuk { background: rgba(16,185,129,0.2); color: #10b981; }
-        .kas-badge-keluar { background: rgba(239,68,68,0.2); color: #ef4444; }
+        .kas-badge-masuk { background: rgba(16,185,129,0.15); color: #10b981; }
+        .kas-badge-keluar { background: rgba(239,68,68,0.15); color: #ef4444; }
         
-        .kas-amount-masuk { color: #10b981; font-weight: 600; }
-        .kas-amount-keluar { color: #ef4444; font-weight: 600; }
-        
-        .kas-empty { text-align: center; padding: 20px; color: #9ca3af; font-style: italic; }
-        
-        @media (max-width: 480px) {
-            .kas-summary-row { grid-template-columns: 1fr; gap: 8px; }
-            .kas-summary-value { font-size: 14px; }
-            .kas-table { font-size: 11px; }
-            .kas-table th, .kas-table td { padding: 6px 8px; }
+        .kas-pay-badge {
+            display: inline-block;
+            padding: 1px 5px;
+            border-radius: 3px;
+            font-size: 7px;
+            font-weight: 800;
+            text-transform: uppercase;
+            letter-spacing: 0.3px;
+            margin-left: 4px;
+            vertical-align: middle;
         }
+        .kas-pay-badge.cash { background: rgba(16,185,129,0.12); color: #34d399; }
+        .kas-pay-badge.tf, .kas-pay-badge.transfer { background: rgba(59,130,246,0.12); color: #60a5fa; }
+        .kas-pay-badge.qr { background: rgba(245,158,11,0.12); color: #fbbf24; }
+        .kas-pay-badge.edc, .kas-pay-badge.debit { background: rgba(168,85,247,0.12); color: #c084fc; }
+        .kas-pay-badge.other { background: rgba(148,163,184,0.12); color: #94a3b8; }
+        
+        .kas-amount-masuk { color: #10b981; font-weight: 700; }
+        .kas-amount-keluar { color: #ef4444; font-weight: 700; }
+        
+        .kas-empty { text-align: center; padding: 24px; color: #64748b; font-size: 12px; }
 
         /* Stats Grid */
         .stats-grid {
@@ -2673,7 +2729,7 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
                 
                 // Get ALL recent transactions (not filtered by account - same as index.php)
                 $sqlKas = "
-                    SELECT id, transaction_type, description, amount,
+                    SELECT id, transaction_type, description, amount, payment_method,
                            TIME_FORMAT(CONCAT(transaction_date, ' ', COALESCE(transaction_time, '00:00:00')), '%H:%i') as jam,
                            transaction_date
                     FROM cash_book 
@@ -2729,51 +2785,36 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
                 <div class="kas-harian-date"><?= date('M Y') ?></div>
             </div>
             
-            <!-- Start Cash + Cash Available (same as index.php) -->
-            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px;">
-                <div style="background: rgba(255,255,255,0.05); padding: 10px 12px; border-radius: 10px; border: 1px solid rgba(255,255,255,0.08);">
-                    <div style="font-size: 9px; color: rgba(255,255,255,0.5); font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 3px;">Start Cash (<?= date('M') ?>)</div>
-                    <div style="font-size: 15px; font-weight: 700; color: rgba(255,255,255,0.85); font-family: 'Monaco','Courier New',monospace;"><?= number_format($startKasHariIni, 0, ',', '.') ?></div>
+            <!-- Hero: Start Cash + Cash Available -->
+            <div class="kas-hero-row">
+                <div class="kas-hero-card start">
+                    <div class="kas-hero-label muted">Start Cash (<?= date('M') ?>)</div>
+                    <div class="kas-hero-value white"><?= number_format($startKasHariIni, 0, ',', '.') ?></div>
                 </div>
-                <div style="background: <?= $dashCashAvailable >= 0 ? 'rgba(16,185,129,0.12)' : 'rgba(239,68,68,0.12)' ?>; padding: 10px 12px; border-radius: 10px; border: 1px solid <?= $dashCashAvailable >= 0 ? 'rgba(16,185,129,0.25)' : 'rgba(239,68,68,0.25)' ?>;">
-                    <div style="font-size: 9px; color: <?= $dashCashAvailable >= 0 ? '#34d399' : '#fb7185' ?>; font-weight: 600; text-transform: uppercase; letter-spacing: 0.4px; margin-bottom: 3px;">Cash Available</div>
-                    <div style="font-size: 15px; font-weight: 700; color: <?= $dashCashAvailable >= 0 ? '#10b981' : '#ef4444' ?>; font-family: 'Monaco','Courier New',monospace;"><?= number_format($dashCashAvailable, 0, ',', '.') ?></div>
+                <div class="kas-hero-card <?= $dashCashAvailable >= 0 ? 'available-pos' : 'available-neg' ?>">
+                    <div class="kas-hero-label <?= $dashCashAvailable >= 0 ? 'green' : 'red' ?>">Cash Available</div>
+                    <div class="kas-hero-value <?= $dashCashAvailable >= 0 ? 'green' : 'red' ?>"><?= number_format($dashCashAvailable, 0, ',', '.') ?></div>
                 </div>
             </div>
             
-            <?php if ($guestCashIncome > 0): ?>
-            <div style="margin-bottom: 10px; padding: 10px 12px; background: linear-gradient(135deg, rgba(59,130,246,0.15) 0%, rgba(37,99,235,0.1) 100%); border-radius: 10px; border: 1px solid rgba(59,130,246,0.3); display: flex; align-items: center; gap: 10px;">
-                <div style="width: 32px; height: 32px; border-radius: 8px; background: linear-gradient(135deg, #3b82f6, #2563eb); display: flex; align-items: center; justify-content: center; flex-shrink: 0;">
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.5"><path d="M17 21v-2a4 4 0 0 0-4-4H5a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/></svg>
+            <!-- Summary Strip: Owner Transfer | Guest Cash + Owner | Expense -->
+            <div class="kas-summary-strip">
+                <div class="kas-strip-item">
+                    <div class="kas-strip-label">Owner Transfer</div>
+                    <div class="kas-strip-value green"><?= number_format($ownerTransferThisMonth, 0, ',', '.') ?></div>
                 </div>
-                <div style="flex: 1;">
-                    <div style="font-size: 9px; color: #60a5fa; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px;">Cash Income</div>
-                    <div style="font-size: 15px; font-weight: 700; color: #93c5fd; display: flex; align-items: center; gap: 4px;">
-                        <span style="color: #10b981;">+</span><?= number_format($guestCashIncome, 0, ',', '.') ?>
-                    </div>
+                <div class="kas-strip-item">
+                    <div class="kas-strip-label">Guest + Owner</div>
+                    <div class="kas-strip-value green"><?= number_format($totalOperationalIncome + $guestCashIncome, 0, ',', '.') ?></div>
                 </div>
-                <div style="font-size: 10px; color: #3b82f6; background: rgba(255,255,255,0.1); padding: 3px 8px; border-radius: 4px; font-weight: 600;">Cash</div>
-            </div>
-            <?php endif; ?>
-            
-            <!-- 3 Detail Cards: Owner Transfer | Owner + Guest | Expense (same as index.php) -->
-            <div class="kas-summary-row">
-                <div class="kas-summary-box">
-                    <div class="kas-summary-label">Owner Transfer</div>
-                    <div class="kas-summary-value masuk"><?= number_format($ownerTransferThisMonth, 0, ',', '.') ?></div>
-                </div>
-                <div class="kas-summary-box">
-                    <div class="kas-summary-label">Owner + Guest</div>
-                    <div class="kas-summary-value masuk"><?= number_format($totalOperationalIncome + $guestCashIncome, 0, ',', '.') ?></div>
-                </div>
-                <div class="kas-summary-box">
-                    <div class="kas-summary-label">Expense</div>
-                    <div class="kas-summary-value keluar"><?= number_format($totalOperationalExpense, 0, ',', '.') ?></div>
+                <div class="kas-strip-item">
+                    <div class="kas-strip-label">Expense</div>
+                    <div class="kas-strip-value red"><?= number_format($totalOperationalExpense, 0, ',', '.') ?></div>
                 </div>
             </div>
             
             <?php if ($dashCashAvailable < 0): ?>
-            <div style="margin-top: 8px; padding: 6px 10px; background: rgba(239,68,68,0.1); border-left: 2px solid #ef4444; border-radius: 4px;">
+            <div style="margin-bottom: 10px; padding: 6px 10px; background: rgba(239,68,68,0.08); border-left: 2px solid #ef4444; border-radius: 4px;">
                 <div style="font-size: 11px; color: #fb7185; font-weight: 600;">⚠️ Negative cash!</div>
             </div>
             <?php endif; ?>
@@ -2794,14 +2835,18 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
                         <?php foreach ($todayKas as $kas): 
                             $isMasuk = $kas['transaction_type'] === 'income';
                             $amount = (float)$kas['amount'];
+                            $payMethod = strtolower(trim($kas['payment_method'] ?? 'other'));
+                            $payLabel = strtoupper($payMethod === 'transfer' ? 'TF' : $payMethod);
+                            $payClass = in_array($payMethod, ['cash','transfer','tf','qr','debit','edc']) ? $payMethod : 'other';
                         ?>
                         <tr>
-                            <td><?= $kas['jam'] ?></td>
+                            <td style="white-space:nowrap;font-size:11px;color:#94a3b8;"><?= $kas['jam'] ?></td>
                             <td>
                                 <span class="<?= $isMasuk ? 'kas-badge-masuk' : 'kas-badge-keluar' ?>"><?= $isMasuk ? 'IN' : 'OUT' ?></span>
-                                <?= htmlspecialchars(mb_substr($kas['description'], 0, 30)) ?>
+                                <?= htmlspecialchars(mb_substr($kas['description'], 0, 28)) ?>
+                                <span class="kas-pay-badge <?= $payClass ?>"><?= $payLabel ?></span>
                             </td>
-                            <td class="text-right <?= $isMasuk ? 'kas-amount-masuk' : 'kas-amount-keluar' ?>">
+                            <td class="text-right <?= $isMasuk ? 'kas-amount-masuk' : 'kas-amount-keluar' ?>" style="white-space:nowrap;">
                                 <?= $isMasuk ? '+' : '-' ?><?= number_format($amount, 0, ',', '.') ?>
                             </td>
                         </tr>
@@ -3222,73 +3267,6 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
         </div>
         <?php endif; ?>
         
-        <?php if (!$isCQC): // Only show for non-CQC businesses ?>
-        <!-- Cash Flow Bulan Ini -->
-        <div class="tx-card">
-            <div class="tx-title" style="justify-content:space-between;">
-                <?php
-                    $bulanIndo = ['Januari','Februari','Maret','April','Mei','Juni','Juli','Agustus','September','Oktober','November','Desember'];
-                    $monthLabel = $bulanIndo[(int)date('n') - 1] . ' ' . date('Y');
-                ?>
-                <span>📊 Cash Flow — <?= $monthLabel ?></span>
-                <span style="font-size:11px;font-weight:400;color:var(--text-muted)"><?= count($transactions) ?> transaksi</span>
-            </div>
-            
-            <!-- Summary Row -->
-            <div style="display:flex;gap:8px;margin-bottom:14px;">
-                <div style="flex:1;background:rgba(16,185,129,0.08);border-radius:10px;padding:10px 12px;text-align:center;">
-                    <div style="font-size:10px;color:var(--success);font-weight:600;text-transform:uppercase;margin-bottom:2px;">Masuk</div>
-                    <div style="font-size:13px;font-weight:700;color:var(--success);"><?= rp($cfTotalIncome) ?></div>
-                </div>
-                <div style="flex:1;background:rgba(244,63,94,0.08);border-radius:10px;padding:10px 12px;text-align:center;">
-                    <div style="font-size:10px;color:var(--danger);font-weight:600;text-transform:uppercase;margin-bottom:2px;">Keluar</div>
-                    <div style="font-size:13px;font-weight:700;color:var(--danger);"><?= rp($cfTotalExpense) ?></div>
-                </div>
-                <div style="flex:1;background:rgba(99,102,241,0.08);border-radius:10px;padding:10px 12px;text-align:center;">
-                    <div style="font-size:10px;color:var(--accent);font-weight:600;text-transform:uppercase;margin-bottom:2px;">Saldo</div>
-                    <div style="font-size:13px;font-weight:700;color:<?= $cfBalance >= 0 ? 'var(--success)' : 'var(--danger)' ?>;"><?= ($cfBalance >= 0 ? '+' : '') . rp($cfBalance) ?></div>
-                </div>
-            </div>
-
-            <!-- Transaction List -->
-            <div style="max-height:400px;overflow-y:auto;">
-            <ul class="tx-list">
-                <?php 
-                $lastDate = '';
-                foreach ($transactions as $tx): 
-                    $method = strtolower(trim($tx['payment_method'] ?? 'other'));
-                    $methodClass = in_array($method, ['cash','transfer','tf','qr','debit','edc']) ? $method : 'other';
-                    $methodLabel = strtoupper($method === 'transfer' ? 'TF' : $method);
-                    $txDate = date('d/m/Y', strtotime($tx['transaction_date']));
-                    $showDateSep = ($txDate !== $lastDate);
-                    $lastDate = $txDate;
-                ?>
-                <?php if ($showDateSep): ?>
-                <li style="padding:8px 0 4px;font-size:10px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:0.5px;border-bottom:1px solid var(--border);">
-                    📅 <?= date('d M Y', strtotime($tx['transaction_date'])) ?>
-                </li>
-                <?php endif; ?>
-                <li class="tx-item">
-                    <div style="min-width:0;flex:1;">
-                        <div class="tx-desc">
-                            <?= htmlspecialchars(($tx['division_name'] ?? 'Umum') . ' - ' . ($tx['category_name'] ?? $tx['description'] ?? '-')) ?>
-                            <span class="tx-method <?= $methodClass ?>"><?= $methodLabel ?></span>
-                        </div>
-                        <div class="tx-date"><?= htmlspecialchars($tx['description'] ?? '') ?></div>
-                    </div>
-                    <div class="tx-amount <?= $tx['transaction_type'] ?>">
-                        <?= $tx['transaction_type'] === 'income' ? '+' : '-' ?><?= rp($tx['amount']) ?>
-                    </div>
-                </li>
-                <?php endforeach; ?>
-                <?php if (empty($transactions)): ?>
-                <li class="tx-item" style="justify-content:center;color:var(--text-muted)">Belum ada transaksi bulan ini</li>
-                <?php endif; ?>
-            </ul>
-            </div>
-        </div>
-        <?php endif; // end if (!$isCQC) ?>
-
         <?php endif; // end if (!$error) ?>
 
     </div><!-- end .container -->
