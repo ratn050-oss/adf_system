@@ -709,8 +709,8 @@ function rp($num) {
         .cgo-cell { border-right: 0.5px solid rgba(51,65,85,0.12); border-bottom: 0.5px solid rgba(51,65,85,0.12); min-width: 80px; min-height: 28px; position: relative; background: transparent; }
         .cgo-cell.cgo-today { background: rgba(99,102,241,0.05) !important; }
         .bbar-wrap-o { position: absolute; top: 2px; left: 50%; height: 24px; display: flex; align-items: center; overflow: visible; z-index: 10; margin-left: 4px; cursor: pointer; }
-        .bbar-o { width: 100%; height: 22px; padding: 0 6px; display: flex; align-items: center; justify-content: center; text-align: center; box-shadow: 0 2px 6px rgba(0,0,0,0.15), 0 1px 2px rgba(0,0,0,0.1); font-weight: 700; font-size: 9px; line-height: 1.1; position: relative; border-radius: 3px; white-space: nowrap; transform: skewX(-20deg); color: #fff !important; transition: all 0.2s; overflow: hidden; }
-        .bbar-o > span { transform: skewX(20deg); color: #fff !important; text-shadow: 0 1px 3px rgba(0,0,0,0.6); font-weight: 800; font-size: 8px; }
+        .bbar-o { width: 100%; height: 22px; padding: 0 4px; display: flex; align-items: center; justify-content: center; text-align: center; box-shadow: 0 2px 6px rgba(0,0,0,0.15), 0 1px 2px rgba(0,0,0,0.1); font-weight: 700; font-size: 8px; line-height: 1.1; position: relative; border-radius: 3px; white-space: nowrap; transform: skewX(-20deg); color: #fff !important; transition: all 0.2s; overflow: hidden; text-overflow: ellipsis; }
+        .bbar-o > span { transform: skewX(20deg); color: #fff !important; text-shadow: 0 1px 2px rgba(0,0,0,0.5); font-weight: 700; font-size: 7px; overflow: hidden; text-overflow: ellipsis; max-width: 100%; display: inline-block; }
         .bbar-o::before { content: ''; position: absolute; left: -6px; top: 50%; transform: translateY(-50%); width: 0; height: 0; border-top: 10px solid transparent; border-bottom: 10px solid transparent; border-right: 4px solid; border-right-color: inherit; }
         .bbar-o::after { content: ''; position: absolute; right: -6px; top: 50%; transform: translateY(-50%); width: 0; height: 0; border-top: 10px solid transparent; border-bottom: 10px solid transparent; border-left: 4px solid; border-left-color: inherit; }
         .bbar-o:active { transform: skewX(-20deg) scaleY(1.1); }
@@ -1132,14 +1132,19 @@ function rp($num) {
         var calBookings = <?= json_encode($calBookings, JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
         var calOffset = 0;
 
+        // Use local date string (NOT toISOString which converts to UTC!)
+        function localDateStr(d) {
+            return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
+        }
+
         function renderOwnerCal() {
             var today = new Date(); today.setHours(0,0,0,0);
             var start = new Date(today);
             start.setDate(start.getDate() + calOffset - 3);
-            var days = 14, dates = [], todayStr = today.toISOString().split('T')[0];
+            var days = 14, dates = [], todayStr = localDateStr(today);
             for (var i = 0; i < days; i++) {
                 var dt = new Date(start); dt.setDate(dt.getDate() + i);
-                dates.push(dt.toISOString().split('T')[0]);
+                dates.push(localDateStr(dt));
             }
             var months = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
             var startD = new Date(dates[0] + 'T00:00:00'), endD = new Date(dates[dates.length-1] + 'T00:00:00');
@@ -1196,8 +1201,8 @@ function rp($num) {
                                 var sCls = 'bs-' + (rb.status || '').replace('_', '-');
                                 var isCI = rb.status === 'checked_in';
                                 var icon = isCI ? '✓ ' : '';
-                                var name = (rb.guest_name || 'Guest').substring(0, 10);
-                                var code = (rb.booking_code || '').substring(0, 6);
+                                var name = (rb.guest_name || 'Guest').substring(0, 8);
+                                var code = (rb.booking_code || '').substring(0, 5);
                                 var bData = encodeURIComponent(JSON.stringify({
                                     booking_code: rb.booking_code, guest_name: rb.guest_name,
                                     check_in_date: rb.check_in_date, check_out_date: rb.check_out_date,
