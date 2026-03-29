@@ -95,6 +95,61 @@ try {
     $hasTables = $tableCheck->rowCount() > 0;
     
     if ($hasTables) {
+        // ==========================================
+        // AUTO-CHECKOUT OVERDUE BOOKINGS  
+        // Sync: bookings with check_out_date < today still 'checked_in' → auto checkout
+        // Same logic as frontdesk/dashboard.php to keep status in sync
+        // ==========================================
+        try {
+            $overdueStmt = $pdo->prepare("
+                SELECT b.id, b.room_id FROM bookings b
+                WHERE b.status = 'checked_in' AND DATE(b.check_out_date) < ?
+            ");
+            $overdueStmt->execute([$today]);
+            $overdueBookings = $overdueStmt->fetchAll(PDO::FETCH_ASSOC);
+            
+            if (!empty($overdueBookings)) {
+                foreach ($overdueBookings as $overdue) {
+                    $pdo->prepare("UPDATE bookings SET status = 'checked_out', actual_checkout_time = check_out_date, updated_at = NOW() WHERE id = ?")->execute([$overdue['id']]);
+                    $pdo->prepare("UPDATE rooms SET status = 'available', current_guest_id = NULL, updated_at = NOW() WHERE id = ? AND status = 'occupied'")->execute([$overdue['room_id']]);
+                }
+                error_log("Owner monitor auto-checkout: " . count($overdueBookings) . " overdue bookings");
+            }
+        } catch (Exception $e) {
+            error_log("Auto-checkout error: " . $e->getMessage());
+        }
+
+        // ==========================================
+        // SYNC ROOM STATUS WITH BOOKINGS (source of truth)
+        // Fix stale rooms.status: if room has no checked_in booking, mark available
+        // If room has checked_in booking, mark occupied
+        // ==========================================
+        try {
+            // Rooms marked 'occupied' but have NO active checked_in booking → set available
+            $pdo->exec("
+                UPDATE rooms r 
+                SET r.status = 'available', r.current_guest_id = NULL, r.updated_at = NOW()
+                WHERE r.status = 'occupied'
+                AND NOT EXISTS (
+                    SELECT 1 FROM bookings b 
+                    WHERE b.room_id = r.id AND b.status = 'checked_in'
+                )
+            ");
+            // Rooms NOT marked 'occupied' but HAVE active checked_in booking → set occupied
+            $pdo->exec("
+                UPDATE rooms r 
+                SET r.status = 'occupied', r.updated_at = NOW()
+                WHERE r.status != 'occupied'
+                AND r.status NOT IN ('maintenance', 'cleaning', 'blocked')
+                AND EXISTS (
+                    SELECT 1 FROM bookings b 
+                    WHERE b.room_id = r.id AND b.status = 'checked_in'
+                )
+            ");
+        } catch (Exception $e) {
+            error_log("Room sync error: " . $e->getMessage());
+        }
+
         // Today's check-ins
         $stmt = $pdo->prepare("
             SELECT COUNT(*) as count FROM bookings 
@@ -276,10 +331,11 @@ try {
         $calRooms = [];
         $calBookings = [];
         try {
-            // All rooms with type info
+            // All rooms with type info + live occupancy from bookings (source of truth)
             $stmt = $pdo->query("
                 SELECT r.id, r.room_number, r.status, r.floor_number,
-                       COALESCE(rt.type_name, 'Standard') as room_type
+                       COALESCE(rt.type_name, 'Standard') as room_type,
+                       (SELECT COUNT(*) FROM bookings b WHERE b.room_id = r.id AND b.status = 'checked_in') as has_checkin
                 FROM rooms r
                 LEFT JOIN room_types rt ON r.room_type_id = rt.id
                 ORDER BY rt.type_name, r.floor_number, r.room_number
@@ -332,6 +388,7 @@ function rp($num) {
 <html lang="en">
 <head>
     <meta charset="UTF-8">
+    <meta http-equiv="refresh" content="60">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>Frontdesk Monitor - Owner</title>
     <style>
@@ -922,7 +979,8 @@ function rp($num) {
             </div>
             <div class="room-grid-owner">
                 <?php foreach ($calRooms as $cr):
-                    $isOcc = ($cr['status'] === 'occupied') || !empty($cr['guest_name']);
+                    // Use bookings as source of truth for occupancy (not rooms.status which can be stale)
+                    $isOcc = ((int)($cr['has_checkin'] ?? 0) > 0) || !empty($cr['guest_name']);
                     $isMaint = in_array($cr['status'], ['maintenance', 'cleaning', 'blocked']);
                     $cls = $isOcc ? 'rb-occ' : ($isMaint ? 'rb-maint' : 'rb-avail');
                     $dotCls = $isOcc ? 'rb-dot-occ' : 'rb-dot-avail';

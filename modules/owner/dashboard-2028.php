@@ -333,18 +333,27 @@ try {
     $revPAR = 0; // Revenue Per Available Room
     
     try {
-        // Total rooms & occupied: combine rooms.status with active bookings for accuracy
-        // A room is occupied if: status='occupied' OR has active booking (checked_in/confirmed) overlapping today
+        // Auto-checkout overdue bookings (same as frontdesk dashboard)
+        $overdueStmt = $pdo->prepare("SELECT id, room_id FROM bookings WHERE status = 'checked_in' AND DATE(check_out_date) < CURDATE()");
+        $overdueStmt->execute();
+        $overdueList = $overdueStmt->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($overdueList as $ob) {
+            $pdo->prepare("UPDATE bookings SET status = 'checked_out', actual_checkout_time = check_out_date, updated_at = NOW() WHERE id = ?")->execute([$ob['id']]);
+            $pdo->prepare("UPDATE rooms SET status = 'available', current_guest_id = NULL, updated_at = NOW() WHERE id = ? AND status = 'occupied'")->execute([$ob['room_id']]);
+        }
+
+        // Sync room status with bookings (bookings = source of truth)
+        $pdo->exec("UPDATE rooms r SET r.status = 'available', r.current_guest_id = NULL, r.updated_at = NOW() WHERE r.status = 'occupied' AND NOT EXISTS (SELECT 1 FROM bookings b WHERE b.room_id = r.id AND b.status = 'checked_in')");
+        $pdo->exec("UPDATE rooms r SET r.status = 'occupied', r.updated_at = NOW() WHERE r.status NOT IN ('occupied','maintenance','cleaning','blocked') AND EXISTS (SELECT 1 FROM bookings b WHERE b.room_id = r.id AND b.status = 'checked_in')");
+
+        // Total rooms & occupied: use bookings as source of truth (not rooms.status)
         $roomStmt = $pdo->query("
             SELECT COUNT(*) as total,
-                   COUNT(CASE WHEN r.status = 'occupied'
-                              OR EXISTS (
-                                  SELECT 1 FROM bookings b 
-                                  WHERE b.room_id = r.id 
-                                  AND b.status IN ('checked_in', 'confirmed') 
-                                  AND b.check_in_date <= CURDATE() 
-                                  AND b.check_out_date >= CURDATE()
-                              ) THEN 1 END) as occupied
+                   COUNT(CASE WHEN EXISTS (
+                       SELECT 1 FROM bookings b 
+                       WHERE b.room_id = r.id 
+                       AND b.status = 'checked_in'
+                   ) THEN 1 END) as occupied
             FROM rooms r
         ");
         $roomData = $roomStmt->fetch(PDO::FETCH_ASSOC);
