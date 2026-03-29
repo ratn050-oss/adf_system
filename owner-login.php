@@ -24,41 +24,117 @@ require_once 'includes/business_helper.php';
 $auth = new Auth();
 $db = Database::getInstance();
 
+// ============================================
+// REMEMBER ME - Auto-login via HMAC token
+// ============================================
+$cookiePath = parse_url(BASE_URL, PHP_URL_PATH) ?: '/';
+$isSecure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
+$ownerRememberSecret = hash('sha256', DB_PASS . DB_NAME . '__adf_owner_remember_salt__');
+
+function generateOwnerRememberToken($userId, $secret) {
+    $expiry = time() + (30 * 24 * 60 * 60); // 30 days
+    $payload = $userId . ':' . $expiry;
+    $hmac = hash_hmac('sha256', $payload, $secret);
+    return base64_encode($payload . ':' . $hmac);
+}
+
+function validateOwnerRememberToken($token, $secret) {
+    $decoded = base64_decode($token, true);
+    if (!$decoded) return false;
+    $parts = explode(':', $decoded);
+    if (count($parts) !== 3) return false;
+    [$userId, $expiry, $hmac] = $parts;
+    if (!is_numeric($userId) || !is_numeric($expiry)) return false;
+    if (time() > (int)$expiry) return false;
+    $expected = hash_hmac('sha256', $userId . ':' . $expiry, $secret);
+    if (!hash_equals($expected, $hmac)) return false;
+    return (int)$userId;
+}
+
+// Check auto-login token BEFORE showing login form
+if (!empty($_COOKIE['adf_owner_remember_token']) && !$auth->isLoggedIn() && !isPost()) {
+    $tokenUserId = validateOwnerRememberToken($_COOKIE['adf_owner_remember_token'], $ownerRememberSecret);
+    if ($tokenUserId) {
+        try {
+            $masterDb = new PDO(
+                "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET,
+                DB_USER, DB_PASS,
+                [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]
+            );
+            $stmt = $masterDb->prepare("SELECT u.id, u.username, u.full_name, u.is_active, r.role_code, u.business_access 
+                FROM users u LEFT JOIN roles r ON u.role_id = r.id WHERE u.id = ? AND u.is_active = 1");
+            $stmt->execute([$tokenUserId]);
+            $tokenUser = $stmt->fetch();
+
+            if ($tokenUser && in_array($tokenUser['role_code'], ['owner', 'admin', 'developer'])) {
+                // Set session
+                if (session_status() === PHP_SESSION_NONE) session_start();
+                $_SESSION['user_id'] = $tokenUser['id'];
+                $_SESSION['username'] = $tokenUser['username'];
+                $_SESSION['full_name'] = $tokenUser['full_name'] ?? $tokenUser['username'];
+                $_SESSION['role'] = $tokenUser['role_code'];
+                $_SESSION['business_access'] = $tokenUser['business_access'] ?? 'all';
+                $_SESSION['logged_in'] = true;
+                $_SESSION['login_time'] = time();
+
+                // Refresh token
+                $newToken = generateOwnerRememberToken($tokenUser['id'], $ownerRememberSecret);
+                setcookie('adf_owner_remember_token', $newToken, time() + (30 * 24 * 60 * 60), $cookiePath, '', $isSecure, true);
+
+                // Set business and redirect
+                require_once __DIR__ . '/includes/business_access.php';
+                $ownerBizList = getUserAvailableBusinesses();
+                if (!empty($ownerBizList)) {
+                    setActiveBusinessId(array_key_first($ownerBizList));
+                }
+                header('Location: ' . BASE_URL . '/modules/owner/dashboard-2028.php');
+                exit;
+            }
+        } catch (Exception $e) {
+            error_log("Owner remember token auto-login failed: " . $e->getMessage());
+        }
+        // Invalid token - clear cookie
+        setcookie('adf_owner_remember_token', '', time() - 3600, $cookiePath, '', $isSecure, true);
+    } else {
+        setcookie('adf_owner_remember_token', '', time() - 3600, $cookiePath, '', $isSecure, true);
+    }
+}
+
 // If already logged in as owner, redirect to dashboard
 if ($auth->isLoggedIn()) {
     $currentUser = $auth->getCurrentUser();
-    if ($currentUser['role'] === 'owner') {
-        redirect(BASE_URL . '/modules/owner/dashboard.php');
+    if (in_array($currentUser['role'], ['owner', 'admin', 'developer'])) {
+        redirect(BASE_URL . '/modules/owner/dashboard-2028.php');
     } else {
         session_destroy();
     }
 }
 
 $error = '';
+$savedUser = '';
+if (!empty($_COOKIE['adf_owner_saved_user'])) {
+    $savedUser = base64_decode($_COOKIE['adf_owner_saved_user']);
+}
 
 // Handle login form submission
 if (isPost()) {
     $username = sanitize(getPost('username'));
     $password = getPost('password');
+    $rememberMe = isset($_POST['remember_me']);
     
     if (empty($username)) {
         $error = 'Username harus diisi!';
     } else {
-        // DEBUG MODE: Skip password check, just check username
-        // IMPORTANT: Must connect to MASTER database for authentication
+        // Connect to MASTER database for authentication
         try {
-            // Get connection to master database directly (not business-specific)
             $masterDb = new PDO(
-                "mysql:host=" . DB_HOST . ";dbname=" . 'adf_narayana_db' . ";charset=" . DB_CHARSET,
-                DB_USER,
-                DB_PASS,
-                [
-                    PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION,
-                    PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC
-                ]
+                "mysql:host=" . DB_HOST . ";dbname=" . DB_NAME . ";charset=" . DB_CHARSET,
+                DB_USER, DB_PASS,
+                [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION, PDO::ATTR_DEFAULT_FETCH_MODE => PDO::FETCH_ASSOC]
             );
             
-            $sql = "SELECT id, username, password, role, business_access, is_active FROM users WHERE username = :username";
+            $sql = "SELECT u.id, u.username, u.password, u.full_name, u.is_active, r.role_code, u.business_access 
+                    FROM users u LEFT JOIN roles r ON u.role_id = r.id WHERE u.username = :username";
             $stmt = $masterDb->prepare($sql);
             $stmt->execute([':username' => $username]);
             $currentUser = $stmt->fetch();
@@ -67,25 +143,46 @@ if (isPost()) {
                 $error = 'Username tidak ditemukan!';
             } else if ($currentUser['is_active'] == 0) {
                 $error = 'Akun Anda tidak aktif!';
-            } else if ($currentUser['role'] !== 'owner') {
+            } else if (!in_array($currentUser['role_code'], ['owner', 'admin', 'developer'])) {
                 $error = 'Anda bukan owner! Akses ditolak.';
+            } else if (!password_verify($password, $currentUser['password']) && md5($password) !== $currentUser['password']) {
+                $error = 'Password salah!';
             } else {
                 // Check if owner has business_access
                 $businessAccess = $currentUser['business_access'] ?? null;
                 
-                // Debug: Log what we're checking
-                error_log("DEBUG: Username=$username, Role={$currentUser['role']}, BusinessAccess=$businessAccess, Empty=" . (empty($businessAccess) ? 'YES' : 'NO'));
-                
                 if (empty($businessAccess)) {
                     $error = 'Anda belum memiliki akses ke bisnis manapun. Hubungi administrator.';
                 } else {
-                    // Owner login successful - set session and redirect
+                    // Owner login successful - set session
+                    if (session_status() === PHP_SESSION_NONE) session_start();
                     $_SESSION['user_id'] = $currentUser['id'];
                     $_SESSION['username'] = $currentUser['username'];
-                    $_SESSION['role'] = $currentUser['role'];
+                    $_SESSION['full_name'] = $currentUser['full_name'] ?? $currentUser['username'];
+                    $_SESSION['role'] = $currentUser['role_code'];
                     $_SESSION['business_access'] = $businessAccess;
+                    $_SESSION['logged_in'] = true;
+                    $_SESSION['login_time'] = time();
                     
-                    redirect(BASE_URL . '/modules/owner/dashboard.php');
+                    // Handle remember me cookies
+                    if ($rememberMe) {
+                        $cookieExpiry = time() + (30 * 24 * 60 * 60);
+                        setcookie('adf_owner_saved_user', base64_encode($username), $cookieExpiry, $cookiePath, '', $isSecure, true);
+                        $token = generateOwnerRememberToken($currentUser['id'], $ownerRememberSecret);
+                        setcookie('adf_owner_remember_token', $token, $cookieExpiry, $cookiePath, '', $isSecure, true);
+                    } else {
+                        setcookie('adf_owner_saved_user', '', time() - 3600, $cookiePath, '', $isSecure, true);
+                        setcookie('adf_owner_remember_token', '', time() - 3600, $cookiePath, '', $isSecure, true);
+                    }
+                    
+                    // Set business and redirect
+                    require_once __DIR__ . '/includes/business_access.php';
+                    $ownerBizList = getUserAvailableBusinesses();
+                    if (!empty($ownerBizList)) {
+                        setActiveBusinessId(array_key_first($ownerBizList));
+                    }
+                    
+                    redirect(BASE_URL . '/modules/owner/dashboard-2028.php');
                 }
             }
         } catch (Exception $e) {
@@ -316,6 +413,8 @@ header("Expires: 0");
                             name="username" 
                             class="form-control" 
                             placeholder="Masukkan username"
+                            value="<?= htmlspecialchars($savedUser) ?>"
+                            autocomplete="username"
                             required
                             autofocus
                         >
@@ -329,8 +428,16 @@ header("Expires: 0");
                             name="password" 
                             class="form-control" 
                             placeholder="Masukkan password"
+                            autocomplete="current-password"
                             required
                         >
+                    </div>
+                    
+                    <div class="form-group" style="display: flex; align-items: center; gap: 8px;">
+                        <input type="checkbox" id="rememberMe" name="remember_me" value="1" <?= isset($_COOKIE['adf_owner_remember_token']) ? 'checked' : '' ?> style="width: 18px; height: 18px; accent-color: #667eea;">
+                        <label for="rememberMe" style="margin: 0; font-size: 13px; color: #555; cursor: pointer;">
+                            <?= isset($_COOKIE['adf_owner_remember_token']) ? '✅ Auto Login Aktif' : '🔒 Ingat Saya (Auto Login)' ?>
+                        </label>
                     </div>
                     
                     <button type="submit" class="btn-login">🔓 Login</button>

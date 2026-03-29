@@ -60,13 +60,121 @@ try {
     // Settings table might not exist yet, continue without background
 }
 
-// Read saved credentials from cookies (only username - password is never stored)
+// ============================================
+// REMEMBER ME - Auto-login via HMAC token
+// ============================================
+$cookiePath = parse_url(BASE_URL, PHP_URL_PATH) ?: '/';
+$isSecure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
+$rememberSecret = hash('sha256', DB_PASS . DB_NAME . '__adf_remember_salt__');
+
+function generateRememberToken($userId, $secret) {
+    $expiry = time() + (30 * 24 * 60 * 60); // 30 days
+    $payload = $userId . ':' . $expiry;
+    $hmac = hash_hmac('sha256', $payload, $secret);
+    return base64_encode($payload . ':' . $hmac);
+}
+
+function validateRememberToken($token, $secret) {
+    $decoded = base64_decode($token, true);
+    if (!$decoded) return false;
+    $parts = explode(':', $decoded);
+    if (count($parts) !== 3) return false;
+    [$userId, $expiry, $hmac] = $parts;
+    if (!is_numeric($userId) || !is_numeric($expiry)) return false;
+    if (time() > (int)$expiry) return false;
+    $expected = hash_hmac('sha256', $userId . ':' . $expiry, $secret);
+    if (!hash_equals($expected, $hmac)) return false;
+    return (int)$userId;
+}
+
+// Check auto-login token BEFORE showing login form
 $savedUser = '';
-$savedCred = '';
 $isRemembered = false;
-if (!empty($_COOKIE['adf_remember']) && !empty($_COOKIE['adf_saved_user'])) {
+if (!empty($_COOKIE['adf_remember_token']) && !$auth->isLoggedIn() && !isPost()) {
+    $tokenUserId = validateRememberToken($_COOKIE['adf_remember_token'], $rememberSecret);
+    if ($tokenUserId) {
+        // Valid token - auto-login this user
+        try {
+            $masterPdo = new PDO("mysql:host=" . DB_HOST . ";dbname=" . DB_NAME, DB_USER, DB_PASS);
+            $masterPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+            $stmt = $masterPdo->prepare("SELECT id, username, full_name, role_id, business_access, is_active FROM users WHERE id = ? AND is_active = 1");
+            $stmt->execute([$tokenUserId]);
+            $tokenUser = $stmt->fetch(PDO::FETCH_ASSOC);
+
+            if ($tokenUser) {
+                // Get role code
+                $roleCode = 'staff';
+                try {
+                    $roleStmt = $masterPdo->prepare("SELECT role_code FROM roles WHERE id = ?");
+                    $roleStmt->execute([$tokenUser['role_id']]);
+                    $roleData = $roleStmt->fetch(PDO::FETCH_ASSOC);
+                    $roleCode = $roleData['role_code'] ?? 'staff';
+                } catch (Exception $e) {}
+
+                // Set session
+                if (session_status() === PHP_SESSION_NONE) session_start();
+                $_SESSION['user_id'] = $tokenUser['id'];
+                $_SESSION['username'] = $tokenUser['username'];
+                $_SESSION['full_name'] = $tokenUser['full_name'];
+                $_SESSION['role'] = $roleCode;
+                $_SESSION['business_access'] = $tokenUser['business_access'] ?? 'all';
+                $_SESSION['logged_in'] = true;
+                $_SESSION['login_time'] = time();
+                $_SESSION['user_theme'] = 'dark';
+                $_SESSION['user_language'] = 'id';
+
+                // Refresh token (extend expiry)
+                $newToken = generateRememberToken($tokenUser['id'], $rememberSecret);
+                setcookie('adf_remember_token', $newToken, time() + (30 * 24 * 60 * 60), $cookiePath, '', $isSecure, true);
+
+                // Set business and redirect
+                require_once 'includes/business_helper.php';
+                require_once __DIR__ . '/includes/business_access.php';
+
+                if (in_array($roleCode, ['owner', 'admin', 'developer'])) {
+                    $ownerBizList = getUserAvailableBusinesses();
+                    if (!empty($ownerBizList)) {
+                        setActiveBusinessId(array_key_first($ownerBizList));
+                    }
+                    header('Location: ' . BASE_URL . '/modules/owner/dashboard-2028.php');
+                    exit;
+                } else {
+                    // Normal user - set first business
+                    try {
+                        $bizStmt = $masterPdo->prepare("
+                            SELECT DISTINCT b.id, b.business_code 
+                            FROM businesses b
+                            LEFT JOIN user_business_assignment uba ON b.id = uba.business_id AND uba.user_id = ?
+                            WHERE b.is_active = 1
+                            ORDER BY uba.user_id DESC, b.business_name
+                            LIMIT 1
+                        ");
+                        $bizStmt->execute([$tokenUser['id']]);
+                        $firstBiz = $bizStmt->fetch(PDO::FETCH_ASSOC);
+                        if ($firstBiz) {
+                            $_SESSION['business_id'] = (int)$firstBiz['id'];
+                            $slug = strtolower(str_replace('_', '-', $firstBiz['business_code']));
+                            setActiveBusinessId($slug);
+                        }
+                    } catch (Exception $e) {}
+                    redirect(BASE_URL . '/index.php');
+                }
+            }
+        } catch (Exception $e) {
+            // Token valid but DB error - clear token
+            error_log("Remember token auto-login failed: " . $e->getMessage());
+        }
+        // If we get here, token was invalid or user not found - clear cookie
+        setcookie('adf_remember_token', '', time() - 3600, $cookiePath, '', $isSecure, true);
+    } else {
+        // Invalid/expired token - clear cookie
+        setcookie('adf_remember_token', '', time() - 3600, $cookiePath, '', $isSecure, true);
+    }
+}
+
+// Pre-fill username from cookie (for display only)
+if (!empty($_COOKIE['adf_saved_user'])) {
     $savedUser = base64_decode($_COOKIE['adf_saved_user']);
-    $savedCred = ''; // Password is no longer stored in cookies
     $isRemembered = true;
 }
 
@@ -89,21 +197,16 @@ if (isPost()) {
     $rememberMe = isset($_POST['remember_me']);
     $loginType = getPost('login_type') ?? 'normal'; // owner or normal
     
-    // Handle remember me cookies (only save username, NEVER save password)
+    // Handle remember me - save username cookie (token set after successful login)
     if ($rememberMe && $username) {
         $cookieExpiry = time() + (30 * 24 * 60 * 60); // 30 days
-        $cookiePath = parse_url(BASE_URL, PHP_URL_PATH) ?: '/';
-        $isSecure = (!empty($_SERVER['HTTPS']) && $_SERVER['HTTPS'] !== 'off');
-        setcookie('adf_remember', '1', $cookieExpiry, $cookiePath, '', $isSecure, true);
         setcookie('adf_saved_user', base64_encode($username), $cookieExpiry, $cookiePath, '', $isSecure, true);
-        // Clear old password cookie if exists
-        setcookie('adf_saved_cred', '', time() - 3600, $cookiePath, '', $isSecure, true);
     } else {
-        // Clear cookies if not checked
-        $cookiePath = parse_url(BASE_URL, PHP_URL_PATH) ?: '/';
-        setcookie('adf_remember', '', time() - 3600, $cookiePath);
-        setcookie('adf_saved_user', '', time() - 3600, $cookiePath);
-        setcookie('adf_saved_cred', '', time() - 3600, $cookiePath);
+        // Clear all remember cookies
+        setcookie('adf_saved_user', '', time() - 3600, $cookiePath, '', $isSecure, true);
+        setcookie('adf_remember_token', '', time() - 3600, $cookiePath, '', $isSecure, true);
+        setcookie('adf_remember', '', time() - 3600, $cookiePath, '', $isSecure, true);
+        setcookie('adf_saved_cred', '', time() - 3600, $cookiePath, '', $isSecure, true);
     }
     
     // Check if business specified via URL parameter
@@ -111,6 +214,15 @@ if (isPost()) {
     
     if ($auth->login($username, $password)) {
         $currentUser = $auth->getCurrentUser();
+        
+        // Set remember-me auto-login token cookie
+        if ($rememberMe) {
+            $userId = $currentUser['id'] ?? $_SESSION['user_id'] ?? 0;
+            if ($userId) {
+                $token = generateRememberToken($userId, $rememberSecret);
+                setcookie('adf_remember_token', $token, time() + (30 * 24 * 60 * 60), $cookiePath, '', $isSecure, true);
+            }
+        }
         
         // Auto-detect user's accessible businesses
         require_once 'includes/business_helper.php';
@@ -809,14 +921,14 @@ if (isset($_GET['biz'])) {
                 <div class="form-group">
                     <label class="form-label">Password</label>
                     <div class="password-wrapper">
-                        <input type="password" name="password" id="loginPassword" autocomplete="current-password" class="form-control" placeholder="Masukkan password" required style="padding-right: 45px;" value="<?= htmlspecialchars($savedCred) ?>">
+                        <input type="password" name="password" id="loginPassword" autocomplete="current-password" class="form-control" placeholder="Masukkan password" required style="padding-right: 45px;">
                         <span class="password-toggle" onclick="togglePassword('loginPassword', this)">👁️</span>
                     </div>
                 </div>
                 
                 <div class="remember-me-wrapper" onclick="document.getElementById('rememberMe').click();">
                     <input type="checkbox" name="remember_me" id="rememberMe" onclick="event.stopPropagation();" <?= $isRemembered ? 'checked' : '' ?>>
-                    <label for="rememberMe"><?= $isRemembered ? '✅ Password Tersimpan - Langsung Login!' : '💾 Simpan Password (Auto Login)' ?></label>
+                    <label for="rememberMe"><?= $isRemembered ? '✅ Auto Login Aktif - Langsung Masuk!' : '🔒 Ingat Saya (Auto Login)' ?></label>
                 </div>
                 
                 <div class="login-buttons">
@@ -862,51 +974,37 @@ if (isset($_GET['biz'])) {
         document.querySelector('.btn-primary').focus();
     }
     
-    // Remember me - credentials saved via PHP cookies (works on iPhone Safari)
+    // Remember me - auto login via secure HMAC token
     document.addEventListener('DOMContentLoaded', function() {
         const rememberCheckbox = document.getElementById('rememberMe');
         const rememberWrapper = document.querySelector('.remember-me-wrapper');
         const rememberLabel = rememberWrapper.querySelector('label');
         
-        // If credentials were pre-filled by PHP (from cookies), show saved state
-        const isSaved = <?= $isRemembered ? 'true' : 'false' ?>;
-        if (isSaved) {
+        // If auto-login token exists, show active state
+        const hasToken = <?= isset($_COOKIE['adf_remember_token']) ? 'true' : 'false' ?>;
+        if (hasToken) {
+            rememberCheckbox.checked = true;
             rememberWrapper.style.background = 'rgba(16, 185, 129, 0.15)';
             rememberWrapper.style.borderColor = 'rgba(16, 185, 129, 0.35)';
             rememberLabel.style.color = '#34d399';
         }
         
-        // Also migrate from localStorage if cookies are empty (one-time migration)
-        if (!isSaved) {
-            try {
-                const lsUser = localStorage.getItem('saved_username');
-                const lsPass = localStorage.getItem('saved_password');
-                const lsRemember = localStorage.getItem('remember_me') === 'true';
-                if (lsRemember && lsUser && lsPass) {
-                    document.querySelector('input[name="username"]').value = lsUser;
-                    document.querySelector('input[name="password"]').value = lsPass;
-                    rememberCheckbox.checked = true;
-                    rememberWrapper.style.background = 'rgba(16, 185, 129, 0.15)';
-                    rememberWrapper.style.borderColor = 'rgba(16, 185, 129, 0.35)';
-                    rememberLabel.innerHTML = '✅ Password Tersimpan - Langsung Login!';
-                    rememberLabel.style.color = '#34d399';
-                }
-                // Clean up old localStorage
-                localStorage.removeItem('saved_username');
-                localStorage.removeItem('saved_password');
-                localStorage.removeItem('remember_me');
-            } catch(e) {}
-        }
+        // Clean up old localStorage (one-time migration)
+        try {
+            localStorage.removeItem('saved_username');
+            localStorage.removeItem('saved_password');
+            localStorage.removeItem('remember_me');
+        } catch(e) {}
         
         // Update label when checkbox changes
         rememberCheckbox.addEventListener('change', function() {
             if (this.checked) {
-                rememberLabel.innerHTML = '💾 Simpan Password (Auto Login)';
+                rememberLabel.innerHTML = '🔒 Ingat Saya (Auto Login)';
                 rememberLabel.style.color = '#a5b4fc';
                 rememberWrapper.style.background = 'rgba(99, 102, 241, 0.15)';
                 rememberWrapper.style.borderColor = 'rgba(99, 102, 241, 0.35)';
             } else {
-                rememberLabel.innerHTML = '💾 Simpan Password (Auto Login)';
+                rememberLabel.innerHTML = '🔒 Ingat Saya (Auto Login)';
                 rememberLabel.style.color = '#e2e8f0';
                 rememberWrapper.style.background = 'rgba(99, 102, 241, 0.1)';
                 rememberWrapper.style.borderColor = 'rgba(99, 102, 241, 0.2)';
