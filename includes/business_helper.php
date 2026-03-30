@@ -182,14 +182,14 @@ function getActiveBusinessId() {
         error_log("business_helper: Invalid active_business_id '{$bizId}' in session, resetting.");
     }
     
-    // Default to first available business (for backward compatibility)
+    // Default to narayana-hotel if available, otherwise first available business
     $businesses = getAvailableBusinesses();
     if (!empty($businesses)) {
-        $firstBusinessId = array_key_first($businesses);
+        $defaultBusinessId = isset($businesses['narayana-hotel']) ? 'narayana-hotel' : array_key_first($businesses);
         if (session_status() === PHP_SESSION_ACTIVE) {
-            $_SESSION['active_business_id'] = $firstBusinessId;
+            $_SESSION['active_business_id'] = $defaultBusinessId;
         }
-        return $firstBusinessId;
+        return $defaultBusinessId;
     }
     
     // Fallback

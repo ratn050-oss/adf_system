@@ -2831,18 +2831,18 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
                             $payMethod = strtolower(trim($kas['payment_method'] ?? 'other'));
                             $payLabel = strtoupper($payMethod === 'transfer' ? 'TF' : $payMethod);
                             $payClass = in_array($payMethod, ['cash','transfer','tf','qr','debit','edc']) ? $payMethod : 'other';
-                            // Check if this is guest/business cash (NOT from owner capital/petty cash accounts)
+                            // Check if this is from owner/operational accounts (capital + petty cash)
                             $txAccountId = $kas['cash_account_id'] ?? null;
-                            $isGuestCash = $txAccountId === null || !in_array((int)$txAccountId, array_map('intval', $allAccounts ?? []));
+                            $isOperational = $txAccountId !== null && in_array((int)$txAccountId, array_map('intval', $allAccounts ?? []));
                         ?>
-                        <tr<?= $isGuestCash ? ' style="color:#34d399;"' : '' ?>>
-                            <td style="white-space:nowrap;font-size:11px;<?= $isGuestCash ? 'color:#34d399;' : 'color:#94a3b8;' ?>"><?= $kas['jam'] ?></td>
+                        <tr>
+                            <td style="white-space:nowrap;font-size:11px;<?= $isOperational ? 'color:#34d399;' : 'color:#94a3b8;' ?>"><?= $kas['jam'] ?></td>
                             <td>
                                 <span class="<?= $isMasuk ? 'kas-badge-masuk' : 'kas-badge-keluar' ?>"><?= $isMasuk ? 'IN' : 'OUT' ?></span>
-                                <span<?= $isGuestCash ? ' style="color:#34d399;font-weight:600;"' : '' ?>><?= htmlspecialchars(mb_substr($kas['description'], 0, 28)) ?></span>
+                                <span<?= $isOperational ? ' style="color:#34d399;font-weight:600;"' : '' ?>><?= htmlspecialchars(mb_substr($kas['description'], 0, 28)) ?></span>
                                 <span class="kas-pay-badge <?= $payClass ?>"><?= $payLabel ?></span>
                             </td>
-                            <td class="text-right <?= $isMasuk ? 'kas-amount-masuk' : 'kas-amount-keluar' ?>" style="white-space:nowrap;<?= $isGuestCash ? 'color:#34d399 !important;' : '' ?>">
+                            <td class="text-right" style="white-space:nowrap;<?= $isOperational ? 'color:#34d399;' : ($isMasuk ? 'color:#e2e8f0;' : 'color:#e2e8f0;') ?>">
                                 <?= $isMasuk ? '+' : '-' ?><?= number_format($amount, 0, ',', '.') ?>
                             </td>
                         </tr>
