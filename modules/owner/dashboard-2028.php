@@ -53,12 +53,8 @@ uksort($allBusinesses, function($a, $b) {
     return strcmp($a, $b);
 });
 
-// Default to narayana-hotel when opening without explicit ?business= choice
+// Get active business (respects session - don't force default on every load)
 $activeBusinessId = getActiveBusinessId();
-if (!isset($_GET['business']) && isset($allBusinesses['narayana-hotel'])) {
-    setActiveBusinessId('narayana-hotel');
-    $activeBusinessId = 'narayana-hotel';
-}
 
 // If current active business is not in user's allowed list, auto-switch to first allowed
 if (!empty($allBusinesses) && !isset($allBusinesses[$activeBusinessId])) {
