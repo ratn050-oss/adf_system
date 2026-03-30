@@ -2259,7 +2259,7 @@ body[data-theme="dark"] .stats-list li {
                                         <span><?php echo $statusIcon . $guestName; ?> • <?php echo $shortCode; ?></span>
                                         <?php if ($isCheckedIn && !$isPastBooking): ?>
                                         <button class="bar-action-btn bar-extend-btn" onclick="event.stopPropagation(); openExtendModal(<?php echo $booking['id']; ?>, '<?php echo $guestName; ?>', '<?php echo $booking['check_out_date']; ?>', <?php echo $totalNights; ?>)" title="Extend Stay">+</button>
-                                        <?php elseif (!$isCheckedIn && !$isCheckedOut && !$isPastBooking): ?>
+                                        <?php elseif (!$isCheckedIn): ?>
                                         <button class="bar-action-btn bar-edit-btn" onclick="event.stopPropagation(); openEditReservationModal(<?php echo $booking['id']; ?>)" title="Edit Reservasi">✎</button>
                                         <?php endif; ?>
                                     </div>
@@ -2563,9 +2563,11 @@ function showBookingQuickView(booking) {
         actionButtons += '<button type="button" class="qv-btn qv-pay-btn" onclick="openBookingPaymentModal()">Pay</button>';
     }
     
-    // Edit & Delete (only for pending/confirmed bookings)
-    if (booking.status === 'confirmed' || booking.status === 'pending') {
+    // Edit (pending/confirmed/checked_in/checked_out) & Delete (pending/confirmed only)
+    if (booking.status === 'confirmed' || booking.status === 'pending' || booking.status === 'checked_in' || booking.status === 'checked_out') {
         actionButtons += '<button type="button" class="qv-btn" onclick="closeBookingQuickView(); openEditReservationModal(' + booking.id + ')" style="background:#f59e0b; color:white; border:none;">✏️ Edit</button>';
+    }
+    if (booking.status === 'confirmed' || booking.status === 'pending') {
         actionButtons += '<button type="button" class="qv-btn" onclick="quickViewDeleteBooking()" style="background:#ef4444; color:white; border:none;">🗑️ Hapus</button>';
     }
 

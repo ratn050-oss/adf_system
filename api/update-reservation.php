@@ -62,9 +62,9 @@ try {
         throw new Exception('Booking not found');
     }
 
-    // Only allow editing confirmed/pending bookings
-    if (!in_array($booking['status'], ['confirmed', 'pending'])) {
-        throw new Exception('Can only edit confirmed or pending reservations');
+    // Allow editing confirmed, pending, checked_in, and checked_out bookings
+    if (!in_array($booking['status'], ['confirmed', 'pending', 'checked_in', 'checked_out'])) {
+        throw new Exception('Cannot edit cancelled reservations');
     }
 
     // Update guest info in guests table
