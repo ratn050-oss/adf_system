@@ -456,6 +456,7 @@ $fpConfig = $db->fetchOne("SELECT fingerspot_cloud_id, fingerspot_enabled FROM p
 $fpEnabled = (int)($fpConfig['fingerspot_enabled'] ?? 0);
 $fpCloudId = $fpConfig['fingerspot_cloud_id'] ?? '';
 $webhookUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'adfsystem.online') . str_replace('/modules/payroll/attendance.php', '', $_SERVER['SCRIPT_NAME']) . '/api/fingerprint-webhook.php?b=' . urlencode($bizSlug);
+$webhookUrlMulti = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'adfsystem.online') . str_replace('/modules/payroll/attendance.php', '', $_SERVER['SCRIPT_NAME']) . '/api/fingerprint-webhook.php';
 
 // Webhook logs
 $fpLogs = [];
@@ -854,9 +855,21 @@ include '../../includes/header.php';
 
         <!-- Webhook URL -->
         <div style="background:linear-gradient(135deg,#eff6ff,#dbeafe); border:1px solid #93c5fd; border-radius:10px; padding:14px; margin-bottom:14px;">
-            <div style="font-size:11px; font-weight:700; color:#1e40af; margin-bottom:6px;">🔗 Webhook URL</div>
-            <div style="background:#fff; border:1px solid #bfdbfe; border-radius:6px; padding:8px; font-family:monospace; font-size:10px; color:#1e3a5f; word-break:break-all; cursor:pointer;" onclick="copyWebhookUrl(this)"><?php echo htmlspecialchars($webhookUrl); ?></div>
-            <div style="font-size:9px; color:#3b82f6; margin-top:4px;">📋 Klik untuk copy → Paste di Fingerspot.io → Developer → Webhook</div>
+            <div style="font-size:11px; font-weight:700; color:#1e40af; margin-bottom:8px;">🔗 Webhook URL</div>
+
+            <!-- Multi-business URL (recommended) -->
+            <div style="margin-bottom:8px;">
+                <div style="font-size:9px; font-weight:700; color:#059669; margin-bottom:3px;">⭐ REKOMENDASI — Multi-Bisnis (1 device untuk semua bisnis)</div>
+                <div style="background:#ecfdf5; border:2px solid #6ee7b7; border-radius:6px; padding:8px; font-family:monospace; font-size:10px; color:#064e3b; word-break:break-all; cursor:pointer;" onclick="copyWebhookUrl(this)"><?php echo htmlspecialchars($webhookUrlMulti); ?></div>
+                <div style="font-size:9px; color:#059669; margin-top:3px;">📋 Klik untuk copy → 1 URL untuk semua bisnis yang pakai Cloud ID sama</div>
+            </div>
+
+            <!-- Single-business URL -->
+            <div>
+                <div style="font-size:9px; font-weight:600; color:#6b7280; margin-bottom:3px;">Bisnis ini saja (<?php echo htmlspecialchars($bizSlug); ?>)</div>
+                <div style="background:#fff; border:1px solid #bfdbfe; border-radius:6px; padding:8px; font-family:monospace; font-size:10px; color:#1e3a5f; word-break:break-all; cursor:pointer;" onclick="copyWebhookUrl(this)"><?php echo htmlspecialchars($webhookUrl); ?></div>
+                <div style="font-size:9px; color:#3b82f6; margin-top:3px;">📋 Klik untuk copy → Hanya proses absen untuk <?php echo htmlspecialchars($bizSlug); ?></div>
+            </div>
         </div>
 
         <!-- PIN Mapping -->
