@@ -2835,18 +2835,28 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
                             $payMethod = strtolower(trim($kas['payment_method'] ?? 'other'));
                             $payLabel = strtoupper($payMethod === 'transfer' ? 'TF' : $payMethod);
                             $payClass = in_array($payMethod, ['cash','transfer','tf','qr','debit','edc']) ? $payMethod : 'other';
-                            // GREEN = transfer operasional (has cash_account_id matching owner/petty cash accounts)
+                            // Color logic:
+                            // GREEN = transfer dana operasional masuk (income to owner/petty cash accounts)
+                            // RED = semua pengeluaran (expense)
+                            // WHITE = lainnya (income dari tamu/guest)
                             $txAccId = isset($kas['cash_account_id']) ? (int)$kas['cash_account_id'] : 0;
-                            $isOperational = $txAccId > 0 && in_array($txAccId, $operationalIds);
+                            $isOperationalIn = $isMasuk && $txAccId > 0 && in_array($txAccId, $operationalIds);
+                            if ($isOperationalIn) {
+                                $rowColor = '#34d399'; // green
+                            } elseif (!$isMasuk) {
+                                $rowColor = '#f87171'; // red
+                            } else {
+                                $rowColor = '#e2e8f0'; // white
+                            }
                         ?>
                         <tr>
-                            <td style="white-space:nowrap;font-size:11px;color:<?= $isOperational ? '#34d399' : '#e2e8f0' ?>;"><?= $kas['jam'] ?></td>
+                            <td style="white-space:nowrap;font-size:11px;color:<?= $rowColor ?>;"><?= $kas['jam'] ?></td>
                             <td>
                                 <span class="<?= $isMasuk ? 'kas-badge-masuk' : 'kas-badge-keluar' ?>"><?= $isMasuk ? 'IN' : 'OUT' ?></span>
-                                <span style="color:<?= $isOperational ? '#34d399' : '#e2e8f0' ?>;<?= $isOperational ? 'font-weight:600;' : '' ?>"><?= htmlspecialchars(mb_substr($kas['description'], 0, 28)) ?></span>
+                                <span style="color:<?= $rowColor ?>;<?= $isOperationalIn ? 'font-weight:600;' : '' ?>"><?= htmlspecialchars(mb_substr($kas['description'], 0, 28)) ?></span>
                                 <span class="kas-pay-badge <?= $payClass ?>"><?= $payLabel ?></span>
                             </td>
-                            <td class="text-right" style="white-space:nowrap;font-weight:700;color:<?= $isOperational ? '#34d399' : '#e2e8f0' ?>;">
+                            <td class="text-right" style="white-space:nowrap;font-weight:700;color:<?= $rowColor ?>;">
                                 <?= $isMasuk ? '+' : '-' ?><?= number_format($amount, 0, ',', '.') ?>
                             </td>
                         </tr>
