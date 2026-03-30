@@ -143,7 +143,7 @@ include '../../includes/header.php';
                 <?php endfor; ?>
             </select>
             <select onchange="location.href='?month=<?php echo $month; ?>&year='+this.value">
-                <?php for ($y=2024; $y<=2028; $y++): ?>
+                <?php for ($y=2024; $y<=((int)date('Y')+2); $y++): ?>
                 <option value="<?php echo $y; ?>" <?php echo $y==$year?'selected':''; ?>><?php echo $y; ?></option>
                 <?php endfor; ?>
             </select>

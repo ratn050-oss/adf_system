@@ -27,15 +27,17 @@ try {
     $sqlFile = __DIR__ . '/../../database-payroll.sql';
     if (file_exists($sqlFile)) {
         $sql = file_get_contents($sqlFile);
-        $statements = array_filter(array_map('trim', explode(';', $sql)));
         $pdo = $db->getConnection();
+        // Strip comment lines, then split and execute
+        $sql = preg_replace('/^\s*--.*$/m', '', $sql);
+        $statements = array_filter(array_map('trim', explode(';', $sql)));
         foreach ($statements as $stmt) {
-            if (!empty($stmt) && stripos($stmt, 'CREATE TABLE') !== false) {
+            if (!empty($stmt)) {
                 try { $pdo->exec($stmt); } catch (PDOException $ex) {}
             }
         }
-        setFlash('success', 'Payroll database initialized successfully.');
-        header("Refresh:0");
+        setFlash('success', 'Database payroll berhasil diinisialisasi.');
+        header("Location: " . $_SERVER['REQUEST_URI']);
         exit;
     }
 }
