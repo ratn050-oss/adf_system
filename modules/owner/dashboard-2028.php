@@ -2485,7 +2485,7 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
                     </div>
                     <div style="text-align:right;">
                         <div style="font-size:9px;text-transform:uppercase;letter-spacing:1.5px;opacity:0.6;font-weight:600;color:#fff;">Net Profit</div>
-                        <div style="font-size:20px;font-weight:800;letter-spacing:-0.5px;color:<?= $netProfit >= 0 ? '#34d399' : '#fb7185' ?>;"><?= $netProfit >= 0 ? '+' : '' ?><?= rp($netProfit) ?></div>
+                        <div style="font-size:20px;font-weight:800;letter-spacing:-0.5px;color:#ffffff;"><?= $netProfit >= 0 ? '+' : '' ?><?= rp($netProfit) ?></div>
                     </div>
                 </div>
 
@@ -2722,7 +2722,7 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
                 
                 // Get ALL transactions for TODAY (no limit - show full daily detail)
                 $sqlKas = "
-                    SELECT id, transaction_type, description, amount, payment_method,
+                    SELECT id, transaction_type, description, amount, payment_method, cash_account_id,
                            TIME_FORMAT(CONCAT(transaction_date, ' ', COALESCE(transaction_time, '00:00:00')), '%H:%i') as jam,
                            transaction_date
                     FROM cash_book 
@@ -2831,15 +2831,18 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
                             $payMethod = strtolower(trim($kas['payment_method'] ?? 'other'));
                             $payLabel = strtoupper($payMethod === 'transfer' ? 'TF' : $payMethod);
                             $payClass = in_array($payMethod, ['cash','transfer','tf','qr','debit','edc']) ? $payMethod : 'other';
+                            // Check if this is guest/business cash (NOT from owner capital/petty cash accounts)
+                            $txAccountId = $kas['cash_account_id'] ?? null;
+                            $isGuestCash = $txAccountId === null || !in_array((int)$txAccountId, array_map('intval', $allAccounts ?? []));
                         ?>
-                        <tr>
-                            <td style="white-space:nowrap;font-size:11px;color:#94a3b8;"><?= $kas['jam'] ?></td>
+                        <tr<?= $isGuestCash ? ' style="color:#34d399;"' : '' ?>>
+                            <td style="white-space:nowrap;font-size:11px;<?= $isGuestCash ? 'color:#34d399;' : 'color:#94a3b8;' ?>"><?= $kas['jam'] ?></td>
                             <td>
                                 <span class="<?= $isMasuk ? 'kas-badge-masuk' : 'kas-badge-keluar' ?>"><?= $isMasuk ? 'IN' : 'OUT' ?></span>
-                                <?= htmlspecialchars(mb_substr($kas['description'], 0, 28)) ?>
+                                <span<?= $isGuestCash ? ' style="color:#34d399;font-weight:600;"' : '' ?>><?= htmlspecialchars(mb_substr($kas['description'], 0, 28)) ?></span>
                                 <span class="kas-pay-badge <?= $payClass ?>"><?= $payLabel ?></span>
                             </td>
-                            <td class="text-right <?= $isMasuk ? 'kas-amount-masuk' : 'kas-amount-keluar' ?>" style="white-space:nowrap;">
+                            <td class="text-right <?= $isMasuk ? 'kas-amount-masuk' : 'kas-amount-keluar' ?>" style="white-space:nowrap;<?= $isGuestCash ? 'color:#34d399 !important;' : '' ?>">
                                 <?= $isMasuk ? '+' : '-' ?><?= number_format($amount, 0, ',', '.') ?>
                             </td>
                         </tr>
