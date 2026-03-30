@@ -197,6 +197,18 @@ function getActiveBusinessId() {
 }
 
 /**
+ * Get the preferred default business from a list of businesses
+ * Prefers narayana-hotel, falls back to first available
+ * @param array $businesses Associative array keyed by business slug
+ * @return string Business slug
+ */
+function getPreferredDefaultBusiness($businesses) {
+    if (empty($businesses)) return 'narayana-hotel';
+    if (isset($businesses['narayana-hotel'])) return 'narayana-hotel';
+    return array_key_first($businesses);
+}
+
+/**
  * Set active business ID in session
  * @param string $businessCode Business code/slug to set as active (e.g., 'narayana-hotel')
  * @return bool Success

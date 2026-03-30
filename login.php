@@ -134,7 +134,7 @@ if (!empty($_COOKIE['adf_remember_token']) && !$auth->isLoggedIn() && !isPost())
                 if (in_array($roleCode, ['owner', 'admin', 'developer'])) {
                     $ownerBizList = getUserAvailableBusinesses();
                     if (!empty($ownerBizList)) {
-                        setActiveBusinessId(array_key_first($ownerBizList));
+                        setActiveBusinessId(getPreferredDefaultBusiness($ownerBizList));
                     }
                     header('Location: ' . BASE_URL . '/modules/owner/dashboard-2028.php');
                     exit;
@@ -293,7 +293,7 @@ if (isPost()) {
                         require_once __DIR__ . '/includes/business_access.php';
                         $ownerBizList = getUserAvailableBusinesses();
                         if (!empty($ownerBizList)) {
-                            $firstOwnerBiz = array_key_first($ownerBizList);
+                            $firstOwnerBiz = getPreferredDefaultBusiness($ownerBizList);
                             setActiveBusinessId($firstOwnerBiz);
                         }
                         setFlash('success', 'Login Owner berhasil!');
@@ -310,9 +310,9 @@ if (isPost()) {
                     if ($forcedBusiness) {
                         setActiveBusinessId($forcedBusiness);
                     } else {
-                        // Default to first available business
+                        // Default to narayana-hotel if available
                         $allBiz = getAvailableBusinesses();
-                        $firstBiz = !empty($allBiz) ? array_key_first($allBiz) : 'narayana-hotel';
+                        $firstBiz = getPreferredDefaultBusiness($allBiz);
                         setActiveBusinessId($firstBiz);
                     }
                     setFlash('success', 'Login berhasil! Developer mode aktif.');

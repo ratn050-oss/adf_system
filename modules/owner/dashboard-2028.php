@@ -2578,6 +2578,7 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
         $totalOperationalExpense = 0;
         $totalOperationalCash = 0;
         $guestCashIncome = 0;
+        $allAccounts = [];
         $capitalStats = ['received' => 0, 'used' => 0, 'balance' => 0];
         $pettyCashStats = ['received' => 0, 'used' => 0, 'balance' => 0];
         
@@ -2825,24 +2826,27 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
                         </tr>
                     </thead>
                     <tbody>
-                        <?php foreach ($todayKas as $kas): 
+                        <?php 
+                        // Build lookup array of operational account IDs for color coding
+                        $operationalIds = array_map('intval', $allAccounts);
+                        foreach ($todayKas as $kas): 
                             $isMasuk = $kas['transaction_type'] === 'income';
                             $amount = (float)$kas['amount'];
                             $payMethod = strtolower(trim($kas['payment_method'] ?? 'other'));
                             $payLabel = strtoupper($payMethod === 'transfer' ? 'TF' : $payMethod);
                             $payClass = in_array($payMethod, ['cash','transfer','tf','qr','debit','edc']) ? $payMethod : 'other';
-                            // Check if this is from owner/operational accounts (capital + petty cash)
-                            $txAccountId = $kas['cash_account_id'] ?? null;
-                            $isOperational = $txAccountId !== null && in_array((int)$txAccountId, array_map('intval', $allAccounts ?? []));
+                            // GREEN = transfer operasional (has cash_account_id matching owner/petty cash accounts)
+                            $txAccId = isset($kas['cash_account_id']) ? (int)$kas['cash_account_id'] : 0;
+                            $isOperational = $txAccId > 0 && in_array($txAccId, $operationalIds);
                         ?>
                         <tr>
-                            <td style="white-space:nowrap;font-size:11px;<?= $isOperational ? 'color:#34d399;' : 'color:#94a3b8;' ?>"><?= $kas['jam'] ?></td>
+                            <td style="white-space:nowrap;font-size:11px;color:<?= $isOperational ? '#34d399' : '#e2e8f0' ?>;"><?= $kas['jam'] ?></td>
                             <td>
                                 <span class="<?= $isMasuk ? 'kas-badge-masuk' : 'kas-badge-keluar' ?>"><?= $isMasuk ? 'IN' : 'OUT' ?></span>
-                                <span<?= $isOperational ? ' style="color:#34d399;font-weight:600;"' : '' ?>><?= htmlspecialchars(mb_substr($kas['description'], 0, 28)) ?></span>
+                                <span style="color:<?= $isOperational ? '#34d399' : '#e2e8f0' ?>;<?= $isOperational ? 'font-weight:600;' : '' ?>"><?= htmlspecialchars(mb_substr($kas['description'], 0, 28)) ?></span>
                                 <span class="kas-pay-badge <?= $payClass ?>"><?= $payLabel ?></span>
                             </td>
-                            <td class="text-right" style="white-space:nowrap;<?= $isOperational ? 'color:#34d399;' : ($isMasuk ? 'color:#e2e8f0;' : 'color:#e2e8f0;') ?>">
+                            <td class="text-right" style="white-space:nowrap;font-weight:700;color:<?= $isOperational ? '#34d399' : '#e2e8f0' ?>;">
                                 <?= $isMasuk ? '+' : '-' ?><?= number_format($amount, 0, ',', '.') ?>
                             </td>
                         </tr>

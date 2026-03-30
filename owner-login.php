@@ -85,7 +85,7 @@ if (!empty($_COOKIE['adf_owner_remember_token']) && !$auth->isLoggedIn() && !isP
                 require_once __DIR__ . '/includes/business_access.php';
                 $ownerBizList = getUserAvailableBusinesses();
                 if (!empty($ownerBizList)) {
-                    setActiveBusinessId(array_key_first($ownerBizList));
+                    setActiveBusinessId(getPreferredDefaultBusiness($ownerBizList));
                 }
                 header('Location: ' . BASE_URL . '/modules/owner/dashboard-2028.php');
                 exit;
@@ -179,7 +179,7 @@ if (isPost()) {
                     require_once __DIR__ . '/includes/business_access.php';
                     $ownerBizList = getUserAvailableBusinesses();
                     if (!empty($ownerBizList)) {
-                        setActiveBusinessId(array_key_first($ownerBizList));
+                        setActiveBusinessId(getPreferredDefaultBusiness($ownerBizList));
                     }
                     
                     redirect(BASE_URL . '/modules/owner/dashboard-2028.php');
