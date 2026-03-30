@@ -2702,48 +2702,35 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
                 
                 $startKasHariIni = $startKasOwner + $startKasPetty;
                 
-                // Owner Transfer THIS MONTH - ONLY actual owner fund transfers (source_type='owner_fund')
-                if ($hasSourceTypeCol) {
+                // Owner Transfer THIS MONTH - ALL income to ALL cash accounts (synced with index.php)
+                $allAccIds = array_merge($capitalAccounts, $pettyCashAccounts);
+                if (!empty($allAccIds)) {
+                    $ownerPh = implode(',', array_fill(0, count($allAccIds), '?'));
                     $sqlOwnerTransfer = "
                         SELECT COALESCE(SUM(amount), 0) as total
                         FROM cash_book 
-                        WHERE transaction_type = 'income'
-                        AND source_type = 'owner_fund'
+                        WHERE cash_account_id IN ($ownerPh)
+                        AND transaction_type = 'income'
                         AND DATE_FORMAT(transaction_date, '%Y-%m') = ?
                     ";
                     $stmtOwnerTransfer = $kasDb->prepare($sqlOwnerTransfer);
-                    $stmtOwnerTransfer->execute([$thisMonth]);
+                    $stmtOwnerTransfer->execute(array_merge($allAccIds, [$thisMonth]));
+                    $ownerTransferThisMonth = (float)($stmtOwnerTransfer->fetchColumn() ?: 0);
                 } else {
-                    // Fallback: only count income to owner_capital accounts (not petty cash)
-                    if (!empty($capitalAccounts)) {
-                        $capPh = implode(',', array_fill(0, count($capitalAccounts), '?'));
-                        $sqlOwnerTransfer = "
-                            SELECT COALESCE(SUM(amount), 0) as total
-                            FROM cash_book 
-                            WHERE cash_account_id IN ($capPh) 
-                            AND transaction_type = 'income'
-                            AND DATE_FORMAT(transaction_date, '%Y-%m') = ?
-                        ";
-                        $stmtOwnerTransfer = $kasDb->prepare($sqlOwnerTransfer);
-                        $stmtOwnerTransfer->execute(array_merge($capitalAccounts, [$thisMonth]));
-                    } else {
-                        $stmtOwnerTransfer = null;
-                    }
+                    $ownerTransferThisMonth = 0;
                 }
-                $ownerTransferThisMonth = $stmtOwnerTransfer ? (float)($stmtOwnerTransfer->fetchColumn() ?: 0) : 0;
                 
-                // Get ALL recent transactions (not filtered by account - same as index.php)
+                // Get ALL transactions for TODAY (no limit - show full daily detail)
                 $sqlKas = "
                     SELECT id, transaction_type, description, amount, payment_method,
                            TIME_FORMAT(CONCAT(transaction_date, ' ', COALESCE(transaction_time, '00:00:00')), '%H:%i') as jam,
                            transaction_date
                     FROM cash_book 
-                    WHERE DATE_FORMAT(transaction_date, '%Y-%m') = ?
-                    ORDER BY transaction_date DESC, transaction_time DESC, id DESC
-                    LIMIT 8
+                    WHERE transaction_date = ?
+                    ORDER BY transaction_time DESC, id DESC
                 ";
                 $stmtKas = $kasDb->prepare($sqlKas);
-                $stmtKas->execute([$thisMonth]);
+                $stmtKas->execute([$today]);
                 $todayKas = $stmtKas->fetchAll(PDO::FETCH_ASSOC);
             }
             
@@ -2787,7 +2774,7 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
                     <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#60a5fa" stroke-width="2"><rect x="2" y="3" width="20" height="14" rx="2"/><path d="M8 21h8m-4-4v4"/></svg>
                     Daily Cash
                 </div>
-                <div class="kas-harian-date"><?= date('M Y') ?></div>
+                <div class="kas-harian-date"><?= date('d M Y') ?> (Today)</div>
             </div>
             
             <!-- Hero: Start Cash + Cash Available -->
@@ -2824,10 +2811,11 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
             </div>
             <?php endif; ?>
             
-            <div class="kas-table-wrapper">
+            <div class="kas-table-wrapper" style="max-height: 400px; overflow-y: auto;">
                 <?php if (empty($todayKas)): ?>
-                <div class="kas-empty">No cash transactions this month</div>
+                <div class="kas-empty">No transactions today</div>
                 <?php else: ?>
+                <div style="font-size: 11px; color: #94a3b8; margin-bottom: 6px; text-align: right;"><?= count($todayKas) ?> transaksi hari ini</div>
                 <table class="kas-table">
                     <thead>
                         <tr>

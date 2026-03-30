@@ -28,15 +28,22 @@ if (!in_array($currentUser['role'], ['owner', 'admin', 'manager', 'developer']))
 
 $limit = isset($_GET['limit']) ? (int)$_GET['limit'] : 10;
 $todayOnly = isset($_GET['today']) && $_GET['today'] == '1';
+$allDaily = isset($_GET['all_daily']) && $_GET['all_daily'] == '1';
 
 try {
     // Switch to hotel database
     $db = Database::switchDatabase(getDbName('adf_narayana_hotel'));
     
     // Build date filter
-    $dateFilter = $todayOnly 
-        ? "DATE(cb.transaction_date) = CURDATE()" 
-        : "DATE(cb.transaction_date) >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)";
+    if ($allDaily || $todayOnly) {
+        $dateFilter = "DATE(cb.transaction_date) = CURDATE()";
+    } else {
+        $dateFilter = "DATE(cb.transaction_date) >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)";
+    }
+    
+    // Build limit clause
+    $limitClause = $allDaily ? "" : "LIMIT ?";
+    $params = $allDaily ? [] : [$limit];
     
     // Get recent transactions
     $transactions = $db->fetchAll(
@@ -51,8 +58,8 @@ try {
          LEFT JOIN users u ON cb.created_by = u.id
          WHERE $dateFilter
          ORDER BY cb.transaction_date DESC, cb.transaction_time DESC
-         LIMIT ?",
-        [$limit]
+         $limitClause",
+        $params
     );
     
     // Format transactions for display
