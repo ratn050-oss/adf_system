@@ -104,6 +104,7 @@ try {
     $db->query("ALTER TABLE payroll_slips ADD COLUMN IF NOT EXISTS work_hours DECIMAL(10,2) NOT NULL DEFAULT 200.00 AFTER position");
     $db->query("ALTER TABLE payroll_slips ADD COLUMN IF NOT EXISTS actual_base DECIMAL(15,2) NOT NULL DEFAULT 0.00 AFTER work_hours");
     $db->query("ALTER TABLE payroll_slips ADD COLUMN IF NOT EXISTS is_paid TINYINT(1) NOT NULL DEFAULT 0");
+    $db->query("ALTER TABLE payroll_slips ADD COLUMN IF NOT EXISTS hours_locked TINYINT(1) NOT NULL DEFAULT 0");
 } catch (Exception $e) {
     // Column may already exist or not supported
 }
@@ -121,13 +122,41 @@ $period = $db->fetchOne("SELECT * FROM payroll_periods WHERE period_month = ? AN
 function getAttendanceHours($db, $empId, $month, $year) {
     $monthStr = sprintf('%04d-%02d', $year, $month);
     $rows = $db->fetchAll(
-        "SELECT work_hours FROM payroll_attendance WHERE employee_id = ? AND DATE_FORMAT(attendance_date, '%Y-%m') = ? AND work_hours > 0",
+        "SELECT work_hours, shift_1_hours, shift_2_hours, check_in_time, check_out_time, scan_3, scan_4
+         FROM payroll_attendance 
+         WHERE employee_id = ? AND DATE_FORMAT(attendance_date, '%Y-%m') = ?
+         AND (work_hours > 0 OR check_in_time IS NOT NULL)",
         [$empId, $monthStr]
     );
     $totalHours = 0;
     $totalOvertimeHours = 0;
+    $daysWorked = 0;
     foreach ($rows as $r) {
         $wh = (float)$r['work_hours'];
+        // If work_hours not stored, compute from scan timestamps
+        if ($wh <= 0) {
+            $shift1 = 0;
+            $shift2 = 0;
+            // Shift 1: scan1 (check_in_time) → scan2 (check_out_time)
+            if (!empty($r['shift_1_hours']) && (float)$r['shift_1_hours'] > 0) {
+                $shift1 = (float)$r['shift_1_hours'];
+            } elseif (!empty($r['check_in_time']) && !empty($r['check_out_time'])) {
+                $t1 = strtotime($r['check_in_time']);
+                $t2 = strtotime($r['check_out_time']);
+                if ($t2 > $t1) $shift1 = round(($t2 - $t1) / 3600, 2);
+            }
+            // Shift 2: scan3 → scan4
+            if (!empty($r['shift_2_hours']) && (float)$r['shift_2_hours'] > 0) {
+                $shift2 = (float)$r['shift_2_hours'];
+            } elseif (!empty($r['scan_3']) && !empty($r['scan_4'])) {
+                $t3 = strtotime($r['scan_3']);
+                $t4 = strtotime($r['scan_4']);
+                if ($t4 > $t3) $shift2 = round(($t4 - $t3) / 3600, 2);
+            }
+            $wh = round($shift1 + $shift2, 2);
+            if ($wh <= 0) continue; // no usable scan data for this day
+        }
+        $daysWorked++;
         $totalHours += $wh;
         if ($wh > 8) {
             $otRaw = $wh - 8;
@@ -138,17 +167,23 @@ function getAttendanceHours($db, $empId, $month, $year) {
     return [
         'work_hours' => round($totalHours, 2),
         'overtime_hours' => round($totalOvertimeHours, 2),
-        'days_worked' => count($rows)
+        'days_worked' => $daysWorked
     ];
 }
 
 // ── Helper: Sync all slips with attendance data ──
 function syncSlipsWithAttendance($db, $periodId, $month, $year) {
-    $slipsToSync = $db->fetchAll("SELECT id, employee_id, base_salary FROM payroll_slips WHERE period_id = ?", [$periodId]);
+    $slipsToSync = $db->fetchAll("SELECT id, employee_id, base_salary, hours_locked, work_hours, overtime_hours FROM payroll_slips WHERE period_id = ?", [$periodId]);
     foreach ($slipsToSync as $slip) {
-        $att = getAttendanceHours($db, $slip['employee_id'], $month, $year);
-        $workH = $att['work_hours'];
-        $otH = $att['overtime_hours'];
+        // If user manually locked work hours, keep them; only recalculate salary amounts
+        if ($slip['hours_locked']) {
+            $workH = (float)$slip['work_hours'];
+            $otH = (float)$slip['overtime_hours'];
+        } else {
+            $att = getAttendanceHours($db, $slip['employee_id'], $month, $year);
+            $workH = $att['work_hours'];
+            $otH = $att['overtime_hours'];
+        }
         $baseSalary = (float)$slip['base_salary'];
         $hourlyRate = $baseSalary / 200;
         $actualBase = ($workH >= 200) ? $baseSalary : round($workH * $hourlyRate, 2);
@@ -283,7 +318,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_update'])) {
                 overtime_hours = ?, overtime_rate = ?, overtime_amount = ?,
                 incentive = ?, allowance = ?, uang_makan = ?, bonus = ?, other_income = ?,
                 deduction_loan = ?, deduction_absence = ?, deduction_tax = ?, deduction_bpjs = ?, deduction_other = ?,
-                total_earnings = ?, total_deductions = ?, net_salary = ?
+                total_earnings = ?, total_deductions = ?, net_salary = ?, hours_locked = 1
                 WHERE id = ?";
     
         $db->query($sql, [
@@ -307,6 +342,23 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_update'])) {
         echo json_encode(['status' => 'success', 'net_salary' => $net_salary, 'actual_base' => $actual_base]);
     } catch (Exception $e) {
         http_response_code(500);
+        echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
+    }
+    exit;
+}
+
+// Handle Unlock Hours AJAX
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_unlock_hours'])) {
+    header('Content-Type: application/json');
+    $slip_id = (int)$_POST['slip_id'];
+    try {
+        $slip = $db->fetchOne("SELECT employee_id FROM payroll_slips WHERE id = ?", [$slip_id]);
+        if (!$slip) throw new Exception('Slip not found');
+        $att = getAttendanceHours($db, $slip['employee_id'], $month, $year);
+        $db->query("UPDATE payroll_slips SET hours_locked = 0, work_hours = ?, overtime_hours = ? WHERE id = ?",
+            [$att['work_hours'], $att['overtime_hours'], $slip_id]);
+        echo json_encode(['status' => 'success', 'work_hours' => $att['work_hours'], 'overtime_hours' => $att['overtime_hours']]);
+    } catch (Exception $e) {
         echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
     }
     exit;
@@ -1454,13 +1506,15 @@ include '../../includes/header.php';
                         $baseSalary = (float)$slip['base_salary'];
                         $hourlyRate = $baseSalary / 200;
                         $actualBase = ($workHours >= 200) ? $baseSalary : round($workHours * $hourlyRate, 2);
+                        $isHoursLocked = !empty($slip['hours_locked']);
                     ?>
                     <tr id="row-<?php echo $slip['id']; ?>"
                         data-loan="<?php echo $slip['deduction_loan'] ?? 0; ?>"
                         data-absence="<?php echo $slip['deduction_absence'] ?? 0; ?>"
                         data-tax="<?php echo $slip['deduction_tax'] ?? 0; ?>"
                         data-bpjs="<?php echo $slip['deduction_bpjs'] ?? 0; ?>"
-                        data-other="<?php echo $slip['deduction_other'] ?? 0; ?>">
+                        data-other="<?php echo $slip['deduction_other'] ?? 0; ?>"
+                        data-hours-locked="<?php echo $isHoursLocked ? '1' : '0'; ?>">
                         <td style="text-align:center;">
                             <?php if(empty($slip['is_paid'])): ?>
                             <input type="checkbox" class="pay-select-cb" value="<?php echo $slip['id']; ?>" data-net="<?php echo $slip['net_salary']; ?>" data-name="<?php echo htmlspecialchars($slip['employee_name']); ?>" onchange="updatePaySelection()">
@@ -1489,10 +1543,20 @@ include '../../includes/header.php';
                         </td>
                         
                         <td>
-                            <input type="number" class="ps-input highlight-hours" 
-                                   value="<?php echo $workHours; ?>" step="1" min="0" max="300"
-                                   data-field="work_hours" data-id="<?php echo $slip['id']; ?>"
-                                   onchange="calculateRow(<?php echo $slip['id']; ?>)">
+                            <div style="display:flex;align-items:center;gap:2px;">
+                                <input type="number" class="ps-input highlight-hours" 
+                                       value="<?php echo $workHours; ?>" step="0.5" min="0" max="300"
+                                       data-field="work_hours" data-id="<?php echo $slip['id']; ?>"
+                                       onchange="calculateRow(<?php echo $slip['id']; ?>)"
+                                       title="<?php echo $isHoursLocked ? 'Manual (dikunci)' : 'Auto dari absensi'; ?>">
+                                <?php if ($isHoursLocked): ?>
+                                <button type="button" onclick="unlockHours(<?php echo $slip['id']; ?>)" 
+                                        title="Reset ke data absensi" 
+                                        style="border:none;background:none;cursor:pointer;padding:0;color:#f59e0b;font-size:11px;line-height:1;">🔒</button>
+                                <?php else: ?>
+                                <span style="font-size:9px;color:var(--text-tertiary);opacity:0.6;" title="Auto-sync dari absensi">🔄</span>
+                                <?php endif; ?>
+                            </div>
                         </td>
                         
                         <td>
@@ -1854,6 +1918,31 @@ document.getElementById('deductionModal')?.addEventListener('click', function(e)
     if (e.target === this) closeDeductionModal();
 });
 
+// ── Unlock Hours (reset to attendance auto-sync) ──
+function unlockHours(id) {
+    if (!confirm('Reset jam kerja ke data absensi otomatis? Perubahan manual akan hilang.')) return;
+    const data = new FormData();
+    data.append('ajax_unlock_hours', 1);
+    data.append('slip_id', id);
+    fetch('process.php?month=<?php echo $month; ?>&year=<?php echo $year; ?>', { method: 'POST', body: data })
+        .then(r => r.json())
+        .then(res => {
+            if (res.status === 'success') {
+                // Update hours input and remove lock icon
+                const input = document.querySelector(`input[data-id="${id}"][data-field="work_hours"]`);
+                if (input) { input.value = res.work_hours; input.title = 'Auto dari absensi'; }
+                const row = document.getElementById(`row-${id}`);
+                if (row) row.setAttribute('data-hours-locked', '0');
+                // Replace lock icon with sync icon
+                const lockBtn = input?.nextElementSibling;
+                if (lockBtn && lockBtn.tagName === 'BUTTON') {
+                    lockBtn.outerHTML = '<span style="font-size:9px;color:var(--text-tertiary);opacity:0.6;" title="Auto-sync dari absensi">🔄</span>';
+                }
+                calculateRow(id);
+            }
+        });
+}
+
 // === Pay Selection Functions ===
 function togglePaySelectAll(master) {
     document.querySelectorAll('.pay-select-cb').forEach(cb => { cb.checked = master.checked; });
@@ -1965,9 +2054,13 @@ function renderAttendanceDetail(data) {
             <thead>
                 <tr>
                     <th>Tanggal</th>
-                    <th>Check In</th>
-                    <th>Check Out</th>
-                    <th>Jam Kerja</th>
+                    <th>Scan 1<br><small>Masuk S1</small></th>
+                    <th>Scan 2<br><small>Pulang S1</small></th>
+                    <th>Scan 3<br><small>Masuk S2</small></th>
+                    <th>Scan 4<br><small>Pulang S2</small></th>
+                    <th>Jam S1</th>
+                    <th>Jam S2</th>
+                    <th>Total</th>
                     <th>Status</th>
                 </tr>
             </thead>
@@ -1976,21 +2069,29 @@ function renderAttendanceDetail(data) {
     
     const daysWithAtt = data.calendar.filter(d => d.attendance);
     if (daysWithAtt.length === 0) {
-        tableHtml += '<tr><td colspan="5" style="text-align: center; color: var(--text-tertiary); padding: 1rem;">Belum ada data absensi</td></tr>';
+        tableHtml += '<tr><td colspan="9" style="text-align: center; color: var(--text-tertiary); padding: 1rem;">Belum ada data absensi</td></tr>';
     } else {
         daysWithAtt.forEach(day => {
             const att = day.attendance;
-            const inTime = att.check_in_time ? att.check_in_time.substring(0, 5) : '-';
-            const outTime = att.check_out_time ? att.check_out_time.substring(0, 5) : '-';
-            const hours = att.work_hours ? parseFloat(att.work_hours).toFixed(1) + ' jam' : '-';
+            const scan1 = att.check_in_time  ? att.check_in_time.substring(0, 5)  : '<span style="color:#9ca3af">—</span>';
+            const scan2 = att.check_out_time ? att.check_out_time.substring(0, 5) : '<span style="color:#9ca3af">—</span>';
+            const scan3 = att.scan_3         ? att.scan_3.substring(0, 5)         : '<span style="color:#9ca3af">—</span>';
+            const scan4 = att.scan_4         ? att.scan_4.substring(0, 5)         : '<span style="color:#9ca3af">—</span>';
+            const sh1   = att.shift_1_hours  ? parseFloat(att.shift_1_hours).toFixed(1) + 'j' : '<span style="color:#9ca3af">—</span>';
+            const sh2   = att.shift_2_hours  ? parseFloat(att.shift_2_hours).toFixed(1) + 'j' : '<span style="color:#9ca3af">—</span>';
+            const total = att.work_hours     ? `<strong>${parseFloat(att.work_hours).toFixed(1)}j</strong>` : '<span style="color:#9ca3af">—</span>';
             const status = att.status || 'present';
             
             tableHtml += `
                 <tr>
                     <td>${day.day} ${day.day_name}</td>
-                    <td class="att-time">${inTime}</td>
-                    <td class="att-time">${outTime}</td>
-                    <td>${hours}</td>
+                    <td class="att-time">${scan1}</td>
+                    <td class="att-time">${scan2}</td>
+                    <td class="att-time">${scan3}</td>
+                    <td class="att-time">${scan4}</td>
+                    <td style="font-size:0.7rem;">${sh1}</td>
+                    <td style="font-size:0.7rem;">${sh2}</td>
+                    <td>${total}</td>
                     <td><span class="att-badge ${status}">${status}</span></td>
                 </tr>
             `;
