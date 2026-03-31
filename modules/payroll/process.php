@@ -740,6 +740,58 @@ include '../../includes/header.php';
     color: #f59e0b;
 }
 
+/* Save Indicator */
+.save-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.6rem;
+    color: var(--text-tertiary);
+    margin-left: 0.25rem;
+    opacity: 0;
+    transition: opacity 0.3s ease;
+}
+
+.save-indicator.saving,
+.save-indicator.saved,
+.save-indicator.error {
+    opacity: 1;
+}
+
+.save-indicator.saving { color: #6366f1; }
+.save-indicator.saved { color: #22c55e; }
+.save-indicator.error { color: #ef4444; }
+
+.save-dot {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: currentColor;
+    animation: pulse 1s infinite;
+}
+
+.save-dot.saved {
+    animation: none;
+}
+
+@keyframes pulse {
+    0%, 100% { opacity: 1; transform: scale(1); }
+    50% { opacity: 0.5; transform: scale(0.8); }
+}
+
+/* Elegant Table Enhancements */
+.ps-table tr {
+    transition: background 0.15s ease;
+}
+
+.ps-table tr:nth-child(even) td {
+    background: rgba(0,0,0,0.02);
+}
+
+.ps-table tr:nth-child(even):hover td {
+    background: var(--bg-secondary);
+}
+
 /* Empty State */
 .ps-empty {
     text-align: center;
@@ -797,6 +849,58 @@ include '../../includes/header.php';
     justify-content: space-between;
     align-items: center;
     margin-bottom: 1.25rem;
+}
+
+.ps-modal-grid {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 0.75rem;
+}
+
+.ps-modal-total {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 0.75rem;
+    margin: 1rem 0;
+    background: rgba(239, 68, 68, 0.08);
+    border-radius: 8px;
+    border: 1px solid rgba(239, 68, 68, 0.2);
+}
+
+.ps-modal-total-amount {
+    font-size: 1.1rem;
+    font-weight: 700;
+    color: #ef4444;
+}
+
+.ps-modal-actions {
+    display: flex;
+    justify-content: flex-end;
+    gap: 0.5rem;
+    margin-top: 0.5rem;
+}
+
+/* Edit Button */
+.ps-btn-edit {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 24px;
+    height: 24px;
+    border: 1px solid var(--border-color);
+    border-radius: 6px;
+    background: var(--bg-secondary);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.ps-btn-edit:hover {
+    border-color: var(--primary-color);
+    color: var(--primary-color);
+    background: rgba(102, 126, 234, 0.1);
+    transform: scale(1.05);
 }
 
 .ps-modal-title { font-size: 1rem; font-weight: 700; margin: 0; }
@@ -964,7 +1068,12 @@ include '../../includes/header.php';
                         $hourlyRate = $baseSalary / 200;
                         $actualBase = ($workHours >= 200) ? $baseSalary : round($workHours * $hourlyRate, 2);
                     ?>
-                    <tr>
+                    <tr id="row-<?php echo $slip['id']; ?>"
+                        data-loan="<?php echo $slip['deduction_loan'] ?? 0; ?>"
+                        data-absence="<?php echo $slip['deduction_absence'] ?? 0; ?>"
+                        data-tax="<?php echo $slip['deduction_tax'] ?? 0; ?>"
+                        data-bpjs="<?php echo $slip['deduction_bpjs'] ?? 0; ?>"
+                        data-other="<?php echo $slip['deduction_other'] ?? 0; ?>">
                         <td style="text-align:center;">
                             <?php if(empty($slip['is_paid'])): ?>
                             <input type="checkbox" class="pay-select-cb" value="<?php echo $slip['id']; ?>" data-net="<?php echo $slip['net_salary']; ?>" data-name="<?php echo htmlspecialchars($slip['employee_name']); ?>" onchange="updatePaySelection()">
@@ -1043,19 +1152,20 @@ include '../../includes/header.php';
                                    value="<?php echo number_format($slip['total_deductions'], 0, ',', '.'); ?>"
                                    data-field="total_deductions" data-id="<?php echo $slip['id']; ?>"
                                    readonly onclick="openDeductionModal(<?php echo $slip['id']; ?>, '<?php echo htmlspecialchars(addslashes($slip['employee_name'])); ?>')"
-                                   style="cursor: pointer;">
+                                   style="cursor: pointer;" title="Click to edit deductions">
                         </td>
                         
-                        <td>
+                        <td style="position: relative;">
                             <span id="net-<?php echo $slip['id']; ?>" class="ps-cell-net">
                                 <?php echo number_format($slip['net_salary'], 0, ',', '.'); ?>
                             </span>
+                            <span id="save-indicator-<?php echo $slip['id']; ?>" class="save-indicator"></span>
                         </td>
                         
                         <td>
-                            <button type="button" class="ps-btn ps-btn-outline" style="padding: 0.15rem 0.3rem; font-size: 0.65rem;"
+                            <button type="button" class="ps-btn-edit" title="Edit Deductions"
                                     onclick="openDeductionModal(<?php echo $slip['id']; ?>, '<?php echo htmlspecialchars(addslashes($slip['employee_name'])); ?>')">
-                                <svg width="10" height="10" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
+                                <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                             </button>
                         </td>
                     </tr>
@@ -1072,30 +1182,45 @@ include '../../includes/header.php';
 <div class="ps-modal-overlay" id="deductionModal">
     <div class="ps-modal">
         <div class="ps-modal-header">
-            <h4 class="ps-modal-title">Deductions: <span id="modalEmpName"></span></h4>
+            <h4 class="ps-modal-title">Edit Deductions: <span id="modalEmpName"></span></h4>
             <button type="button" class="ps-modal-close" onclick="closeDeductionModal()">&times;</button>
         </div>
         <input type="hidden" id="modalSlipId">
         
-        <div class="ps-form-group">
-            <label class="ps-form-label">Loan / Cash Advance</label>
-            <input type="text" class="ps-form-input currency-input" id="modalLoan">
-        </div>
-        <div class="ps-form-group">
-            <label class="ps-form-label">Absence Deduction</label>
-            <input type="text" class="ps-form-input currency-input" id="modalAbsence">
-        </div>
-        <div class="ps-form-group">
-            <label class="ps-form-label">BPJS</label>
-            <input type="text" class="ps-form-input currency-input" id="modalBpjs">
-        </div>
-        <div class="ps-form-group">
-            <label class="ps-form-label">Other Deductions</label>
-            <input type="text" class="ps-form-input currency-input" id="modalOther">
+        <div class="ps-modal-grid">
+            <div class="ps-form-group">
+                <label class="ps-form-label">Loan / Cash Advance</label>
+                <input type="text" class="ps-form-input currency-input" id="modalLoan" placeholder="0">
+            </div>
+            <div class="ps-form-group">
+                <label class="ps-form-label">Absence Deduction</label>
+                <input type="text" class="ps-form-input currency-input" id="modalAbsence" placeholder="0">
+            </div>
+            <div class="ps-form-group">
+                <label class="ps-form-label">Tax (PPh)</label>
+                <input type="text" class="ps-form-input currency-input" id="modalTax" placeholder="0">
+            </div>
+            <div class="ps-form-group">
+                <label class="ps-form-label">BPJS</label>
+                <input type="text" class="ps-form-input currency-input" id="modalBpjs" placeholder="0">
+            </div>
+            <div class="ps-form-group" style="grid-column: span 2;">
+                <label class="ps-form-label">Other Deductions</label>
+                <input type="text" class="ps-form-input currency-input" id="modalOther" placeholder="0">
+            </div>
         </div>
         
-        <div style="text-align: right; margin-top: 1rem;">
-            <button type="button" class="ps-btn ps-btn-primary" onclick="saveDeduction()">Save Deductions</button>
+        <div class="ps-modal-total">
+            <span>Total Deductions:</span>
+            <span id="modalTotalDed" class="ps-modal-total-amount">Rp 0</span>
+        </div>
+        
+        <div class="ps-modal-actions">
+            <button type="button" class="ps-btn ps-btn-outline" onclick="closeDeductionModal()">Cancel</button>
+            <button type="button" class="ps-btn ps-btn-primary" onclick="saveDeduction()">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                Save
+            </button>
         </div>
     </div>
 </div>
@@ -1142,31 +1267,47 @@ function calculateRow(id) {
     // Other incomes
     let incentive = getValByRow(id, 'incentive');
     let allowance = getValByRow(id, 'allowance');
+    let uangMakan = getValByRow(id, 'uang_makan');
     let bonus = getValByRow(id, 'bonus'); // combined bonus+other
     
     // Deductions
     let row = document.getElementById(`row-${id}`);
     let loan = parseFloat(row.getAttribute('data-loan')) || 0;
     let absence = parseFloat(row.getAttribute('data-absence')) || 0;
+    let tax = parseFloat(row.getAttribute('data-tax')) || 0;
     let bpjs = parseFloat(row.getAttribute('data-bpjs')) || 0;
     let dedOther = parseFloat(row.getAttribute('data-other')) || 0;
-    let totalDed = loan + absence + bpjs + dedOther;
+    let totalDed = loan + absence + tax + bpjs + dedOther;
     
     // Update deductions input display
     let dedInput = document.querySelector(`input[data-id="${id}"][data-field="total_deductions"]`);
     if (dedInput) dedInput.value = new Intl.NumberFormat('id-ID').format(totalDed);
     
-    // Calculate Net
-    let totalEarn = actualBase + otAmount + incentive + allowance + bonus;
+    // Calculate Net (include uang_makan)
+    let totalEarn = actualBase + otAmount + incentive + allowance + uangMakan + bonus;
     let net = totalEarn - totalDed;
     document.getElementById(`net-${id}`).innerText = new Intl.NumberFormat('id-ID').format(net);
     
-    // Auto-save via Ajax
-    saveRow(id);
+    // Show save indicator
+    showSaveIndicator(id);
+    
+    // Auto-save via Ajax with debounce
+    clearTimeout(window[`saveTimer_${id}`]);
+    window[`saveTimer_${id}`] = setTimeout(() => saveRow(id), 500);
+}
+
+function showSaveIndicator(id) {
+    let indicator = document.getElementById(`save-indicator-${id}`);
+    if (indicator) {
+        indicator.classList.add('saving');
+        indicator.innerHTML = '<span class="save-dot"></span> Saving...';
+    }
 }
 
 function saveRow(id) {
     const row = document.getElementById(`row-${id}`);
+    if (!row) return;
+    
     const data = new FormData();
     data.append('ajax_update', 1);
     data.append('slip_id', id);
@@ -1176,12 +1317,13 @@ function saveRow(id) {
     data.append('overtime_hours', getValByRow(id, 'overtime_hours'));
     data.append('incentive', getValByRow(id, 'incentive'));
     data.append('allowance', getValByRow(id, 'allowance'));
+    data.append('uang_makan', getValByRow(id, 'uang_makan'));
     data.append('bonus', getValByRow(id, 'bonus'));
     data.append('other_income', 0);
     
     data.append('deduction_loan', row.getAttribute('data-loan') || 0);
     data.append('deduction_absence', row.getAttribute('data-absence') || 0);
-    data.append('deduction_tax', 0);
+    data.append('deduction_tax', row.getAttribute('data-tax') || 0);
     data.append('deduction_bpjs', row.getAttribute('data-bpjs') || 0);
     data.append('deduction_other', row.getAttribute('data-other') || 0);
     
@@ -1190,8 +1332,40 @@ function saveRow(id) {
         body: data
     }).then(res => res.json())
       .then(res => {
-          // Silent save - no reload needed, totals update on next page visit
+          if (res.status === 'success') {
+              // Update save indicator to saved
+              let indicator = document.getElementById(`save-indicator-${id}`);
+              if (indicator) {
+                  indicator.classList.remove('saving');
+                  indicator.classList.add('saved');
+                  indicator.innerHTML = '<span class="save-dot saved"></span> Saved';
+                  setTimeout(() => {
+                      indicator.classList.remove('saved');
+                      indicator.innerHTML = '';
+                  }, 2000);
+              }
+              // Update totals in header
+              updateTotals();
+          }
+      }).catch(err => {
+          let indicator = document.getElementById(`save-indicator-${id}`);
+          if (indicator) {
+              indicator.classList.remove('saving');
+              indicator.classList.add('error');
+              indicator.innerHTML = '<span class="save-dot error"></span> Error!';
+          }
       });
+}
+
+function updateTotals() {
+    let totalNet = 0;
+    document.querySelectorAll('[id^="net-"]').forEach(el => {
+        totalNet += parseFloat(el.innerText.replace(/\./g, '').replace(/,/g, '')) || 0;
+    });
+    let totalDisplay = document.querySelector('.ps-total-net');
+    if (totalDisplay) {
+        totalDisplay.innerText = 'Rp ' + new Intl.NumberFormat('id-ID').format(totalNet);
+    }
 }
 
 // Modal Functions
@@ -1202,10 +1376,15 @@ function openDeductionModal(id, name) {
     const row = document.getElementById(`row-${id}`);
     document.getElementById('modalLoan').value = new Intl.NumberFormat('id-ID').format(row.getAttribute('data-loan') || 0);
     document.getElementById('modalAbsence').value = new Intl.NumberFormat('id-ID').format(row.getAttribute('data-absence') || 0);
+    document.getElementById('modalTax').value = new Intl.NumberFormat('id-ID').format(row.getAttribute('data-tax') || 0);
     document.getElementById('modalBpjs').value = new Intl.NumberFormat('id-ID').format(row.getAttribute('data-bpjs') || 0);
     document.getElementById('modalOther').value = new Intl.NumberFormat('id-ID').format(row.getAttribute('data-other') || 0);
     
+    updateModalTotal();
     document.getElementById('deductionModal').classList.add('active');
+    
+    // Focus first input
+    setTimeout(() => document.getElementById('modalLoan').focus(), 100);
 }
 
 function closeDeductionModal() {
@@ -1218,16 +1397,33 @@ function getVal(selector) {
     return parseFloat(el.value.replace(/\./g, '').replace(/,/g, '')) || 0;
 }
 
+function updateModalTotal() {
+    let loan = getVal('#modalLoan');
+    let abs = getVal('#modalAbsence');
+    let tax = getVal('#modalTax');
+    let bpjs = getVal('#modalBpjs');
+    let other = getVal('#modalOther');
+    let total = loan + abs + tax + bpjs + other;
+    document.getElementById('modalTotalDed').innerText = 'Rp ' + new Intl.NumberFormat('id-ID').format(total);
+}
+
+// Add event listeners for real-time modal total
+['modalLoan', 'modalAbsence', 'modalTax', 'modalBpjs', 'modalOther'].forEach(id => {
+    document.getElementById(id)?.addEventListener('keyup', updateModalTotal);
+});
+
 function saveDeduction() {
     let id = document.getElementById('modalSlipId').value;
     let loan = getVal('#modalLoan');
     let abs = getVal('#modalAbsence');
+    let tax = getVal('#modalTax');
     let bpjs = getVal('#modalBpjs');
     let other = getVal('#modalOther');
     
     let row = document.getElementById(`row-${id}`);
     row.setAttribute('data-loan', loan);
     row.setAttribute('data-absence', abs);
+    row.setAttribute('data-tax', tax);
     row.setAttribute('data-bpjs', bpjs);
     row.setAttribute('data-other', other);
     
