@@ -749,8 +749,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 }
             }
 
-            $msg = "✅ Proses selesai: <strong>{$processed}</strong> scan berhasil diproses ke absensi, <strong>{$skipped}</strong> diskip, <strong>{$errors}</strong> error.";
+            $totalLogs = count($unprLogs);
+            $msg = "<div style='line-height:1.8'>"
+                 . "<div style='font-size:14px;font-weight:800;margin-bottom:8px;'>✅ Proses Fingerprint Selesai</div>"
+                 . "<div style='display:flex;flex-wrap:wrap;gap:16px;margin-bottom:6px;'>"
+                 . "<span>📥 <strong>Total log:</strong> {$totalLogs}</span>"
+                 . "<span>✅ <strong>Berhasil:</strong> {$processed} scan ke absensi</span>"
+                 . "<span>⏭️ <strong>Diskip:</strong> {$skipped}</span>"
+                 . ($errors > 0 ? "<span>❌ <strong>Error:</strong> {$errors}</span>" : "")
+                 . "</div>"
+                 . "<div style='font-size:11px;color:#166534;'>Periode: {$fpFrom} s/d {$fpTo} &nbsp;·&nbsp; Data absensi & jam kerja sudah diperbarui</div>"
+                 . "<div style='margin-top:10px;'><a href='process.php?month=" . date('n') . "&year=" . date('Y') . "' style='background:#0d1f3c;color:#fff;padding:7px 16px;border-radius:8px;text-decoration:none;font-weight:700;font-size:12px;'>💰 Lanjut Proses Gaji &rarr;</a></div>"
+                 . "</div>";
             $msgType = 'success';
+            $_SESSION['last_payroll_tab'] = 'fingerprint';
         }
     }
 }
@@ -962,7 +974,7 @@ include '../../includes/header.php';
 </style>
 
 <?php if ($msg): ?>
-<div class="att-alert att-alert-<?php echo $msgType; ?>"><?php echo $msgType === 'success' ? '✅' : '❌'; ?> <?php echo htmlspecialchars($msg); ?></div>
+<div class="att-alert att-alert-<?php echo $msgType; ?>" id="mainAlert"><?php echo $msgType === 'success' ? '' : ''; ?> <?php echo $msg; ?></div>
 <?php endif; ?>
 
 <div class="att-wrap">
@@ -1409,23 +1421,107 @@ include '../../includes/header.php';
             <?php endif; ?>
 
             <!-- Form proses batch -->
-            <form method="POST" action="?tab=fingerprint" onsubmit="return confirm('Proses semua log fingerprint periode ini ke data absensi?\n\nLog yang belum diproses akan dikonversi ke scan masuk/pulang karyawan.')">
+            <form method="POST" action="?tab=fingerprint" id="fpBatchForm" onsubmit="return startFpProcess(this)">
                 <input type="hidden" name="action" value="process_finger_batch">
                 <div class="fgrid" style="margin-bottom:10px;">
                     <div class="fg">
                         <label class="fl">Dari Tanggal</label>
-                        <input type="date" name="fp_from" class="fi" value="<?= date('Y-m-01') ?>" required>
+                        <input type="date" name="fp_from" id="fpFrom" class="fi" value="<?= date('Y-m-01') ?>" required>
                     </div>
                     <div class="fg">
                         <label class="fl">Sampai Tanggal</label>
-                        <input type="date" name="fp_to" class="fi" value="<?= date('Y-m-d') ?>" required>
+                        <input type="date" name="fp_to" id="fpTo" class="fi" value="<?= date('Y-m-d') ?>" required>
                     </div>
                 </div>
-                <button type="submit" class="btn btn-gold" style="width:100%; font-size:13px; padding:11px; font-weight:800; justify-content:center;">
+                <button type="submit" id="fpBatchBtn" class="btn btn-gold" style="width:100%; font-size:13px; padding:11px; font-weight:800; justify-content:center;">
                     ⚡ Proses Log Fingerprint ke Absensi
                 </button>
                 <div style="font-size:10px; color:var(--muted); margin-top:5px; text-align:center;">Scan 1=Masuk · Scan 2=Pulang · Scan 3=Masuk Shift2 · Scan 4=Pulang Shift2 · Duplikat &lt;5 menit diabaikan</div>
             </form>
+
+            <!-- Loading Overlay -->
+            <div id="fpLoadingOverlay" style="display:none; position:fixed; inset:0; background:rgba(13,31,60,.75); z-index:99999; align-items:center; justify-content:center;">
+                <div style="background:#fff; border-radius:18px; padding:32px 36px; max-width:400px; width:92%; box-shadow:0 24px 80px rgba(0,0,0,.35); text-align:center; border-top:5px solid #f0b429;">
+                    <!-- Spinner -->
+                    <div style="margin:0 auto 18px; width:56px; height:56px; border-radius:50%; border:5px solid #f1f5f9; border-top-color:#f0b429; animation:fpSpin 0.9s linear infinite;"></div>
+                    <div style="font-size:16px; font-weight:800; color:#0d1f3c; margin-bottom:4px;">Memproses Data Fingerprint</div>
+                    <div id="fpLoadingPeriod" style="font-size:11px; color:#64748b; margin-bottom:20px;"></div>
+
+                    <!-- Step tracker -->
+                    <div style="text-align:left; background:#f8fafc; border-radius:10px; padding:14px 16px; border:1px solid #e2e8f0;">
+                        <div id="fpStep1" class="fp-step fp-step-wait">
+                            <span class="fp-step-icon">⏳</span>
+                            <span>Membaca log fingerprint dari database</span>
+                        </div>
+                        <div id="fpStep2" class="fp-step fp-step-wait">
+                            <span class="fp-step-icon">⏳</span>
+                            <span>Mencocokkan PIN karyawan</span>
+                        </div>
+                        <div id="fpStep3" class="fp-step fp-step-wait">
+                            <span class="fp-step-icon">⏳</span>
+                            <span>Menulis data ke tabel absensi</span>
+                        </div>
+                        <div id="fpStep4" class="fp-step fp-step-wait">
+                            <span class="fp-step-icon">⏳</span>
+                            <span>Menghitung total jam kerja & lembur</span>
+                        </div>
+                        <div id="fpStep5" class="fp-step fp-step-wait">
+                            <span class="fp-step-icon">⏳</span>
+                            <span>Menyimpan hasil ke payroll...</span>
+                        </div>
+                    </div>
+                    <div style="font-size:10px; color:#94a3b8; margin-top:14px;">Harap tunggu, jangan tutup halaman ini</div>
+                </div>
+            </div>
+
+            <style>
+            @keyframes fpSpin { to { transform: rotate(360deg); } }
+            .fp-step { display:flex; align-items:center; gap:8px; padding:5px 0; font-size:11px; font-weight:600; color:#94a3b8; transition:all .3s; }
+            .fp-step-active { color:#0d1f3c; }
+            .fp-step-done { color:#059669; }
+            .fp-step-icon { font-size:14px; width:20px; text-align:center; }
+            </style>
+
+            <script>
+            function startFpProcess(form) {
+                var from = document.getElementById('fpFrom').value;
+                var to = document.getElementById('fpTo').value;
+                if (!from || !to) return true;
+                if (!confirm('Proses semua log fingerprint periode ' + from + ' s/d ' + to + ' ke data absensi?\n\nLog yang belum diproses akan dikonversi ke scan masuk/pulang karyawan.')) return false;
+
+                // Show overlay
+                var overlay = document.getElementById('fpLoadingOverlay');
+                overlay.style.display = 'flex';
+                document.getElementById('fpLoadingPeriod').textContent = 'Periode: ' + from + ' s/d ' + to;
+
+                // Disable button
+                var btn = document.getElementById('fpBatchBtn');
+                btn.disabled = true;
+                btn.textContent = '⏳ Sedang memproses...';
+
+                // Animate steps sequentially
+                var steps = ['fpStep1','fpStep2','fpStep3','fpStep4','fpStep5'];
+                var delays = [0, 800, 1600, 2500, 3400];
+                steps.forEach(function(id, i) {
+                    setTimeout(function() {
+                        // Mark previous as done
+                        if (i > 0) {
+                            var prev = document.getElementById(steps[i-1]);
+                            prev.className = 'fp-step fp-step-done';
+                            prev.querySelector('.fp-step-icon').textContent = '✅';
+                        }
+                        // Mark current as active
+                        var cur = document.getElementById(id);
+                        cur.className = 'fp-step fp-step-active';
+                        cur.querySelector('.fp-step-icon').textContent = '🔄';
+                    }, delays[i]);
+                });
+
+                // Submit form after brief delay so overlay renders
+                setTimeout(function() { form.submit(); }, 200);
+                return false;
+            }
+            </script>
 
             <!-- Link ke proses gaji -->
             <div style="border-top:1px solid var(--border); margin-top:16px; padding-top:14px;">
@@ -2025,6 +2121,23 @@ if (urlTab) {
     if (panel) panel.style.display = 'block';
     if (urlTab === 'gps') setTimeout(initAdminMap, 200);
 }
+
+// Auto-open fingerprint tab + scroll to result after batch process
+<?php if (!empty($_SESSION['last_payroll_tab'])): ?>
+(function() {
+    var autoTab = '<?= htmlspecialchars($_SESSION['last_payroll_tab']) ?>';
+    <?php unset($_SESSION['last_payroll_tab']); ?>
+    document.querySelectorAll('.att-tab').forEach(b => {
+        b.classList.remove('active');
+        if (b.dataset.tab === autoTab) b.classList.add('active');
+    });
+    document.querySelectorAll('.tab-panel').forEach(p => p.style.display = 'none');
+    var autoPanel = document.getElementById('panel-' + autoTab);
+    if (autoPanel) autoPanel.style.display = 'block';
+    var alert = document.getElementById('mainAlert');
+    if (alert) setTimeout(function() { alert.scrollIntoView({ behavior: 'smooth', block: 'center' }); }, 150);
+})();
+<?php endif; ?>
 
 // ─ COPY URL ─
 function copyUrl(inputId) {
