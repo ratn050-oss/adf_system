@@ -455,6 +455,33 @@ $pendingLeaves = count(array_filter($leaveRequests, fn($l) => $l['status'] === '
 $fpConfig = $db->fetchOne("SELECT fingerspot_cloud_id, fingerspot_enabled FROM payroll_attendance_config WHERE id = 1") ?: [];
 $fpEnabled = (int)($fpConfig['fingerspot_enabled'] ?? 0);
 $fpCloudId = $fpConfig['fingerspot_cloud_id'] ?? '';
+$fpCloudStatus = null;
+
+// Fungsi cek status cloud_id ke API Fingerspot
+function checkFingerspotCloudStatus($cloudId) {
+    if (!$cloudId) return ['success'=>false,'message'=>'Cloud ID kosong'];
+    $apiUrl = 'https://cloud.fingerspot.io/api/device/status?cloud_id=' . urlencode($cloudId);
+    $opts = [
+        'http' => [
+            'method' => 'GET',
+            'timeout' => 8,
+            'header' => [
+                'Accept: application/json',
+            ]
+        ]
+    ];
+    $context = stream_context_create($opts);
+    $result = @file_get_contents($apiUrl, false, $context);
+    if ($result === false) return ['success'=>false,'message'=>'Tidak bisa menghubungi server Fingerspot'];
+    $data = json_decode($result, true);
+    if (!$data || !isset($data['success'])) return ['success'=>false,'message'=>'Respon tidak valid dari server'];
+    return $data;
+}
+
+// Cek status cloud_id jika diaktifkan
+if ($fpEnabled && $fpCloudId) {
+    $fpCloudStatus = checkFingerspotCloudStatus($fpCloudId);
+}
 $webhookUrl = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'adfsystem.online') . str_replace('/modules/payroll/attendance.php', '', $_SERVER['SCRIPT_NAME']) . '/api/fingerprint-webhook.php?b=' . urlencode($bizSlug);
 $webhookUrlMulti = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'https' : 'http') . '://' . ($_SERVER['HTTP_HOST'] ?? 'adfsystem.online') . str_replace('/modules/payroll/attendance.php', '', $_SERVER['SCRIPT_NAME']) . '/api/fingerprint-webhook.php';
 
@@ -831,6 +858,16 @@ include '../../includes/header.php';
                 <div style="flex:1;">
                     <div class="card-title" style="margin:0;">Fingerspot.io Integration</div>
                     <div style="font-size:10px; color:var(--muted);">Revo N830 via Fingerspot.io cloud</div>
+                        <?php if ($fpEnabled && $fpCloudId && $fpCloudStatus): ?>
+                            <div style="margin-top:4px; font-size:11px;">
+                                <strong>Status Cloud:</strong>
+                                <?php if ($fpCloudStatus['success']): ?>
+                                    <span style="color:#059669; font-weight:700;">✅ <?php echo htmlspecialchars($fpCloudStatus['message'] ?? 'Aktif'); ?></span>
+                                <?php else: ?>
+                                    <span style="color:#dc2626; font-weight:700;">⚠️ <?php echo htmlspecialchars($fpCloudStatus['message'] ?? 'Tidak aktif'); ?></span>
+                                <?php endif; ?>
+                            </div>
+                        <?php endif; ?>
                 </div>
                 <?php if ($fpEnabled): ?>
                 <span style="background:#d1fae5; color:#065f46; padding:3px 10px; border-radius:20px; font-size:10px; font-weight:700;">✅ Aktif</span>
