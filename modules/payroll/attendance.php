@@ -248,118 +248,146 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $msg = '❌ Fingerspot belum dikonfigurasi. Isi Cloud ID dan API Token terlebih dahulu.'; 
             $msgType = 'error';
         } else {
-            // Call Fingerspot API
+            // IMPORTANT: Fingerspot API has 2-day limit, so we need to chunk the date range
             $apiUrl = "https://developer.fingerspot.io/api/get_attlog";
-            $postData = [
-                'trans_id' => uniqid('sync_'),
-                'cloud_id' => $cloudId,
-                'start_date' => $syncFrom,
-                'end_date' => $syncTo
-            ];
+            $allLogs = [];
+            $apiErrors = [];
             
-            $ch = curl_init();
-            curl_setopt_array($ch, [
-                CURLOPT_URL => $apiUrl,
-                CURLOPT_POST => true,
-                CURLOPT_POSTFIELDS => json_encode($postData),
-                CURLOPT_RETURNTRANSFER => true,
-                CURLOPT_TIMEOUT => 60,
-                CURLOPT_HTTPHEADER => [
-                    'Content-Type: application/json',
-                    'Authorization: Bearer ' . $apiToken
-                ]
-            ]);
+            $startDate = new DateTime($syncFrom);
+            $endDate = new DateTime($syncTo);
+            $endDate->modify('+1 day'); // Include end date
             
-            $response = curl_exec($ch);
-            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-            $curlError = curl_error($ch);
-            curl_close($ch);
+            $interval = new DateInterval('P2D'); // 2 days interval (API limit)
+            $period = new DatePeriod($startDate, $interval, $endDate);
             
-            if ($curlError) {
-                $msg = "❌ Gagal koneksi ke API: {$curlError}"; $msgType = 'error';
-            } elseif ($httpCode !== 200) {
-                $msg = "❌ API Error (HTTP {$httpCode}): " . substr($response, 0, 200); $msgType = 'error';
-            } else {
-                $data = json_decode($response, true);
+            $totalApiCalls = 0;
+            foreach ($period as $chunkStart) {
+                $chunkEnd = clone $chunkStart;
+                $chunkEnd->modify('+1 day'); // 2-day range
                 
-                if (!$data || !isset($data['data'])) {
-                    // Try alternative format
-                    if (is_array($data) && isset($data[0])) {
-                        $attLogs = $data;
-                    } else {
-                        $msg = "❌ Format response tidak valid: " . substr($response, 0, 200); $msgType = 'error';
-                        $attLogs = [];
-                    }
-                } else {
-                    $attLogs = $data['data'];
+                // Don't exceed syncTo
+                if ($chunkEnd > new DateTime($syncTo)) {
+                    $chunkEnd = new DateTime($syncTo);
                 }
                 
-                if (!empty($attLogs)) {
-                    $processed = 0;
-                    $skipped = 0;
-                    $errors = 0;
+                $postData = [
+                    'trans_id' => uniqid('sync_'),
+                    'cloud_id' => $cloudId,
+                    'start_date' => $chunkStart->format('Y-m-d'),
+                    'end_date' => $chunkEnd->format('Y-m-d')
+                ];
+                
+                $ch = curl_init();
+                curl_setopt_array($ch, [
+                    CURLOPT_URL => $apiUrl,
+                    CURLOPT_POST => true,
+                    CURLOPT_POSTFIELDS => json_encode($postData),
+                    CURLOPT_RETURNTRANSFER => true,
+                    CURLOPT_TIMEOUT => 30,
+                    CURLOPT_SSL_VERIFYPEER => false,
+                    CURLOPT_HTTPHEADER => [
+                        'Content-Type: application/json',
+                        'Authorization: Bearer ' . $apiToken
+                    ]
+                ]);
+                
+                $response = curl_exec($ch);
+                $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                $curlError = curl_error($ch);
+                curl_close($ch);
+                
+                $totalApiCalls++;
+                
+                if ($curlError) {
+                    $apiErrors[] = "Chunk {$chunkStart->format('Y-m-d')}: {$curlError}";
+                    continue;
+                }
+                
+                $data = json_decode($response, true);
+                
+                if ($data && $data['success'] === true && isset($data['data']) && is_array($data['data'])) {
+                    $allLogs = array_merge($allLogs, $data['data']);
+                } elseif ($data && $data['success'] === false) {
+                    $apiErrors[] = "Chunk {$chunkStart->format('Y-m-d')}: " . ($data['message'] ?? 'Unknown error');
+                }
+                
+                // Small delay to avoid rate limiting
+                usleep(200000); // 0.2 second
+            }
+            
+            if (!empty($allLogs)) {
+                $processed = 0;
+                $skipped = 0;
+                $errors = 0;
+                $newRecords = 0;
+                
+                foreach ($allLogs as $log) {
+                    $pin = trim($log['pin'] ?? $log['user_id'] ?? '');
+                    $scanTime = $log['scan_date'] ?? $log['datetime'] ?? $log['scan'] ?? '';
+                    $verify = $log['verify'] ?? $log['verify_type'] ?? 'finger';
+                    $statusScan = $log['status_scan'] ?? $log['status'] ?? '';
                     
-                    foreach ($attLogs as $log) {
-                        $pin = trim($log['pin'] ?? $log['user_id'] ?? '');
-                        $scanTime = $log['scan_date'] ?? $log['datetime'] ?? $log['scan'] ?? '';
-                        $verify = $log['verify'] ?? $log['verify_type'] ?? 'finger';
-                        $statusScan = $log['status_scan'] ?? $log['status'] ?? '';
-                        
-                        if (!$pin || !$scanTime) { $skipped++; continue; }
-                        
-                        // Find employee
-                        $emp = $db->fetchOne("SELECT id, full_name FROM payroll_employees WHERE TRIM(finger_id) = ? AND is_active = 1", [$pin]);
-                        if (!$emp && is_numeric($pin)) {
-                            $emp = $db->fetchOne("SELECT id, full_name FROM payroll_employees WHERE CAST(TRIM(finger_id) AS UNSIGNED) = CAST(? AS UNSIGNED) AND is_active = 1", [$pin]);
-                        }
-                        
-                        if (!$emp) { $skipped++; continue; }
-                        
-                        $empId = $emp['id'];
-                        $scanDate = date('Y-m-d', strtotime($scanTime));
-                        $scanTimeOnly = date('H:i:s', strtotime($scanTime));
-                        
-                        // Check existing attendance
-                        $existing = $db->fetchOne("SELECT * FROM payroll_attendance WHERE employee_id = ? AND attendance_date = ?", [$empId, $scanDate]);
-                        
-                        // Get checkin_end config for late detection
-                        $checkinEnd = $config['checkin_end'] ?? '10:00:00';
-                        $isLate = ($scanTimeOnly > $checkinEnd);
-                        
-                        try {
-                            if (!$existing) {
-                                // First scan of the day = check in
-                                $status = $isLate ? 'late' : 'present';
-                                $db->query("INSERT INTO payroll_attendance (employee_id, attendance_date, check_in_time, status, notes) VALUES (?, ?, ?, ?, ?)",
-                                    [$empId, $scanDate, $scanTimeOnly, $status, "Sync: {$verify}"]);
-                                $processed++;
-                            } else {
-                                // Update: determine which scan slot
-                                $s1 = $existing['check_in_time'];
-                                $s2 = $existing['check_out_time'];
-                                $s3 = $existing['scan_3'];
-                                $s4 = $existing['scan_4'];
-                                
-                                // Don't duplicate same scan time
-                                $existingTimes = [$s1, $s2, $s3, $s4];
-                                $isDuplicate = false;
-                                foreach ($existingTimes as $et) {
-                                    if ($et && abs(strtotime($et) - strtotime($scanTimeOnly)) < 60) {
-                                        $isDuplicate = true; break;
-                                    }
+                    if (!$pin || !$scanTime) { $skipped++; continue; }
+                    
+                    // Find employee
+                    $emp = $db->fetchOne("SELECT id, full_name FROM payroll_employees WHERE TRIM(finger_id) = ? AND is_active = 1", [$pin]);
+                    if (!$emp && is_numeric($pin)) {
+                        $emp = $db->fetchOne("SELECT id, full_name FROM payroll_employees WHERE CAST(TRIM(finger_id) AS UNSIGNED) = CAST(? AS UNSIGNED) AND is_active = 1", [$pin]);
+                    }
+                    
+                    if (!$emp) { $skipped++; continue; }
+                    
+                    $empId = $emp['id'];
+                    $scanDate = date('Y-m-d', strtotime($scanTime));
+                    $scanTimeOnly = date('H:i:s', strtotime($scanTime));
+                    
+                    // Check existing attendance
+                    $existing = $db->fetchOne("SELECT * FROM payroll_attendance WHERE employee_id = ? AND attendance_date = ?", [$empId, $scanDate]);
+                    
+                    // Get checkin_end config for late detection
+                    $checkinEnd = $config['checkin_end'] ?? '10:00:00';
+                    $isLate = ($scanTimeOnly > $checkinEnd);
+                    
+                    try {
+                        if (!$existing) {
+                            // First scan of the day = check in
+                            $status = $isLate ? 'late' : 'present';
+                            $db->query("INSERT INTO payroll_attendance (employee_id, attendance_date, check_in_time, status, notes) VALUES (?, ?, ?, ?, ?)",
+                                [$empId, $scanDate, $scanTimeOnly, $status, "Sync: {$verify}"]);
+                            $processed++;
+                            $newRecords++;
+                        } else {
+                            // Update: determine which scan slot
+                            $s1 = $existing['check_in_time'];
+                            $s2 = $existing['check_out_time'];
+                            $s3 = $existing['scan_3'];
+                            $s4 = $existing['scan_4'];
+                            
+                            // Don't duplicate same scan time (within 2 minutes)
+                            $existingTimes = array_filter([$s1, $s2, $s3, $s4]);
+                            $isDuplicate = false;
+                            foreach ($existingTimes as $et) {
+                                if (abs(strtotime($et) - strtotime($scanTimeOnly)) < 120) {
+                                    $isDuplicate = true; break;
                                 }
-                                
-                                if ($isDuplicate) { $skipped++; continue; }
-                                
-                                // Assign to next empty slot
-                                if (!$s2) {
-                                    $db->query("UPDATE payroll_attendance SET check_out_time = ? WHERE id = ?", [$scanTimeOnly, $existing['id']]);
-                                } elseif (!$s3) {
-                                    $db->query("UPDATE payroll_attendance SET scan_3 = ? WHERE id = ?", [$scanTimeOnly, $existing['id']]);
-                                } elseif (!$s4) {
-                                    $db->query("UPDATE payroll_attendance SET scan_4 = ? WHERE id = ?", [$scanTimeOnly, $existing['id']]);
-                                }
-                                
+                            }
+                            
+                            if ($isDuplicate) { $skipped++; continue; }
+                            
+                            // Assign to next empty slot
+                            $updated = false;
+                            if (!$s2) {
+                                $db->query("UPDATE payroll_attendance SET check_out_time = ? WHERE id = ?", [$scanTimeOnly, $existing['id']]);
+                                $updated = true;
+                            } elseif (!$s3) {
+                                $db->query("UPDATE payroll_attendance SET scan_3 = ? WHERE id = ?", [$scanTimeOnly, $existing['id']]);
+                                $updated = true;
+                            } elseif (!$s4) {
+                                $db->query("UPDATE payroll_attendance SET scan_4 = ? WHERE id = ?", [$scanTimeOnly, $existing['id']]);
+                                $updated = true;
+                            }
+                            
+                            if ($updated) {
                                 // Recalculate work hours
                                 $att = $db->fetchOne("SELECT * FROM payroll_attendance WHERE id = ?", [$existing['id']]);
                                 $sh1 = null; $sh2 = null;
@@ -379,23 +407,35 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                                 
                                 $processed++;
                             }
-                            
-                            // Log sync
-                            $_pdo->prepare("INSERT INTO fingerprint_log (cloud_id, type, pin, scan_time, verify_method, status_scan, employee_id, processed, process_result) VALUES (?,?,?,?,?,?,?,1,'synced')")
-                                ->execute([$cloudId, 'sync', $pin, $scanTime, $verify, $statusScan, $empId]);
-                                
-                        } catch (Exception $e) {
-                            $errors++;
-                            error_log("Sync error: " . $e->getMessage());
                         }
+                        
+                        // Log sync
+                        $_pdo->prepare("INSERT INTO fingerprint_log (cloud_id, type, pin, scan_time, verify_method, status_scan, employee_id, processed, process_result) VALUES (?,?,?,?,?,?,?,1,'synced')")
+                            ->execute([$cloudId, 'sync', $pin, $scanTime, $verify, $statusScan, $empId]);
+                            
+                    } catch (Exception $e) {
+                        $errors++;
+                        error_log("Sync error: " . $e->getMessage());
                     }
-                    
-                    $msg = "✅ Sync selesai: {$processed} data diproses, {$skipped} dilewati" . ($errors > 0 ? ", {$errors} error" : "");
-                    $msgType = 'success';
-                } else {
-                    $msg = "ℹ️ Tidak ada data absensi dari Fingerspot untuk periode tersebut.";
-                    $msgType = 'info';
                 }
+                
+                // Build result message
+                $apiCallInfo = "({$totalApiCalls} API calls)";
+                if (!empty($apiErrors)) {
+                    $apiCallInfo .= " - Beberapa chunk error";
+                }
+                
+                $msg = "✅ Sync selesai {$apiCallInfo}: {$newRecords} record baru, {$processed} total diproses, {$skipped} dilewati";
+                if ($errors > 0) $msg .= ", {$errors} error";
+                $msgType = 'success';
+                
+            } else {
+                if (!empty($apiErrors)) {
+                    $msg = "❌ API Errors:\n" . implode("\n", array_slice($apiErrors, 0, 5));
+                } else {
+                    $msg = "ℹ️ Tidak ada data absensi dari Fingerspot untuk periode {$syncFrom} s/d {$syncTo}";
+                }
+                $msgType = empty($apiErrors) ? 'info' : 'error';
             }
         }
     }
