@@ -424,18 +424,30 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (!empty($apiErrors)) {
                     $apiCallInfo .= " - Beberapa chunk error";
                 }
-                
-                $msg = "✅ Sync selesai {$apiCallInfo}: {$newRecords} record baru, {$processed} total diproses, {$skipped} dilewati";
-                if ($errors > 0) $msg .= ", {$errors} error";
+
+                $msg = "<div style='line-height:1.8'>"
+                     . "<div style='font-size:14px;font-weight:800;margin-bottom:8px;'>✅ Tarik Data Fingerspot Selesai</div>"
+                     . "<div style='display:flex;flex-wrap:wrap;gap:16px;margin-bottom:6px;'>"
+                     . "<span>📥 <strong>Total scan:</strong> " . count($allLogs) . "</span>"
+                     . "<span>✅ <strong>Masuk absensi:</strong> {$newRecords} baru + " . ($processed - $newRecords) . " update</span>"
+                     . "<span>⏭️ <strong>Diskip:</strong> {$skipped}</span>"
+                     . ($errors > 0 ? "<span>❌ <strong>Error:</strong> {$errors}</span>" : "")
+                     . "</div>"
+                     . "<div style='font-size:11px;color:#166534;'>Periode: {$syncFrom} s/d {$syncTo} · {$apiCallInfo}</div>"
+                     . "<div style='margin-top:10px;'><a href='process.php?month=" . date('n') . "&year=" . date('Y') . "' style='background:#0d1f3c;color:#fff;padding:7px 16px;border-radius:8px;text-decoration:none;font-weight:700;font-size:12px;'>💰 Lanjut Proses Gaji &rarr;</a></div>"
+                     . "</div>";
                 $msgType = 'success';
-                
+                $_SESSION['last_payroll_tab'] = 'fingerprint';
+
             } else {
                 if (!empty($apiErrors)) {
-                    $msg = "❌ API Errors:\n" . implode("\n", array_slice($apiErrors, 0, 5));
+                    $msg = "<strong>❌ API Error:</strong><br><span style='font-size:11px;'>" . htmlspecialchars(implode("<br>", array_slice($apiErrors, 0, 5))) . "</span>"
+                         . "<br><span style='font-size:10px;color:#64748b;margin-top:6px;display:block;'>Pastikan Cloud ID, API Token, dan koneksi internet aktif.</span>";
                 } else {
-                    $msg = "ℹ️ Tidak ada data absensi dari Fingerspot untuk periode {$syncFrom} s/d {$syncTo}";
+                    $msg = "ℹ️ Tidak ada data absensi dari Fingerspot untuk periode <strong>{$syncFrom} s/d {$syncTo}</strong>.<br><span style='font-size:10px;color:#64748b;'>Coba perluas rentang tanggal atau cek apakah mesin sudah melakukan scan.</span>";
                 }
                 $msgType = empty($apiErrors) ? 'info' : 'error';
+                $_SESSION['last_payroll_tab'] = 'fingerprint';
             }
         }
     }
@@ -1277,30 +1289,83 @@ include '../../includes/header.php';
             <!-- Sync Data Section -->
             <?php if ($fpEnabled && $fpCloudId && $fpToken): ?>
             <div style="margin-top:14px; padding-top:14px; border-top:1px dashed var(--border);">
-                <div style="font-size:11px; font-weight:700; color:#7c3aed; margin-bottom:8px;">📥 Sync Data Absensi dari Fingerspot</div>
-                <form method="POST" action="?tab=fingerprint" onsubmit="return confirm('Sync data absensi dari Fingerspot?');">
+                <div style="font-size:11px; font-weight:700; color:#7c3aed; margin-bottom:8px;">📥 Tarik Data Absensi dari Fingerspot API</div>
+                <form method="POST" action="?tab=fingerprint" id="fpSyncForm" onsubmit="return startFpSync(this)">
                     <input type="hidden" name="action" value="sync_fingerspot">
                     <div style="display:flex; gap:8px; margin-bottom:8px;">
                         <div style="flex:1;">
                             <label style="font-size:9px; font-weight:600; color:var(--muted);">Dari Tanggal</label>
-                            <input type="date" name="sync_from" class="fi" value="<?php echo date('Y-m-01'); ?>" style="font-size:11px;">
+                            <input type="date" name="sync_from" id="syncFrom" class="fi" value="<?php echo date('Y-m-01'); ?>" style="font-size:11px;">
                         </div>
                         <div style="flex:1;">
                             <label style="font-size:9px; font-weight:600; color:var(--muted);">Sampai Tanggal</label>
-                            <input type="date" name="sync_to" class="fi" value="<?php echo date('Y-m-d'); ?>" style="font-size:11px;">
+                            <input type="date" name="sync_to" id="syncTo" class="fi" value="<?php echo date('Y-m-d'); ?>" style="font-size:11px;">
                         </div>
                     </div>
-                    <button type="submit" class="btn" style="width:100%; background:linear-gradient(135deg,#7c3aed,#a855f7); color:#fff; border:none;">
-                        🔄 Sync Data Fingerspot
+                    <button type="submit" id="fpSyncBtn" class="btn" style="width:100%; background:linear-gradient(135deg,#7c3aed,#a855f7); color:#fff; border:none; font-size:13px; padding:11px; font-weight:800; justify-content:center;">
+                        🔄 Tarik & Proses Data Fingerspot
                     </button>
                     <div style="font-size:9px; color:var(--muted); margin-top:4px; text-align:center;">
-                        Tarik data absensi dari mesin Fingerspot untuk periode yang dipilih
+                        Tarik data dari Fingerspot API → langsung masuk ke absensi & jam kerja
                     </div>
                 </form>
+                <!-- Loading Overlay Sync -->
+                <div id="fpSyncOverlay" style="display:none; position:fixed; inset:0; background:rgba(13,31,60,.75); z-index:99999; align-items:center; justify-content:center;">
+                    <div style="background:#fff; border-radius:18px; padding:32px 36px; max-width:400px; width:92%; box-shadow:0 24px 80px rgba(0,0,0,.35); text-align:center; border-top:5px solid #7c3aed;">
+                        <div style="margin:0 auto 18px; width:56px; height:56px; border-radius:50%; border:5px solid #f1f5f9; border-top-color:#7c3aed; animation:fpSpin 0.9s linear infinite;"></div>
+                        <div style="font-size:16px; font-weight:800; color:#0d1f3c; margin-bottom:4px;">Menarik Data dari Fingerspot</div>
+                        <div id="fpSyncPeriod" style="font-size:11px; color:#64748b; margin-bottom:20px;"></div>
+                        <div style="text-align:left; background:#f8fafc; border-radius:10px; padding:14px 16px; border:1px solid #e2e8f0;">
+                            <div id="syncStep1" class="fp-step fp-step-wait"><span class="fp-step-icon">⏳</span><span>Menghubungi server Fingerspot API</span></div>
+                            <div id="syncStep2" class="fp-step fp-step-wait"><span class="fp-step-icon">⏳</span><span>Mengambil data scan per periode (2 hari/chunk)</span></div>
+                            <div id="syncStep3" class="fp-step fp-step-wait"><span class="fp-step-icon">⏳</span><span>Mencocokkan PIN ke data karyawan</span></div>
+                            <div id="syncStep4" class="fp-step fp-step-wait"><span class="fp-step-icon">⏳</span><span>Menulis scan masuk/pulang ke absensi</span></div>
+                            <div id="syncStep5" class="fp-step fp-step-wait"><span class="fp-step-icon">⏳</span><span>Menghitung jam kerja & total lembur</span></div>
+                        </div>
+                        <div style="font-size:10px; color:#94a3b8; margin-top:14px;">Harap tunggu — proses ini bisa memakan waktu 10–30 detik</div>
+                    </div>
+                </div>
+                <script>
+                function startFpSync(form) {
+                    var from = document.getElementById('syncFrom').value;
+                    var to   = document.getElementById('syncTo').value;
+                    if (!from || !to) return true;
+                    document.getElementById('fpSyncOverlay').style.display = 'flex';
+                    document.getElementById('fpSyncPeriod').textContent = 'Periode: ' + from + ' s/d ' + to;
+                    document.getElementById('fpSyncBtn').disabled = true;
+                    document.getElementById('fpSyncBtn').textContent = '⏳ Menarik data...';
+                    var steps = ['syncStep1','syncStep2','syncStep3','syncStep4','syncStep5'];
+                    var delays = [0, 1200, 2400, 4000, 6000];
+                    steps.forEach(function(id, i) {
+                        setTimeout(function() {
+                            if (i > 0) {
+                                var prev = document.getElementById(steps[i-1]);
+                                prev.className = 'fp-step fp-step-done';
+                                prev.querySelector('.fp-step-icon').textContent = '✅';
+                            }
+                            var cur = document.getElementById(id);
+                            cur.className = 'fp-step fp-step-active';
+                            cur.querySelector('.fp-step-icon').textContent = '🔄';
+                        }, delays[i]);
+                    });
+                    setTimeout(function() { form.submit(); }, 200);
+                    return false;
+                }
+                </script>
+            </div>
+            <?php elseif ($fpEnabled && $fpCloudId): ?>
+            <div style="margin-top:14px; padding:12px; background:#fef3c7; border:1px solid #fde68a; border-radius:8px; font-size:11px; color:#92400e;">
+                <strong>⚠️ API Token belum diisi</strong><br>
+                <span style="font-size:10px;">Isi kolom <strong>API Token</strong> di atas untuk mengaktifkan Tarik Data dari Fingerspot. Token bisa ditemukan di dashboard Fingerspot.io → Settings → API.</span>
             </div>
             <?php elseif ($fpEnabled): ?>
-            <div style="margin-top:14px; padding:10px; background:#fef3c7; border-radius:8px; font-size:10px; color:#92400e;">
-                ⚠️ Untuk menggunakan fitur sync, isi API Token terlebih dahulu.
+            <div style="margin-top:14px; padding:12px; background:#fee2e2; border:1px solid #fca5a5; border-radius:8px; font-size:11px; color:#991b1b;">
+                <strong>⚠️ Cloud ID & API Token belum diisi</strong><br>
+                <span style="font-size:10px;">Isi Cloud ID dan API Token di atas untuk menghubungkan ke mesin fingerprint.</span>
+            </div>
+            <?php else: ?>
+            <div style="margin-top:14px; padding:12px; background:#f1f5f9; border:1px solid #e2e8f0; border-radius:8px; font-size:11px; color:#475569;">
+                ⓘ Aktifkan integrasi Fingerspot terlebih dahulu untuk menggunakan fitur tarik data.
             </div>
             <?php endif; ?>
         </div>
@@ -1539,6 +1604,60 @@ include '../../includes/header.php';
                     </a>
                 </div>
             </div>
+        </div>
+
+        <!-- ═══ DIAGNOSTIK FINGERPRINT LOG ═══ -->
+        <?php
+        $diagLogs = [];
+        $diagTotal = 0; $diagUnproc = 0; $diagNoEmp = 0;
+        try {
+            $r = $_pdo->query("SELECT COUNT(*) as c FROM fingerprint_log")->fetch(PDO::FETCH_ASSOC);
+            $diagTotal = (int)($r['c'] ?? 0);
+            $r2 = $_pdo->query("SELECT COUNT(*) as c FROM fingerprint_log WHERE processed = 0")->fetch(PDO::FETCH_ASSOC);
+            $diagUnproc = (int)($r2['c'] ?? 0);
+            $r3 = $_pdo->query("SELECT COUNT(*) as c FROM fingerprint_log WHERE employee_id IS NULL AND pin IS NOT NULL")->fetch(PDO::FETCH_ASSOC);
+            $diagNoEmp = (int)($r3['c'] ?? 0);
+            $diagLogs = $_pdo->query("SELECT fl.id, fl.pin, fl.scan_time, fl.processed, fl.process_result, fl.employee_id, pe.full_name FROM fingerprint_log fl LEFT JOIN payroll_employees pe ON fl.employee_id = pe.id ORDER BY fl.id DESC LIMIT 8")->fetchAll(PDO::FETCH_ASSOC);
+        } catch (Exception $e) {}
+        ?>
+        <div class="card" style="border-left:4px solid #94a3b8;">
+            <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
+                <div class="card-title" style="margin:0; font-size:13px;">🔍 Diagnostik Log Fingerprint</div>
+                <div style="display:flex; gap:8px; font-size:10px;">
+                    <span style="background:#f1f5f9; padding:3px 8px; border-radius:6px;">Total: <strong><?= $diagTotal ?></strong></span>
+                    <span style="background:#fef3c7; padding:3px 8px; border-radius:6px; color:#92400e;">Belum diproses: <strong><?= $diagUnproc ?></strong></span>
+                    <span style="background:#fee2e2; padding:3px 8px; border-radius:6px; color:#991b1b;">Tak cocok karyawan: <strong><?= $diagNoEmp ?></strong></span>
+                </div>
+            </div>
+            <?php if ($diagTotal === 0): ?>
+            <div style="text-align:center; padding:20px; color:var(--muted); font-size:12px; background:#f8fafc; border-radius:8px;">
+                📭 <strong>fingerprint_log kosong</strong><br>
+                <span style="font-size:10px; margin-top:4px; display:block;">Gunakan <strong>Tarik Data dari Fingerspot API</strong> di atas, atau pastikan webhook mesin sudah aktif.</span>
+            </div>
+            <?php else: ?>
+            <div style="overflow-x:auto; font-size:10px;">
+                <table class="tbl" style="font-size:10px;">
+                    <thead><tr><th>#ID</th><th>PIN</th><th>Waktu Scan</th><th>Karyawan</th><th style="text-align:center;">Proses</th><th>Keterangan</th></tr></thead>
+                    <tbody>
+                    <?php foreach ($diagLogs as $dl): ?>
+                    <tr>
+                        <td><?= $dl['id'] ?></td>
+                        <td><code style="background:#eff6ff; padding:2px 5px; border-radius:3px;"><?= htmlspecialchars($dl['pin'] ?? '-') ?></code></td>
+                        <td style="white-space:nowrap;"><?= $dl['scan_time'] ? date('d/m/Y H:i', strtotime($dl['scan_time'])) : '<span style="color:#94a3b8;">—</span>' ?></td>
+                        <td><?= $dl['full_name'] ? '<span style="color:#059669;font-weight:600;">'.htmlspecialchars($dl['full_name']).'</span>' : '<span style="color:#dc2626;">❌ Tidak dikenal (PIN: '.htmlspecialchars($dl['pin'] ?? '-').')</span>' ?></td>
+                        <td style="text-align:center;"><?= $dl['processed'] ? '<span style="color:#059669;font-weight:700;">✅</span>' : '<span style="color:#f59e0b;font-weight:700;">⏳</span>' ?></td>
+                        <td style="max-width:180px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; color:var(--muted);" title="<?= htmlspecialchars($dl['process_result'] ?? '') ?>"><?= htmlspecialchars(substr($dl['process_result'] ?? '—', 0, 40)) ?></td>
+                    </tr>
+                    <?php endforeach; ?>
+                    </tbody>
+                </table>
+            </div>
+            <?php if ($diagNoEmp > 0): ?>
+            <div style="background:#fef3c7; border:1px solid #fde68a; border-radius:6px; padding:8px 10px; margin-top:10px; font-size:10px; color:#92400e;">
+                ⚠️ <strong><?= $diagNoEmp ?> log</strong> tidak cocok ke karyawan manapun. Pastikan <strong>Finger ID</strong> di <a href="employees.php" style="color:#b45309; font-weight:700;">Data Karyawan</a> sama persis dengan PIN di mesin fingerprint.
+            </div>
+            <?php endif; ?>
+            <?php endif; ?>
         </div>
 
     </div>
