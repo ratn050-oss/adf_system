@@ -74,12 +74,13 @@ function syncSlipsWithAttendance($db, $periodId, $month, $year) {
         $otAmount = round($otH * $otRate, 2);
 
         // Read current addon values
-        $cur = $db->fetchOne("SELECT incentive, allowance, bonus, other_income, deduction_loan, deduction_absence, deduction_tax, deduction_bpjs, deduction_other FROM payroll_slips WHERE id = ?", [$slip['id']]);
+        $cur = $db->fetchOne("SELECT incentive, allowance, uang_makan, bonus, other_income, deduction_loan, deduction_absence, deduction_tax, deduction_bpjs, deduction_other FROM payroll_slips WHERE id = ?", [$slip['id']]);
         $incentive = (float)($cur['incentive'] ?? 0);
         $allowance = (float)($cur['allowance'] ?? 0);
+        $uang_makan = (float)($cur['uang_makan'] ?? 0);
         $bonus = (float)($cur['bonus'] ?? 0);
         $other = (float)($cur['other_income'] ?? 0);
-        $totalEarn = $actualBase + $otAmount + $incentive + $allowance + $bonus + $other;
+        $totalEarn = $actualBase + $otAmount + $incentive + $allowance + $uang_makan + $bonus + $other;
         $loan = (float)($cur['deduction_loan'] ?? 0);
         $absence = (float)($cur['deduction_absence'] ?? 0);
         $tax = (float)($cur['deduction_tax'] ?? 0);
@@ -88,8 +89,8 @@ function syncSlipsWithAttendance($db, $periodId, $month, $year) {
         $totalDed = $loan + $absence + $tax + $bpjs + $dedOther;
         $netSalary = $totalEarn - $totalDed;
 
-        $db->query("UPDATE payroll_slips SET work_hours=?, overtime_hours=?, actual_base=?, overtime_rate=?, overtime_amount=?, total_earnings=?, total_deductions=?, net_salary=? WHERE id=?",
-            [$workH, $otH, $actualBase, $otRate, $otAmount, $totalEarn, $totalDed, $netSalary, $slip['id']]);
+        $db->query("UPDATE payroll_slips SET work_hours=?, overtime_hours=?, actual_base=?, overtime_rate=?, overtime_amount=?, total_earnings=?, total_deductions=?, net_salary=?, uang_makan=? WHERE id=?",
+            [$workH, $otH, $actualBase, $otRate, $otAmount, $totalEarn, $totalDed, $netSalary, $uang_makan, $slip['id']]);
     }
     // Update period totals
     $db->query("UPDATE payroll_periods p LEFT JOIN (SELECT period_id, SUM(total_earnings) as gross, SUM(total_deductions) as ded, SUM(net_salary) as net, COUNT(id) as cnt FROM payroll_slips WHERE period_id = ?) s ON p.id = s.period_id SET p.total_gross = s.gross, p.total_deductions = s.ded, p.total_net = s.net, p.total_employees = s.cnt WHERE p.id = ?", [$periodId, $periodId]);
@@ -170,6 +171,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_update'])) {
     $allowance = (float)$_POST['allowance'];
     $bonus = (float)$_POST['bonus'];
     $other = (float)$_POST['other_income'];
+    $uang_makan = isset($_POST['uang_makan']) ? (float)$_POST['uang_makan'] : 0;
     
     $loan = (float)$_POST['deduction_loan'];
     $absence = (float)$_POST['deduction_absence'];
@@ -189,7 +191,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_update'])) {
     $overtime_rate = $hourly_rate;
     $overtime_amount = $overtime_hours * $overtime_rate;
     
-    $total_earnings = $actual_base + $overtime_amount + $incentive + $allowance + $bonus + $other;
+    $total_earnings = $actual_base + $overtime_amount + $incentive + $allowance + $uang_makan + $bonus + $other;
     $total_deductions = $loan + $absence + $tax + $bpjs + $ded_other;
     $net_salary = $total_earnings - $total_deductions;
     
@@ -197,15 +199,15 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_update'])) {
         $sql = "UPDATE payroll_slips SET 
                 base_salary = ?, work_hours = ?, actual_base = ?,
                 overtime_hours = ?, overtime_rate = ?, overtime_amount = ?,
-                incentive = ?, allowance = ?, bonus = ?, other_income = ?,
+                incentive = ?, allowance = ?, uang_makan = ?, bonus = ?, other_income = ?,
                 deduction_loan = ?, deduction_absence = ?, deduction_tax = ?, deduction_bpjs = ?, deduction_other = ?,
                 total_earnings = ?, total_deductions = ?, net_salary = ?
                 WHERE id = ?";
-        
+    
         $db->query($sql, [
             $base_salary, $work_hours, $actual_base,
             $overtime_hours, $overtime_rate, $overtime_amount,
-            $incentive, $allowance, $bonus, $other,
+            $incentive, $allowance, $uang_makan, $bonus, $other,
             $loan, $absence, $tax, $bpjs, $ded_other,
             $total_earnings, $total_deductions, $net_salary,
             $slip_id
@@ -240,6 +242,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_proses'])) {
             $allowance = (float)$slip['allowance'];
             $bonus = (float)$slip['bonus'];
             $other = (float)$slip['other_income'];
+            $uang_makan = isset($slip['uang_makan']) ? (float)$slip['uang_makan'] : 0;
             $loan = (float)$slip['deduction_loan'];
             $absence = (float)$slip['deduction_absence'];
             $tax = (float)$slip['deduction_tax'];
@@ -249,11 +252,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_proses'])) {
             $actual_base = ($work_hours >= 200) ? $base_salary : $work_hours * $hourly_rate;
             $overtime_rate = $hourly_rate;
             $overtime_amount = $overtime_hours * $overtime_rate;
-            $total_earnings = $actual_base + $overtime_amount + $incentive + $allowance + $bonus + $other;
+            $total_earnings = $actual_base + $overtime_amount + $incentive + $allowance + $uang_makan + $bonus + $other;
             $total_deductions = $loan + $absence + $tax + $bpjs + $ded_other;
             $net_salary = $total_earnings - $total_deductions;
-            $db->query("UPDATE payroll_slips SET actual_base=?, overtime_rate=?, overtime_amount=?, total_earnings=?, total_deductions=?, net_salary=? WHERE id=?",
-                [$actual_base, $overtime_rate, $overtime_amount, $total_earnings, $total_deductions, $net_salary, $slip['id']]);
+            $db->query("UPDATE payroll_slips SET actual_base=?, overtime_rate=?, overtime_amount=?, total_earnings=?, total_deductions=?, net_salary=?, uang_makan=? WHERE id=?",
+                [$actual_base, $overtime_rate, $overtime_amount, $total_earnings, $total_deductions, $net_salary, $uang_makan, $slip['id']]);
         }
         $period_id = $period['id'];
         $db->query("UPDATE payroll_periods p LEFT JOIN ( SELECT period_id, SUM(total_earnings) as gross, SUM(total_deductions) as ded, SUM(net_salary) as net, COUNT(id) as cnt FROM payroll_slips WHERE period_id = ? ) s ON p.id = s.period_id SET p.total_gross = s.gross, p.total_deductions = s.ded, p.total_net = s.net, p.total_employees = s.cnt WHERE p.id = ?", [$period_id, $period_id]);
@@ -947,23 +950,30 @@ include '../../includes/header.php';
                         <th style="width: 65px;">OT Rp</th>
                         <th style="width: 60px;">Inctv</th>
                         <th style="width: 60px;">Allowc</th>
+                        <th style="width: 70px;">Uang Makan</th>
                         <th style="width: 60px;">Bonus</th>
                         <th style="width: 65px; color: #ef4444;">Deduct</th>
                         <th style="width: 80px;">Net</th>
                         <th style="width: 30px;"></th>
                     </tr>
-                </thead>
-                <tbody>
-                    <?php foreach($slips as $slip): 
-                        $workHours = $slip['work_hours'] ?? 200;
-                        $actualBase = $slip['actual_base'] ?? $slip['base_salary'];
-                    ?>
-                    <tr id="row-<?php echo $slip['id']; ?>" 
-                        data-loan="<?php echo $slip['deduction_loan']; ?>"
-                        data-absence="<?php echo $slip['deduction_absence']; ?>"
-                        data-bpjs="<?php echo $slip['deduction_bpjs']; ?>"
-                        data-other="<?php echo $slip['deduction_other']; ?>">
-                        
+                        <td>
+                            <input type="text" class="ps-input currency-input" 
+                                   value="<?php echo number_format($slip['allowance'], 0, ',', '.'); ?>"
+                                   data-field="allowance" data-id="<?php echo $slip['id']; ?>"
+                                   onchange="calculateRow(<?php echo $slip['id']; ?>)">
+                        </td>
+                        <td>
+                            <input type="text" class="ps-input currency-input" 
+                                   value="<?php echo number_format($slip['uang_makan'] ?? 0, 0, ',', '.'); ?>"
+                                   data-field="uang_makan" data-id="<?php echo $slip['id']; ?>"
+                                   onchange="calculateRow(<?php echo $slip['id']; ?>)">
+                        </td>
+                        <td>
+                            <input type="text" class="ps-input currency-input" 
+                                   value="<?php echo number_format($slip['bonus'] + $slip['other_income'], 0, ',', '.'); ?>"
+                                   data-field="bonus" data-id="<?php echo $slip['id']; ?>"
+                                   onchange="calculateRow(<?php echo $slip['id']; ?>)">
+                        </td>
                         <td style="text-align:center;">
                             <?php if(empty($slip['is_paid'])): ?>
                             <input type="checkbox" class="pay-select-cb" value="<?php echo $slip['id']; ?>" data-net="<?php echo $slip['net_salary']; ?>" data-name="<?php echo htmlspecialchars($slip['employee_name']); ?>" onchange="updatePaySelection()">

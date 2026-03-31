@@ -557,6 +557,10 @@ $waLink = $waNumber ? "https://wa.me/{$waNumber}?text={$waMessage}" : '';
                     <span class="salary-value"><?php echo number_format($slip['allowance'], 0, ',', '.'); ?></span>
                 </div>
                 <div class="salary-row">
+                    <span class="salary-label">Uang Makan</span>
+                    <span class="salary-value"><?php echo number_format($slip['uang_makan'] ?? 0, 0, ',', '.'); ?></span>
+                </div>
+                <div class="salary-row">
                     <span class="salary-label">Bonus / Lainnya</span>
                     <span class="salary-value"><?php echo number_format($slip['bonus'] + $slip['other_income'], 0, ',', '.'); ?></span>
                 </div>

@@ -441,7 +441,7 @@ include '../../includes/header.php';
             <tbody>
                 <?php foreach($slips as $slip): 
                     $initials = strtoupper(substr($slip['employee_name'], 0, 1)) . strtoupper(substr(strrchr($slip['employee_name'], ' ') ?: $slip['employee_name'], 1, 1));
-                    $allowances = $slip['incentive'] + $slip['allowance'] + $slip['bonus'] + ($slip['other_income'] ?? 0);
+                    $allowances = $slip['incentive'] + $slip['allowance'] + ($slip['uang_makan'] ?? 0) + $slip['bonus'] + ($slip['other_income'] ?? 0);
                 ?>
                 <tr>
                     <td>
@@ -462,6 +462,13 @@ include '../../includes/header.php';
                     </td>
                     <td style="text-align: right;">
                         <span class="sl-amount positive">Rp <?php echo number_format($allowances, 0, ',', '.'); ?></span>
+                        <div style="font-size: 0.68rem; color: var(--text-tertiary);">
+                            Incentive: Rp <?php echo number_format($slip['incentive'], 0, ',', '.'); ?><br>
+                            Allowance: Rp <?php echo number_format($slip['allowance'], 0, ',', '.'); ?><br>
+                            <strong>Uang Makan: Rp <?php echo number_format($slip['uang_makan'] ?? 0, 0, ',', '.'); ?></strong><br>
+                            Bonus: Rp <?php echo number_format($slip['bonus'], 0, ',', '.'); ?><br>
+                            Other: Rp <?php echo number_format($slip['other_income'] ?? 0, 0, ',', '.'); ?>
+                        </div>
                     </td>
                     <td style="text-align: right;">
                         <span class="sl-amount negative">-Rp <?php echo number_format($slip['total_deductions'], 0, ',', '.'); ?></span>
