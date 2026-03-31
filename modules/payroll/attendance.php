@@ -152,6 +152,11 @@ try { $_pdo->query("SELECT 1 FROM fingerprint_log LIMIT 0"); } catch (PDOExcepti
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 }
 
+// Ensure fingerspot_token column exists
+try { $_pdo->query("SELECT fingerspot_token FROM payroll_attendance_config LIMIT 0"); } catch (PDOException $e) {
+    $_pdo->exec("ALTER TABLE payroll_attendance_config ADD COLUMN `fingerspot_token` VARCHAR(100) DEFAULT NULL AFTER fingerspot_enabled");
+}
+
 // ══════════════════════════════════════════════
 // POST ACTIONS
 // ══════════════════════════════════════════════
@@ -221,10 +226,178 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     // ── Fingerspot config ──
     if ($action === 'save_fingerspot') {
         $fpCloudId = trim($_POST['fingerspot_cloud_id'] ?? '');
+        $fpToken = trim($_POST['fingerspot_token'] ?? '');
         $fpEnabled = isset($_POST['fingerspot_enabled']) ? 1 : 0;
-        $_pdo->prepare("UPDATE payroll_attendance_config SET fingerspot_cloud_id=?, fingerspot_enabled=?, updated_by=? WHERE id=1")
-            ->execute([$fpCloudId ?: null, $fpEnabled, $currentUser['id']]);
+        $_pdo->prepare("UPDATE payroll_attendance_config SET fingerspot_cloud_id=?, fingerspot_token=?, fingerspot_enabled=?, updated_by=? WHERE id=1")
+            ->execute([$fpCloudId ?: null, $fpToken ?: null, $fpEnabled, $currentUser['id']]);
         $msg = '✅ Pengaturan Fingerspot disimpan.'; $msgType = 'success';
+    }
+
+    // ── Sync Fingerspot Data ──
+    if ($action === 'sync_fingerspot') {
+        $syncFrom = $_POST['sync_from'] ?? date('Y-m-01');
+        $syncTo = $_POST['sync_to'] ?? date('Y-m-d');
+        
+        // Get config
+        $fpConfig = $db->fetchOne("SELECT fingerspot_cloud_id, fingerspot_token, fingerspot_enabled FROM payroll_attendance_config WHERE id = 1");
+        $cloudId = $fpConfig['fingerspot_cloud_id'] ?? '';
+        $apiToken = $fpConfig['fingerspot_token'] ?? '';
+        $fpEnabled = (int)($fpConfig['fingerspot_enabled'] ?? 0);
+        
+        if (!$fpEnabled || !$cloudId || !$apiToken) {
+            $msg = '❌ Fingerspot belum dikonfigurasi. Isi Cloud ID dan API Token terlebih dahulu.'; 
+            $msgType = 'error';
+        } else {
+            // Call Fingerspot API
+            $apiUrl = "https://developer.fingerspot.io/api/get_attlog";
+            $postData = [
+                'trans_id' => uniqid('sync_'),
+                'cloud_id' => $cloudId,
+                'start_date' => $syncFrom,
+                'end_date' => $syncTo
+            ];
+            
+            $ch = curl_init();
+            curl_setopt_array($ch, [
+                CURLOPT_URL => $apiUrl,
+                CURLOPT_POST => true,
+                CURLOPT_POSTFIELDS => json_encode($postData),
+                CURLOPT_RETURNTRANSFER => true,
+                CURLOPT_TIMEOUT => 60,
+                CURLOPT_HTTPHEADER => [
+                    'Content-Type: application/json',
+                    'Authorization: Bearer ' . $apiToken
+                ]
+            ]);
+            
+            $response = curl_exec($ch);
+            $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+            $curlError = curl_error($ch);
+            curl_close($ch);
+            
+            if ($curlError) {
+                $msg = "❌ Gagal koneksi ke API: {$curlError}"; $msgType = 'error';
+            } elseif ($httpCode !== 200) {
+                $msg = "❌ API Error (HTTP {$httpCode}): " . substr($response, 0, 200); $msgType = 'error';
+            } else {
+                $data = json_decode($response, true);
+                
+                if (!$data || !isset($data['data'])) {
+                    // Try alternative format
+                    if (is_array($data) && isset($data[0])) {
+                        $attLogs = $data;
+                    } else {
+                        $msg = "❌ Format response tidak valid: " . substr($response, 0, 200); $msgType = 'error';
+                        $attLogs = [];
+                    }
+                } else {
+                    $attLogs = $data['data'];
+                }
+                
+                if (!empty($attLogs)) {
+                    $processed = 0;
+                    $skipped = 0;
+                    $errors = 0;
+                    
+                    foreach ($attLogs as $log) {
+                        $pin = trim($log['pin'] ?? $log['user_id'] ?? '');
+                        $scanTime = $log['scan_date'] ?? $log['datetime'] ?? $log['scan'] ?? '';
+                        $verify = $log['verify'] ?? $log['verify_type'] ?? 'finger';
+                        $statusScan = $log['status_scan'] ?? $log['status'] ?? '';
+                        
+                        if (!$pin || !$scanTime) { $skipped++; continue; }
+                        
+                        // Find employee
+                        $emp = $db->fetchOne("SELECT id, full_name FROM payroll_employees WHERE TRIM(finger_id) = ? AND is_active = 1", [$pin]);
+                        if (!$emp && is_numeric($pin)) {
+                            $emp = $db->fetchOne("SELECT id, full_name FROM payroll_employees WHERE CAST(TRIM(finger_id) AS UNSIGNED) = CAST(? AS UNSIGNED) AND is_active = 1", [$pin]);
+                        }
+                        
+                        if (!$emp) { $skipped++; continue; }
+                        
+                        $empId = $emp['id'];
+                        $scanDate = date('Y-m-d', strtotime($scanTime));
+                        $scanTimeOnly = date('H:i:s', strtotime($scanTime));
+                        
+                        // Check existing attendance
+                        $existing = $db->fetchOne("SELECT * FROM payroll_attendance WHERE employee_id = ? AND attendance_date = ?", [$empId, $scanDate]);
+                        
+                        // Get checkin_end config for late detection
+                        $checkinEnd = $config['checkin_end'] ?? '10:00:00';
+                        $isLate = ($scanTimeOnly > $checkinEnd);
+                        
+                        try {
+                            if (!$existing) {
+                                // First scan of the day = check in
+                                $status = $isLate ? 'late' : 'present';
+                                $db->query("INSERT INTO payroll_attendance (employee_id, attendance_date, check_in_time, status, notes) VALUES (?, ?, ?, ?, ?)",
+                                    [$empId, $scanDate, $scanTimeOnly, $status, "Sync: {$verify}"]);
+                                $processed++;
+                            } else {
+                                // Update: determine which scan slot
+                                $s1 = $existing['check_in_time'];
+                                $s2 = $existing['check_out_time'];
+                                $s3 = $existing['scan_3'];
+                                $s4 = $existing['scan_4'];
+                                
+                                // Don't duplicate same scan time
+                                $existingTimes = [$s1, $s2, $s3, $s4];
+                                $isDuplicate = false;
+                                foreach ($existingTimes as $et) {
+                                    if ($et && abs(strtotime($et) - strtotime($scanTimeOnly)) < 60) {
+                                        $isDuplicate = true; break;
+                                    }
+                                }
+                                
+                                if ($isDuplicate) { $skipped++; continue; }
+                                
+                                // Assign to next empty slot
+                                if (!$s2) {
+                                    $db->query("UPDATE payroll_attendance SET check_out_time = ? WHERE id = ?", [$scanTimeOnly, $existing['id']]);
+                                } elseif (!$s3) {
+                                    $db->query("UPDATE payroll_attendance SET scan_3 = ? WHERE id = ?", [$scanTimeOnly, $existing['id']]);
+                                } elseif (!$s4) {
+                                    $db->query("UPDATE payroll_attendance SET scan_4 = ? WHERE id = ?", [$scanTimeOnly, $existing['id']]);
+                                }
+                                
+                                // Recalculate work hours
+                                $att = $db->fetchOne("SELECT * FROM payroll_attendance WHERE id = ?", [$existing['id']]);
+                                $sh1 = null; $sh2 = null;
+                                if ($att['check_in_time'] && $att['check_out_time']) {
+                                    $t1 = strtotime($scanDate . ' ' . $att['check_in_time']);
+                                    $t2 = strtotime($scanDate . ' ' . $att['check_out_time']);
+                                    if ($t2 > $t1) $sh1 = round(($t2 - $t1) / 3600, 2);
+                                }
+                                if ($att['scan_3'] && $att['scan_4']) {
+                                    $t3 = strtotime($scanDate . ' ' . $att['scan_3']);
+                                    $t4 = strtotime($scanDate . ' ' . $att['scan_4']);
+                                    if ($t4 > $t3) $sh2 = round(($t4 - $t3) / 3600, 2);
+                                }
+                                $wh = round(($sh1 ?? 0) + ($sh2 ?? 0), 2) ?: null;
+                                $db->query("UPDATE payroll_attendance SET work_hours = ?, shift_1_hours = ?, shift_2_hours = ? WHERE id = ?",
+                                    [$wh, $sh1, $sh2, $existing['id']]);
+                                
+                                $processed++;
+                            }
+                            
+                            // Log sync
+                            $_pdo->prepare("INSERT INTO fingerprint_log (cloud_id, type, pin, scan_time, verify_method, status_scan, employee_id, processed, process_result) VALUES (?,?,?,?,?,?,?,1,'synced')")
+                                ->execute([$cloudId, 'sync', $pin, $scanTime, $verify, $statusScan, $empId]);
+                                
+                        } catch (Exception $e) {
+                            $errors++;
+                            error_log("Sync error: " . $e->getMessage());
+                        }
+                    }
+                    
+                    $msg = "✅ Sync selesai: {$processed} data diproses, {$skipped} dilewati" . ($errors > 0 ? ", {$errors} error" : "");
+                    $msgType = 'success';
+                } else {
+                    $msg = "ℹ️ Tidak ada data absensi dari Fingerspot untuk periode tersebut.";
+                    $msgType = 'info';
+                }
+            }
+        }
     }
 
     // ── Edit attendance ──
@@ -466,9 +639,10 @@ try {
 $pendingLeaves = count(array_filter($leaveRequests, fn($l) => $l['status'] === 'pending'));
 
 // Fingerspot data
-$fpConfig = $db->fetchOne("SELECT fingerspot_cloud_id, fingerspot_enabled FROM payroll_attendance_config WHERE id = 1") ?: [];
+$fpConfig = $db->fetchOne("SELECT fingerspot_cloud_id, fingerspot_token, fingerspot_enabled FROM payroll_attendance_config WHERE id = 1") ?: [];
 $fpEnabled = (int)($fpConfig['fingerspot_enabled'] ?? 0);
 $fpCloudId = $fpConfig['fingerspot_cloud_id'] ?? '';
+$fpToken = $fpConfig['fingerspot_token'] ?? '';
 $fpCloudStatus = null;
 
 // Fungsi cek status cloud_id ke API Fingerspot
@@ -896,12 +1070,47 @@ include '../../includes/header.php';
                     <input type="text" name="fingerspot_cloud_id" class="fi" value="<?php echo htmlspecialchars($fpCloudId); ?>" placeholder="Cloud ID dari Fingerspot.io">
                     <div style="font-size:9px; color:var(--muted); margin-top:2px;">Lihat di dashboard Fingerspot.io → Device → Cloud ID</div>
                 </div>
+                <div class="fg">
+                    <label class="fl">API Token</label>
+                    <input type="password" name="fingerspot_token" class="fi" value="<?php echo htmlspecialchars($fpToken); ?>" placeholder="API Token dari Fingerspot.io">
+                    <div style="font-size:9px; color:var(--muted); margin-top:2px;">Diperlukan untuk sync data. Lihat di Settings → API</div>
+                </div>
                 <div class="fg" style="display:flex; align-items:center; gap:6px; margin-bottom:12px;">
                     <input type="checkbox" name="fingerspot_enabled" id="fpOn" <?php echo $fpEnabled ? 'checked' : ''; ?>>
                     <label for="fpOn" style="font-size:11px; font-weight:600;">Aktifkan integrasi Fingerspot</label>
                 </div>
                 <button type="submit" class="btn btn-primary" style="width:100%;">💾 Simpan Fingerspot</button>
             </form>
+
+            <!-- Sync Data Section -->
+            <?php if ($fpEnabled && $fpCloudId && $fpToken): ?>
+            <div style="margin-top:14px; padding-top:14px; border-top:1px dashed var(--border);">
+                <div style="font-size:11px; font-weight:700; color:#7c3aed; margin-bottom:8px;">📥 Sync Data Absensi dari Fingerspot</div>
+                <form method="POST" action="?tab=fingerprint" onsubmit="return confirm('Sync data absensi dari Fingerspot?');">
+                    <input type="hidden" name="action" value="sync_fingerspot">
+                    <div style="display:flex; gap:8px; margin-bottom:8px;">
+                        <div style="flex:1;">
+                            <label style="font-size:9px; font-weight:600; color:var(--muted);">Dari Tanggal</label>
+                            <input type="date" name="sync_from" class="fi" value="<?php echo date('Y-m-01'); ?>" style="font-size:11px;">
+                        </div>
+                        <div style="flex:1;">
+                            <label style="font-size:9px; font-weight:600; color:var(--muted);">Sampai Tanggal</label>
+                            <input type="date" name="sync_to" class="fi" value="<?php echo date('Y-m-d'); ?>" style="font-size:11px;">
+                        </div>
+                    </div>
+                    <button type="submit" class="btn" style="width:100%; background:linear-gradient(135deg,#7c3aed,#a855f7); color:#fff; border:none;">
+                        🔄 Sync Data Fingerspot
+                    </button>
+                    <div style="font-size:9px; color:var(--muted); margin-top:4px; text-align:center;">
+                        Tarik data absensi dari mesin Fingerspot untuk periode yang dipilih
+                    </div>
+                </form>
+            </div>
+            <?php elseif ($fpEnabled): ?>
+            <div style="margin-top:14px; padding:10px; background:#fef3c7; border-radius:8px; font-size:10px; color:#92400e;">
+                ⚠️ Untuk menggunakan fitur sync, isi API Token terlebih dahulu.
+            </div>
+            <?php endif; ?>
         </div>
 
         <!-- Webhook URL -->
