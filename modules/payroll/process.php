@@ -17,6 +17,88 @@ if (!isModuleEnabled('payroll')) {
 $db = Database::getInstance();
 $pageTitle = 'Process Salary';
 
+// ═══ AJAX: Get Monthly Attendance Detail ═══
+if (isset($_GET['ajax_attendance']) && isset($_GET['emp_id'])) {
+    header('Content-Type: application/json');
+    $empId = (int)$_GET['emp_id'];
+    $m = (int)($_GET['m'] ?? date('n'));
+    $y = (int)($_GET['y'] ?? date('Y'));
+    $monthStr = sprintf('%04d-%02d', $y, $m);
+    
+    try {
+        // Get employee info
+        $emp = $db->fetchOne("SELECT full_name, position, monthly_target_hours FROM payroll_employees WHERE id = ?", [$empId]);
+        
+        // Get all attendance for this month
+        $attendance = $db->fetchAll(
+            "SELECT attendance_date, check_in_time, check_out_time, scan_3, scan_4, 
+                    work_hours, shift_1_hours, shift_2_hours, status, notes,
+                    check_in_distance_m, is_outside_radius
+             FROM payroll_attendance 
+             WHERE employee_id = ? AND DATE_FORMAT(attendance_date, '%Y-%m') = ?
+             ORDER BY attendance_date ASC",
+            [$empId, $monthStr]
+        );
+        
+        // Calculate summary
+        $totalDays = 0;
+        $totalHours = 0;
+        $lateCount = 0;
+        $absentCount = 0;
+        $presentCount = 0;
+        
+        foreach ($attendance as $a) {
+            $totalDays++;
+            $totalHours += (float)($a['work_hours'] ?? 0);
+            if ($a['status'] === 'late') $lateCount++;
+            if ($a['status'] === 'absent') $absentCount++;
+            if ($a['status'] === 'present' || $a['status'] === 'late') $presentCount++;
+        }
+        
+        // Get days in month
+        $daysInMonth = cal_days_in_month(CAL_GREGORIAN, $m, $y);
+        
+        // Build calendar data
+        $calendarData = [];
+        for ($d = 1; $d <= $daysInMonth; $d++) {
+            $dateStr = sprintf('%04d-%02d-%02d', $y, $m, $d);
+            $dayOfWeek = date('N', strtotime($dateStr)); // 1=Monday, 7=Sunday
+            $calendarData[$dateStr] = [
+                'date' => $dateStr,
+                'day' => $d,
+                'day_name' => date('D', strtotime($dateStr)),
+                'is_weekend' => ($dayOfWeek >= 6),
+                'attendance' => null
+            ];
+        }
+        
+        // Merge attendance data
+        foreach ($attendance as $a) {
+            $calendarData[$a['attendance_date']]['attendance'] = $a;
+        }
+        
+        echo json_encode([
+            'success' => true,
+            'employee' => $emp,
+            'month' => $m,
+            'year' => $y,
+            'month_name' => date('F Y', strtotime("$y-$m-01")),
+            'summary' => [
+                'total_days' => $presentCount,
+                'total_hours' => round($totalHours, 1),
+                'target_hours' => (int)($emp['monthly_target_hours'] ?? 200),
+                'late_count' => $lateCount,
+                'absent_count' => $absentCount,
+                'days_in_month' => $daysInMonth
+            ],
+            'calendar' => array_values($calendarData)
+        ]);
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'error' => $e->getMessage()]);
+    }
+    exit;
+}
+
 // Ensure work_hours column exists
 try {
     $db->query("ALTER TABLE payroll_slips ADD COLUMN IF NOT EXISTS work_hours DECIMAL(10,2) NOT NULL DEFAULT 200.00 AFTER position");
@@ -918,6 +1000,311 @@ include '../../includes/header.php';
 }
 .ps-form-input:focus { outline: none; border-color: var(--primary-color); }
 
+/* Employee Row with Attendance Button */
+.ps-emp-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 0.35rem;
+}
+
+.ps-emp-info {
+    flex: 1;
+    min-width: 0;
+}
+
+.ps-btn-attendance {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 22px;
+    height: 22px;
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    background: linear-gradient(135deg, rgba(59,130,246,0.1), rgba(147,197,253,0.1));
+    color: #3b82f6;
+    cursor: pointer;
+    transition: all 0.2s;
+    flex-shrink: 0;
+}
+
+.ps-btn-attendance:hover {
+    background: linear-gradient(135deg, #3b82f6, #1d4ed8);
+    color: #fff;
+    transform: scale(1.1);
+    border-color: #3b82f6;
+}
+
+/* Attendance Modal */
+.att-modal-overlay {
+    position: fixed;
+    top: 0; left: 0; right: 0; bottom: 0;
+    background: rgba(0,0,0,0.6);
+    backdrop-filter: blur(4px);
+    display: none;
+    justify-content: center;
+    align-items: center;
+    z-index: 1100;
+    padding: 1rem;
+}
+
+.att-modal-overlay.active { display: flex; }
+
+.att-modal {
+    background: var(--bg-primary);
+    border-radius: 16px;
+    width: 100%;
+    max-width: 800px;
+    max-height: 90vh;
+    overflow: hidden;
+    box-shadow: 0 25px 80px rgba(0,0,0,0.3);
+    display: flex;
+    flex-direction: column;
+}
+
+.att-modal-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--border-color);
+    background: linear-gradient(135deg, rgba(59,130,246,0.08), rgba(147,197,253,0.05));
+}
+
+.att-modal-title {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+}
+
+.att-modal-title svg { color: #3b82f6; }
+
+.att-modal-body {
+    padding: 1rem 1.25rem;
+    overflow-y: auto;
+    flex: 1;
+}
+
+/* Summary Cards */
+.att-summary {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 0.75rem;
+    margin-bottom: 1rem;
+}
+
+.att-summary-card {
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-color);
+    border-radius: 10px;
+    padding: 0.75rem;
+    text-align: center;
+}
+
+.att-summary-value {
+    font-size: 1.25rem;
+    font-weight: 700;
+    color: var(--text-primary);
+}
+
+.att-summary-label {
+    font-size: 0.65rem;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    color: var(--text-tertiary);
+    margin-top: 0.15rem;
+}
+
+.att-summary-card.primary .att-summary-value { color: #3b82f6; }
+.att-summary-card.success .att-summary-value { color: #22c55e; }
+.att-summary-card.warning .att-summary-value { color: #f59e0b; }
+.att-summary-card.danger .att-summary-value { color: #ef4444; }
+
+/* Calendar Grid */
+.att-calendar {
+    display: grid;
+    grid-template-columns: repeat(7, 1fr);
+    gap: 4px;
+    margin-top: 0.75rem;
+}
+
+.att-cal-header {
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: var(--text-tertiary);
+    text-transform: uppercase;
+    text-align: center;
+    padding: 0.35rem;
+}
+
+.att-cal-day {
+    aspect-ratio: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    font-size: 0.75rem;
+    background: var(--bg-secondary);
+    border: 1px solid var(--border-light);
+    position: relative;
+    cursor: default;
+    transition: all 0.15s;
+}
+
+.att-cal-day:hover { transform: scale(1.05); }
+
+.att-cal-day.weekend { background: rgba(156,163,175,0.1); }
+.att-cal-day.empty { visibility: hidden; }
+
+.att-cal-day.present {
+    background: linear-gradient(135deg, rgba(34,197,94,0.15), rgba(74,222,128,0.1));
+    border-color: rgba(34,197,94,0.3);
+}
+
+.att-cal-day.late {
+    background: linear-gradient(135deg, rgba(245,158,11,0.15), rgba(251,191,36,0.1));
+    border-color: rgba(245,158,11,0.3);
+}
+
+.att-cal-day.absent {
+    background: linear-gradient(135deg, rgba(239,68,68,0.15), rgba(248,113,113,0.1));
+    border-color: rgba(239,68,68,0.3);
+}
+
+.att-cal-day.holiday, .att-cal-day.leave {
+    background: linear-gradient(135deg, rgba(139,92,246,0.15), rgba(167,139,250,0.1));
+    border-color: rgba(139,92,246,0.3);
+}
+
+.att-cal-date {
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.att-cal-hours {
+    font-size: 0.55rem;
+    color: var(--text-tertiary);
+    margin-top: 2px;
+}
+
+.att-cal-status {
+    position: absolute;
+    top: 3px;
+    right: 3px;
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+}
+
+.att-cal-day.present .att-cal-status { background: #22c55e; }
+.att-cal-day.late .att-cal-status { background: #f59e0b; }
+.att-cal-day.absent .att-cal-status { background: #ef4444; }
+
+/* Attendance Table */
+.att-table {
+    width: 100%;
+    border-collapse: collapse;
+    font-size: 0.78rem;
+    margin-top: 1rem;
+}
+
+.att-table th {
+    padding: 0.5rem;
+    text-align: left;
+    font-size: 0.68rem;
+    text-transform: uppercase;
+    color: var(--text-tertiary);
+    border-bottom: 2px solid var(--border-color);
+    background: var(--bg-secondary);
+}
+
+.att-table td {
+    padding: 0.45rem 0.5rem;
+    border-bottom: 1px solid var(--border-light);
+}
+
+.att-table tr:hover td { background: var(--bg-secondary); }
+
+.att-time { font-family: 'SF Mono', Monaco, monospace; font-size: 0.72rem; }
+.att-badge {
+    display: inline-block;
+    padding: 0.15rem 0.4rem;
+    border-radius: 4px;
+    font-size: 0.6rem;
+    font-weight: 600;
+    text-transform: uppercase;
+}
+.att-badge.present { background: rgba(34,197,94,0.15); color: #16a34a; }
+.att-badge.late { background: rgba(245,158,11,0.15); color: #d97706; }
+.att-badge.absent { background: rgba(239,68,68,0.15); color: #dc2626; }
+.att-badge.holiday { background: rgba(139,92,246,0.15); color: #7c3aed; }
+
+/* Progress Bar */
+.att-progress {
+    margin-top: 0.75rem;
+    background: var(--bg-secondary);
+    border-radius: 8px;
+    padding: 0.75rem;
+}
+
+.att-progress-label {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.72rem;
+    margin-bottom: 0.35rem;
+}
+
+.att-progress-bar {
+    height: 8px;
+    background: var(--border-color);
+    border-radius: 4px;
+    overflow: hidden;
+}
+
+.att-progress-fill {
+    height: 100%;
+    background: linear-gradient(90deg, #3b82f6, #22c55e);
+    border-radius: 4px;
+    transition: width 0.5s ease;
+}
+
+/* View Toggle */
+.att-view-toggle {
+    display: flex;
+    gap: 0.25rem;
+    margin-bottom: 0.75rem;
+}
+
+.att-view-btn {
+    padding: 0.4rem 0.75rem;
+    border: 1px solid var(--border-color);
+    background: var(--bg-secondary);
+    border-radius: 6px;
+    font-size: 0.72rem;
+    cursor: pointer;
+    transition: all 0.2s;
+}
+
+.att-view-btn.active {
+    background: #3b82f6;
+    color: #fff;
+    border-color: #3b82f6;
+}
+
+.att-view-btn:hover:not(.active) {
+    border-color: #3b82f6;
+    color: #3b82f6;
+}
+
+@media (max-width: 768px) {
+    .att-summary { grid-template-columns: repeat(2, 1fr); }
+    .att-modal { max-height: 95vh; }
+}
+
 @media (max-width: 768px) {
     .ps-header { flex-direction: column; align-items: stretch; text-align: center; }
     .ps-filter { justify-content: center; }
@@ -1082,8 +1469,16 @@ include '../../includes/header.php';
                             <?php endif; ?>
                         </td>
                         <td class="col-employee">
-                            <div class="ps-emp-name"><?php echo htmlspecialchars($slip['employee_name']); ?></div>
-                            <div class="ps-emp-pos"><?php echo htmlspecialchars($slip['position']); ?></div>
+                            <div class="ps-emp-row">
+                                <div class="ps-emp-info">
+                                    <div class="ps-emp-name"><?php echo htmlspecialchars($slip['employee_name']); ?></div>
+                                    <div class="ps-emp-pos"><?php echo htmlspecialchars($slip['position']); ?></div>
+                                </div>
+                                <button type="button" class="ps-btn-attendance" title="Lihat Detail Absensi" 
+                                        onclick="showAttendanceDetail(<?php echo $slip['employee_id']; ?>, '<?php echo htmlspecialchars(addslashes($slip['employee_name'])); ?>')">
+                                    <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                                </button>
+                            </div>
                         </td>
                         
                         <td>
@@ -1224,6 +1619,29 @@ include '../../includes/header.php';
         </div>
     </div>
 </div>
+
+<!-- Attendance Detail Modal -->
+<div class="att-modal-overlay" id="attendanceModal">
+    <div class="att-modal">
+        <div class="att-modal-header">
+            <h4 class="att-modal-title">
+                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="3" y="4" width="18" height="18" rx="2" ry="2"></rect><line x1="16" y1="2" x2="16" y2="6"></line><line x1="8" y1="2" x2="8" y2="6"></line><line x1="3" y1="10" x2="21" y2="10"></line></svg>
+                Detail Absensi: <span id="attEmpName"></span>
+            </h4>
+            <button type="button" class="ps-modal-close" onclick="closeAttendanceModal()">&times;</button>
+        </div>
+        <div class="att-modal-body" id="attModalBody">
+            <div style="text-align: center; padding: 2rem;">
+                <div style="border: 3px solid var(--border-color); border-top-color: #3b82f6; border-radius: 50%; width: 40px; height: 40px; animation: spin 1s linear infinite; margin: 0 auto;"></div>
+                <p style="margin-top: 1rem; color: var(--text-tertiary);">Loading attendance data...</p>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+@keyframes spin { to { transform: rotate(360deg); } }
+</style>
 
 <script>
 // Format Currency Input
@@ -1468,6 +1886,191 @@ function paySelected() {
     document.getElementById('paySelSlipIds').value = ids;
     document.getElementById('paySelForm').submit();
 }
+
+// ═══ Attendance Detail Functions ═══
+let currentAttView = 'calendar';
+
+function showAttendanceDetail(empId, empName) {
+    document.getElementById('attEmpName').innerText = empName;
+    document.getElementById('attendanceModal').classList.add('active');
+    
+    const month = <?php echo $month; ?>;
+    const year = <?php echo $year; ?>;
+    
+    fetch(`process.php?ajax_attendance=1&emp_id=${empId}&m=${month}&y=${year}`)
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                renderAttendanceDetail(data);
+            } else {
+                document.getElementById('attModalBody').innerHTML = `
+                    <div style="text-align: center; padding: 2rem; color: #ef4444;">
+                        <p>Error: ${data.error || 'Gagal memuat data'}</p>
+                    </div>
+                `;
+            }
+        })
+        .catch(err => {
+            document.getElementById('attModalBody').innerHTML = `
+                <div style="text-align: center; padding: 2rem; color: #ef4444;">
+                    <p>Network error</p>
+                </div>
+            `;
+        });
+}
+
+function renderAttendanceDetail(data) {
+    const s = data.summary;
+    const progressPct = Math.min((s.total_hours / s.target_hours) * 100, 100);
+    
+    // Generate calendar HTML
+    let calendarHtml = '';
+    const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
+    dayNames.forEach(d => calendarHtml += `<div class="att-cal-header">${d}</div>`);
+    
+    // Find first day of month
+    const firstDayStr = data.calendar[0]?.date;
+    if (firstDayStr) {
+        const firstDayOfWeek = new Date(firstDayStr).getDay();
+        const offset = firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1; // Convert to Monday-start
+        for (let i = 0; i < offset; i++) {
+            calendarHtml += '<div class="att-cal-day empty"></div>';
+        }
+    }
+    
+    data.calendar.forEach(day => {
+        const att = day.attendance;
+        let statusClass = '';
+        let hoursText = '';
+        
+        if (att) {
+            statusClass = att.status || 'present';
+            if (att.work_hours) hoursText = `${parseFloat(att.work_hours).toFixed(1)}h`;
+        } else if (day.is_weekend) {
+            statusClass = 'weekend';
+        }
+        
+        calendarHtml += `
+            <div class="att-cal-day ${statusClass}" title="${day.date}">
+                <span class="att-cal-date">${day.day}</span>
+                ${hoursText ? `<span class="att-cal-hours">${hoursText}</span>` : ''}
+                ${att ? '<span class="att-cal-status"></span>' : ''}
+            </div>
+        `;
+    });
+    
+    // Generate table HTML
+    let tableHtml = `
+        <table class="att-table">
+            <thead>
+                <tr>
+                    <th>Tanggal</th>
+                    <th>Check In</th>
+                    <th>Check Out</th>
+                    <th>Jam Kerja</th>
+                    <th>Status</th>
+                </tr>
+            </thead>
+            <tbody>
+    `;
+    
+    const daysWithAtt = data.calendar.filter(d => d.attendance);
+    if (daysWithAtt.length === 0) {
+        tableHtml += '<tr><td colspan="5" style="text-align: center; color: var(--text-tertiary); padding: 1rem;">Belum ada data absensi</td></tr>';
+    } else {
+        daysWithAtt.forEach(day => {
+            const att = day.attendance;
+            const inTime = att.check_in_time ? att.check_in_time.substring(0, 5) : '-';
+            const outTime = att.check_out_time ? att.check_out_time.substring(0, 5) : '-';
+            const hours = att.work_hours ? parseFloat(att.work_hours).toFixed(1) + ' jam' : '-';
+            const status = att.status || 'present';
+            
+            tableHtml += `
+                <tr>
+                    <td>${day.day} ${day.day_name}</td>
+                    <td class="att-time">${inTime}</td>
+                    <td class="att-time">${outTime}</td>
+                    <td>${hours}</td>
+                    <td><span class="att-badge ${status}">${status}</span></td>
+                </tr>
+            `;
+        });
+    }
+    tableHtml += '</tbody></table>';
+    
+    document.getElementById('attModalBody').innerHTML = `
+        <!-- Summary Cards -->
+        <div class="att-summary">
+            <div class="att-summary-card primary">
+                <div class="att-summary-value">${s.total_days}</div>
+                <div class="att-summary-label">Hari Hadir</div>
+            </div>
+            <div class="att-summary-card success">
+                <div class="att-summary-value">${s.total_hours}</div>
+                <div class="att-summary-label">Total Jam</div>
+            </div>
+            <div class="att-summary-card warning">
+                <div class="att-summary-value">${s.late_count}</div>
+                <div class="att-summary-label">Terlambat</div>
+            </div>
+            <div class="att-summary-card danger">
+                <div class="att-summary-value">${s.absent_count}</div>
+                <div class="att-summary-label">Tidak Hadir</div>
+            </div>
+        </div>
+        
+        <!-- Progress Bar -->
+        <div class="att-progress">
+            <div class="att-progress-label">
+                <span>Progress Jam Kerja</span>
+                <span><strong>${s.total_hours}</strong> / ${s.target_hours} jam (${progressPct.toFixed(0)}%)</span>
+            </div>
+            <div class="att-progress-bar">
+                <div class="att-progress-fill" style="width: ${progressPct}%"></div>
+            </div>
+        </div>
+        
+        <!-- View Toggle -->
+        <div class="att-view-toggle">
+            <button class="att-view-btn ${currentAttView === 'calendar' ? 'active' : ''}" onclick="toggleAttView('calendar')">
+                📅 Kalender
+            </button>
+            <button class="att-view-btn ${currentAttView === 'table' ? 'active' : ''}" onclick="toggleAttView('table')">
+                📋 Tabel
+            </button>
+        </div>
+        
+        <!-- Calendar View -->
+        <div id="attCalendarView" style="${currentAttView === 'calendar' ? '' : 'display:none'}">
+            <div class="att-calendar">
+                ${calendarHtml}
+            </div>
+        </div>
+        
+        <!-- Table View -->
+        <div id="attTableView" style="${currentAttView === 'table' ? '' : 'display:none'}">
+            ${tableHtml}
+        </div>
+    `;
+}
+
+function toggleAttView(view) {
+    currentAttView = view;
+    document.querySelectorAll('.att-view-btn').forEach(btn => btn.classList.remove('active'));
+    event.target.classList.add('active');
+    
+    document.getElementById('attCalendarView').style.display = view === 'calendar' ? '' : 'none';
+    document.getElementById('attTableView').style.display = view === 'table' ? '' : 'none';
+}
+
+function closeAttendanceModal() {
+    document.getElementById('attendanceModal').classList.remove('active');
+}
+
+// Close modal on backdrop click
+document.getElementById('attendanceModal')?.addEventListener('click', function(e) {
+    if (e.target === this) closeAttendanceModal();
+});
 </script>
 
 <!-- Floating Pay Selection Bar -->
