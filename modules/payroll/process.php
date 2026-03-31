@@ -956,24 +956,15 @@ include '../../includes/header.php';
                         <th style="width: 80px;">Net</th>
                         <th style="width: 30px;"></th>
                     </tr>
-                        <td>
-                            <input type="text" class="ps-input currency-input" 
-                                   value="<?php echo number_format($slip['allowance'], 0, ',', '.'); ?>"
-                                   data-field="allowance" data-id="<?php echo $slip['id']; ?>"
-                                   onchange="calculateRow(<?php echo $slip['id']; ?>)">
-                        </td>
-                        <td>
-                            <input type="text" class="ps-input currency-input" 
-                                   value="<?php echo number_format($slip['uang_makan'] ?? 0, 0, ',', '.'); ?>"
-                                   data-field="uang_makan" data-id="<?php echo $slip['id']; ?>"
-                                   onchange="calculateRow(<?php echo $slip['id']; ?>)">
-                        </td>
-                        <td>
-                            <input type="text" class="ps-input currency-input" 
-                                   value="<?php echo number_format($slip['bonus'] + $slip['other_income'], 0, ',', '.'); ?>"
-                                   data-field="bonus" data-id="<?php echo $slip['id']; ?>"
-                                   onchange="calculateRow(<?php echo $slip['id']; ?>)">
-                        </td>
+                </thead>
+                <tbody>
+                    <?php foreach($slips as $slip): 
+                        $workHours = floor($slip['work_hours']);
+                        $baseSalary = (float)$slip['base_salary'];
+                        $hourlyRate = $baseSalary / 200;
+                        $actualBase = ($workHours >= 200) ? $baseSalary : round($workHours * $hourlyRate, 2);
+                    ?>
+                    <tr>
                         <td style="text-align:center;">
                             <?php if(empty($slip['is_paid'])): ?>
                             <input type="checkbox" class="pay-select-cb" value="<?php echo $slip['id']; ?>" data-net="<?php echo $slip['net_salary']; ?>" data-name="<?php echo htmlspecialchars($slip['employee_name']); ?>" onchange="updatePaySelection()">
@@ -1030,6 +1021,13 @@ include '../../includes/header.php';
                             <input type="text" class="ps-input currency-input" 
                                    value="<?php echo number_format($slip['allowance'], 0, ',', '.'); ?>"
                                    data-field="allowance" data-id="<?php echo $slip['id']; ?>"
+                                   onchange="calculateRow(<?php echo $slip['id']; ?>)">
+                        </td>
+                        
+                        <td>
+                            <input type="text" class="ps-input currency-input" 
+                                   value="<?php echo number_format($slip['uang_makan'] ?? 0, 0, ',', '.'); ?>"
+                                   data-field="uang_makan" data-id="<?php echo $slip['id']; ?>"
                                    onchange="calculateRow(<?php echo $slip['id']; ?>)">
                         </td>
                         
