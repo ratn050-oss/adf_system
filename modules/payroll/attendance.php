@@ -625,6 +625,134 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             } catch (Exception $e) { $msg = 'Error: ' . $e->getMessage(); $msgType = 'error'; }
         }
     }
+
+    // ── Batch: Proses Log Fingerprint → payroll_attendance ──
+    if ($action === 'process_finger_batch') {
+        $fpFrom = $_POST['fp_from'] ?? date('Y-m-01');
+        $fpTo   = $_POST['fp_to']   ?? date('Y-m-d');
+        // Validate dates
+        if (!strtotime($fpFrom) || !strtotime($fpTo)) {
+            $msg = '❌ Format tanggal tidak valid.'; $msgType = 'error';
+        } else {
+            // Get checkin_end config for late detection
+            $cfgTime = $_pdo->query("SELECT checkin_end FROM payroll_attendance_config WHERE id = 1")->fetch(PDO::FETCH_ASSOC);
+            $checkinEnd = $cfgTime['checkin_end'] ?? '10:00:00';
+
+            // Get all unprocessed logs in date range, match to employees
+            $unprStmt = $_pdo->prepare("
+                SELECT fl.id, fl.pin, fl.scan_time, fl.verify_method,
+                       pe.id AS emp_id, pe.full_name
+                FROM fingerprint_log fl
+                LEFT JOIN payroll_employees pe ON (
+                    pe.is_active = 1 AND (
+                        TRIM(pe.finger_id) = TRIM(fl.pin)
+                        OR (fl.pin REGEXP '^[0-9]+$' AND CAST(TRIM(pe.finger_id) AS UNSIGNED) = CAST(TRIM(fl.pin) AS UNSIGNED))
+                    )
+                )
+                WHERE fl.processed = 0 AND fl.scan_time IS NOT NULL
+                  AND DATE(fl.scan_time) BETWEEN ? AND ?
+                ORDER BY fl.scan_time ASC
+            ");
+            $unprStmt->execute([$fpFrom, $fpTo]);
+            $unprLogs = $unprStmt->fetchAll(PDO::FETCH_ASSOC);
+
+            $processed = 0; $skipped = 0; $errors = 0;
+
+            foreach ($unprLogs as $log) {
+                $logId = (int)$log['id'];
+
+                if (empty($log['emp_id'])) {
+                    $_pdo->prepare("UPDATE fingerprint_log SET process_result = CONCAT('Tidak cocok — PIN: ', pin) WHERE id = ?")
+                        ->execute([$logId]);
+                    $skipped++;
+                    continue;
+                }
+
+                try {
+                    $empId      = (int)$log['emp_id'];
+                    $scanDate   = date('Y-m-d', strtotime($log['scan_time']));
+                    $scanTime   = date('H:i:s', strtotime($log['scan_time']));
+
+                    // Get existing attendance for this employee + date
+                    $attStmt = $_pdo->prepare("SELECT * FROM payroll_attendance WHERE employee_id = ? AND attendance_date = ?");
+                    $attStmt->execute([$empId, $scanDate]);
+                    $att = $attStmt->fetch(PDO::FETCH_ASSOC);
+
+                    $scan1 = $att['check_in_time']  ?? null;
+                    $scan2 = $att['check_out_time'] ?? null;
+                    $scan3 = $att['scan_3']         ?? null;
+                    $scan4 = $att['scan_4']         ?? null;
+                    $filled = array_filter([$scan1,$scan2,$scan3,$scan4], fn($s) => !empty($s));
+
+                    if (count($filled) >= 4) {
+                        $_pdo->prepare("UPDATE fingerprint_log SET processed=1, process_result='Max 4 scan tercapai' WHERE id=?")->execute([$logId]);
+                        $skipped++;
+                        continue;
+                    }
+
+                    // Double-scan guard: ignore if last scan < 5 min ago
+                    if (!empty($filled)) {
+                        $lastScan = end($filled);
+                        $diffMin = abs(strtotime("2000-01-01 $scanTime") - strtotime("2000-01-01 $lastScan")) / 60;
+                        if ($diffMin < 5) {
+                            $_pdo->prepare("UPDATE fingerprint_log SET processed=1, process_result='Double scan diabaikan (<5 mnt)' WHERE id=?")->execute([$logId]);
+                            $skipped++;
+                            continue;
+                        }
+                    }
+
+                    if (!$att) {
+                        // Scan 1 — create new record
+                        $status = ($scanTime > $checkinEnd) ? 'late' : 'present';
+                        $_pdo->prepare("INSERT INTO payroll_attendance (employee_id, attendance_date, check_in_time, status, check_in_device, notes) VALUES (?,?,?,?,?,?)")
+                            ->execute([$empId, $scanDate, $scanTime, $status, 'fingerprint:batch', 'Batch proses fingerprint']);
+                        $scanLabel = 'Scan 1 Masuk';
+                    } else {
+                        // Determine next slot
+                        if (empty($scan1))      { $updateCol = 'check_in_time';  $scanNum = 1; }
+                        elseif (empty($scan2))  { $updateCol = 'check_out_time'; $scanNum = 2; }
+                        elseif (empty($scan3))  { $updateCol = 'scan_3';         $scanNum = 3; }
+                        else                    { $updateCol = 'scan_4';         $scanNum = 4; }
+
+                        $sh1 = null; $sh2 = null;
+                        if ($scanNum === 2 && $scan1) {
+                            $t1 = strtotime("2000-01-01 $scan1"); $t2 = strtotime("2000-01-01 $scanTime");
+                            $sh1 = ($t2 > $t1) ? round(($t2-$t1)/3600, 2) : null;
+                        }
+                        if ($scanNum === 4 && $scan3) {
+                            $t3 = strtotime("2000-01-01 $scan3"); $t4 = strtotime("2000-01-01 $scanTime");
+                            $sh2 = ($t4 > $t3) ? round(($t4-$t3)/3600, 2) : null;
+                        }
+
+                        $updates = ["{$updateCol} = ?"];
+                        $params  = [$scanTime];
+                        if ($sh1 !== null) { $updates[] = 'shift_1_hours = ?'; $params[] = $sh1; }
+                        if ($sh2 !== null) { $updates[] = 'shift_2_hours = ?'; $params[] = $sh2; }
+
+                        $curSh1 = ($sh1 !== null) ? $sh1 : (float)($att['shift_1_hours'] ?? 0);
+                        $curSh2 = ($sh2 !== null) ? $sh2 : (float)($att['shift_2_hours'] ?? 0);
+                        $totalH = round($curSh1 + $curSh2, 2);
+                        if ($totalH > 0) { $updates[] = 'work_hours = ?'; $params[] = $totalH; }
+
+                        $params[] = $att['id'];
+                        $_pdo->prepare("UPDATE payroll_attendance SET " . implode(', ', $updates) . " WHERE id = ?")->execute($params);
+                        $scanLabel = "Scan {$scanNum}";
+                    }
+
+                    $_pdo->prepare("UPDATE fingerprint_log SET processed=1, process_result=? WHERE id=?")
+                        ->execute(["✅ Batch → absensi ({$scanLabel})", $logId]);
+                    $processed++;
+                } catch (Exception $e) {
+                    $errors++;
+                    $_pdo->prepare("UPDATE fingerprint_log SET process_result=? WHERE id=?")
+                        ->execute([substr('Error: '.$e->getMessage(), 0, 255), $logId]);
+                }
+            }
+
+            $msg = "✅ Proses selesai: <strong>{$processed}</strong> scan berhasil diproses ke absensi, <strong>{$skipped}</strong> diskip, <strong>{$errors}</strong> error.";
+            $msgType = 'success';
+        }
+    }
 }
 
 // ══════════════════════════════════════════════
@@ -716,6 +844,18 @@ $webhookUrlMulti = (isset($_SERVER['HTTPS']) && $_SERVER['HTTPS'] === 'on' ? 'ht
 // Webhook logs
 $fpLogs = [];
 try { $fpLogs = $db->fetchAll("SELECT fl.*, pe.full_name as emp_name FROM fingerprint_log fl LEFT JOIN payroll_employees pe ON fl.employee_id = pe.id ORDER BY fl.created_at DESC LIMIT 20") ?: []; } catch (Exception $e) {}
+
+// Unprocessed fingerprint log stats
+$fpUnprocessed = 0;
+$fpThisMonth   = 0;
+try {
+    $r1 = $_pdo->query("SELECT COUNT(*) as c FROM fingerprint_log WHERE processed = 0 AND scan_time IS NOT NULL")->fetch(PDO::FETCH_ASSOC);
+    $fpUnprocessed = (int)($r1['c'] ?? 0);
+    $thisMonthStr = date('Y-m');
+    $r2 = $_pdo->prepare("SELECT COUNT(*) as c FROM fingerprint_log WHERE DATE_FORMAT(scan_time,'%Y-%m') = ?");
+    $r2->execute([$thisMonthStr]);
+    $fpThisMonth = (int)($r2->fetch(PDO::FETCH_ASSOC)['c'] ?? 0);
+} catch (Exception $e) {}
 
 // Reset stats
 $resetStats = [
@@ -1241,6 +1381,70 @@ include '../../includes/header.php';
             </div>
             <?php endif; ?>
         </div>
+
+        <!-- ═══ PROSES LOG → ABSENSI & GAJI ═══ -->
+        <div class="card" style="border-left:4px solid var(--gold);">
+            <div style="display:flex; align-items:center; gap:12px; margin-bottom:14px;">
+                <div class="reset-icon" style="background:linear-gradient(135deg,#f59e0b,#d97706); color:#fff; width:44px; height:44px; font-size:22px;">⚡</div>
+                <div>
+                    <div class="card-title" style="margin:0; font-size:14px;">Proses Log → Absensi & Total Jam Kerja</div>
+                    <div style="font-size:10px; color:var(--muted);">Konversi log fingerprint ke data absensi, lalu lanjut hitung gaji otomatis</div>
+                </div>
+            </div>
+
+            <!-- Status unprocessed -->
+            <?php if ($fpUnprocessed > 0): ?>
+            <div style="background:#fef3c7; border:1px solid #fde68a; border-radius:8px; padding:10px 14px; margin-bottom:12px; display:flex; align-items:center; gap:8px;">
+                <span style="font-size:18px;">⚠️</span>
+                <div>
+                    <div style="font-size:12px; font-weight:700; color:#92400e;"><?= $fpUnprocessed ?> log belum diproses ke absensi</div>
+                    <div style="font-size:10px; color:#a16207;">Total log bulan ini: <?= $fpThisMonth ?> scan</div>
+                </div>
+            </div>
+            <?php else: ?>
+            <div style="background:#f0fdf4; border:1px solid #bbf7d0; border-radius:8px; padding:10px 14px; margin-bottom:12px; display:flex; align-items:center; gap:8px;">
+                <span style="font-size:18px;">✅</span>
+                <div style="font-size:12px; font-weight:700; color:#166534;">Semua log sudah diproses ke absensi · <?= $fpThisMonth ?> scan bulan ini</div>
+            </div>
+            <?php endif; ?>
+
+            <!-- Form proses batch -->
+            <form method="POST" action="?tab=fingerprint" onsubmit="return confirm('Proses semua log fingerprint periode ini ke data absensi?\n\nLog yang belum diproses akan dikonversi ke scan masuk/pulang karyawan.')">
+                <input type="hidden" name="action" value="process_finger_batch">
+                <div class="fgrid" style="margin-bottom:10px;">
+                    <div class="fg">
+                        <label class="fl">Dari Tanggal</label>
+                        <input type="date" name="fp_from" class="fi" value="<?= date('Y-m-01') ?>" required>
+                    </div>
+                    <div class="fg">
+                        <label class="fl">Sampai Tanggal</label>
+                        <input type="date" name="fp_to" class="fi" value="<?= date('Y-m-d') ?>" required>
+                    </div>
+                </div>
+                <button type="submit" class="btn btn-gold" style="width:100%; font-size:13px; padding:11px; font-weight:800; justify-content:center;">
+                    ⚡ Proses Log Fingerprint ke Absensi
+                </button>
+                <div style="font-size:10px; color:var(--muted); margin-top:5px; text-align:center;">Scan 1=Masuk · Scan 2=Pulang · Scan 3=Masuk Shift2 · Scan 4=Pulang Shift2 · Duplikat &lt;5 menit diabaikan</div>
+            </form>
+
+            <!-- Link ke proses gaji -->
+            <div style="border-top:1px solid var(--border); margin-top:16px; padding-top:14px;">
+                <div style="font-size:11px; font-weight:700; color:var(--navy); margin-bottom:8px;">Setelah absensi diproses, lanjut hitung gaji:</div>
+                <div style="background:#f8fafc; border:1px solid var(--border); border-radius:8px; padding:10px 12px; margin-bottom:10px; font-size:11px; color:var(--muted);">
+                    💡 <strong>Total jam kerja</strong> dihitung otomatis dari scan masuk–pulang fingerprint.<br>
+                    Gaji proporsional: <em>jam_kerja ÷ 200 × gaji_pokok</em> · Lembur dihitung per 45 menit
+                </div>
+                <div style="display:flex; gap:8px;">
+                    <a href="process.php?month=<?= date('n') ?>&year=<?= date('Y') ?>" class="btn btn-primary" style="flex:1; justify-content:center; font-size:12px; padding:10px;">
+                        💰 Proses Gaji <?= date('F Y') ?>
+                    </a>
+                    <a href="process.php" class="btn" style="background:#ede9fe; color:var(--purple); font-size:12px; padding:10px;">
+                        📋 Pilih Bulan Lain
+                    </a>
+                </div>
+            </div>
+        </div>
+
     </div>
 
     <!-- ═══════════════════════════════════════ -->
