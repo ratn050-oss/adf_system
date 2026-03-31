@@ -1,3 +1,17 @@
+                    <?php if ($fpEnabled && $fpCloudId && $fpCloudStatus): ?>
+                        <div style="margin-top:4px; font-size:11px;">
+                            <strong>Status Cloud:</strong>
+                            <?php if ($fpCloudStatus['success']): ?>
+                                <span style="color:#059669; font-weight:700;">✅ <?php echo htmlspecialchars($fpCloudStatus['message'] ?? 'Aktif'); ?></span>
+                            <?php else: ?>
+                                <span style="color:#dc2626; font-weight:700;">⚠️ <?php echo htmlspecialchars($fpCloudStatus['message'] ?? 'Tidak aktif'); ?></span>
+                            <?php endif; ?>
+                        </div>
+                        <details style="margin-top:6px;">
+                            <summary style="font-size:10px; color:#64748b; cursor:pointer;">Debug: Lihat response API</summary>
+                            <pre style="font-size:10px; background:#f3f4f6; color:#334155; border-radius:6px; padding:8px; border:1px solid #e2e8f0; max-width:420px; overflow-x:auto; margin-top:4px;"><?php echo htmlspecialchars(json_encode($fpCloudStatus, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE)); ?></pre>
+                        </details>
+                    <?php endif; ?>
 <?php
 /**
  * Payroll Attendance Dashboard - Redesigned
