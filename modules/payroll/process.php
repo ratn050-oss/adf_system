@@ -213,6 +213,18 @@ function syncSlipsWithAttendance($db, $periodId, $month, $year) {
     $db->query("UPDATE payroll_periods p LEFT JOIN (SELECT period_id, SUM(total_earnings) as gross, SUM(total_deductions) as ded, SUM(net_salary) as net, COUNT(id) as cnt FROM payroll_slips WHERE period_id = ?) s ON p.id = s.period_id SET p.total_gross = s.gross, p.total_deductions = s.ded, p.total_net = s.net, p.total_employees = s.cnt WHERE p.id = ?", [$periodId, $periodId]);
 }
 
+// ── Handle manual sync from attendance ──
+if (isset($_POST['sync_attendance']) && $period && $period['status'] === 'draft') {
+    try {
+        syncSlipsWithAttendance($db, $period['id'], $month, $year);
+        setFlash('success', '✅ Jam kerja berhasil di-sync dari data absensi');
+    } catch (Exception $e) {
+        setFlash('error', 'Sync error: ' . $e->getMessage());
+    }
+    header("Location: process.php?month=$month&year=$year");
+    exit;
+}
+
 if (!$period && isset($_POST['create_period'])) {
     try {
         $label = $months[$month] . ' ' . $year;
@@ -240,46 +252,10 @@ if (!$period && isset($_POST['create_period'])) {
     }
 }
 
-$slips = [];
-if ($period) {
-    $slips = $db->fetchAll("
-        SELECT s.*, e.employee_code, e.department 
-        FROM payroll_slips s 
-        JOIN payroll_employees e ON s.employee_id = e.id 
-        WHERE s.period_id = ?
-        ORDER BY s.employee_name ASC", 
-        [$period['id']]
-    );
-    
-    // ── Auto-sync slips with attendance data on every page load (draft only) ──
-    if ($period['status'] === 'draft') {
-        try {
-            syncSlipsWithAttendance($db, $period['id'], $month, $year);
-            // Re-fetch period after sync
-            $period = $db->fetchOne("SELECT * FROM payroll_periods WHERE id = ?", [$period['id']]);
-        } catch (Exception $e) { /* ignore sync errors */ }
-    }
-
-        // Ensure displayed period totals are in sync with payroll_slips sums
-        try {
-            $sums = $db->fetchOne("SELECT IFNULL(SUM(total_earnings),0) as gross, IFNULL(SUM(total_deductions),0) as ded, IFNULL(SUM(net_salary),0) as net, COUNT(id) as cnt FROM payroll_slips WHERE period_id = ?", [$period['id']]);
-            if ($sums) {
-                $period['total_gross'] = $sums['gross'];
-                $period['total_deductions'] = $sums['ded'];
-                $period['total_net'] = $sums['net'];
-                $period['total_employees'] = $sums['cnt'];
-                // Persist to payroll_periods to keep DB consistent
-                $db->query("UPDATE payroll_periods SET total_gross = ?, total_deductions = ?, total_net = ?, total_employees = ? WHERE id = ?", [$sums['gross'], $sums['ded'], $sums['net'], $sums['cnt'], $period['id']]);
-            }
-        } catch (Exception $e) {
-            // ignore sync errors; page can still render with existing period values
-        }
-}
-
-// Handle AJAX Update
+// ── Handle AJAX Update FIRST (before auto-sync so edits are saved immediately) ──
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_update'])) {
     header('Content-Type: application/json');
-    $slip_id = $_POST['slip_id'];
+    $slip_id = (int)$_POST['slip_id'];
     
     $base_salary = (float)$_POST['base_salary'];
     $work_hours = (float)$_POST['work_hours'];
@@ -330,14 +306,16 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_update'])) {
             $slip_id
         ]);
         
-        $period_id = $period['id'];
-        $db->query("UPDATE payroll_periods p
-                    LEFT JOIN (
-                        SELECT period_id, SUM(total_earnings) as gross, SUM(total_deductions) as ded, SUM(net_salary) as net, COUNT(id) as cnt 
-                        FROM payroll_slips WHERE period_id = ?
-                    ) s ON p.id = s.period_id
-                    SET p.total_gross = s.gross, p.total_deductions = s.ded, p.total_net = s.net, p.total_employees = s.cnt
-                    WHERE p.id = ?", [$period_id, $period_id]);
+        $period_id = $period ? $period['id'] : 0;
+        if ($period_id) {
+            $db->query("UPDATE payroll_periods p
+                        LEFT JOIN (
+                            SELECT period_id, SUM(total_earnings) as gross, SUM(total_deductions) as ded, SUM(net_salary) as net, COUNT(id) as cnt 
+                            FROM payroll_slips WHERE period_id = ?
+                        ) s ON p.id = s.period_id
+                        SET p.total_gross = s.gross, p.total_deductions = s.ded, p.total_net = s.net, p.total_employees = s.cnt
+                        WHERE p.id = ?", [$period_id, $period_id]);
+        }
                     
         echo json_encode(['status' => 'success', 'net_salary' => $net_salary, 'actual_base' => $actual_base]);
     } catch (Exception $e) {
@@ -362,6 +340,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_unlock_hours']))
         echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
     }
     exit;
+}
+
+$slips = [];
+if ($period) {
+    // ── Auto-sync attendance only on normal page loads (GET), not during form POSTs ──
+    if ($_SERVER['REQUEST_METHOD'] === 'GET' && $period['status'] === 'draft') {
+        try {
+            syncSlipsWithAttendance($db, $period['id'], $month, $year);
+            // Re-fetch period after sync
+            $period = $db->fetchOne("SELECT * FROM payroll_periods WHERE id = ?", [$period['id']]);
+        } catch (Exception $e) { /* ignore sync errors */ }
+    }
+    
+    // Fetch slips AFTER sync so we get updated work hours
+    $slips = $db->fetchAll("
+        SELECT s.*, e.employee_code, e.department 
+        FROM payroll_slips s 
+        JOIN payroll_employees e ON s.employee_id = e.id 
+        WHERE s.period_id = ?
+        ORDER BY s.employee_name ASC", 
+        [$period['id']]
+    );
+
+        // Ensure displayed period totals are in sync with payroll_slips sums
+        try {
+            $sums = $db->fetchOne("SELECT IFNULL(SUM(total_earnings),0) as gross, IFNULL(SUM(total_deductions),0) as ded, IFNULL(SUM(net_salary),0) as net, COUNT(id) as cnt FROM payroll_slips WHERE period_id = ?", [$period['id']]);
+            if ($sums) {
+                $period['total_gross'] = $sums['gross'];
+                $period['total_deductions'] = $sums['ded'];
+                $period['total_net'] = $sums['net'];
+                $period['total_employees'] = $sums['cnt'];
+                // Persist to payroll_periods to keep DB consistent
+                $db->query("UPDATE payroll_periods SET total_gross = ?, total_deductions = ?, total_net = ?, total_employees = ? WHERE id = ?", [$sums['gross'], $sums['ded'], $sums['net'], $sums['cnt'], $period['id']]);
+            }
+        } catch (Exception $e) {
+            // ignore sync errors; page can still render with existing period values
+        }
 }
 
 // Handle Save/Proses Button (recalculate all slips and update period net total)
@@ -760,6 +775,7 @@ include '../../includes/header.php';
 .ps-btn-warning { background: linear-gradient(135deg, #f59e0b, #d97706); color: #1a1a2e; }
 .ps-btn-success { background: linear-gradient(135deg, #22c55e, #16a34a); color: #fff; }
 .ps-btn-primary { background: var(--ps-gradient-1); color: #fff; }
+.ps-btn-secondary { background: linear-gradient(135deg, #6366f1, #7c3aed); color: #fff; }
 .ps-btn-outline { background: transparent; border: 1px solid var(--border-color); color: var(--text-secondary); }
 .ps-btn-outline:hover { border-color: var(--primary-color); color: var(--primary-color); }
 
@@ -1420,6 +1436,13 @@ include '../../includes/header.php';
         
         <div class="ps-actions">
             <?php if($period['status'] == 'draft'): ?>
+                <form method="POST" style="display:inline;" title="Sync jam kerja dari data absensi Fingerspot">
+                    <input type="hidden" name="sync_attendance" value="1">
+                    <button type="submit" class="ps-btn ps-btn-secondary" style="margin-right:0.5rem;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="23 4 23 10 17 10"></polyline><polyline points="1 20 1 14 7 14"></polyline><path d="m3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path></svg>
+                        Sync Absensi
+                    </button>
+                </form>
                 <form method="POST" id="saveProsesForm" style="display:inline;">
                     <input type="hidden" name="save_proses" value="1">
                     <button type="submit" class="ps-btn ps-btn-primary" style="margin-right:0.5rem;">
@@ -1708,12 +1731,45 @@ include '../../includes/header.php';
 </style>
 
 <script>
-// Format Currency Input
+// Format Currency Input & trigger auto-save on input (not just blur)
 document.querySelectorAll('.currency-input').forEach(input => {
     input.addEventListener('keyup', function(e) {
         let val = this.value.replace(/\D/g, '');
         this.value = new Intl.NumberFormat('id-ID').format(val);
+        // Also trigger calculateRow on keyup so save fires while typing
+        let id = this.getAttribute('data-id');
+        if (id) calculateRow(parseInt(id));
     });
+});
+
+// For number inputs (work_hours, overtime_hours), also trigger on input event
+document.querySelectorAll('.ps-input[type="number"]').forEach(input => {
+    input.addEventListener('input', function() {
+        let id = this.getAttribute('data-id');
+        if (id) calculateRow(parseInt(id));
+    });
+});
+
+// Intercept Save/Proses form — flush all pending AJAX saves first
+document.getElementById('saveProsesForm')?.addEventListener('submit', function(e) {
+    // Fire all pending debounced saves immediately
+    let pendingSaves = [];
+    document.querySelectorAll('tr[id^="row-"]').forEach(row => {
+        let id = row.id.replace('row-', '');
+        if (window['saveTimer_' + id]) {
+            clearTimeout(window['saveTimer_' + id]);
+            window['saveTimer_' + id] = null;
+            pendingSaves.push(saveRowSync(id));
+        }
+    });
+    if (pendingSaves.length > 0) {
+        e.preventDefault();
+        Promise.all(pendingSaves).then(() => {
+            this.submit();
+        }).catch(() => {
+            this.submit();
+        });
+    }
 });
 
 function getValByRow(id, field) {
@@ -1809,7 +1865,7 @@ function saveRow(id) {
     data.append('deduction_bpjs', row.getAttribute('data-bpjs') || 0);
     data.append('deduction_other', row.getAttribute('data-other') || 0);
     
-    fetch('process.php?month=<?php echo $month; ?>&year=<?php echo $year; ?>', {
+    return fetch('process.php?month=<?php echo $month; ?>&year=<?php echo $year; ?>', {
         method: 'POST',
         body: data
     }).then(res => res.json())
@@ -1837,6 +1893,11 @@ function saveRow(id) {
               indicator.innerHTML = '<span class="save-dot error"></span> Error!';
           }
       });
+}
+
+// Same as saveRow but always returns a Promise (for flushing before form submit)
+function saveRowSync(id) {
+    return saveRow(id) || Promise.resolve();
 }
 
 function updateTotals() {

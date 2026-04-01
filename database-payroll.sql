@@ -60,6 +60,7 @@ CREATE TABLE IF NOT EXISTS `payroll_slips` (
     `overtime_amount` DECIMAL(15,2) DEFAULT 0.00,
     `incentive` DECIMAL(15,2) DEFAULT 0.00,
     `allowance` DECIMAL(15,2) DEFAULT 0.00,
+    `uang_makan` DECIMAL(15,2) DEFAULT 0.00,
     `bonus` DECIMAL(15,2) DEFAULT 0.00,
     `other_income` DECIMAL(15,2) DEFAULT 0.00,
     `deduction_loan` DECIMAL(15,2) DEFAULT 0.00,
