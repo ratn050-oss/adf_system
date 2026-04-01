@@ -14,7 +14,7 @@ if ($token !== 'fix2026') {
 // Database connection - hosting
 $host = 'localhost';
 $user = 'adfb2574_adfsystem';
-$pass = '@Nnoc2025';
+$pass = '@Nnoc2026';
 $dbname = 'adfb2574_narayana_hotel';
 
 try {

@@ -15,7 +15,7 @@ function agent_get_hotel_db() {
                      strpos($_SERVER['HTTP_HOST'] ?? '', '127.0.0.1') === false);
     $dbName = $isProduction ? 'adfb2574_narayana_hotel' : 'adf_narayana_hotel';
     $dbUser = $isProduction ? 'adfb2574_adfsystem' : 'root';
-    $dbPass = $isProduction ? '@Nnoc2025' : '';
+    $dbPass = $isProduction ? '@Nnoc2026' : '';
     $pdo = new PDO('mysql:host=localhost;dbname=' . $dbName . ';charset=utf8mb4', $dbUser, $dbPass);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
     return $pdo;

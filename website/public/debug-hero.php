@@ -8,7 +8,7 @@ if (($_GET['token'] ?? '') !== 'debughero') die('Token required');
 // Connect to database
 $pdo = new PDO(
     'mysql:host=localhost;dbname=adfb2574_narayana_hotel;charset=utf8mb4',
-    'adfb2574_adfsystem', '@Nnoc2025',
+    'adfb2574_adfsystem', '@Nnoc2026',
     [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
 );
 

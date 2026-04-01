@@ -54,7 +54,7 @@ if ($isProduction) {
     if (!defined('DB_HOST')) define('DB_HOST', 'localhost');
     if (!defined('DB_NAME')) define('DB_NAME', 'adfb2574_adf');
     if (!defined('DB_USER')) define('DB_USER', 'adfb2574_adfsystem');
-    if (!defined('DB_PASS')) define('DB_PASS', '@Nnoc2025');
+    if (!defined('DB_PASS')) define('DB_PASS', '@Nnoc2026');
 } else {
     // Local development - uses adf_system as master database
     if (!defined('DB_HOST')) define('DB_HOST', 'localhost');

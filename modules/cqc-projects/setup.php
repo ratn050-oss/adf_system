@@ -18,7 +18,7 @@ function getDBConnection() {
     
     $dbHost = 'localhost';
     $dbUser = $isLocalhost ? 'root' : 'adfb2574_adfsystem';
-    $dbPass = $isLocalhost ? '' : '@Nnoc2025';
+    $dbPass = $isLocalhost ? '' : '@Nnoc2026';
     $dbName = $isLocalhost ? 'adf_cqc' : 'adfb2574_cqc';
     
     try {

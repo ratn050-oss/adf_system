@@ -31,14 +31,14 @@ if ($isLocal) {
     // Database SISTEM ADF (untuk data master)
     define('DB_HOST', 'localhost');
     define('DB_USER', 'adfb2574_adfsystem');
-    define('DB_PASS', '@Nnoc2025');
+    define('DB_PASS', '@Nnoc2026');
     define('DB_NAME', 'adfb2574_narayana_hotel'); // Sistem hotel management
     define('DB_PORT', 3306);
     
     // Database WEBSITE (untuk booking customer)
     define('DB_WEB_HOST', 'localhost');
     define('DB_WEB_USER', 'adfb2574_adfsystem');
-    define('DB_WEB_PASS', '@Nnoc2025');
+    define('DB_WEB_PASS', '@Nnoc2026');
     define('DB_WEB_NAME', 'adfb2574_web_narayana'); // Website booking database
     define('DB_WEB_PORT', 3306);
 }
