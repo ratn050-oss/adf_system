@@ -20,7 +20,7 @@ if ($action === 'check') {
     
     // Connect to narayana_hotel DB
     try {
-        $pdo = new PDO('mysql:host=localhost;dbname=adfb2574_narayana_hotel;charset=utf8mb4', 'adfb2574_adfsystem', '@Nnoc2026');
+        $pdo = new PDO('mysql:host=localhost;dbname=adfb2574_narayana_hotel;charset=utf8mb4', 'adfb2574_adfsystem', '@Nnoc2025');
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         echo "DB Connected: adfb2574_narayana_hotel\n\n";
         
@@ -69,7 +69,7 @@ if ($action === 'fix_logo') {
         die("Provide &url=CLOUDINARY_URL_HERE");
     }
     try {
-        $pdo = new PDO('mysql:host=localhost;dbname=adfb2574_narayana_hotel;charset=utf8mb4', 'adfb2574_adfsystem', '@Nnoc2026');
+        $pdo = new PDO('mysql:host=localhost;dbname=adfb2574_narayana_hotel;charset=utf8mb4', 'adfb2574_adfsystem', '@Nnoc2025');
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         $stmt = $pdo->prepare("INSERT INTO settings (setting_key, setting_value, setting_type, description) VALUES ('web_logo', ?, 'text', 'Website Logo') ON DUPLICATE KEY UPDATE setting_value = ?");
         $stmt->execute([$url, $url]);
@@ -120,7 +120,7 @@ if ($action === 'verify') {
     // Try to load config and test the actual logo URL generation
     echo "\n--- Live Test ---\n";
     try {
-        $pdo = new PDO('mysql:host=localhost;dbname=adfb2574_narayana_hotel;charset=utf8mb4', 'adfb2574_adfsystem', '@Nnoc2026');
+        $pdo = new PDO('mysql:host=localhost;dbname=adfb2574_narayana_hotel;charset=utf8mb4', 'adfb2574_adfsystem', '@Nnoc2025');
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         
         $stmt = $pdo->query("SELECT setting_value FROM settings WHERE setting_key = 'web_logo'");

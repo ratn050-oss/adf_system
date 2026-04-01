@@ -13,7 +13,7 @@ if ($token !== 'debug2026') {
 $isProduction = true;
 $pdo = new PDO(
     'mysql:host=localhost;dbname=adfb2574_narayana_hotel;charset=utf8mb4',
-    'adfb2574_adfsystem', '@Nnoc2026',
+    'adfb2574_adfsystem', '@Nnoc2025',
     [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
 );
 

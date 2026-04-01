@@ -38,7 +38,7 @@ try {
     if ($isProduction) {
         $dbHost = 'localhost';
         $dbUser = 'adfb2574_adfsystem';
-        $dbPass = '@Nnoc2026';
+        $dbPass = '@Nnoc2025';
     } else {
         $dbHost = 'localhost';
         $dbUser = 'root';

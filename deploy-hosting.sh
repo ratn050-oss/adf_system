@@ -13,7 +13,7 @@ echo ""
 DEPLOY_DIR="/home/xxx/public_html/adf_system"  # CHANGE THIS
 DB_HOST="localhost"
 DB_USER="adfb2574_adfsystem"
-DB_PASS="@Nnoc2026"
+DB_PASS="@Nnoc2025"
 MASTER_DB="adfb2574_adf"
 
 # Colors

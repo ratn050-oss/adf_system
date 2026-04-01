@@ -124,7 +124,7 @@ $isProduction = (strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost') === false &&
                 strpos($_SERVER['HTTP_HOST'] ?? '', '127.0.0.1') === false);
 $webDbName = $isProduction ? 'adfb2574_narayana_hotel' : 'adf_narayana_hotel';
 $webDbUser = $isProduction ? 'adfb2574_adfsystem' : 'root';
-$webDbPass = $isProduction ? '@Nnoc2026' : '';
+$webDbPass = $isProduction ? '@Nnoc2025' : '';
 
 // Website public directory for auto-sync of uploaded images
 if ($isProduction) {
