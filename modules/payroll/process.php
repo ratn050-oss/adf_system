@@ -458,15 +458,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_save_daily_atten
 
 $slips = [];
 if ($period) {
-    // ── Auto-sync attendance only on normal page loads (GET), not during form POSTs ──
-    if ($_SERVER['REQUEST_METHOD'] === 'GET' && $period['status'] === 'draft') {
-        try {
-            syncSlipsWithAttendance($db, $period['id'], $month, $year);
-            // Re-fetch period after sync
-            $period = $db->fetchOne("SELECT * FROM payroll_periods WHERE id = ?", [$period['id']]);
-        } catch (Exception $e) { /* ignore sync errors */
-        }
-    }
+    // Auto-sync DISABLED — user saves manually per row or via "Save/Proses" button
+    // Use "Sync Absensi" button to pull attendance data explicitly
 
     // Fetch slips AFTER sync so we get updated work hours
     $slips = $db->fetchAll(
@@ -1949,7 +1942,7 @@ include '../../includes/header.php';
                             <th style="width: 80px;">Bonus</th>
                             <th style="width: 85px; color: #ef4444;">Deduct</th>
                             <th style="width: 100px;">Net</th>
-                            <th style="width: 30px;"></th>
+                            <th style="width: 55px;">Save</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -2078,14 +2071,12 @@ include '../../includes/header.php';
                                     <span id="save-indicator-<?php echo $slip['id']; ?>" class="save-indicator"></span>
                                 </td>
 
-                                <td>
-                                    <button type="button" class="ps-btn-edit" title="Edit Deductions"
-                                        onclick="openDeductionModal(<?php echo $slip['id']; ?>, '<?php echo htmlspecialchars(addslashes($slip['employee_name'])); ?>')">
-                                        <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                            <path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path>
-                                            <path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path>
-                                        </svg>
+                                <td style="text-align:center;">
+                                    <button type="button" class="ps-btn-save-row" id="save-btn-<?php echo $slip['id']; ?>" title="Simpan baris ini"
+                                        onclick="saveRow(<?php echo $slip['id']; ?>)" style="display:none;background:#10b981;color:#fff;border:none;border-radius:6px;padding:4px 8px;cursor:pointer;font-size:0.72rem;font-weight:600;white-space:nowrap;">
+                                        💾
                                     </button>
+                                    <span id="saved-label-<?php echo $slip['id']; ?>" style="color:#6b7280;font-size:0.65rem;">—</span>
                                 </td>
                             </tr>
                         <?php endforeach; ?>
@@ -2198,21 +2189,18 @@ include '../../includes/header.php';
         });
     });
 
-    // Intercept Save/Proses form — flush all pending AJAX saves first
+    // Intercept Save/Proses form — save all unsaved rows first
     document.getElementById('saveProsesForm')?.addEventListener('submit', function(e) {
-        // Fire all pending debounced saves immediately
-        let pendingSaves = [];
-        document.querySelectorAll('tr[id^="row-"]').forEach(row => {
-            let id = row.id.replace('row-', '');
-            if (window['saveTimer_' + id]) {
-                clearTimeout(window['saveTimer_' + id]);
-                window['saveTimer_' + id] = null;
-                pendingSaves.push(saveRowSync(id));
-            }
-        });
-        if (pendingSaves.length > 0) {
+        // Find all rows with visible save buttons (unsaved changes)
+        let unsaved = document.querySelectorAll('.ps-btn-save-row[style*="inline-block"]');
+        if (unsaved.length > 0) {
             e.preventDefault();
-            Promise.all(pendingSaves).then(() => {
+            let saves = [];
+            unsaved.forEach(btn => {
+                let id = btn.id.replace('save-btn-', '');
+                saves.push(saveRow(id));
+            });
+            Promise.all(saves).then(() => {
                 this.submit();
             }).catch(() => {
                 this.submit();
@@ -2274,12 +2262,11 @@ include '../../includes/header.php';
         let net = totalEarn - totalDed;
         document.getElementById(`net-${id}`).innerText = new Intl.NumberFormat('id-ID').format(net);
 
-        // Show save indicator
-        showSaveIndicator(id);
-
-        // Auto-save via Ajax with debounce
-        clearTimeout(window[`saveTimer_${id}`]);
-        window[`saveTimer_${id}`] = setTimeout(() => saveRow(id), 500);
+        // Show save button (user must click to save)
+        let saveBtn = document.getElementById(`save-btn-${id}`);
+        let savedLabel = document.getElementById(`saved-label-${id}`);
+        if (saveBtn) { saveBtn.style.display = 'inline-block'; }
+        if (savedLabel) { savedLabel.style.display = 'none'; }
     }
 
     function showSaveIndicator(id) {
@@ -2313,33 +2300,31 @@ include '../../includes/header.php';
         data.append('deduction_bpjs', row.getAttribute('data-bpjs') || 0);
         data.append('deduction_other', row.getAttribute('data-other') || 0);
 
+        // Show saving state on button
+        let saveBtn = document.getElementById(`save-btn-${id}`);
+        let savedLabel = document.getElementById(`saved-label-${id}`);
+        if (saveBtn) { saveBtn.textContent = '⏳'; saveBtn.disabled = true; }
+
         return fetch('process.php?month=<?php echo $month; ?>&year=<?php echo $year; ?>', {
                 method: 'POST',
                 body: data
             }).then(res => res.json())
             .then(res => {
                 if (res.status === 'success') {
-                    // Update save indicator to saved
-                    let indicator = document.getElementById(`save-indicator-${id}`);
-                    if (indicator) {
-                        indicator.classList.remove('saving');
-                        indicator.classList.add('saved');
-                        indicator.innerHTML = '<span class="save-dot saved"></span> Saved';
-                        setTimeout(() => {
-                            indicator.classList.remove('saved');
-                            indicator.innerHTML = '';
-                        }, 2000);
-                    }
+                    // Hide save button, show saved label
+                    if (saveBtn) { saveBtn.style.display = 'none'; saveBtn.textContent = '💾'; saveBtn.disabled = false; }
+                    if (savedLabel) { savedLabel.style.display = 'inline'; savedLabel.textContent = '✅'; savedLabel.style.color = '#10b981'; }
+                    setTimeout(() => {
+                        if (savedLabel) { savedLabel.textContent = '—'; savedLabel.style.color = '#6b7280'; }
+                    }, 3000);
                     // Update totals in header
                     updateTotals();
+                } else {
+                    if (saveBtn) { saveBtn.textContent = '❌'; saveBtn.disabled = false; }
                 }
             }).catch(err => {
-                let indicator = document.getElementById(`save-indicator-${id}`);
-                if (indicator) {
-                    indicator.classList.remove('saving');
-                    indicator.classList.add('error');
-                    indicator.innerHTML = '<span class="save-dot error"></span> Error!';
-                }
+                if (saveBtn) { saveBtn.textContent = '❌'; saveBtn.disabled = false; }
+                alert('Gagal menyimpan! Coba lagi.');
             });
     }
 
