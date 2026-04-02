@@ -879,13 +879,13 @@ include '../../includes/header.php';
     width: 100%;
     border-collapse: collapse;
     min-width: auto;
-    table-layout: fixed;
+    table-layout: auto;
 }
 
 .ps-table th {
-    padding: 0.4rem 0.25rem;
+    padding: 0.5rem 0.4rem;
     text-align: center;
-    font-size: 0.62rem;
+    font-size: 0.78rem;
     font-weight: 700;
     text-transform: uppercase;
     letter-spacing: 0;
@@ -900,8 +900,8 @@ include '../../includes/header.php';
 
 .ps-table th.col-employee {
     text-align: left;
-    width: 130px;
-    min-width: 130px;
+    width: 170px;
+    min-width: 170px;
     position: sticky;
     left: 0;
     z-index: 15;
@@ -909,11 +909,11 @@ include '../../includes/header.php';
 }
 
 .ps-table td {
-    padding: 0.35rem 0.2rem;
+    padding: 0.45rem 0.35rem;
     border-bottom: 1px solid var(--border-light);
     vertical-align: middle;
     text-align: center;
-    font-size: 0.78rem;
+    font-size: 0.88rem;
 }
 
 .ps-table td.col-employee {
@@ -928,17 +928,17 @@ include '../../includes/header.php';
 .ps-table tr:hover td { background: var(--bg-secondary); }
 .ps-table tr:hover td.col-employee { background: var(--bg-secondary); }
 
-.ps-emp-name { font-weight: 600; color: var(--text-primary); font-size: 0.75rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-.ps-emp-pos { font-size: 0.65rem; color: var(--text-tertiary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ps-emp-name { font-weight: 600; color: var(--text-primary); font-size: 0.88rem; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ps-emp-pos { font-size: 0.75rem; color: var(--text-tertiary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* Input Styling */
 .ps-input {
     width: 100%;
-    padding: 0.25rem 0.2rem;
+    padding: 0.35rem 0.3rem;
     border: 1px solid transparent;
     border-radius: 4px;
     background: transparent;
-    font-size: 0.72rem;
+    font-size: 0.88rem;
     text-align: right;
     transition: all 0.2s;
     color: var(--text-primary);
@@ -958,13 +958,13 @@ include '../../includes/header.php';
 
 .ps-cell-calc {
     font-family: 'SF Mono', Monaco, monospace;
-    font-size: 0.7rem;
+    font-size: 0.85rem;
     color: var(--text-secondary);
 }
 
 .ps-cell-net {
     font-weight: 700;
-    font-size: 0.75rem;
+    font-size: 0.9rem;
     color: #f59e0b;
 }
 
@@ -1615,17 +1615,17 @@ include '../../includes/header.php';
                     <tr>
                         <th style="width:30px;text-align:center;"><input type="checkbox" id="paySelectAll" onchange="togglePaySelectAll(this)" title="Pilih Semua"></th>
                         <th class="col-employee">Employee</th>
-                        <th style="width: 75px;">Base<div class="ps-info">Full</div></th>
-                        <th style="width: 55px; background: rgba(245,158,11,0.1);">Hours<div class="ps-info">200</div></th>
-                        <th style="width: 70px;">Actual<div class="ps-info">Calc</div></th>
-                        <th style="width: 45px; background: rgba(59,130,246,0.1);">OT</th>
-                        <th style="width: 65px;">OT Rp</th>
-                        <th style="width: 60px;">Inctv</th>
-                        <th style="width: 60px;">Allowc</th>
-                        <th style="width: 70px;">Uang Makan</th>
-                        <th style="width: 60px;">Bonus</th>
-                        <th style="width: 65px; color: #ef4444;">Deduct</th>
-                        <th style="width: 80px;">Net</th>
+                        <th style="width: 100px;">Base<div class="ps-info">Full</div></th>
+                        <th style="width: 65px; background: rgba(245,158,11,0.1);">Hours<div class="ps-info">200</div></th>
+                        <th style="width: 90px;">Actual<div class="ps-info">Calc</div></th>
+                        <th style="width: 55px; background: rgba(59,130,246,0.1);">OT</th>
+                        <th style="width: 85px;">OT Rp</th>
+                        <th style="width: 80px;">Inctv</th>
+                        <th style="width: 80px;">Allowc</th>
+                        <th style="width: 85px;">Uang Mkn</th>
+                        <th style="width: 80px;">Bonus</th>
+                        <th style="width: 85px; color: #ef4444;">Deduct</th>
+                        <th style="width: 100px;">Net</th>
                         <th style="width: 30px;"></th>
                     </tr>
                 </thead>
