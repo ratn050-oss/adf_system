@@ -229,7 +229,7 @@ function syncSlipsWithAttendance($db, $periodId, $month, $year)
 }
 
 // ── Handle manual sync from attendance ──
-if (isset($_POST['sync_attendance']) && $period && $period['status'] === 'draft') {
+if (isset($_POST['sync_attendance']) && $period) {
     try {
         syncSlipsWithAttendance($db, $period['id'], $month, $year);
         setFlash('success', '✅ Jam kerja berhasil di-sync dari data absensi');
@@ -1831,27 +1831,28 @@ include '../../includes/header.php';
             </div>
 
             <div class="ps-actions">
+                <!-- Sync Absensi & Save always available for editing -->
+                <form method="POST" style="display:inline;" title="Sync jam kerja dari data absensi GPS">
+                    <input type="hidden" name="sync_attendance" value="1">
+                    <button type="submit" class="ps-btn ps-btn-secondary" style="margin-right:0.5rem;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="23 4 23 10 17 10"></polyline>
+                            <polyline points="1 20 1 14 7 14"></polyline>
+                            <path d="m3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
+                        </svg>
+                        Sync Absensi
+                    </button>
+                </form>
+                <form method="POST" id="saveProsesForm" style="display:inline;">
+                    <input type="hidden" name="save_proses" value="1">
+                    <button type="submit" class="ps-btn ps-btn-primary" style="margin-right:0.5rem;">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                            <polyline points="20 6 9 17 4 12"></polyline>
+                        </svg>
+                        Save/Proses
+                    </button>
+                </form>
                 <?php if ($period['status'] == 'draft'): ?>
-                    <form method="POST" style="display:inline;" title="Sync jam kerja dari data absensi Fingerspot">
-                        <input type="hidden" name="sync_attendance" value="1">
-                        <button type="submit" class="ps-btn ps-btn-secondary" style="margin-right:0.5rem;">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <polyline points="23 4 23 10 17 10"></polyline>
-                                <polyline points="1 20 1 14 7 14"></polyline>
-                                <path d="m3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
-                            </svg>
-                            Sync Absensi
-                        </button>
-                    </form>
-                    <form method="POST" id="saveProsesForm" style="display:inline;">
-                        <input type="hidden" name="save_proses" value="1">
-                        <button type="submit" class="ps-btn ps-btn-primary" style="margin-right:0.5rem;">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <polyline points="20 6 9 17 4 12"></polyline>
-                            </svg>
-                            Save/Proses
-                        </button>
-                    </form>
                     <form method="POST" onsubmit="return confirm('Submit this payroll to Owner?')" style="display:inline;">
                         <input type="hidden" name="submit_period" value="1">
                         <button type="submit" class="ps-btn ps-btn-warning">
@@ -1916,8 +1917,8 @@ include '../../includes/header.php';
         </div>
 
         <!-- Info Box -->
-        <div style="background: rgba(245,158,11,0.1); border: 1px solid rgba(245,158,11,0.3); border-radius: 10px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.8rem; color: #b45309;">
-            <strong>🔄 Auto-Sync Absensi:</strong> Jam kerja &amp; lembur otomatis diambil dari data fingerprint/GPS setiap hari. Target = 200 jam. Lembur = kelipatan 45 menit di atas 8 jam/hari. Status <code>draft</code> = auto-update realtime.
+        <div style="background: rgba(59,130,246,0.1); border: 1px solid rgba(59,130,246,0.3); border-radius: 10px; padding: 0.75rem 1rem; margin-bottom: 1rem; font-size: 0.8rem; color: #1e40af;">
+            <strong>💾 Auto-Save:</strong> Setiap perubahan otomatis tersimpan saat Anda keluar dari input. Target jam = 200. Lembur = kelipatan 45 menit di atas 8 jam/hari. Klik <strong>Sync Absensi</strong> untuk tarik data GPS terbaru.
         </div>
 
         <!-- Payroll Table -->
@@ -1989,7 +1990,8 @@ include '../../includes/header.php';
                                     <input type="text" class="ps-input currency-input"
                                         value="<?php echo number_format($slip['base_salary'], 0, ',', '.'); ?>"
                                         data-field="base_salary" data-id="<?php echo $slip['id']; ?>"
-                                        onchange="calculateRow(<?php echo $slip['id']; ?>)">
+                                        oninput="calculateRow(<?php echo $slip['id']; ?>)"
+                                        onchange="calculateRow(<?php echo $slip['id']; ?>); saveRow(<?php echo $slip['id']; ?>);">
                                 </td>
 
                                 <td>
@@ -1997,7 +1999,8 @@ include '../../includes/header.php';
                                         <input type="number" class="ps-input highlight-hours"
                                             value="<?php echo $workHours; ?>" step="0.5" min="0" max="300"
                                             data-field="work_hours" data-id="<?php echo $slip['id']; ?>"
-                                            onchange="calculateRow(<?php echo $slip['id']; ?>)"
+                                            oninput="calculateRow(<?php echo $slip['id']; ?>)"
+                                            onchange="calculateRow(<?php echo $slip['id']; ?>); saveRow(<?php echo $slip['id']; ?>);"
                                             title="<?php echo $isHoursLocked ? 'Manual (dikunci)' : 'Auto dari absensi'; ?>">
                                         <?php if ($isHoursLocked): ?>
                                             <button type="button" onclick="unlockHours(<?php echo $slip['id']; ?>)"
@@ -2019,7 +2022,8 @@ include '../../includes/header.php';
                                     <input type="number" class="ps-input" style="background: rgba(59,130,246,0.1);"
                                         value="<?php echo $slip['overtime_hours']; ?>" step="0.5" min="0"
                                         data-field="overtime_hours" data-id="<?php echo $slip['id']; ?>"
-                                        onchange="calculateRow(<?php echo $slip['id']; ?>)">
+                                        oninput="calculateRow(<?php echo $slip['id']; ?>)"
+                                        onchange="calculateRow(<?php echo $slip['id']; ?>); saveRow(<?php echo $slip['id']; ?>);">
                                 </td>
 
                                 <td>
@@ -2032,28 +2036,32 @@ include '../../includes/header.php';
                                     <input type="text" class="ps-input currency-input"
                                         value="<?php echo number_format($slip['incentive'], 0, ',', '.'); ?>"
                                         data-field="incentive" data-id="<?php echo $slip['id']; ?>"
-                                        onchange="calculateRow(<?php echo $slip['id']; ?>)">
+                                        oninput="calculateRow(<?php echo $slip['id']; ?>)"
+                                        onchange="calculateRow(<?php echo $slip['id']; ?>); saveRow(<?php echo $slip['id']; ?>);">
                                 </td>
 
                                 <td>
                                     <input type="text" class="ps-input currency-input"
                                         value="<?php echo number_format($slip['allowance'], 0, ',', '.'); ?>"
                                         data-field="allowance" data-id="<?php echo $slip['id']; ?>"
-                                        onchange="calculateRow(<?php echo $slip['id']; ?>)">
+                                        oninput="calculateRow(<?php echo $slip['id']; ?>)"
+                                        onchange="calculateRow(<?php echo $slip['id']; ?>); saveRow(<?php echo $slip['id']; ?>);">
                                 </td>
 
                                 <td>
                                     <input type="text" class="ps-input currency-input"
                                         value="<?php echo number_format($slip['uang_makan'] ?? 0, 0, ',', '.'); ?>"
                                         data-field="uang_makan" data-id="<?php echo $slip['id']; ?>"
-                                        onchange="calculateRow(<?php echo $slip['id']; ?>)">
+                                        oninput="calculateRow(<?php echo $slip['id']; ?>)"
+                                        onchange="calculateRow(<?php echo $slip['id']; ?>); saveRow(<?php echo $slip['id']; ?>);">
                                 </td>
 
                                 <td>
                                     <input type="text" class="ps-input currency-input"
                                         value="<?php echo number_format($slip['bonus'] + $slip['other_income'], 0, ',', '.'); ?>"
                                         data-field="bonus" data-id="<?php echo $slip['id']; ?>"
-                                        onchange="calculateRow(<?php echo $slip['id']; ?>)">
+                                        oninput="calculateRow(<?php echo $slip['id']; ?>)"
+                                        onchange="calculateRow(<?php echo $slip['id']; ?>); saveRow(<?php echo $slip['id']; ?>);">
                                 </td>
 
                                 <td>
@@ -2170,22 +2178,11 @@ include '../../includes/header.php';
 </style>
 
 <script>
-    // Format Currency Input & trigger auto-save on input (not just blur)
+    // Format Currency Input on keyup
     document.querySelectorAll('.currency-input').forEach(input => {
         input.addEventListener('keyup', function(e) {
             let val = this.value.replace(/\D/g, '');
             this.value = new Intl.NumberFormat('id-ID').format(val);
-            // Also trigger calculateRow on keyup so save fires while typing
-            let id = this.getAttribute('data-id');
-            if (id) calculateRow(parseInt(id));
-        });
-    });
-
-    // For number inputs (work_hours, overtime_hours), also trigger on input event
-    document.querySelectorAll('.ps-input[type="number"]').forEach(input => {
-        input.addEventListener('input', function() {
-            let id = this.getAttribute('data-id');
-            if (id) calculateRow(parseInt(id));
         });
     });
 
@@ -2277,7 +2274,29 @@ include '../../includes/header.php';
         }
     }
 
+    // Debounce timers per row to prevent double-save
+    const _saveTimers = {};
+
     function saveRow(id) {
+        // Debounce: wait 300ms after last call to actually save
+        if (_saveTimers[id]) clearTimeout(_saveTimers[id]);
+        _saveTimers[id] = setTimeout(() => _doSaveRow(id), 300);
+        // Return a promise that resolves when save completes
+        return new Promise(resolve => {
+            const origTimer = _saveTimers[id];
+            const check = setInterval(() => {
+                if (_saveTimers[id] !== origTimer || !_saveTimers[id]) {
+                    clearInterval(check);
+                    resolve();
+                }
+            }, 400);
+            // Safety timeout
+            setTimeout(() => { clearInterval(check); resolve(); }, 5000);
+        });
+    }
+
+    function _doSaveRow(id) {
+        delete _saveTimers[id];
         const row = document.getElementById(`row-${id}`);
         if (!row) return;
 
@@ -2405,6 +2424,8 @@ include '../../includes/header.php';
 
         closeDeductionModal();
         calculateRow(id);
+        // Auto-save after editing deductions
+        saveRow(id);
     }
 
     // Close modal on backdrop click
