@@ -694,6 +694,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['quick_pay_selected'])
     exit;
 }
 
+// Handle Reset Period — delete period and all slips, remove cashbook entry
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_period']) && $period) {
+    try {
+        $periodId = $period['id'];
+        // Delete cashbook entries for this period
+        $db->query("DELETE FROM cashbook_transactions WHERE reference_number LIKE ?", ['PAYROLL-' . $periodId . '%']);
+        // Delete all slips
+        $db->query("DELETE FROM payroll_slips WHERE period_id = ?", [$periodId]);
+        // Delete period
+        $db->query("DELETE FROM payroll_periods WHERE id = ?", [$periodId]);
+        setFlash('success', '🔄 Period ' . $months[$month] . ' ' . $year . ' berhasil di-reset. Silakan buat ulang.');
+    } catch (Exception $e) {
+        setFlash('error', 'Reset error: ' . $e->getMessage());
+    }
+    header("Location: process.php?month=$month&year=$year");
+    exit;
+}
+
 // Handle Refresh Employees (Sync: add new, remove deleted, update info)
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['refresh_employees'])) {
     $employees = $db->fetchAll("SELECT * FROM payroll_employees WHERE is_active = 1");
@@ -1903,6 +1921,16 @@ include '../../includes/header.php';
                             <path d="M3.51 9a9 9 0 0 1 14.85-3.36L23 10M1 14l4.64 4.36A9 9 0 0 0 20.49 15"></path>
                         </svg>
                         Refresh
+                    </button>
+                </form>
+                <form method="POST" style="display: inline;" onsubmit="return confirm('⚠️ RESET period <?php echo $months[$month] . ' ' . $year; ?>?\n\nSemua data gaji, slip, dan catatan cashbook untuk bulan ini akan DIHAPUS.\n\nAnda bisa buat ulang setelah reset.\n\nLanjutkan?');">
+                    <input type="hidden" name="reset_period" value="1">
+                    <button type="submit" class="ps-btn ps-btn-outline" style="color:#ef4444;border-color:#ef4444;" title="Reset: Hapus period ini dan mulai ulang">
+                        <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="#ef4444" stroke-width="2">
+                            <polyline points="3 6 5 6 21 6"></polyline>
+                            <path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path>
+                        </svg>
+                        Reset
                     </button>
                 </form>
                 <a href="print-submission.php?period_id=<?php echo $period['id']; ?>" target="_blank" class="ps-btn ps-btn-outline">
