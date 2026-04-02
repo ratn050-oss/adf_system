@@ -80,6 +80,7 @@ if (isset($_GET['ajax_attendance']) && isset($_GET['emp_id'])) {
         echo json_encode([
             'success' => true,
             'employee' => $emp,
+            'employee_id' => $empId,
             'month' => $m,
             'year' => $y,
             'month_name' => date('F Y', strtotime("$y-$m-01")),
@@ -336,6 +337,83 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_unlock_hours']))
         $db->query("UPDATE payroll_slips SET hours_locked = 0, work_hours = ?, overtime_hours = ? WHERE id = ?",
             [$att['work_hours'], $att['overtime_hours'], $slip_id]);
         echo json_encode(['status' => 'success', 'work_hours' => $att['work_hours'], 'overtime_hours' => $att['overtime_hours']]);
+    } catch (Exception $e) {
+        echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
+    }
+    exit;
+}
+
+// ═══ AJAX: Save Daily Attendance (editable from modal) ═══
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_save_daily_attendance'])) {
+    header('Content-Type: application/json');
+    try {
+        $empId = (int)$_POST['employee_id'];
+        $rows = json_decode($_POST['rows'], true);
+        if (!$rows || !is_array($rows)) throw new Exception('Invalid data');
+
+        foreach ($rows as $r) {
+            $date = $r['date'] ?? '';
+            if (!preg_match('/^\d{4}-\d{2}-\d{2}$/', $date)) continue;
+            $checkIn  = !empty($r['check_in'])  ? $r['check_in']  : null;
+            $checkOut = !empty($r['check_out']) ? $r['check_out'] : null;
+            $scan3    = !empty($r['scan_3'])    ? $r['scan_3']    : null;
+            $scan4    = !empty($r['scan_4'])    ? $r['scan_4']    : null;
+            $status   = !empty($r['status'])    ? $r['status']    : 'present';
+
+            // Skip completely empty rows
+            if (!$checkIn && !$checkOut && !$scan3 && !$scan4 && $status === 'absent') {
+                // Delete record if exists and user set to absent with no times
+                $db->query("DELETE FROM payroll_attendance WHERE employee_id = ? AND attendance_date = ? AND check_in_time IS NULL", [$empId, $date]);
+                continue;
+            }
+            if (!$checkIn && !$checkOut && !$scan3 && !$scan4) continue;
+
+            // Compute hours from timestamps
+            $shift1Hours = 0;
+            $shift2Hours = 0;
+            if ($checkIn && $checkOut) {
+                $t1 = strtotime("2000-01-01 $checkIn");
+                $t2 = strtotime("2000-01-01 $checkOut");
+                if ($t2 > $t1) $shift1Hours = round(($t2 - $t1) / 3600, 2);
+            }
+            if ($scan3 && $scan4) {
+                $t3 = strtotime("2000-01-01 $scan3");
+                $t4 = strtotime("2000-01-01 $scan4");
+                if ($t4 > $t3) $shift2Hours = round(($t4 - $t3) / 3600, 2);
+            }
+            $workHours = round($shift1Hours + $shift2Hours, 2);
+
+            $db->query(
+                "INSERT INTO payroll_attendance (employee_id, attendance_date, check_in_time, check_out_time, scan_3, scan_4, shift_1_hours, shift_2_hours, work_hours, status)
+                 VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                 ON DUPLICATE KEY UPDATE check_in_time=VALUES(check_in_time), check_out_time=VALUES(check_out_time),
+                    scan_3=VALUES(scan_3), scan_4=VALUES(scan_4), shift_1_hours=VALUES(shift_1_hours),
+                    shift_2_hours=VALUES(shift_2_hours), work_hours=VALUES(work_hours), status=VALUES(status)",
+                [$empId, $date, $checkIn, $checkOut, $scan3, $scan4, $shift1Hours, $shift2Hours, $workHours, $status]
+            );
+        }
+
+        // Recalculate slip totals
+        $att = getAttendanceHours($db, $empId, $month, $year);
+        $slipData = null;
+        if ($period) {
+            $slip = $db->fetchOne("SELECT * FROM payroll_slips WHERE period_id = ? AND employee_id = ?", [$period['id'], $empId]);
+            if ($slip) {
+                $workH = $att['work_hours'];
+                $otH = $att['overtime_hours'];
+                $baseSalary = (float)$slip['base_salary'];
+                $hourlyRate = $baseSalary / 200;
+                $actualBase = ($workH >= 200) ? $baseSalary : round($workH * $hourlyRate, 2);
+                $otAmount = round($otH * $hourlyRate, 2);
+                $totalEarn = $actualBase + $otAmount + (float)($slip['incentive'] ?? 0) + (float)($slip['allowance'] ?? 0) + (float)($slip['uang_makan'] ?? 0) + (float)($slip['bonus'] ?? 0) + (float)($slip['other_income'] ?? 0);
+                $totalDed = (float)($slip['deduction_loan'] ?? 0) + (float)($slip['deduction_absence'] ?? 0) + (float)($slip['deduction_tax'] ?? 0) + (float)($slip['deduction_bpjs'] ?? 0) + (float)($slip['deduction_other'] ?? 0);
+                $netSalary = $totalEarn - $totalDed;
+                $db->query("UPDATE payroll_slips SET work_hours=?, overtime_hours=?, actual_base=?, overtime_rate=?, overtime_amount=?, total_earnings=?, total_deductions=?, net_salary=?, hours_locked=0 WHERE id=?",
+                    [$workH, $otH, $actualBase, $hourlyRate, $otAmount, $totalEarn, $totalDed, $netSalary, $slip['id']]);
+                $slipData = ['slip_id' => $slip['id'], 'work_hours' => $workH, 'overtime_hours' => $otH, 'actual_base' => $actualBase, 'net_salary' => $netSalary];
+            }
+        }
+        echo json_encode(['status' => 'success', 'work_hours' => $att['work_hours'], 'overtime_hours' => $att['overtime_hours'], 'slip' => $slipData]);
     } catch (Exception $e) {
         echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
     }
@@ -1122,7 +1200,7 @@ include '../../includes/header.php';
     background: var(--bg-primary);
     border-radius: 16px;
     width: 100%;
-    max-width: 800px;
+    max-width: 900px;
     max-height: 90vh;
     overflow: hidden;
     box-shadow: 0 25px 80px rgba(0,0,0,0.3);
@@ -1372,6 +1450,34 @@ include '../../includes/header.php';
     .att-summary { grid-template-columns: repeat(2, 1fr); }
     .att-modal { max-height: 95vh; }
 }
+
+/* Editable Attendance Table */
+.att-table-edit td { padding: 0.3rem 0.15rem; }
+.att-edit-time {
+    width: 68px;
+    padding: 0.2rem 0.25rem;
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    font-size: 0.7rem;
+    font-family: 'SF Mono', Monaco, monospace;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+    text-align: center;
+}
+.att-edit-time:focus { border-color: #3b82f6; outline: none; box-shadow: 0 0 0 2px rgba(59,130,246,0.2); }
+.att-edit-time:disabled { opacity: 0.3; cursor: not-allowed; }
+
+.att-edit-status {
+    width: 72px;
+    padding: 0.2rem 0.15rem;
+    border: 1px solid var(--border-color);
+    border-radius: 5px;
+    font-size: 0.65rem;
+    background: var(--bg-secondary);
+    color: var(--text-primary);
+}
+.att-edit-status:focus { border-color: #3b82f6; outline: none; }
+.att-edit-status:disabled { opacity: 0.3; }
 
 @media (max-width: 768px) {
     .ps-header { flex-direction: column; align-items: stretch; text-align: center; }
@@ -2038,9 +2144,11 @@ function paySelected() {
 }
 
 // ═══ Attendance Detail Functions ═══
-let currentAttView = 'calendar';
+let currentAttView = 'table'; // default to table for editing
+let currentAttEmpId = null;
 
 function showAttendanceDetail(empId, empName) {
+    currentAttEmpId = empId;
     document.getElementById('attEmpName').innerText = empName;
     document.getElementById('attendanceModal').classList.add('active');
     
@@ -2072,34 +2180,32 @@ function showAttendanceDetail(empId, empName) {
 function renderAttendanceDetail(data) {
     const s = data.summary;
     const progressPct = Math.min((s.total_hours / s.target_hours) * 100, 100);
-    
+    currentAttEmpId = data.employee_id || currentAttEmpId;
+
     // Generate calendar HTML
     let calendarHtml = '';
     const dayNames = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'];
     dayNames.forEach(d => calendarHtml += `<div class="att-cal-header">${d}</div>`);
-    
-    // Find first day of month
+
     const firstDayStr = data.calendar[0]?.date;
     if (firstDayStr) {
         const firstDayOfWeek = new Date(firstDayStr).getDay();
-        const offset = firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1; // Convert to Monday-start
+        const offset = firstDayOfWeek === 0 ? 6 : firstDayOfWeek - 1;
         for (let i = 0; i < offset; i++) {
             calendarHtml += '<div class="att-cal-day empty"></div>';
         }
     }
-    
+
     data.calendar.forEach(day => {
         const att = day.attendance;
         let statusClass = '';
         let hoursText = '';
-        
         if (att) {
             statusClass = att.status || 'present';
             if (att.work_hours) hoursText = `${parseFloat(att.work_hours).toFixed(1)}h`;
         } else if (day.is_weekend) {
             statusClass = 'weekend';
         }
-        
         calendarHtml += `
             <div class="att-cal-day ${statusClass}" title="${day.date}">
                 <span class="att-cal-date">${day.day}</span>
@@ -2108,58 +2214,68 @@ function renderAttendanceDetail(data) {
             </div>
         `;
     });
-    
-    // Generate table HTML
+
+    // Generate EDITABLE table HTML — show ALL days
     let tableHtml = `
-        <table class="att-table">
+        <table class="att-table att-table-edit">
             <thead>
                 <tr>
-                    <th>Tanggal</th>
-                    <th>Scan 1<br><small>Masuk S1</small></th>
-                    <th>Scan 2<br><small>Pulang S1</small></th>
-                    <th>Scan 3<br><small>Masuk S2</small></th>
-                    <th>Scan 4<br><small>Pulang S2</small></th>
-                    <th>Jam S1</th>
-                    <th>Jam S2</th>
-                    <th>Total</th>
-                    <th>Status</th>
+                    <th style="width:75px;">Tgl</th>
+                    <th style="width:70px;">Scan 1</th>
+                    <th style="width:70px;">Scan 2</th>
+                    <th style="width:70px;">Scan 3</th>
+                    <th style="width:70px;">Scan 4</th>
+                    <th style="width:55px;">S1</th>
+                    <th style="width:55px;">S2</th>
+                    <th style="width:55px;">Total</th>
+                    <th style="width:80px;">Status</th>
                 </tr>
             </thead>
             <tbody>
     `;
-    
-    const daysWithAtt = data.calendar.filter(d => d.attendance);
-    if (daysWithAtt.length === 0) {
-        tableHtml += '<tr><td colspan="9" style="text-align: center; color: var(--text-tertiary); padding: 1rem;">Belum ada data absensi</td></tr>';
-    } else {
-        daysWithAtt.forEach(day => {
-            const att = day.attendance;
-            const scan1 = att.check_in_time  ? att.check_in_time.substring(0, 5)  : '<span style="color:#9ca3af">—</span>';
-            const scan2 = att.check_out_time ? att.check_out_time.substring(0, 5) : '<span style="color:#9ca3af">—</span>';
-            const scan3 = att.scan_3         ? att.scan_3.substring(0, 5)         : '<span style="color:#9ca3af">—</span>';
-            const scan4 = att.scan_4         ? att.scan_4.substring(0, 5)         : '<span style="color:#9ca3af">—</span>';
-            const sh1   = att.shift_1_hours  ? parseFloat(att.shift_1_hours).toFixed(1) + 'j' : '<span style="color:#9ca3af">—</span>';
-            const sh2   = att.shift_2_hours  ? parseFloat(att.shift_2_hours).toFixed(1) + 'j' : '<span style="color:#9ca3af">—</span>';
-            const total = att.work_hours     ? `<strong>${parseFloat(att.work_hours).toFixed(1)}j</strong>` : '<span style="color:#9ca3af">—</span>';
-            const status = att.status || 'present';
-            
-            tableHtml += `
-                <tr>
-                    <td>${day.day} ${day.day_name}</td>
-                    <td class="att-time">${scan1}</td>
-                    <td class="att-time">${scan2}</td>
-                    <td class="att-time">${scan3}</td>
-                    <td class="att-time">${scan4}</td>
-                    <td style="font-size:0.7rem;">${sh1}</td>
-                    <td style="font-size:0.7rem;">${sh2}</td>
-                    <td>${total}</td>
-                    <td><span class="att-badge ${status}">${status}</span></td>
-                </tr>
-            `;
-        });
-    }
+
+    const today = new Date().toISOString().slice(0, 10);
+    data.calendar.forEach(day => {
+        const att = day.attendance;
+        const d = day.date;
+        const isFuture = d > today;
+        const ci  = att?.check_in_time  ? att.check_in_time.substring(0, 5)  : '';
+        const co  = att?.check_out_time ? att.check_out_time.substring(0, 5) : '';
+        const s3  = att?.scan_3         ? att.scan_3.substring(0, 5)         : '';
+        const s4  = att?.scan_4         ? att.scan_4.substring(0, 5)         : '';
+        const sh1 = att?.shift_1_hours  ? parseFloat(att.shift_1_hours).toFixed(1) : '0.0';
+        const sh2 = att?.shift_2_hours  ? parseFloat(att.shift_2_hours).toFixed(1) : '0.0';
+        const tot = att?.work_hours     ? parseFloat(att.work_hours).toFixed(1)    : '0.0';
+        const sts = att?.status || (day.is_weekend ? 'holiday' : '');
+        const rowClass = isFuture ? 'opacity:0.4;' : (att ? '' : (day.is_weekend ? 'opacity:0.5;' : ''));
+        const dayLabel = day.day + ' ' + day.day_name;
+
+        tableHtml += `
+            <tr data-date="${d}" style="${rowClass}">
+                <td style="font-weight:600;font-size:0.72rem;white-space:nowrap;">${dayLabel}</td>
+                <td><input type="time" class="att-edit-time" value="${ci}" data-col="check_in" ${isFuture?'disabled':''}></td>
+                <td><input type="time" class="att-edit-time" value="${co}" data-col="check_out" ${isFuture?'disabled':''}></td>
+                <td><input type="time" class="att-edit-time" value="${s3}" data-col="scan_3" ${isFuture?'disabled':''}></td>
+                <td><input type="time" class="att-edit-time" value="${s4}" data-col="scan_4" ${isFuture?'disabled':''}></td>
+                <td class="att-calc-sh1" style="font-size:0.7rem;color:var(--text-tertiary);">${sh1}</td>
+                <td class="att-calc-sh2" style="font-size:0.7rem;color:var(--text-tertiary);">${sh2}</td>
+                <td class="att-calc-total" style="font-weight:700;font-size:0.75rem;">${tot}</td>
+                <td>
+                    <select class="att-edit-status" data-col="status" ${isFuture?'disabled':''}>
+                        <option value="">—</option>
+                        <option value="present" ${sts==='present'?'selected':''}>Hadir</option>
+                        <option value="late" ${sts==='late'?'selected':''}>Telat</option>
+                        <option value="absent" ${sts==='absent'?'selected':''}>Absen</option>
+                        <option value="leave" ${sts==='leave'?'selected':''}>Cuti</option>
+                        <option value="holiday" ${sts==='holiday'?'selected':''}>Libur</option>
+                        <option value="half_day" ${sts==='half_day'?'selected':''}>½ Hari</option>
+                    </select>
+                </td>
+            </tr>
+        `;
+    });
     tableHtml += '</tbody></table>';
-    
+
     document.getElementById('attModalBody').innerHTML = `
         <!-- Summary Cards -->
         <div class="att-summary">
@@ -2168,7 +2284,7 @@ function renderAttendanceDetail(data) {
                 <div class="att-summary-label">Hari Hadir</div>
             </div>
             <div class="att-summary-card success">
-                <div class="att-summary-value">${s.total_hours}</div>
+                <div class="att-summary-value" id="attTotalHours">${s.total_hours}</div>
                 <div class="att-summary-label">Total Jam</div>
             </div>
             <div class="att-summary-card warning">
@@ -2180,59 +2296,49 @@ function renderAttendanceDetail(data) {
                 <div class="att-summary-label">Tidak Hadir</div>
             </div>
         </div>
-        
+
         <!-- Progress Bar -->
         <div class="att-progress">
             <div class="att-progress-label">
                 <span>Progress Jam Kerja</span>
-                <span><strong>${s.total_hours}</strong> / ${s.target_hours} jam (${progressPct.toFixed(0)}%)</span>
+                <span><strong id="attProgressHours">${s.total_hours}</strong> / ${s.target_hours} jam (<span id="attProgressPct">${progressPct.toFixed(0)}</span>%)</span>
             </div>
             <div class="att-progress-bar">
-                <div class="att-progress-fill" style="width: ${progressPct}%"></div>
+                <div class="att-progress-fill" id="attProgressBar" style="width: ${progressPct}%"></div>
             </div>
         </div>
-        
+
         <!-- View Toggle -->
         <div class="att-view-toggle">
-            <button class="att-view-btn ${currentAttView === 'calendar' ? 'active' : ''}" onclick="toggleAttView('calendar')">
-                📅 Kalender
-            </button>
-            <button class="att-view-btn ${currentAttView === 'table' ? 'active' : ''}" onclick="toggleAttView('table')">
-                📋 Tabel
-            </button>
+            <button class="att-view-btn ${currentAttView === 'calendar' ? 'active' : ''}" onclick="toggleAttView('calendar')">📅 Kalender</button>
+            <button class="att-view-btn ${currentAttView === 'table' ? 'active' : ''}" onclick="toggleAttView('table')">✏️ Edit Harian</button>
         </div>
-        
+
         <!-- Calendar View -->
         <div id="attCalendarView" style="${currentAttView === 'calendar' ? '' : 'display:none'}">
-            <div class="att-calendar">
-                ${calendarHtml}
-            </div>
+            <div class="att-calendar">${calendarHtml}</div>
         </div>
-        
-        <!-- Table View -->
+
+        <!-- Table View (Editable) -->
         <div id="attTableView" style="${currentAttView === 'table' ? '' : 'display:none'}">
             ${tableHtml}
+            <div style="display:flex;justify-content:flex-end;gap:0.5rem;margin-top:0.75rem;">
+                <span id="attSaveStatus" style="font-size:0.75rem;color:var(--text-tertiary);align-self:center;"></span>
+                <button type="button" class="ps-btn ps-btn-primary" onclick="saveAllDailyAttendance()">
+                    <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="20 6 9 17 4 12"></polyline></svg>
+                    Simpan Semua
+                </button>
+            </div>
         </div>
     `;
-}
 
-function toggleAttView(view) {
-    currentAttView = view;
-    document.querySelectorAll('.att-view-btn').forEach(btn => btn.classList.remove('active'));
-    event.target.classList.add('active');
-    
-    document.getElementById('attCalendarView').style.display = view === 'calendar' ? '' : 'none';
-    document.getElementById('attTableView').style.display = view === 'table' ? '' : 'none';
+    // Attach auto-calc listeners to time inputs
+    document.querySelectorAll('.att-edit-time').forEach(input => {
+        input.addEventListener('change', function() {
+            recalcAttRow(this.closest('tr'));
+        });
+    });
 }
-
-function closeAttendanceModal() {
-    document.getElementById('attendanceModal').classList.remove('active');
-}
-
-// Close modal on backdrop click
-document.getElementById('attendanceModal')?.addEventListener('click', function(e) {
-    if (e.target === this) closeAttendanceModal();
-});
 </script>
 
 <!-- Floating Pay Selection Bar -->

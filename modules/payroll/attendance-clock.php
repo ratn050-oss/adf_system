@@ -305,8 +305,8 @@ if ($action === 'checkout') {
 
     try {
         $pdo = $db->getConnection();
-        $pdo->prepare("UPDATE payroll_attendance SET check_out_time=?, check_out_lat=?, check_out_lng=?, check_out_distance_m=?, check_out_device=?, work_hours=? WHERE id=?")
-            ->execute([$now, $lat ?: null, $lng ?: null, $distance, $device, $workHours, $attendance['id']]);
+        $pdo->prepare("UPDATE payroll_attendance SET check_out_time=?, check_out_lat=?, check_out_lng=?, check_out_distance_m=?, check_out_device=?, work_hours=?, shift_1_hours=? WHERE id=?")
+            ->execute([$now, $lat ?: null, $lng ?: null, $distance, $device, $workHours, $workHours, $attendance['id']]);
         echo json_encode([
             'success' => true,
             'message' => "Check-out berhasil! Jam kerja: {$workHours} jam ✅",
