@@ -453,8 +453,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_save_daily_atten
 
 $slips = [];
 if ($period) {
-    // Auto-sync: pull latest attendance/fingerprint data for non-locked slips on every page load
+    // Auto-sync: pull latest attendance/fingerprint data on every page load
     if ($period['status'] === 'draft' || $period['status'] === 'submitted') {
+        // Reset hours_locked so sync always pulls fresh attendance data
+        $db->query("UPDATE payroll_slips SET hours_locked = 0 WHERE period_id = ? AND hours_locked = 1", [$period['id']]);
         syncSlipsWithAttendance($db, $period['id'], $month, $year);
         // Refresh period data after sync
         $period = $db->fetchOne("SELECT * FROM payroll_periods WHERE id = ?", [$period['id']]);
@@ -1975,7 +1977,7 @@ include '../../includes/header.php';
                     </thead>
                     <tbody>
                         <?php foreach ($slips as $slip):
-                            $workHours = floor($slip['work_hours']);
+                            $workHours = round((float)$slip['work_hours'], 1);
                             $baseSalary = (float)$slip['base_salary'];
                             $hourlyRate = $baseSalary / 200;
                             $actualBase = ($workHours >= 200) ? $baseSalary : round($workHours * $hourlyRate, 2);
