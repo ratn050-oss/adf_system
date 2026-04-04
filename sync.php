@@ -261,6 +261,10 @@ $branch = 'main';
 $filesToSync = [
     'sync.php',
     '.htaccess',
+    'modules/payroll/process.php',
+    'modules/payroll/attendance.php',
+    'api/fingerprint-webhook.php',
+    'includes/header.php',
     'modules/frontdesk/rental-motor.php',
     'website/public/index.php',
     'website/public/rooms.php',
