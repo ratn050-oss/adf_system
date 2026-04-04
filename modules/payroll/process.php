@@ -458,8 +458,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_save_daily_atten
 
 $slips = [];
 if ($period) {
-    // Auto-sync DISABLED — user saves manually per row or via "Save/Proses" button
-    // Use "Sync Absensi" button to pull attendance data explicitly
+    // Auto-sync: pull latest attendance/fingerprint data for non-locked slips on every page load
+    if ($period['status'] === 'draft' || $period['status'] === 'submitted') {
+        syncSlipsWithAttendance($db, $period['id'], $month, $year);
+        // Refresh period data after sync
+        $period = $db->fetchOne("SELECT * FROM payroll_periods WHERE id = ?", [$period['id']]);
+    }
 
     // Fetch slips AFTER sync so we get updated work hours
     $slips = $db->fetchAll(
@@ -2290,8 +2294,12 @@ include '../../includes/header.php';
         // Show save button (user must click to save)
         let saveBtn = document.getElementById(`save-btn-${id}`);
         let savedLabel = document.getElementById(`saved-label-${id}`);
-        if (saveBtn) { saveBtn.style.display = 'inline-block'; }
-        if (savedLabel) { savedLabel.style.display = 'none'; }
+        if (saveBtn) {
+            saveBtn.style.display = 'inline-block';
+        }
+        if (savedLabel) {
+            savedLabel.style.display = 'none';
+        }
     }
 
     function showSaveIndicator(id) {
@@ -2319,7 +2327,10 @@ include '../../includes/header.php';
                 }
             }, 400);
             // Safety timeout
-            setTimeout(() => { clearInterval(check); resolve(); }, 5000);
+            setTimeout(() => {
+                clearInterval(check);
+                resolve();
+            }, 5000);
         });
     }
 
@@ -2350,7 +2361,10 @@ include '../../includes/header.php';
         // Show saving state on button
         let saveBtn = document.getElementById(`save-btn-${id}`);
         let savedLabel = document.getElementById(`saved-label-${id}`);
-        if (saveBtn) { saveBtn.textContent = '⏳'; saveBtn.disabled = true; }
+        if (saveBtn) {
+            saveBtn.textContent = '⏳';
+            saveBtn.disabled = true;
+        }
 
         return fetch('process.php?month=<?php echo $month; ?>&year=<?php echo $year; ?>', {
                 method: 'POST',
@@ -2359,18 +2373,35 @@ include '../../includes/header.php';
             .then(res => {
                 if (res.status === 'success') {
                     // Hide save button, show saved label
-                    if (saveBtn) { saveBtn.style.display = 'none'; saveBtn.textContent = '💾'; saveBtn.disabled = false; }
-                    if (savedLabel) { savedLabel.style.display = 'inline'; savedLabel.textContent = '✅'; savedLabel.style.color = '#10b981'; }
+                    if (saveBtn) {
+                        saveBtn.style.display = 'none';
+                        saveBtn.textContent = '💾';
+                        saveBtn.disabled = false;
+                    }
+                    if (savedLabel) {
+                        savedLabel.style.display = 'inline';
+                        savedLabel.textContent = '✅';
+                        savedLabel.style.color = '#10b981';
+                    }
                     setTimeout(() => {
-                        if (savedLabel) { savedLabel.textContent = '—'; savedLabel.style.color = '#6b7280'; }
+                        if (savedLabel) {
+                            savedLabel.textContent = '—';
+                            savedLabel.style.color = '#6b7280';
+                        }
                     }, 3000);
                     // Update totals in header
                     updateTotals();
                 } else {
-                    if (saveBtn) { saveBtn.textContent = '❌'; saveBtn.disabled = false; }
+                    if (saveBtn) {
+                        saveBtn.textContent = '❌';
+                        saveBtn.disabled = false;
+                    }
                 }
             }).catch(err => {
-                if (saveBtn) { saveBtn.textContent = '❌'; saveBtn.disabled = false; }
+                if (saveBtn) {
+                    saveBtn.textContent = '❌';
+                    saveBtn.disabled = false;
+                }
                 alert('Gagal menyimpan! Coba lagi.');
             });
     }
@@ -2745,16 +2776,17 @@ include '../../includes/header.php';
         const s3 = tr.querySelector('[data-col="scan_3"]')?.value || '';
         const s4 = tr.querySelector('[data-col="scan_4"]')?.value || '';
 
-        let sh1 = 0, sh2 = 0;
+        let sh1 = 0,
+            sh2 = 0;
         if (ci && co) {
-            const [h1,m1] = ci.split(':').map(Number);
-            const [h2,m2] = co.split(':').map(Number);
-            sh1 = Math.max(0, (h2*60+m2 - h1*60-m1) / 60);
+            const [h1, m1] = ci.split(':').map(Number);
+            const [h2, m2] = co.split(':').map(Number);
+            sh1 = Math.max(0, (h2 * 60 + m2 - h1 * 60 - m1) / 60);
         }
         if (s3 && s4) {
-            const [h3,m3] = s3.split(':').map(Number);
-            const [h4,m4] = s4.split(':').map(Number);
-            sh2 = Math.max(0, (h4*60+m4 - h3*60-m3) / 60);
+            const [h3, m3] = s3.split(':').map(Number);
+            const [h4, m4] = s4.split(':').map(Number);
+            sh2 = Math.max(0, (h4 * 60 + m4 - h3 * 60 - m3) / 60);
         }
         const total = sh1 + sh2;
         tr.querySelector('.att-calc-sh1').textContent = sh1.toFixed(1);
@@ -2789,7 +2821,14 @@ include '../../includes/header.php';
             const s4 = tr.querySelector('[data-col="scan_4"]')?.value || '';
             const sts = tr.querySelector('[data-col="status"]')?.value || '';
             if (ci || co || s3 || s4 || sts) {
-                rows.push({ date, check_in: ci, check_out: co, scan_3: s3, scan_4: s4, status: sts || 'present' });
+                rows.push({
+                    date,
+                    check_in: ci,
+                    check_out: co,
+                    scan_3: s3,
+                    scan_4: s4,
+                    status: sts || 'present'
+                });
             }
         });
 
@@ -2807,27 +2846,29 @@ include '../../includes/header.php';
         formData.append('rows', JSON.stringify(rows));
 
         fetch('process.php?month=<?php echo $month; ?>&year=<?php echo $year; ?>', {
-            method: 'POST',
-            body: formData
-        })
-        .then(res => res.json())
-        .then(data => {
-            if (data.status === 'success') {
-                if (statusEl) statusEl.textContent = '✅ Tersimpan!';
-                setTimeout(() => { if (statusEl) statusEl.textContent = ''; }, 3000);
-                // Update the slip row if data returned
-                if (data.slip) {
-                    const slipId = data.slip.slip_id;
-                    const whInput = document.querySelector(`tr[data-id="${slipId}"] .cell-hours input`);
-                    if (whInput) whInput.value = parseFloat(data.slip.work_hours).toFixed(1);
+                method: 'POST',
+                body: formData
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    if (statusEl) statusEl.textContent = '✅ Tersimpan!';
+                    setTimeout(() => {
+                        if (statusEl) statusEl.textContent = '';
+                    }, 3000);
+                    // Update the slip row if data returned
+                    if (data.slip) {
+                        const slipId = data.slip.slip_id;
+                        const whInput = document.querySelector(`tr[data-id="${slipId}"] .cell-hours input`);
+                        if (whInput) whInput.value = parseFloat(data.slip.work_hours).toFixed(1);
+                    }
+                } else {
+                    if (statusEl) statusEl.textContent = '❌ Error: ' + (data.message || 'Gagal');
                 }
-            } else {
-                if (statusEl) statusEl.textContent = '❌ Error: ' + (data.message || 'Gagal');
-            }
-        })
-        .catch(err => {
-            if (statusEl) statusEl.textContent = '❌ Network error';
-        });
+            })
+            .catch(err => {
+                if (statusEl) statusEl.textContent = '❌ Network error';
+            });
     }
 </script>
 
