@@ -1,5 +1,6 @@
 <?php
 // modules/payroll/process.php - MODERN 2027 DESIGN WITH WORK HOURS LOGIC
+// VERSION: 2026-04-04-v3 (recalc attendance + auto-sync)
 define('APP_ACCESS', true);
 require_once '../../config/config.php';
 require_once '../../config/database.php';
@@ -128,6 +129,40 @@ $months = [
 ];
 
 $period = $db->fetchOne("SELECT * FROM payroll_periods WHERE period_month = ? AND period_year = ?", [$month, $year]);
+
+// ── Helper: Recalculate ALL work_hours in payroll_attendance from scan timestamps ──
+// Fixes any records where work_hours was not stored correctly
+function recalcAttendanceHours($db, $month, $year)
+{
+    $monthStr = sprintf('%04d-%02d', $year, $month);
+    $rows = $db->fetchAll(
+        "SELECT id, check_in_time, check_out_time, scan_3, scan_4, attendance_date
+         FROM payroll_attendance 
+         WHERE DATE_FORMAT(attendance_date, '%Y-%m') = ?
+         AND check_in_time IS NOT NULL",
+        [$monthStr]
+    );
+    foreach ($rows as $r) {
+        $sh1 = null;
+        $sh2 = null;
+        $scanDate = $r['attendance_date'];
+        if (!empty($r['check_in_time']) && !empty($r['check_out_time'])) {
+            $t1 = strtotime($scanDate . ' ' . $r['check_in_time']);
+            $t2 = strtotime($scanDate . ' ' . $r['check_out_time']);
+            if ($t2 > $t1) $sh1 = round(($t2 - $t1) / 3600, 2);
+        }
+        if (!empty($r['scan_3']) && !empty($r['scan_4'])) {
+            $t3 = strtotime($scanDate . ' ' . $r['scan_3']);
+            $t4 = strtotime($scanDate . ' ' . $r['scan_4']);
+            if ($t4 > $t3) $sh2 = round(($t4 - $t3) / 3600, 2);
+        }
+        $wh = round(($sh1 ?? 0) + ($sh2 ?? 0), 2);
+        $db->query(
+            "UPDATE payroll_attendance SET shift_1_hours = ?, shift_2_hours = ?, work_hours = ? WHERE id = ?",
+            [$sh1, $sh2, $wh, $r['id']]
+        );
+    }
+}
 
 // ── Helper: Get attendance hours from fingerprint/GPS data for a month ──
 function getAttendanceHours($db, $empId, $month, $year)
@@ -455,8 +490,11 @@ $slips = [];
 if ($period) {
     // Auto-sync: pull latest attendance/fingerprint data on every page load
     if ($period['status'] === 'draft' || $period['status'] === 'submitted') {
-        // Reset hours_locked so sync always pulls fresh attendance data
+        // Step 1: Recalculate ALL work_hours from scan timestamps (fix any stale data)
+        recalcAttendanceHours($db, $month, $year);
+        // Step 2: Reset hours_locked so sync always pulls fresh attendance data
         $db->query("UPDATE payroll_slips SET hours_locked = 0 WHERE period_id = ? AND hours_locked = 1", [$period['id']]);
+        // Step 3: Sync attendance totals into salary slips
         syncSlipsWithAttendance($db, $period['id'], $month, $year);
         // Refresh period data after sync
         $period = $db->fetchOne("SELECT * FROM payroll_periods WHERE id = ?", [$period['id']]);
@@ -1795,6 +1833,7 @@ include '../../includes/header.php';
         <div>
             <h1>Process Salary</h1>
             <p>Calculate monthly payroll with work hours logic</p>
+            <!-- Debug: v2026-04-04-v3 -->
         </div>
         <form method="GET" class="ps-filter">
             <select name="month" onchange="this.form.submit()">
