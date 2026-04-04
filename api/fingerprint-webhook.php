@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Fingerspot.io Webhook Receiver — Multi-Business Support
  * Receives attendance data from Revo N830 via Fingerspot.io cloud
@@ -29,7 +30,8 @@ require_once __DIR__ . '/../config/database.php';
 header('Content-Type: application/json; charset=utf-8');
 
 // ── Helper: Log webhook data ──
-function logWebhook($pdo, $cloudId, $type, $pin, $scanTime, $verify, $statusScan, $empId, $processed, $result, $raw) {
+function logWebhook($pdo, $cloudId, $type, $pin, $scanTime, $verify, $statusScan, $empId, $processed, $result, $raw)
+{
     try {
         $pdo->prepare("INSERT INTO fingerprint_log (cloud_id, type, pin, scan_time, verify_method, status_scan, employee_id, processed, process_result, raw_data) VALUES (?,?,?,?,?,?,?,?,?,?)")
             ->execute([$cloudId, $type, $pin, $scanTime, $verify, $statusScan, $empId, $processed, $result, substr($raw, 0, 5000)]);
@@ -39,7 +41,8 @@ function logWebhook($pdo, $cloudId, $type, $pin, $scanTime, $verify, $statusScan
 }
 
 // ── Helper: Ensure required tables/columns exist ──
-function ensureTablesExist($pdo) {
+function ensureTablesExist($pdo)
+{
     try {
         $pdo->query("SELECT 1 FROM fingerprint_log LIMIT 1");
     } catch (PDOException $e) {
@@ -77,7 +80,8 @@ function ensureTablesExist($pdo) {
 
 // ── Helper: Process a single scan for one business DB ──
 // Returns ['success' => bool, 'message' => string]
-function processAttlogForBusiness($pdo, $bizSlug, $cloudId, $type, $pin, $scanStr, $verify, $statusScan, $rawBody) {
+function processAttlogForBusiness($pdo, $bizSlug, $cloudId, $type, $pin, $scanStr, $verify, $statusScan, $rawBody)
+{
     $scanTime = date('Y-m-d H:i:s', strtotime($scanStr));
     $scanDate = date('Y-m-d', strtotime($scanStr));
     $scanTimeOnly = date('H:i:s', strtotime($scanStr));
@@ -116,7 +120,9 @@ function processAttlogForBusiness($pdo, $bizSlug, $cloudId, $type, $pin, $scanSt
     $empId = (int)$employee['id'];
 
     // Ensure split-shift columns exist
-    try { $pdo->query("SELECT scan_3 FROM payroll_attendance LIMIT 1"); } catch (PDOException $e) {
+    try {
+        $pdo->query("SELECT scan_3 FROM payroll_attendance LIMIT 1");
+    } catch (PDOException $e) {
         $pdo->exec("ALTER TABLE payroll_attendance 
             ADD COLUMN `scan_3` TIME DEFAULT NULL AFTER `check_out_time`,
             ADD COLUMN `scan_4` TIME DEFAULT NULL AFTER `scan_3`,
@@ -160,7 +166,8 @@ function processAttlogForBusiness($pdo, $bizSlug, $cloudId, $type, $pin, $scanSt
     try {
         $cfgTime = $pdo->query("SELECT checkin_end FROM payroll_attendance_config WHERE id = 1")->fetch(PDO::FETCH_ASSOC);
         $checkinEnd = $cfgTime['checkin_end'] ?? '10:00:00';
-    } catch (Exception $e) {}
+    } catch (Exception $e) {
+    }
 
     $scanLabels = ['Scan 1 (Masuk Shift 1)', 'Scan 2 (Pulang Shift 1)', 'Scan 3 (Masuk Shift 2)', 'Scan 4 (Pulang Shift 2)'];
     $result = '';
@@ -174,10 +181,19 @@ function processAttlogForBusiness($pdo, $bizSlug, $cloudId, $type, $pin, $scanSt
         } else {
             $scanNum = 0;
             $updateCol = '';
-            if (empty($scan1)) { $updateCol = 'check_in_time'; $scanNum = 1; }
-            elseif (empty($scan2)) { $updateCol = 'check_out_time'; $scanNum = 2; }
-            elseif (empty($scan3)) { $updateCol = 'scan_3'; $scanNum = 3; }
-            elseif (empty($scan4)) { $updateCol = 'scan_4'; $scanNum = 4; }
+            if (empty($scan1)) {
+                $updateCol = 'check_in_time';
+                $scanNum = 1;
+            } elseif (empty($scan2)) {
+                $updateCol = 'check_out_time';
+                $scanNum = 2;
+            } elseif (empty($scan3)) {
+                $updateCol = 'scan_3';
+                $scanNum = 3;
+            } elseif (empty($scan4)) {
+                $updateCol = 'scan_4';
+                $scanNum = 4;
+            }
 
             if ($scanNum > 0) {
                 $shift1Hours = null;
@@ -197,13 +213,20 @@ function processAttlogForBusiness($pdo, $bizSlug, $cloudId, $type, $pin, $scanSt
                 $updates = ["{$updateCol} = ?"];
                 $params = [$scanTimeOnly];
 
-                if ($shift1Hours !== null) { $updates[] = "shift_1_hours = ?"; $params[] = $shift1Hours; }
-                if ($shift2Hours !== null) { $updates[] = "shift_2_hours = ?"; $params[] = $shift2Hours; }
+                if ($shift1Hours !== null) {
+                    $updates[] = "shift_1_hours = ?";
+                    $params[] = $shift1Hours;
+                }
+                if ($shift2Hours !== null) {
+                    $updates[] = "shift_2_hours = ?";
+                    $params[] = $shift2Hours;
+                }
 
                 $curShift1 = ($shift1Hours !== null) ? $shift1Hours : (float)($att['shift_1_hours'] ?? 0);
                 $curShift2 = ($shift2Hours !== null) ? $shift2Hours : (float)($att['shift_2_hours'] ?? 0);
                 $totalHours = $curShift1 + $curShift2;
-                if ($totalHours > 0) { $updates[] = "work_hours = ?"; $params[] = round($totalHours, 2); }
+                $updates[] = "work_hours = ?";
+                $params[] = round($totalHours, 2);
 
                 $updates[] = "notes = ?";
                 $params[] = "Split-shift: {$scanNum}/4 scans";
@@ -216,13 +239,12 @@ function processAttlogForBusiness($pdo, $bizSlug, $cloudId, $type, $pin, $scanSt
                 if ($scanNum === 2 && $shift1Hours) $hoursTxt = " (shift1: {$shift1Hours}h)";
                 if ($scanNum === 4 && $shift2Hours) $hoursTxt = " (shift2: {$shift2Hours}h, total: {$totalHours}h)";
 
-                $result = "[{$bizSlug}] {$scanLabels[$scanNum-1]}: {$employee['full_name']} at {$scanTimeOnly}{$hoursTxt}";
+                $result = "[{$bizSlug}] {$scanLabels[$scanNum - 1]}: {$employee['full_name']} at {$scanTimeOnly}{$hoursTxt}";
             }
         }
 
         logWebhook($pdo, $cloudId, $type, $pin, $scanTime, $verify, $statusScan, $empId, 1, $result, $rawBody);
         return ['success' => true, 'message' => $result];
-
     } catch (Exception $e) {
         $errMsg = "[{$bizSlug}] DB Error: " . $e->getMessage();
         logWebhook($pdo, $cloudId, $type, $pin, $scanTime, $verify, $statusScan, $empId, 0, $errMsg, $rawBody);
@@ -323,7 +345,8 @@ if (!$data || !isset($data['type']) || !isset($data['cloud_id'])) {
         try {
             $bizList[0]['pdo']->prepare("INSERT INTO fingerprint_log (cloud_id, type, raw_data, process_result) VALUES (?,?,?,?)")
                 ->execute(['unknown', 'invalid', substr($rawBody, 0, 2000), 'Invalid JSON payload']);
-        } catch (Exception $e) {}
+        } catch (Exception $e) {
+        }
     }
     http_response_code(400);
     echo json_encode(['success' => false, 'message' => 'Invalid payload']);
@@ -428,7 +451,6 @@ if ($type === 'attlog' && isset($data['data'])) {
         'message' => implode(' | ', $messages),
         'details' => $results,
     ]);
-
 } else {
     // Non-attlog type — just log it
     foreach ($bizList as $biz) {

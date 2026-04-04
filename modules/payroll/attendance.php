@@ -398,11 +398,11 @@
                                                 $s3 = $existing['scan_3'];
                                                 $s4 = $existing['scan_4'];
 
-                                                // Don't duplicate same scan time (within 2 minutes)
+                                                // Don't duplicate same scan time (within 5 minutes)
                                                 $existingTimes = array_filter([$s1, $s2, $s3, $s4]);
                                                 $isDuplicate = false;
                                                 foreach ($existingTimes as $et) {
-                                                    if (abs(strtotime($et) - strtotime($scanTimeOnly)) < 120) {
+                                                    if (abs(strtotime($et) - strtotime($scanTimeOnly)) < 300) {
                                                         $isDuplicate = true;
                                                         break;
                                                     }
@@ -441,7 +441,7 @@
                                                         $t4 = strtotime($scanDate . ' ' . $att['scan_4']);
                                                         if ($t4 > $t3) $sh2 = round(($t4 - $t3) / 3600, 2);
                                                     }
-                                                    $wh = round(($sh1 ?? 0) + ($sh2 ?? 0), 2) ?: null;
+                                                    $wh = round(($sh1 ?? 0) + ($sh2 ?? 0), 2);
                                                     $db->query(
                                                         "UPDATE payroll_attendance SET work_hours = ?, shift_1_hours = ?, shift_2_hours = ? WHERE id = ?",
                                                         [$wh, $sh1, $sh2, $existing['id']]
@@ -853,10 +853,8 @@
                                             $curSh1 = ($sh1 !== null) ? $sh1 : (float)($att['shift_1_hours'] ?? 0);
                                             $curSh2 = ($sh2 !== null) ? $sh2 : (float)($att['shift_2_hours'] ?? 0);
                                             $totalH = round($curSh1 + $curSh2, 2);
-                                            if ($totalH > 0) {
-                                                $updates[] = 'work_hours = ?';
-                                                $params[] = $totalH;
-                                            }
+                                            $updates[] = 'work_hours = ?';
+                                            $params[] = $totalH;
 
                                             $params[] = $att['id'];
                                             $_pdo->prepare("UPDATE payroll_attendance SET " . implode(', ', $updates) . " WHERE id = ?")->execute($params);
