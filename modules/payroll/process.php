@@ -188,15 +188,10 @@ function syncSlipsWithAttendance($db, $periodId, $month, $year)
 {
     $slipsToSync = $db->fetchAll("SELECT id, employee_id, base_salary, hours_locked, work_hours, overtime_hours FROM payroll_slips WHERE period_id = ?", [$periodId]);
     foreach ($slipsToSync as $slip) {
-        // If user manually locked work hours, keep them; only recalculate salary amounts
-        if ($slip['hours_locked']) {
-            $workH = (float)$slip['work_hours'];
-            $otH = (float)$slip['overtime_hours'];
-        } else {
-            $att = getAttendanceHours($db, $slip['employee_id'], $month, $year);
-            $workH = $att['work_hours'];
-            $otH = $att['overtime_hours'];
-        }
+        // Always pull latest attendance hours from fingerprint/GPS data
+        $att = getAttendanceHours($db, $slip['employee_id'], $month, $year);
+        $workH = $att['work_hours'];
+        $otH = $att['overtime_hours'];
         $baseSalary = (float)$slip['base_salary'];
         $hourlyRate = $baseSalary / 200;
         $actualBase = ($workH >= 200) ? $baseSalary : round($workH * $hourlyRate, 2);
@@ -313,7 +308,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_update'])) {
                 overtime_hours = ?, overtime_rate = ?, overtime_amount = ?,
                 incentive = ?, allowance = ?, uang_makan = ?, bonus = ?, other_income = ?,
                 deduction_loan = ?, deduction_absence = ?, deduction_tax = ?, deduction_bpjs = ?, deduction_other = ?,
-                total_earnings = ?, total_deductions = ?, net_salary = ?, hours_locked = 1
+                total_earnings = ?, total_deductions = ?, net_salary = ?
                 WHERE id = ?";
 
         $db->query($sql, [
