@@ -1,6 +1,6 @@
 <?php
 // modules/payroll/process.php - MODERN 2027 DESIGN WITH WORK HOURS LOGIC
-// VERSION: 2026-04-05-v5 (preserve manual edits, smart sync)
+// VERSION: 2026-04-05-v6 (auto-save on input + beforeunload flush)
 define('APP_ACCESS', true);
 require_once '../../config/config.php';
 require_once '../../config/database.php';
@@ -2077,8 +2077,7 @@ include '../../includes/header.php';
                                         <input type="number" class="ps-input highlight-hours"
                                             value="<?php echo $workHours; ?>" step="0.5" min="0" max="300"
                                             data-field="work_hours" data-id="<?php echo $slip['id']; ?>"
-                                            oninput="calculateRow(<?php echo $slip['id']; ?>)"
-                                            onchange="calculateRow(<?php echo $slip['id']; ?>); saveRow(<?php echo $slip['id']; ?>);"
+                                            oninput="calculateRow(<?php echo $slip['id']; ?>); saveRow(<?php echo $slip['id']; ?>)"
                                             title="<?php echo $isHoursLocked ? 'Manual (dikunci)' : 'Auto dari absensi'; ?>">
                                         <?php if ($isHoursLocked): ?>
                                             <button type="button" onclick="unlockHours(<?php echo $slip['id']; ?>)"
@@ -2100,8 +2099,7 @@ include '../../includes/header.php';
                                     <input type="number" class="ps-input" style="background: rgba(59,130,246,0.1);"
                                         value="<?php echo $slip['overtime_hours']; ?>" step="0.5" min="0"
                                         data-field="overtime_hours" data-id="<?php echo $slip['id']; ?>"
-                                        oninput="calculateRow(<?php echo $slip['id']; ?>)"
-                                        onchange="calculateRow(<?php echo $slip['id']; ?>); saveRow(<?php echo $slip['id']; ?>);">
+                                        oninput="calculateRow(<?php echo $slip['id']; ?>); saveRow(<?php echo $slip['id']; ?>)">
                                 </td>
 
                                 <td>
@@ -2114,32 +2112,28 @@ include '../../includes/header.php';
                                     <input type="text" class="ps-input currency-input"
                                         value="<?php echo number_format($slip['incentive'], 0, ',', '.'); ?>"
                                         data-field="incentive" data-id="<?php echo $slip['id']; ?>"
-                                        oninput="calculateRow(<?php echo $slip['id']; ?>)"
-                                        onchange="calculateRow(<?php echo $slip['id']; ?>); saveRow(<?php echo $slip['id']; ?>);">
+                                        oninput="calculateRow(<?php echo $slip['id']; ?>); saveRow(<?php echo $slip['id']; ?>)">
                                 </td>
 
                                 <td>
                                     <input type="text" class="ps-input currency-input"
                                         value="<?php echo number_format($slip['allowance'], 0, ',', '.'); ?>"
                                         data-field="allowance" data-id="<?php echo $slip['id']; ?>"
-                                        oninput="calculateRow(<?php echo $slip['id']; ?>)"
-                                        onchange="calculateRow(<?php echo $slip['id']; ?>); saveRow(<?php echo $slip['id']; ?>);">
+                                        oninput="calculateRow(<?php echo $slip['id']; ?>); saveRow(<?php echo $slip['id']; ?>)">
                                 </td>
 
                                 <td>
                                     <input type="text" class="ps-input currency-input"
                                         value="<?php echo number_format($slip['uang_makan'] ?? 0, 0, ',', '.'); ?>"
                                         data-field="uang_makan" data-id="<?php echo $slip['id']; ?>"
-                                        oninput="calculateRow(<?php echo $slip['id']; ?>)"
-                                        onchange="calculateRow(<?php echo $slip['id']; ?>); saveRow(<?php echo $slip['id']; ?>);">
+                                        oninput="calculateRow(<?php echo $slip['id']; ?>); saveRow(<?php echo $slip['id']; ?>)">
                                 </td>
 
                                 <td>
                                     <input type="text" class="ps-input currency-input"
                                         value="<?php echo number_format($slip['bonus'] + $slip['other_income'], 0, ',', '.'); ?>"
                                         data-field="bonus" data-id="<?php echo $slip['id']; ?>"
-                                        oninput="calculateRow(<?php echo $slip['id']; ?>)"
-                                        onchange="calculateRow(<?php echo $slip['id']; ?>); saveRow(<?php echo $slip['id']; ?>);">
+                                        oninput="calculateRow(<?php echo $slip['id']; ?>); saveRow(<?php echo $slip['id']; ?>)">
                                 </td>
 
                                 <td>
@@ -2360,9 +2354,9 @@ include '../../includes/header.php';
     const _saveTimers = {};
 
     function saveRow(id) {
-        // Debounce: wait 300ms after last call to actually save
+        // Debounce: wait 800ms after last input to actually save
         if (_saveTimers[id]) clearTimeout(_saveTimers[id]);
-        _saveTimers[id] = setTimeout(() => _doSaveRow(id), 300);
+        _saveTimers[id] = setTimeout(() => _doSaveRow(id), 800);
         // Return a promise that resolves when save completes
         return new Promise(resolve => {
             const origTimer = _saveTimers[id];
@@ -2469,6 +2463,38 @@ include '../../includes/header.php';
     function saveRowSync(id) {
         return saveRow(id) || Promise.resolve();
     }
+
+    // ── Flush all pending saves on page unload (browser refresh/close) ──
+    window.addEventListener('beforeunload', function(e) {
+        // Find all rows with pending debounce timers
+        for (const id in _saveTimers) {
+            if (_saveTimers[id]) {
+                clearTimeout(_saveTimers[id]);
+                delete _saveTimers[id];
+                // Build form data for this row
+                const row = document.getElementById(`row-${id}`);
+                if (!row) continue;
+                const params = new URLSearchParams();
+                params.append('ajax_update', 1);
+                params.append('slip_id', id);
+                params.append('base_salary', getValByRow(id, 'base_salary'));
+                params.append('work_hours', getValByRow(id, 'work_hours'));
+                params.append('overtime_hours', getValByRow(id, 'overtime_hours'));
+                params.append('incentive', getValByRow(id, 'incentive'));
+                params.append('allowance', getValByRow(id, 'allowance'));
+                params.append('uang_makan', getValByRow(id, 'uang_makan'));
+                params.append('bonus', getValByRow(id, 'bonus'));
+                params.append('other_income', 0);
+                params.append('deduction_loan', row.getAttribute('data-loan') || 0);
+                params.append('deduction_absence', row.getAttribute('data-absence') || 0);
+                params.append('deduction_tax', row.getAttribute('data-tax') || 0);
+                params.append('deduction_bpjs', row.getAttribute('data-bpjs') || 0);
+                params.append('deduction_other', row.getAttribute('data-other') || 0);
+                // sendBeacon survives page navigation
+                navigator.sendBeacon('process.php?month=<?php echo $month; ?>&year=<?php echo $year; ?>', params);
+            }
+        }
+    });
 
     function updateTotals() {
         let totalNet = 0;
