@@ -227,15 +227,16 @@ function syncSlipsWithAttendance($db, $periodId, $month, $year)
         // Pull latest attendance hours from fingerprint/GPS data
         $att = getAttendanceHours($db, $slip['employee_id'], $month, $year);
         $workH = $att['work_hours'];
-        $otH = $att['overtime_hours'];
+        // ONLY update work_hours from attendance — keep all other fields (overtime, incentive, etc.) as-is
         $baseSalary = (float)$slip['base_salary'];
         $hourlyRate = $baseSalary / 200;
         $actualBase = ($workH >= 200) ? $baseSalary : round($workH * $hourlyRate, 2);
+
+        // Read current addon values (preserve them, don't overwrite)
+        $cur = $db->fetchOne("SELECT overtime_hours, overtime_rate, overtime_amount, incentive, allowance, uang_makan, bonus, other_income, deduction_loan, deduction_absence, deduction_tax, deduction_bpjs, deduction_other FROM payroll_slips WHERE id = ?", [$slip['id']]);
+        $otH = (float)($cur['overtime_hours'] ?? 0);
         $otRate = $hourlyRate;
         $otAmount = round($otH * $otRate, 2);
-
-        // Read current addon values
-        $cur = $db->fetchOne("SELECT incentive, allowance, uang_makan, bonus, other_income, deduction_loan, deduction_absence, deduction_tax, deduction_bpjs, deduction_other FROM payroll_slips WHERE id = ?", [$slip['id']]);
         $incentive = (float)($cur['incentive'] ?? 0);
         $allowance = (float)($cur['allowance'] ?? 0);
         $uang_makan = (float)($cur['uang_makan'] ?? 0);
@@ -250,9 +251,10 @@ function syncSlipsWithAttendance($db, $periodId, $month, $year)
         $totalDed = $loan + $absence + $tax + $bpjs + $dedOther;
         $netSalary = $totalEarn - $totalDed;
 
+        // Update only work_hours + recalculated totals — overtime/incentive/allowance/bonus/uang_makan are preserved
         $db->query(
-            "UPDATE payroll_slips SET work_hours=?, overtime_hours=?, actual_base=?, overtime_rate=?, overtime_amount=?, total_earnings=?, total_deductions=?, net_salary=?, uang_makan=? WHERE id=?",
-            [$workH, $otH, $actualBase, $otRate, $otAmount, $totalEarn, $totalDed, $netSalary, $uang_makan, $slip['id']]
+            "UPDATE payroll_slips SET work_hours=?, actual_base=?, overtime_rate=?, overtime_amount=?, total_earnings=?, total_deductions=?, net_salary=? WHERE id=?",
+            [$workH, $actualBase, $otRate, $otAmount, $totalEarn, $totalDed, $netSalary, $slip['id']]
         );
     }
     // Update period totals
