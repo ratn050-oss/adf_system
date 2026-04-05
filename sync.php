@@ -343,16 +343,21 @@ if ($action === 'payroll_debug') {
         // 5. Test syncSlipsWithAttendance manually
         if ($period && isset($_GET['do_sync'])) {
             echo "\n\n--- RUNNING FULL RECALC ---\n";
-            $stmt = $pdo->prepare("SELECT s.*, 
-                IFNULL(s.incentive,0) as incentive, IFNULL(s.allowance,0) as allowance,
-                IFNULL(s.uang_makan,0) as uang_makan, IFNULL(s.bonus,0) as bonus, IFNULL(s.other_income,0) as other_income,
-                IFNULL(s.deduction_loan,0) as deduction_loan, IFNULL(s.deduction_absence,0) as deduction_absence,
-                IFNULL(s.deduction_tax,0) as deduction_tax, IFNULL(s.deduction_bpjs,0) as deduction_bpjs, IFNULL(s.deduction_other,0) as deduction_other
-                FROM payroll_slips s WHERE s.period_id = ?");
+            $stmt = $pdo->prepare("SELECT s.* FROM payroll_slips s WHERE s.period_id = ?");
             $stmt->execute([$period['id']]);
             $allSlips = $stmt->fetchAll(PDO::FETCH_ASSOC);
             foreach ($allSlips as $slip) {
                 $eid = $slip['employee_id'];
+                $incentive = isset($slip['incentive']) ? (float)$slip['incentive'] : 0;
+                $allowance = isset($slip['allowance']) ? (float)$slip['allowance'] : 0;
+                $uang_makan = isset($slip['uang_makan']) ? (float)$slip['uang_makan'] : 0;
+                $bonus = isset($slip['bonus']) ? (float)$slip['bonus'] : 0;
+                $other = isset($slip['other_income']) ? (float)$slip['other_income'] : 0;
+                $loan = isset($slip['deduction_loan']) ? (float)$slip['deduction_loan'] : 0;
+                $absence = isset($slip['deduction_absence']) ? (float)$slip['deduction_absence'] : 0;
+                $tax = isset($slip['deduction_tax']) ? (float)$slip['deduction_tax'] : 0;
+                $bpjs = isset($slip['deduction_bpjs']) ? (float)$slip['deduction_bpjs'] : 0;
+                $dedOther = isset($slip['deduction_other']) ? (float)$slip['deduction_other'] : 0;
                 // Get attendance total
                 $stmt2 = $pdo->prepare("SELECT work_hours, shift_1_hours, shift_2_hours, check_in_time, check_out_time, scan_3, scan_4 FROM payroll_attendance WHERE employee_id = ? AND DATE_FORMAT(attendance_date, '%Y-%m') = ?");
                 $stmt2->execute([$eid, $monthStr]);
@@ -385,17 +390,7 @@ if ($action === 'payroll_debug') {
                 $actualBase = ($twh >= 200) ? $baseSalary : round($twh * $hourlyRate, 2);
                 $otRate = $hourlyRate;
                 $otAmount = round($tot * $otRate, 2);
-                $incentive = (float)$slip['incentive'];
-                $allowance = (float)$slip['allowance'];
-                $uang_makan = (float)$slip['uang_makan'];
-                $bonus = (float)$slip['bonus'];
-                $other = (float)$slip['other_income'];
                 $totalEarn = $actualBase + $otAmount + $incentive + $allowance + $uang_makan + $bonus + $other;
-                $loan = (float)$slip['deduction_loan'];
-                $absence = (float)$slip['deduction_absence'];
-                $tax = (float)$slip['deduction_tax'];
-                $bpjs = (float)$slip['deduction_bpjs'];
-                $dedOther = (float)$slip['deduction_other'];
                 $totalDed = $loan + $absence + $tax + $bpjs + $dedOther;
                 $netSalary = $totalEarn - $totalDed;
 
