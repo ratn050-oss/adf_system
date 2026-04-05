@@ -1,6 +1,6 @@
 <?php
 // modules/payroll/process.php - MODERN 2027 DESIGN WITH WORK HOURS LOGIC
-// VERSION: 2026-04-04-v3 (recalc attendance + auto-sync)
+// VERSION: 2026-04-05-v4 (auto-sync with error reporting)
 define('APP_ACCESS', true);
 require_once '../../config/config.php';
 require_once '../../config/database.php';
@@ -487,17 +487,22 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_save_daily_atten
 }
 
 $slips = [];
+$autoSyncError = '';
 if ($period) {
     // Auto-sync: pull latest attendance/fingerprint data on every page load
     if ($period['status'] === 'draft' || $period['status'] === 'submitted') {
-        // Step 1: Recalculate ALL work_hours from scan timestamps (fix any stale data)
-        recalcAttendanceHours($db, $month, $year);
-        // Step 2: Reset hours_locked so sync always pulls fresh attendance data
-        $db->query("UPDATE payroll_slips SET hours_locked = 0 WHERE period_id = ? AND hours_locked = 1", [$period['id']]);
-        // Step 3: Sync attendance totals into salary slips
-        syncSlipsWithAttendance($db, $period['id'], $month, $year);
-        // Refresh period data after sync
-        $period = $db->fetchOne("SELECT * FROM payroll_periods WHERE id = ?", [$period['id']]);
+        try {
+            // Step 1: Recalculate ALL work_hours from scan timestamps (fix any stale data)
+            recalcAttendanceHours($db, $month, $year);
+            // Step 2: Reset hours_locked so sync always pulls fresh attendance data
+            $db->query("UPDATE payroll_slips SET hours_locked = 0 WHERE period_id = ? AND hours_locked = 1", [$period['id']]);
+            // Step 3: Sync attendance totals into salary slips
+            syncSlipsWithAttendance($db, $period['id'], $month, $year);
+            // Refresh period data after sync
+            $period = $db->fetchOne("SELECT * FROM payroll_periods WHERE id = ?", [$period['id']]);
+        } catch (Exception $e) {
+            $autoSyncError = $e->getMessage();
+        }
     }
 
     // Fetch slips AFTER sync so we get updated work hours
@@ -1833,7 +1838,12 @@ include '../../includes/header.php';
         <div>
             <h1>Process Salary</h1>
             <p>Calculate monthly payroll with work hours logic</p>
-            <!-- Debug: v2026-04-04-v3 -->
+            <!-- Debug: v2026-04-05-v4 -->
+            <?php if ($autoSyncError): ?>
+                <div style="background:#fee;color:#c00;padding:8px;border-radius:6px;font-size:12px;margin-top:6px;">
+                    ⚠️ Auto-sync error: <?php echo htmlspecialchars($autoSyncError); ?>
+                </div>
+            <?php endif; ?>
         </div>
         <form method="GET" class="ps-filter">
             <select name="month" onchange="this.form.submit()">

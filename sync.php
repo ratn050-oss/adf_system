@@ -296,6 +296,66 @@ if ($action === 'payroll_debug') {
         } else {
             echo "NOT FOUND\n";
         }
+
+        // 4. Test getAttendanceHours manually
+        echo "\n\n--- Manual getAttendanceHours test ---\n";
+        $testEmp = isset($_GET['emp']) ? (int)$_GET['emp'] : 10; // Default Dela
+        echo "Testing employee ID: $testEmp\n";
+        $stmt = $pdo->prepare("SELECT work_hours, shift_1_hours, shift_2_hours, check_in_time, check_out_time, scan_3, scan_4, attendance_date FROM payroll_attendance WHERE employee_id = ? AND DATE_FORMAT(attendance_date, '%Y-%m') = ? AND (work_hours > 0 OR check_in_time IS NOT NULL)");
+        $stmt->execute([$testEmp, $monthStr]);
+        $attRows = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        echo "Found " . count($attRows) . " attendance rows\n";
+        $totalH = 0; $totalOT = 0; $daysW = 0;
+        foreach ($attRows as $r) {
+            $wh = (float)$r['work_hours'];
+            if ($wh <= 0) {
+                $s1 = 0; $s2 = 0;
+                if (!empty($r['shift_1_hours']) && (float)$r['shift_1_hours'] > 0) $s1 = (float)$r['shift_1_hours'];
+                elseif (!empty($r['check_in_time']) && !empty($r['check_out_time'])) {
+                    $t1 = strtotime($r['check_in_time']); $t2 = strtotime($r['check_out_time']);
+                    if ($t2 > $t1) $s1 = round(($t2 - $t1) / 3600, 2);
+                }
+                if (!empty($r['scan_3']) && !empty($r['scan_4'])) {
+                    $t3 = strtotime($r['scan_3']); $t4 = strtotime($r['scan_4']);
+                    if ($t4 > $t3) $s2 = round(($t4 - $t3) / 3600, 2);
+                }
+                $wh = round($s1 + $s2, 2);
+                if ($wh <= 0) { echo "  {$r['attendance_date']}: SKIP (no hours)\n"; continue; }
+            }
+            $daysW++;
+            $totalH += $wh;
+            if ($wh > 8) { $ot = $wh - 8; $totalOT += floor($ot / 0.75) * 0.75; }
+            echo "  {$r['attendance_date']}: wh=$wh (running total=$totalH)\n";
+        }
+        echo "RESULT: work_hours=" . round($totalH, 2) . ", overtime=" . round($totalOT, 2) . ", days=$daysW\n";
+
+        // 5. Test syncSlipsWithAttendance manually
+        if ($period && isset($_GET['do_sync'])) {
+            echo "\n\n--- RUNNING SYNC ---\n";
+            $stmt = $pdo->prepare("SELECT id, employee_id, base_salary, hours_locked, work_hours FROM payroll_slips WHERE period_id = ?");
+            $stmt->execute([$period['id']]);
+            $allSlips = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($allSlips as $slip) {
+                $eid = $slip['employee_id'];
+                // Get attendance
+                $stmt2 = $pdo->prepare("SELECT work_hours FROM payroll_attendance WHERE employee_id = ? AND DATE_FORMAT(attendance_date, '%Y-%m') = ? AND (work_hours > 0 OR check_in_time IS NOT NULL)");
+                $stmt2->execute([$eid, $monthStr]);
+                $rows2 = $stmt2->fetchAll(PDO::FETCH_ASSOC);
+                $twh = 0;
+                foreach ($rows2 as $r2) { $twh += (float)$r2['work_hours']; }
+                $twh = round($twh, 2);
+                
+                $baseSalary = (float)$slip['base_salary'];
+                $hourlyRate = $baseSalary / 200;
+                $actualBase = ($twh >= 200) ? $baseSalary : round($twh * $hourlyRate, 2);
+                
+                $stmt3 = $pdo->prepare("UPDATE payroll_slips SET work_hours = ?, actual_base = ? WHERE id = ?");
+                $stmt3->execute([$twh, $actualBase, $slip['id']]);
+                
+                echo "Slip {$slip['id']} emp={$eid}: old_wh={$slip['work_hours']} -> new_wh=$twh, actual_base=$actualBase\n";
+            }
+            echo "\nSYNC DONE!\n";
+        }
     } catch (Exception $e) {
         echo "Error: " . $e->getMessage() . "\n";
     }
