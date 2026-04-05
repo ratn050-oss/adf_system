@@ -1,6 +1,6 @@
 <?php
 // modules/payroll/process.php - MODERN 2027 DESIGN WITH WORK HOURS LOGIC
-// VERSION: 2026-04-05-v7 (all fields auto-save on oninput)
+// VERSION: 2026-04-05-v8 (flush pending saves before Pay/form submit, track in-flight AJAX)
 define('APP_ACCESS', true);
 require_once '../../config/config.php';
 require_once '../../config/database.php';
@@ -476,8 +476,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_save_daily_atten
                 $totalEarn = $actualBase + $otAmount + (float)($slip['incentive'] ?? 0) + (float)($slip['allowance'] ?? 0) + (float)($slip['uang_makan'] ?? 0) + (float)($slip['bonus'] ?? 0) + (float)($slip['other_income'] ?? 0);
                 $totalDed = (float)($slip['deduction_loan'] ?? 0) + (float)($slip['deduction_absence'] ?? 0) + (float)($slip['deduction_tax'] ?? 0) + (float)($slip['deduction_bpjs'] ?? 0) + (float)($slip['deduction_other'] ?? 0);
                 $netSalary = $totalEarn - $totalDed;
+                // Only update work_hours and recalculated totals — preserve hours_locked state
                 $db->query(
-                    "UPDATE payroll_slips SET work_hours=?, overtime_hours=?, actual_base=?, overtime_rate=?, overtime_amount=?, total_earnings=?, total_deductions=?, net_salary=?, hours_locked=0 WHERE id=?",
+                    "UPDATE payroll_slips SET work_hours=?, overtime_hours=?, actual_base=?, overtime_rate=?, overtime_amount=?, total_earnings=?, total_deductions=?, net_salary=? WHERE id=?",
                     [$workH, $otH, $actualBase, $hourlyRate, $otAmount, $totalEarn, $totalDed, $netSalary, $slip['id']]
                 );
                 $slipData = ['slip_id' => $slip['id'], 'work_hours' => $workH, 'overtime_hours' => $otH, 'actual_base' => $actualBase, 'net_salary' => $netSalary];
@@ -2259,22 +2260,30 @@ include '../../includes/header.php';
         });
     });
 
-    // Intercept Save/Proses form — save all unsaved rows first
+    // Intercept Save/Proses form — flush all pending saves first
     document.getElementById('saveProsesForm')?.addEventListener('submit', function(e) {
-        // Find all rows with visible save buttons (unsaved changes)
-        let unsaved = document.querySelectorAll('.ps-btn-save-row[style*="inline-block"]');
-        if (unsaved.length > 0) {
+        // Check if there are any pending saves (debounced or in-flight)
+        const hasPending = Object.keys(_saveTimers).length > 0 || Object.keys(_savePromises).length > 0;
+        if (hasPending) {
             e.preventDefault();
-            let saves = [];
-            unsaved.forEach(btn => {
-                let id = btn.id.replace('save-btn-', '');
-                saves.push(saveRow(id));
-            });
-            Promise.all(saves).then(() => {
-                this.submit();
+            const form = this;
+            flushAllPendingSaves().then(() => {
+                form.submit();
             }).catch(() => {
-                this.submit();
+                form.submit();
             });
+        }
+    });
+
+    // Global: flush pending saves before ANY other form submission (quick_pay, approve, mark_paid, etc.)
+    document.addEventListener('submit', function(e) {
+        // Skip forms already handled individually
+        if (e.target.id === 'saveProsesForm' || e.target.id === 'paySelForm') return;
+        const hasPending = Object.keys(_saveTimers).length > 0 || Object.keys(_savePromises).length > 0;
+        if (hasPending) {
+            e.preventDefault();
+            const form = e.target;
+            flushAllPendingSaves().then(() => form.submit()).catch(() => form.submit());
         }
     });
 
@@ -2353,32 +2362,36 @@ include '../../includes/header.php';
 
     // Debounce timers per row to prevent double-save
     const _saveTimers = {};
+    const _savePromises = {}; // Track in-flight AJAX save promises
 
     function saveRow(id) {
         // Debounce: wait 800ms after last input to actually save
         if (_saveTimers[id]) clearTimeout(_saveTimers[id]);
         _saveTimers[id] = setTimeout(() => _doSaveRow(id), 800);
-        // Return a promise that resolves when save completes
-        return new Promise(resolve => {
-            const origTimer = _saveTimers[id];
-            const check = setInterval(() => {
-                if (_saveTimers[id] !== origTimer || !_saveTimers[id]) {
-                    clearInterval(check);
-                    resolve();
-                }
-            }, 400);
-            // Safety timeout
-            setTimeout(() => {
-                clearInterval(check);
-                resolve();
-            }, 5000);
-        });
+    }
+
+    // Flush ALL pending saves (debounced + in-flight) — returns Promise
+    function flushAllPendingSaves() {
+        const promises = [];
+        // Fire all pending debounce timers immediately
+        for (const id in _saveTimers) {
+            if (_saveTimers[id]) {
+                clearTimeout(_saveTimers[id]);
+                const p = _doSaveRow(id);
+                if (p) promises.push(p);
+            }
+        }
+        // Wait for any in-flight saves too
+        for (const id in _savePromises) {
+            if (_savePromises[id]) promises.push(_savePromises[id]);
+        }
+        return promises.length > 0 ? Promise.all(promises) : Promise.resolve();
     }
 
     function _doSaveRow(id) {
         delete _saveTimers[id];
         const row = document.getElementById(`row-${id}`);
-        if (!row) return;
+        if (!row) return Promise.resolve();
 
         const data = new FormData();
         data.append('ajax_update', 1);
@@ -2407,7 +2420,7 @@ include '../../includes/header.php';
             saveBtn.disabled = true;
         }
 
-        return fetch('process.php?month=<?php echo $month; ?>&year=<?php echo $year; ?>', {
+        const promise = fetch('process.php?month=<?php echo $month; ?>&year=<?php echo $year; ?>', {
                 method: 'POST',
                 body: data
             }).then(res => res.json())
@@ -2457,12 +2470,21 @@ include '../../includes/header.php';
                     saveBtn.disabled = false;
                 }
                 alert('Gagal menyimpan! Coba lagi.');
+            }).finally(() => {
+                delete _savePromises[id];
             });
+
+        _savePromises[id] = promise;
+        return promise;
     }
 
     // Same as saveRow but always returns a Promise (for flushing before form submit)
     function saveRowSync(id) {
-        return saveRow(id) || Promise.resolve();
+        if (_saveTimers[id]) {
+            clearTimeout(_saveTimers[id]);
+            return _doSaveRow(id) || Promise.resolve();
+        }
+        return _savePromises[id] || Promise.resolve();
     }
 
     // ── Flush all pending saves on page unload (browser refresh/close) ──
@@ -2643,7 +2665,13 @@ include '../../includes/header.php';
         if (!confirm('Bayar & publish slip gaji untuk ' + checked.length + ' staff?\n' + preview)) return;
         const ids = Array.from(checked).map(cb => cb.value).join(',');
         document.getElementById('paySelSlipIds').value = ids;
-        document.getElementById('paySelForm').submit();
+
+        // Flush ALL pending saves before submitting pay form
+        flushAllPendingSaves().then(() => {
+            document.getElementById('paySelForm').submit();
+        }).catch(() => {
+            document.getElementById('paySelForm').submit();
+        });
     }
 
     // ═══ Attendance Detail Functions ═══
