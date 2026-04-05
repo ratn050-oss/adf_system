@@ -246,6 +246,51 @@ if ($action === 'clearcache') {
     exit;
 }
 
+// ===== RESTORE FEBRUARY DATA =====
+if ($action === 'restore_feb') {
+    try {
+        $pdo = new PDO('mysql:host=localhost;dbname=adfb2574_narayana_hotel;charset=utf8mb4', 'adfb2574_adfsystem', '@Nnoc2025');
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+        // Original Feb values from before the accidental recalc wipe
+        $febData = [
+            ['id'=>2, 'wh'=>200, 'ot'=>0],
+            ['id'=>3, 'wh'=>200, 'ot'=>0],
+            ['id'=>4, 'wh'=>200, 'ot'=>0],
+            ['id'=>5, 'wh'=>100, 'ot'=>0],
+            ['id'=>6, 'wh'=>112, 'ot'=>0],
+            ['id'=>7, 'wh'=>200, 'ot'=>0],
+            ['id'=>8, 'wh'=>201, 'ot'=>0],
+            ['id'=>9, 'wh'=>100, 'ot'=>0],
+            ['id'=>10, 'wh'=>100, 'ot'=>0],
+            ['id'=>11, 'wh'=>200, 'ot'=>0],
+            ['id'=>12, 'wh'=>200, 'ot'=>0],
+            ['id'=>13, 'wh'=>112, 'ot'=>0],
+            ['id'=>14, 'wh'=>100, 'ot'=>0],
+            ['id'=>15, 'wh'=>200, 'ot'=>0],
+            ['id'=>16, 'wh'=>200, 'ot'=>0],
+        ];
+        foreach ($febData as $d) {
+            $stmt = $pdo->prepare("SELECT base_salary FROM payroll_slips WHERE id = ?");
+            $stmt->execute([$d['id']]);
+            $slip = $stmt->fetch(PDO::FETCH_ASSOC);
+            if (!$slip) continue;
+            $base = (float)$slip['base_salary'];
+            $hr = $base / 200;
+            $actual = ($d['wh'] >= 200) ? $base : round($d['wh'] * $hr, 2);
+            $otAmt = round($d['ot'] * $hr, 2);
+            $earn = $actual + $otAmt;
+            $net = $earn;
+            $pdo->prepare("UPDATE payroll_slips SET work_hours=?, overtime_hours=?, actual_base=?, overtime_amount=?, total_earnings=?, net_salary=? WHERE id=?")
+                ->execute([$d['wh'], $d['ot'], $actual, $otAmt, $earn, $net, $d['id']]);
+            echo "Restored slip {$d['id']}: wh={$d['wh']}, actual=$actual, net=$net\n";
+        }
+        echo "\nFeb restore complete!\n";
+    } catch (Exception $e) {
+        echo "Error: " . $e->getMessage() . "\n";
+    }
+    exit;
+}
+
 // ===== PAYROLL DEBUG =====
 if ($action === 'payroll_debug') {
     echo "=== PAYROLL DEBUG ===\n\n";
