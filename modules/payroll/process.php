@@ -1,6 +1,6 @@
 <?php
 // modules/payroll/process.php - MODERN 2027 DESIGN WITH WORK HOURS LOGIC
-// VERSION: 2026-04-05-v4 (auto-sync with error reporting)
+// VERSION: 2026-04-05-v5 (preserve manual edits, smart sync)
 define('APP_ACCESS', true);
 require_once '../../config/config.php';
 require_once '../../config/database.php';
@@ -221,9 +221,10 @@ function getAttendanceHours($db, $empId, $month, $year)
 // ── Helper: Sync all slips with attendance data ──
 function syncSlipsWithAttendance($db, $periodId, $month, $year)
 {
-    $slipsToSync = $db->fetchAll("SELECT id, employee_id, base_salary, hours_locked, work_hours, overtime_hours FROM payroll_slips WHERE period_id = ?", [$periodId]);
+    // Only sync slips that are NOT manually edited (hours_locked = 0)
+    $slipsToSync = $db->fetchAll("SELECT id, employee_id, base_salary, hours_locked, work_hours, overtime_hours FROM payroll_slips WHERE period_id = ? AND hours_locked = 0", [$periodId]);
     foreach ($slipsToSync as $slip) {
-        // Always pull latest attendance hours from fingerprint/GPS data
+        // Pull latest attendance hours from fingerprint/GPS data
         $att = getAttendanceHours($db, $slip['employee_id'], $month, $year);
         $workH = $att['work_hours'];
         $otH = $att['overtime_hours'];
@@ -343,7 +344,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_update'])) {
                 overtime_hours = ?, overtime_rate = ?, overtime_amount = ?,
                 incentive = ?, allowance = ?, uang_makan = ?, bonus = ?, other_income = ?,
                 deduction_loan = ?, deduction_absence = ?, deduction_tax = ?, deduction_bpjs = ?, deduction_other = ?,
-                total_earnings = ?, total_deductions = ?, net_salary = ?
+                total_earnings = ?, total_deductions = ?, net_salary = ?,
+                hours_locked = 1
                 WHERE id = ?";
 
         $db->query($sql, [
@@ -380,7 +382,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_update'])) {
                         WHERE p.id = ?", [$period_id, $period_id]);
         }
 
-        echo json_encode(['status' => 'success', 'net_salary' => $net_salary, 'actual_base' => $actual_base]);
+        echo json_encode(['status' => 'success', 'net_salary' => $net_salary, 'actual_base' => $actual_base, 'hours_locked' => 1]);
     } catch (Exception $e) {
         http_response_code(500);
         echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
@@ -494,9 +496,7 @@ if ($period) {
         try {
             // Step 1: Recalculate ALL work_hours from scan timestamps (fix any stale data)
             recalcAttendanceHours($db, $month, $year);
-            // Step 2: Reset hours_locked so sync always pulls fresh attendance data
-            $db->query("UPDATE payroll_slips SET hours_locked = 0 WHERE period_id = ? AND hours_locked = 1", [$period['id']]);
-            // Step 3: Sync attendance totals into salary slips
+            // Step 2: Sync attendance totals into salary slips (skips manually-edited slips where hours_locked=1)
             syncSlipsWithAttendance($db, $period['id'], $month, $year);
             // Refresh period data after sync
             $period = $db->fetchOne("SELECT * FROM payroll_periods WHERE id = ?", [$period['id']]);
@@ -1838,7 +1838,7 @@ include '../../includes/header.php';
         <div>
             <h1>Process Salary</h1>
             <p>Calculate monthly payroll with work hours logic</p>
-            <!-- Debug: v2026-04-05-v4 -->
+            <!-- Debug: v2026-04-05-v5 -->
             <?php if ($autoSyncError): ?>
                 <div style="background:#fee;color:#c00;padding:8px;border-radius:6px;font-size:12px;margin-top:6px;">
                     ⚠️ Auto-sync error: <?php echo htmlspecialchars($autoSyncError); ?>
@@ -2435,6 +2435,19 @@ include '../../includes/header.php';
                             savedLabel.style.color = '#6b7280';
                         }
                     }, 3000);
+                    // Mark as hours_locked and swap icon to 🔒
+                    if (res.hours_locked) {
+                        const row = document.getElementById(`row-${id}`);
+                        if (row) row.setAttribute('data-hours-locked', '1');
+                        const hoursInput = document.querySelector(`input[data-id="${id}"][data-field="work_hours"]`);
+                        if (hoursInput) {
+                            hoursInput.title = 'Manual (dikunci)';
+                            const syncIcon = hoursInput.nextElementSibling;
+                            if (syncIcon && syncIcon.tagName === 'SPAN') {
+                                syncIcon.outerHTML = `<button type="button" onclick="unlockHours(${id})" title="Reset ke data absensi" style="border:none;background:none;cursor:pointer;padding:0;color:#f59e0b;font-size:11px;line-height:1;">🔒</button>`;
+                            }
+                        }
+                    }
                     // Update totals in header
                     updateTotals();
                 } else {
