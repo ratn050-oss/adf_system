@@ -1,6 +1,6 @@
 <?php
 // modules/payroll/process.php - MODERN 2027 DESIGN WITH WORK HOURS LOGIC
-// VERSION: 2026-04-05-v6 (auto-save on input + beforeunload flush)
+// VERSION: 2026-04-05-v7 (all fields auto-save on oninput)
 define('APP_ACCESS', true);
 require_once '../../config/config.php';
 require_once '../../config/database.php';
@@ -2068,8 +2068,7 @@ include '../../includes/header.php';
                                     <input type="text" class="ps-input currency-input"
                                         value="<?php echo number_format($slip['base_salary'], 0, ',', '.'); ?>"
                                         data-field="base_salary" data-id="<?php echo $slip['id']; ?>"
-                                        oninput="calculateRow(<?php echo $slip['id']; ?>)"
-                                        onchange="calculateRow(<?php echo $slip['id']; ?>); saveRow(<?php echo $slip['id']; ?>);">
+                                        oninput="calculateRow(<?php echo $slip['id']; ?>); saveRow(<?php echo $slip['id']; ?>)">
                                 </td>
 
                                 <td>
