@@ -385,6 +385,26 @@ if ($action === 'payroll_debug') {
                 }
                 $twh = round($twh, 2); $tot = round($tot, 2);
 
+                // Skip if no attendance data exists (don't overwrite manual entries)
+                if (count($rows2) === 0 || ($twh <= 0 && (float)$slip['work_hours'] > 0)) {
+                    echo "Slip {$slip['id']} {$slip['employee_name']}: SKIP (no attendance, keeping wh={$slip['work_hours']})\n";
+                    // Still recalc net from existing values
+                    $twh = (float)$slip['work_hours'];
+                    $tot = (float)$slip['overtime_hours'];
+                    $baseSalary = (float)$slip['base_salary'];
+                    $hourlyRate = $baseSalary / 200;
+                    $actualBase = ($twh >= 200) ? $baseSalary : round($twh * $hourlyRate, 2);
+                    $otRate = $hourlyRate;
+                    $otAmount = round($tot * $otRate, 2);
+                    $totalEarn = $actualBase + $otAmount + $incentive + $allowance + $uang_makan + $bonus + $other;
+                    $totalDed = $loan + $absence + $tax + $bpjs + $dedOther;
+                    $netSalary = $totalEarn - $totalDed;
+                    $stmt3 = $pdo->prepare("UPDATE payroll_slips SET actual_base=?, overtime_rate=?, overtime_amount=?, total_earnings=?, total_deductions=?, net_salary=? WHERE id=?");
+                    $stmt3->execute([$actualBase, $otRate, $otAmount, $totalEarn, $totalDed, $netSalary, $slip['id']]);
+                    echo "  -> recalc net=$netSalary (from existing wh=$twh)\n";
+                    continue;
+                }
+
                 $baseSalary = (float)$slip['base_salary'];
                 $hourlyRate = $baseSalary / 200;
                 $actualBase = ($twh >= 200) ? $baseSalary : round($twh * $hourlyRate, 2);
