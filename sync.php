@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Diagnostic + Sync tool
  * URL: https://adfsystem.online/sync.php?token=adf-deploy-2025-secure
@@ -17,16 +18,16 @@ $action = $_GET['action'] ?? 'check';
 
 if ($action === 'check') {
     echo "=== DB Diagnostic ===\n\n";
-    
+
     // Connect to narayana_hotel DB
     try {
         $pdo = new PDO('mysql:host=localhost;dbname=adfb2574_narayana_hotel;charset=utf8mb4', 'adfb2574_adfsystem', '@Nnoc2025');
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         echo "DB Connected: adfb2574_narayana_hotel\n\n";
-        
+
         $stmt = $pdo->query("SELECT setting_key, setting_value FROM settings WHERE setting_key IN ('web_logo', 'web_favicon', 'web_hero_background')");
         $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
-        
+
         foreach ($rows as $row) {
             echo $row['setting_key'] . " = " . $row['setting_value'] . "\n";
         }
@@ -36,7 +37,7 @@ if ($action === 'check') {
     } catch (Exception $e) {
         echo "DB Error: " . $e->getMessage() . "\n";
     }
-    
+
     echo "\n--- File Check ---\n";
     $webRoot = '/home/adfb2574/public_html/narayanakarimunjawa.com';
     $checkPaths = [
@@ -48,7 +49,7 @@ if ($action === 'check') {
     foreach ($checkPaths as $p) {
         echo $p . " : " . (file_exists($p) ? (is_dir($p) ? 'DIR EXISTS' : 'FILE EXISTS (' . filesize($p) . ' bytes)') : 'NOT FOUND') . "\n";
     }
-    
+
     // List uploads dir if exists
     $uploadsDir = $webRoot . '/uploads/';
     if (is_dir($uploadsDir)) {
@@ -82,9 +83,9 @@ if ($action === 'fix_logo') {
 
 if ($action === 'verify') {
     echo "=== Verify Deployed Files ===\n\n";
-    
+
     $webRoot = '/home/adfb2574/public_html/narayanakarimunjawa.com';
-    
+
     // Check header.php content
     $headerFile = $webRoot . '/includes/header.php';
     echo "Header file: $headerFile\n";
@@ -92,42 +93,42 @@ if ($action === 'verify') {
     if (file_exists($headerFile)) {
         echo "Size: " . filesize($headerFile) . " bytes\n";
         echo "Modified: " . date('Y-m-d H:i:s', filemtime($headerFile)) . "\n\n";
-        
+
         $content = file_get_contents($headerFile);
-        
+
         // Check for assetUrl function
         echo "Contains 'function assetUrl': " . (strpos($content, 'function assetUrl') !== false ? 'YES' : 'NO') . "\n";
         echo "Contains 'preg_match.*https': " . (strpos($content, "preg_match('#^https?://#i'") !== false ? 'YES' : 'NO') . "\n";
         echo "Contains 'uploads/logo': " . (strpos($content, 'uploads/logo') !== false ? 'YES' : 'NO') . "\n";
         echo "Contains old 'BASE_URL./. htmlspecialchars(logoPath)': " . (strpos($content, 'BASE_URL ?>/<?= htmlspecialchars($logoPath)') !== false ? 'YES (OLD!)' : 'NO (GOOD)') . "\n\n";
-        
+
         // Extract the img tag line
         foreach (explode("\n", $content) as $i => $line) {
             if (strpos($line, 'brand-img') !== false) {
-                echo "Line " . ($i+1) . ": " . trim($line) . "\n";
+                echo "Line " . ($i + 1) . ": " . trim($line) . "\n";
             }
             if (strpos($line, 'assetUrl') !== false) {
-                echo "Line " . ($i+1) . ": " . trim($line) . "\n";
+                echo "Line " . ($i + 1) . ": " . trim($line) . "\n";
             }
         }
     }
-    
+
     // Check config.php
     echo "\n--- Config Check ---\n";
     $cfgFile = $webRoot . '/config/config.php';
     echo "Config: $cfgFile - " . (file_exists($cfgFile) ? 'EXISTS (' . filesize($cfgFile) . ' bytes)' : 'NOT FOUND') . "\n";
-    
+
     // Try to load config and test the actual logo URL generation
     echo "\n--- Live Test ---\n";
     try {
         $pdo = new PDO('mysql:host=localhost;dbname=adfb2574_narayana_hotel;charset=utf8mb4', 'adfb2574_adfsystem', '@Nnoc2025');
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-        
+
         $stmt = $pdo->query("SELECT setting_value FROM settings WHERE setting_key = 'web_logo'");
         $row = $stmt->fetch(PDO::FETCH_ASSOC);
         $logoPath = $row['setting_value'] ?? '';
         echo "web_logo from DB: '$logoPath'\n";
-        
+
         // Simulate assetUrl
         if (preg_match('#^https?://#i', $logoPath)) {
             echo "Result: Direct URL (Cloudinary) → $logoPath\n";
@@ -137,13 +138,13 @@ if ($action === 'verify') {
     } catch (Exception $e) {
         echo "DB Error: " . $e->getMessage() . "\n";
     }
-    
+
     exit;
 }
 
 if ($action === 'debug_site') {
     echo "=== Finding Real Document Root ===\n\n";
-    
+
     // Check all possible locations
     $locations = [
         '/home/adfb2574/public_html/narayanakarimunjawa.com',
@@ -151,7 +152,7 @@ if ($action === 'debug_site') {
         '/home/adfb2574/narayanakarimunjawa',
         '/home/adfb2574/public_html/narayanakarimunjawa',
     ];
-    
+
     foreach ($locations as $loc) {
         echo "$loc:\n";
         if (file_exists($loc)) {
@@ -190,7 +191,7 @@ if ($action === 'debug_site') {
         }
         echo "\n";
     }
-    
+
     // Also create _debug.php in ALL locations that have index.php
     $debugContent = '<?php echo "SERVED FROM: " . __DIR__;';
     foreach ($locations as $loc) {
@@ -199,21 +200,21 @@ if ($action === 'debug_site') {
             echo "Created _debug.php in $loc\n";
         }
     }
-    
+
     echo "\nNow try: https://narayanakarimunjawa.com/_debug.php\n";
     exit;
 }
 
 if ($action === 'clearcache') {
     echo "=== PHP OPcache Clear ===\n\n";
-    
+
     if (function_exists('opcache_reset')) {
         opcache_reset();
         echo "opcache_reset() called successfully!\n";
     } else {
         echo "opcache_reset() not available\n";
     }
-    
+
     // Also invalidate specific files
     $files = [
         '/home/adfb2574/public_html/narayanakarimunjawa.com/includes/header.php',
@@ -226,7 +227,7 @@ if ($action === 'clearcache') {
             echo "opcache_invalidate($f): " . ($result ? 'OK' : 'FAILED') . "\n";
         }
     }
-    
+
     echo "\nOPcache status:\n";
     if (function_exists('opcache_get_status')) {
         $status = opcache_get_status(false);
@@ -240,8 +241,64 @@ if ($action === 'clearcache') {
     } else {
         echo "opcache_get_status not available\n";
     }
-    
+
     echo "\nDone! Now refresh narayanakarimunjawa.com\n";
+    exit;
+}
+
+// ===== PAYROLL DEBUG =====
+if ($action === 'payroll_debug') {
+    echo "=== PAYROLL DEBUG ===\n\n";
+    try {
+        $pdo = new PDO('mysql:host=localhost;dbname=adfb2574_narayana_hotel;charset=utf8mb4', 'adfb2574_adfsystem', '@Nnoc2025');
+        $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+
+        $m = isset($_GET['m']) ? (int)$_GET['m'] : (int)date('n');
+        $y = isset($_GET['y']) ? (int)$_GET['y'] : (int)date('Y');
+        $monthStr = sprintf('%04d-%02d', $y, $m);
+        echo "Month: $monthStr\n\n";
+
+        // 1. Attendance data per employee
+        echo "--- Attendance Data (payroll_attendance) ---\n";
+        $stmt = $pdo->prepare("SELECT pa.employee_id, pe.full_name, COUNT(*) as days, SUM(pa.work_hours) as total_wh, GROUP_CONCAT(CONCAT(pa.attendance_date,'=',COALESCE(pa.work_hours,0),'h') ORDER BY pa.attendance_date SEPARATOR ', ') as detail FROM payroll_attendance pa LEFT JOIN payroll_employees pe ON pe.id = pa.employee_id WHERE DATE_FORMAT(pa.attendance_date, '%Y-%m') = ? GROUP BY pa.employee_id ORDER BY pe.full_name");
+        $stmt->execute([$monthStr]);
+        $attData = $stmt->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($attData as $a) {
+            echo "[{$a['employee_id']}] {$a['full_name']}: {$a['days']} days, total={$a['total_wh']}h\n";
+            echo "  {$a['detail']}\n\n";
+        }
+
+        // 2. Payroll slips
+        echo "\n--- Payroll Slips (payroll_slips) ---\n";
+        $stmt = $pdo->prepare("SELECT * FROM payroll_periods WHERE period_month = ? AND period_year = ?");
+        $stmt->execute([$m, $y]);
+        $period = $stmt->fetch(PDO::FETCH_ASSOC);
+        if ($period) {
+            echo "Period: {$period['period_label']} ID={$period['id']} Status={$period['status']}\n\n";
+            $stmt = $pdo->prepare("SELECT id, employee_id, employee_name, work_hours, overtime_hours, hours_locked, base_salary, actual_base, net_salary FROM payroll_slips WHERE period_id = ? ORDER BY employee_name");
+            $stmt->execute([$period['id']]);
+            $slips = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            foreach ($slips as $s) {
+                echo "[Slip {$s['id']}] {$s['employee_name']} (emp:{$s['employee_id']}): wh={$s['work_hours']}, ot={$s['overtime_hours']}, locked={$s['hours_locked']}, base={$s['base_salary']}, actual={$s['actual_base']}, net={$s['net_salary']}\n";
+            }
+        } else {
+            echo "No period for $m/$y\n";
+        }
+
+        // 3. Version check
+        echo "\n\n--- process.php on server ---\n";
+        $pf = '/home/adfb2574/public_html/modules/payroll/process.php';
+        if (file_exists($pf)) {
+            echo "Size: " . filesize($pf) . " bytes\n";
+            echo "Modified: " . date('Y-m-d H:i:s', filemtime($pf)) . "\n";
+            $first5 = implode("\n", array_slice(file($pf), 0, 5));
+            echo "First 5 lines:\n$first5\n";
+        } else {
+            echo "NOT FOUND\n";
+        }
+    } catch (Exception $e) {
+        echo "Error: " . $e->getMessage() . "\n";
+    }
     exit;
 }
 
