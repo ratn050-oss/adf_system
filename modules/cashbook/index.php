@@ -793,7 +793,7 @@ echo getPrintCSS();
 .btn-primary:hover { background: #d4960d !important; }
 .btn-secondary { background: #f3f4f6 !important; color: #374151 !important; border: 1px solid #e5e7eb !important; }
 .btn-secondary:hover { background: #e5e7eb !important; }
-.btn-white-text, .btn-white-text span, .btn-white-text i, .btn-white-text svg { color: #fff !important; stroke: #fff !important; }
+.btn-white-text, .btn-white-text * { color: #fff !important; stroke: #fff !important; }
 
 /* Table Styling */
 .cb-table { border-radius: 12px; overflow: hidden; border: 1px solid #e5e7eb; }
@@ -1825,7 +1825,7 @@ echo getPrintCSS();
         </div>
         
         <div style="display: flex; align-items: flex-end; gap: 0.625rem; grid-column: span 7;">
-            <button type="submit" class="btn btn-primary" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 0.5rem; height: 40px; color: #fff !important;">
+            <button type="submit" class="btn btn-primary btn-white-text" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 0.5rem; height: 40px;">
                 <i data-feather="filter" style="width: 16px; height: 16px;"></i> 
                 <span>Filter</span>
             </button>
