@@ -500,6 +500,8 @@ $filesToSync = [
     'sync.php',
     '.htaccess',
     'modules/payroll/process.php',
+    'modules/payroll/staff-portal.php',
+    'modules/payroll/print-slip.php',
     'modules/payroll/attendance.php',
     'api/fingerprint-webhook.php',
     'includes/header.php',
