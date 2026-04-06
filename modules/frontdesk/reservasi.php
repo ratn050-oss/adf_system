@@ -730,13 +730,7 @@ include '../../includes/header.php';
                 <tr>
                     <!-- Checkbox -->
                     <td style="text-align: center;">
-                        <?php if ($isGrouped): ?>
-                            <?php foreach ($booking['_booking_ids'] as $bid): ?>
-                            <input type="checkbox" class="booking-checkbox" value="<?php echo $bid; ?>" onchange="updateBulkBar()">
-                            <?php endforeach; ?>
-                        <?php else: ?>
-                            <input type="checkbox" class="booking-checkbox" value="<?php echo $booking['id']; ?>" onchange="updateBulkBar()">
-                        <?php endif; ?>
+                        <input type="checkbox" class="booking-checkbox" value="<?php echo implode(',', $booking['_booking_ids']); ?>" onchange="updateBulkBar()">
                     </td>
                     <!-- Booking Code -->
                     <td>
@@ -893,9 +887,8 @@ include '../../includes/header.php';
                                 <button class="action-dropdown-item item-pay" onclick="addPayment(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_code']); ?>', <?php echo $remaining; ?>, '<?php echo htmlspecialchars($booking['booking_source']); ?>', <?php echo $otaFee; ?>, '<?php echo addslashes($otaName); ?>')">💰 Bayar</button>
                                 <?php endif; ?>
                                 <div class="action-dropdown-divider"></div>
-                                <button class="action-dropdown-item" onclick="viewBooking(<?php echo $booking['id']; ?>)">👁 Lihat</button>
+                                <button class="action-dropdown-item" onclick="savePDF(<?php echo $booking['id']; ?>)">📥 Save PDF</button>
                                 <button class="action-dropdown-item" onclick="editBooking(<?php echo $booking['id']; ?>)">✏️ Edit</button>
-                                <button class="action-dropdown-item" onclick="printInvoice(<?php echo $booking['id']; ?>)">📄 Invoice</button>
                                 <?php if ($booking['status'] !== 'checked_in' && $booking['status'] !== 'checked_out'): ?>
                                 <div class="action-dropdown-divider"></div>
                                 <?php if ($isGrouped): ?>
@@ -1815,12 +1808,20 @@ function viewBooking(id) {
     alert('Coming Soon: View Booking #' + id);
 }
 
+function viewBooking(id) {
+    window.open('invoice.php?booking_id=' + id, '_blank', 'width=800,height=900');
+}
+
+function savePDF(id) {
+    // Open invoice page and trigger PDF save
+    window.open('invoice.php?booking_id=' + id + '&pdf=1', '_blank', 'width=800,height=900');
+}
+
 function editBooking(id) {
     window.location.href = 'edit-booking.php?id=' + id;
 }
 
 function printInvoice(id) {
-    // Open invoice in new window for printing
     window.open('invoice.php?booking_id=' + id, '_blank', 'width=800,height=900');
 }
 
@@ -2218,7 +2219,9 @@ async function bulkDeleteBookings() {
     const checked = document.querySelectorAll('.booking-checkbox:checked');
     if (checked.length === 0) return;
     
-    const ids = Array.from(checked).map(cb => parseInt(cb.value));
+    // Each checkbox value can be comma-separated (grouped bookings)
+    const ids = [];
+    checked.forEach(cb => cb.value.split(',').forEach(v => ids.push(parseInt(v))));
     if (!confirm(`PERINGATAN: Yakin ingin menghapus ${ids.length} reservasi?\n\nAksi ini TIDAK BISA DIBATALKAN!`)) {
         return;
     }

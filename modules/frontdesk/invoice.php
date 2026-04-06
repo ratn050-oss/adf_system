@@ -143,6 +143,12 @@ foreach ($allBookings as $bk) {
 }
 
 $remaining = $combinedFinalPrice - $totalPaid;
+$isPdf = isset($_GET['pdf']);
+
+// Determine payment status
+$overallStatus = 'UNPAID';
+if ($totalPaid >= $combinedFinalPrice && $combinedFinalPrice > 0) $overallStatus = 'PAID';
+elseif ($totalPaid > 0) $overallStatus = 'PARTIAL';
 
 // Get business info
 $businessId = $_SESSION['business_id'] ?? 1;
@@ -178,499 +184,594 @@ if (empty($companySettings['name'])) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Invoice - <?php echo $isMultiRoom ? $booking['guest_name'] . ' (' . count($allBookings) . ' rooms)' : $booking['booking_code']; ?></title>
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
+        @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&display=swap');
+        
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         
         body {
-            font-family: 'Segoe UI', -apple-system, BlinkMacSystemFont, Arial, sans-serif;
+            font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            background: #f0f2f5;
+            color: #1a1a2e;
+            line-height: 1.6;
             padding: 20px;
-            background: #f5f5f5;
-            color: #1f2937;
-            line-height: 1.5;
         }
         
-        .invoice-container {
+        .invoice-wrapper {
             max-width: 800px;
             margin: 0 auto;
-            background: white;
-            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+            background: #fff;
+            border-radius: 2px;
+            overflow: hidden;
+            position: relative;
+            box-shadow: 0 10px 40px rgba(0,0,0,0.08);
         }
         
-        /* Header dengan Logo & Info Perusahaan */
-        .invoice-header {
-            display: grid;
-            grid-template-columns: 200px 1fr;
-            gap: 2rem;
-            padding: 1.5rem 2rem;
-            border-bottom: 3px solid #6366f1;
-        }
-        
-        .logo-section {
-            display: flex;
-            flex-direction: column;
-            align-items: flex-start;
-        }
-        
-        .logo-section img {
-            max-width: 180px;
-            max-height: 80px;
-            object-fit: contain;
-            margin-bottom: 0.5rem;
-        }
-        
-        .company-info {
-            text-align: right;
-            display: flex;
-            flex-direction: column;
-            justify-content: center;
-        }
-        
-        .company-info h1 {
-            font-size: 1.75rem;
+        /* Watermark */
+        .watermark {
+            position: absolute;
+            top: 50%;
+            left: 50%;
+            transform: translate(-50%, -50%) rotate(-35deg);
+            font-size: 120px;
             font-weight: 800;
-            color: #1f2937;
-            margin-bottom: 0.25rem;
+            letter-spacing: 15px;
+            opacity: 0.04;
+            pointer-events: none;
+            z-index: 1;
+            white-space: nowrap;
+            text-transform: uppercase;
+        }
+        .watermark-paid { color: #059669; }
+        .watermark-unpaid { color: #dc2626; }
+        .watermark-partial { color: #d97706; }
+        
+        /* Gold accent top bar */
+        .top-accent {
+            height: 5px;
+            background: linear-gradient(90deg, #1a1a2e 0%, #2d2d5e 35%, #c9a84c 50%, #2d2d5e 65%, #1a1a2e 100%);
+        }
+        
+        /* Header */
+        .invoice-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: flex-start;
+            padding: 30px 40px 20px;
+            position: relative;
+            z-index: 2;
+        }
+        
+        .hotel-brand {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+        }
+        
+        .hotel-brand img {
+            width: 70px;
+            height: 70px;
+            object-fit: contain;
+            border-radius: 8px;
+        }
+        
+        .hotel-brand .brand-text h1 {
+            font-size: 1.5rem;
+            font-weight: 800;
+            color: #1a1a2e;
             letter-spacing: -0.5px;
+            line-height: 1.2;
         }
         
-        .company-info .tagline {
-            font-size: 0.875rem;
-            color: #6366f1;
+        .hotel-brand .brand-text .tagline {
+            font-size: 0.7rem;
+            color: #c9a84c;
             font-weight: 600;
-            margin-bottom: 0.75rem;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            margin-top: 2px;
         }
         
-        .company-info .address {
-            font-size: 0.75rem;
-            color: #6b7280;
-            line-height: 1.4;
+        .hotel-contact {
+            text-align: right;
+            font-size: 0.72rem;
+            color: #64748b;
+            line-height: 1.7;
         }
         
-        .company-info .contact {
-            font-size: 0.75rem;
-            color: #6b7280;
-            margin-top: 0.25rem;
+        /* Divider line */
+        .divider {
+            height: 1px;
+            background: linear-gradient(90deg, transparent, #e2e8f0 20%, #e2e8f0 80%, transparent);
+            margin: 0 40px;
         }
         
-        /* Invoice Title & Date */
-        .invoice-title-bar {
-            background: linear-gradient(135deg, #6366f1 0%, #8b5cf6 100%);
-            color: white;
-            padding: 1rem 2rem;
+        .divider-gold {
+            height: 2px;
+            background: linear-gradient(90deg, transparent, #c9a84c 20%, #c9a84c 80%, transparent);
+            margin: 0 40px;
+        }
+        
+        /* Invoice title section */
+        .invoice-title-section {
             display: flex;
             justify-content: space-between;
             align-items: center;
+            padding: 20px 40px;
+            position: relative;
+            z-index: 2;
         }
         
-        .invoice-title-bar h2 {
-            font-size: 1.5rem;
-            font-weight: 700;
-            letter-spacing: 1px;
-        }
-        
-        .invoice-title-bar .invoice-number {
-            font-size: 1rem;
-            font-weight: 600;
-            background: rgba(255, 255, 255, 0.2);
-            padding: 0.5rem 1rem;
-            border-radius: 6px;
-        }
-        
-        .invoice-body {
-            padding: 1.5rem 2rem;
-        }
-        
-        /* Compact Section Styles */
-        .section {
-            margin-bottom: 1.25rem;
-            padding-bottom: 1rem;
-            border-bottom: 1px solid #e5e7eb;
-        }
-        
-        .section:last-child {
-            border-bottom: none;
-        }
-        
-        .section-title {
-            font-size: 0.75rem;
-            font-weight: 700;
-            color: #6366f1;
-            margin-bottom: 0.5rem;
+        .invoice-title-left h2 {
+            font-size: 1.8rem;
+            font-weight: 800;
+            color: #1a1a2e;
+            letter-spacing: 4px;
             text-transform: uppercase;
-            letter-spacing: 0.5px;
         }
         
-        .info-grid {
+        .invoice-title-left .invoice-number {
+            font-size: 0.8rem;
+            color: #64748b;
+            margin-top: 2px;
+        }
+        
+        .invoice-title-left .invoice-number strong {
+            color: #1a1a2e;
+            font-family: 'Courier New', monospace;
+        }
+        
+        .status-stamp {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 20px;
+            border-radius: 6px;
+            font-weight: 800;
+            font-size: 0.9rem;
+            letter-spacing: 2px;
+            text-transform: uppercase;
+            border: 3px solid;
+        }
+        
+        .stamp-paid { color: #059669; border-color: #059669; background: rgba(5,150,105,0.06); }
+        .stamp-unpaid { color: #dc2626; border-color: #dc2626; background: rgba(220,38,38,0.06); }
+        .stamp-partial { color: #d97706; border-color: #d97706; background: rgba(217,119,6,0.06); }
+        
+        /* Content body */
+        .invoice-body {
+            padding: 0 40px 30px;
+            position: relative;
+            z-index: 2;
+        }
+        
+        /* Info grid sections */
+        .info-section {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 0.75rem 1.5rem;
+            gap: 25px;
+            margin: 20px 0;
         }
         
-        .info-item {
-            display: flex;
-            flex-direction: column;
-            gap: 0.125rem;
+        .info-block {
+            padding: 16px 20px;
+            background: #f8fafc;
+            border-radius: 8px;
+            border-left: 3px solid #c9a84c;
         }
         
-        .info-label {
-            font-size: 0.688rem;
-            color: #9ca3af;
-            font-weight: 600;
+        .info-block-title {
+            font-size: 0.65rem;
+            font-weight: 700;
+            color: #94a3b8;
             text-transform: uppercase;
-            letter-spacing: 0.3px;
+            letter-spacing: 1.5px;
+            margin-bottom: 10px;
         }
         
-        .info-value {
-            font-size: 0.875rem;
-            color: #1f2937;
-            font-weight: 600;
+        .info-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 3px 0;
+            font-size: 0.82rem;
         }
         
-        table {
+        .info-row .label { color: #64748b; }
+        .info-row .value { font-weight: 600; color: #1a1a2e; text-align: right; }
+        
+        /* Room table */
+        .room-table {
             width: 100%;
             border-collapse: collapse;
-            margin-top: 0.5rem;
-            font-size: 0.875rem;
+            margin: 20px 0;
+            font-size: 0.82rem;
         }
         
-        table th {
-            background: #f9fafb;
-            padding: 0.625rem;
+        .room-table thead th {
+            background: #1a1a2e;
+            color: #fff;
+            padding: 10px 14px;
             text-align: left;
             font-weight: 600;
-            font-size: 0.75rem;
-            color: #374151;
-            border-bottom: 2px solid #e5e7eb;
+            font-size: 0.7rem;
             text-transform: uppercase;
-            letter-spacing: 0.3px;
+            letter-spacing: 0.8px;
         }
         
-        table td {
-            padding: 0.625rem;
-            border-bottom: 1px solid #f3f4f6;
+        .room-table thead th:last-child { text-align: right; }
+        
+        .room-table tbody td {
+            padding: 10px 14px;
+            border-bottom: 1px solid #f1f5f9;
         }
         
-        .price-table {
-            margin-top: 1rem;
-        }
-        
-        .price-table tr:last-child {
-            background: #f0fdf4;
-        }
-        
-        .price-table tr:last-child td {
-            font-weight: 700;
-            font-size: 1rem;
-            color: #059669;
-            border-bottom: none;
-        }
-        
-        .total-row {
-            background: #fef3c7 !important;
-            font-weight: 700;
-        }
-        
-        .paid-row {
-            background: #dcfce7 !important;
-            color: #059669;
-        }
-        
-        .remaining-row {
-            background: #fee2e2 !important;
-            color: #dc2626;
-            font-size: 1.1rem !important;
-            font-weight: 800 !important;
-        }
-        
-        .badge {
-            display: inline-block;
-            padding: 0.25rem 0.625rem;
-            border-radius: 4px;
-            font-size: 0.75rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 0.3px;
-        }
-        
-        .badge-paid {
-            background: #dcfce7;
-            color: #059669;
-        }
-        
-        .badge-partial {
-            background: #fef3c7;
-            color: #d97706;
-        }
-        
-        .badge-unpaid {
-            background: #fee2e2;
-            color: #dc2626;
-        }
-        
-        .footer-notes {
-            background: #f9fafb;
-            padding: 1rem;
-            border-radius: 6px;
-            margin-top: 1.5rem;
-            text-align: center;
-            font-size: 0.75rem;
-            color: #6b7280;
-        }
-        
-        .footer-notes p {
-            margin: 0.25rem 0;
-        }
-        
-        .print-button {
-            background: linear-gradient(135deg, #6366f1, #8b5cf6);
-            color: white;
-            padding: 0.75rem 2rem;
-            border: none;
-            border-radius: 6px;
+        .room-table tbody td:last-child {
+            text-align: right;
             font-weight: 600;
-            cursor: pointer;
-            font-size: 0.875rem;
-            margin-top: 1rem;
-            box-shadow: 0 4px 6px rgba(99, 102, 241, 0.3);
-            transition: all 0.3s;
+            font-family: 'Courier New', monospace;
         }
         
-        .print-button:hover {
-            transform: translateY(-2px);
-            box-shadow: 0 6px 12px rgba(99, 102, 241, 0.4);
+        .room-table tbody tr:nth-child(even) { background: #fafbfc; }
+        
+        /* Summary table */
+        .summary-table {
+            width: 320px;
+            margin-left: auto;
+            margin-top: 10px;
+            font-size: 0.85rem;
         }
+        
+        .summary-row {
+            display: flex;
+            justify-content: space-between;
+            padding: 7px 0;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        
+        .summary-row .s-label { color: #64748b; }
+        .summary-row .s-value { font-weight: 600; font-family: 'Courier New', monospace; }
+        
+        .summary-row.discount .s-value { color: #dc2626; }
+        
+        .summary-total {
+            display: flex;
+            justify-content: space-between;
+            padding: 10px 0;
+            margin-top: 5px;
+            border-top: 2px solid #1a1a2e;
+            font-size: 1rem;
+        }
+        
+        .summary-total .s-label { font-weight: 800; color: #1a1a2e; }
+        .summary-total .s-value { font-weight: 800; color: #1a1a2e; font-family: 'Courier New', monospace; }
+        
+        .summary-paid {
+            display: flex;
+            justify-content: space-between;
+            padding: 7px 12px;
+            margin-top: 8px;
+            background: #f0fdf4;
+            border-radius: 6px;
+        }
+        
+        .summary-paid .s-label { color: #059669; font-weight: 600; }
+        .summary-paid .s-value { color: #059669; font-weight: 700; font-family: 'Courier New', monospace; }
+        
+        .summary-remaining {
+            display: flex;
+            justify-content: space-between;
+            padding: 7px 12px;
+            margin-top: 4px;
+            background: #fef2f2;
+            border-radius: 6px;
+        }
+        
+        .summary-remaining .s-label { color: #dc2626; font-weight: 700; }
+        .summary-remaining .s-value { color: #dc2626; font-weight: 800; font-family: 'Courier New', monospace; font-size: 1.05rem; }
+        
+        /* Payment history */
+        .payment-section { margin-top: 25px; }
+        
+        .section-heading {
+            font-size: 0.7rem;
+            font-weight: 700;
+            color: #94a3b8;
+            text-transform: uppercase;
+            letter-spacing: 1.5px;
+            margin-bottom: 10px;
+            padding-bottom: 6px;
+            border-bottom: 1px solid #e2e8f0;
+        }
+        
+        .payment-table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.78rem;
+        }
+        
+        .payment-table th {
+            background: #f8fafc;
+            padding: 8px 12px;
+            text-align: left;
+            font-weight: 600;
+            font-size: 0.68rem;
+            color: #64748b;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+            border-bottom: 2px solid #e2e8f0;
+        }
+        
+        .payment-table td {
+            padding: 8px 12px;
+            border-bottom: 1px solid #f1f5f9;
+        }
+        
+        /* Special request */
+        .special-request {
+            margin-top: 20px;
+            padding: 12px 16px;
+            background: #fffbeb;
+            border-left: 3px solid #c9a84c;
+            border-radius: 0 6px 6px 0;
+            font-size: 0.82rem;
+            color: #78350f;
+        }
+        
+        /* Footer */
+        .invoice-footer {
+            margin-top: 30px;
+            padding-top: 20px;
+            border-top: 1px solid #e2e8f0;
+            text-align: center;
+        }
+        
+        .footer-thankyou {
+            font-size: 0.9rem;
+            font-weight: 600;
+            color: #1a1a2e;
+            margin-bottom: 6px;
+        }
+        
+        .footer-contact {
+            font-size: 0.7rem;
+            color: #94a3b8;
+            line-height: 1.6;
+        }
+        
+        .footer-line {
+            height: 3px;
+            background: linear-gradient(90deg, transparent, #c9a84c 30%, #c9a84c 70%, transparent);
+            margin-top: 20px;
+        }
+        
+        /* Bottom accent */
+        .bottom-accent {
+            height: 5px;
+            background: linear-gradient(90deg, #1a1a2e 0%, #2d2d5e 35%, #c9a84c 50%, #2d2d5e 65%, #1a1a2e 100%);
+        }
+        
+        /* Action buttons */
+        .action-bar {
+            text-align: center;
+            padding: 20px 0;
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+        }
+        
+        .btn-action {
+            padding: 10px 28px;
+            border: none;
+            border-radius: 8px;
+            font-weight: 700;
+            font-size: 0.85rem;
+            cursor: pointer;
+            transition: all 0.2s;
+            display: inline-flex;
+            align-items: center;
+            gap: 6px;
+        }
+        
+        .btn-pdf {
+            background: linear-gradient(135deg, #1a1a2e, #2d2d5e);
+            color: #c9a84c;
+        }
+        
+        .btn-pdf:hover { transform: translateY(-2px); box-shadow: 0 6px 20px rgba(26,26,46,0.3); }
+        
+        .btn-print {
+            background: #f8fafc;
+            color: #1a1a2e;
+            border: 2px solid #e2e8f0;
+        }
+        
+        .btn-print:hover { background: #e2e8f0; }
         
         @media print {
-            body {
-                padding: 0;
-                background: white;
-            }
-            
-            .invoice-container {
-                box-shadow: none;
-            }
-            
-            .print-button {
-                display: none;
-            }
+            body { padding: 0; background: white; }
+            .invoice-wrapper { box-shadow: none; }
+            .action-bar { display: none !important; }
         }
         
-        @page {
-            margin: 15mm;
-        }
+        @page { margin: 10mm; }
     </style>
 </head>
 <body>
-    <div class="invoice-container">
-        <!-- Header with Logo & Company Info -->
+    <div class="invoice-wrapper" id="invoiceContent">
+        <!-- Watermark -->
+        <div class="watermark watermark-<?php echo strtolower($overallStatus); ?>">
+            <?php echo $overallStatus; ?>
+        </div>
+        
+        <!-- Top gold accent -->
+        <div class="top-accent"></div>
+        
+        <!-- Header -->
         <div class="invoice-header">
-            <div class="logo-section">
+            <div class="hotel-brand">
                 <?php if (!empty($companySettings['logo'])): ?>
                     <?php $logoSrc = (!empty($companySettings['logo_is_url'])) ? $companySettings['logo'] : BASE_URL . '/uploads/logos/' . $companySettings['logo']; ?>
-                    <img src="<?php echo htmlspecialchars($logoSrc); ?>" 
-                         alt="Company Logo"
-                         onerror="this.style.display='none'">
-                <?php else: ?>
-                    <div style="font-size: 1.5rem; font-weight: 800; color: #6366f1;">
-                        <?php echo htmlspecialchars($companySettings['name']); ?>
-                    </div>
+                    <img src="<?php echo htmlspecialchars($logoSrc); ?>" alt="Logo" onerror="this.style.display='none'">
                 <?php endif; ?>
-            </div>
-            
-            <div class="company-info">
-                <h1><?php echo htmlspecialchars($companySettings['name']); ?></h1>
-                <?php if (!empty($companySettings['tagline'])): ?>
-                    <div class="tagline"><?php echo htmlspecialchars($companySettings['tagline']); ?></div>
-                <?php endif; ?>
-                <?php if (!empty($companySettings['address'])): ?>
-                    <div class="address"><?php echo nl2br(htmlspecialchars($companySettings['address'])); ?></div>
-                <?php endif; ?>
-                <div class="contact">
-                    <?php if (!empty($companySettings['phone'])): ?>
-                        📞 <?php echo htmlspecialchars($companySettings['phone']); ?>
-                    <?php endif; ?>
-                    <?php if (!empty($companySettings['email'])): ?>
-                        <?php echo !empty($companySettings['phone']) ? ' • ' : ''; ?>
-                        ✉️ <?php echo htmlspecialchars($companySettings['email']); ?>
+                <div class="brand-text">
+                    <h1><?php echo htmlspecialchars($companySettings['name']); ?></h1>
+                    <?php if (!empty($companySettings['tagline'])): ?>
+                        <div class="tagline"><?php echo htmlspecialchars($companySettings['tagline']); ?></div>
+                    <?php else: ?>
+                        <div class="tagline">Karimunjawa Island</div>
                     <?php endif; ?>
                 </div>
             </div>
-        </div>
-        
-        <!-- Invoice Title Bar -->
-        <div class="invoice-title-bar">
-            <h2>INVOICE</h2>
-            <div class="invoice-number">
-                <?php if ($isMultiRoom): ?>
-                    <?php echo htmlspecialchars($allBookings[0]['booking_code']); ?>
-                    <?php if (count($allBookings) > 1): ?>
-                        <span style="font-size: 0.75rem; opacity: 0.8;">+<?php echo count($allBookings) - 1; ?> rooms</span>
-                    <?php endif; ?>
-                <?php else: ?>
-                    <?php echo htmlspecialchars($booking['booking_code']); ?>
+            <div class="hotel-contact">
+                <?php if (!empty($companySettings['address'])): ?>
+                    <?php echo nl2br(htmlspecialchars($companySettings['address'])); ?><br>
+                <?php endif; ?>
+                <?php if (!empty($companySettings['phone'])): ?>
+                    Tel: <?php echo htmlspecialchars($companySettings['phone']); ?><br>
+                <?php endif; ?>
+                <?php if (!empty($companySettings['email'])): ?>
+                    <?php echo htmlspecialchars($companySettings['email']); ?>
                 <?php endif; ?>
             </div>
         </div>
+        
+        <div class="divider-gold"></div>
+        
+        <!-- Invoice Title -->
+        <div class="invoice-title-section">
+            <div class="invoice-title-left">
+                <h2>INVOICE</h2>
+                <div class="invoice-number">
+                    No: <strong><?php echo htmlspecialchars($allBookings[0]['booking_code']); ?></strong>
+                    <?php if ($isMultiRoom && count($allBookings) > 1): ?>
+                        <span style="color: #94a3b8;">+ <?php echo count($allBookings) - 1; ?> more</span>
+                    <?php endif; ?>
+                    &nbsp;&middot;&nbsp; <?php echo date('d M Y', strtotime($booking['created_at'])); ?>
+                </div>
+            </div>
+            <div class="status-stamp stamp-<?php echo strtolower($overallStatus); ?>">
+                <?php echo $overallStatus; ?>
+            </div>
+        </div>
+        
+        <div class="divider"></div>
         
         <!-- Body -->
         <div class="invoice-body">
-            <!-- Booking Info -->
-            <div class="section">
-                <div class="section-title">📋 Booking Information</div>
-                <div class="info-grid">
-                    <div class="info-item">
-                        <div class="info-label">Booking Code</div>
-                        <div class="info-value">
-                            <?php if ($isMultiRoom): ?>
-                                <?php foreach ($allBookings as $i => $bk): ?>
-                                    <?php echo htmlspecialchars($bk['booking_code']); ?><?php echo $i < count($allBookings) - 1 ? ', ' : ''; ?>
-                                <?php endforeach; ?>
-                            <?php else: ?>
-                                <?php echo htmlspecialchars($booking['booking_code']); ?>
-                            <?php endif; ?>
-                        </div>
+            <!-- Guest & Stay Info -->
+            <div class="info-section">
+                <div class="info-block">
+                    <div class="info-block-title">Guest Information</div>
+                    <div class="info-row">
+                        <span class="label">Name</span>
+                        <span class="value"><?php echo htmlspecialchars($booking['guest_name']); ?></span>
                     </div>
-                    <div class="info-item">
-                        <div class="info-label">Booking Date</div>
-                        <div class="info-value"><?php echo date('d M Y', strtotime($booking['created_at'])); ?></div>
+                    <div class="info-row">
+                        <span class="label">Phone</span>
+                        <span class="value"><?php echo htmlspecialchars($booking['phone'] ?? '-'); ?></span>
                     </div>
-                    <div class="info-item">
-                        <div class="info-label">Booking Source</div>
-                        <div class="info-value"><?php echo strtoupper($booking['booking_source'] ?? 'Walk-in'); ?></div>
+                    <div class="info-row">
+                        <span class="label">Email</span>
+                        <span class="value"><?php echo htmlspecialchars($booking['email'] ?? '-'); ?></span>
                     </div>
-                    <div class="info-item">
-                        <div class="info-label">Payment Status</div>
-                        <div class="info-value">
-                            <?php 
-                                $overallStatus = 'unpaid';
-                                if ($totalPaid >= $combinedFinalPrice) $overallStatus = 'paid';
-                                elseif ($totalPaid > 0) $overallStatus = 'partial';
-                            ?>
-                            <span class="badge badge-<?php echo $overallStatus; ?>">
-                                <?php echo strtoupper($overallStatus); ?>
-                            </span>
-                        </div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Guest Info -->
-            <div class="section">
-                <div class="section-title">👤 Guest Information</div>
-                <div class="info-grid">
-                    <div class="info-item">
-                        <div class="info-label">Guest Name</div>
-                        <div class="info-value"><?php echo htmlspecialchars($booking['guest_name']); ?></div>
-                    </div>
-                    <div class="info-item">
-                        <div class="info-label">Phone</div>
-                        <div class="info-value"><?php echo htmlspecialchars($booking['phone'] ?? '-'); ?></div>
-                    </div>
-                    <div class="info-item">
-                        <div class="info-label">Email</div>
-                        <div class="info-value"><?php echo htmlspecialchars($booking['email'] ?? '-'); ?></div>
-                    </div>
-                    <div class="info-item">
-                        <div class="info-label">ID Number</div>
-                        <div class="info-value"><?php echo htmlspecialchars($booking['id_card_number'] ?? '-'); ?></div>
-                    </div>
-                </div>
-            </div>
-            
-            <!-- Stay Details -->
-            <div class="section">
-                <div class="section-title">🏨 Stay Details</div>
-                <div class="info-grid">
-                    <div class="info-item">
-                        <div class="info-label">Room<?php echo $isMultiRoom ? 's' : ''; ?></div>
-                        <div class="info-value">
-                            <?php if ($isMultiRoom): ?>
-                                <?php foreach ($allBookings as $bk): ?>
-                                    <div><?php echo htmlspecialchars($bk['room_number']); ?> - <?php echo htmlspecialchars($bk['room_type']); ?></div>
-                                <?php endforeach; ?>
-                            <?php else: ?>
-                                <?php echo htmlspecialchars($booking['room_number']); ?> - <?php echo htmlspecialchars($booking['room_type']); ?>
-                            <?php endif; ?>
-                        </div>
-                    </div>
-                    <div class="info-item">
-                        <div class="info-label">Guests</div>
-                        <div class="info-value"><?php echo $booking['adults']; ?> Adult<?php echo $booking['adults'] > 1 ? 's' : ''; ?><?php echo $booking['children'] > 0 ? ', ' . $booking['children'] . ' Child' : ''; ?></div>
-                    </div>
-                    <div class="info-item">
-                        <div class="info-label">Check-in</div>
-                        <div class="info-value"><?php echo date('d M Y', strtotime($booking['check_in_date'])); ?></div>
-                    </div>
-                    <div class="info-item">
-                        <div class="info-label">Check-out</div>
-                        <div class="info-value"><?php echo date('d M Y', strtotime($booking['check_out_date'])); ?></div>
-                    </div>
-                    <div class="info-item">
-                        <div class="info-label">Total Nights</div>
-                        <div class="info-value"><?php echo $booking['total_nights']; ?> Night<?php echo $booking['total_nights'] > 1 ? 's' : ''; ?></div>
-                    </div>
-                    <?php if (!$isMultiRoom): ?>
-                    <div class="info-item">
-                        <div class="info-label">Room Rate/Night</div>
-                        <div class="info-value">Rp <?php echo number_format($booking['room_price'], 0, ',', '.'); ?></div>
-                    </div>
-                    <?php else: ?>
-                    <div class="info-item">
-                        <div class="info-label">Total Rooms</div>
-                        <div class="info-value"><?php echo count($allBookings); ?> Rooms</div>
+                    <?php if (!empty($booking['id_card_number'])): ?>
+                    <div class="info-row">
+                        <span class="label">ID Number</span>
+                        <span class="value"><?php echo htmlspecialchars($booking['id_card_number']); ?></span>
                     </div>
                     <?php endif; ?>
                 </div>
+                <div class="info-block">
+                    <div class="info-block-title">Stay Details</div>
+                    <div class="info-row">
+                        <span class="label">Check-in</span>
+                        <span class="value"><?php echo date('D, d M Y', strtotime($booking['check_in_date'])); ?></span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Check-out</span>
+                        <span class="value"><?php echo date('D, d M Y', strtotime($booking['check_out_date'])); ?></span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Duration</span>
+                        <span class="value"><?php echo $booking['total_nights']; ?> Night<?php echo $booking['total_nights'] > 1 ? 's' : ''; ?></span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Guests</span>
+                        <span class="value"><?php echo ($booking['adults'] ?? 1); ?> Adult<?php echo ($booking['adults'] ?? 1) > 1 ? 's' : ''; ?><?php echo ($booking['children'] ?? 0) > 0 ? ', ' . $booking['children'] . ' Child' . ($booking['children'] > 1 ? 'ren' : '') : ''; ?></span>
+                    </div>
+                    <div class="info-row">
+                        <span class="label">Source</span>
+                        <span class="value"><?php echo strtoupper($booking['booking_source'] ?? 'Walk-in'); ?></span>
+                    </div>
+                </div>
             </div>
             
-            <!-- Price Breakdown -->
-            <div class="section">
-                <div class="section-title">💰 Price Breakdown</div>
-                <table class="price-table">
+            <!-- Room & Price Table -->
+            <table class="room-table">
+                <thead>
+                    <tr>
+                        <th>Room</th>
+                        <th>Type</th>
+                        <th>Nights</th>
+                        <th>Rate / Night</th>
+                        <th>Amount</th>
+                    </tr>
+                </thead>
+                <tbody>
                     <?php if ($isMultiRoom): ?>
                         <?php foreach ($allBookings as $bk): ?>
                         <tr>
-                            <td>Room <?php echo htmlspecialchars($bk['room_number']); ?> - <?php echo htmlspecialchars($bk['room_type']); ?> (<?php echo $bk['total_nights']; ?> nights × Rp <?php echo number_format($bk['room_price'], 0, ',', '.'); ?>)</td>
-                            <td style="text-align: right; font-weight: 600;">Rp <?php echo number_format($bk['total_price'], 0, ',', '.'); ?></td>
+                            <td><strong><?php echo htmlspecialchars($bk['room_number']); ?></strong></td>
+                            <td><?php echo htmlspecialchars($bk['room_type']); ?></td>
+                            <td><?php echo $bk['total_nights']; ?></td>
+                            <td>Rp <?php echo number_format($bk['room_price'], 0, ',', '.'); ?></td>
+                            <td>Rp <?php echo number_format($bk['total_price'], 0, ',', '.'); ?></td>
                         </tr>
                         <?php endforeach; ?>
                     <?php else: ?>
                     <tr>
-                        <td>Room <?php echo htmlspecialchars($booking['room_number']); ?> (<?php echo $booking['total_nights']; ?> nights × Rp <?php echo number_format($booking['room_price'], 0, ',', '.'); ?>)</td>
-                        <td style="text-align: right; font-weight: 600;">Rp <?php echo number_format($booking['total_price'], 0, ',', '.'); ?></td>
+                        <td><strong><?php echo htmlspecialchars($booking['room_number']); ?></strong></td>
+                        <td><?php echo htmlspecialchars($booking['room_type']); ?></td>
+                        <td><?php echo $booking['total_nights']; ?></td>
+                        <td>Rp <?php echo number_format($booking['room_price'], 0, ',', '.'); ?></td>
+                        <td>Rp <?php echo number_format($booking['total_price'], 0, ',', '.'); ?></td>
                     </tr>
                     <?php endif; ?>
-                    <?php if ($combinedDiscount > 0): ?>
-                    <tr>
-                        <td>Discount</td>
-                        <td style="text-align: right; font-weight: 600; color: #dc2626;">-Rp <?php echo number_format($combinedDiscount, 0, ',', '.'); ?></td>
-                    </tr>
-                    <?php endif; ?>
-                    <tr class="total-row">
-                        <td><strong>TOTAL</strong></td>
-                        <td style="text-align: right;"><strong>Rp <?php echo number_format($combinedFinalPrice, 0, ',', '.'); ?></strong></td>
-                    </tr>
-                    <tr class="paid-row">
-                        <td><strong>PAID</strong></td>
-                        <td style="text-align: right;"><strong>Rp <?php echo number_format($totalPaid, 0, ',', '.'); ?></strong></td>
-                    </tr>
-                    <?php if ($remaining > 0): ?>
-                    <tr class="remaining-row">
-                        <td><strong>REMAINING BALANCE</strong></td>
-                        <td style="text-align: right;"><strong>Rp <?php echo number_format($remaining, 0, ',', '.'); ?></strong></td>
-                    </tr>
-                    <?php endif; ?>
-                </table>
+                </tbody>
+            </table>
+            
+            <!-- Price Summary -->
+            <div class="summary-table">
+                <div class="summary-row">
+                    <span class="s-label">Subtotal</span>
+                    <span class="s-value">Rp <?php echo number_format($combinedTotalPrice, 0, ',', '.'); ?></span>
+                </div>
+                <?php if ($combinedDiscount > 0): ?>
+                <div class="summary-row discount">
+                    <span class="s-label">Discount</span>
+                    <span class="s-value">- Rp <?php echo number_format($combinedDiscount, 0, ',', '.'); ?></span>
+                </div>
+                <?php endif; ?>
+                <div class="summary-total">
+                    <span class="s-label">TOTAL</span>
+                    <span class="s-value">Rp <?php echo number_format($combinedFinalPrice, 0, ',', '.'); ?></span>
+                </div>
+                <div class="summary-paid">
+                    <span class="s-label">Paid</span>
+                    <span class="s-value">Rp <?php echo number_format($totalPaid, 0, ',', '.'); ?></span>
+                </div>
+                <?php if ($remaining > 0): ?>
+                <div class="summary-remaining">
+                    <span class="s-label">Balance Due</span>
+                    <span class="s-value">Rp <?php echo number_format($remaining, 0, ',', '.'); ?></span>
+                </div>
+                <?php endif; ?>
             </div>
             
             <!-- Payment History -->
             <?php if (!empty($payments)): ?>
-            <div class="section">
-                <div class="section-title">💳 Payment History</div>
-                <table>
+            <div class="payment-section">
+                <div class="section-heading">Payment History</div>
+                <table class="payment-table">
                     <thead>
                         <tr>
                             <th>Date</th>
@@ -681,13 +782,13 @@ if (empty($companySettings['name'])) {
                         </tr>
                     </thead>
                     <tbody>
-                        <?php foreach ($payments as $payment): ?>
+                        <?php foreach ($payments as $p): ?>
                         <tr>
-                            <td><?php echo date('d M Y H:i', strtotime($payment['payment_date'])); ?></td>
-                            <?php if ($isMultiRoom): ?><td><?php echo htmlspecialchars($payment['room_number'] ?? '-'); ?></td><?php endif; ?>
-                            <td><?php echo strtoupper($payment['payment_method']); ?></td>
-                            <td style="font-weight: 600;">Rp <?php echo number_format($payment['amount'], 0, ',', '.'); ?></td>
-                            <td><?php echo htmlspecialchars($payment['notes'] ?? '-'); ?></td>
+                            <td><?php echo date('d M Y, H:i', strtotime($p['payment_date'])); ?></td>
+                            <?php if ($isMultiRoom): ?><td><?php echo htmlspecialchars($p['room_number'] ?? '-'); ?></td><?php endif; ?>
+                            <td><?php echo strtoupper($p['payment_method']); ?></td>
+                            <td style="font-weight:600;">Rp <?php echo number_format($p['amount'], 0, ',', '.'); ?></td>
+                            <td style="color:#64748b;"><?php echo htmlspecialchars($p['notes'] ?? '-'); ?></td>
                         </tr>
                         <?php endforeach; ?>
                     </tbody>
@@ -697,32 +798,55 @@ if (empty($companySettings['name'])) {
             
             <!-- Special Request -->
             <?php if (!empty($booking['special_request'])): ?>
-            <div class="section">
-                <div class="section-title">📝 Special Request</div>
-                <div style="padding: 0.625rem; background: #f9fafb; border-radius: 6px; font-size: 0.875rem;">
-                    <?php echo nl2br(htmlspecialchars($booking['special_request'])); ?>
-                </div>
+            <div class="special-request">
+                <strong>Note:</strong> <?php echo nl2br(htmlspecialchars($booking['special_request'])); ?>
             </div>
             <?php endif; ?>
             
             <!-- Footer -->
-            <div class="footer-notes">
-                <p style="font-weight: 600; color: #374151; margin-bottom: 0.5rem;">
-                    Thank you for choosing <?php echo htmlspecialchars($companySettings['name']); ?>!
-                </p>
-                <?php if (!empty($companySettings['phone'])): ?>
-                <p>For inquiries, please contact: <?php echo htmlspecialchars($companySettings['phone']); ?></p>
-                <?php endif; ?>
-                <?php if (!empty($companySettings['website'])): ?>
-                <p>Visit us: <?php echo htmlspecialchars($companySettings['website']); ?></p>
-                <?php endif; ?>
-            </div>
-            
-            <!-- Print Button -->
-            <div style="text-align: center;">
-                <button class="print-button" onclick="window.print()">🖨️ Print Invoice</button>
+            <div class="invoice-footer">
+                <div class="footer-thankyou">Thank you for choosing <?php echo htmlspecialchars($companySettings['name']); ?></div>
+                <div class="footer-contact">
+                    <?php if (!empty($companySettings['address'])): ?>
+                        <?php echo htmlspecialchars($companySettings['address']); ?><br>
+                    <?php endif; ?>
+                    <?php if (!empty($companySettings['phone'])): ?>
+                        <?php echo htmlspecialchars($companySettings['phone']); ?>
+                    <?php endif; ?>
+                    <?php if (!empty($companySettings['email'])): ?>
+                        &middot; <?php echo htmlspecialchars($companySettings['email']); ?>
+                    <?php endif; ?>
+                    <?php if (!empty($companySettings['website'])): ?>
+                        &middot; <?php echo htmlspecialchars($companySettings['website']); ?>
+                    <?php endif; ?>
+                </div>
+                <div class="footer-line"></div>
             </div>
         </div>
+        
+        <!-- Bottom accent -->
+        <div class="bottom-accent"></div>
     </div>
+    
+    <!-- Action buttons (above print, hidden when printing) -->
+    <div class="action-bar">
+        <button class="btn-action btn-pdf" onclick="savePDF()">📥 Save as PDF</button>
+        <button class="btn-action btn-print" onclick="window.print()">🖨️ Print</button>
+    </div>
+    
+    <script>
+    function savePDF() {
+        // Use browser print dialog with "Save as PDF" option
+        document.title = 'Invoice_<?php echo $isMultiRoom ? preg_replace('/[^a-zA-Z0-9]/', '_', $booking['guest_name']) : $booking['booking_code']; ?>_<?php echo date('Ymd'); ?>';
+        window.print();
+    }
+    
+    <?php if ($isPdf): ?>
+    // Auto-trigger print/save when opened with ?pdf=1
+    window.onload = function() {
+        setTimeout(function() { window.print(); }, 500);
+    };
+    <?php endif; ?>
+    </script>
 </body>
 </html>
