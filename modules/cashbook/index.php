@@ -1737,6 +1737,10 @@ echo getPrintCSS();
                     <i data-feather="printer" style="width: 16px; height: 16px;"></i>
                     <span>Cetak PDF</span>
                 </button>
+                <button type="button" onclick="exportExcel()" class="cqc-btn-filter" style="background: #16a34a; color: #fff; flex: 0 0 auto; padding: 0 1.25rem;">
+                    <i data-feather="file-text" style="width: 16px; height: 16px;"></i>
+                    <span>Export Excel</span>
+                </button>
                 <button type="button" onclick="sendWhatsApp(event)" class="cqc-btn-filter" style="background: #25d366; color: #fff; flex: 0 0 auto; padding: 0 1.25rem;">
                     <i data-feather="message-circle" style="width: 16px; height: 16px;"></i>
                     <span>Send WhatsApp</span>
@@ -1831,6 +1835,10 @@ echo getPrintCSS();
             <button type="button" onclick="cetakPDF()" class="btn btn-primary" style="flex: 0 0 auto; display: flex; align-items: center; justify-content: center; gap: 0.5rem; height: 40px; padding: 0 1.25rem; background: #3b82f6 !important; color: #fff !important;">
                 <i data-feather="printer" style="width: 16px; height: 16px;"></i>
                 <span>Cetak PDF</span>
+            </button>
+            <button type="button" onclick="exportExcel()" class="btn btn-primary" style="flex: 0 0 auto; display: flex; align-items: center; justify-content: center; gap: 0.5rem; height: 40px; padding: 0 1.25rem; background: #16a34a !important; color: #fff !important;">
+                <i data-feather="file-text" style="width: 16px; height: 16px;"></i>
+                <span>Export Excel</span>
             </button>
             <button type="button" onclick="sendWhatsApp(event)" class="btn btn-primary" style="flex: 0 0 auto; display: flex; align-items: center; justify-content: center; gap: 0.5rem; height: 40px; padding: 0 1.25rem; background: #25d366 !important; color: #fff !important;">
                 <i data-feather="message-circle" style="width: 16px; height: 16px;"></i>
@@ -2321,6 +2329,16 @@ tfoot td { border-color: #d1d5db; }
         printWindow.onload = function() {
             printWindow.print();
         };
+    }
+
+    /**
+     * Export Excel - Downloads filtered data as .xls file
+     * Passes current filter params to export-excel.php
+     */
+    function exportExcel() {
+        var params = new URLSearchParams(window.location.search);
+        params.delete('print');
+        window.location.href = 'export-excel.php?' + params.toString();
     }
 
     /**
