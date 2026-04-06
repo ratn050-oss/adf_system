@@ -578,7 +578,6 @@ try {
             <div id="cutiStats" style="margin-bottom:10px;"></div>
             <div id="cutiHistory"><div class="loading"><span class="spin"></span> Memuat...</div></div>
         </div>
-    </div>
 
         <!-- Ajukan Lembur -->
         <div class="card">
