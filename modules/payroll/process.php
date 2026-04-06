@@ -2114,7 +2114,7 @@ include '../../includes/header.php';
                             </th>
                             <th style="width: 55px; background: rgba(59,130,246,0.1);">OT</th>
                             <th style="width: 85px;">OT Rp</th>
-                            <th style="width: 80px;">Inctv</th>
+                            <th style="width: 80px;">Service</th>
                             <th style="width: 80px;">Allowc</th>
                             <th style="width: 85px;">Uang Mkn</th>
                             <th style="width: 80px;">Bonus</th>

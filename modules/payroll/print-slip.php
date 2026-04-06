@@ -549,7 +549,7 @@ $waLink = $waNumber ? "https://wa.me/{$waNumber}?text={$waMessage}" : '';
                     <span class="salary-value"><?php echo number_format($slip['overtime_amount'], 0, ',', '.'); ?></span>
                 </div>
                 <div class="salary-row">
-                    <span class="salary-label">Insentif</span>
+                    <span class="salary-label">Service</span>
                     <span class="salary-value"><?php echo number_format($slip['incentive'], 0, ',', '.'); ?></span>
                 </div>
                 <div class="salary-row">

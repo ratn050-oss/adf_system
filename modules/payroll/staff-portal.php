@@ -2317,6 +2317,7 @@ function renderSlipGaji(slip) {
     const overtimeAmount = parseFloat(slip.overtime_amount) || 0;
     const incentive = parseFloat(slip.incentive) || 0;
     const allowance = parseFloat(slip.allowance) || 0;
+    const uangMakan = parseFloat(slip.uang_makan) || 0;
     const bonus = parseFloat(slip.bonus) || 0;
     const otherIncome = parseFloat(slip.other_income) || 0;
     const totalEarnings = parseFloat(slip.total_earnings) || 0;
@@ -2413,8 +2414,9 @@ function renderSlipGaji(slip) {
                 ${slipRow('Gaji Pokok (Full)', baseSalary, false, false)}
                 ${slipRow('Gaji Aktual (' + workHours + ' jam / 200 target)', actualBase, false, false)}
                 ${slipRow('Uang Lembur (' + overtimeHours + ' jam)', overtimeAmount, false, false)}
-                ${slipRow('Insentif', incentive, false, false)}
+                ${slipRow('Service', incentive, false, false)}
                 ${slipRow('Tunjangan', allowance, false, false)}
+                ${slipRow('Uang Makan', uangMakan, false, false)}
                 ${slipRow('Bonus', bonus, false, false)}
                 ${slipRow('Pendapatan Lainnya', otherIncome, false, false)}
                 ${totalRow('Total Pendapatan', totalEarnings, '#f0fdf4', '#059669')}
