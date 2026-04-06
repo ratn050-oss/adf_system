@@ -180,6 +180,16 @@ try {
         .ls-approved { background:#dcfce7; color:#166534; }
         .ls-rejected { background:#fee2e2; color:#991b1b; }
 
+        /* Riwayat toggle */
+        .btn-riwayat { width:100%; padding:12px 16px; background:#fff; border:1px solid var(--border); border-radius:12px; font-size:12px; font-weight:600; color:var(--navy); cursor:pointer; display:flex; align-items:center; gap:6px; transition:.15s; }
+        .btn-riwayat:hover { background:var(--bg); }
+        .btn-riwayat:active { transform:scale(.98); }
+        .btn-riwayat .riwayat-arrow { margin-left:auto; font-size:10px; transition:transform .2s; }
+        .btn-riwayat .riwayat-arrow.open { transform:rotate(180deg); }
+        .riwayat-badge { background:var(--gold); color:var(--navy); font-size:9px; font-weight:800; padding:1px 6px; border-radius:10px; }
+        .riwayat-panel { display:none; background:#fff; border:1px solid var(--border); border-top:none; border-radius:0 0 12px 12px; padding:14px 16px; margin-top:-1px; animation:fadeIn .2s ease; }
+        .riwayat-panel.open { display:block; }
+
         /* Notif popup */
         .notif-popup { position:fixed; top:50px; right:10px; left:10px; max-width:360px; margin:auto; background:#fff; border-radius:14px; box-shadow:0 10px 40px rgba(0,0,0,.2); z-index:200; display:none; max-height:70vh; overflow-y:auto; border:1px solid var(--border); }
         .notif-popup.open { display:block; }
@@ -540,11 +550,13 @@ try {
             </form>
         </div>
 
-        <!-- Riwayat Lembur -->
-        <div class="card">
-            <div class="card-title">📋 Riwayat Pengajuan Lembur</div>
-            <div id="lemburStats" style="margin-bottom:10px;"></div>
-            <div id="lemburHistory"><div class="loading"><span class="spin"></span> Memuat...</div></div>
+        <!-- Riwayat Lembur (collapsed) -->
+        <div style="margin-bottom:12px;">
+            <button onclick="toggleRiwayat('lembur')" class="btn-riwayat" id="btnRiwayatLembur">📋 Riwayat Lembur <span id="lemburBadge" style="display:none;" class="riwayat-badge"></span> <span class="riwayat-arrow" id="arrowLembur">▼</span></button>
+            <div id="panelRiwayatLembur" class="riwayat-panel">
+                <div id="lemburStats" style="margin-bottom:10px;"></div>
+                <div id="lemburHistory"><div class="loading"><span class="spin"></span> Memuat...</div></div>
+            </div>
         </div>
 
         <!-- Monitoring Detail -->
@@ -595,11 +607,13 @@ try {
             </form>
         </div>
 
-        <!-- Riwayat Cuti -->
-        <div class="card">
-            <div class="card-title">📅 Riwayat Cuti</div>
-            <div id="cutiStats" style="margin-bottom:10px;"></div>
-            <div id="cutiHistory"><div class="loading"><span class="spin"></span> Memuat...</div></div>
+        <!-- Riwayat Cuti (collapsed) -->
+        <div style="margin-bottom:12px;">
+            <button onclick="toggleRiwayat('cuti')" class="btn-riwayat" id="btnRiwayatCuti">📅 Riwayat Cuti <span id="cutiBadge" style="display:none;" class="riwayat-badge"></span> <span class="riwayat-arrow" id="arrowCuti">▼</span></button>
+            <div id="panelRiwayatCuti" class="riwayat-panel">
+                <div id="cutiStats" style="margin-bottom:10px;"></div>
+                <div id="cutiHistory"><div class="loading"><span class="spin"></span> Memuat...</div></div>
+            </div>
         </div>
 
     </div>
@@ -865,8 +879,6 @@ function showApp(name) {
 function loadHome() {
     loadAbsen();
     loadMonitoring();
-    loadCuti();
-    loadLembur();
     if (IS_CAFE) loadSchedule();
 }
 
@@ -1579,6 +1591,14 @@ async function loadCuti() {
                 <div class="stat-card"><div class="sl">🏖️ Cuti Tahun Ini</div><div class="sv" style="color:var(--blue);">${stats.cuti_used||0}</div></div>
             </div>`;
 
+        // Update badge on toggle button
+        const totalCuti = rows.length;
+        const pendingCuti = parseInt(stats.pending)||0;
+        const ctBadge = document.getElementById('cutiBadge');
+        if (pendingCuti > 0) { ctBadge.textContent = pendingCuti + ' pending'; ctBadge.style.display = ''; }
+        else if (totalCuti > 0) { ctBadge.textContent = totalCuti; ctBadge.style.display = ''; }
+        else { ctBadge.style.display = 'none'; }
+
         if (rows.length === 0) {
             document.getElementById('cutiHistory').innerHTML = '<div style="text-align:center;padding:16px;color:var(--muted);font-size:12px;">Belum ada riwayat pengajuan cuti.</div>';
             return;
@@ -1604,6 +1624,22 @@ async function loadCuti() {
         });
         document.getElementById('cutiHistory').innerHTML = html;
     } catch(e) { document.getElementById('cutiHistory').innerHTML = '<div style="color:var(--red);font-size:11px;">Gagal memuat</div>'; }
+}
+
+// ═══ RIWAYAT TOGGLE ═══
+function toggleRiwayat(type) {
+    const panel = document.getElementById('panelRiwayat' + type.charAt(0).toUpperCase() + type.slice(1));
+    const arrow = document.getElementById('arrow' + type.charAt(0).toUpperCase() + type.slice(1));
+    const btn = document.getElementById('btnRiwayat' + type.charAt(0).toUpperCase() + type.slice(1));
+    const isOpen = panel.classList.toggle('open');
+    arrow.classList.toggle('open', isOpen);
+    if (isOpen) {
+        btn.style.borderRadius = '12px 12px 0 0';
+        if (type === 'lembur') loadLembur();
+        if (type === 'cuti') loadCuti();
+    } else {
+        btn.style.borderRadius = '12px';
+    }
 }
 
 // ═══ LEMBUR / OVERTIME ═══
@@ -1650,6 +1686,14 @@ async function loadLembur() {
                 <div class="stat-card"><div class="sl">✅ Disetujui</div><div class="sv" style="color:var(--green);">${stats.approved||0}</div></div>
                 <div class="stat-card"><div class="sl">❌ Ditolak</div><div class="sv" style="color:var(--red);">${stats.rejected||0}</div></div>
             </div>`;
+
+        // Update badge on toggle button
+        const totalLembur = rows.length;
+        const pendingLembur = parseInt(stats.pending)||0;
+        const lbBadge = document.getElementById('lemburBadge');
+        if (pendingLembur > 0) { lbBadge.textContent = pendingLembur + ' pending'; lbBadge.style.display = ''; }
+        else if (totalLembur > 0) { lbBadge.textContent = totalLembur; lbBadge.style.display = ''; }
+        else { lbBadge.style.display = 'none'; }
 
         if (rows.length === 0) {
             document.getElementById('lemburHistory').innerHTML = '<div style="text-align:center;padding:16px;color:var(--muted);font-size:12px;">Belum ada riwayat pengajuan lembur.</div>';
