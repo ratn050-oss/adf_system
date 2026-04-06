@@ -3994,13 +3994,13 @@ include '../../includes/header.php';
 
         // Calculate discount per room (distribute equally)
         const discountPerRoom = discount / checkedRooms.length;
-        const otaFeePerRoom = otaFeeAmount / checkedRooms.length;
 
         // Calculate payment per room (distribute proportionally)
+        // OTA fee is NOT subtracted from final_price - CashbookHelper handles OTA fee deduction
         let totalPrice = 0;
         const roomPrices = [];
         checkedRooms.forEach(checkbox => {
-            const price = parseFloat(checkbox.dataset.price) * nights - discountPerRoom - otaFeePerRoom;
+            const price = parseFloat(checkbox.dataset.price) * nights - discountPerRoom;
             roomPrices.push(price);
             totalPrice += price;
         });
@@ -4027,7 +4027,7 @@ include '../../includes/header.php';
             // Create FormData for API - FIELD NAMES MUST MATCH API EXPECTATIONS
             const roomBasePrice = parseFloat(checkbox.dataset.price);
             const roomTotalPrice = roomBasePrice * nights;
-            const roomFinalPrice = roomTotalPrice - discountPerRoom - otaFeePerRoom;
+            const roomFinalPrice = roomTotalPrice - discountPerRoom;
 
             const formData = new FormData();
             formData.append('guest_name', guestName);
@@ -4041,7 +4041,6 @@ include '../../includes/header.php';
             formData.append('room_price', roomBasePrice); // API expects room_price (per night)
             formData.append('total_price', roomTotalPrice); // API expects total_price
             formData.append('discount', discountPerRoom);
-            formData.append('ota_fee', otaFeePerRoom);
             formData.append('final_price', roomFinalPrice);
             formData.append('booking_source', bookingSource);
             formData.append('payment_method', paymentMethod);

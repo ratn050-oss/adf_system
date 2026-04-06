@@ -1609,8 +1609,8 @@ async function submitMultiRoomBooking(event) {
         formData.append('room_price', roomBasePrice);
         formData.append('total_price', roomTotalPrice);
         formData.append('total_nights', nights);
-        formData.append('adults', 1);
-        formData.append('children', 0);
+        formData.append('adult_count', 1);
+        formData.append('children_count', 0);
         formData.append('discount', discountPerRoom);
         formData.append('final_price', roomFinalPrice);
         formData.append('booking_source', bookingSource);
@@ -1619,7 +1619,7 @@ async function submitMultiRoomBooking(event) {
         formData.append('special_request', specialRequest);
         
         try {
-            const response = await fetch('api/create-reservation.php', {
+            const response = await fetch('<?php echo BASE_URL; ?>/api/create-reservation.php', {
                 method: 'POST',
                 body: formData
             });

@@ -24,7 +24,7 @@ if ($bookingId === 0) {
     die('Invalid Booking ID');
 }
 
-// Get booking details
+// Get primary booking details
 $booking = $db->fetchOne("
     SELECT 
         b.id, b.booking_code, b.check_in_date, b.check_out_date,
@@ -46,27 +46,80 @@ if (!$booking) {
     die('Booking not found');
 }
 
-// Get payment history
+// Find related bookings (same guest name + same dates + created within 5 minutes)
+// This groups multi-room bookings made in one submission
+$relatedBookings = $db->fetchAll("
+    SELECT 
+        b.id, b.booking_code, b.check_in_date, b.check_out_date,
+        b.room_price, b.total_price, b.final_price, b.discount,
+        b.status, b.payment_status, b.booking_source, b.total_nights,
+        b.paid_amount, b.special_request, b.adults, b.children,
+        b.created_at,
+        g.guest_name, g.phone, g.email, g.id_card_number,
+        r.room_number,
+        rt.type_name as room_type
+    FROM bookings b
+    LEFT JOIN guests g ON b.guest_id = g.id
+    LEFT JOIN rooms r ON b.room_id = r.id
+    LEFT JOIN room_types rt ON r.room_type_id = rt.id
+    WHERE g.guest_name = ?
+    AND b.check_in_date = ?
+    AND b.check_out_date = ?
+    AND b.booking_source = ?
+    AND b.status != 'cancelled'
+    AND ABS(TIMESTAMPDIFF(MINUTE, b.created_at, ?)) <= 5
+    ORDER BY r.room_number ASC
+", [
+    $booking['guest_name'],
+    $booking['check_in_date'],
+    $booking['check_out_date'],
+    $booking['booking_source'],
+    $booking['created_at']
+]);
+
+// If no related found or only 1, use single booking
+$allBookings = (!empty($relatedBookings) && count($relatedBookings) > 1) ? $relatedBookings : [$booking];
+$isMultiRoom = count($allBookings) > 1;
+
+// Collect all booking IDs for payment query
+$allBookingIds = array_column($allBookings, 'id');
+$placeholders = implode(',', array_fill(0, count($allBookingIds), '?'));
+
+// Get payment history for all related bookings
 $payments = $db->fetchAll("
     SELECT 
-        amount, payment_method, payment_date, notes
-    FROM booking_payments
-    WHERE booking_id = ?
-    ORDER BY payment_date ASC
-", [$bookingId]);
+        bp.booking_id, bp.amount, bp.payment_method, bp.payment_date, bp.notes,
+        bk.booking_code, r.room_number
+    FROM booking_payments bp
+    LEFT JOIN bookings bk ON bp.booking_id = bk.id
+    LEFT JOIN rooms r ON bk.room_id = r.id
+    WHERE bp.booking_id IN ($placeholders)
+    ORDER BY bp.payment_date ASC
+", $allBookingIds);
 
-// Calculate totals
+// Calculate combined totals
 $totalPaid = 0;
 foreach ($payments as $payment) {
     $totalPaid += $payment['amount'];
 }
 
-// Fallback to paid_amount if no payment records
-if ($totalPaid == 0 && $booking['paid_amount'] > 0) {
-    $totalPaid = $booking['paid_amount'];
+// Fallback: sum paid_amount from all bookings if no payment records
+if ($totalPaid == 0) {
+    foreach ($allBookings as $bk) {
+        $totalPaid += $bk['paid_amount'];
+    }
 }
 
-$remaining = $booking['final_price'] - $totalPaid;
+$combinedFinalPrice = 0;
+$combinedTotalPrice = 0;
+$combinedDiscount = 0;
+foreach ($allBookings as $bk) {
+    $combinedFinalPrice += $bk['final_price'];
+    $combinedTotalPrice += $bk['total_price'];
+    $combinedDiscount += $bk['discount'];
+}
+
+$remaining = $combinedFinalPrice - $totalPaid;
 
 // Get business info
 $businessId = $_SESSION['business_id'] ?? 1;
@@ -100,7 +153,7 @@ if (empty($companySettings['name'])) {
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Invoice - <?php echo $booking['booking_code']; ?></title>
+    <title>Invoice - <?php echo $isMultiRoom ? $booking['guest_name'] . ' (' . count($allBookings) . ' rooms)' : $booking['booking_code']; ?></title>
     <style>
         * {
             margin: 0;
@@ -427,7 +480,16 @@ if (empty($companySettings['name'])) {
         <!-- Invoice Title Bar -->
         <div class="invoice-title-bar">
             <h2>INVOICE</h2>
-            <div class="invoice-number"><?php echo htmlspecialchars($booking['booking_code']); ?></div>
+            <div class="invoice-number">
+                <?php if ($isMultiRoom): ?>
+                    <?php echo htmlspecialchars($allBookings[0]['booking_code']); ?>
+                    <?php if (count($allBookings) > 1): ?>
+                        <span style="font-size: 0.75rem; opacity: 0.8;">+<?php echo count($allBookings) - 1; ?> rooms</span>
+                    <?php endif; ?>
+                <?php else: ?>
+                    <?php echo htmlspecialchars($booking['booking_code']); ?>
+                <?php endif; ?>
+            </div>
         </div>
         
         <!-- Body -->
@@ -438,7 +500,15 @@ if (empty($companySettings['name'])) {
                 <div class="info-grid">
                     <div class="info-item">
                         <div class="info-label">Booking Code</div>
-                        <div class="info-value"><?php echo htmlspecialchars($booking['booking_code']); ?></div>
+                        <div class="info-value">
+                            <?php if ($isMultiRoom): ?>
+                                <?php foreach ($allBookings as $i => $bk): ?>
+                                    <?php echo htmlspecialchars($bk['booking_code']); ?><?php echo $i < count($allBookings) - 1 ? ', ' : ''; ?>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <?php echo htmlspecialchars($booking['booking_code']); ?>
+                            <?php endif; ?>
+                        </div>
                     </div>
                     <div class="info-item">
                         <div class="info-label">Booking Date</div>
@@ -451,8 +521,13 @@ if (empty($companySettings['name'])) {
                     <div class="info-item">
                         <div class="info-label">Payment Status</div>
                         <div class="info-value">
-                            <span class="badge badge-<?php echo $booking['payment_status']; ?>">
-                                <?php echo strtoupper($booking['payment_status']); ?>
+                            <?php 
+                                $overallStatus = 'unpaid';
+                                if ($totalPaid >= $combinedFinalPrice) $overallStatus = 'paid';
+                                elseif ($totalPaid > 0) $overallStatus = 'partial';
+                            ?>
+                            <span class="badge badge-<?php echo $overallStatus; ?>">
+                                <?php echo strtoupper($overallStatus); ?>
                             </span>
                         </div>
                     </div>
@@ -487,8 +562,16 @@ if (empty($companySettings['name'])) {
                 <div class="section-title">🏨 Stay Details</div>
                 <div class="info-grid">
                     <div class="info-item">
-                        <div class="info-label">Room</div>
-                        <div class="info-value"><?php echo htmlspecialchars($booking['room_number']); ?> - <?php echo htmlspecialchars($booking['room_type']); ?></div>
+                        <div class="info-label">Room<?php echo $isMultiRoom ? 's' : ''; ?></div>
+                        <div class="info-value">
+                            <?php if ($isMultiRoom): ?>
+                                <?php foreach ($allBookings as $bk): ?>
+                                    <div><?php echo htmlspecialchars($bk['room_number']); ?> - <?php echo htmlspecialchars($bk['room_type']); ?></div>
+                                <?php endforeach; ?>
+                            <?php else: ?>
+                                <?php echo htmlspecialchars($booking['room_number']); ?> - <?php echo htmlspecialchars($booking['room_type']); ?>
+                            <?php endif; ?>
+                        </div>
                     </div>
                     <div class="info-item">
                         <div class="info-label">Guests</div>
@@ -506,10 +589,17 @@ if (empty($companySettings['name'])) {
                         <div class="info-label">Total Nights</div>
                         <div class="info-value"><?php echo $booking['total_nights']; ?> Night<?php echo $booking['total_nights'] > 1 ? 's' : ''; ?></div>
                     </div>
+                    <?php if (!$isMultiRoom): ?>
                     <div class="info-item">
                         <div class="info-label">Room Rate/Night</div>
                         <div class="info-value">Rp <?php echo number_format($booking['room_price'], 0, ',', '.'); ?></div>
                     </div>
+                    <?php else: ?>
+                    <div class="info-item">
+                        <div class="info-label">Total Rooms</div>
+                        <div class="info-value"><?php echo count($allBookings); ?> Rooms</div>
+                    </div>
+                    <?php endif; ?>
                 </div>
             </div>
             
@@ -517,19 +607,28 @@ if (empty($companySettings['name'])) {
             <div class="section">
                 <div class="section-title">💰 Price Breakdown</div>
                 <table class="price-table">
+                    <?php if ($isMultiRoom): ?>
+                        <?php foreach ($allBookings as $bk): ?>
+                        <tr>
+                            <td>Room <?php echo htmlspecialchars($bk['room_number']); ?> - <?php echo htmlspecialchars($bk['room_type']); ?> (<?php echo $bk['total_nights']; ?> nights × Rp <?php echo number_format($bk['room_price'], 0, ',', '.'); ?>)</td>
+                            <td style="text-align: right; font-weight: 600;">Rp <?php echo number_format($bk['total_price'], 0, ',', '.'); ?></td>
+                        </tr>
+                        <?php endforeach; ?>
+                    <?php else: ?>
                     <tr>
-                        <td>Room Price (<?php echo $booking['total_nights']; ?> nights × Rp <?php echo number_format($booking['room_price'], 0, ',', '.'); ?>)</td>
+                        <td>Room <?php echo htmlspecialchars($booking['room_number']); ?> (<?php echo $booking['total_nights']; ?> nights × Rp <?php echo number_format($booking['room_price'], 0, ',', '.'); ?>)</td>
                         <td style="text-align: right; font-weight: 600;">Rp <?php echo number_format($booking['total_price'], 0, ',', '.'); ?></td>
                     </tr>
-                    <?php if ($booking['discount'] > 0): ?>
+                    <?php endif; ?>
+                    <?php if ($combinedDiscount > 0): ?>
                     <tr>
                         <td>Discount</td>
-                        <td style="text-align: right; font-weight: 600; color: #dc2626;">-Rp <?php echo number_format($booking['discount'], 0, ',', '.'); ?></td>
+                        <td style="text-align: right; font-weight: 600; color: #dc2626;">-Rp <?php echo number_format($combinedDiscount, 0, ',', '.'); ?></td>
                     </tr>
                     <?php endif; ?>
                     <tr class="total-row">
                         <td><strong>TOTAL</strong></td>
-                        <td style="text-align: right;"><strong>Rp <?php echo number_format($booking['final_price'], 0, ',', '.'); ?></strong></td>
+                        <td style="text-align: right;"><strong>Rp <?php echo number_format($combinedFinalPrice, 0, ',', '.'); ?></strong></td>
                     </tr>
                     <tr class="paid-row">
                         <td><strong>PAID</strong></td>
@@ -552,6 +651,7 @@ if (empty($companySettings['name'])) {
                     <thead>
                         <tr>
                             <th>Date</th>
+                            <?php if ($isMultiRoom): ?><th>Room</th><?php endif; ?>
                             <th>Method</th>
                             <th>Amount</th>
                             <th>Notes</th>
@@ -561,6 +661,7 @@ if (empty($companySettings['name'])) {
                         <?php foreach ($payments as $payment): ?>
                         <tr>
                             <td><?php echo date('d M Y H:i', strtotime($payment['payment_date'])); ?></td>
+                            <?php if ($isMultiRoom): ?><td><?php echo htmlspecialchars($payment['room_number'] ?? '-'); ?></td><?php endif; ?>
                             <td><?php echo strtoupper($payment['payment_method']); ?></td>
                             <td style="font-weight: 600;">Rp <?php echo number_format($payment['amount'], 0, ',', '.'); ?></td>
                             <td><?php echo htmlspecialchars($payment['notes'] ?? '-'); ?></td>
