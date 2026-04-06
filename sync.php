@@ -508,6 +508,7 @@ $filesToSync = [
     'modules/payroll/sw.js',
     'api/fingerprint-webhook.php',
     'includes/header.php',
+    'assets/icons/favicon.svg',
     'modules/frontdesk/rental-motor.php',
     'developer/staff-accounts.php',
     'modules/cashbook/index.php',
