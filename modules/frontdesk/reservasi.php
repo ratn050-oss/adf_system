@@ -65,10 +65,10 @@ if (empty($otaProviders)) {
 // GET BOOKINGS LIST
 // ============================================
 // Ensure group_id column exists
-try {
-    $db->fetchOne("SELECT group_id FROM bookings LIMIT 1");
-} catch (Exception $e) {
-    try { $db->query("ALTER TABLE bookings ADD COLUMN group_id VARCHAR(50) DEFAULT NULL"); } catch (Exception $e2) {}
+$hasGroupId = $db->fetchOne("SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'bookings' AND COLUMN_NAME = 'group_id'");
+if (!$hasGroupId) {
+    $db->query("ALTER TABLE bookings ADD COLUMN group_id VARCHAR(50) DEFAULT NULL");
+    $db->query("CREATE INDEX idx_bookings_group_id ON bookings(group_id)");
 }
 
 try {
