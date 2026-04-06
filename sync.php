@@ -505,6 +505,7 @@ $filesToSync = [
     'modules/payroll/staff-api.php',
     'modules/payroll/print-slip.php',
     'modules/payroll/attendance.php',
+    'modules/payroll/sw.js',
     'api/fingerprint-webhook.php',
     'includes/header.php',
     'modules/frontdesk/rental-motor.php',
