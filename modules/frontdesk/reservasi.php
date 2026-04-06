@@ -64,6 +64,13 @@ if (empty($otaProviders)) {
 // ============================================
 // GET BOOKINGS LIST
 // ============================================
+// Ensure group_id column exists
+try {
+    $db->fetchOne("SELECT group_id FROM bookings LIMIT 1");
+} catch (Exception $e) {
+    try { $db->query("ALTER TABLE bookings ADD COLUMN group_id VARCHAR(50) DEFAULT NULL"); } catch (Exception $e2) {}
+}
+
 try {
     $status_filter = $_GET['status'] ?? 'all';
     
@@ -686,9 +693,15 @@ include '../../includes/header.php';
     <!-- Bookings Table -->
     <div class="bookings-table-wrapper">
         <?php if (!empty($bookings)): ?>
+        <div id="bulkDeleteBar" style="display:none; padding: 10px 15px; background: #fff3cd; border: 1px solid #ffc107; border-radius: 8px; margin-bottom: 10px; align-items: center; gap: 10px;">
+            <span id="selectedCount" style="font-weight: 600; color: #856404;">0 dipilih</span>
+            <button type="button" onclick="bulkDeleteBookings()" style="background: #dc3545; color: white; border: none; padding: 6px 16px; border-radius: 6px; cursor: pointer; font-size: 0.85rem; font-weight: 600;">🗑️ Hapus Terpilih</button>
+            <button type="button" onclick="clearSelection()" style="background: #6c757d; color: white; border: none; padding: 6px 16px; border-radius: 6px; cursor: pointer; font-size: 0.85rem;">Batal</button>
+        </div>
         <table class="bookings-table">
             <thead>
                 <tr>
+                    <th style="width: 40px; text-align: center;"><input type="checkbox" id="selectAll" onchange="toggleSelectAll(this)" title="Pilih Semua"></th>
                     <th>Booking Code</th>
                     <th>Guest Name</th>
                     <th>Room</th>
@@ -715,6 +728,16 @@ include '../../includes/header.php';
                     $isGrouped = $roomCount > 1;
                 ?>
                 <tr>
+                    <!-- Checkbox -->
+                    <td style="text-align: center;">
+                        <?php if ($isGrouped): ?>
+                            <?php foreach ($booking['_booking_ids'] as $bid): ?>
+                            <input type="checkbox" class="booking-checkbox" value="<?php echo $bid; ?>" onchange="updateBulkBar()">
+                            <?php endforeach; ?>
+                        <?php else: ?>
+                            <input type="checkbox" class="booking-checkbox" value="<?php echo $booking['id']; ?>" onchange="updateBulkBar()">
+                        <?php endif; ?>
+                    </td>
                     <!-- Booking Code -->
                     <td>
                         <strong><?php echo htmlspecialchars($booking['booking_code']); ?></strong>
@@ -2164,6 +2187,59 @@ function deleteBooking(id, bookingCode) {
         alert('Error: ' + error.message);
         console.error('Error:', error);
     });
+}
+
+// Bulk delete functions
+function toggleSelectAll(el) {
+    document.querySelectorAll('.booking-checkbox').forEach(cb => cb.checked = el.checked);
+    updateBulkBar();
+}
+
+function updateBulkBar() {
+    const checked = document.querySelectorAll('.booking-checkbox:checked');
+    const bar = document.getElementById('bulkDeleteBar');
+    const count = document.getElementById('selectedCount');
+    if (checked.length > 0) {
+        bar.style.display = 'flex';
+        count.textContent = checked.length + ' dipilih';
+    } else {
+        bar.style.display = 'none';
+        document.getElementById('selectAll').checked = false;
+    }
+}
+
+function clearSelection() {
+    document.querySelectorAll('.booking-checkbox').forEach(cb => cb.checked = false);
+    document.getElementById('selectAll').checked = false;
+    updateBulkBar();
+}
+
+async function bulkDeleteBookings() {
+    const checked = document.querySelectorAll('.booking-checkbox:checked');
+    if (checked.length === 0) return;
+    
+    const ids = Array.from(checked).map(cb => parseInt(cb.value));
+    if (!confirm(`PERINGATAN: Yakin ingin menghapus ${ids.length} reservasi?\n\nAksi ini TIDAK BISA DIBATALKAN!`)) {
+        return;
+    }
+    
+    let success = 0, failed = 0;
+    for (const id of ids) {
+        try {
+            const res = await fetch('../../api/delete-booking.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ booking_id: id })
+            });
+            const data = await res.json();
+            if (data.success) success++;
+            else failed++;
+        } catch (e) {
+            failed++;
+        }
+    }
+    alert(`Selesai: ${success} berhasil dihapus${failed > 0 ? ', ' + failed + ' gagal' : ''}`);
+    location.reload();
 }
 </script>
 
