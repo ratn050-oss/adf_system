@@ -4014,6 +4014,9 @@ include '../../includes/header.php';
         const bookingCodes = [];
         const errorMessages = [];
 
+        // Generate group_id for multi-room bookings
+        const groupId = checkedRooms.length > 1 ? 'GRP-' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '-' + Math.random().toString(36).substr(2, 6).toUpperCase() : '';
+
         // Create booking for each room
         for (let i = 0; i < checkedRooms.length; i++) {
             const checkbox = checkedRooms[i];
@@ -4024,12 +4027,13 @@ include '../../includes/header.php';
             // Calculate proportional payment
             const proportionalPayment = totalPrice > 0 ? (paidAmount * (roomPrice / totalPrice)) : 0;
 
-            // Create FormData for API - FIELD NAMES MUST MATCH API EXPECTATIONS
+            // Create FormData for API
             const roomBasePrice = parseFloat(checkbox.dataset.price);
             const roomTotalPrice = roomBasePrice * nights;
             const roomFinalPrice = roomTotalPrice - discountPerRoom;
 
             const formData = new FormData();
+            if (groupId) formData.append('group_id', groupId);
             formData.append('guest_name', guestName);
             formData.append('guest_phone', guestPhone);
             formData.append('room_id', roomId);

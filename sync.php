@@ -513,6 +513,7 @@ $filesToSync = [
     'modules/frontdesk/reservasi.php',
     'modules/frontdesk/calendar.php',
     'modules/frontdesk/invoice.php',
+    'api/create-reservation.php',
     'developer/staff-accounts.php',
     'modules/cashbook/index.php',
     'modules/cashbook/export-excel.php',

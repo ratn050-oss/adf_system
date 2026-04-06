@@ -58,6 +58,7 @@ try {
     $guestPhone = trim($_POST['guest_phone'] ?? '');
     $guestEmail = trim($_POST['guest_email'] ?? '');
     $guestIdNumber = trim($_POST['guest_id_number'] ?? '');
+    $groupId = trim($_POST['group_id'] ?? '');
     
     $checkInDate = $_POST['check_in_date'];
     $checkOutDate = $_POST['check_out_date'];
@@ -135,6 +136,16 @@ try {
     
     $db->beginTransaction();
     
+    // Auto-create group_id column if not exists
+    try {
+        $colCheck = $db->fetchOne("SHOW COLUMNS FROM bookings LIKE 'group_id'");
+        if (!$colCheck) {
+            $db->getConnection()->exec("ALTER TABLE bookings ADD COLUMN group_id VARCHAR(50) NULL DEFAULT NULL AFTER booking_code, ADD INDEX idx_group_id (group_id)");
+        }
+    } catch (\Throwable $e) {
+        // Column might already exist
+    }
+    
     // ALWAYS CREATE NEW GUEST for each reservation
     // This prevents name changes when same phone/email is used
     $idCardNumber = !empty($guestIdNumber) ? $guestIdNumber : 'TEMP-' . date('YmdHis') . '-' . rand(1000, 9999);
@@ -162,18 +173,18 @@ try {
         $paymentStatus = 'partial';
     }
 
-    // Create booking (remove guest_name from INSERT as it doesn't exist in table)
+    // Create booking
     $bookingStmt = $db->query("
         INSERT INTO bookings (
-            booking_code, guest_id, room_id, 
+            booking_code, group_id, guest_id, room_id, 
             check_in_date, check_out_date, total_nights,
             adults, children,
             room_price, total_price, discount, final_price,
             booking_source, status, payment_status, paid_amount,
             special_request, created_at
-        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'confirmed', ?, ?, ?, NOW())
+        ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'confirmed', ?, ?, ?, NOW())
     ", [
-        $bookingCode, $guestId, $roomId,
+        $bookingCode, $groupId ?: null, $guestId, $roomId,
         $checkInDate, $checkOutDate, $totalNights,
         $adultCount, $childrenCount,
         $roomPrice, $totalPrice, $discount, $finalPrice,
@@ -346,6 +357,7 @@ try {
         'message' => $successMessage,
         'booking_id' => $bookingId,
         'booking_code' => $bookingCode,
+        'group_id' => $groupId ?: null,
         'cashbook_inserted' => $cashbookInserted,
         'cash_account' => $cashAccountName,
         'paid_amount' => $paidAmount,

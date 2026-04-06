@@ -69,7 +69,7 @@ try {
     
     $query = "
         SELECT 
-            b.id, b.booking_code, b.check_in_date, b.check_out_date,
+            b.id, b.booking_code, b.group_id, b.check_in_date, b.check_out_date,
             b.room_price, b.total_price, b.final_price, b.discount,
             b.status, b.payment_status, b.booking_source, b.total_nights,
             b.paid_amount, b.special_request, b.adults, b.children,
@@ -100,10 +100,83 @@ try {
             WHEN b.status = 'pending' THEN 3
             ELSE 4
         END,
-        b.check_in_date ASC
-    LIMIT 50";
+        b.check_in_date ASC,
+        b.group_id ASC,
+        b.id ASC
+    LIMIT 100";
     
-    $bookings = $db->fetchAll($query, $params);
+    $rawBookings = $db->fetchAll($query, $params);
+    
+    // Group bookings by group_id
+    $bookings = [];
+    $groupedBookings = [];
+    foreach ($rawBookings as $bk) {
+        $gid = $bk['group_id'] ?? null;
+        if ($gid) {
+            if (!isset($groupedBookings[$gid])) {
+                $groupedBookings[$gid] = $bk; // first booking as base
+                $groupedBookings[$gid]['_rooms'] = [];
+                $groupedBookings[$gid]['_booking_ids'] = [];
+                $groupedBookings[$gid]['_combined_final_price'] = 0;
+                $groupedBookings[$gid]['_combined_total_paid'] = 0;
+                $groupedBookings[$gid]['_combined_total_price'] = 0;
+                $groupedBookings[$gid]['_combined_discount'] = 0;
+            }
+            $groupedBookings[$gid]['_rooms'][] = [
+                'room_number' => $bk['room_number'],
+                'type_name' => $bk['type_name'],
+                'room_price' => $bk['room_price'],
+                'final_price' => $bk['final_price'],
+                'booking_id' => $bk['id'],
+                'booking_code' => $bk['booking_code'],
+                'status' => $bk['status'],
+            ];
+            $groupedBookings[$gid]['_booking_ids'][] = $bk['id'];
+            $groupedBookings[$gid]['_combined_final_price'] += $bk['final_price'];
+            $groupedBookings[$gid]['_combined_total_paid'] += $bk['total_paid'];
+            $groupedBookings[$gid]['_combined_total_price'] += $bk['total_price'];
+            $groupedBookings[$gid]['_combined_discount'] += $bk['discount'];
+        } else {
+            // Single room booking
+            $bk['_rooms'] = [[
+                'room_number' => $bk['room_number'],
+                'type_name' => $bk['type_name'],
+                'room_price' => $bk['room_price'],
+                'final_price' => $bk['final_price'],
+                'booking_id' => $bk['id'],
+                'booking_code' => $bk['booking_code'],
+                'status' => $bk['status'],
+            ]];
+            $bk['_booking_ids'] = [$bk['id']];
+            $bk['_combined_final_price'] = $bk['final_price'];
+            $bk['_combined_total_paid'] = $bk['total_paid'];
+            $bk['_combined_total_price'] = $bk['total_price'];
+            $bk['_combined_discount'] = $bk['discount'];
+            $bookings[] = $bk;
+        }
+    }
+    // Merge grouped bookings into bookings list
+    foreach ($groupedBookings as $gBk) {
+        // Override display fields with combined values
+        $gBk['final_price'] = $gBk['_combined_final_price'];
+        $gBk['total_paid'] = $gBk['_combined_total_paid'];
+        $gBk['total_price'] = $gBk['_combined_total_price'];
+        $gBk['discount'] = $gBk['_combined_discount'];
+        $gBk['room_number'] = implode(', ', array_column($gBk['_rooms'], 'room_number'));
+        $gBk['type_name'] = count(array_unique(array_column($gBk['_rooms'], 'type_name'))) === 1 
+            ? $gBk['_rooms'][0]['type_name'] 
+            : implode(', ', array_unique(array_column($gBk['_rooms'], 'type_name')));
+        $gBk['booking_code'] = $gBk['_rooms'][0]['booking_code'];
+        $bookings[] = $gBk;
+    }
+    // Re-sort by status priority + check-in date
+    usort($bookings, function($a, $b) {
+        $statusOrder = ['confirmed' => 1, 'checked_in' => 2, 'pending' => 3, 'checked_out' => 4, 'cancelled' => 5];
+        $aOrder = $statusOrder[$a['status']] ?? 4;
+        $bOrder = $statusOrder[$b['status']] ?? 4;
+        if ($aOrder !== $bOrder) return $aOrder - $bOrder;
+        return strcmp($a['check_in_date'], $b['check_in_date']);
+    });
     
 } catch (Exception $e) {
     error_log("Reservasi List Error: " . $e->getMessage());
@@ -638,11 +711,16 @@ include '../../includes/header.php';
                     $otaIcon = $otaProviders[$booking['booking_source']]['icon'] ?? '🌐';
                     $otaName = $otaProviders[$booking['booking_source']]['name'] ?? 'Other';
                     $otaFee = $otaProviders[$booking['booking_source']]['fee'] ?? 0;
+                    $roomCount = count($booking['_rooms'] ?? []);
+                    $isGrouped = $roomCount > 1;
                 ?>
                 <tr>
                     <!-- Booking Code -->
                     <td>
                         <strong><?php echo htmlspecialchars($booking['booking_code']); ?></strong>
+                        <?php if ($isGrouped): ?>
+                        <div style="font-size: 0.65rem; color: #6366f1; margin-top: 2px;">📦 <?php echo $roomCount; ?> rooms</div>
+                        <?php endif; ?>
                     </td>
 
                     <!-- Guest -->
@@ -657,12 +735,23 @@ include '../../includes/header.php';
 
                     <!-- Room -->
                     <td>
-                        <span class="room-badge" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;padding:0.2rem 0.5rem;border-radius:4px;font-weight:600;">
-                            <?php echo htmlspecialchars($booking['room_number']); ?>
-                        </span>
-                        <div style="font-size: 0.7rem; margin-top: 0.25rem;">
-                            <?php echo htmlspecialchars($booking['type_name']); ?>
-                        </div>
+                        <?php if ($isGrouped): ?>
+                            <?php foreach ($booking['_rooms'] as $rm): ?>
+                            <span class="room-badge" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;padding:0.15rem 0.4rem;border-radius:4px;font-weight:600;font-size:0.75rem;display:inline-block;margin:1px;">
+                                <?php echo htmlspecialchars($rm['room_number']); ?>
+                            </span>
+                            <?php endforeach; ?>
+                            <div style="font-size: 0.7rem; margin-top: 0.25rem;">
+                                <?php echo htmlspecialchars($booking['type_name']); ?>
+                            </div>
+                        <?php else: ?>
+                            <span class="room-badge" style="background:linear-gradient(135deg,#6366f1,#8b5cf6);color:#fff;padding:0.2rem 0.5rem;border-radius:4px;font-weight:600;">
+                                <?php echo htmlspecialchars($booking['room_number']); ?>
+                            </span>
+                            <div style="font-size: 0.7rem; margin-top: 0.25rem;">
+                                <?php echo htmlspecialchars($booking['type_name']); ?>
+                            </div>
+                        <?php endif; ?>
                     </td>
 
                     <!-- Dates -->
@@ -690,6 +779,30 @@ include '../../includes/header.php';
 
                     <!-- Price Breakdown -->
                     <td>
+                        <?php if ($isGrouped): ?>
+                        <div class="price-breakdown" style="font-size: 0.75rem;">
+                            <div class="price-item price-gross">
+                                <span>Total:</span>
+                                <span>Rp <?php echo number_format($booking['_combined_total_price'], 0, ',', '.'); ?></span>
+                            </div>
+                            <?php if ($booking['_combined_discount'] > 0): ?>
+                            <div class="price-item price-fee">
+                                <span>Disc:</span>
+                                <span>-Rp <?php echo number_format($booking['_combined_discount'], 0, ',', '.'); ?></span>
+                            </div>
+                            <?php endif; ?>
+                            <?php if ($otaFee > 0): ?>
+                            <div class="price-item price-fee">
+                                <span>Fee (<?php echo $otaFee; ?>%):</span>
+                                <span>-Rp <?php echo number_format(round($booking['_combined_total_price'] * $otaFee / 100), 0, ',', '.'); ?></span>
+                            </div>
+                            <?php endif; ?>
+                            <div class="price-item price-net">
+                                <span>Net:</span>
+                                <span>Rp <?php echo number_format($booking['_combined_final_price'], 0, ',', '.'); ?></span>
+                            </div>
+                        </div>
+                        <?php else: ?>
                         <div class="price-breakdown" style="font-size: 0.75rem;">
                             <div class="price-item price-gross">
                                 <span>Gross:</span>
@@ -706,6 +819,7 @@ include '../../includes/header.php';
                                 <span>Rp <?php echo number_format($netIncome['net'], 0, ',', '.'); ?></span>
                             </div>
                         </div>
+                        <?php endif; ?>
                     </td>
 
                     <!-- Status -->
@@ -717,31 +831,42 @@ include '../../includes/header.php';
 
                     <!-- Payment Status -->
                     <td>
-                        <span class="badge badge-payment-<?php echo str_replace('_', '-', $booking['payment_status']); ?>">
-                            <?php echo ucfirst($booking['payment_status']); ?>
+                        <?php
+                            $cFinal = $booking['_combined_final_price'];
+                            $cPaid = $booking['_combined_total_paid'];
+                            $cRemaining = $cFinal - $cPaid;
+                            $cPayStatus = 'unpaid';
+                            if ($cPaid >= $cFinal) $cPayStatus = 'paid';
+                            elseif ($cPaid > 0) $cPayStatus = 'partial';
+                        ?>
+                        <span class="badge badge-payment-<?php echo str_replace('_', '-', $cPayStatus); ?>">
+                            <?php echo ucfirst($cPayStatus); ?>
                         </span>
                         <div style="font-size: 0.7rem; margin-top: 0.3rem; line-height: 1.4;">
-                            <div><span style="color: var(--text-secondary);">Total:</span> <strong>Rp <?php echo number_format($booking['final_price'], 0, ',', '.'); ?></strong></div>
-                            <div><span style="color: var(--text-secondary);">Bayar:</span> <strong style="color: #10b981;">Rp <?php echo number_format($booking['total_paid'], 0, ',', '.'); ?></strong></div>
-                            <?php 
-                                $remaining = $booking['final_price'] - $booking['total_paid'];
-                                if ($remaining > 0):
-                            ?>
-                            <div><span style="color: var(--text-secondary);">Sisa:</span> <strong style="color: #ef4444;">Rp <?php echo number_format($remaining, 0, ',', '.'); ?></strong></div>
+                            <div><span style="color: var(--text-secondary);">Total:</span> <strong>Rp <?php echo number_format($cFinal, 0, ',', '.'); ?></strong></div>
+                            <div><span style="color: var(--text-secondary);">Bayar:</span> <strong style="color: #10b981;">Rp <?php echo number_format($cPaid, 0, ',', '.'); ?></strong></div>
+                            <?php if ($cRemaining > 0): ?>
+                            <div><span style="color: var(--text-secondary);">Sisa:</span> <strong style="color: #ef4444;">Rp <?php echo number_format($cRemaining, 0, ',', '.'); ?></strong></div>
                             <?php endif; ?>
                         </div>
                     </td>
 
                     <!-- Actions -->
                     <td>
-                        <?php $remaining = $booking['final_price'] - max($booking['paid_amount'], $booking['total_paid']); ?>
+                        <?php $remaining = $cRemaining; ?>
                         <div class="action-dropdown">
                             <button type="button" class="action-dropdown-btn" onclick="toggleActionMenu(event)">Aksi ▾</button>
                             <div class="action-dropdown-menu">
                                 <?php if ($booking['status'] === 'confirmed'): ?>
+                                <?php if ($isGrouped): ?>
+                                    <?php foreach ($booking['_rooms'] as $rm): ?>
+                                    <button class="action-dropdown-item item-checkin" onclick="checkinBooking(<?php echo $rm['booking_id']; ?>, '<?php echo htmlspecialchars($rm['booking_code']); ?>')">✅ Check-in Room <?php echo htmlspecialchars($rm['room_number']); ?></button>
+                                    <?php endforeach; ?>
+                                <?php else: ?>
                                 <button class="action-dropdown-item item-checkin" onclick="checkinBooking(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_code']); ?>')">✅ Check-in</button>
                                 <?php endif; ?>
-                                <?php if ($remaining > 0 && $booking['payment_status'] !== 'paid' && $booking['status'] !== 'cancelled' && $booking['status'] !== 'checked_out'): ?>
+                                <?php endif; ?>
+                                <?php if ($remaining > 0 && $cPayStatus !== 'paid' && $booking['status'] !== 'cancelled' && $booking['status'] !== 'checked_out'): ?>
                                 <button class="action-dropdown-item item-pay" onclick="addPayment(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_code']); ?>', <?php echo $remaining; ?>, '<?php echo htmlspecialchars($booking['booking_source']); ?>', <?php echo $otaFee; ?>, '<?php echo addslashes($otaName); ?>')">💰 Bayar</button>
                                 <?php endif; ?>
                                 <div class="action-dropdown-divider"></div>
@@ -750,8 +875,14 @@ include '../../includes/header.php';
                                 <button class="action-dropdown-item" onclick="printInvoice(<?php echo $booking['id']; ?>)">📄 Invoice</button>
                                 <?php if ($booking['status'] !== 'checked_in' && $booking['status'] !== 'checked_out'): ?>
                                 <div class="action-dropdown-divider"></div>
+                                <?php if ($isGrouped): ?>
+                                    <?php foreach ($booking['_rooms'] as $rm): ?>
+                                    <button class="action-dropdown-item item-cancel" onclick="cancelBooking(<?php echo $rm['booking_id']; ?>, '<?php echo htmlspecialchars($rm['booking_code']); ?>')">⚠️ Cancel Room <?php echo htmlspecialchars($rm['room_number']); ?></button>
+                                    <?php endforeach; ?>
+                                <?php else: ?>
                                 <button class="action-dropdown-item item-cancel" onclick="cancelBooking(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_code']); ?>')">⚠️ Cancel</button>
                                 <button class="action-dropdown-item item-delete" onclick="deleteBooking(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_code']); ?>')">🗑️ Hapus</button>
+                                <?php endif; ?>
                                 <?php elseif ($currentUser['role'] === 'developer'): ?>
                                 <div class="action-dropdown-divider"></div>
                                 <button class="action-dropdown-item item-delete" onclick="deleteBooking(<?php echo $booking['id']; ?>, '<?php echo htmlspecialchars($booking['booking_code']); ?>')">🗑️ Hapus</button>
@@ -1585,6 +1716,9 @@ async function submitMultiRoomBooking(event) {
     let errorCount = 0;
     const bookingCodes = [];
     
+    // Generate group_id for multi-room bookings
+    const groupId = checkedRooms.length > 1 ? 'GRP-' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '-' + Math.random().toString(36).substr(2, 6).toUpperCase() : '';
+    
     // Create booking for each room
     for (let i = 0; i < checkedRooms.length; i++) {
         const checkbox = checkedRooms[i];
@@ -1601,6 +1735,7 @@ async function submitMultiRoomBooking(event) {
         const roomFinalPrice = roomTotalPrice - discountPerRoom;
         
         const formData = new FormData();
+        if (groupId) formData.append('group_id', groupId);
         formData.append('guest_name', guestName);
         formData.append('guest_phone', guestPhone);
         formData.append('room_id', roomId);

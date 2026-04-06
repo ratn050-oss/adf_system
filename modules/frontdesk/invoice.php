@@ -31,7 +31,7 @@ $booking = $db->fetchOne("
         b.room_price, b.total_price, b.final_price, b.discount,
         b.status, b.payment_status, b.booking_source, b.total_nights,
         b.paid_amount, b.special_request, b.adults, b.children,
-        b.created_at,
+        b.created_at, b.group_id,
         g.guest_name, g.phone, g.email, g.id_card_number,
         r.room_number,
         rt.type_name as room_type
@@ -46,36 +46,59 @@ if (!$booking) {
     die('Booking not found');
 }
 
-// Find related bookings (same guest name + same dates + created within 5 minutes)
-// This groups multi-room bookings made in one submission
-$relatedBookings = $db->fetchAll("
-    SELECT 
-        b.id, b.booking_code, b.check_in_date, b.check_out_date,
-        b.room_price, b.total_price, b.final_price, b.discount,
-        b.status, b.payment_status, b.booking_source, b.total_nights,
-        b.paid_amount, b.special_request, b.adults, b.children,
-        b.created_at,
-        g.guest_name, g.phone, g.email, g.id_card_number,
-        r.room_number,
-        rt.type_name as room_type
-    FROM bookings b
-    LEFT JOIN guests g ON b.guest_id = g.id
-    LEFT JOIN rooms r ON b.room_id = r.id
-    LEFT JOIN room_types rt ON r.room_type_id = rt.id
-    WHERE g.guest_name = ?
-    AND b.check_in_date = ?
-    AND b.check_out_date = ?
-    AND b.booking_source = ?
-    AND b.status != 'cancelled'
-    AND ABS(TIMESTAMPDIFF(MINUTE, b.created_at, ?)) <= 5
-    ORDER BY r.room_number ASC
-", [
-    $booking['guest_name'],
-    $booking['check_in_date'],
-    $booking['check_out_date'],
-    $booking['booking_source'],
-    $booking['created_at']
-]);
+// Find related bookings - prefer group_id, fallback to fuzzy matching for old bookings
+$relatedBookings = [];
+if (!empty($booking['group_id'])) {
+    // Use group_id for reliable matching
+    $relatedBookings = $db->fetchAll("
+        SELECT 
+            b.id, b.booking_code, b.check_in_date, b.check_out_date,
+            b.room_price, b.total_price, b.final_price, b.discount,
+            b.status, b.payment_status, b.booking_source, b.total_nights,
+            b.paid_amount, b.special_request, b.adults, b.children,
+            b.created_at, b.group_id,
+            g.guest_name, g.phone, g.email, g.id_card_number,
+            r.room_number,
+            rt.type_name as room_type
+        FROM bookings b
+        LEFT JOIN guests g ON b.guest_id = g.id
+        LEFT JOIN rooms r ON b.room_id = r.id
+        LEFT JOIN room_types rt ON r.room_type_id = rt.id
+        WHERE b.group_id = ?
+        AND b.status != 'cancelled'
+        ORDER BY r.room_number ASC
+    ", [$booking['group_id']]);
+} else {
+    // Fallback: fuzzy matching for old bookings without group_id
+    $relatedBookings = $db->fetchAll("
+        SELECT 
+            b.id, b.booking_code, b.check_in_date, b.check_out_date,
+            b.room_price, b.total_price, b.final_price, b.discount,
+            b.status, b.payment_status, b.booking_source, b.total_nights,
+            b.paid_amount, b.special_request, b.adults, b.children,
+            b.created_at,
+            g.guest_name, g.phone, g.email, g.id_card_number,
+            r.room_number,
+            rt.type_name as room_type
+        FROM bookings b
+        LEFT JOIN guests g ON b.guest_id = g.id
+        LEFT JOIN rooms r ON b.room_id = r.id
+        LEFT JOIN room_types rt ON r.room_type_id = rt.id
+        WHERE g.guest_name = ?
+        AND b.check_in_date = ?
+        AND b.check_out_date = ?
+        AND b.booking_source = ?
+        AND b.status != 'cancelled'
+        AND ABS(TIMESTAMPDIFF(MINUTE, b.created_at, ?)) <= 5
+        ORDER BY r.room_number ASC
+    ", [
+        $booking['guest_name'],
+        $booking['check_in_date'],
+        $booking['check_out_date'],
+        $booking['booking_source'],
+        $booking['created_at']
+    ]);
+}
 
 // If no related found or only 1, use single booking
 $allBookings = (!empty($relatedBookings) && count($relatedBookings) > 1) ? $relatedBookings : [$booking];
