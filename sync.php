@@ -543,8 +543,21 @@ $ctx = stream_context_create(['http' => [
     'user_agent' => 'ADF-Sync/1.0',
 ]]);
 
+// Get latest commit SHA to bypass CDN cache
+$shaApiUrl = "https://api.github.com/repos/$repo/git/ref/heads/$branch";
+$shaCtx = stream_context_create(['http' => ['timeout' => 10, 'user_agent' => 'ADF-Sync/1.0', 'header' => "Accept: application/vnd.github.v3+json\r\n"]]);
+$shaData = @file_get_contents($shaApiUrl, false, $shaCtx);
+$latestSha = $branch; // fallback to branch name
+if ($shaData) {
+    $shaRef = json_decode($shaData, true);
+    if (!empty($shaRef['object']['sha'])) {
+        $latestSha = $shaRef['object']['sha'];
+        echo "Using SHA: " . substr($latestSha, 0, 7) . " (bypassing CDN cache)\n\n";
+    }
+}
+
 foreach ($filesToSync as $file) {
-    $url = "https://raw.githubusercontent.com/$repo/$branch/$file";
+    $url = "https://raw.githubusercontent.com/$repo/$latestSha/$file";
     echo "Syncing: $file ... ";
 
     $content = @file_get_contents($url, false, $ctx);
