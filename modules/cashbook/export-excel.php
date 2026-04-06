@@ -4,21 +4,15 @@
  * Accepts the same GET filters as index.php
  */
 define('APP_ACCESS', true);
-require_once dirname(dirname(dirname(__FILE__))) . '/config/config.php';
-require_once dirname(dirname(dirname(__FILE__))) . '/config/database.php';
+require_once '../../config/config.php';
+require_once '../../config/database.php';
+require_once '../../includes/auth.php';
+require_once '../../includes/functions.php';
 
-// Auth check
-if (!function_exists('isLoggedIn') || !isLoggedIn()) {
-    header('Location: /login.php');
-    exit;
-}
-
-// Business context
-if (defined('ACTIVE_BUSINESS_DB') && ACTIVE_BUSINESS_DB) {
-    $db = Database::switchDatabase(ACTIVE_BUSINESS_DB);
-} else {
-    die('No business selected');
-}
+// Auth check (same as index.php)
+$auth = new Auth();
+$auth->requireLogin();
+$db = Database::getInstance();
 $pdo = $db->getConnection();
 $pdo->exec("SET time_zone = '+07:00'");
 
