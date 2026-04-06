@@ -619,11 +619,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['approve_period'])) {
         $bankAccount = $db->fetchOne("SELECT id FROM cash_accounts WHERE (account_name LIKE '%Bank%' OR account_name LIKE '%BCA%' OR account_name LIKE '%BRI%') AND is_active = 1 LIMIT 1");
         $accountId = $bankAccount ? $bankAccount['id'] : null;
 
-        dbExec($db,
-            "INSERT INTO cashbook_transactions (transaction_date, transaction_type, account_id, category, description, amount, payment_method, reference_number, created_by) 
-             VALUES (CURDATE(), 'expense', ?, 'Payroll', ?, ?, 'transfer', ?, ?)",
-            [$accountId, $description, $amount, 'PAYROLL-' . $period['id'], $_SESSION['user_id']]
-        );
+        // Record to cashbook (non-blocking)
+        try {
+            $div = $db->fetchOne("SELECT id FROM divisions WHERE LOWER(division_name) LIKE '%hotel%' OR id = 1 LIMIT 1");
+            $cat = $db->fetchOne("SELECT id FROM categories WHERE LOWER(category_name) LIKE '%gaji%' OR LOWER(category_name) LIKE '%payroll%' OR LOWER(category_name) LIKE '%salary%' OR id = 1 LIMIT 1");
+            $txNum = 'PAY-' . date('Ymd') . '-' . $period['id'];
+            dbExec($db,
+                "INSERT INTO cash_book (transaction_date, transaction_time, transaction_number, division_id, category_id, account_id, transaction_type, amount, description, reference_number, payment_method, status, created_by) 
+                 VALUES (CURDATE(), CURTIME(), ?, ?, ?, ?, 'expense', ?, ?, ?, 'bank_transfer', 'posted', ?)",
+                [$txNum, $div['id'] ?? 1, $cat['id'] ?? 1, $accountId, $amount, $description, 'PAYROLL-' . $period['id'], $_SESSION['user_id']]
+            );
+        } catch (\Throwable $cbErr) {
+            error_log('Cashbook record skipped (approve): ' . $cbErr->getMessage());
+        }
 
         setFlash('success', 'Payroll approved! Rp ' . number_format($amount, 0, ',', '.') . ' recorded to cashbook.');
     } catch (\Throwable $e) {
@@ -686,14 +694,21 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['quick_pay'])) {
         $bankAccount = $db->fetchOne("SELECT id FROM cash_accounts WHERE (account_name LIKE '%Bank%' OR account_name LIKE '%BCA%' OR account_name LIKE '%BRI%') AND is_active = 1 LIMIT 1");
         $accountId = $bankAccount ? $bankAccount['id'] : null;
 
-        // Check if cashbook entry already exists
-        $existing = $db->fetchOne("SELECT id FROM cashbook_transactions WHERE reference_number = ?", ['PAYROLL-' . $period['id']]);
-        if (!$existing) {
-            dbExec($db,
-                "INSERT INTO cashbook_transactions (transaction_date, transaction_type, account_id, category, description, amount, payment_method, reference_number, created_by) 
-                 VALUES (CURDATE(), 'expense', ?, 'Payroll', ?, ?, 'transfer', ?, ?)",
-                [$accountId, $description, $amount, 'PAYROLL-' . $period['id'], $_SESSION['user_id']]
-            );
+        // Record to cashbook (non-blocking)
+        try {
+            $existing = $db->fetchOne("SELECT id FROM cash_book WHERE reference_number = ?", ['PAYROLL-' . $period['id']]);
+            if (!$existing) {
+                $div = $db->fetchOne("SELECT id FROM divisions WHERE LOWER(division_name) LIKE '%hotel%' OR id = 1 LIMIT 1");
+                $cat = $db->fetchOne("SELECT id FROM categories WHERE LOWER(category_name) LIKE '%gaji%' OR LOWER(category_name) LIKE '%payroll%' OR LOWER(category_name) LIKE '%salary%' OR id = 1 LIMIT 1");
+                $txNum = 'PAY-' . date('Ymd') . '-' . $period['id'];
+                dbExec($db,
+                    "INSERT INTO cash_book (transaction_date, transaction_time, transaction_number, division_id, category_id, account_id, transaction_type, amount, description, reference_number, payment_method, status, created_by) 
+                     VALUES (CURDATE(), CURTIME(), ?, ?, ?, ?, 'expense', ?, ?, ?, 'bank_transfer', 'posted', ?)",
+                    [$txNum, $div['id'] ?? 1, $cat['id'] ?? 1, $accountId, $amount, $description, 'PAYROLL-' . $period['id'], $_SESSION['user_id']]
+                );
+            }
+        } catch (\Throwable $cbErr) {
+            error_log('Cashbook record skipped (quick_pay): ' . $cbErr->getMessage());
         }
 
         // 4. Mark as paid + mark all slips as is_paid
@@ -770,11 +785,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['quick_pay_selected'])
         $accountId = $bankAccount ? $bankAccount['id'] : null;
 
         $ref = 'PAYROLL-' . $period['id'] . '-' . implode('_', $ids);
-        dbExec($db,
-            "INSERT INTO cashbook_transactions (transaction_date, transaction_type, account_id, category, description, amount, payment_method, reference_number, created_by) 
-             VALUES (CURDATE(), 'expense', ?, 'Payroll', ?, ?, 'transfer', ?, ?)",
-            [$accountId, $description, $totalPaid, $ref, $_SESSION['user_id']]
-        );
+        // Record to cashbook (non-blocking)
+        try {
+            $div = $db->fetchOne("SELECT id FROM divisions WHERE LOWER(division_name) LIKE '%hotel%' OR id = 1 LIMIT 1");
+            $cat = $db->fetchOne("SELECT id FROM categories WHERE LOWER(category_name) LIKE '%gaji%' OR LOWER(category_name) LIKE '%payroll%' OR LOWER(category_name) LIKE '%salary%' OR id = 1 LIMIT 1");
+            $txNum = 'PAY-' . date('Ymd') . '-' . substr(md5($ref), 0, 6);
+            dbExec($db,
+                "INSERT INTO cash_book (transaction_date, transaction_time, transaction_number, division_id, category_id, account_id, transaction_type, amount, description, reference_number, payment_method, status, created_by) 
+                 VALUES (CURDATE(), CURTIME(), ?, ?, ?, ?, 'expense', ?, ?, ?, 'bank_transfer', 'posted', ?)",
+                [$txNum, $div['id'] ?? 1, $cat['id'] ?? 1, $accountId, $totalPaid, $description, $ref, $_SESSION['user_id']]
+            );
+        } catch (\Throwable $cbErr) {
+            error_log('Cashbook record skipped (quick_pay_selected): ' . $cbErr->getMessage());
+        }
 
         // Check if ALL slips in this period are now paid
         $unpaid = $db->fetchOne("SELECT COUNT(*) as c FROM payroll_slips WHERE period_id = ? AND is_paid = 0", [$period['id']]);
@@ -794,8 +817,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['quick_pay_selected'])
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_period']) && $period) {
     try {
         $periodId = $period['id'];
-        // Delete cashbook entries for this period
-        dbExec($db, "DELETE FROM cashbook_transactions WHERE reference_number LIKE ?", ['PAYROLL-' . $periodId . '%']);
+        // Delete cashbook entries for this period (non-blocking if table/entry doesn't exist)
+        try {
+            dbExec($db, "DELETE FROM cash_book WHERE reference_number LIKE ?", ['PAYROLL-' . $periodId . '%']);
+        } catch (\Throwable $cbErr) {
+            error_log('Reset cashbook cleanup skipped: ' . $cbErr->getMessage());
+        }
         // Delete all slips
         dbExec($db, "DELETE FROM payroll_slips WHERE period_id = ?", [$periodId]);
         // Delete period
