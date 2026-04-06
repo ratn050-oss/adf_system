@@ -320,11 +320,19 @@ if ($action === 'payroll_debug') {
         $period = $stmt->fetch(PDO::FETCH_ASSOC);
         if ($period) {
             echo "Period: {$period['period_label']} ID={$period['id']} Status={$period['status']}\n\n";
-            $stmt = $pdo->prepare("SELECT id, employee_id, employee_name, work_hours, overtime_hours, hours_locked, base_salary, actual_base, net_salary FROM payroll_slips WHERE period_id = ? ORDER BY employee_name");
+            $stmt = $pdo->prepare("SELECT * FROM payroll_slips WHERE period_id = ? ORDER BY employee_name");
             $stmt->execute([$period['id']]);
             $slips = $stmt->fetchAll(PDO::FETCH_ASSOC);
             foreach ($slips as $s) {
-                echo "[Slip {$s['id']}] {$s['employee_name']} (emp:{$s['employee_id']}): wh={$s['work_hours']}, ot={$s['overtime_hours']}, locked={$s['hours_locked']}, base={$s['base_salary']}, actual={$s['actual_base']}, net={$s['net_salary']}\n";
+                $otAmt = $s['overtime_amount'] ?? 0;
+                $inc = $s['incentive'] ?? 0;
+                $alw = $s['allowance'] ?? 0;
+                $um = $s['uang_makan'] ?? 0;
+                $bon = $s['bonus'] ?? 0;
+                $oth = $s['other_income'] ?? 0;
+                $earn = $s['total_earnings'] ?? 0;
+                $ded = $s['total_deductions'] ?? 0;
+                echo "[Slip {$s['id']}] {$s['employee_name']} (emp:{$s['employee_id']}): wh={$s['work_hours']}, ot={$s['overtime_hours']}, locked={$s['hours_locked']}, base={$s['base_salary']}, actual={$s['actual_base']}, ot_amt=$otAmt, inc=$inc, alw=$alw, um=$um, bon=$bon, oth=$oth, earn=$earn, ded=$ded, net={$s['net_salary']}\n";
             }
         } else {
             echo "No period for $m/$y\n";
