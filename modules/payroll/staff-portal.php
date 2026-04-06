@@ -87,22 +87,26 @@ try {
         :root { --navy:<?php echo htmlspecialchars($themeColor); ?>; --navy2:<?php echo htmlspecialchars($themeSecondary); ?>; --gold:#f0b429; --green:#059669; --red:#dc2626; --orange:#ea580c; --blue:#2563eb; --purple:#7c3aed; --bg:#f1f5f9; --card:#fff; --border:#e2e8f0; --muted:#64748b; --text:#1e293b; }
         body { font-family:'Inter','Segoe UI',system-ui,sans-serif; background:var(--bg); color:var(--text); min-height:100vh; -webkit-font-smoothing:antialiased; }
 
-        /* ── Auth Screen ── */
-        .auth-wrap { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px; background:linear-gradient(135deg,var(--navy) 0%,var(--navy2) 100%); }
-        .auth-card { background:#fff; border-radius:20px; padding:32px 28px; width:100%; max-width:380px; box-shadow:0 20px 60px rgba(0,0,0,.3); }
-        .auth-logo { text-align:center; margin-bottom:20px; }
-        .auth-logo img { height:50px; max-width:180px; object-fit:contain; }
-        .auth-logo h1 { font-size:18px; color:var(--navy); margin-top:8px; }
-        .auth-logo p { font-size:12px; color:var(--muted); }
-        .auth-tabs { display:flex; background:var(--bg); border-radius:10px; padding:3px; margin-bottom:20px; }
-        .auth-tab { flex:1; padding:9px; border:none; background:transparent; border-radius:8px; font-size:13px; font-weight:600; color:var(--muted); cursor:pointer; transition:.15s; }
-        .auth-tab.active { background:var(--gold); color:var(--navy); font-weight:700; }
+        /* ── Auth Screen — Ocean Blue ── */
+        .auth-wrap { min-height:100vh; display:flex; align-items:center; justify-content:center; padding:20px; background:linear-gradient(160deg,#0a1628 0%,#0c2d48 30%,#145374 60%,#1a7fa0 100%); position:relative; overflow:hidden; }
+        .auth-wrap::before { content:''; position:absolute; top:-40%; right:-30%; width:600px; height:600px; background:radial-gradient(circle,rgba(20,140,200,.12),transparent 70%); border-radius:50%; pointer-events:none; }
+        .auth-wrap::after { content:''; position:absolute; bottom:-30%; left:-20%; width:500px; height:500px; background:radial-gradient(circle,rgba(6,182,212,.08),transparent 70%); border-radius:50%; pointer-events:none; }
+        .auth-card { background:rgba(255,255,255,.97); backdrop-filter:blur(20px); border-radius:24px; padding:36px 28px 28px; width:100%; max-width:380px; box-shadow:0 24px 80px rgba(0,0,0,.35),0 0 0 1px rgba(255,255,255,.1); position:relative; z-index:1; }
+        .auth-logo { text-align:center; margin-bottom:22px; }
+        .auth-logo img { height:56px; max-width:180px; object-fit:contain; filter:drop-shadow(0 2px 8px rgba(0,0,0,.1)); }
+        .auth-logo h1 { font-size:19px; color:#0c2d48; margin-top:10px; font-weight:800; letter-spacing:.3px; }
+        .auth-logo p { font-size:11px; color:#64748b; margin-top:4px; letter-spacing:.2px; }
+        .auth-tabs { display:flex; background:#f0f7ff; border-radius:12px; padding:3px; margin-bottom:20px; gap:2px; }
+        .auth-tab { flex:1; padding:9px 6px; border:none; background:transparent; border-radius:10px; font-size:12px; font-weight:600; color:#64748b; cursor:pointer; transition:all .2s; }
+        .auth-tab:hover { color:#0c2d48; }
+        .auth-tab.active { background:linear-gradient(135deg,#0ea5e9,#06b6d4); color:#fff; font-weight:700; box-shadow:0 2px 10px rgba(14,165,233,.3); }
         .auth-form { display:none; } .auth-form.active { display:block; }
         .fg { margin-bottom:14px; }
         .fl { font-size:11px; font-weight:600; color:var(--muted); text-transform:uppercase; letter-spacing:.4px; margin-bottom:4px; display:block; }
         .fi { width:100%; padding:10px 12px; border:1.5px solid var(--border); border-radius:8px; font-size:13px; color:var(--text); background:#fff; transition:.15s; }
-        .fi:focus { border-color:var(--gold); outline:none; box-shadow:0 0 0 3px rgba(240,180,41,.15); }
-        .btn-auth { width:100%; padding:12px; background:var(--navy); color:#fff; border:none; border-radius:10px; font-size:14px; font-weight:700; cursor:pointer; transition:.15s; }
+        .fi:focus { border-color:#0ea5e9; outline:none; box-shadow:0 0 0 3px rgba(14,165,233,.15); }
+        .btn-auth { width:100%; padding:13px; background:linear-gradient(135deg,#0c2d48,#145374); color:#fff; border:none; border-radius:12px; font-size:14px; font-weight:700; cursor:pointer; transition:all .2s; box-shadow:0 4px 16px rgba(12,45,72,.25); }
+        .btn-auth:hover { box-shadow:0 6px 24px rgba(12,45,72,.35); transform:translateY(-1px); }
         .btn-auth:hover { opacity:.9; } .btn-auth:disabled { opacity:.5; cursor:not-allowed; }
         .auth-msg { padding:8px 12px; border-radius:8px; font-size:12px; margin-bottom:12px; display:none; }
         .auth-msg.err { display:block; background:#fef2f2; color:var(--red); border:1px solid #fca5a5; }
@@ -115,7 +119,7 @@ try {
         .pw-toggle { position:absolute; right:10px; top:50%; transform:translateY(-50%); background:none; border:none; cursor:pointer; font-size:18px; color:var(--muted); padding:4px; line-height:1; }
         .pw-toggle:hover { color:var(--navy); }
         .remember-row { display:flex; align-items:center; gap:6px; margin-bottom:14px; margin-top:-4px; }
-        .remember-row input[type=checkbox] { width:16px; height:16px; accent-color:var(--gold); cursor:pointer; }
+        .remember-row input[type=checkbox] { width:16px; height:16px; accent-color:#0ea5e9; cursor:pointer; }
         .remember-row label { font-size:11px; color:var(--muted); cursor:pointer; user-select:none; }
 
         /* ── App Shell ── */
@@ -408,12 +412,13 @@ try {
             $displayLogo = $appLogo ?: (strpos($pwaIconUrl, 'absen-icon.php') === false ? $pwaIconUrl : null);
             if ($displayLogo): ?><img src="<?php echo htmlspecialchars($displayLogo); ?>" alt="Logo"><?php endif; ?>
             <h1><?php echo $bizName; ?></h1>
-            <p>Staff Portal — Login atau Daftar</p>
+            <p>Staff Portal</p>
         </div>
 
         <div class="auth-tabs">
             <button class="auth-tab active" onclick="switchAuth('login')">Login</button>
-            <button class="auth-tab" onclick="switchAuth('register')">Daftar Baru</button>
+            <button class="auth-tab" onclick="switchAuth('register')">Daftar</button>
+            <button class="auth-tab" onclick="switchAuth('changepw')">Ubah Password</button>
         </div>
 
         <div id="authMsg" class="auth-msg"></div>
@@ -461,6 +466,40 @@ try {
                 <label for="rememberReg">Simpan password</label>
             </div>
             <button type="submit" class="btn-auth" id="regBtn">📝 Daftar</button>
+        </form>
+
+        <!-- Change Password Form -->
+        <form class="auth-form" id="changepwForm" onsubmit="return handleChangePw(event)">
+            <div style="text-align:center;margin-bottom:16px;">
+                <div style="font-size:32px;margin-bottom:6px;">🔑</div>
+                <div style="font-size:12px;color:#64748b;">Masukkan username dan password lama, lalu buat password baru</div>
+            </div>
+            <div class="fg">
+                <label class="fl">Username / Email</label>
+                <input type="text" class="fi" name="email" placeholder="nama atau email" required id="cpEmail">
+            </div>
+            <div class="fg">
+                <label class="fl">Password Lama</label>
+                <div class="pw-wrap">
+                    <input type="password" class="fi" name="old_password" placeholder="Password saat ini" required id="cpOldPass">
+                    <button type="button" class="pw-toggle" onclick="togglePw('cpOldPass',this)">👁️</button>
+                </div>
+            </div>
+            <div class="fg">
+                <label class="fl">Password Baru</label>
+                <div class="pw-wrap">
+                    <input type="password" class="fi" name="new_password" placeholder="Min 6 karakter" minlength="6" required id="cpNewPass">
+                    <button type="button" class="pw-toggle" onclick="togglePw('cpNewPass',this)">👁️</button>
+                </div>
+            </div>
+            <div class="fg">
+                <label class="fl">Konfirmasi Password Baru</label>
+                <div class="pw-wrap">
+                    <input type="password" class="fi" name="confirm_password" placeholder="Ulangi password baru" minlength="6" required id="cpConfirmPass">
+                    <button type="button" class="pw-toggle" onclick="togglePw('cpConfirmPass',this)">👁️</button>
+                </div>
+            </div>
+            <button type="submit" class="btn-auth" id="cpBtn">🔑 Ubah Password</button>
         </form>
     </div>
 </div>
@@ -791,12 +830,16 @@ function clearCredentials() {
 function switchAuth(tab) {
     document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
     document.querySelectorAll('.auth-form').forEach(f => f.classList.remove('active'));
+    const tabs = document.querySelectorAll('.auth-tab');
     if (tab === 'login') {
-        document.querySelectorAll('.auth-tab')[0].classList.add('active');
+        tabs[0].classList.add('active');
         document.getElementById('loginForm').classList.add('active');
-    } else {
-        document.querySelectorAll('.auth-tab')[1].classList.add('active');
+    } else if (tab === 'register') {
+        tabs[1].classList.add('active');
         document.getElementById('registerForm').classList.add('active');
+    } else if (tab === 'changepw') {
+        tabs[2].classList.add('active');
+        document.getElementById('changepwForm').classList.add('active');
     }
     document.getElementById('authMsg').className = 'auth-msg';
 }
@@ -858,6 +901,43 @@ async function handleRegister(e) {
         }
     } catch (err) { showMsg('Koneksi gagal: ' + err.message, 'error'); }
     btn.disabled = false; btn.textContent = '📝 Daftar';
+    return false;
+}
+
+async function handleChangePw(e) {
+    e.preventDefault();
+    const btn = document.getElementById('cpBtn');
+    btn.disabled = true; btn.textContent = '⏳ Loading...';
+    const np = document.getElementById('cpNewPass').value;
+    const cp = document.getElementById('cpConfirmPass').value;
+    if (np !== cp) {
+        showMsg('Password baru tidak cocok!', 'error');
+        btn.disabled = false; btn.textContent = '🔑 Ubah Password';
+        return false;
+    }
+    if (np.length < 6) {
+        showMsg('Password baru minimal 6 karakter!', 'error');
+        btn.disabled = false; btn.textContent = '🔑 Ubah Password';
+        return false;
+    }
+    const fd = new FormData(e.target);
+    fd.append('action', 'change_password');
+    try {
+        const res = await fetch(API, { method: 'POST', body: fd });
+        const text = await res.text();
+        let data;
+        try { data = JSON.parse(text); } catch(pe) {
+            showMsg('Server error: ' + text.substring(0, 100), 'error');
+            btn.disabled = false; btn.textContent = '🔑 Ubah Password';
+            return false;
+        }
+        showMsg(data.message, data.success ? 'ok' : 'error');
+        if (data.success) {
+            e.target.reset();
+            setTimeout(() => switchAuth('login'), 2000);
+        }
+    } catch (err) { showMsg('Koneksi gagal: ' + err.message, 'error'); }
+    btn.disabled = false; btn.textContent = '🔑 Ubah Password';
     return false;
 }
 

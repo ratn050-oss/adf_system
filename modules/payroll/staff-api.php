@@ -171,6 +171,40 @@ if ($action === 'login') {
     exit;
 }
 
+// ══════════════════════════════════════
+// CHANGE PASSWORD
+// ══════════════════════════════════════
+if ($action === 'change_password') {
+    $email = trim($_POST['email'] ?? '');
+    $oldPassword = $_POST['old_password'] ?? '';
+    $newPassword = $_POST['new_password'] ?? '';
+    $confirmPassword = $_POST['confirm_password'] ?? '';
+
+    if (!$email || !$oldPassword || !$newPassword || !$confirmPassword) {
+        echo json_encode(['success' => false, 'message' => 'Semua field wajib diisi']); exit;
+    }
+    if (strlen($newPassword) < 6) {
+        echo json_encode(['success' => false, 'message' => 'Password baru minimal 6 karakter']); exit;
+    }
+    if ($newPassword !== $confirmPassword) {
+        echo json_encode(['success' => false, 'message' => 'Konfirmasi password tidak cocok']); exit;
+    }
+
+    $account = $db->fetchOne("SELECT id, password_hash FROM staff_accounts WHERE LOWER(email) = LOWER(?)", [$email]);
+    if (!$account) {
+        echo json_encode(['success' => false, 'message' => 'Username/email tidak ditemukan']); exit;
+    }
+    if (!password_verify($oldPassword, $account['password_hash'])) {
+        echo json_encode(['success' => false, 'message' => 'Password lama salah']); exit;
+    }
+
+    $newHash = password_hash($newPassword, PASSWORD_DEFAULT);
+    $pdo->prepare("UPDATE staff_accounts SET password_hash = ? WHERE id = ?")->execute([$newHash, $account['id']]);
+
+    echo json_encode(['success' => true, 'message' => 'Password berhasil diubah! Silakan login dengan password baru.']);
+    exit;
+}
+
 // Hotel operational date: day changes at noon (12:00), not midnight
 // Before noon = still yesterday's hotel day (guests haven't checked out)
 function getHotelDate() {
