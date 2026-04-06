@@ -2030,6 +2030,8 @@ include '../../includes/header.php';
                             Submit to Owner
                         </button>
                     </form>
+                <?php endif; ?>
+                <?php if (in_array($period['status'], ['draft', 'submitted', 'approved'])): ?>
                     <form method="POST" onsubmit="return confirm('Bayar langsung & publish slip gaji ke Staff Portal?')" style="display:inline;">
                         <input type="hidden" name="quick_pay" value="1">
                         <button type="submit" class="ps-btn ps-btn-success" style="margin-left:0.5rem;">
@@ -2039,24 +2041,15 @@ include '../../includes/header.php';
                             💰 Bayar & Publish
                         </button>
                     </form>
-                <?php elseif ($period['status'] == 'submitted'): ?>
-                    <form method="POST" onsubmit="return confirm('Approve and record to Cashbook?')">
+                <?php endif; ?>
+                <?php if ($period['status'] == 'submitted'): ?>
+                    <form method="POST" onsubmit="return confirm('Approve and record to Cashbook?')" style="display:inline;">
                         <input type="hidden" name="approve_period" value="1">
                         <button type="submit" class="ps-btn ps-btn-success">
                             <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
                                 <polyline points="20 6 9 17 4 12"></polyline>
                             </svg>
                             Approve & Record
-                        </button>
-                    </form>
-                <?php elseif ($period['status'] == 'approved'): ?>
-                    <form method="POST" onsubmit="return confirm('Mark as Paid?')">
-                        <input type="hidden" name="mark_paid" value="1">
-                        <button type="submit" class="ps-btn ps-btn-primary">
-                            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
-                                <polyline points="20 6 9 17 4 12"></polyline>
-                            </svg>
-                            Mark as Paid
                         </button>
                     </form>
                 <?php endif; ?>
