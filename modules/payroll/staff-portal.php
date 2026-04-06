@@ -524,6 +524,29 @@ try {
             <div id="monthlySummary"><div class="loading"><span class="spin"></span> Memuat...</div></div>
         </div>
 
+        <!-- Ajukan Lembur -->
+        <div class="card">
+            <div class="card-title">⏰ Ajukan Lembur</div>
+            <form id="lemburForm" onsubmit="return submitLembur(event)">
+                <div style="margin-bottom:10px;">
+                    <label class="fl">Tanggal Lembur</label>
+                    <input type="date" class="fi" name="overtime_date" required id="lemburDate" max="<?php echo date('Y-m-d'); ?>" value="<?php echo date('Y-m-d'); ?>">
+                </div>
+                <div style="margin-bottom:12px;">
+                    <label class="fl">Keterangan (Alasan Lembur)</label>
+                    <textarea class="fi" name="reason" rows="2" placeholder="Jelaskan alasan dan pekerjaan lembur..." required style="resize:vertical;" id="lemburReason"></textarea>
+                </div>
+                <button type="submit" class="btn-auth" id="lemburBtn" style="border-radius:10px;background:linear-gradient(135deg,#f59e0b,#d97706);">⏰ Ajukan Lembur</button>
+            </form>
+        </div>
+
+        <!-- Riwayat Lembur -->
+        <div class="card">
+            <div class="card-title">📋 Riwayat Pengajuan Lembur</div>
+            <div id="lemburStats" style="margin-bottom:10px;"></div>
+            <div id="lemburHistory"><div class="loading"><span class="spin"></span> Memuat...</div></div>
+        </div>
+
         <!-- Monitoring Detail -->
         <div class="card">
             <div style="display:flex; align-items:center; justify-content:space-between; margin-bottom:10px;">
@@ -579,28 +602,6 @@ try {
             <div id="cutiHistory"><div class="loading"><span class="spin"></span> Memuat...</div></div>
         </div>
 
-        <!-- Ajukan Lembur -->
-        <div class="card">
-            <div class="card-title">⏰ Ajukan Lembur</div>
-            <form id="lemburForm" onsubmit="return submitLembur(event)">
-                <div style="margin-bottom:10px;">
-                    <label class="fl">Tanggal Lembur</label>
-                    <input type="date" class="fi" name="overtime_date" required id="lemburDate" max="<?php echo date('Y-m-d'); ?>" value="<?php echo date('Y-m-d'); ?>">
-                </div>
-                <div style="margin-bottom:12px;">
-                    <label class="fl">Keterangan (Alasan Lembur)</label>
-                    <textarea class="fi" name="reason" rows="2" placeholder="Jelaskan alasan dan pekerjaan lembur..." required style="resize:vertical;" id="lemburReason"></textarea>
-                </div>
-                <button type="submit" class="btn-auth" id="lemburBtn" style="border-radius:10px;background:linear-gradient(135deg,#f59e0b,#d97706);">⏰ Ajukan Lembur</button>
-            </form>
-        </div>
-
-        <!-- Riwayat Lembur -->
-        <div class="card">
-            <div class="card-title">📋 Riwayat Pengajuan Lembur</div>
-            <div id="lemburStats" style="margin-bottom:10px;"></div>
-            <div id="lemburHistory"><div class="loading"><span class="spin"></span> Memuat...</div></div>
-        </div>
     </div>
 
     <!-- ═══ PAGE: ROOM (Hotel only) ═══ -->
