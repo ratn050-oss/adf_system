@@ -33,10 +33,10 @@ try {
     <title><?php echo isset($pageTitle) ? $pageTitle . ' - ' : ''; ?><?php echo APP_NAME; ?></title>
 
     <!-- Favicon -->
-    <link rel="icon" type="image/svg+xml" href="<?php echo BASE_URL; ?>/assets/icons/favicon.svg">
     <?php if ($faviconUrl): ?>
-        <link rel="icon" type="image/x-icon" href="<?php echo $faviconUrl; ?>?v=<?php echo time(); ?>">
+        <link rel="icon" type="image/png" sizes="192x192" href="<?php echo $faviconUrl; ?>?v=<?php echo time(); ?>">
         <link rel="shortcut icon" href="<?php echo $faviconUrl; ?>?v=<?php echo time(); ?>">
+        <link rel="apple-touch-icon" sizes="180x180" href="<?php echo $faviconUrl; ?>?v=<?php echo time(); ?>">
     <?php endif; ?>
 
     <!-- Preconnect for performance -->
