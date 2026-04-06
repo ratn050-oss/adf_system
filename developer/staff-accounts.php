@@ -202,14 +202,6 @@ if ($bizDb) {
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
         try { $bizPdo->exec("ALTER TABLE staff_accounts ADD COLUMN plain_password VARCHAR(255) DEFAULT NULL AFTER password_hash"); } catch (Exception $e) {}
 
-        // Auto-generate passwords for accounts that don't have plain_password yet
-        $nullPwAccounts = $bizPdo->query("SELECT id, email FROM staff_accounts WHERE plain_password IS NULL OR plain_password = ''")->fetchAll(PDO::FETCH_ASSOC);
-        foreach ($nullPwAccounts as $npa) {
-            $genPass = strtolower(substr(preg_replace('/[^a-zA-Z]/', '', $npa['email']), 0, 4)) . rand(100, 999);
-            $genHash = password_hash($genPass, PASSWORD_DEFAULT);
-            $bizPdo->prepare("UPDATE staff_accounts SET password_hash = ?, plain_password = ? WHERE id = ?")->execute([$genHash, $genPass, $npa['id']]);
-        }
-
         $staffAccounts = $bizPdo->query("
             SELECT sa.*, pe.full_name, pe.employee_code, pe.position, pe.department 
             FROM staff_accounts sa 
@@ -369,9 +361,9 @@ require_once __DIR__ . '/includes/header.php';
                             <td><code><?php echo htmlspecialchars($acc['email']); ?></code></td>
                             <td>
                                 <?php if (!empty($acc['plain_password'])): ?>
-                                    <code class="text-danger"><?php echo htmlspecialchars($acc['plain_password']); ?></code>
+                                    <code class="text-danger fw-bold"><?php echo htmlspecialchars($acc['plain_password']); ?></code>
                                 <?php else: ?>
-                                    <span class="text-muted small">-</span>
+                                    <span class="badge bg-warning text-dark" style="cursor:pointer" onclick="resetPassword(<?php echo $acc['id']; ?>, '<?php echo htmlspecialchars(addslashes($acc['full_name'] ?? '')); ?>')" title="Klik untuk set password">⚠️ Reset</span>
                                 <?php endif; ?>
                             </td>
                             <td>
