@@ -793,6 +793,7 @@ echo getPrintCSS();
 .btn-primary:hover { background: #d4960d !important; }
 .btn-secondary { background: #f3f4f6 !important; color: #374151 !important; border: 1px solid #e5e7eb !important; }
 .btn-secondary:hover { background: #e5e7eb !important; }
+.btn-white-text, .btn-white-text span, .btn-white-text i, .btn-white-text svg { color: #fff !important; stroke: #fff !important; }
 
 /* Table Styling */
 .cb-table { border-radius: 12px; overflow: hidden; border: 1px solid #e5e7eb; }
@@ -1828,19 +1829,19 @@ echo getPrintCSS();
                 <i data-feather="filter" style="width: 16px; height: 16px;"></i> 
                 <span>Filter</span>
             </button>
-            <a href="index.php" class="btn btn-secondary" style="flex: 0 0 auto; display: flex; align-items: center; justify-content: center; gap: 0.5rem; height: 40px; padding: 0 1.25rem; background: #64748b !important; color: #fff !important;">
+            <a href="index.php" class="btn btn-secondary btn-white-text" style="flex: 0 0 auto; display: flex; align-items: center; justify-content: center; gap: 0.5rem; height: 40px; padding: 0 1.25rem; background: #64748b !important;">
                 <i data-feather="x" style="width: 16px; height: 16px;"></i> 
                 <span>Reset</span>
             </a>
-            <button type="button" onclick="cetakPDF()" class="btn btn-primary" style="flex: 0 0 auto; display: flex; align-items: center; justify-content: center; gap: 0.5rem; height: 40px; padding: 0 1.25rem; background: #3b82f6 !important; color: #fff !important;">
+            <button type="button" onclick="cetakPDF()" class="btn btn-primary btn-white-text" style="flex: 0 0 auto; display: flex; align-items: center; justify-content: center; gap: 0.5rem; height: 40px; padding: 0 1.25rem; background: #3b82f6 !important;">
                 <i data-feather="printer" style="width: 16px; height: 16px;"></i>
                 <span>Cetak PDF</span>
             </button>
-            <button type="button" onclick="exportExcel()" class="btn btn-primary" style="flex: 0 0 auto; display: flex; align-items: center; justify-content: center; gap: 0.5rem; height: 40px; padding: 0 1.25rem; background: #16a34a !important; color: #fff !important;">
+            <button type="button" onclick="exportExcel()" class="btn btn-primary btn-white-text" style="flex: 0 0 auto; display: flex; align-items: center; justify-content: center; gap: 0.5rem; height: 40px; padding: 0 1.25rem; background: #16a34a !important;">
                 <i data-feather="file-text" style="width: 16px; height: 16px;"></i>
                 <span>Export Excel</span>
             </button>
-            <button type="button" onclick="sendWhatsApp(event)" class="btn btn-primary" style="flex: 0 0 auto; display: flex; align-items: center; justify-content: center; gap: 0.5rem; height: 40px; padding: 0 1.25rem; background: #25d366 !important; color: #fff !important;">
+            <button type="button" onclick="sendWhatsApp(event)" class="btn btn-primary btn-white-text" style="flex: 0 0 auto; display: flex; align-items: center; justify-content: center; gap: 0.5rem; height: 40px; padding: 0 1.25rem; background: #25d366 !important;">
                 <i data-feather="message-circle" style="width: 16px; height: 16px;"></i>
                 <span>Send WhatsApp</span>
             </button>
