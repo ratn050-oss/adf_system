@@ -1,4 +1,5 @@
 <?php
+// sync v9.3 - includes staff-portal, print-slip
 
 /**
  * Diagnostic + Sync tool
