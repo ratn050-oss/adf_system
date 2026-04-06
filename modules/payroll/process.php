@@ -1,11 +1,20 @@
 <?php
 // modules/payroll/process.php - MODERN 2027 DESIGN WITH WORK HOURS LOGIC
-// VERSION: 2026-04-05-v8 (flush pending saves before Pay/form submit, track in-flight AJAX)
+// VERSION: 2026-04-05-v9 (fix silent DB errors, robust sync, full net calc on create)
 define('APP_ACCESS', true);
 require_once '../../config/config.php';
 require_once '../../config/database.php';
 require_once '../../includes/auth.php';
 require_once '../../includes/functions.php';
+
+// Helper: Execute query that MUST succeed — throws on failure
+// $db->query() silently swallows PDOException and returns false
+function dbExec($db, $sql, $params = []) {
+    $pdo = $db->getConnection();
+    $stmt = $pdo->prepare($sql);
+    $stmt->execute($params);
+    return $stmt;
+}
 
 $auth = new Auth();
 $auth->requireLogin();
@@ -157,7 +166,7 @@ function recalcAttendanceHours($db, $month, $year)
             if ($t4 > $t3) $sh2 = round(($t4 - $t3) / 3600, 2);
         }
         $wh = round(($sh1 ?? 0) + ($sh2 ?? 0), 2);
-        $db->query(
+        dbExec($db,
             "UPDATE payroll_attendance SET shift_1_hours = ?, shift_2_hours = ?, work_hours = ? WHERE id = ?",
             [$sh1, $sh2, $wh, $r['id']]
         );
@@ -232,8 +241,13 @@ function syncSlipsWithAttendance($db, $periodId, $month, $year)
         $hourlyRate = $baseSalary / 200;
         $actualBase = ($workH >= 200) ? $baseSalary : round($workH * $hourlyRate, 2);
 
-        // Read current addon values (preserve them, don't overwrite)
-        $cur = $db->fetchOne("SELECT overtime_hours, overtime_rate, overtime_amount, incentive, allowance, uang_makan, bonus, other_income, deduction_loan, deduction_absence, deduction_tax, deduction_bpjs, deduction_other FROM payroll_slips WHERE id = ?", [$slip['id']]);
+        // Read current addon values via direct PDO (preserve them, don't overwrite)
+        $pdo = $db->getConnection();
+        $stmt = $pdo->prepare("SELECT overtime_hours, overtime_rate, overtime_amount, incentive, allowance, uang_makan, bonus, other_income, deduction_loan, deduction_absence, deduction_tax, deduction_bpjs, deduction_other FROM payroll_slips WHERE id = ?");
+        $stmt->execute([$slip['id']]);
+        $cur = $stmt->fetch(\PDO::FETCH_ASSOC);
+        if (!$cur) continue; // skip if slip disappeared
+
         $otH = (float)($cur['overtime_hours'] ?? 0);
         $otRate = $hourlyRate;
         $otAmount = round($otH * $otRate, 2);
@@ -251,14 +265,14 @@ function syncSlipsWithAttendance($db, $periodId, $month, $year)
         $totalDed = $loan + $absence + $tax + $bpjs + $dedOther;
         $netSalary = $totalEarn - $totalDed;
 
-        // Update only work_hours + recalculated totals — overtime/incentive/allowance/bonus/uang_makan are preserved
-        $db->query(
+        // Update via direct PDO to avoid silent error swallowing
+        dbExec($db,
             "UPDATE payroll_slips SET work_hours=?, actual_base=?, overtime_rate=?, overtime_amount=?, total_earnings=?, total_deductions=?, net_salary=? WHERE id=?",
             [$workH, $actualBase, $otRate, $otAmount, $totalEarn, $totalDed, $netSalary, $slip['id']]
         );
     }
     // Update period totals
-    $db->query("UPDATE payroll_periods p LEFT JOIN (SELECT period_id, SUM(total_earnings) as gross, SUM(total_deductions) as ded, SUM(net_salary) as net, COUNT(id) as cnt FROM payroll_slips WHERE period_id = ?) s ON p.id = s.period_id SET p.total_gross = s.gross, p.total_deductions = s.ded, p.total_net = s.net, p.total_employees = s.cnt WHERE p.id = ?", [$periodId, $periodId]);
+    dbExec($db, "UPDATE payroll_periods p LEFT JOIN (SELECT period_id, SUM(total_earnings) as gross, SUM(total_deductions) as ded, SUM(net_salary) as net, COUNT(id) as cnt FROM payroll_slips WHERE period_id = ?) s ON p.id = s.period_id SET p.total_gross = s.gross, p.total_deductions = s.ded, p.total_net = s.net, p.total_employees = s.cnt WHERE p.id = ?", [$periodId, $periodId]);
 }
 
 // ── Handle manual sync from attendance ──
@@ -266,7 +280,7 @@ if (isset($_POST['sync_attendance']) && $period) {
     try {
         syncSlipsWithAttendance($db, $period['id'], $month, $year);
         setFlash('success', '✅ Jam kerja berhasil di-sync dari data absensi');
-    } catch (Exception $e) {
+    } catch (\Throwable $e) {
         setFlash('error', 'Sync error: ' . $e->getMessage());
     }
     header("Location: process.php?month=$month&year=$year");
@@ -276,7 +290,7 @@ if (isset($_POST['sync_attendance']) && $period) {
 if (!$period && isset($_POST['create_period'])) {
     try {
         $label = $months[$month] . ' ' . $year;
-        $db->query(
+        dbExec($db,
             "INSERT INTO payroll_periods (period_month, period_year, period_label, status, created_by) VALUES (?, ?, ?, 'draft', ?)",
             [$month, $year, $label, $_SESSION['user_id']]
         );
@@ -287,12 +301,17 @@ if (!$period && isset($_POST['create_period'])) {
             // Get real attendance hours for this month
             $att = getAttendanceHours($db, $emp['id'], $month, $year);
             $workH = $att['work_hours'] > 0 ? $att['work_hours'] : 0;
+            $otH = $att['overtime_hours'];
             $baseSalary = (float)$emp['base_salary'];
             $hourlyRate = $baseSalary / 200;
             $actualBase = ($workH >= 200) ? $baseSalary : round($workH * $hourlyRate, 2);
-            $db->query(
-                "INSERT INTO payroll_slips (period_id, employee_id, employee_name, position, base_salary, work_hours, actual_base, overtime_hours, overtime_rate, overtime_amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
-                [$period['id'], $emp['id'], $emp['full_name'], $emp['position'], $baseSalary, $workH, $actualBase, $att['overtime_hours'], $hourlyRate, round($att['overtime_hours'] * $hourlyRate, 2)]
+            $otRate = $hourlyRate;
+            $otAmount = round($otH * $otRate, 2);
+            $totalEarn = $actualBase + $otAmount;
+            $netSalary = $totalEarn;
+            dbExec($db,
+                "INSERT INTO payroll_slips (period_id, employee_id, employee_name, position, base_salary, work_hours, actual_base, overtime_hours, overtime_rate, overtime_amount, total_earnings, net_salary) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
+                [$period['id'], $emp['id'], $emp['full_name'], $emp['position'], $baseSalary, $workH, $actualBase, $otH, $otRate, $otAmount, $totalEarn, $netSalary]
             );
         }
 
@@ -350,7 +369,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_update'])) {
                 hours_locked = 1
                 WHERE id = ?";
 
-        $db->query($sql, [
+        dbExec($db, $sql, [
             $base_salary,
             $work_hours,
             $actual_base,
@@ -375,7 +394,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_update'])) {
 
         $period_id = $period ? $period['id'] : 0;
         if ($period_id) {
-            $db->query("UPDATE payroll_periods p
+            dbExec($db, "UPDATE payroll_periods p
                         LEFT JOIN (
                             SELECT period_id, SUM(total_earnings) as gross, SUM(total_deductions) as ded, SUM(net_salary) as net, COUNT(id) as cnt 
                             FROM payroll_slips WHERE period_id = ?
@@ -385,7 +404,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_update'])) {
         }
 
         echo json_encode(['status' => 'success', 'net_salary' => $net_salary, 'actual_base' => $actual_base, 'hours_locked' => 1]);
-    } catch (Exception $e) {
+    } catch (\Throwable $e) {
         http_response_code(500);
         echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
     }
@@ -400,12 +419,12 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_unlock_hours']))
         $slip = $db->fetchOne("SELECT employee_id FROM payroll_slips WHERE id = ?", [$slip_id]);
         if (!$slip) throw new Exception('Slip not found');
         $att = getAttendanceHours($db, $slip['employee_id'], $month, $year);
-        $db->query(
+        dbExec($db,
             "UPDATE payroll_slips SET hours_locked = 0, work_hours = ?, overtime_hours = ? WHERE id = ?",
             [$att['work_hours'], $att['overtime_hours'], $slip_id]
         );
         echo json_encode(['status' => 'success', 'work_hours' => $att['work_hours'], 'overtime_hours' => $att['overtime_hours']]);
-    } catch (Exception $e) {
+    } catch (\Throwable $e) {
         echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
     }
     exit;
@@ -431,7 +450,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_save_daily_atten
             // Skip completely empty rows
             if (!$checkIn && !$checkOut && !$scan3 && !$scan4 && $status === 'absent') {
                 // Delete record if exists and user set to absent with no times
-                $db->query("DELETE FROM payroll_attendance WHERE employee_id = ? AND attendance_date = ? AND check_in_time IS NULL", [$empId, $date]);
+                dbExec($db, "DELETE FROM payroll_attendance WHERE employee_id = ? AND attendance_date = ? AND check_in_time IS NULL", [$empId, $date]);
                 continue;
             }
             if (!$checkIn && !$checkOut && !$scan3 && !$scan4) continue;
@@ -451,7 +470,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_save_daily_atten
             }
             $workHours = round($shift1Hours + $shift2Hours, 2);
 
-            $db->query(
+            dbExec($db,
                 "INSERT INTO payroll_attendance (employee_id, attendance_date, check_in_time, check_out_time, scan_3, scan_4, shift_1_hours, shift_2_hours, work_hours, status)
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                  ON DUPLICATE KEY UPDATE check_in_time=VALUES(check_in_time), check_out_time=VALUES(check_out_time),
@@ -477,7 +496,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_save_daily_atten
                 $totalDed = (float)($slip['deduction_loan'] ?? 0) + (float)($slip['deduction_absence'] ?? 0) + (float)($slip['deduction_tax'] ?? 0) + (float)($slip['deduction_bpjs'] ?? 0) + (float)($slip['deduction_other'] ?? 0);
                 $netSalary = $totalEarn - $totalDed;
                 // Only update work_hours and recalculated totals — preserve hours_locked state
-                $db->query(
+                dbExec($db,
                     "UPDATE payroll_slips SET work_hours=?, overtime_hours=?, actual_base=?, overtime_rate=?, overtime_amount=?, total_earnings=?, total_deductions=?, net_salary=? WHERE id=?",
                     [$workH, $otH, $actualBase, $hourlyRate, $otAmount, $totalEarn, $totalDed, $netSalary, $slip['id']]
                 );
@@ -485,7 +504,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_save_daily_atten
             }
         }
         echo json_encode(['status' => 'success', 'work_hours' => $att['work_hours'], 'overtime_hours' => $att['overtime_hours'], 'slip' => $slipData]);
-    } catch (Exception $e) {
+    } catch (\Throwable $e) {
         echo json_encode(['status' => 'error', 'message' => $e->getMessage()]);
     }
     exit;
@@ -503,8 +522,9 @@ if ($period) {
             syncSlipsWithAttendance($db, $period['id'], $month, $year);
             // Refresh period data after sync
             $period = $db->fetchOne("SELECT * FROM payroll_periods WHERE id = ?", [$period['id']]);
-        } catch (Exception $e) {
+        } catch (\Throwable $e) {
             $autoSyncError = $e->getMessage();
+            error_log('Payroll auto-sync error: ' . $e->getMessage() . ' in ' . $e->getFile() . ':' . $e->getLine());
         }
     }
 
@@ -528,9 +548,9 @@ if ($period) {
             $period['total_net'] = $sums['net'];
             $period['total_employees'] = $sums['cnt'];
             // Persist to payroll_periods to keep DB consistent
-            $db->query("UPDATE payroll_periods SET total_gross = ?, total_deductions = ?, total_net = ?, total_employees = ? WHERE id = ?", [$sums['gross'], $sums['ded'], $sums['net'], $sums['cnt'], $period['id']]);
+            dbExec($db, "UPDATE payroll_periods SET total_gross = ?, total_deductions = ?, total_net = ?, total_employees = ? WHERE id = ?", [$sums['gross'], $sums['ded'], $sums['net'], $sums['cnt'], $period['id']]);
         }
-    } catch (Exception $e) {
+    } catch (\Throwable $e) {
         // ignore sync errors; page can still render with existing period values
     }
 }
@@ -560,13 +580,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_proses'])) {
             $total_earnings = $actual_base + $overtime_amount + $incentive + $allowance + $uang_makan + $bonus + $other;
             $total_deductions = $loan + $absence + $tax + $bpjs + $ded_other;
             $net_salary = $total_earnings - $total_deductions;
-            $db->query(
+            dbExec($db,
                 "UPDATE payroll_slips SET actual_base=?, overtime_rate=?, overtime_amount=?, total_earnings=?, total_deductions=?, net_salary=?, uang_makan=? WHERE id=?",
                 [$actual_base, $overtime_rate, $overtime_amount, $total_earnings, $total_deductions, $net_salary, $uang_makan, $slip['id']]
             );
         }
         $period_id = $period['id'];
-        $db->query("UPDATE payroll_periods p LEFT JOIN ( SELECT period_id, SUM(total_earnings) as gross, SUM(total_deductions) as ded, SUM(net_salary) as net, COUNT(id) as cnt FROM payroll_slips WHERE period_id = ? ) s ON p.id = s.period_id SET p.total_gross = s.gross, p.total_deductions = s.ded, p.total_net = s.net, p.total_employees = s.cnt WHERE p.id = ?", [$period_id, $period_id]);
+        dbExec($db, "UPDATE payroll_periods p LEFT JOIN ( SELECT period_id, SUM(total_earnings) as gross, SUM(total_deductions) as ded, SUM(net_salary) as net, COUNT(id) as cnt FROM payroll_slips WHERE period_id = ? ) s ON p.id = s.period_id SET p.total_gross = s.gross, p.total_deductions = s.ded, p.total_net = s.net, p.total_employees = s.cnt WHERE p.id = ?", [$period_id, $period_id]);
         setFlash('success', 'All slips recalculated and totals updated!');
         header("Location: process.php?month=$month&year=$year");
         exit;
@@ -575,7 +595,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_proses'])) {
 
 // Handle Submit Period
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_period'])) {
-    $db->query(
+    dbExec($db,
         "UPDATE payroll_periods SET status = 'submitted', submitted_at = NOW(), submitted_by = ? WHERE id = ?",
         [$_SESSION['user_id'], $period['id']]
     );
@@ -587,7 +607,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_period'])) {
 // Handle Approve Period (Owner) - Record to Cashbook
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['approve_period'])) {
     try {
-        $db->query(
+        dbExec($db,
             "UPDATE payroll_periods SET status = 'approved', approved_at = NOW(), approved_by = ? WHERE id = ?",
             [$_SESSION['user_id'], $period['id']]
         );
@@ -599,14 +619,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['approve_period'])) {
         $bankAccount = $db->fetchOne("SELECT id FROM cash_accounts WHERE (account_name LIKE '%Bank%' OR account_name LIKE '%BCA%' OR account_name LIKE '%BRI%') AND is_active = 1 LIMIT 1");
         $accountId = $bankAccount ? $bankAccount['id'] : null;
 
-        $db->query(
+        dbExec($db,
             "INSERT INTO cashbook_transactions (transaction_date, transaction_type, account_id, category, description, amount, payment_method, reference_number, created_by) 
              VALUES (CURDATE(), 'expense', ?, 'Payroll', ?, ?, 'transfer', ?, ?)",
             [$accountId, $description, $amount, 'PAYROLL-' . $period['id'], $_SESSION['user_id']]
         );
 
         setFlash('success', 'Payroll approved! Rp ' . number_format($amount, 0, ',', '.') . ' recorded to cashbook.');
-    } catch (Exception $e) {
+    } catch (\Throwable $e) {
         setFlash('error', 'Error approving payroll: ' . $e->getMessage());
     }
     header("Location: process.php?month=$month&year=$year");
@@ -615,8 +635,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['approve_period'])) {
 
 // Handle Mark as Paid
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['mark_paid'])) {
-    $db->query("UPDATE payroll_periods SET status = 'paid', paid_at = NOW() WHERE id = ?", [$period['id']]);
-    setFlash('success', 'Payroll marked as Paid');
+    try {
+        dbExec($db, "UPDATE payroll_periods SET status = 'paid', paid_at = NOW() WHERE id = ?", [$period['id']]);
+        setFlash('success', 'Payroll marked as Paid');
+    } catch (\Throwable $e) {
+        error_log("mark_paid error: " . $e->getMessage());
+        setFlash('error', 'Error marking as paid: ' . $e->getMessage());
+    }
     header("Location: process.php?month=$month&year=$year");
     exit;
 }
@@ -624,22 +649,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['mark_paid'])) {
 // Handle Quick Pay — Save + Approve + Record Cashbook + Mark Paid in one step
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['quick_pay'])) {
     try {
-        // 1. Auto-save slips first
-        $slips = $db->fetchAll("SELECT id, employee_id FROM payroll_slips WHERE period_id = ?", [$period['id']]) ?: [];
+        // 1. Recalculate ALL slips from their individual fields (fix any stale totals)
+        $allSlips = $db->fetchAll("SELECT * FROM payroll_slips WHERE period_id = ?", [$period['id']]) ?: [];
         $totalNet = 0;
-        foreach ($slips as $sl) {
-            $slip = $db->fetchOne("SELECT * FROM payroll_slips WHERE id = ?", [$sl['id']]);
-            $totalNet += (float)($slip['net_salary'] ?? 0);
+        foreach ($allSlips as $sl) {
+            $bs = (float)$sl['base_salary'];
+            $wh = (float)$sl['work_hours'];
+            $hr = $bs / 200;
+            $ab = ($wh >= 200) ? $bs : round($wh * $hr, 2);
+            $oH = (float)$sl['overtime_hours'];
+            $oA = round($oH * $hr, 2);
+            $tE = $ab + $oA + (float)($sl['incentive'] ?? 0) + (float)($sl['allowance'] ?? 0) + (float)($sl['uang_makan'] ?? 0) + (float)($sl['bonus'] ?? 0) + (float)($sl['other_income'] ?? 0);
+            $tD = (float)($sl['deduction_loan'] ?? 0) + (float)($sl['deduction_absence'] ?? 0) + (float)($sl['deduction_tax'] ?? 0) + (float)($sl['deduction_bpjs'] ?? 0) + (float)($sl['deduction_other'] ?? 0);
+            $nS = $tE - $tD;
+            dbExec($db, "UPDATE payroll_slips SET actual_base=?, overtime_rate=?, overtime_amount=?, total_earnings=?, total_deductions=?, net_salary=? WHERE id=?",
+                [$ab, $hr, $oA, $tE, $tD, $nS, $sl['id']]);
+            $totalNet += $nS;
         }
 
         // 2. Update period totals
-        $db->query(
+        dbExec($db,
             "UPDATE payroll_periods SET total_net = ?, total_employees = ? WHERE id = ?",
-            [$totalNet, count($slips), $period['id']]
+            [$totalNet, count($allSlips), $period['id']]
         );
 
         // 3. Skip to approved + cashbook
-        $db->query(
+        dbExec($db,
             "UPDATE payroll_periods SET status = 'approved', submitted_at = NOW(), submitted_by = ?, approved_at = NOW(), approved_by = ? WHERE id = ?",
             [$_SESSION['user_id'], $_SESSION['user_id'], $period['id']]
         );
@@ -654,7 +689,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['quick_pay'])) {
         // Check if cashbook entry already exists
         $existing = $db->fetchOne("SELECT id FROM cashbook_transactions WHERE reference_number = ?", ['PAYROLL-' . $period['id']]);
         if (!$existing) {
-            $db->query(
+            dbExec($db,
                 "INSERT INTO cashbook_transactions (transaction_date, transaction_type, account_id, category, description, amount, payment_method, reference_number, created_by) 
                  VALUES (CURDATE(), 'expense', ?, 'Payroll', ?, ?, 'transfer', ?, ?)",
                 [$accountId, $description, $amount, 'PAYROLL-' . $period['id'], $_SESSION['user_id']]
@@ -662,11 +697,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['quick_pay'])) {
         }
 
         // 4. Mark as paid + mark all slips as is_paid
-        $db->query("UPDATE payroll_periods SET status = 'paid', paid_at = NOW() WHERE id = ?", [$period['id']]);
-        $db->query("UPDATE payroll_slips SET is_paid = 1 WHERE period_id = ?", [$period['id']]);
+        dbExec($db, "UPDATE payroll_periods SET status = 'paid', paid_at = NOW() WHERE id = ?", [$period['id']]);
+        dbExec($db, "UPDATE payroll_slips SET is_paid = 1 WHERE period_id = ?", [$period['id']]);
 
         setFlash('success', '✅ Payroll dibayar! Rp ' . number_format($amount, 0, ',', '.') . ' tercatat di cashbook. Slip gaji tersedia di Staff Portal.');
-    } catch (Exception $e) {
+    } catch (\Throwable $e) {
         setFlash('error', 'Error: ' . $e->getMessage());
     }
     header("Location: process.php?month=$month&year=$year");
@@ -685,14 +720,28 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['quick_pay_selected'])
     }
 
     try {
+        // Recalculate selected slips before payment
+        foreach ($ids as $sid) {
+            $sl = $db->fetchOne("SELECT * FROM payroll_slips WHERE id = ?", [$sid]);
+            if (!$sl) continue;
+            $bs = (float)$sl['base_salary']; $wh = (float)$sl['work_hours']; $hr = $bs / 200;
+            $ab = ($wh >= 200) ? $bs : round($wh * $hr, 2);
+            $oH = (float)$sl['overtime_hours']; $oA = round($oH * $hr, 2);
+            $tE = $ab + $oA + (float)($sl['incentive'] ?? 0) + (float)($sl['allowance'] ?? 0) + (float)($sl['uang_makan'] ?? 0) + (float)($sl['bonus'] ?? 0) + (float)($sl['other_income'] ?? 0);
+            $tD = (float)($sl['deduction_loan'] ?? 0) + (float)($sl['deduction_absence'] ?? 0) + (float)($sl['deduction_tax'] ?? 0) + (float)($sl['deduction_bpjs'] ?? 0) + (float)($sl['deduction_other'] ?? 0);
+            $nS = $tE - $tD;
+            dbExec($db, "UPDATE payroll_slips SET actual_base=?, overtime_rate=?, overtime_amount=?, total_earnings=?, total_deductions=?, net_salary=? WHERE id=?",
+                [$ab, $hr, $oA, $tE, $tD, $nS, $sid]);
+        }
+
         // Ensure period is at least approved (so portal can see it)
         if ($period['status'] === 'draft') {
-            $db->query(
+            dbExec($db,
                 "UPDATE payroll_periods SET status = 'approved', submitted_at = NOW(), submitted_by = ?, approved_at = NOW(), approved_by = ? WHERE id = ?",
                 [$_SESSION['user_id'], $_SESSION['user_id'], $period['id']]
             );
         } elseif ($period['status'] === 'submitted') {
-            $db->query(
+            dbExec($db,
                 "UPDATE payroll_periods SET status = 'approved', approved_at = NOW(), approved_by = ? WHERE id = ?",
                 [$_SESSION['user_id'], $period['id']]
             );
@@ -701,7 +750,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['quick_pay_selected'])
         // Mark selected slips as paid
         $placeholders = implode(',', array_fill(0, count($ids), '?'));
         $params = array_merge($ids, [$period['id']]);
-        $db->query("UPDATE payroll_slips SET is_paid = 1 WHERE id IN ($placeholders) AND period_id = ?", $params);
+        dbExec($db, "UPDATE payroll_slips SET is_paid = 1 WHERE id IN ($placeholders) AND period_id = ?", $params);
 
         // Calculate total for selected
         $selectedSlips = $db->fetchAll("SELECT net_salary, employee_name FROM payroll_slips WHERE id IN ($placeholders)", $ids);
@@ -721,7 +770,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['quick_pay_selected'])
         $accountId = $bankAccount ? $bankAccount['id'] : null;
 
         $ref = 'PAYROLL-' . $period['id'] . '-' . implode('_', $ids);
-        $db->query(
+        dbExec($db,
             "INSERT INTO cashbook_transactions (transaction_date, transaction_type, account_id, category, description, amount, payment_method, reference_number, created_by) 
              VALUES (CURDATE(), 'expense', ?, 'Payroll', ?, ?, 'transfer', ?, ?)",
             [$accountId, $description, $totalPaid, $ref, $_SESSION['user_id']]
@@ -730,11 +779,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['quick_pay_selected'])
         // Check if ALL slips in this period are now paid
         $unpaid = $db->fetchOne("SELECT COUNT(*) as c FROM payroll_slips WHERE period_id = ? AND is_paid = 0", [$period['id']]);
         if ((int)($unpaid['c'] ?? 0) === 0) {
-            $db->query("UPDATE payroll_periods SET status = 'paid', paid_at = NOW() WHERE id = ?", [$period['id']]);
+            dbExec($db, "UPDATE payroll_periods SET status = 'paid', paid_at = NOW() WHERE id = ?", [$period['id']]);
         }
 
         setFlash('success', '✅ ' . count($ids) . ' staff dibayar! Rp ' . number_format($totalPaid, 0, ',', '.') . ' tercatat. Slip gaji tersedia di Staff Portal.');
-    } catch (Exception $e) {
+    } catch (\Throwable $e) {
         setFlash('error', 'Error: ' . $e->getMessage());
     }
     header("Location: process.php?month=$month&year=$year");
@@ -746,13 +795,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['reset_period']) && $p
     try {
         $periodId = $period['id'];
         // Delete cashbook entries for this period
-        $db->query("DELETE FROM cashbook_transactions WHERE reference_number LIKE ?", ['PAYROLL-' . $periodId . '%']);
+        dbExec($db, "DELETE FROM cashbook_transactions WHERE reference_number LIKE ?", ['PAYROLL-' . $periodId . '%']);
         // Delete all slips
-        $db->query("DELETE FROM payroll_slips WHERE period_id = ?", [$periodId]);
+        dbExec($db, "DELETE FROM payroll_slips WHERE period_id = ?", [$periodId]);
         // Delete period
-        $db->query("DELETE FROM payroll_periods WHERE id = ?", [$periodId]);
+        dbExec($db, "DELETE FROM payroll_periods WHERE id = ?", [$periodId]);
         setFlash('success', '🔄 Period ' . $months[$month] . ' ' . $year . ' berhasil di-reset. Silakan buat ulang.');
-    } catch (Exception $e) {
+    } catch (\Throwable $e) {
         setFlash('error', 'Reset error: ' . $e->getMessage());
     }
     header("Location: process.php?month=$month&year=$year");
@@ -769,7 +818,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['refresh_employees']))
     $removed = 0;
     foreach ($existingSlips as $slip) {
         if (!in_array($slip['employee_id'], $activeEmpIds)) {
-            $db->query("DELETE FROM payroll_slips WHERE id = ?", [$slip['id']]);
+            dbExec($db, "DELETE FROM payroll_slips WHERE id = ?", [$slip['id']]);
             $removed++;
         }
     }
@@ -787,7 +836,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['refresh_employees']))
             $baseSalary = (float)$emp['base_salary'];
             $hourlyRate = $baseSalary / 200;
             $actualBase = ($workH >= 200) ? $baseSalary : round($workH * $hourlyRate, 2);
-            $db->query(
+            dbExec($db,
                 "INSERT INTO payroll_slips (period_id, employee_id, employee_name, position, base_salary, work_hours, actual_base, overtime_hours, overtime_rate, overtime_amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 [$period['id'], $emp['id'], $emp['full_name'], $emp['position'], $baseSalary, $workH, $actualBase, $att['overtime_hours'], $hourlyRate, round($att['overtime_hours'] * $hourlyRate, 2)]
             );
@@ -798,7 +847,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['refresh_employees']))
     // Update employee info (name, position) for existing slips
     foreach ($employees as $emp) {
         if (in_array($emp['id'], $existingIds)) {
-            $db->query(
+            dbExec($db,
                 "UPDATE payroll_slips SET employee_name = ?, position = ? WHERE period_id = ? AND employee_id = ?",
                 [$emp['full_name'], $emp['position'], $period['id'], $emp['id']]
             );
@@ -2422,8 +2471,14 @@ include '../../includes/header.php';
 
         const promise = fetch('process.php?month=<?php echo $month; ?>&year=<?php echo $year; ?>', {
                 method: 'POST',
-                body: data
-            }).then(res => res.json())
+                body: data,
+                credentials: 'same-origin'
+            }).then(res => {
+                if (!res.ok) {
+                    return res.text().then(t => { throw new Error('HTTP ' + res.status + ': ' + t.substring(0, 200)); });
+                }
+                return res.json();
+            })
             .then(res => {
                 if (res.status === 'success') {
                     // Hide save button, show saved label
@@ -2459,17 +2514,28 @@ include '../../includes/header.php';
                     // Update totals in header
                     updateTotals();
                 } else {
+                    console.error('Save failed for slip', id, res);
                     if (saveBtn) {
                         saveBtn.textContent = '❌';
                         saveBtn.disabled = false;
                     }
+                    if (savedLabel) {
+                        savedLabel.style.display = 'inline';
+                        savedLabel.textContent = '❌ ' + (res.message || 'Error');
+                        savedLabel.style.color = '#ef4444';
+                    }
                 }
             }).catch(err => {
+                console.error('Save error for slip', id, err);
                 if (saveBtn) {
                     saveBtn.textContent = '❌';
                     saveBtn.disabled = false;
                 }
-                alert('Gagal menyimpan! Coba lagi.');
+                if (savedLabel) {
+                    savedLabel.style.display = 'inline';
+                    savedLabel.textContent = '❌ Network error';
+                    savedLabel.style.color = '#ef4444';
+                }
             }).finally(() => {
                 delete _savePromises[id];
             });
