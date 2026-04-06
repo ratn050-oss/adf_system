@@ -726,6 +726,35 @@
                             }
                         }
 
+                        // ── Overtime / Lembur approval ──
+                        if ($action === 'approve_overtime' || $action === 'reject_overtime') {
+                            $otId = (int)($_POST['overtime_id'] ?? 0);
+                            $adminNotes = trim($_POST['admin_notes'] ?? '');
+                            $newStatus = ($action === 'approve_overtime') ? 'approved' : 'rejected';
+                            $approver = $_SESSION['full_name'] ?? 'Admin';
+                            if ($otId > 0) {
+                                try {
+                                    $_pdo->exec("CREATE TABLE IF NOT EXISTS `overtime_requests` (
+                    `id` INT AUTO_INCREMENT PRIMARY KEY, `employee_id` INT NOT NULL, `overtime_date` DATE NOT NULL,
+                    `reason` TEXT NOT NULL, `status` ENUM('pending','approved','rejected') DEFAULT 'pending',
+                    `approved_by` VARCHAR(100), `approved_at` DATETIME, `admin_notes` TEXT,
+                    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    INDEX idx_emp (employee_id), INDEX idx_status (status), INDEX idx_date (overtime_date),
+                    UNIQUE KEY uk_emp_date (employee_id, overtime_date)
+                ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+                                    $db->query(
+                                        "UPDATE overtime_requests SET status = ?, approved_by = ?, approved_at = NOW(), admin_notes = ? WHERE id = ?",
+                                        [$newStatus, $approver, $adminNotes, $otId]
+                                    );
+                                    $msg = $newStatus === 'approved' ? '✅ Lembur disetujui.' : '❌ Lembur ditolak.';
+                                    $msgType = 'success';
+                                } catch (Exception $e) {
+                                    $msg = 'Error: ' . $e->getMessage();
+                                    $msgType = 'error';
+                                }
+                            }
+                        }
+
                         // ── Batch: Proses Log Fingerprint → payroll_attendance ──
                         if ($action === 'process_finger_batch') {
                             $fpFrom = $_POST['fp_from'] ?? date('Y-m-01');
@@ -940,6 +969,22 @@
                     } catch (Exception $e) {
                     }
                     $pendingLeaves = count(array_filter($leaveRequests, fn($l) => $l['status'] === 'pending'));
+
+                    // Overtime requests
+                    $overtimeRequests = [];
+                    try {
+                        $_pdo->exec("CREATE TABLE IF NOT EXISTS `overtime_requests` (
+        `id` INT AUTO_INCREMENT PRIMARY KEY, `employee_id` INT NOT NULL, `overtime_date` DATE NOT NULL,
+        `reason` TEXT NOT NULL, `status` ENUM('pending','approved','rejected') DEFAULT 'pending',
+        `approved_by` VARCHAR(100), `approved_at` DATETIME, `admin_notes` TEXT,
+        `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        INDEX idx_emp (employee_id), INDEX idx_status (status), INDEX idx_date (overtime_date),
+        UNIQUE KEY uk_emp_date (employee_id, overtime_date)
+    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+                        $overtimeRequests = $db->fetchAll("SELECT ot.*, pe.full_name, pe.employee_code FROM overtime_requests ot LEFT JOIN payroll_employees pe ON pe.id = ot.employee_id ORDER BY FIELD(ot.status,'pending','approved','rejected'), ot.overtime_date DESC LIMIT 100") ?: [];
+                    } catch (Exception $e) {
+                    }
+                    $pendingOT = count(array_filter($overtimeRequests, fn($o) => $o['status'] === 'pending'));
 
                     // Fingerspot data
                     $fpConfig = $db->fetchOne("SELECT fingerspot_cloud_id, fingerspot_token, fingerspot_enabled FROM payroll_attendance_config WHERE id = 1") ?: [];
@@ -1525,6 +1570,7 @@
                             <button class="att-tab" data-tab="gps">📍 Absen GPS</button>
                             <button class="att-tab" data-tab="fingerprint">🔐 Fingerprint</button>
                             <button class="att-tab" data-tab="cuti">🏖️ Cuti<?php if ($pendingLeaves > 0): ?> <span style="background:var(--red);color:#fff;padding:1px 6px;border-radius:10px;font-size:9px;font-weight:800;"><?php echo $pendingLeaves; ?></span><?php endif; ?></button>
+                            <button class="att-tab" data-tab="lembur">⏰ Lembur<?php if ($pendingOT > 0): ?> <span style="background:var(--red);color:#fff;padding:1px 6px;border-radius:10px;font-size:9px;font-weight:800;"><?php echo $pendingOT; ?></span><?php endif; ?></button>
                             <button class="att-tab" data-tab="manual">✋ Manual</button>
                             <button class="att-tab" data-tab="schedule">📅 Jadwal Kerja</button>
                             <button class="att-tab" data-tab="reset">🔄 Reset</button>
@@ -2297,6 +2343,99 @@
                         </div>
 
                         <!-- ═══════════════════════════════════════ -->
+                        <!-- TAB: LEMBUR (Overtime Requests Approval) -->
+                        <!-- ═══════════════════════════════════════ -->
+                        <div class="tab-panel" id="panel-lembur" style="display:none;">
+                            <?php if ($pendingOT > 0): ?>
+                                <div style="background:#fef3c7; border:1px solid #fde68a; border-radius:8px; padding:10px 14px; margin-bottom:14px; font-size:12px; color:#92400e; display:flex; align-items:center; gap:8px;">
+                                    <span style="font-size:20px;">⏳</span>
+                                    <div><strong><?php echo $pendingOT; ?> pengajuan lembur</strong> menunggu persetujuan</div>
+                                </div>
+                            <?php endif; ?>
+
+                            <div style="background:#f0fdf4; border:1px solid #86efac; border-radius:8px; padding:10px 12px; margin-bottom:14px; font-size:11px; color:#166534;">
+                                ⏰ Staff mengajukan lembur via <strong>Staff Portal</strong>. Overtime hanya akan dihitung di payroll jika pengajuan lembur <strong>disetujui</strong>. Jika ditolak/tidak ada pengajuan, overtime = 0.
+                            </div>
+
+                            <?php if (empty($overtimeRequests)): ?>
+                                <div style="text-align:center; padding:40px; color:var(--muted);">
+                                    <div style="font-size:40px; margin-bottom:8px;">⏰</div>
+                                    <div style="font-size:14px; font-weight:600;">Belum ada pengajuan lembur</div>
+                                    <div style="font-size:11px; margin-top:4px;">Staff mengajukan lembur via Staff Portal</div>
+                                </div>
+                            <?php else: ?>
+                                <div class="tbl-wrap">
+                                    <table class="tbl">
+                                        <thead>
+                                            <tr>
+                                                <th>Karyawan</th>
+                                                <th>Tanggal</th>
+                                                <th>Alasan Lembur</th>
+                                                <th>Status</th>
+                                                <th>Aksi</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                            <?php
+                                            $statusCls = ['pending' => 'b-late', 'approved' => 'b-present', 'rejected' => 'b-absent'];
+                                            $statusLbl = ['pending' => '⏳ Pending', 'approved' => '✅ Disetujui', 'rejected' => '❌ Ditolak'];
+                                            foreach ($overtimeRequests as $ot):
+                                            ?>
+                                                <tr style="<?php echo $ot['status'] === 'pending' ? 'background:#fffbeb;' : ''; ?>">
+                                                    <td>
+                                                        <strong><?php echo htmlspecialchars($ot['full_name'] ?? 'Unknown'); ?></strong>
+                                                        <div style="font-size:10px; color:var(--muted);"><?php echo htmlspecialchars($ot['employee_code'] ?? ''); ?></div>
+                                                    </td>
+                                                    <td style="font-size:11px; white-space:nowrap;">
+                                                        <?php echo date('D, d M Y', strtotime($ot['overtime_date'])); ?>
+                                                    </td>
+                                                    <td style="font-size:11px; max-width:250px;">
+                                                        <?php echo htmlspecialchars($ot['reason'] ?? '-'); ?>
+                                                        <?php if (!empty($ot['admin_notes'])): ?>
+                                                            <div style="font-size:10px; color:var(--blue); margin-top:2px;">💬 <?php echo htmlspecialchars($ot['admin_notes']); ?></div>
+                                                        <?php endif; ?>
+                                                    </td>
+                                                    <td><span class="badge <?php echo $statusCls[$ot['status']] ?? ''; ?>"><?php echo $statusLbl[$ot['status']] ?? $ot['status']; ?></span>
+                                                        <?php if (!empty($ot['approved_by'])): ?>
+                                                            <div style="font-size:9px; color:var(--muted); margin-top:2px;">oleh <?php echo htmlspecialchars($ot['approved_by']); ?></div>
+                                                        <?php endif; ?>
+                                                    </td>
+                                                    <td style="white-space:nowrap;">
+                                                        <?php if ($ot['status'] === 'pending'): ?>
+                                                            <button class="btn btn-green btn-sm" onclick="openOTAction(<?php echo $ot['id']; ?>, 'approve', '<?php echo htmlspecialchars(addslashes($ot['full_name'] ?? '')); ?>')">✅</button>
+                                                            <button class="btn btn-del btn-sm" onclick="openOTAction(<?php echo $ot['id']; ?>, 'reject', '<?php echo htmlspecialchars(addslashes($ot['full_name'] ?? '')); ?>')">❌</button>
+                                                        <?php else: ?>
+                                                            <span class="dash">—</span>
+                                                        <?php endif; ?>
+                                                    </td>
+                                                </tr>
+                                            <?php endforeach; ?>
+                                        </tbody>
+                                    </table>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+
+                        <!-- Overtime Action Modal -->
+                        <div class="modal-overlay" id="otModal">
+                            <div class="modal-box">
+                                <div class="modal-title" id="otModalTitle">Lembur</div>
+                                <form method="POST" action="?tab=lembur">
+                                    <input type="hidden" name="action" id="otAction" value="approve_overtime">
+                                    <input type="hidden" name="overtime_id" id="otId">
+                                    <div class="fg">
+                                        <label class="fl">Catatan (opsional)</label>
+                                        <textarea class="fi" name="admin_notes" rows="2" placeholder="Catatan admin..."></textarea>
+                                    </div>
+                                    <div class="modal-actions">
+                                        <button type="button" class="btn btn-primary" onclick="document.getElementById('otModal').classList.remove('open')">Batal</button>
+                                        <button type="submit" class="btn btn-gold" id="otSubmitBtn">✅ Setujui</button>
+                                    </div>
+                                </form>
+                            </div>
+                        </div>
+
+                        <!-- ═══════════════════════════════════════ -->
                         <!-- TAB: MANUAL (Face data + Manual input) -->
                         <!-- ═══════════════════════════════════════ -->
                         <div class="tab-panel" id="panel-manual" style="display:none;">
@@ -2857,6 +2996,16 @@
                             document.getElementById('leaveSubmitBtn').textContent = action === 'approve' ? '✅ Setujui' : '❌ Tolak';
                             document.getElementById('leaveSubmitBtn').className = action === 'approve' ? 'btn btn-green' : 'btn btn-danger';
                             document.getElementById('leaveModal').classList.add('open');
+                        }
+
+                        // ─ OVERTIME ACTION ─
+                        function openOTAction(id, action, name) {
+                            document.getElementById('otId').value = id;
+                            document.getElementById('otAction').value = action === 'approve' ? 'approve_overtime' : 'reject_overtime';
+                            document.getElementById('otModalTitle').textContent = action === 'approve' ? '✅ Setujui Lembur — ' + name : '❌ Tolak Lembur — ' + name;
+                            document.getElementById('otSubmitBtn').textContent = action === 'approve' ? '✅ Setujui' : '❌ Tolak';
+                            document.getElementById('otSubmitBtn').className = action === 'approve' ? 'btn btn-green' : 'btn btn-danger';
+                            document.getElementById('otModal').classList.add('open');
                         }
 
                         // ─ ADMIN MAP ─

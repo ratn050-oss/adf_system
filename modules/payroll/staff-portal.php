@@ -580,6 +580,30 @@ try {
         </div>
     </div>
 
+        <!-- Ajukan Lembur -->
+        <div class="card">
+            <div class="card-title">⏰ Ajukan Lembur</div>
+            <form id="lemburForm" onsubmit="return submitLembur(event)">
+                <div style="margin-bottom:10px;">
+                    <label class="fl">Tanggal Lembur</label>
+                    <input type="date" class="fi" name="overtime_date" required id="lemburDate" max="<?php echo date('Y-m-d'); ?>" value="<?php echo date('Y-m-d'); ?>">
+                </div>
+                <div style="margin-bottom:12px;">
+                    <label class="fl">Keterangan (Alasan Lembur)</label>
+                    <textarea class="fi" name="reason" rows="2" placeholder="Jelaskan alasan dan pekerjaan lembur..." required style="resize:vertical;" id="lemburReason"></textarea>
+                </div>
+                <button type="submit" class="btn-auth" id="lemburBtn" style="border-radius:10px;background:linear-gradient(135deg,#f59e0b,#d97706);">⏰ Ajukan Lembur</button>
+            </form>
+        </div>
+
+        <!-- Riwayat Lembur -->
+        <div class="card">
+            <div class="card-title">📋 Riwayat Pengajuan Lembur</div>
+            <div id="lemburStats" style="margin-bottom:10px;"></div>
+            <div id="lemburHistory"><div class="loading"><span class="spin"></span> Memuat...</div></div>
+        </div>
+    </div>
+
     <!-- ═══ PAGE: ROOM (Hotel only) ═══ -->
     <?php if ($isHotel): ?>
     <div class="page" id="page-occupancy">
@@ -842,6 +866,7 @@ function loadHome() {
     loadAbsen();
     loadMonitoring();
     loadCuti();
+    loadLembur();
     if (IS_CAFE) loadSchedule();
 }
 
@@ -1579,6 +1604,75 @@ async function loadCuti() {
         });
         document.getElementById('cutiHistory').innerHTML = html;
     } catch(e) { document.getElementById('cutiHistory').innerHTML = '<div style="color:var(--red);font-size:11px;">Gagal memuat</div>'; }
+}
+
+// ═══ LEMBUR / OVERTIME ═══
+async function submitLembur(e) {
+    e.preventDefault();
+    const btn = document.getElementById('lemburBtn');
+    btn.disabled = true; btn.textContent = '⏳ Mengirim...';
+    const fd = new FormData(e.target);
+    fd.append('action', 'overtime_submit');
+    try {
+        const res = await fetch(API, { method: 'POST', body: fd });
+        const text = await res.text();
+        let data;
+        try { data = JSON.parse(text); } catch(pe) {
+            btn.textContent = '❌ Server error';
+            setTimeout(() => { btn.textContent = '⏰ Ajukan Lembur'; btn.disabled = false; }, 2000);
+            return false;
+        }
+        if (data.success) {
+            btn.textContent = '✅ ' + data.message;
+            document.getElementById('lemburReason').value = '';
+            setTimeout(() => { btn.textContent = '⏰ Ajukan Lembur'; btn.disabled = false; loadLembur(); }, 2000);
+        } else {
+            btn.textContent = '❌ ' + data.message;
+            setTimeout(() => { btn.textContent = '⏰ Ajukan Lembur'; btn.disabled = false; }, 2500);
+        }
+    } catch(err) {
+        btn.textContent = '❌ Koneksi gagal';
+        setTimeout(() => { btn.textContent = '⏰ Ajukan Lembur'; btn.disabled = false; }, 2000);
+    }
+    return false;
+}
+
+async function loadLembur() {
+    try {
+        const res = await fetch(API + '&action=overtime_history');
+        const data = await res.json();
+        const stats = data.stats || {};
+        const rows = data.data || [];
+
+        document.getElementById('lemburStats').innerHTML = `
+            <div class="stat-row">
+                <div class="stat-card"><div class="sl">⏳ Pending</div><div class="sv" style="color:var(--orange);">${stats.pending||0}</div></div>
+                <div class="stat-card"><div class="sl">✅ Disetujui</div><div class="sv" style="color:var(--green);">${stats.approved||0}</div></div>
+                <div class="stat-card"><div class="sl">❌ Ditolak</div><div class="sv" style="color:var(--red);">${stats.rejected||0}</div></div>
+            </div>`;
+
+        if (rows.length === 0) {
+            document.getElementById('lemburHistory').innerHTML = '<div style="text-align:center;padding:16px;color:var(--muted);font-size:12px;">Belum ada riwayat pengajuan lembur.</div>';
+            return;
+        }
+
+        const statusCls = { pending:'ls-pending', approved:'ls-approved', rejected:'ls-rejected' };
+        const statusLabel = { pending:'⏳ Pending', approved:'✅ Disetujui', rejected:'❌ Ditolak' };
+        let html = '';
+        rows.forEach(r => {
+            const d = new Date(r.overtime_date).toLocaleDateString('id-ID',{weekday:'short',day:'numeric',month:'short',year:'numeric'});
+            html += `<div style="padding:12px 0;border-bottom:1px solid #f1f5f9;">
+                <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px;">
+                    <span style="font-weight:700;font-size:12px;">⏰ Lembur</span>
+                    <span class="leave-status ${statusCls[r.status]||''}">${statusLabel[r.status]||r.status}</span>
+                </div>
+                <div style="font-size:11px;color:var(--muted);">📅 ${d}</div>
+                <div style="font-size:11px;color:var(--text);margin-top:3px;">${r.reason||''}</div>
+                ${r.admin_notes ? `<div style="font-size:10px;color:var(--blue);margin-top:3px;background:#eff6ff;padding:4px 8px;border-radius:4px;">💬 ${r.admin_notes}</div>` : ''}
+            </div>`;
+        });
+        document.getElementById('lemburHistory').innerHTML = html;
+    } catch(e) { document.getElementById('lemburHistory').innerHTML = '<div style="color:var(--red);font-size:11px;">Gagal memuat</div>'; }
 }
 
 // ═══ NOTIFICATIONS ═══

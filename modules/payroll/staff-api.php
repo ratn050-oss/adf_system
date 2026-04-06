@@ -51,6 +51,23 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS `leave_requests` (
     INDEX idx_dates (start_date, end_date)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
 
+// Auto-create overtime_requests table
+$pdo->exec("CREATE TABLE IF NOT EXISTS `overtime_requests` (
+    `id` INT AUTO_INCREMENT PRIMARY KEY,
+    `employee_id` INT NOT NULL,
+    `overtime_date` DATE NOT NULL,
+    `reason` TEXT NOT NULL,
+    `status` ENUM('pending','approved','rejected') DEFAULT 'pending',
+    `approved_by` VARCHAR(100) DEFAULT NULL,
+    `approved_at` DATETIME DEFAULT NULL,
+    `admin_notes` TEXT,
+    `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    INDEX idx_emp (employee_id),
+    INDEX idx_status (status),
+    INDEX idx_date (overtime_date),
+    UNIQUE KEY uk_emp_date (employee_id, overtime_date)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+
 // Session — close any existing session first, then start staff-specific one
 if (session_status() === PHP_SESSION_ACTIVE) {
     session_write_close();
@@ -834,6 +851,51 @@ if ($action === 'salary_slip') {
         echo json_encode(['success' => false, 'message' => 'Gagal memuat slip gaji']);
     }
     exit;
+}
+
+// ══════════════════════════════════════
+// OVERTIME / LEMBUR REQUEST
+// ══════════════════════════════════════
+if ($action === 'overtime_submit') {
+    $overtimeDate = trim($_POST['overtime_date'] ?? '');
+    $reason = trim($_POST['reason'] ?? '');
+
+    if (!$overtimeDate) {
+        echo json_encode(['success' => false, 'message' => 'Tanggal lembur wajib diisi']); exit;
+    }
+    if (!$reason) {
+        echo json_encode(['success' => false, 'message' => 'Keterangan alasan lembur wajib diisi']); exit;
+    }
+    // Only allow today or past dates (can't request future overtime)
+    if ($overtimeDate > date('Y-m-d')) {
+        echo json_encode(['success' => false, 'message' => 'Tidak bisa mengajukan lembur untuk tanggal yang akan datang']); exit;
+    }
+
+    // Check duplicate
+    $existing = $db->fetchOne("SELECT id, status FROM overtime_requests WHERE employee_id = ? AND overtime_date = ?", [$empId, $overtimeDate]);
+    if ($existing) {
+        $statusLabel = ['pending' => 'menunggu approval', 'approved' => 'sudah disetujui', 'rejected' => 'ditolak'];
+        echo json_encode(['success' => false, 'message' => 'Sudah ada pengajuan lembur tanggal tersebut (status: ' . ($statusLabel[$existing['status']] ?? $existing['status']) . ')']); exit;
+    }
+
+    try {
+        $pdo->prepare("INSERT INTO overtime_requests (employee_id, overtime_date, reason) VALUES (?, ?, ?)")
+            ->execute([$empId, $overtimeDate, $reason]);
+        echo json_encode(['success' => true, 'message' => 'Pengajuan lembur berhasil dikirim! Menunggu approval admin.']);
+    } catch (Exception $e) {
+        echo json_encode(['success' => false, 'message' => 'Gagal: ' . $e->getMessage()]);
+    }
+    exit;
+}
+
+if ($action === 'overtime_history') {
+    $rows = $db->fetchAll("SELECT * FROM overtime_requests WHERE employee_id = ? ORDER BY created_at DESC LIMIT 50", [$empId]) ?: [];
+    $stats = $db->fetchOne("SELECT 
+        COUNT(CASE WHEN status = 'pending' THEN 1 END) as pending,
+        COUNT(CASE WHEN status = 'approved' THEN 1 END) as approved,
+        COUNT(CASE WHEN status = 'rejected' THEN 1 END) as rejected
+        FROM overtime_requests WHERE employee_id = ? AND YEAR(overtime_date) = YEAR(CURDATE())", [$empId]) ?: [];
+    echo json_encode(['success' => true, 'data' => $rows, 'stats' => $stats]); exit;
 }
 
 echo json_encode(['success' => false, 'message' => 'Unknown action']);

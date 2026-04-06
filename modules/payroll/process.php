@@ -194,16 +194,32 @@ function recalcAttendanceHours($db, $month, $year)
 }
 
 // ── Helper: Get attendance hours from fingerprint/GPS data for a month ──
+// Overtime is ONLY counted if there's an approved overtime_request for that date
 function getAttendanceHours($db, $empId, $month, $year)
 {
     $monthStr = sprintf('%04d-%02d', $year, $month);
     $rows = $db->fetchAll(
-        "SELECT work_hours, shift_1_hours, shift_2_hours, check_in_time, check_out_time, scan_3, scan_4
+        "SELECT work_hours, shift_1_hours, shift_2_hours, check_in_time, check_out_time, scan_3, scan_4, attendance_date
          FROM payroll_attendance 
          WHERE employee_id = ? AND DATE_FORMAT(attendance_date, '%Y-%m') = ?
          AND (work_hours > 0 OR check_in_time IS NOT NULL)",
         [$empId, $monthStr]
     );
+
+    // Get all approved overtime dates for this employee in this month
+    $approvedOTDates = [];
+    try {
+        $otRows = $db->fetchAll(
+            "SELECT overtime_date FROM overtime_requests WHERE employee_id = ? AND status = 'approved' AND DATE_FORMAT(overtime_date, '%Y-%m') = ?",
+            [$empId, $monthStr]
+        );
+        foreach ($otRows ?: [] as $otRow) {
+            $approvedOTDates[$otRow['overtime_date']] = true;
+        }
+    } catch (\Throwable $e) {
+        // Table might not exist yet — treat as no approved OT
+    }
+
     $totalHours = 0;
     $totalOvertimeHours = 0;
     $daysWorked = 0;
@@ -234,7 +250,10 @@ function getAttendanceHours($db, $empId, $month, $year)
         }
         $daysWorked++;
         $totalHours += $wh;
-        if ($wh > 8) {
+
+        // Only count overtime if there's an APPROVED overtime request for this date
+        $attDate = $r['attendance_date'] ?? '';
+        if ($wh > 8 && isset($approvedOTDates[$attDate])) {
             $otRaw = $wh - 8;
             $otUnits = floor($otRaw / 0.75); // per 45-min block
             $totalOvertimeHours += $otUnits * 0.75;

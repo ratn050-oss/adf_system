@@ -502,6 +502,7 @@ $filesToSync = [
     '.htaccess',
     'modules/payroll/process.php',
     'modules/payroll/staff-portal.php',
+    'modules/payroll/staff-api.php',
     'modules/payroll/print-slip.php',
     'modules/payroll/attendance.php',
     'api/fingerprint-webhook.php',
