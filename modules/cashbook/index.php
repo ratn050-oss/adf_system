@@ -1824,11 +1824,11 @@ echo getPrintCSS();
         </div>
         
         <div style="display: flex; align-items: flex-end; gap: 0.625rem; grid-column: span 7;">
-            <button type="submit" class="btn btn-primary" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 0.5rem; height: 40px;">
+            <button type="submit" class="btn btn-primary" style="flex: 1; display: flex; align-items: center; justify-content: center; gap: 0.5rem; height: 40px; color: #fff !important;">
                 <i data-feather="filter" style="width: 16px; height: 16px;"></i> 
                 <span>Filter</span>
             </button>
-            <a href="index.php" class="btn btn-secondary" style="flex: 0 0 auto; display: flex; align-items: center; justify-content: center; gap: 0.5rem; height: 40px; padding: 0 1.25rem;">
+            <a href="index.php" class="btn btn-secondary" style="flex: 0 0 auto; display: flex; align-items: center; justify-content: center; gap: 0.5rem; height: 40px; padding: 0 1.25rem; background: #64748b !important; color: #fff !important;">
                 <i data-feather="x" style="width: 16px; height: 16px;"></i> 
                 <span>Reset</span>
             </a>
