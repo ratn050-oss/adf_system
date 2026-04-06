@@ -71,16 +71,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $bizDb) {
     $bizPdo = $bizDb->getConnection();
 
     // Ensure table exists
+    $bizPdo->exec("SET time_zone = '+07:00'");
     $bizPdo->exec("CREATE TABLE IF NOT EXISTS `staff_accounts` (
         `id` INT AUTO_INCREMENT PRIMARY KEY,
         `employee_id` INT NOT NULL,
         `email` VARCHAR(255) NOT NULL,
         `password_hash` VARCHAR(255) NOT NULL,
+        `plain_password` VARCHAR(255) DEFAULT NULL,
         `last_login` DATETIME DEFAULT NULL,
         `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
         INDEX idx_emp (employee_id),
         UNIQUE KEY uk_emp (employee_id)
     ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+    try { $bizPdo->exec("ALTER TABLE staff_accounts ADD COLUMN plain_password VARCHAR(255) DEFAULT NULL AFTER password_hash"); } catch (Exception $e) {}
 
     if ($formAction === 'delete' && !empty($_POST['account_id'])) {
         $accId = (int)$_POST['account_id'];
@@ -96,7 +99,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $bizDb) {
         $newPass = $_POST['new_password'] ?? '';
         if (strlen($newPass) >= 6) {
             $hash = password_hash($newPass, PASSWORD_DEFAULT);
-            $bizPdo->prepare("UPDATE staff_accounts SET password_hash = ? WHERE id = ?")->execute([$hash, $accId]);
+            $bizPdo->prepare("UPDATE staff_accounts SET password_hash = ?, plain_password = ? WHERE id = ?")->execute([$hash, $newPass, $accId]);
             $auth->logAction('reset_staff_password', 'staff_accounts', $accId, null, ['business' => $bizSlug]);
             $_SESSION['success_message'] = 'Password berhasil direset.';
         } else {
@@ -117,8 +120,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $bizDb) {
                 $error = 'Karyawan sudah punya akun.';
             } else {
                 $hash = password_hash($password, PASSWORD_DEFAULT);
-                $bizPdo->prepare("INSERT INTO staff_accounts (employee_id, email, password_hash) VALUES (?, ?, ?)")
-                    ->execute([$empId, $username, $hash]);
+                $bizPdo->prepare("INSERT INTO staff_accounts (employee_id, email, password_hash, plain_password) VALUES (?, ?, ?, ?)")
+                    ->execute([$empId, $username, $hash, $password]);
                 $auth->logAction('create_staff_account', 'staff_accounts', $bizPdo->lastInsertId(), null, ['business' => $bizSlug, 'employee_id' => $empId]);
                 $_SESSION['success_message'] = 'Akun staff berhasil dibuat.';
                 header('Location: staff-accounts.php?business=' . urlencode($selectedBiz));
@@ -156,7 +159,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && $bizDb) {
                      . rand(100, 999);
             // Update the password in DB
             $hash = password_hash($newPass, PASSWORD_DEFAULT);
-            $bizPdo->prepare("UPDATE staff_accounts SET password_hash = ? WHERE id = ?")->execute([$hash, $row['id']]);
+            $bizPdo->prepare("UPDATE staff_accounts SET password_hash = ?, plain_password = ? WHERE id = ?")->execute([$hash, $newPass, $row['id']]);
 
             $exportData[] = [
                 'name'     => $row['full_name'] ?? 'Unknown',
@@ -185,16 +188,19 @@ if ($bizDb) {
     $bizPdo = $bizDb->getConnection();
     try {
         // Ensure table
+        $bizPdo->exec("SET time_zone = '+07:00'");
         $bizPdo->exec("CREATE TABLE IF NOT EXISTS `staff_accounts` (
             `id` INT AUTO_INCREMENT PRIMARY KEY,
             `employee_id` INT NOT NULL,
             `email` VARCHAR(255) NOT NULL,
             `password_hash` VARCHAR(255) NOT NULL,
+            `plain_password` VARCHAR(255) DEFAULT NULL,
             `last_login` DATETIME DEFAULT NULL,
             `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
             INDEX idx_emp (employee_id),
             UNIQUE KEY uk_emp (employee_id)
         ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        try { $bizPdo->exec("ALTER TABLE staff_accounts ADD COLUMN plain_password VARCHAR(255) DEFAULT NULL AFTER password_hash"); } catch (Exception $e) {}
 
         $staffAccounts = $bizPdo->query("
             SELECT sa.*, pe.full_name, pe.employee_code, pe.position, pe.department 
@@ -335,6 +341,7 @@ require_once __DIR__ . '/includes/header.php';
                             <th>#</th>
                             <th>Karyawan</th>
                             <th>Username</th>
+                            <th>Password</th>
                             <th>Last Login</th>
                             <th>Dibuat</th>
                             <th class="text-center">Aksi</th>
@@ -342,7 +349,7 @@ require_once __DIR__ . '/includes/header.php';
                     </thead>
                     <tbody>
                     <?php if (empty($staffAccounts)): ?>
-                        <tr><td colspan="6" class="text-center text-muted py-4">Belum ada akun staff terdaftar</td></tr>
+                        <tr><td colspan="7" class="text-center text-muted py-4">Belum ada akun staff terdaftar</td></tr>
                     <?php else: ?>
                         <?php foreach ($staffAccounts as $i => $acc): ?>
                         <tr>
@@ -352,6 +359,13 @@ require_once __DIR__ . '/includes/header.php';
                                 <small class="text-muted"><?php echo htmlspecialchars($acc['employee_code'] ?? ''); ?> · <?php echo htmlspecialchars($acc['position'] ?? ''); ?></small>
                             </td>
                             <td><code><?php echo htmlspecialchars($acc['email']); ?></code></td>
+                            <td>
+                                <?php if (!empty($acc['plain_password'])): ?>
+                                    <code class="text-danger"><?php echo htmlspecialchars($acc['plain_password']); ?></code>
+                                <?php else: ?>
+                                    <span class="text-muted small">-</span>
+                                <?php endif; ?>
+                            </td>
                             <td>
                                 <?php if ($acc['last_login']): ?>
                                     <span class="badge bg-success"><?php echo date('d M H:i', strtotime($acc['last_login'])); ?></span>

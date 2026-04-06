@@ -20,6 +20,7 @@ $bizConfig = require $bizFile;
 if (!defined('ACTIVE_BUSINESS_ID')) define('ACTIVE_BUSINESS_ID', $bizConfig['business_id']);
 $db = Database::switchDatabase($bizConfig['database']);
 $pdo = $db->getConnection();
+$pdo->exec("SET time_zone = '+07:00'");
 
 // Auto-create staff_accounts table
 $pdo->exec("CREATE TABLE IF NOT EXISTS `staff_accounts` (
@@ -27,11 +28,13 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS `staff_accounts` (
     `employee_id` INT NOT NULL,
     `email` VARCHAR(255) NOT NULL,
     `password_hash` VARCHAR(255) NOT NULL,
+    `plain_password` VARCHAR(255) DEFAULT NULL,
     `last_login` DATETIME DEFAULT NULL,
     `created_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     INDEX idx_emp (employee_id),
     UNIQUE KEY uk_emp (employee_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+try { $pdo->exec("ALTER TABLE staff_accounts ADD COLUMN plain_password VARCHAR(255) DEFAULT NULL AFTER password_hash"); } catch (Exception $e) {}
 
 // Auto-create leave_requests table
 $pdo->exec("CREATE TABLE IF NOT EXISTS `leave_requests` (
@@ -124,8 +127,8 @@ if ($action === 'register') {
 
     $hash = password_hash($password, PASSWORD_DEFAULT);
     try {
-        $pdo->prepare("INSERT INTO staff_accounts (employee_id, email, password_hash) VALUES (?, ?, ?)")
-            ->execute([$emp['id'], $email, $hash]);
+        $pdo->prepare("INSERT INTO staff_accounts (employee_id, email, password_hash, plain_password) VALUES (?, ?, ?, ?)")
+            ->execute([$emp['id'], $email, $hash, $password]);
     } catch (Exception $e) {
         echo json_encode(['success' => false, 'message' => 'Gagal simpan: ' . $e->getMessage()]); exit;
     }
@@ -199,7 +202,7 @@ if ($action === 'change_password') {
     }
 
     $newHash = password_hash($newPassword, PASSWORD_DEFAULT);
-    $pdo->prepare("UPDATE staff_accounts SET password_hash = ? WHERE id = ?")->execute([$newHash, $account['id']]);
+    $pdo->prepare("UPDATE staff_accounts SET password_hash = ?, plain_password = ? WHERE id = ?")->execute([$newHash, $newPassword, $account['id']]);
 
     echo json_encode(['success' => true, 'message' => 'Password berhasil diubah! Silakan login dengan password baru.']);
     exit;

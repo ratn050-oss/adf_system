@@ -509,6 +509,7 @@ $filesToSync = [
     'api/fingerprint-webhook.php',
     'includes/header.php',
     'modules/frontdesk/rental-motor.php',
+    'developer/staff-accounts.php',
     'website/public/index.php',
     'website/public/rooms.php',
     'website/public/activities.php',

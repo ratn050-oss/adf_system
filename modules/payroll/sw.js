@@ -3,7 +3,7 @@
  * Handles caching for offline / slow-network support
  */
 
-const CACHE_NAME   = 'staff-portal-v6';
+const CACHE_NAME   = 'staff-portal-v7';
 const APP_SHELL    = [
     './absen.php',
     './staff-portal.php',
