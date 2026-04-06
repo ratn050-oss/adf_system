@@ -110,14 +110,34 @@ if (isset($_GET['ajax_attendance']) && isset($_GET['emp_id'])) {
     exit;
 }
 
-// Ensure work_hours column exists
+// Ensure all required columns exist
 try {
-    $db->query("ALTER TABLE payroll_slips ADD COLUMN IF NOT EXISTS work_hours DECIMAL(10,2) NOT NULL DEFAULT 200.00 AFTER position");
-    $db->query("ALTER TABLE payroll_slips ADD COLUMN IF NOT EXISTS actual_base DECIMAL(15,2) NOT NULL DEFAULT 0.00 AFTER work_hours");
-    $db->query("ALTER TABLE payroll_slips ADD COLUMN IF NOT EXISTS is_paid TINYINT(1) NOT NULL DEFAULT 0");
-    $db->query("ALTER TABLE payroll_slips ADD COLUMN IF NOT EXISTS hours_locked TINYINT(1) NOT NULL DEFAULT 0");
-} catch (Exception $e) {
-    // Column may already exist or not supported
+    $pdo = $db->getConnection();
+    $cols = [
+        "ADD COLUMN IF NOT EXISTS work_hours DECIMAL(10,2) NOT NULL DEFAULT 200.00 AFTER position",
+        "ADD COLUMN IF NOT EXISTS actual_base DECIMAL(15,2) NOT NULL DEFAULT 0.00 AFTER work_hours",
+        "ADD COLUMN IF NOT EXISTS is_paid TINYINT(1) NOT NULL DEFAULT 0",
+        "ADD COLUMN IF NOT EXISTS hours_locked TINYINT(1) NOT NULL DEFAULT 0",
+        "ADD COLUMN IF NOT EXISTS incentive DECIMAL(15,2) DEFAULT 0.00",
+        "ADD COLUMN IF NOT EXISTS allowance DECIMAL(15,2) DEFAULT 0.00",
+        "ADD COLUMN IF NOT EXISTS uang_makan DECIMAL(15,2) DEFAULT 0.00",
+        "ADD COLUMN IF NOT EXISTS bonus DECIMAL(15,2) DEFAULT 0.00",
+        "ADD COLUMN IF NOT EXISTS other_income DECIMAL(15,2) DEFAULT 0.00",
+        "ADD COLUMN IF NOT EXISTS deduction_loan DECIMAL(15,2) DEFAULT 0.00",
+        "ADD COLUMN IF NOT EXISTS deduction_absence DECIMAL(15,2) DEFAULT 0.00",
+        "ADD COLUMN IF NOT EXISTS deduction_tax DECIMAL(15,2) DEFAULT 0.00",
+        "ADD COLUMN IF NOT EXISTS deduction_bpjs DECIMAL(15,2) DEFAULT 0.00",
+        "ADD COLUMN IF NOT EXISTS deduction_other DECIMAL(15,2) DEFAULT 0.00",
+        "ADD COLUMN IF NOT EXISTS total_earnings DECIMAL(15,2) DEFAULT 0.00",
+        "ADD COLUMN IF NOT EXISTS total_deductions DECIMAL(15,2) DEFAULT 0.00",
+        "ADD COLUMN IF NOT EXISTS net_salary DECIMAL(15,2) DEFAULT 0.00",
+        "ADD COLUMN IF NOT EXISTS locked TINYINT(1) NOT NULL DEFAULT 0",
+    ];
+    foreach ($cols as $c) {
+        try { $pdo->exec("ALTER TABLE payroll_slips $c"); } catch (\Throwable $e) {}
+    }
+} catch (\Throwable $e) {
+    // Schema migration errors are non-fatal
 }
 
 $month = $_GET['month'] ?? date('n');
