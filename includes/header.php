@@ -67,6 +67,7 @@ try {
     <!-- Business Theme CSS -->
     <style>
         <?php echo getBusinessThemeCSS(); ?>
+        @keyframes bellShake{0%{transform:rotate(0)}15%{transform:rotate(14deg)}30%{transform:rotate(-14deg)}45%{transform:rotate(10deg)}60%{transform:rotate(-6deg)}75%{transform:rotate(2deg)}100%{transform:rotate(0)}}
     </style>
 </head>
 <?php
@@ -667,7 +668,7 @@ if (isset($_SESSION['user_id'])) {
                     <!-- Notification Bell -->
                     <div id="adminNotifBell" style="position:relative;cursor:pointer;" onclick="toggleAdminNotif()">
                         <i data-feather="bell" style="width:22px;height:22px;color:var(--text-muted);transition:color .2s;"></i>
-                        <span id="adminNotifBadge" style="display:none;position:absolute;top:-4px;right:-6px;background:#ef4444;color:#fff;font-size:0.6rem;font-weight:800;min-width:16px;height:16px;border-radius:8px;display:none;align-items:center;justify-content:center;padding:0 4px;"></span>
+                        <span id="adminNotifBadge" style="display:none;position:absolute;top:-4px;right:-6px;background:#ef4444;color:#fff;font-size:0.6rem;font-weight:800;min-width:16px;height:16px;border-radius:8px;align-items:center;justify-content:center;padding:0 4px;"></span>
                     </div>
 
                     <!-- Notification Panel -->
@@ -856,18 +857,36 @@ if (isset($_SESSION['user_id'])) {
                         } catch (e) { alert('Error: ' + e.message); }
                     }
 
+                    let _lastAdminCount = 0;
                     async function checkAdminNotifs() {
                         try {
                             const res = await fetch(NOTIF_BASE + '/api/get-notifications.php?type=admin_count');
                             const data = await res.json();
                             const count = data.pending_count || 0;
                             const badge = document.getElementById('adminNotifBadge');
+                            const bell = document.getElementById('adminNotifBell');
                             if (badge) {
-                                if (count > 0) { badge.textContent = count; badge.style.display = 'flex'; }
-                                else { badge.style.display = 'none'; }
+                                if (count > 0) {
+                                    badge.textContent = count;
+                                    badge.style.display = 'flex';
+                                    if (count > _lastAdminCount && bell) {
+                                        bell.style.animation = 'none';
+                                        void bell.offsetWidth;
+                                        bell.style.animation = 'bellShake .6s ease';
+                                    }
+                                } else {
+                                    badge.style.display = 'none';
+                                }
                             }
-                        } catch (e) {}
+                            const cntEl = document.getElementById('adminNotifCount');
+                            if (cntEl) {
+                                if (count > 0) { cntEl.textContent = count; cntEl.style.display = 'inline'; }
+                                else { cntEl.style.display = 'none'; }
+                            }
+                            _lastAdminCount = count;
+                            if (adminNotifOpen) loadAdminNotifs();
+                        } catch (e) { console.log('notif check err', e); }
                     }
                     checkAdminNotifs();
-                    setInterval(checkAdminNotifs, 30000);
+                    setInterval(checkAdminNotifs, 15000);
                 </script>
