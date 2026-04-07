@@ -72,6 +72,11 @@ if (!$hasGroupId) {
 }
 
 try {
+    // Auto-checkout: set status to 'checked_out' for bookings past their check-out date
+    $db->query(
+        "UPDATE bookings SET status = 'checked_out' WHERE status IN ('checked_in', 'confirmed') AND check_out_date < CURDATE()"
+    );
+    
     $status_filter = $_GET['status'] ?? 'all';
     
     $query = "
@@ -102,11 +107,13 @@ try {
     $query .= " GROUP BY b.id
     ORDER BY 
         CASE 
-            WHEN b.status = 'confirmed' THEN 1
-            WHEN b.status = 'checked_in' THEN 2
+            WHEN b.status = 'checked_in' THEN 1
+            WHEN b.status = 'confirmed' THEN 2
             WHEN b.status = 'pending' THEN 3
-            ELSE 4
+            WHEN b.status = 'checked_out' THEN 4
+            ELSE 5
         END,
+        ABS(DATEDIFF(b.check_in_date, CURDATE())) ASC,
         b.check_in_date ASC,
         b.group_id ASC,
         b.id ASC
@@ -178,11 +185,14 @@ try {
     }
     // Re-sort by status priority + check-in date
     usort($bookings, function($a, $b) {
-        $statusOrder = ['confirmed' => 1, 'checked_in' => 2, 'pending' => 3, 'checked_out' => 4, 'cancelled' => 5];
+        $statusOrder = ['checked_in' => 1, 'confirmed' => 2, 'pending' => 3, 'checked_out' => 4, 'cancelled' => 5];
         $aOrder = $statusOrder[$a['status']] ?? 4;
         $bOrder = $statusOrder[$b['status']] ?? 4;
         if ($aOrder !== $bOrder) return $aOrder - $bOrder;
-        return strcmp($a['check_in_date'], $b['check_in_date']);
+        $today = date('Y-m-d');
+        $aDiff = abs(strtotime($a['check_in_date']) - strtotime($today));
+        $bDiff = abs(strtotime($b['check_in_date']) - strtotime($today));
+        return $aDiff - $bDiff;
     });
     
 } catch (Exception $e) {
