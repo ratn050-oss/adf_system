@@ -335,9 +335,9 @@ if ($action === 'occupancy') {
             ORDER BY rt.type_name ASC, r.room_number ASC", [$hotelTomorrow]) ?: [];
 
         // Arrivals today (confirmed bookings checking in today)
-        $arrivals = $db->fetchOne("SELECT COUNT(*) as c FROM bookings WHERE DATE(check_in_date) = ? AND status IN ('confirmed','pending')", [$hotelDate])['c'] ?? 0;
+        $arrivals = $db->fetchOne("SELECT COUNT(*) as c FROM bookings WHERE DATE(check_in_date) = ? AND status IN ('confirmed','pending')", [$today])['c'] ?? 0;
         // Departures today (checked-in guests checking out today)
-        $departures = $db->fetchOne("SELECT COUNT(*) as c FROM bookings WHERE DATE(check_out_date) = ? AND status = 'checked_in'", [$hotelDate])['c'] ?? 0;
+        $departures = $db->fetchOne("SELECT COUNT(*) as c FROM bookings WHERE DATE(check_out_date) = ? AND status = 'checked_in'", [$today])['c'] ?? 0;
 
         // Calendar bookings (14 days from start_date param or today)
         $startDate = $_GET['start'] ?? $today;
