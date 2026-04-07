@@ -65,7 +65,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         if ($action === 'edit' && isset($_POST['id'])) {
             $id = (int)$_POST['id'];
-            $db->update('customers', $data, ['id' => $id]);
+            $db->update('customers', $data, 'id = :where_id', ['where_id' => $id]);
             $_SESSION['success'] = 'Customer berhasil diupdate';
         } else {
             // Generate customer code
@@ -93,7 +93,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 if (isset($_GET['delete'])) {
     $id = (int)$_GET['delete'];
     try {
-        $db->delete('customers', ['id' => $id]);
+        $db->delete('customers', 'id = ?', [$id]);
         $_SESSION['success'] = 'Customer berhasil dihapus';
     } catch (Exception $e) {
         $_SESSION['error'] = 'Gagal menghapus: ' . $e->getMessage();
@@ -108,7 +108,7 @@ if (isset($_GET['toggle'])) {
     try {
         $current = $db->fetchOne("SELECT is_active FROM customers WHERE id = ?", [$id]);
         $newStatus = $current['is_active'] ? 0 : 1;
-        $db->update('customers', ['is_active' => $newStatus], ['id' => $id]);
+        $db->update('customers', ['is_active' => $newStatus], 'id = :where_id', ['where_id' => $id]);
         $_SESSION['success'] = 'Status customer berhasil diubah';
     } catch (Exception $e) {
         $_SESSION['error'] = 'Gagal mengubah status: ' . $e->getMessage();

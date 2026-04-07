@@ -63,7 +63,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         if ($action === 'edit' && isset($_POST['id'])) {
             $id = (int)$_POST['id'];
-            $db->update('suppliers', $data, ['id' => $id]);
+            $db->update('suppliers', $data, 'id = :where_id', ['where_id' => $id]);
             $_SESSION['success'] = 'Supplier berhasil diupdate';
         } else {
             // Generate supplier code
@@ -91,7 +91,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 if (isset($_GET['delete'])) {
     $id = (int)$_GET['delete'];
     try {
-        $db->delete('suppliers', ['id' => $id]);
+        $db->delete('suppliers', 'id = ?', [$id]);
         $_SESSION['success'] = 'Supplier berhasil dihapus';
     } catch (Exception $e) {
         $_SESSION['error'] = 'Gagal menghapus: ' . $e->getMessage();
@@ -106,7 +106,7 @@ if (isset($_GET['toggle'])) {
     try {
         $current = $db->fetchOne("SELECT is_active FROM suppliers WHERE id = ?", [$id]);
         $newStatus = $current['is_active'] ? 0 : 1;
-        $db->update('suppliers', ['is_active' => $newStatus], ['id' => $id]);
+        $db->update('suppliers', ['is_active' => $newStatus], 'id = :where_id', ['where_id' => $id]);
         $_SESSION['success'] = 'Status supplier berhasil diubah';
     } catch (Exception $e) {
         $_SESSION['error'] = 'Gagal mengubah status: ' . $e->getMessage();

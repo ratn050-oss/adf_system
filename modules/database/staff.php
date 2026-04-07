@@ -77,7 +77,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     try {
         if ($action === 'edit' && isset($_POST['id'])) {
             $id = (int)$_POST['id'];
-            $db->update('staff', $data, ['id' => $id]);
+            $db->update('staff', $data, 'id = :where_id', ['where_id' => $id]);
             $_SESSION['success'] = 'Staff berhasil diupdate';
         } else {
             // Generate staff code
@@ -105,7 +105,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 if (isset($_GET['delete'])) {
     $id = (int)$_GET['delete'];
     try {
-        $db->delete('staff', ['id' => $id]);
+        $db->delete('staff', 'id = ?', [$id]);
         $_SESSION['success'] = 'Staff berhasil dihapus';
     } catch (Exception $e) {
         $_SESSION['error'] = 'Gagal menghapus: ' . $e->getMessage();
@@ -120,7 +120,7 @@ if (isset($_GET['toggle'])) {
     try {
         $current = $db->fetchOne("SELECT is_active FROM staff WHERE id = ?", [$id]);
         $newStatus = $current['is_active'] ? 0 : 1;
-        $db->update('staff', ['is_active' => $newStatus], ['id' => $id]);
+        $db->update('staff', ['is_active' => $newStatus], 'id = :where_id', ['where_id' => $id]);
         $_SESSION['success'] = 'Status staff berhasil diubah';
     } catch (Exception $e) {
         $_SESSION['error'] = 'Gagal mengubah status: ' . $e->getMessage();
