@@ -254,21 +254,21 @@ if ($action === 'restore_feb') {
         $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
         // Original Feb values from before the accidental recalc wipe
         $febData = [
-            ['id'=>2, 'wh'=>200, 'ot'=>0],
-            ['id'=>3, 'wh'=>200, 'ot'=>0],
-            ['id'=>4, 'wh'=>200, 'ot'=>0],
-            ['id'=>5, 'wh'=>100, 'ot'=>0],
-            ['id'=>6, 'wh'=>112, 'ot'=>0],
-            ['id'=>7, 'wh'=>200, 'ot'=>0],
-            ['id'=>8, 'wh'=>201, 'ot'=>0],
-            ['id'=>9, 'wh'=>100, 'ot'=>0],
-            ['id'=>10, 'wh'=>100, 'ot'=>0],
-            ['id'=>11, 'wh'=>200, 'ot'=>0],
-            ['id'=>12, 'wh'=>200, 'ot'=>0],
-            ['id'=>13, 'wh'=>112, 'ot'=>0],
-            ['id'=>14, 'wh'=>100, 'ot'=>0],
-            ['id'=>15, 'wh'=>200, 'ot'=>0],
-            ['id'=>16, 'wh'=>200, 'ot'=>0],
+            ['id' => 2, 'wh' => 200, 'ot' => 0],
+            ['id' => 3, 'wh' => 200, 'ot' => 0],
+            ['id' => 4, 'wh' => 200, 'ot' => 0],
+            ['id' => 5, 'wh' => 100, 'ot' => 0],
+            ['id' => 6, 'wh' => 112, 'ot' => 0],
+            ['id' => 7, 'wh' => 200, 'ot' => 0],
+            ['id' => 8, 'wh' => 201, 'ot' => 0],
+            ['id' => 9, 'wh' => 100, 'ot' => 0],
+            ['id' => 10, 'wh' => 100, 'ot' => 0],
+            ['id' => 11, 'wh' => 200, 'ot' => 0],
+            ['id' => 12, 'wh' => 200, 'ot' => 0],
+            ['id' => 13, 'wh' => 112, 'ot' => 0],
+            ['id' => 14, 'wh' => 100, 'ot' => 0],
+            ['id' => 15, 'wh' => 200, 'ot' => 0],
+            ['id' => 16, 'wh' => 200, 'ot' => 0],
         ];
         foreach ($febData as $d) {
             $stmt = $pdo->prepare("SELECT base_salary FROM payroll_slips WHERE id = ?");
@@ -416,18 +416,22 @@ if ($action === 'payroll_debug') {
                 $stmt2 = $pdo->prepare("SELECT work_hours, shift_1_hours, shift_2_hours, check_in_time, check_out_time, scan_3, scan_4 FROM payroll_attendance WHERE employee_id = ? AND DATE_FORMAT(attendance_date, '%Y-%m') = ?");
                 $stmt2->execute([$eid, $monthStr]);
                 $rows2 = $stmt2->fetchAll(PDO::FETCH_ASSOC);
-                $twh = 0; $tot = 0;
+                $twh = 0;
+                $tot = 0;
                 foreach ($rows2 as $r2) {
                     $wh = (float)$r2['work_hours'];
                     if ($wh <= 0) {
-                        $s1 = 0; $s2 = 0;
+                        $s1 = 0;
+                        $s2 = 0;
                         if (!empty($r2['shift_1_hours']) && (float)$r2['shift_1_hours'] > 0) $s1 = (float)$r2['shift_1_hours'];
                         elseif (!empty($r2['check_in_time']) && !empty($r2['check_out_time'])) {
-                            $t1 = strtotime($r2['check_in_time']); $t2 = strtotime($r2['check_out_time']);
+                            $t1 = strtotime($r2['check_in_time']);
+                            $t2 = strtotime($r2['check_out_time']);
                             if ($t2 > $t1) $s1 = round(($t2 - $t1) / 3600, 2);
                         }
                         if (!empty($r2['scan_3']) && !empty($r2['scan_4'])) {
-                            $t3 = strtotime($r2['scan_3']); $t4 = strtotime($r2['scan_4']);
+                            $t3 = strtotime($r2['scan_3']);
+                            $t4 = strtotime($r2['scan_4']);
                             if ($t4 > $t3) $s2 = round(($t4 - $t3) / 3600, 2);
                         }
                         $wh = round($s1 + $s2, 2);
@@ -437,7 +441,8 @@ if ($action === 'payroll_debug') {
                         if ($wh > 8) $tot += floor(($wh - 8) / 0.75) * 0.75;
                     }
                 }
-                $twh = round($twh, 2); $tot = round($tot, 2);
+                $twh = round($twh, 2);
+                $tot = round($tot, 2);
 
                 // Skip if no attendance data exists (don't overwrite manual entries)
                 if (count($rows2) === 0 || ($twh <= 0 && (float)$slip['work_hours'] > 0)) {
@@ -515,6 +520,7 @@ $filesToSync = [
     'modules/frontdesk/invoice.php',
     'api/create-reservation.php',
     'api/update-reservation.php',
+    'api/get-notifications.php',
     'modules/frontdesk/edit-booking.php',
     'developer/staff-accounts.php',
     'modules/cashbook/index.php',

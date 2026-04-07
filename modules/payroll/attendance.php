@@ -717,6 +717,19 @@
                                         "UPDATE leave_requests SET status = ?, approved_by = ?, approved_at = NOW(), admin_notes = ? WHERE id = ?",
                                         [$newStatus, $approver, $adminNotes, $leaveId]
                                     );
+                                    // Create notification for staff
+                                    $leaveReq = $db->fetchOne("SELECT employee_id, leave_type, start_date, end_date FROM leave_requests WHERE id = ?", [$leaveId]);
+                                    if ($leaveReq) {
+                                        $typeLabels = ['cuti'=>'Cuti','sakit'=>'Sakit','izin'=>'Izin','cuti_khusus'=>'Cuti Khusus'];
+                                        $tl = $typeLabels[$leaveReq['leave_type']] ?? $leaveReq['leave_type'];
+                                        $statusLabel = $newStatus === 'approved' ? 'Disetujui' : 'Ditolak';
+                                        $db->query("INSERT INTO notifications (user_id, type, title, message, data, created_at) VALUES (?, 'leave_response', ?, ?, ?, NOW())", [
+                                            $leaveReq['employee_id'],
+                                            $tl . ' ' . $statusLabel,
+                                            $tl . ' (' . $leaveReq['start_date'] . ' s/d ' . $leaveReq['end_date'] . ') ' . strtolower($statusLabel) . ($adminNotes ? '. Catatan: ' . $adminNotes : ''),
+                                            json_encode(['leave_id' => $leaveId, 'status' => $newStatus, 'leave_type' => $leaveReq['leave_type']])
+                                        ]);
+                                    }
                                     $msg = $newStatus === 'approved' ? '✅ Cuti disetujui.' : '❌ Cuti ditolak.';
                                     $msgType = 'success';
                                 } catch (Exception $e) {
@@ -746,6 +759,17 @@
                                         "UPDATE overtime_requests SET status = ?, approved_by = ?, approved_at = NOW(), admin_notes = ? WHERE id = ?",
                                         [$newStatus, $approver, $adminNotes, $otId]
                                     );
+                                    // Create notification for staff
+                                    $otReq = $db->fetchOne("SELECT employee_id, overtime_date FROM overtime_requests WHERE id = ?", [$otId]);
+                                    if ($otReq) {
+                                        $statusLabel = $newStatus === 'approved' ? 'Disetujui' : 'Ditolak';
+                                        $db->query("INSERT INTO notifications (user_id, type, title, message, data, created_at) VALUES (?, 'overtime_response', ?, ?, ?, NOW())", [
+                                            $otReq['employee_id'],
+                                            'Lembur ' . $statusLabel,
+                                            'Pengajuan lembur tanggal ' . $otReq['overtime_date'] . ' ' . strtolower($statusLabel) . ($adminNotes ? '. Catatan: ' . $adminNotes : ''),
+                                            json_encode(['overtime_id' => $otId, 'status' => $newStatus, 'overtime_date' => $otReq['overtime_date']])
+                                        ]);
+                                    }
                                     $msg = $newStatus === 'approved' ? '✅ Lembur disetujui.' : '❌ Lembur ditolak.';
                                     $msgType = 'success';
                                 } catch (Exception $e) {

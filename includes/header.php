@@ -664,6 +664,23 @@ if (isset($_SESSION['user_id'])) {
                         <span>End Shift</span>
                     </a>
 
+                    <!-- Notification Bell -->
+                    <div id="adminNotifBell" style="position:relative;cursor:pointer;" onclick="toggleAdminNotif()">
+                        <i data-feather="bell" style="width:22px;height:22px;color:var(--text-muted);transition:color .2s;"></i>
+                        <span id="adminNotifBadge" style="display:none;position:absolute;top:-4px;right:-6px;background:#ef4444;color:#fff;font-size:0.6rem;font-weight:800;min-width:16px;height:16px;border-radius:8px;display:none;align-items:center;justify-content:center;padding:0 4px;"></span>
+                    </div>
+
+                    <!-- Notification Panel -->
+                    <div id="adminNotifPanel" style="display:none;position:absolute;top:60px;right:120px;width:400px;max-height:500px;background:#fff;border-radius:12px;box-shadow:0 10px 50px rgba(0,0,0,.15);border:1px solid #e5e7eb;z-index:999;overflow:hidden;">
+                        <div style="padding:14px 18px;border-bottom:1px solid #f1f5f9;display:flex;align-items:center;justify-content:space-between;">
+                            <span style="font-weight:700;font-size:0.9rem;color:#1e293b;">📋 Pengajuan Staff</span>
+                            <span id="adminNotifCount" style="background:#ef4444;color:#fff;font-size:0.65rem;font-weight:700;padding:2px 8px;border-radius:10px;display:none;">0</span>
+                        </div>
+                        <div id="adminNotifList" style="max-height:420px;overflow-y:auto;padding:4px 0;">
+                            <div style="padding:30px;text-align:center;color:#94a3b8;font-size:0.8rem;">Memuat...</div>
+                        </div>
+                    </div>
+
                     <!-- Date & Time Display -->
                     <div style="text-align: right; padding-right: 1.5rem; border-right: 1px solid var(--bg-tertiary);">
                         <div style="font-size: 0.813rem; font-weight: 600; color: var(--text-primary);" id="currentDate">
@@ -739,4 +756,118 @@ if (isset($_SESSION['user_id'])) {
                             document.querySelector('select[onchange*="switchBusiness"]').value = '<?php echo ACTIVE_BUSINESS_ID; ?>';
                         }
                     }
+
+                    // ═══ Admin Notification System ═══
+                    let adminNotifOpen = false;
+                    const NOTIF_BASE = '<?php echo BASE_URL; ?>';
+
+                    function toggleAdminNotif() {
+                        adminNotifOpen = !adminNotifOpen;
+                        const panel = document.getElementById('adminNotifPanel');
+                        if (adminNotifOpen) {
+                            panel.style.display = 'block';
+                            loadAdminNotifs();
+                        } else {
+                            panel.style.display = 'none';
+                        }
+                    }
+
+                    document.addEventListener('click', function(e) {
+                        if (adminNotifOpen && !e.target.closest('#adminNotifBell') && !e.target.closest('#adminNotifPanel')) {
+                            adminNotifOpen = false;
+                            document.getElementById('adminNotifPanel').style.display = 'none';
+                        }
+                    });
+
+                    async function loadAdminNotifs() {
+                        try {
+                            const res = await fetch(NOTIF_BASE + '/api/get-notifications.php?type=admin_pending');
+                            const data = await res.json();
+                            const leaves = data.pending_leaves || [];
+                            const overtimes = data.pending_overtimes || [];
+                            const total = leaves.length + overtimes.length;
+
+                            if (total === 0) {
+                                document.getElementById('adminNotifList').innerHTML = '<div style="padding:30px;text-align:center;color:#94a3b8;font-size:0.8rem;">✅ Tidak ada pengajuan pending</div>';
+                                return;
+                            }
+
+                            let html = '';
+                            overtimes.forEach(o => {
+                                html += `<div style="padding:12px 18px;border-bottom:1px solid #f8fafc;" id="notif-ot-${o.id}">
+                                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                                        <span style="font-size:14px;">⏰</span>
+                                        <span style="font-weight:700;font-size:0.78rem;color:#1e293b;">${o.full_name}</span>
+                                        <span style="margin-left:auto;background:#fef3c7;color:#92400e;font-size:0.6rem;font-weight:700;padding:2px 8px;border-radius:8px;">LEMBUR</span>
+                                    </div>
+                                    <div style="font-size:0.75rem;color:#64748b;margin-bottom:8px;">📅 ${o.overtime_date} — ${o.reason||'Tidak ada keterangan'}</div>
+                                    <div style="display:flex;gap:6px;">
+                                        <button onclick="approveReject('overtime','approve',${o.id})" style="flex:1;padding:6px;background:#16a34a;color:#fff;border:none;border-radius:6px;font-size:0.7rem;font-weight:700;cursor:pointer;">✅ Setujui</button>
+                                        <button onclick="approveReject('overtime','reject',${o.id})" style="flex:1;padding:6px;background:#ef4444;color:#fff;border:none;border-radius:6px;font-size:0.7rem;font-weight:700;cursor:pointer;">❌ Tolak</button>
+                                    </div>
+                                </div>`;
+                            });
+                            leaves.forEach(l => {
+                                const tl = {cuti:'🏖️ Cuti',sakit:'🩺 Sakit',izin:'📋 Izin',cuti_khusus:'⭐ Cuti Khusus'}[l.leave_type] || l.leave_type;
+                                html += `<div style="padding:12px 18px;border-bottom:1px solid #f8fafc;" id="notif-lv-${l.id}">
+                                    <div style="display:flex;align-items:center;gap:8px;margin-bottom:6px;">
+                                        <span style="font-size:14px;">📝</span>
+                                        <span style="font-weight:700;font-size:0.78rem;color:#1e293b;">${l.full_name}</span>
+                                        <span style="margin-left:auto;background:#dbeafe;color:#1e40af;font-size:0.6rem;font-weight:700;padding:2px 8px;border-radius:8px;">${tl}</span>
+                                    </div>
+                                    <div style="font-size:0.75rem;color:#64748b;margin-bottom:4px;">📅 ${l.start_date} s/d ${l.end_date}</div>
+                                    ${l.reason ? `<div style="font-size:0.72rem;color:#64748b;margin-bottom:8px;">💬 ${l.reason}</div>` : ''}
+                                    <div style="display:flex;gap:6px;">
+                                        <button onclick="approveReject('leave','approve',${l.id})" style="flex:1;padding:6px;background:#16a34a;color:#fff;border:none;border-radius:6px;font-size:0.7rem;font-weight:700;cursor:pointer;">✅ Setujui</button>
+                                        <button onclick="approveReject('leave','reject',${l.id})" style="flex:1;padding:6px;background:#ef4444;color:#fff;border:none;border-radius:6px;font-size:0.7rem;font-weight:700;cursor:pointer;">❌ Tolak</button>
+                                    </div>
+                                </div>`;
+                            });
+                            document.getElementById('adminNotifList').innerHTML = html;
+                        } catch (e) {
+                            document.getElementById('adminNotifList').innerHTML = '<div style="padding:30px;text-align:center;color:#ef4444;font-size:0.8rem;">Gagal memuat</div>';
+                        }
+                    }
+
+                    async function approveReject(type, action, id) {
+                        const notes = prompt(action === 'reject' ? 'Alasan penolakan (opsional):' : 'Catatan (opsional):');
+                        if (notes === null) return;
+                        const fd = new FormData();
+                        if (type === 'overtime') {
+                            fd.append('action', action === 'approve' ? 'approve_overtime' : 'reject_overtime');
+                            fd.append('overtime_id', id);
+                        } else {
+                            fd.append('action', action === 'approve' ? 'approve_leave' : 'reject_leave');
+                            fd.append('leave_id', id);
+                        }
+                        fd.append('admin_notes', notes);
+                        try {
+                            const res = await fetch(NOTIF_BASE + '/api/get-notifications.php?type=admin_action', { method: 'POST', body: fd });
+                            const data = await res.json();
+                            if (data.success) {
+                                const el = document.getElementById('notif-' + (type==='overtime'?'ot':'lv') + '-' + id);
+                                if (el) {
+                                    el.innerHTML = '<div style="padding:8px;text-align:center;color:' + (action==='approve'?'#16a34a':'#ef4444') + ';font-size:0.78rem;font-weight:700;">' + (action==='approve'?'✅ Disetujui':'❌ Ditolak') + '</div>';
+                                    setTimeout(() => { el.style.display = 'none'; checkAdminNotifs(); }, 1500);
+                                }
+                            } else {
+                                alert(data.message || 'Gagal memproses');
+                            }
+                        } catch (e) { alert('Error: ' + e.message); }
+                    }
+
+                    async function checkAdminNotifs() {
+                        try {
+                            const res = await fetch(NOTIF_BASE + '/api/get-notifications.php?type=admin_count');
+                            const data = await res.json();
+                            const count = data.pending_count || 0;
+                            const badge = document.getElementById('adminNotifBadge');
+                            if (badge) {
+                                if (count > 0) { badge.textContent = count; badge.style.display = 'flex'; }
+                                else { badge.style.display = 'none'; }
+                            }
+                        } catch (e) {}
+                    }
+                    checkAdminNotifs();
+                    setInterval(checkAdminNotifs, 30000);
                 </script>

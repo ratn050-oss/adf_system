@@ -521,12 +521,32 @@ if ($action === 'leave_history') {
 }
 
 if ($action === 'notifications') {
-    // Get recent leave status changes (approved/rejected in last 30 days)
-    $notifs = $db->fetchAll("SELECT id, leave_type, start_date, end_date, status, admin_notes, approved_at 
-        FROM leave_requests 
-        WHERE employee_id = ? AND status IN ('approved','rejected') AND approved_at IS NOT NULL AND approved_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
-        ORDER BY approved_at DESC LIMIT 20", [$empId]) ?: [];
-    echo json_encode(['success' => true, 'data' => $notifs]);
+    // Get notifications from notifications table (both leave + overtime responses)
+    $notifs = $db->fetchAll("SELECT id, type, title, message, data, is_read, created_at 
+        FROM notifications 
+        WHERE user_id = ? AND created_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+        ORDER BY created_at DESC LIMIT 20", [$empId]) ?: [];
+    // Also get legacy leave notifications if notifications table is empty
+    if (empty($notifs)) {
+        $legacy = $db->fetchAll("SELECT id, leave_type, start_date, end_date, status, admin_notes, approved_at 
+            FROM leave_requests 
+            WHERE employee_id = ? AND status IN ('approved','rejected') AND approved_at IS NOT NULL AND approved_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
+            ORDER BY approved_at DESC LIMIT 20", [$empId]) ?: [];
+        echo json_encode(['success' => true, 'data' => $legacy, 'source' => 'legacy']);
+        exit;
+    }
+    $unread = 0;
+    foreach ($notifs as &$n) {
+        $n['data'] = json_decode($n['data'], true);
+        if (!$n['is_read']) $unread++;
+    }
+    echo json_encode(['success' => true, 'data' => $notifs, 'unread_count' => $unread, 'source' => 'notifications']);
+    exit;
+}
+
+if ($action === 'notif_mark_read') {
+    $db->query("UPDATE notifications SET is_read = 1 WHERE user_id = ? AND is_read = 0", [$empId]);
+    echo json_encode(['success' => true]);
     exit;
 }
 

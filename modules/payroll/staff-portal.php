@@ -486,6 +486,21 @@ try {
             display: block;
         }
 
+        .notif-bell.shake {
+            animation: bellShake 0.8s ease-in-out;
+        }
+
+        @keyframes bellShake {
+            0% { transform: rotate(0); }
+            15% { transform: rotate(14deg); }
+            30% { transform: rotate(-14deg); }
+            45% { transform: rotate(10deg); }
+            60% { transform: rotate(-8deg); }
+            75% { transform: rotate(4deg); }
+            85% { transform: rotate(-2deg); }
+            100% { transform: rotate(0); }
+        }
+
         /* Install banner — fixed bottom, visible everywhere */
         .install-banner {
             position: fixed;
@@ -3597,7 +3612,8 @@ try {
                     showApp(data.data.full_name);
                 }
             } catch (e) {
-                /* stay on auth screen */ }
+                /* stay on auth screen */
+            }
         })();
 
         // ═══ CUTI PAGE ═══
@@ -3901,46 +3917,56 @@ try {
                 const res = await fetch(API + '&action=notifications');
                 const data = await res.json();
                 const notifs = data.data || [];
+                const source = data.source || 'legacy';
                 if (notifs.length === 0) {
                     document.getElementById('notifList').innerHTML = '<div class="np-empty">🔔 Belum ada notifikasi</div>';
                     return;
                 }
-                const typeLabel = {
-                    cuti: '🏖️ Cuti',
-                    sakit: '🩺 Sakit',
-                    izin: '📋 Izin',
-                    cuti_khusus: '⭐ Khusus'
-                };
                 let html = '';
-                notifs.forEach(n => {
-                    const icon = n.status === 'approved' ? '✅' : '❌';
-                    const label = n.status === 'approved' ? 'DISETUJUI' : 'DITOLAK';
-                    const color = n.status === 'approved' ? 'var(--green)' : 'var(--red)';
-                    const s = new Date(n.start_date).toLocaleDateString('id-ID', {
-                        day: 'numeric',
-                        month: 'short'
+                if (source === 'notifications') {
+                    // New format from notifications table
+                    notifs.forEach(n => {
+                        const d = n.data || {};
+                        const status = d.status || '';
+                        const icon = status === 'approved' ? '✅' : (status === 'rejected' ? '❌' : '🔔');
+                        const color = status === 'approved' ? 'var(--green)' : (status === 'rejected' ? 'var(--red)' : 'var(--navy)');
+                        const time = n.created_at ? new Date(n.created_at).toLocaleDateString('id-ID', {day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) : '';
+                        const unreadStyle = n.is_read == 0 ? 'background:#f0f7ff;' : '';
+                        html += `<div class="np-item" style="${unreadStyle}">
+                    <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">
+                        <span style="font-size:14px;">${icon}</span>
+                        <span style="font-weight:700;font-size:12px;color:${color};">${n.title||''}</span>
+                        <span style="font-size:10px;color:var(--muted);margin-left:auto;">${time}</span>
+                    </div>
+                    <div style="font-size:11px;color:#555;">${n.message||''}</div>
+                </div>`;
                     });
-                    const e = new Date(n.end_date).toLocaleDateString('id-ID', {
-                        day: 'numeric',
-                        month: 'short'
+                } else {
+                    // Legacy format from leave_requests table
+                    const typeLabel = {cuti:'🏖️ Cuti',sakit:'🩺 Sakit',izin:'📋 Izin',cuti_khusus:'⭐ Khusus'};
+                    notifs.forEach(n => {
+                        const icon = n.status === 'approved' ? '✅' : '❌';
+                        const label = n.status === 'approved' ? 'DISETUJUI' : 'DITOLAK';
+                        const color = n.status === 'approved' ? 'var(--green)' : 'var(--red)';
+                        const s = new Date(n.start_date).toLocaleDateString('id-ID',{day:'numeric',month:'short'});
+                        const e = new Date(n.end_date).toLocaleDateString('id-ID',{day:'numeric',month:'short'});
+                        const time = n.approved_at ? new Date(n.approved_at).toLocaleDateString('id-ID',{day:'numeric',month:'short',hour:'2-digit',minute:'2-digit'}) : '';
+                        html += `<div class="np-item">
+                    <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">
+                        <span style="font-size:14px;">${icon}</span>
+                        <span style="font-weight:700;font-size:12px;color:${color};">${label}</span>
+                        <span style="font-size:10px;color:var(--muted);margin-left:auto;">${time}</span>
+                    </div>
+                    <div style="font-size:11px;">${typeLabel[n.leave_type]||n.leave_type}: ${s} — ${e}</div>
+                    ${n.admin_notes ? `<div style="font-size:10px;color:var(--blue);margin-top:2px;">💬 ${n.admin_notes}</div>` : ''}
+                </div>`;
                     });
-                    const time = n.approved_at ? new Date(n.approved_at).toLocaleDateString('id-ID', {
-                        day: 'numeric',
-                        month: 'short',
-                        hour: '2-digit',
-                        minute: '2-digit'
-                    }) : '';
-                    html += `<div class="np-item">
-                <div style="display:flex;align-items:center;gap:6px;margin-bottom:3px;">
-                    <span style="font-size:14px;">${icon}</span>
-                    <span style="font-weight:700;font-size:12px;color:${color};">${label}</span>
-                    <span style="font-size:10px;color:var(--muted);margin-left:auto;">${time}</span>
-                </div>
-                <div style="font-size:11px;">${typeLabel[n.leave_type]||n.leave_type}: ${s} — ${e}</div>
-                ${n.admin_notes ? `<div style="font-size:10px;color:var(--blue);margin-top:2px;">💬 ${n.admin_notes}</div>` : ''}
-            </div>`;
-                });
+                }
                 document.getElementById('notifList').innerHTML = html;
+                // Mark as read when opened
+                if (source === 'notifications') {
+                    fetch(API + '&action=notif_mark_read');
+                }
             } catch (e) {
                 document.getElementById('notifList').innerHTML = '<div class="np-empty">Gagal memuat</div>';
             }
@@ -3950,12 +3976,27 @@ try {
             try {
                 const res = await fetch(API + '&action=notifications');
                 const data = await res.json();
-                const notifs = data.data || [];
-                const lastSeen = localStorage.getItem('notif_last_seen') || '';
-                const hasNew = notifs.length > 0 && (!lastSeen || notifs[0].approved_at > lastSeen);
-                document.getElementById('notifDot').classList.toggle('show', hasNew);
-                if (notifOpen && notifs.length > 0) {
-                    localStorage.setItem('notif_last_seen', notifs[0].approved_at);
+                const source = data.source || 'legacy';
+                let hasNew = false;
+                if (source === 'notifications') {
+                    hasNew = (data.unread_count || 0) > 0;
+                } else {
+                    const notifs = data.data || [];
+                    const lastSeen = localStorage.getItem('notif_last_seen') || '';
+                    hasNew = notifs.length > 0 && (!lastSeen || notifs[0].approved_at > lastSeen);
+                    if (notifOpen && notifs.length > 0) {
+                        localStorage.setItem('notif_last_seen', notifs[0].approved_at);
+                    }
+                }
+                const dot = document.getElementById('notifDot');
+                const bell = document.querySelector('.notif-bell');
+                const wasShowing = dot.classList.contains('show');
+                dot.classList.toggle('show', hasNew);
+                // Shake bell + vibrate when new notification detected
+                if (hasNew && !wasShowing) {
+                    bell.classList.add('shake');
+                    setTimeout(() => bell.classList.remove('shake'), 1000);
+                    if ('vibrate' in navigator) navigator.vibrate([200, 100, 200]);
                 }
             } catch (e) {}
         }
