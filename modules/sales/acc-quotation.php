@@ -19,7 +19,6 @@ require_once '../cqc-projects/db-helper.php';
 try {
     $pdo = getCQCDatabaseConnection();
     ensureCQCQuotationTable($pdo);
-    ensureCQCProjectTable($pdo);
 } catch (Exception $e) {
     echo json_encode(['success' => false, 'message' => 'Database connection failed: ' . $e->getMessage()]);
     exit;
@@ -75,9 +74,9 @@ try {
         INSERT INTO cqc_projects 
         (project_code, project_name, location, status, description,
          client_name, client_phone, client_email,
-         solar_capacity_kwp, budget_idr, contract_value,
+         solar_capacity_kwp, budget_idr,
          start_date, created_by, created_at, updated_at)
-        VALUES (?, ?, ?, 'planning', ?, ?, ?, ?, ?, ?, ?, CURDATE(), ?, NOW(), NOW())
+        VALUES (?, ?, ?, 'planning', ?, ?, ?, ?, ?, ?, CURDATE(), ?, NOW(), NOW())
     ");
     
     $description = "Dibuat otomatis dari Quotation: " . $quotation['quote_number'];
@@ -95,7 +94,6 @@ try {
         $quotation['client_email'] ?? '',
         $solarCapacityKwp,
         $budgetIdr,
-        $budgetIdr, // contract_value same as budget
         $_SESSION['user_id'] ?? 1
     ]);
     
