@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Staff Portal API
  * Handles: register, login, get data, attendance, breakfast request
@@ -14,7 +15,8 @@ header('Content-Type: application/json');
 $bizSlug = preg_replace('/[^a-z0-9\-_]/', '', strtolower(trim($_GET['b'] ?? '')));
 $bizFile = __DIR__ . '/../../config/businesses/' . $bizSlug . '.php';
 if (!$bizSlug || !file_exists($bizFile)) {
-    echo json_encode(['success' => false, 'message' => 'Invalid business']); exit;
+    echo json_encode(['success' => false, 'message' => 'Invalid business']);
+    exit;
 }
 $bizConfig = require $bizFile;
 if (!defined('ACTIVE_BUSINESS_ID')) define('ACTIVE_BUSINESS_ID', $bizConfig['business_id']);
@@ -34,7 +36,10 @@ $pdo->exec("CREATE TABLE IF NOT EXISTS `staff_accounts` (
     INDEX idx_emp (employee_id),
     UNIQUE KEY uk_emp (employee_id)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-try { $pdo->exec("ALTER TABLE staff_accounts ADD COLUMN plain_password VARCHAR(255) DEFAULT NULL AFTER password_hash"); } catch (Exception $e) {}
+try {
+    $pdo->exec("ALTER TABLE staff_accounts ADD COLUMN plain_password VARCHAR(255) DEFAULT NULL AFTER password_hash");
+} catch (Exception $e) {
+}
 
 // Auto-create leave_requests table
 $pdo->exec("CREATE TABLE IF NOT EXISTS `leave_requests` (
@@ -89,10 +94,12 @@ if ($action === 'register') {
     $password = $_POST['password'] ?? '';
 
     if (!$empInput || !$email || !$password) {
-        echo json_encode(['success' => false, 'message' => 'Semua field wajib diisi']); exit;
+        echo json_encode(['success' => false, 'message' => 'Semua field wajib diisi']);
+        exit;
     }
     if (strlen($password) < 6) {
-        echo json_encode(['success' => false, 'message' => 'Password minimal 6 karakter']); exit;
+        echo json_encode(['success' => false, 'message' => 'Password minimal 6 karakter']);
+        exit;
     }
 
     // Build employee_code from number input: "1" -> try EMP-001, EMP-01, EMP-1, or exact match
@@ -112,17 +119,20 @@ if ($action === 'register') {
         $emp = $db->fetchOne("SELECT id, full_name FROM payroll_employees WHERE employee_code = ? AND is_active = 1", [strtoupper($empInput)]);
     }
     if (!$emp) {
-        echo json_encode(['success' => false, 'message' => 'Kode karyawan tidak ditemukan. Hubungi admin.']); exit;
+        echo json_encode(['success' => false, 'message' => 'Kode karyawan tidak ditemukan. Hubungi admin.']);
+        exit;
     }
 
     // Check if already registered
     $exists = $db->fetchOne("SELECT id FROM staff_accounts WHERE employee_id = ?", [$emp['id']]);
     if ($exists) {
-        echo json_encode(['success' => false, 'message' => 'Karyawan sudah terdaftar. Gunakan login.']); exit;
+        echo json_encode(['success' => false, 'message' => 'Karyawan sudah terdaftar. Gunakan login.']);
+        exit;
     }
     $emailExists = $db->fetchOne("SELECT id FROM staff_accounts WHERE email = ?", [$email]);
     if ($emailExists) {
-        echo json_encode(['success' => false, 'message' => 'Email sudah terdaftar.']); exit;
+        echo json_encode(['success' => false, 'message' => 'Email sudah terdaftar.']);
+        exit;
     }
 
     $hash = password_hash($password, PASSWORD_DEFAULT);
@@ -130,7 +140,8 @@ if ($action === 'register') {
         $pdo->prepare("INSERT INTO staff_accounts (employee_id, email, password_hash, plain_password) VALUES (?, ?, ?, ?)")
             ->execute([$emp['id'], $email, $hash, $password]);
     } catch (Exception $e) {
-        echo json_encode(['success' => false, 'message' => 'Gagal simpan: ' . $e->getMessage()]); exit;
+        echo json_encode(['success' => false, 'message' => 'Gagal simpan: ' . $e->getMessage()]);
+        exit;
     }
 
     echo json_encode(['success' => true, 'message' => 'Registrasi berhasil! Silakan login.', 'name' => $emp['full_name']]);
@@ -145,7 +156,8 @@ if ($action === 'login') {
     $password = $_POST['password'] ?? '';
 
     if (!$email || !$password) {
-        echo json_encode(['success' => false, 'message' => 'Username & password wajib diisi']); exit;
+        echo json_encode(['success' => false, 'message' => 'Username & password wajib diisi']);
+        exit;
     }
 
     $account = $db->fetchOne("SELECT sa.*, pe.full_name, pe.employee_code, pe.position, pe.department 
@@ -154,10 +166,12 @@ if ($action === 'login') {
         WHERE LOWER(sa.email) = LOWER(?)", [$email]);
 
     if (!$account) {
-        echo json_encode(['success' => false, 'message' => 'Username tidak ditemukan']); exit;
+        echo json_encode(['success' => false, 'message' => 'Username tidak ditemukan']);
+        exit;
     }
     if (!password_verify($password, $account['password_hash'])) {
-        echo json_encode(['success' => false, 'message' => 'Password salah']); exit;
+        echo json_encode(['success' => false, 'message' => 'Password salah']);
+        exit;
     }
 
     // Update last login
@@ -184,21 +198,26 @@ if ($action === 'change_password') {
     $confirmPassword = $_POST['confirm_password'] ?? '';
 
     if (!$email || !$oldPassword || !$newPassword || !$confirmPassword) {
-        echo json_encode(['success' => false, 'message' => 'Semua field wajib diisi']); exit;
+        echo json_encode(['success' => false, 'message' => 'Semua field wajib diisi']);
+        exit;
     }
     if (strlen($newPassword) < 6) {
-        echo json_encode(['success' => false, 'message' => 'Password baru minimal 6 karakter']); exit;
+        echo json_encode(['success' => false, 'message' => 'Password baru minimal 6 karakter']);
+        exit;
     }
     if ($newPassword !== $confirmPassword) {
-        echo json_encode(['success' => false, 'message' => 'Konfirmasi password tidak cocok']); exit;
+        echo json_encode(['success' => false, 'message' => 'Konfirmasi password tidak cocok']);
+        exit;
     }
 
     $account = $db->fetchOne("SELECT id, password_hash FROM staff_accounts WHERE LOWER(email) = LOWER(?)", [$email]);
     if (!$account) {
-        echo json_encode(['success' => false, 'message' => 'Username/email tidak ditemukan']); exit;
+        echo json_encode(['success' => false, 'message' => 'Username/email tidak ditemukan']);
+        exit;
     }
     if (!password_verify($oldPassword, $account['password_hash'])) {
-        echo json_encode(['success' => false, 'message' => 'Password lama salah']); exit;
+        echo json_encode(['success' => false, 'message' => 'Password lama salah']);
+        exit;
     }
 
     $newHash = password_hash($newPassword, PASSWORD_DEFAULT);
@@ -210,7 +229,8 @@ if ($action === 'change_password') {
 
 // Hotel operational date: day changes at noon (12:00), not midnight
 // Before noon = still yesterday's hotel day (guests haven't checked out)
-function getHotelDate() {
+function getHotelDate()
+{
     return (int)date('H') < 12 ? date('Y-m-d', strtotime('-1 day')) : date('Y-m-d');
 }
 
@@ -219,14 +239,16 @@ function getHotelDate() {
 // ══════════════════════════════════════
 if ($action === 'logout') {
     session_destroy();
-    echo json_encode(['success' => true]); exit;
+    echo json_encode(['success' => true]);
+    exit;
 }
 
 // ══════════════════════════════════════
 // AUTH CHECK — all below require login
 // ══════════════════════════════════════
 if (empty($_SESSION['staff_logged_in'])) {
-    echo json_encode(['success' => false, 'message' => 'Not authenticated', 'auth' => false]); exit;
+    echo json_encode(['success' => false, 'message' => 'Not authenticated', 'auth' => false]);
+    exit;
 }
 
 $empId = (int)$_SESSION['employee_id'];
@@ -234,7 +256,8 @@ $empId = (int)$_SESSION['employee_id'];
 // ── GET PROFILE ──
 if ($action === 'profile') {
     $emp = $db->fetchOne("SELECT id, employee_code, full_name, position, department, phone, join_date FROM payroll_employees WHERE id = ?", [$empId]);
-    echo json_encode(['success' => true, 'data' => $emp]); exit;
+    echo json_encode(['success' => true, 'data' => $emp]);
+    exit;
 }
 
 // ── ATTENDANCE TODAY ──
@@ -248,16 +271,21 @@ if ($action === 'attendance_today') {
         $att['late_minutes'] = $att['late_minutes'] ?? 0;
         $att['early_leave_minutes'] = $att['early_leave_minutes'] ?? 0;
     }
-    echo json_encode(['success' => true, 'data' => $att]); exit;
+    echo json_encode(['success' => true, 'data' => $att]);
+    exit;
 }
 
 // ── ATTENDANCE HISTORY (current month) ──
 if ($action === 'attendance_history') {
     $month = $_GET['month'] ?? date('Y-m');
     $rows = $db->fetchAll("SELECT attendance_date, check_in_time, check_out_time, scan_3, scan_4, work_hours, shift_1_hours, shift_2_hours, status, notes FROM payroll_attendance WHERE employee_id = ? AND DATE_FORMAT(attendance_date, '%Y-%m') = ? ORDER BY attendance_date DESC", [$empId, $month]);
-    
+
     // Summary
-    $totalHours = 0; $totalRegular = 0; $totalOT = 0; $present = 0; $late = 0;
+    $totalHours = 0;
+    $totalRegular = 0;
+    $totalOT = 0;
+    $present = 0;
+    $late = 0;
     foreach ($rows as $r) {
         $wh = (float)($r['work_hours'] ?? 0);
         $totalHours += $wh;
@@ -269,7 +297,7 @@ if ($action === 'attendance_history') {
         if ($r['status'] === 'present' || $r['status'] === 'late') $present++;
         if ($r['status'] === 'late') $late++;
     }
-    
+
     echo json_encode(['success' => true, 'data' => $rows, 'summary' => [
         'total_hours' => round($totalHours, 1),
         'regular_hours' => round($totalRegular, 1),
@@ -277,7 +305,8 @@ if ($action === 'attendance_history') {
         'days_present' => $present,
         'days_late' => $late,
         'target' => 200
-    ]]); exit;
+    ]]);
+    exit;
 }
 
 // ── ROOM OCCUPANCY ──
@@ -290,7 +319,7 @@ if ($action === 'occupancy') {
         $occupied = $db->fetchOne("SELECT COUNT(DISTINCT room_id) as c FROM bookings WHERE status = 'checked_in'")['c'] ?? 0;
         $available = max(0, $totalRooms - $occupied);
         $rate = $totalRooms > 0 ? round($occupied / $totalRooms * 100, 1) : 0;
-        
+
         // Room list with type info + B2B detection
         $rooms = $db->fetchAll("SELECT r.id, r.room_number, r.floor_number,
             COALESCE(rt.type_name, 'Standard') as room_type,
@@ -305,10 +334,10 @@ if ($action === 'occupancy') {
             LEFT JOIN guests g ON b.guest_id = g.id
             ORDER BY rt.type_name ASC, r.room_number ASC", [$hotelTomorrow]) ?: [];
 
-        // Arrivals tomorrow (confirmed bookings checking in hotel-tomorrow)
-        $arrivals = $db->fetchOne("SELECT COUNT(*) as c FROM bookings WHERE DATE(check_in_date) = ? AND status = 'confirmed'", [$hotelTomorrow])['c'] ?? 0;
-        // Departures tomorrow (checked-in guests checking out hotel-tomorrow)
-        $departures = $db->fetchOne("SELECT COUNT(*) as c FROM bookings WHERE DATE(check_out_date) = ? AND status = 'checked_in'", [$hotelTomorrow])['c'] ?? 0;
+        // Arrivals today (confirmed bookings checking in today)
+        $arrivals = $db->fetchOne("SELECT COUNT(*) as c FROM bookings WHERE DATE(check_in_date) = ? AND status IN ('confirmed','pending')", [$hotelDate])['c'] ?? 0;
+        // Departures today (checked-in guests checking out today)
+        $departures = $db->fetchOne("SELECT COUNT(*) as c FROM bookings WHERE DATE(check_out_date) = ? AND status = 'checked_in'", [$hotelDate])['c'] ?? 0;
 
         // Calendar bookings (14 days from start_date param or today)
         $startDate = $_GET['start'] ?? $today;
@@ -321,13 +350,19 @@ if ($action === 'occupancy') {
             ORDER BY b.check_in_date ASC", [$endDate, $startDate]) ?: [];
 
         echo json_encode(['success' => true, 'data' => [
-            'total_rooms' => $totalRooms, 'occupied' => $occupied, 'available' => $available,
-            'occupancy_rate' => $rate, 'rooms' => $rooms,
-            'arrivals_tomorrow' => $arrivals, 'departures_tomorrow' => $departures,
-            'bookings' => $bookings, 'calendar_start' => $startDate, 'calendar_end' => $endDate
+            'total_rooms' => $totalRooms,
+            'occupied' => $occupied,
+            'available' => $available,
+            'occupancy_rate' => $rate,
+            'rooms' => $rooms,
+            'arrivals_today' => $arrivals,
+            'departures_today' => $departures,
+            'bookings' => $bookings,
+            'calendar_start' => $startDate,
+            'calendar_end' => $endDate
         ]]);
     } catch (Exception $e) {
-        echo json_encode(['success' => true, 'data' => ['total_rooms' => 0, 'occupied' => 0, 'available' => 0, 'occupancy_rate' => 0, 'rooms' => [], 'arrivals_tomorrow' => 0, 'departures_tomorrow' => 0, 'bookings' => []]]);
+        echo json_encode(['success' => true, 'data' => ['total_rooms' => 0, 'occupied' => 0, 'available' => 0, 'occupancy_rate' => 0, 'rooms' => [], 'arrivals_today' => 0, 'departures_today' => 0, 'bookings' => []]]);
     }
     exit;
 }
@@ -347,15 +382,17 @@ if ($action === 'breakfast_submit') {
     $menuId = (int)($_POST['menu_id'] ?? 0);
     $date = $_POST['date'] ?? getHotelDate();
     $staffName = $_SESSION['staff_name'] ?? 'Staff';
-    
+
     if ($menuId <= 0) {
-        echo json_encode(['success' => false, 'message' => 'Pilih menu']); exit;
+        echo json_encode(['success' => false, 'message' => 'Pilih menu']);
+        exit;
     }
-    
+
     try {
         $menu = $db->fetchOne("SELECT menu_name FROM breakfast_menus WHERE id = ?", [$menuId]);
         if (!$menu) {
-            echo json_encode(['success' => false, 'message' => 'Menu tidak ditemukan']); exit;
+            echo json_encode(['success' => false, 'message' => 'Menu tidak ditemukan']);
+            exit;
         }
 
         // Check if already ordered today
@@ -379,7 +416,8 @@ if ($action === 'breakfast_today') {
     $hotelDate = getHotelDate();
     $staffName = $_SESSION['staff_name'] ?? '';
     $order = $db->fetchOne("SELECT * FROM breakfast_orders WHERE guest_name = ? AND breakfast_date = ?", [$staffName, $hotelDate]);
-    echo json_encode(['success' => true, 'data' => $order]); exit;
+    echo json_encode(['success' => true, 'data' => $order]);
+    exit;
 }
 
 // ── ALL TODAY'S BREAKFAST ORDERS (Staff Monitor) ──
@@ -437,13 +475,16 @@ if ($action === 'leave_submit') {
     $reason = trim($_POST['reason'] ?? '');
 
     if (!$start || !$end) {
-        echo json_encode(['success' => false, 'message' => 'Tanggal mulai dan selesai wajib diisi']); exit;
+        echo json_encode(['success' => false, 'message' => 'Tanggal mulai dan selesai wajib diisi']);
+        exit;
     }
     if ($start > $end) {
-        echo json_encode(['success' => false, 'message' => 'Tanggal selesai harus setelah tanggal mulai']); exit;
+        echo json_encode(['success' => false, 'message' => 'Tanggal selesai harus setelah tanggal mulai']);
+        exit;
     }
     if (!$reason) {
-        echo json_encode(['success' => false, 'message' => 'Alasan wajib diisi']); exit;
+        echo json_encode(['success' => false, 'message' => 'Alasan wajib diisi']);
+        exit;
     }
     $allowedTypes = ['cuti', 'sakit', 'izin', 'cuti_khusus'];
     if (!in_array($type, $allowedTypes)) $type = 'cuti';
@@ -451,7 +492,8 @@ if ($action === 'leave_submit') {
     // Check overlapping
     $overlap = $db->fetchOne("SELECT id FROM leave_requests WHERE employee_id = ? AND status != 'rejected' AND start_date <= ? AND end_date >= ?", [$empId, $end, $start]);
     if ($overlap) {
-        echo json_encode(['success' => false, 'message' => 'Sudah ada pengajuan cuti di tanggal tersebut']); exit;
+        echo json_encode(['success' => false, 'message' => 'Sudah ada pengajuan cuti di tanggal tersebut']);
+        exit;
     }
 
     try {
@@ -474,7 +516,8 @@ if ($action === 'leave_history') {
         COUNT(CASE WHEN status = 'approved' THEN 1 END) as approved,
         COUNT(CASE WHEN status = 'rejected' THEN 1 END) as rejected
         FROM leave_requests WHERE employee_id = ?", [$year, $empId]) ?: [];
-    echo json_encode(['success' => true, 'data' => $rows, 'stats' => $stats]); exit;
+    echo json_encode(['success' => true, 'data' => $rows, 'stats' => $stats]);
+    exit;
 }
 
 if ($action === 'notifications') {
@@ -483,7 +526,8 @@ if ($action === 'notifications') {
         FROM leave_requests 
         WHERE employee_id = ? AND status IN ('approved','rejected') AND approved_at IS NOT NULL AND approved_at >= DATE_SUB(NOW(), INTERVAL 30 DAY)
         ORDER BY approved_at DESC LIMIT 20", [$empId]) ?: [];
-    echo json_encode(['success' => true, 'data' => $notifs]); exit;
+    echo json_encode(['success' => true, 'data' => $notifs]);
+    exit;
 }
 
 // ══════════════════════════════════════
@@ -491,7 +535,10 @@ if ($action === 'notifications') {
 // ══════════════════════════════════════
 if ($action === 'face_data') {
     $emp = $db->fetchOne("SELECT id, employee_code, full_name, position, department, face_descriptor FROM payroll_employees WHERE id = ? AND is_active = 1", [$empId]);
-    if (!$emp) { echo json_encode(['success' => false, 'message' => 'Data karyawan tidak ditemukan']); exit; }
+    if (!$emp) {
+        echo json_encode(['success' => false, 'message' => 'Data karyawan tidak ditemukan']);
+        exit;
+    }
 
     $today = date('Y-m-d');
     $att = $db->fetchOne("SELECT * FROM payroll_attendance WHERE employee_id = ? AND attendance_date = ?", [$empId, $today]);
@@ -509,13 +556,16 @@ if ($action === 'face_data') {
         'today' => $att,
         'config' => [
             'locations' => array_map(fn($l) => [
-                'name' => $l['location_name'], 'lat' => (float)$l['lat'],
-                'lng' => (float)$l['lng'], 'radius' => (int)$l['radius_m'],
+                'name' => $l['location_name'],
+                'lat' => (float)$l['lat'],
+                'lng' => (float)$l['lng'],
+                'radius' => (int)$l['radius_m'],
             ], $locRows),
             'checkin_end' => $config['checkin_end'] ?? '10:00:00',
             'allow_outside' => (bool)($config['allow_outside'] ?? false),
         ],
-    ]); exit;
+    ]);
+    exit;
 }
 
 // ══════════════════════════════════════
@@ -523,13 +573,18 @@ if ($action === 'face_data') {
 // ══════════════════════════════════════
 if ($action === 'face_register') {
     $descriptor = trim($_POST['face_descriptor'] ?? '');
-    if (!$descriptor) { echo json_encode(['success' => false, 'message' => 'Data wajah kosong']); exit; }
+    if (!$descriptor) {
+        echo json_encode(['success' => false, 'message' => 'Data wajah kosong']);
+        exit;
+    }
     $arr = json_decode($descriptor, true);
     if (!is_array($arr) || count($arr) < 100) {
-        echo json_encode(['success' => false, 'message' => 'Format descriptor wajah tidak valid']); exit;
+        echo json_encode(['success' => false, 'message' => 'Format descriptor wajah tidak valid']);
+        exit;
     }
     $db->query("UPDATE payroll_employees SET face_descriptor = ? WHERE id = ?", [$descriptor, $empId]);
-    echo json_encode(['success' => true, 'message' => 'Wajah berhasil didaftarkan!']); exit;
+    echo json_encode(['success' => true, 'message' => 'Wajah berhasil didaftarkan!']);
+    exit;
 }
 
 // ══════════════════════════════════════
@@ -552,20 +607,27 @@ if ($action === 'face_clock') {
 
     // Location check
     $locRows = $db->fetchAll("SELECT * FROM payroll_attendance_locations WHERE is_active = 1") ?: [];
-    $distance = 0; $isOutside = false;
+    $distance = 0;
+    $isOutside = false;
     if (!empty($locRows) && $lat && $lng) {
-        $nearest = null; $nearestDist = PHP_INT_MAX;
+        $nearest = null;
+        $nearestDist = PHP_INT_MAX;
         foreach ($locRows as $loc) {
             $R = 6371000;
-            $dLat = deg2rad((float)$loc['lat'] - $lat); $dLng = deg2rad((float)$loc['lng'] - $lng);
-            $a = sin($dLat/2)*sin($dLat/2) + cos(deg2rad($lat))*cos(deg2rad((float)$loc['lat']))*sin($dLng/2)*sin($dLng/2);
+            $dLat = deg2rad((float)$loc['lat'] - $lat);
+            $dLng = deg2rad((float)$loc['lng'] - $lng);
+            $a = sin($dLat / 2) * sin($dLat / 2) + cos(deg2rad($lat)) * cos(deg2rad((float)$loc['lat'])) * sin($dLng / 2) * sin($dLng / 2);
             $d = (int)(2 * $R * asin(sqrt($a)));
-            if ($d < $nearestDist) { $nearestDist = $d; $nearest = $loc; }
+            if ($d < $nearestDist) {
+                $nearestDist = $d;
+                $nearest = $loc;
+            }
         }
         $distance = $nearestDist;
         $isOutside = $distance > (int)$nearest['radius_m'];
         if ($isOutside && !$allowOutside) {
-            echo json_encode(['success' => false, 'message' => "Di luar radius {$nearest['location_name']} ({$distance}m, maks {$nearest['radius_m']}m)"]); exit;
+            echo json_encode(['success' => false, 'message' => "Di luar radius {$nearest['location_name']} ({$distance}m, maks {$nearest['radius_m']}m)"]);
+            exit;
         }
     }
 
@@ -573,13 +635,17 @@ if ($action === 'face_clock') {
     $pdo = $db->getConnection();
 
     // Ensure split-shift columns exist
-    try { $pdo->query("SELECT scan_3 FROM payroll_attendance LIMIT 1"); } catch (PDOException $e) {
+    try {
+        $pdo->query("SELECT scan_3 FROM payroll_attendance LIMIT 1");
+    } catch (PDOException $e) {
         $pdo->exec("ALTER TABLE payroll_attendance ADD COLUMN scan_3 TIME DEFAULT NULL AFTER check_out_time, ADD COLUMN scan_4 TIME DEFAULT NULL AFTER scan_3, ADD COLUMN shift_1_hours DECIMAL(5,2) DEFAULT NULL AFTER work_hours, ADD COLUMN shift_2_hours DECIMAL(5,2) DEFAULT NULL AFTER shift_1_hours");
     }
 
     // Ensure late/early columns for cafe
     if ($isCafeBiz) {
-        try { $pdo->query("SELECT late_minutes FROM payroll_attendance LIMIT 1"); } catch (PDOException $e) {
+        try {
+            $pdo->query("SELECT late_minutes FROM payroll_attendance LIMIT 1");
+        } catch (PDOException $e) {
             $pdo->exec("ALTER TABLE payroll_attendance ADD COLUMN late_minutes INT DEFAULT 0 AFTER notes, ADD COLUMN early_leave_minutes INT DEFAULT 0 AFTER late_minutes, ADD COLUMN schedule_start TIME DEFAULT NULL AFTER early_leave_minutes, ADD COLUMN schedule_end TIME DEFAULT NULL AFTER schedule_start");
         }
     }
@@ -595,12 +661,14 @@ if ($action === 'face_clock') {
         if ($scan1 && !$scan2) {
             $diffMin = abs(strtotime("2000-01-01 " . $now) - strtotime("2000-01-01 " . $scan1)) / 60;
             if ($diffMin < 15) {
-                echo json_encode(['success' => false, 'message' => 'Baru saja absen masuk ' . substr($scan1,0,5) . ' (' . round($diffMin) . ' menit lalu). Tunggu minimal 15 menit.']); exit;
+                echo json_encode(['success' => false, 'message' => 'Baru saja absen masuk ' . substr($scan1, 0, 5) . ' (' . round($diffMin) . ' menit lalu). Tunggu minimal 15 menit.']);
+                exit;
             }
         }
 
         if ($scan1 && $scan2) {
-            echo json_encode(['success' => false, 'message' => 'Sudah absen masuk & pulang hari ini.']); exit;
+            echo json_encode(['success' => false, 'message' => 'Sudah absen masuk & pulang hari ini.']);
+            exit;
         }
 
         // Get employee schedule
@@ -619,7 +687,8 @@ if ($action === 'face_clock') {
             ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
             $dayOfWeek = (int)date('w'); // 0=Sun, 6=Sat
             $schedule = $db->fetchOne("SELECT * FROM payroll_work_schedules WHERE employee_id = ? AND day_of_week = ?", [$empId, $dayOfWeek]);
-        } catch (Exception $e) {}
+        } catch (Exception $e) {
+        }
 
         // Fallback to config times
         $schedStart = $schedule['start_time'] ?? ($config['checkin_start'] ?? '09:00:00');
@@ -645,7 +714,8 @@ if ($action === 'face_clock') {
                     'success' => true,
                     'message' => '✅ Absen Masuk — ' . date('H:i') . $statusEmoji,
                     'scan_num' => 1
-                ]); exit;
+                ]);
+                exit;
             }
 
             if (empty($scan2)) {
@@ -664,10 +734,12 @@ if ($action === 'face_clock') {
                     'success' => true,
                     'message' => '✅ Absen Pulang — ' . date('H:i') . " ({$workHours} jam)" . $earlyNote,
                     'scan_num' => 2
-                ]); exit;
+                ]);
+                exit;
             }
         } catch (Exception $e) {
-            echo json_encode(['success' => false, 'message' => 'Gagal: ' . $e->getMessage()]); exit;
+            echo json_encode(['success' => false, 'message' => 'Gagal: ' . $e->getMessage()]);
+            exit;
         }
     } else {
         // ── HOTEL MODE: 4 scans (split-shift) ──
@@ -677,78 +749,99 @@ if ($action === 'face_clock') {
         $scan4 = $att['scan_4'] ?? null;
         $filledScans = array_filter([$scan1, $scan2, $scan3, $scan4], fn($s) => !empty($s));
 
-    // Double scan filter (5 min - prevent accidental double-tap)
-    if (!empty($filledScans)) {
-        $lastScan = end($filledScans);
-        $diffMin = abs(strtotime("2000-01-01 " . $now) - strtotime("2000-01-01 " . $lastScan)) / 60;
-        if ($diffMin < 5) {
-            echo json_encode(['success' => false, 'message' => 'Scan terakhir ' . substr($lastScan,0,5) . ' (' . round($diffMin) . ' menit lalu). Tunggu minimal 5 menit.']); exit;
-        }
-    }
-
-    if (count($filledScans) >= 4) {
-        echo json_encode(['success' => false, 'message' => 'Sudah 4 scan hari ini (maks split-shift)']); exit;
-    }
-
-    $device = 'face:verified';
-    $scanLabels = ['Masuk Shift 1', 'Pulang Shift 1', 'Masuk Shift 2', 'Pulang Shift 2'];
-
-    try {
-        if (!$att) {
-            // Scan 1 — new record
-            $status = ($now > $checkinEnd) ? 'late' : 'present';
-            $pdo->prepare("INSERT INTO payroll_attendance (employee_id, attendance_date, check_in_time, check_in_lat, check_in_lng, check_in_distance_m, check_in_address, check_in_device, status, is_outside_radius, notes) VALUES (?,?,?,?,?,?,?,?,?,?,?)")
-                ->execute([$empId, $today, $now, $lat ?: null, $lng ?: null, $distance, $address, $device, $status, $isOutside ? 1 : 0, 'Face scan 1/4']);
-            echo json_encode(['success' => true, 'message' => '✅ ' . $scanLabels[0] . ' — ' . date('H:i') . ($status === 'late' ? ' ⚠️ Terlambat' : ''), 'scan_num' => 1]); exit;
+        // Double scan filter (5 min - prevent accidental double-tap)
+        if (!empty($filledScans)) {
+            $lastScan = end($filledScans);
+            $diffMin = abs(strtotime("2000-01-01 " . $now) - strtotime("2000-01-01 " . $lastScan)) / 60;
+            if ($diffMin < 5) {
+                echo json_encode(['success' => false, 'message' => 'Scan terakhir ' . substr($lastScan, 0, 5) . ' (' . round($diffMin) . ' menit lalu). Tunggu minimal 5 menit.']);
+                exit;
+            }
         }
 
-        // Determine next empty slot
-        $scanNum = 0;
-        if (empty($scan1)) $scanNum = 1;
-        elseif (empty($scan2)) $scanNum = 2;
-        elseif (empty($scan3)) $scanNum = 3;
-        elseif (empty($scan4)) $scanNum = 4;
-
-        if ($scanNum === 0) {
-            echo json_encode(['success' => false, 'message' => 'Sudah lengkap 4 scan']); exit;
+        if (count($filledScans) >= 4) {
+            echo json_encode(['success' => false, 'message' => 'Sudah 4 scan hari ini (maks split-shift)']);
+            exit;
         }
 
-        $colMap = [1 => 'check_in_time', 2 => 'check_out_time', 3 => 'scan_3', 4 => 'scan_4'];
-        $updates = [$colMap[$scanNum] . " = ?"];
-        $params = [$now];
+        $device = 'face:verified';
+        $scanLabels = ['Masuk Shift 1', 'Pulang Shift 1', 'Masuk Shift 2', 'Pulang Shift 2'];
 
-        // Calculate shift hours
-        $shift1Hours = null; $shift2Hours = null;
-        if ($scanNum === 2 && $scan1) {
-            $shift1Hours = max(0, round((strtotime("2000-01-01 " . $now) - strtotime("2000-01-01 " . $scan1)) / 3600, 2));
-            $updates[] = "shift_1_hours = ?"; $params[] = $shift1Hours;
-            $updates[] = "check_out_device = ?"; $params[] = $device;
-            if ($lat) { $updates[] = "check_out_lat = ?"; $params[] = $lat; $updates[] = "check_out_lng = ?"; $params[] = $lng; $updates[] = "check_out_distance_m = ?"; $params[] = $distance; }
+        try {
+            if (!$att) {
+                // Scan 1 — new record
+                $status = ($now > $checkinEnd) ? 'late' : 'present';
+                $pdo->prepare("INSERT INTO payroll_attendance (employee_id, attendance_date, check_in_time, check_in_lat, check_in_lng, check_in_distance_m, check_in_address, check_in_device, status, is_outside_radius, notes) VALUES (?,?,?,?,?,?,?,?,?,?,?)")
+                    ->execute([$empId, $today, $now, $lat ?: null, $lng ?: null, $distance, $address, $device, $status, $isOutside ? 1 : 0, 'Face scan 1/4']);
+                echo json_encode(['success' => true, 'message' => '✅ ' . $scanLabels[0] . ' — ' . date('H:i') . ($status === 'late' ? ' ⚠️ Terlambat' : ''), 'scan_num' => 1]);
+                exit;
+            }
+
+            // Determine next empty slot
+            $scanNum = 0;
+            if (empty($scan1)) $scanNum = 1;
+            elseif (empty($scan2)) $scanNum = 2;
+            elseif (empty($scan3)) $scanNum = 3;
+            elseif (empty($scan4)) $scanNum = 4;
+
+            if ($scanNum === 0) {
+                echo json_encode(['success' => false, 'message' => 'Sudah lengkap 4 scan']);
+                exit;
+            }
+
+            $colMap = [1 => 'check_in_time', 2 => 'check_out_time', 3 => 'scan_3', 4 => 'scan_4'];
+            $updates = [$colMap[$scanNum] . " = ?"];
+            $params = [$now];
+
+            // Calculate shift hours
+            $shift1Hours = null;
+            $shift2Hours = null;
+            if ($scanNum === 2 && $scan1) {
+                $shift1Hours = max(0, round((strtotime("2000-01-01 " . $now) - strtotime("2000-01-01 " . $scan1)) / 3600, 2));
+                $updates[] = "shift_1_hours = ?";
+                $params[] = $shift1Hours;
+                $updates[] = "check_out_device = ?";
+                $params[] = $device;
+                if ($lat) {
+                    $updates[] = "check_out_lat = ?";
+                    $params[] = $lat;
+                    $updates[] = "check_out_lng = ?";
+                    $params[] = $lng;
+                    $updates[] = "check_out_distance_m = ?";
+                    $params[] = $distance;
+                }
+            }
+            if ($scanNum === 4 && $scan3) {
+                $shift2Hours = max(0, round((strtotime("2000-01-01 " . $now) - strtotime("2000-01-01 " . $scan3)) / 3600, 2));
+                $updates[] = "shift_2_hours = ?";
+                $params[] = $shift2Hours;
+            }
+
+            // Recalculate total
+            $curS1 = ($shift1Hours !== null) ? $shift1Hours : (float)($att['shift_1_hours'] ?? 0);
+            $curS2 = ($shift2Hours !== null) ? $shift2Hours : (float)($att['shift_2_hours'] ?? 0);
+            $totalHours = round($curS1 + $curS2, 2);
+            if ($totalHours > 0) {
+                $updates[] = "work_hours = ?";
+                $params[] = $totalHours;
+            }
+
+            $updates[] = "notes = ?";
+            $params[] = "Face scan {$scanNum}/4";
+            $params[] = $att['id'];
+
+            $pdo->prepare("UPDATE payroll_attendance SET " . implode(', ', $updates) . " WHERE id = ?")->execute($params);
+
+            $hoursTxt = '';
+            if ($scanNum === 2 && $shift1Hours) $hoursTxt = " ({$shift1Hours} jam)";
+            if ($scanNum === 4 && $shift2Hours) $hoursTxt = " (total: {$totalHours} jam)";
+
+            echo json_encode(['success' => true, 'message' => '✅ ' . $scanLabels[$scanNum - 1] . ' — ' . date('H:i') . $hoursTxt, 'scan_num' => $scanNum]);
+            exit;
+        } catch (Exception $e) {
+            echo json_encode(['success' => false, 'message' => 'Gagal: ' . $e->getMessage()]);
+            exit;
         }
-        if ($scanNum === 4 && $scan3) {
-            $shift2Hours = max(0, round((strtotime("2000-01-01 " . $now) - strtotime("2000-01-01 " . $scan3)) / 3600, 2));
-            $updates[] = "shift_2_hours = ?"; $params[] = $shift2Hours;
-        }
-
-        // Recalculate total
-        $curS1 = ($shift1Hours !== null) ? $shift1Hours : (float)($att['shift_1_hours'] ?? 0);
-        $curS2 = ($shift2Hours !== null) ? $shift2Hours : (float)($att['shift_2_hours'] ?? 0);
-        $totalHours = round($curS1 + $curS2, 2);
-        if ($totalHours > 0) { $updates[] = "work_hours = ?"; $params[] = $totalHours; }
-
-        $updates[] = "notes = ?"; $params[] = "Face scan {$scanNum}/4";
-        $params[] = $att['id'];
-
-        $pdo->prepare("UPDATE payroll_attendance SET " . implode(', ', $updates) . " WHERE id = ?")->execute($params);
-
-        $hoursTxt = '';
-        if ($scanNum === 2 && $shift1Hours) $hoursTxt = " ({$shift1Hours} jam)";
-        if ($scanNum === 4 && $shift2Hours) $hoursTxt = " (total: {$totalHours} jam)";
-
-        echo json_encode(['success' => true, 'message' => '✅ ' . $scanLabels[$scanNum - 1] . ' — ' . date('H:i') . $hoursTxt, 'scan_num' => $scanNum]); exit;
-    } catch (Exception $e) {
-        echo json_encode(['success' => false, 'message' => 'Gagal: ' . $e->getMessage()]); exit;
-    }
     } // end hotel else
 }
 
@@ -789,7 +882,9 @@ if ($action === 'work_schedule') {
     // Build weekly data
     $weekly = [];
     $schedMap = [];
-    foreach ($weekSchedule as $ws) { $schedMap[(int)$ws['day_of_week']] = $ws; }
+    foreach ($weekSchedule as $ws) {
+        $schedMap[(int)$ws['day_of_week']] = $ws;
+    }
     for ($d = 0; $d <= 6; $d++) {
         if (isset($schedMap[$d])) {
             $weekly[] = [
@@ -817,7 +912,8 @@ if ($action === 'work_schedule') {
             'total_hours' => $totalHours,
             'weekly' => $weekly,
         ]
-    ]); exit;
+    ]);
+    exit;
 }
 
 // ══════════════════════════════════════
@@ -860,14 +956,16 @@ if ($action === 'salary_periods') {
 if ($action === 'salary_slip') {
     $periodId = (int)($_GET['period_id'] ?? 0);
     if (!$periodId) {
-        echo json_encode(['success' => false, 'message' => 'Period ID diperlukan']); exit;
+        echo json_encode(['success' => false, 'message' => 'Period ID diperlukan']);
+        exit;
     }
 
     try {
         // Verify period is approved/paid
         $period = $db->fetchOne("SELECT id, status, period_label FROM payroll_periods WHERE id = ? AND status IN ('approved', 'paid')", [$periodId]);
         if (!$period) {
-            echo json_encode(['success' => false, 'message' => 'Slip gaji belum tersedia untuk periode ini', 'pending' => true]); exit;
+            echo json_encode(['success' => false, 'message' => 'Slip gaji belum tersedia untuk periode ini', 'pending' => true]);
+            exit;
         }
 
         $slip = $db->fetchOne("
@@ -880,7 +978,8 @@ if ($action === 'salary_slip') {
         ", [$periodId, $empId]);
 
         if (!$slip) {
-            echo json_encode(['success' => false, 'message' => 'Slip gaji tidak ditemukan untuk Anda di periode ini']); exit;
+            echo json_encode(['success' => false, 'message' => 'Slip gaji tidak ditemukan untuk Anda di periode ini']);
+            exit;
         }
 
         echo json_encode(['success' => true, 'data' => $slip]);
@@ -898,21 +997,25 @@ if ($action === 'overtime_submit') {
     $reason = trim($_POST['reason'] ?? '');
 
     if (!$overtimeDate) {
-        echo json_encode(['success' => false, 'message' => 'Tanggal lembur wajib diisi']); exit;
+        echo json_encode(['success' => false, 'message' => 'Tanggal lembur wajib diisi']);
+        exit;
     }
     if (!$reason) {
-        echo json_encode(['success' => false, 'message' => 'Keterangan alasan lembur wajib diisi']); exit;
+        echo json_encode(['success' => false, 'message' => 'Keterangan alasan lembur wajib diisi']);
+        exit;
     }
     // Only allow today or past dates (can't request future overtime)
     if ($overtimeDate > date('Y-m-d')) {
-        echo json_encode(['success' => false, 'message' => 'Tidak bisa mengajukan lembur untuk tanggal yang akan datang']); exit;
+        echo json_encode(['success' => false, 'message' => 'Tidak bisa mengajukan lembur untuk tanggal yang akan datang']);
+        exit;
     }
 
     // Check duplicate
     $existing = $db->fetchOne("SELECT id, status FROM overtime_requests WHERE employee_id = ? AND overtime_date = ?", [$empId, $overtimeDate]);
     if ($existing) {
         $statusLabel = ['pending' => 'menunggu approval', 'approved' => 'sudah disetujui', 'rejected' => 'ditolak'];
-        echo json_encode(['success' => false, 'message' => 'Sudah ada pengajuan lembur tanggal tersebut (status: ' . ($statusLabel[$existing['status']] ?? $existing['status']) . ')']); exit;
+        echo json_encode(['success' => false, 'message' => 'Sudah ada pengajuan lembur tanggal tersebut (status: ' . ($statusLabel[$existing['status']] ?? $existing['status']) . ')']);
+        exit;
     }
 
     try {
@@ -932,7 +1035,8 @@ if ($action === 'overtime_history') {
         COUNT(CASE WHEN status = 'approved' THEN 1 END) as approved,
         COUNT(CASE WHEN status = 'rejected' THEN 1 END) as rejected
         FROM overtime_requests WHERE employee_id = ? AND YEAR(overtime_date) = YEAR(CURDATE())", [$empId]) ?: [];
-    echo json_encode(['success' => true, 'data' => $rows, 'stats' => $stats]); exit;
+    echo json_encode(['success' => true, 'data' => $rows, 'stats' => $stats]);
+    exit;
 }
 
 echo json_encode(['success' => false, 'message' => 'Unknown action']);
