@@ -538,6 +538,7 @@ $filesToSync = [
     'composer.lock',
     'tools/generate-vapid-keys.php',
     'emergency-deploy.php',
+    'install-vendor.php',
     'website/public/index.php',
     'website/public/rooms.php',
     'website/public/activities.php',

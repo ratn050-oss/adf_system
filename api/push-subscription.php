@@ -1,4 +1,5 @@
 <?php
+
 /**
  * API: Push Subscription Management
  * Subscribe/unsubscribe browser push notifications
@@ -8,14 +9,13 @@ define('APP_ACCESS', true);
 require_once dirname(dirname(__FILE__)) . '/config/config.php';
 require_once dirname(dirname(__FILE__)) . '/config/database.php';
 require_once dirname(dirname(__FILE__)) . '/config/vapid.php';
-require_once dirname(dirname(__FILE__)) . '/includes/PushNotificationHelper.php';
 
 header('Content-Type: application/json');
 
 $method = $_SERVER['REQUEST_METHOD'];
 $action = $_GET['action'] ?? '';
 
-// ═══ GET: Return VAPID public key ═══
+// ═══ GET: Return VAPID public key (no vendor needed) ═══
 if ($method === 'GET' && $action === 'vapid-public-key') {
     echo json_encode([
         'success'   => true,
@@ -24,11 +24,20 @@ if ($method === 'GET' && $action === 'vapid-public-key') {
     exit;
 }
 
-// All other actions require POST
+// All other actions require POST and the PushNotificationHelper
 if ($method !== 'POST') {
     echo json_encode(['success' => false, 'message' => 'Method not allowed']);
     exit;
 }
+
+// Check if vendor autoload exists (required for push operations)
+$autoloadPath = dirname(dirname(__FILE__)) . '/vendor/autoload.php';
+if (!file_exists($autoloadPath)) {
+    echo json_encode(['success' => false, 'message' => 'Server push library not installed. Run composer install.']);
+    exit;
+}
+
+require_once dirname(dirname(__FILE__)) . '/includes/PushNotificationHelper.php';
 
 $input = json_decode(file_get_contents('php://input'), true);
 if (!$input) {

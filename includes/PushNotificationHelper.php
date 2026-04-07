@@ -1,4 +1,5 @@
 <?php
+
 /**
  * PushNotificationHelper - Server-side Web Push using VAPID
  * Sends real push notifications to subscribed browsers
@@ -6,7 +7,13 @@
 
 defined('APP_ACCESS') or die('Direct access not allowed');
 
-require_once __DIR__ . '/../vendor/autoload.php';
+$autoloadPath = __DIR__ . '/../vendor/autoload.php';
+if (!file_exists($autoloadPath)) {
+    // Vendor not installed — class will still work for subscription management
+    // but sendToSubscriptions() will fail gracefully
+} else {
+    require_once $autoloadPath;
+}
 require_once __DIR__ . '/../config/vapid.php';
 
 use Minishlink\WebPush\WebPush;
@@ -53,6 +60,11 @@ class PushNotificationHelper
      */
     private function initWebPush()
     {
+        if (!class_exists('Minishlink\\WebPush\\WebPush')) {
+            $this->webPush = null;
+            return;
+        }
+
         $auth = [
             'VAPID' => [
                 'subject'    => VAPID_SUBJECT,
@@ -175,6 +187,10 @@ class PushNotificationHelper
      */
     private function sendToSubscriptions(array $subs, string $title, string $body, array $data = []): array
     {
+        if (!$this->webPush) {
+            return ['sent' => 0, 'failed' => 0, 'error' => 'WebPush library not available'];
+        }
+
         $sent = 0;
         $failed = 0;
         $expired = [];
