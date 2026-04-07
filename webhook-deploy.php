@@ -79,10 +79,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $pulled = false;
     $pullOutput = '';
     
-    // Reset any local changes first to avoid merge conflicts
-    $resetCmd = 'cd ' . escapeshellarg($deployDir) . ' && git checkout -- . 2>&1';
-    if (function_exists('exec')) { @exec($resetCmd); }
-    elseif (function_exists('shell_exec')) { @shell_exec($resetCmd); }
+    // Force reset any local changes to avoid merge conflicts
+    $resetCmd = 'cd ' . escapeshellarg($deployDir) . ' && git fetch origin 2>&1 && git reset --hard origin/main 2>&1';
+    if (function_exists('exec')) { @exec($resetCmd, $resetOut); $result['reset'] = implode("\n", $resetOut ?? []); }
+    elseif (function_exists('shell_exec')) { $result['reset'] = @shell_exec($resetCmd); }
     
     // Try multiple shell execution methods
     $cmd = 'cd ' . escapeshellarg($deployDir) . ' && git pull origin main 2>&1';
