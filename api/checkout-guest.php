@@ -346,6 +346,26 @@ try {
         error_log("Checkout cashbook sync error: " . $cbErr->getMessage());
     }
     
+    // ═══ PUSH NOTIFICATION: Check-Out ═══
+    try {
+        require_once dirname(dirname(__FILE__)) . '/includes/PushNotificationHelper.php';
+        $pushHelper = new PushNotificationHelper($db);
+        $pushHelper->sendToAdmins(
+            '🚪 Check-Out: ' . $booking['guest_name'],
+            'Room ' . $booking['room_number'] . ' - ' . $booking['guest_name'] . ' telah check-out',
+            [
+                'type' => 'check_out',
+                'tag'  => 'checkout-' . $bookingId,
+                'url'  => '/modules/frontdesk/index.php',
+                'booking_id' => $bookingId,
+                'guest_name' => $booking['guest_name'],
+                'room_number' => $booking['room_number']
+            ]
+        );
+    } catch (\Throwable $pushErr) {
+        error_log('Push notification error (check-out): ' . $pushErr->getMessage());
+    }
+
     echo json_encode([
         'success' => true,
         'message' => "Check-out berhasil! {$booking['guest_name']} - Room {$booking['room_number']}" . $cashbookMsg,

@@ -94,9 +94,28 @@ try {
         }
     }
     
+    // Send real Web Push notifications to subscribed browsers
+    try {
+        require_once dirname(dirname(__FILE__)) . '/includes/PushNotificationHelper.php';
+        $pushHelper = new PushNotificationHelper($db);
+        $pushResult = $pushHelper->sendToAdmins(
+            $notification['title'],
+            $notification['message'],
+            [
+                'type' => $type,
+                'tag'  => $type . '-' . time(),
+                'url'  => $data['url'] ?? '/index.php'
+            ]
+        );
+    } catch (\Throwable $pushErr) {
+        $pushResult = ['sent' => 0, 'error' => $pushErr->getMessage()];
+        error_log('Push notification error: ' . $pushErr->getMessage());
+    }
+
     echo json_encode([
         'success' => true,
         'message' => "Notifikasi dikirim ke {$notifiedCount} owner/admin",
+        'push_sent' => $pushResult['sent'] ?? 0,
         'notification' => [
             'type' => $type,
             'title' => $notification['title'],

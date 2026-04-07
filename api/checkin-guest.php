@@ -357,6 +357,26 @@ try {
         $successMessage .= "\nHarap lunasi sebelum CHECK-OUT!";
     }
     
+    // ═══ PUSH NOTIFICATION: Check-In ═══
+    try {
+        require_once dirname(dirname(__FILE__)) . '/includes/PushNotificationHelper.php';
+        $pushHelper = new PushNotificationHelper($db);
+        $pushHelper->sendToAdmins(
+            '✅ Check-In: ' . $booking['guest_name'],
+            'Room ' . $booking['room_number'] . ' - ' . $booking['guest_name'] . ' telah check-in',
+            [
+                'type' => 'check_in',
+                'tag'  => 'checkin-' . $bookingId,
+                'url'  => '/modules/frontdesk/index.php',
+                'booking_id' => $bookingId,
+                'guest_name' => $booking['guest_name'],
+                'room_number' => $booking['room_number']
+            ]
+        );
+    } catch (\Throwable $pushErr) {
+        error_log('Push notification error (check-in): ' . $pushErr->getMessage());
+    }
+
     echo json_encode([
         'success' => true,
         'message' => $successMessage,

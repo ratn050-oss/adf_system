@@ -1,14 +1,16 @@
 /**
  * ADF System - Push Notification Manager
- * Handles browser notifications and push subscriptions
+ * Handles browser notifications + real Web Push subscriptions via VAPID
  */
 
 class NotificationManager {
     constructor() {
         this.isSupported = 'Notification' in window;
         this.isServiceWorkerSupported = 'serviceWorker' in navigator;
+        this.isPushSupported = this.isServiceWorkerSupported && 'PushManager' in window;
         this.permission = this.isSupported ? Notification.permission : 'denied';
         this.swRegistration = null;
+        this.vapidPublicKey = null;
     }
 
     /**
@@ -24,17 +26,33 @@ class NotificationManager {
         if (this.isServiceWorkerSupported) {
             try {
                 this.swRegistration = await navigator.serviceWorker.register('/sw.js');
-                console.log('Service Worker registered');
+                console.log('[Push] Service Worker registered');
             } catch (error) {
-                console.error('Service Worker registration failed:', error);
+                console.error('[Push] SW registration failed:', error);
             }
+        }
+
+        // Fetch VAPID public key
+        try {
+            const resp = await fetch('/api/push-subscription.php?action=vapid-public-key');
+            const data = await resp.json();
+            if (data.success) {
+                this.vapidPublicKey = data.publicKey;
+            }
+        } catch (e) {
+            console.warn('[Push] Failed to fetch VAPID key:', e);
+        }
+
+        // Auto-subscribe if permission already granted
+        if (this.permission === 'granted' && this.vapidPublicKey) {
+            await this.subscribePush();
         }
 
         return true;
     }
 
     /**
-     * Request notification permission
+     * Request notification permission and subscribe to push
      */
     async requestPermission() {
         if (!this.isSupported) {
@@ -42,7 +60,8 @@ class NotificationManager {
         }
 
         if (this.permission === 'granted') {
-            return { success: true, message: 'Notifikasi sudah diaktifkan' };
+            const subResult = await this.subscribePush();
+            return { success: true, message: 'Notifikasi sudah diaktifkan', subscribed: subResult };
         }
 
         if (this.permission === 'denied') {
@@ -57,11 +76,12 @@ class NotificationManager {
             this.permission = permission;
             
             if (permission === 'granted') {
+                const subResult = await this.subscribePush();
                 this.showNotification('🔔 Notifikasi Aktif', {
-                    body: 'Anda akan menerima notifikasi saat ada end-shift atau event penting lainnya.',
+                    body: 'Anda akan menerima notifikasi push secara real-time.',
                     icon: '/assets/img/logo.png'
                 });
-                return { success: true, message: 'Notifikasi berhasil diaktifkan!' };
+                return { success: true, message: 'Notifikasi berhasil diaktifkan!', subscribed: subResult };
             }
             
             return { success: false, message: 'Izin notifikasi ditolak' };
@@ -71,7 +91,115 @@ class NotificationManager {
     }
 
     /**
-     * Show notification
+     * Subscribe to real push notifications via VAPID
+     */
+    async subscribePush() {
+        if (!this.isPushSupported || !this.swRegistration || !this.vapidPublicKey) {
+            console.warn('[Push] Push not available');
+            return false;
+        }
+
+        try {
+            // Check if already subscribed
+            let subscription = await this.swRegistration.pushManager.getSubscription();
+
+            if (!subscription) {
+                // Create new subscription
+                const applicationServerKey = this._urlBase64ToUint8Array(this.vapidPublicKey);
+                subscription = await this.swRegistration.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: applicationServerKey
+                });
+                console.log('[Push] New subscription created');
+            }
+
+            // Send subscription to server
+            const response = await fetch('/api/push-subscription.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'subscribe',
+                    subscription: subscription.toJSON()
+                })
+            });
+
+            const result = await response.json();
+            console.log('[Push] Subscription saved:', result.success);
+            return result.success;
+        } catch (error) {
+            console.error('[Push] Subscribe failed:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Subscribe to push with employee_id (for Staff Portal)
+     */
+    async subscribePushAsEmployee(employeeId) {
+        if (!this.isPushSupported || !this.swRegistration || !this.vapidPublicKey) {
+            return false;
+        }
+
+        try {
+            let subscription = await this.swRegistration.pushManager.getSubscription();
+
+            if (!subscription) {
+                const applicationServerKey = this._urlBase64ToUint8Array(this.vapidPublicKey);
+                subscription = await this.swRegistration.pushManager.subscribe({
+                    userVisibleOnly: true,
+                    applicationServerKey: applicationServerKey
+                });
+            }
+
+            const response = await fetch('/api/push-subscription.php', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    action: 'subscribe',
+                    subscription: subscription.toJSON(),
+                    employee_id: employeeId
+                })
+            });
+
+            const result = await response.json();
+            return result.success;
+        } catch (error) {
+            console.error('[Push] Employee subscribe failed:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Unsubscribe from push
+     */
+    async unsubscribePush() {
+        if (!this.swRegistration) return false;
+
+        try {
+            const subscription = await this.swRegistration.pushManager.getSubscription();
+            if (subscription) {
+                // Notify server
+                await fetch('/api/push-subscription.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'unsubscribe',
+                        endpoint: subscription.endpoint
+                    })
+                });
+
+                await subscription.unsubscribe();
+                console.log('[Push] Unsubscribed');
+            }
+            return true;
+        } catch (error) {
+            console.error('[Push] Unsubscribe failed:', error);
+            return false;
+        }
+    }
+
+    /**
+     * Show notification (local, not push)
      */
     async showNotification(title, options = {}) {
         if (this.permission !== 'granted') {
@@ -188,9 +316,24 @@ class NotificationManager {
         return {
             supported: this.isSupported,
             serviceWorkerSupported: this.isServiceWorkerSupported,
+            pushSupported: this.isPushSupported,
             permission: this.permission,
             enabled: this.permission === 'granted'
         };
+    }
+
+    /**
+     * Convert URL-safe base64 to Uint8Array (for applicationServerKey)
+     */
+    _urlBase64ToUint8Array(base64String) {
+        const padding = '='.repeat((4 - base64String.length % 4) % 4);
+        const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+        const rawData = window.atob(base64);
+        const outputArray = new Uint8Array(rawData.length);
+        for (let i = 0; i < rawData.length; ++i) {
+            outputArray[i] = rawData.charCodeAt(i);
+        }
+        return outputArray;
     }
 }
 

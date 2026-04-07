@@ -81,6 +81,25 @@ if ($type === 'admin_action' && $_SERVER['REQUEST_METHOD'] === 'POST') {
                     json_encode(['leave_id' => $leaveId, 'status' => $newStatus, 'leave_type' => $req['leave_type']])
                 ]);
             }
+            // Push notification to staff member
+            try {
+                require_once dirname(dirname(__FILE__)) . '/includes/PushNotificationHelper.php';
+                $pushHelper = new PushNotificationHelper($db);
+                $emoji = $newStatus === 'approved' ? '✅' : '❌';
+                $pushHelper->sendToEmployees(
+                    [$req['employee_id']],
+                    "{$emoji} {$tl} {$sl}",
+                    "{$tl} ({$req['start_date']} s/d {$req['end_date']}) " . strtolower($sl) . ($adminNotes ? ". Catatan: {$adminNotes}" : ''),
+                    [
+                        'type' => 'leave_response',
+                        'tag'  => 'leave-resp-' . $leaveId,
+                        'url'  => '/modules/payroll/staff-portal.php'
+                    ]
+                );
+            } catch (\Throwable $pushErr) {
+                error_log('Push notification error (leave approval): ' . $pushErr->getMessage());
+            }
+
             echo json_encode(['success' => true, 'message' => $newStatus === 'approved' ? 'Cuti disetujui' : 'Cuti ditolak']);
             exit;
         }
@@ -101,6 +120,25 @@ if ($type === 'admin_action' && $_SERVER['REQUEST_METHOD'] === 'POST') {
                     json_encode(['overtime_id' => $otId, 'status' => $newStatus, 'overtime_date' => $req['overtime_date']])
                 ]);
             }
+            // Push notification to staff member
+            try {
+                require_once dirname(dirname(__FILE__)) . '/includes/PushNotificationHelper.php';
+                $pushHelper = new PushNotificationHelper($db);
+                $emoji = $newStatus === 'approved' ? '✅' : '❌';
+                $pushHelper->sendToEmployees(
+                    [$req['employee_id']],
+                    "{$emoji} Lembur {$sl}",
+                    'Pengajuan lembur tanggal ' . $req['overtime_date'] . ' ' . strtolower($sl) . ($adminNotes ? ". Catatan: {$adminNotes}" : ''),
+                    [
+                        'type' => 'overtime_response',
+                        'tag'  => 'overtime-resp-' . $otId,
+                        'url'  => '/modules/payroll/staff-portal.php'
+                    ]
+                );
+            } catch (\Throwable $pushErr) {
+                error_log('Push notification error (overtime approval): ' . $pushErr->getMessage());
+            }
+
             echo json_encode(['success' => true, 'message' => $newStatus === 'approved' ? 'Lembur disetujui' : 'Lembur ditolak']);
             exit;
         }

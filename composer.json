@@ -1,8 +1,9 @@
 {
-    "name": "adf-system",
+    "name": "adf/system",
     "description": "ADF Multi-Business System",
     "require": {
-        "spipu/html2pdf": "^5.2"
+        "spipu/html2pdf": "^5.2",
+        "minishlink/web-push": "^10.0"
     },
     "autoload": {
         "psr-4": {

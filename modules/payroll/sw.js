@@ -97,6 +97,86 @@ self.addEventListener("fetch", (event) => {
   event.respondWith(fetch(event.request));
 });
 
+// ── PUSH EVENT — real server push for Staff Portal ────────
+self.addEventListener("push", (event) => {
+  console.log("[Staff SW] Push received");
+
+  let data = {
+    title: "Staff Portal",
+    body: "Ada notifikasi baru",
+    icon: "/assets/img/logo.png",
+    badge: "/assets/img/badge.png",
+    tag: "staff-notification",
+    data: {},
+  };
+
+  if (event.data) {
+    try {
+      const payload = event.data.json();
+      data = { ...data, ...payload };
+    } catch (e) {
+      data.body = event.data.text();
+    }
+  }
+
+  const options = {
+    body: data.body,
+    icon: data.icon || "/assets/img/logo.png",
+    badge: data.badge || "/assets/img/badge.png",
+    tag: data.tag || "staff-push-" + Date.now(),
+    vibrate: data.vibrate || [200, 100, 200],
+    requireInteraction: true,
+    data: data.data || {},
+    actions: [
+      { action: "view", title: "👁️ Lihat" },
+      { action: "dismiss", title: "✖️ Tutup" },
+    ],
+  };
+
+  event.waitUntil(self.registration.showNotification(data.title, options));
+});
+
+// ── NOTIFICATION CLICK ────────────────────────────────────
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  if (event.action === "dismiss") return;
+
+  const urlToOpen =
+    event.notification.data?.url || "./staff-portal.php";
+
+  event.waitUntil(
+    clients
+      .matchAll({ type: "window", includeUncontrolled: true })
+      .then((clientList) => {
+        for (const client of clientList) {
+          if ("focus" in client) {
+            client.navigate(urlToOpen);
+            return client.focus();
+          }
+        }
+        if (clients.openWindow) return clients.openWindow(urlToOpen);
+      }),
+  );
+});
+
+// ── PUSH SUBSCRIPTION CHANGE ─────────────────────────────
+self.addEventListener("pushsubscriptionchange", (event) => {
+  event.waitUntil(
+    self.registration.pushManager
+      .subscribe(event.oldSubscription.options)
+      .then((newSub) =>
+        fetch("/api/push-subscription.php", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            action: "subscribe",
+            subscription: newSub.toJSON(),
+          }),
+        }),
+      ),
+  );
+});
+
 // ── Helper: Cache-First ───────────────────────────────────
 async function cacheFirst(request, cacheName) {
   const cached = await caches.match(request);

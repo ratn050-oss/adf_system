@@ -499,6 +499,27 @@ if ($action === 'leave_submit') {
     try {
         $pdo->prepare("INSERT INTO leave_requests (employee_id, leave_type, start_date, end_date, reason) VALUES (?, ?, ?, ?, ?)")
             ->execute([$empId, $type, $start, $end, $reason]);
+
+        // Push notification to admin/owner
+        try {
+            require_once __DIR__ . '/../../includes/PushNotificationHelper.php';
+            $pushHelper = new PushNotificationHelper($db);
+            $staffName = $_SESSION['staff_name'] ?? 'Staff';
+            $typeLabels = ['cuti'=>'Cuti','sakit'=>'Sakit','izin'=>'Izin','cuti_khusus'=>'Cuti Khusus'];
+            $typeLabel = $typeLabels[$type] ?? $type;
+            $pushHelper->sendToAdmins(
+                "\xF0\x9F\x93\x8B Pengajuan {$typeLabel}: {$staffName}",
+                "{$staffName} mengajukan {$typeLabel} tanggal {$start} s/d {$end}",
+                [
+                    'type' => 'leave_request',
+                    'tag'  => 'leave-' . $empId . '-' . time(),
+                    'url'  => '/modules/payroll/employees.php'
+                ]
+            );
+        } catch (\Throwable $pushErr) {
+            error_log('Push notification error (leave): ' . $pushErr->getMessage());
+        }
+
         echo json_encode(['success' => true, 'message' => 'Pengajuan cuti berhasil dikirim!']);
     } catch (Exception $e) {
         echo json_encode(['success' => false, 'message' => 'Gagal: ' . $e->getMessage()]);
@@ -1041,6 +1062,25 @@ if ($action === 'overtime_submit') {
     try {
         $pdo->prepare("INSERT INTO overtime_requests (employee_id, overtime_date, reason) VALUES (?, ?, ?)")
             ->execute([$empId, $overtimeDate, $reason]);
+
+        // Push notification to admin/owner
+        try {
+            require_once __DIR__ . '/../../includes/PushNotificationHelper.php';
+            $pushHelper = new PushNotificationHelper($db);
+            $staffName = $_SESSION['staff_name'] ?? 'Staff';
+            $pushHelper->sendToAdmins(
+                "\xE2\x8F\xB0 Pengajuan Lembur: {$staffName}",
+                "{$staffName} mengajukan lembur tanggal {$overtimeDate}",
+                [
+                    'type' => 'overtime_request',
+                    'tag'  => 'overtime-' . $empId . '-' . time(),
+                    'url'  => '/modules/payroll/employees.php'
+                ]
+            );
+        } catch (\Throwable $pushErr) {
+            error_log('Push notification error (overtime): ' . $pushErr->getMessage());
+        }
+
         echo json_encode(['success' => true, 'message' => 'Pengajuan lembur berhasil dikirim! Menunggu approval admin.']);
     } catch (Exception $e) {
         echo json_encode(['success' => false, 'message' => 'Gagal: ' . $e->getMessage()]);

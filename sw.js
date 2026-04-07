@@ -1,26 +1,26 @@
 /**
  * ADF System - Push Notification Service Worker
- * Handles background notifications for end-shift alerts
+ * Handles real Web Push notifications via VAPID
  */
 
-const CACHE_NAME = 'adf-system-v2';
+const CACHE_NAME = 'adf-system-v3';
 
 // Install event
 self.addEventListener('install', (event) => {
-    console.log('Service Worker installed');
+    console.log('[SW] Installed');
     self.skipWaiting();
 });
 
 // Activate event
 self.addEventListener('activate', (event) => {
-    console.log('Service Worker activated');
+    console.log('[SW] Activated');
     event.waitUntil(clients.claim());
 });
 
-// Push event - when notification received
+// ═══ PUSH EVENT — real server push via VAPID ═══
 self.addEventListener('push', (event) => {
-    console.log('Push notification received');
-    
+    console.log('[SW] Push received');
+
     let data = {
         title: 'ADF System',
         body: 'Ada notifikasi baru',
@@ -29,21 +29,22 @@ self.addEventListener('push', (event) => {
         tag: 'adf-notification',
         data: {}
     };
-    
+
     if (event.data) {
         try {
-            data = { ...data, ...event.data.json() };
+            const payload = event.data.json();
+            data = { ...data, ...payload };
         } catch (e) {
             data.body = event.data.text();
         }
     }
-    
+
     const options = {
         body: data.body,
         icon: data.icon || '/assets/img/logo.png',
         badge: data.badge || '/assets/img/badge.png',
-        tag: data.tag || 'adf-notification',
-        vibrate: [200, 100, 200, 100, 200],
+        tag: data.tag || 'adf-push-' + Date.now(),
+        vibrate: data.vibrate || [200, 100, 200, 100, 200],
         requireInteraction: true,
         data: data.data || {},
         actions: [
@@ -51,39 +52,50 @@ self.addEventListener('push', (event) => {
             { action: 'dismiss', title: '✖️ Tutup' }
         ]
     };
-    
+
     event.waitUntil(
         self.registration.showNotification(data.title, options)
     );
 });
 
-// Notification click event
+// ═══ NOTIFICATION CLICK ═══
 self.addEventListener('notificationclick', (event) => {
-    console.log('Notification clicked:', event.action);
-    
     event.notification.close();
-    
-    if (event.action === 'dismiss') {
-        return;
-    }
-    
-    // Open the relevant page
+
+    if (event.action === 'dismiss') return;
+
     const urlToOpen = event.notification.data?.url || '/index.php';
-    
+
     event.waitUntil(
         clients.matchAll({ type: 'window', includeUncontrolled: true })
             .then((clientList) => {
-                // Check if there's already an open window
                 for (const client of clientList) {
-                    if (client.url.includes('adf') && 'focus' in client) {
+                    if ('focus' in client) {
                         client.navigate(urlToOpen);
                         return client.focus();
                     }
                 }
-                // If no window open, open new one
                 if (clients.openWindow) {
                     return clients.openWindow(urlToOpen);
                 }
+            })
+    );
+});
+
+// ═══ PUSH SUBSCRIPTION CHANGE (browser rotates keys) ═══
+self.addEventListener('pushsubscriptionchange', (event) => {
+    console.log('[SW] Subscription changed, re-subscribing...');
+    event.waitUntil(
+        self.registration.pushManager.subscribe(event.oldSubscription.options)
+            .then((newSub) => {
+                return fetch('/api/push-subscription.php', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        action: 'subscribe',
+                        subscription: newSub.toJSON()
+                    })
+                });
             })
     );
 });
@@ -96,5 +108,5 @@ self.addEventListener('sync', (event) => {
 });
 
 async function syncNotifications() {
-    console.log('Syncing notifications...');
+    console.log('[SW] Syncing notifications...');
 }
