@@ -2739,6 +2739,7 @@ try {
                 }
                 if (data.success) {
                     localStorage.setItem('staff_name', data.name);
+                    localStorage.setItem('staff_employee_id', data.employee_id);
                     if (document.getElementById('rememberMe').checked) {
                         saveCredentials(fd.get('email'), fd.get('password'));
                     } else {
@@ -4962,6 +4963,123 @@ try {
             }
         }
     </script>
+
+    <!-- Staff Push Notification -->
+    <script>
+    (function() {
+        const VAPID_ENDPOINT = '<?php echo rtrim(BASE_URL, "/"); ?>/api/push-subscription.php';
+        const PUSH_API = VAPID_ENDPOINT;
+
+        async function initStaffPush() {
+            if (!('serviceWorker' in navigator) || !('PushManager' in window)) return;
+
+            const empId = localStorage.getItem('staff_employee_id');
+            if (!empId) return;
+
+            try {
+                const reg = await navigator.serviceWorker.ready;
+
+                // Fetch VAPID key
+                const resp = await fetch(PUSH_API + '?action=vapid-public-key');
+                const kd = await resp.json();
+                if (!kd.success || !kd.publicKey) return;
+
+                const vapidKey = urlBase64ToUint8Array(kd.publicKey);
+
+                // Check permission
+                if (Notification.permission === 'granted') {
+                    await subscribePush(reg, vapidKey, empId);
+                } else if (Notification.permission === 'default') {
+                    // Show prompt after 5 seconds 
+                    setTimeout(() => showPushPrompt(reg, vapidKey, empId), 5000);
+                }
+            } catch (e) {
+                console.warn('[StaffPush] Init error:', e);
+            }
+        }
+
+        async function subscribePush(reg, vapidKey, empId) {
+            try {
+                let sub = await reg.pushManager.getSubscription();
+                if (!sub) {
+                    sub = await reg.pushManager.subscribe({ userVisibleOnly: true, applicationServerKey: vapidKey });
+                }
+                await fetch(PUSH_API, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ action: 'subscribe', subscription: sub.toJSON(), employee_id: parseInt(empId) })
+                });
+                console.log('[StaffPush] Subscribed OK');
+            } catch (e) {
+                console.warn('[StaffPush] Subscribe failed:', e);
+            }
+        }
+
+        function showPushPrompt(reg, vapidKey, empId) {
+            if (localStorage.getItem('staff_push_prompted')) return;
+            const el = document.createElement('div');
+            el.id = 'staffPushPrompt';
+            el.innerHTML = `
+                <div style="position:fixed;bottom:80px;left:50%;transform:translateX(-50%);z-index:10000;background:linear-gradient(135deg,#667eea,#764ba2);color:#fff;padding:14px 18px;border-radius:14px;box-shadow:0 8px 32px rgba(102,126,234,.45);max-width:320px;width:90%;font-size:0.85rem;animation:spSlideUp .4s ease;">
+                    <div style="display:flex;align-items:flex-start;gap:10px;">
+                        <span style="font-size:1.3rem;">🔔</span>
+                        <div style="flex:1;">
+                            <div style="font-weight:700;margin-bottom:3px;">Aktifkan Notifikasi?</div>
+                            <div style="font-size:0.75rem;opacity:.9;margin-bottom:10px;">Terima info persetujuan cuti & lembur secara real-time.</div>
+                            <div style="display:flex;gap:8px;">
+                                <button onclick="window._spActivate()" style="padding:5px 14px;background:#fff;color:#764ba2;border:none;border-radius:8px;font-weight:700;font-size:0.78rem;cursor:pointer;">Aktifkan</button>
+                                <button onclick="window._spDismiss()" style="padding:5px 10px;background:rgba(255,255,255,.2);color:#fff;border:none;border-radius:8px;font-size:0.78rem;cursor:pointer;">Nanti</button>
+                            </div>
+                        </div>
+                        <span onclick="window._spDismiss()" style="cursor:pointer;opacity:.7;font-size:1.1rem;">&times;</span>
+                    </div>
+                </div>`;
+            document.body.appendChild(el);
+
+            window._spActivate = async function() {
+                const perm = await Notification.requestPermission();
+                if (perm === 'granted') {
+                    await subscribePush(reg, vapidKey, empId);
+                    el.querySelector('div > div').innerHTML = '<div style="display:flex;align-items:center;gap:8px;padding:4px;"><span style="font-size:1.3rem;">✅</span><span style="font-weight:600;">Notifikasi aktif!</span></div>';
+                    setTimeout(() => el.remove(), 2500);
+                } else {
+                    el.querySelector('div > div').innerHTML = '<div style="display:flex;align-items:center;gap:8px;padding:4px;"><span style="font-size:1.3rem;">⚠️</span><span style="font-size:0.8rem;">Izin ditolak. Aktifkan di Settings browser.</span></div>';
+                    setTimeout(() => el.remove(), 3000);
+                }
+                localStorage.setItem('staff_push_prompted', '1');
+            };
+            window._spDismiss = function() {
+                el.remove();
+                localStorage.setItem('staff_push_prompted', '1');
+            };
+        }
+
+        function urlBase64ToUint8Array(base64String) {
+            const padding = '='.repeat((4 - (base64String.length % 4)) % 4);
+            const base64 = (base64String + padding).replace(/-/g, '+').replace(/_/g, '/');
+            const raw = atob(base64);
+            const arr = new Uint8Array(raw.length);
+            for (let i = 0; i < raw.length; ++i) arr[i] = raw.charCodeAt(i);
+            return arr;
+        }
+
+        // Init push after app loads (wait for SW to be ready)
+        const origShowApp = window.showApp || function(){};
+        const _origShowApp = showApp;
+        window.showApp = function(name) {
+            _origShowApp(name);
+            setTimeout(initStaffPush, 2000);
+        };
+
+        // Also init on page load if already logged in
+        if (localStorage.getItem('staff_employee_id')) {
+            setTimeout(initStaffPush, 3000);
+        }
+    })();
+    </script>
+    <style>
+        @keyframes spSlideUp { from { opacity:0; transform:translateX(-50%) translateY(20px); } to { opacity:1; transform:translateX(-50%) translateY(0); } }
+    </style>
 
 </body>
 

@@ -184,7 +184,7 @@ if ($action === 'login') {
     $_SESSION['staff_position'] = $account['position'];
     $_SESSION['staff_logged_in'] = true;
 
-    echo json_encode(['success' => true, 'message' => 'Login berhasil', 'name' => $account['full_name']]);
+    echo json_encode(['success' => true, 'message' => 'Login berhasil', 'name' => $account['full_name'], 'employee_id' => (int)$account['employee_id']]);
     exit;
 }
 
@@ -505,7 +505,7 @@ if ($action === 'leave_submit') {
             require_once __DIR__ . '/../../includes/PushNotificationHelper.php';
             $pushHelper = new PushNotificationHelper($db);
             $staffName = $_SESSION['staff_name'] ?? 'Staff';
-            $typeLabels = ['cuti'=>'Cuti','sakit'=>'Sakit','izin'=>'Izin','cuti_khusus'=>'Cuti Khusus'];
+            $typeLabels = ['cuti' => 'Cuti', 'sakit' => 'Sakit', 'izin' => 'Izin', 'cuti_khusus' => 'Cuti Khusus'];
             $typeLabel = $typeLabels[$type] ?? $type;
             $pushHelper->sendToAdmins(
                 "\xF0\x9F\x93\x8B Pengajuan {$typeLabel}: {$staffName}",

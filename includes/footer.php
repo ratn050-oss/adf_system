@@ -86,6 +86,61 @@
        })();
        <?php endif; ?>
    </script>
+
+   <!-- Push Notification Enable Prompt -->
+   <?php if ($isOwnerAdmin): ?>
+   <div id="pushPrompt" style="display:none;position:fixed;bottom:24px;right:24px;z-index:9999;background:linear-gradient(135deg,#667eea 0%,#764ba2 100%);color:#fff;padding:16px 20px;border-radius:14px;box-shadow:0 8px 32px rgba(102,126,234,.4);max-width:340px;font-size:0.9rem;animation:slideUpIn .4s ease;">
+       <div style="display:flex;align-items:flex-start;gap:12px;">
+           <span style="font-size:1.5rem;line-height:1;">🔔</span>
+           <div style="flex:1;">
+               <div style="font-weight:700;margin-bottom:4px;">Aktifkan Push Notification?</div>
+               <div style="font-size:0.8rem;opacity:.9;margin-bottom:12px;">Terima notifikasi real-time saat ada check-in, check-out, pengajuan cuti & lembur.</div>
+               <div style="display:flex;gap:8px;">
+                   <button onclick="activatePush()" style="padding:6px 16px;background:#fff;color:#764ba2;border:none;border-radius:8px;font-weight:700;font-size:0.8rem;cursor:pointer;">Aktifkan</button>
+                   <button onclick="dismissPushPrompt()" style="padding:6px 12px;background:rgba(255,255,255,.2);color:#fff;border:none;border-radius:8px;font-size:0.8rem;cursor:pointer;">Nanti</button>
+               </div>
+           </div>
+           <span onclick="dismissPushPrompt()" style="cursor:pointer;opacity:.7;font-size:1.2rem;line-height:1;">&times;</span>
+       </div>
+   </div>
+   <style>
+       @keyframes slideUpIn { from { opacity:0; transform:translateY(30px); } to { opacity:1; transform:translateY(0); } }
+   </style>
+   <script>
+   (function() {
+       const prompted = localStorage.getItem('push_prompted');
+       const nm = window.NotificationManager;
+       // Show prompt if: never prompted, permission not yet granted, and push is supported
+       if (!prompted && nm && nm.isPushSupported && Notification.permission !== 'granted' && Notification.permission !== 'denied') {
+           setTimeout(() => {
+               document.getElementById('pushPrompt').style.display = 'block';
+           }, 3000);
+       }
+       // If permission already granted but not yet subscribed to push, auto-subscribe silently
+       if (nm && nm.isPushSupported && Notification.permission === 'granted') {
+           // init() already handles this, just make sure
+           nm.init();
+       }
+   })();
+
+   async function activatePush() {
+       const result = await window.NotificationManager.requestPermission();
+       if (result.success) {
+           document.getElementById('pushPrompt').innerHTML = '<div style="display:flex;align-items:center;gap:10px;"><span style="font-size:1.5rem;">✅</span><span style="font-weight:600;">Push notification aktif!</span></div>';
+           setTimeout(() => { document.getElementById('pushPrompt').style.display = 'none'; }, 2500);
+       } else {
+           document.getElementById('pushPrompt').innerHTML = '<div style="display:flex;align-items:center;gap:10px;"><span style="font-size:1.5rem;">⚠️</span><span style="font-size:0.85rem;">' + result.message + '</span></div>';
+           setTimeout(() => { document.getElementById('pushPrompt').style.display = 'none'; }, 3000);
+       }
+       localStorage.setItem('push_prompted', '1');
+   }
+
+   function dismissPushPrompt() {
+       document.getElementById('pushPrompt').style.display = 'none';
+       localStorage.setItem('push_prompted', '1');
+   }
+   </script>
+   <?php endif; ?>
    
    <!-- End Shift Feature -->
    <script>

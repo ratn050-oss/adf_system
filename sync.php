@@ -513,6 +513,7 @@ $filesToSync = [
     'modules/payroll/sw.js',
     'api/fingerprint-webhook.php',
     'includes/header.php',
+    'includes/footer.php',
     'assets/icons/favicon.svg',
     'modules/frontdesk/rental-motor.php',
     'modules/frontdesk/reservasi.php',
