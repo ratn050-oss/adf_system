@@ -154,8 +154,16 @@ elseif ($totalPaid > 0) $overallStatus = 'PARTIAL';
 $businessId = $_SESSION['business_id'] ?? 1;
 $business = $db->fetchOne("SELECT * FROM businesses WHERE id = ?", [$businessId]);
 
-// Use the robust getBusinessLogo() function (same as sidebar)
-$logoUrl = getBusinessLogo();
+// Get invoice logo from PDF settings (Settings > Pengaturan Laporan PDF)
+$invoiceLogoRow = $db->fetchOne(
+    "SELECT setting_value FROM settings WHERE setting_key = ?",
+    ['invoice_logo_' . ACTIVE_BUSINESS_ID]
+);
+$logoUrl = $invoiceLogoRow['setting_value'] ?? null;
+// Fallback to company logo if no invoice logo
+if (empty($logoUrl)) {
+    $logoUrl = getBusinessLogo();
+}
 
 // Get company settings from master DB
 $masterDb = Database::getInstance();
@@ -518,8 +526,58 @@ if (empty($companySettings['name'])) {
         }
         
         .note-box strong { color: #5c4e2e; }
+                /* Bank Account */
+        .bank-info {
+            margin-top: 22px;
+            padding: 14px 18px;
+            background: #f8f9fb;
+            border: 1px solid #e8e4df;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            gap: 14px;
+        }
         
-        /* â”€â”€ Footer â”€â”€ */
+        .bank-info .bank-icon {
+            width: 40px;
+            height: 40px;
+            background: #1a1a2e;
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            color: #c9a84c;
+            font-size: 1.1rem;
+            flex-shrink: 0;
+        }
+        
+        .bank-info .bank-details {
+            font-size: 0.78rem;
+            line-height: 1.6;
+        }
+        
+        .bank-info .bank-details .bank-label {
+            font-size: 0.6rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 2px;
+            color: #c9a84c;
+            margin-bottom: 2px;
+        }
+        
+        .bank-info .bank-details .bank-number {
+            font-family: 'Courier New', monospace;
+            font-size: 1rem;
+            font-weight: 700;
+            color: #1a1a2e;
+            letter-spacing: 1px;
+        }
+        
+        .bank-info .bank-details .bank-holder {
+            color: #666;
+            font-size: 0.72rem;
+        }
+                /* â”€â”€ Footer â”€â”€ */
         .footer {
             margin-top: 28px;
             text-align: center;
@@ -638,15 +696,8 @@ if (empty($companySettings['name'])) {
         <!-- Status Bar -->
         <div class="status-bar">
             <div class="hotel-contact">
-                <?php if (!empty($companySettings['address'])): ?>
-                    <?php echo htmlspecialchars($companySettings['address']); ?><br>
-                <?php endif; ?>
-                <?php if (!empty($companySettings['phone'])): ?>
-                    Tel: <?php echo htmlspecialchars($companySettings['phone']); ?>
-                <?php endif; ?>
-                <?php if (!empty($companySettings['email'])): ?>
-                    Â· <?php echo htmlspecialchars($companySettings['email']); ?>
-                <?php endif; ?>
+                Jl. Kasimo Jatikerep Karimunjawa Jepara Jawatengah 59455<br>
+                Tel: 081222228590 · narayanahotelkarimunjawa@gmail.com
             </div>
             <span class="status-badge badge-<?php echo strtolower($overallStatus); ?>"><?php echo $overallStatus; ?></span>
         </div>
@@ -766,23 +817,23 @@ if (empty($companySettings['name'])) {
             </div>
             <?php endif; ?>
             
+            <!-- Bank Account -->
+            <div class="bank-info">
+                <div class="bank-icon">🏦</div>
+                <div class="bank-details">
+                    <div class="bank-label">Transfer Payment</div>
+                    <div class="bank-number">1926663992</div>
+                    <div class="bank-holder">a.n. Narayana Hotel Karimunjawa &mdash; BNI Jepara</div>
+                </div>
+            </div>
+            
             <!-- Footer -->
             <div class="footer">
                 <div class="ty">Thank you for staying with us</div>
                 <div class="fc">
-                    <?php echo htmlspecialchars($companySettings['name']); ?>
-                    <?php if (!empty($companySettings['address'])): ?>
-                        Â· <?php echo htmlspecialchars($companySettings['address']); ?>
-                    <?php endif; ?>
-                    <?php if (!empty($companySettings['phone'])): ?>
-                        <br><?php echo htmlspecialchars($companySettings['phone']); ?>
-                    <?php endif; ?>
-                    <?php if (!empty($companySettings['email'])): ?>
-                        Â· <?php echo htmlspecialchars($companySettings['email']); ?>
-                    <?php endif; ?>
-                    <?php if (!empty($companySettings['website'])): ?>
-                        Â· <?php echo htmlspecialchars($companySettings['website']); ?>
-                    <?php endif; ?>
+                    <?php echo htmlspecialchars($companySettings['name']); ?><br>
+                    Jl. Kasimo Jatikerep Karimunjawa Jepara Jawatengah 59455<br>
+                    081222228590 · narayanahotelkarimunjawa@gmail.com · www.narayanakarimunjawa.com
                 </div>
                 <div class="footer-bar"></div>
             </div>
