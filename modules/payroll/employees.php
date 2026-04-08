@@ -102,34 +102,43 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
 $employees = $db->fetchAll("SELECT * FROM payroll_employees WHERE is_active = 1 ORDER BY full_name ASC");
 $totalBase = array_sum(array_column($employees, 'base_salary'));
+$avgSalary = count($employees) > 0 ? $totalBase / count($employees) : 0;
+$deptCounts = [];
+foreach ($employees as $e) {
+    $d = $e['department'] ?: 'Unassigned';
+    $deptCounts[$d] = ($deptCounts[$d] ?? 0) + 1;
+}
+$totalDepts = count($deptCounts);
 
 include '../../includes/header.php';
 ?>
 
 <style>
 /* ══════════════════════════════════════════════════════════════════════════
-   EMPLOYEES 2027 - LUXE DESIGN
+   EMPLOYEES 2027 - ELEGANT WIDE DESIGN
    ══════════════════════════════════════════════════════════════════════════ */
    
 :root {
     --pr-gradient-1: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
     --pr-gradient-2: linear-gradient(135deg, #11998e 0%, #38ef7d 100%);
+    --pr-gradient-3: linear-gradient(135deg, #f093fb 0%, #f5576c 100%);
     --pr-shadow-soft: 0 8px 32px rgba(0, 0, 0, 0.08);
-    --pr-radius: 20px;
+    --pr-shadow-card: 0 4px 24px rgba(0, 0, 0, 0.06);
+    --pr-radius: 16px;
     --pr-radius-sm: 12px;
 }
 
-/* Header Hero */
+/* Header Hero - Wider & More Prominent */
 .emp-header {
     background: var(--pr-gradient-1);
     border-radius: var(--pr-radius);
-    padding: 1.25rem 1.5rem;
-    margin-bottom: 1.25rem;
+    padding: 2rem 2.5rem;
+    margin-bottom: 1.5rem;
     display: flex;
     justify-content: space-between;
     align-items: center;
     flex-wrap: wrap;
-    gap: 0.75rem;
+    gap: 1rem;
     position: relative;
     overflow: hidden;
 }
@@ -137,27 +146,40 @@ include '../../includes/header.php';
 .emp-header::before {
     content: '';
     position: absolute;
-    top: -50%;
-    right: -10%;
-    width: 300px;
-    height: 300px;
-    background: radial-gradient(circle, rgba(255,255,255,0.1) 0%, transparent 70%);
+    top: -60%;
+    right: -5%;
+    width: 350px;
+    height: 350px;
+    background: radial-gradient(circle, rgba(255,255,255,0.12) 0%, transparent 70%);
+    border-radius: 50%;
+}
+
+.emp-header::after {
+    content: '';
+    position: absolute;
+    bottom: -40%;
+    left: 10%;
+    width: 200px;
+    height: 200px;
+    background: radial-gradient(circle, rgba(255,255,255,0.07) 0%, transparent 70%);
     border-radius: 50%;
 }
 
 .emp-header h1 {
     color: #fff;
-    font-size: 1.3rem;
-    font-weight: 700;
+    font-size: 1.65rem;
+    font-weight: 800;
     margin: 0;
     position: relative;
     z-index: 2;
+    letter-spacing: -0.3px;
 }
 
 .emp-header p {
-    color: rgba(255,255,255,0.8);
-    margin: 0.15rem 0 0;
-    font-size: 0.9rem;
+    color: rgba(255,255,255,0.85);
+    margin: 0.25rem 0 0;
+    font-size: 0.95rem;
+    font-weight: 400;
 }
 
 .btn-add-emp {
@@ -165,10 +187,10 @@ include '../../includes/header.php';
     backdrop-filter: blur(10px);
     border: 1px solid rgba(255,255,255,0.3);
     color: #fff;
-    padding: 0.65rem 1.25rem;
+    padding: 0.75rem 1.5rem;
     border-radius: 50px;
     font-weight: 600;
-    font-size: 0.9rem;
+    font-size: 0.95rem;
     transition: all 0.3s ease;
     display: inline-flex;
     align-items: center;
@@ -181,52 +203,66 @@ include '../../includes/header.php';
 .btn-add-emp:hover {
     background: rgba(255,255,255,0.35);
     transform: translateY(-2px);
+    box-shadow: 0 8px 24px rgba(0,0,0,0.15);
 }
 
-/* Stats Mini */
+/* Stats - 4 cards in a row */
 .emp-stats {
-    display: flex;
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
     gap: 1rem;
-    margin-bottom: 1.25rem;
+    margin-bottom: 1.5rem;
 }
 
 .emp-stat-item {
     background: var(--bg-primary);
     border: 1px solid var(--border-color);
     border-radius: var(--pr-radius-sm);
-    padding: 1rem 1.25rem;
+    padding: 1.25rem 1.5rem;
     display: flex;
     align-items: center;
-    gap: 0.85rem;
-    flex: 0 0 auto;
+    gap: 1rem;
+    transition: all 0.2s;
+    box-shadow: var(--pr-shadow-card);
+}
+
+.emp-stat-item:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 28px rgba(0,0,0,0.1);
 }
 
 .emp-stat-icon {
-    width: 40px;
-    height: 40px;
-    border-radius: 10px;
+    width: 48px;
+    height: 48px;
+    border-radius: 12px;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
 }
 
+.emp-stat-icon svg { width: 22px; height: 22px; }
+
 .emp-stat-icon.purple { background: linear-gradient(135deg, rgba(102,126,234,0.15), rgba(118,75,162,0.15)); color: #667eea; }
 .emp-stat-icon.green { background: linear-gradient(135deg, rgba(17,153,142,0.15), rgba(56,239,125,0.15)); color: #11998e; }
+.emp-stat-icon.blue { background: linear-gradient(135deg, rgba(59,130,246,0.15), rgba(37,99,235,0.15)); color: #3b82f6; }
+.emp-stat-icon.orange { background: linear-gradient(135deg, rgba(245,158,11,0.15), rgba(234,88,12,0.15)); color: #f59e0b; }
 
 .emp-stat-label {
-    font-size: 0.7rem;
+    font-size: 0.75rem;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.6px;
     color: var(--text-tertiary);
-    margin-bottom: 0.1rem;
+    margin-bottom: 0.2rem;
+    font-weight: 500;
 }
 
 .emp-stat-value {
-    font-size: 1.1rem;
-    font-weight: 700;
+    font-size: 1.35rem;
+    font-weight: 800;
     color: var(--text-primary);
     margin: 0;
+    letter-spacing: -0.5px;
 }
 
 /* Table Card */
@@ -235,35 +271,37 @@ include '../../includes/header.php';
     border: 1px solid var(--border-color);
     border-radius: var(--pr-radius);
     overflow: hidden;
+    box-shadow: var(--pr-shadow-card);
 }
 
 .emp-table-header {
-    padding: 0.85rem 1.25rem;
+    padding: 1.25rem 1.75rem;
     border-bottom: 1px solid var(--border-color);
     display: flex;
     justify-content: space-between;
     align-items: center;
     flex-wrap: wrap;
-    gap: 0.75rem;
+    gap: 1rem;
 }
 
 .emp-table-header h3 {
-    font-size: 1rem;
-    font-weight: 600;
+    font-size: 1.1rem;
+    font-weight: 700;
     margin: 0;
+    color: var(--text-primary);
 }
 
 .emp-search {
     position: relative;
-    width: 260px;
+    width: 300px;
 }
 
 .emp-search input {
     width: 100%;
-    padding: 0.6rem 0.9rem 0.6rem 2.5rem;
+    padding: 0.7rem 1rem 0.7rem 2.75rem;
     border: 1px solid var(--border-color);
     border-radius: 50px;
-    font-size: 0.85rem;
+    font-size: 0.9rem;
     background: var(--bg-secondary);
     transition: all 0.2s;
 }
@@ -276,7 +314,7 @@ include '../../includes/header.php';
 
 .emp-search svg {
     position: absolute;
-    left: 0.9rem;
+    left: 1rem;
     top: 50%;
     transform: translateY(-50%);
     width: 16px;
@@ -284,105 +322,152 @@ include '../../includes/header.php';
     color: var(--text-tertiary);
 }
 
-/* Elegant Table */
+/* Employee Table - Spacious */
 .emp-table {
     width: 100%;
     border-collapse: collapse;
 }
 
 .emp-table th {
-    padding: 0.6rem 1rem;
+    padding: 0.85rem 1.25rem;
     text-align: left;
-    font-size: 0.68rem;
-    font-weight: 600;
+    font-size: 0.72rem;
+    font-weight: 700;
     text-transform: uppercase;
-    letter-spacing: 0.5px;
+    letter-spacing: 0.7px;
     color: var(--text-tertiary);
     background: var(--bg-secondary);
-    border-bottom: 1px solid var(--border-color);
+    border-bottom: 2px solid var(--border-color);
+    white-space: nowrap;
 }
 
 .emp-table td {
-    padding: 0.7rem 1rem;
-    border-bottom: 1px solid var(--border-light);
+    padding: 1rem 1.25rem;
+    border-bottom: 1px solid var(--border-light, rgba(0,0,0,0.04));
     vertical-align: middle;
-    font-size: 0.85rem;
+    font-size: 0.9rem;
 }
 
-.emp-table tr:hover td { background: var(--bg-secondary); }
+.emp-table tr { transition: all 0.15s; }
+.emp-table tr:hover td { background: rgba(102,126,234,0.03); }
 .emp-table tr:last-child td { border-bottom: none; }
 
+/* Employee Info Cell - Bigger avatar */
 .emp-info {
     display: flex;
     align-items: center;
-    gap: 0.75rem;
+    gap: 0.85rem;
+    min-width: 200px;
 }
 
 .emp-avatar {
-    width: 36px;
-    height: 36px;
-    border-radius: 10px;
+    width: 42px;
+    height: 42px;
+    border-radius: 12px;
     background: var(--pr-gradient-1);
     display: flex;
     align-items: center;
     justify-content: center;
     color: #fff;
-    font-weight: 600;
-    font-size: 0.8rem;
+    font-weight: 700;
+    font-size: 0.85rem;
     flex-shrink: 0;
+    letter-spacing: 0.5px;
 }
 
 .emp-name {
-    font-weight: 600;
+    font-weight: 700;
     color: var(--text-primary);
-    margin-bottom: 0.1rem;
+    margin-bottom: 0.15rem;
+    font-size: 0.95rem;
 }
 
 .emp-code {
-    font-size: 0.75rem;
+    font-size: 0.78rem;
     color: var(--text-tertiary);
+    font-weight: 500;
 }
 
+/* Position & Department */
 .emp-position {
-    font-weight: 500;
+    font-weight: 600;
     color: var(--text-primary);
+    font-size: 0.9rem;
 }
 
 .emp-dept {
-    font-size: 0.75rem;
+    font-size: 0.78rem;
     color: var(--text-tertiary);
+    margin-top: 0.1rem;
+    font-weight: 500;
 }
 
+/* Salary - Prominent */
 .emp-salary {
-    font-weight: 700;
+    font-weight: 800;
+    font-size: 0.95rem;
     background: var(--pr-gradient-2);
     -webkit-background-clip: text;
     -webkit-text-fill-color: transparent;
     background-clip: text;
+    white-space: nowrap;
 }
 
+/* Bank Info */
 .emp-bank {
-    font-size: 0.8rem;
+    font-size: 0.85rem;
     color: var(--text-secondary);
+    font-weight: 500;
 }
 
 .emp-bank span {
     display: block;
-    font-family: monospace;
+    font-family: 'SF Mono', 'Fira Code', monospace;
     color: var(--text-tertiary);
-    font-size: 0.75rem;
+    font-size: 0.78rem;
+    margin-top: 0.1rem;
+    letter-spacing: 0.3px;
 }
 
+/* Badge Styles */
+.emp-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    padding: 0.3rem 0.65rem;
+    border-radius: 6px;
+    font-size: 0.78rem;
+    font-weight: 600;
+    white-space: nowrap;
+}
+
+.emp-badge-finger {
+    background: #eff6ff;
+    color: #1e40af;
+}
+
+.emp-badge-face {
+    background: #f0fdf4;
+    color: #166534;
+}
+
+.emp-badge-empty {
+    color: #94a3b8;
+    font-weight: 400;
+    font-size: 0.82rem;
+}
+
+/* Actions */
 .emp-actions {
     display: flex;
-    gap: 0.35rem;
+    gap: 0.4rem;
 }
 
 .emp-btn-action {
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
-    border: none;
+    width: 36px;
+    height: 36px;
+    border-radius: 10px;
+    border: 1px solid transparent;
     display: flex;
     align-items: center;
     justify-content: center;
@@ -392,28 +477,37 @@ include '../../includes/header.php';
 }
 
 .emp-btn-action.edit {
-    color: var(--primary-color);
+    color: #667eea;
+}
+
+.emp-btn-action.edit:hover {
+    background: rgba(102,126,234,0.1);
+    border-color: rgba(102,126,234,0.2);
 }
 
 .emp-btn-action.delete {
     color: #dc3545;
 }
 
+.emp-btn-action.delete:hover {
+    background: rgba(220,53,69,0.08);
+    border-color: rgba(220,53,69,0.2);
+}
+
 .emp-btn-action:hover {
-    background: var(--bg-secondary);
-    transform: scale(1.1);
+    transform: scale(1.05);
 }
 
 /* Empty State */
 .emp-empty {
     text-align: center;
-    padding: 2.5rem 1.5rem;
+    padding: 3.5rem 1.5rem;
 }
 
 .emp-empty-icon {
-    width: 56px;
-    height: 56px;
-    margin: 0 auto 0.75rem;
+    width: 64px;
+    height: 64px;
+    margin: 0 auto 1rem;
     border-radius: 50%;
     background: var(--bg-secondary);
     display: flex;
@@ -443,12 +537,12 @@ include '../../includes/header.php';
     background: var(--bg-primary);
     border-radius: var(--pr-radius);
     width: 95%;
-    max-width: 560px;
+    max-width: 580px;
     max-height: 90vh;
     overflow: auto;
     z-index: 1001;
     display: none;
-    box-shadow: 0 25px 50px rgba(0,0,0,0.25);
+    box-shadow: 0 25px 60px rgba(0,0,0,0.3);
     opacity: 0;
     transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
 }
@@ -459,7 +553,7 @@ include '../../includes/header.php';
 }
 
 .emp-modal-header {
-    padding: 1.25rem 1.5rem;
+    padding: 1.5rem 1.75rem;
     border-bottom: 1px solid var(--border-color);
     display: flex;
     justify-content: space-between;
@@ -467,8 +561,8 @@ include '../../includes/header.php';
 }
 
 .emp-modal-header h3 {
-    font-size: 1.1rem;
-    font-weight: 700;
+    font-size: 1.2rem;
+    font-weight: 800;
     margin: 0;
     background: var(--pr-gradient-1);
     -webkit-background-clip: text;
@@ -477,9 +571,9 @@ include '../../includes/header.php';
 }
 
 .emp-modal-close {
-    width: 32px;
-    height: 32px;
-    border-radius: 8px;
+    width: 34px;
+    height: 34px;
+    border-radius: 10px;
     border: none;
     background: var(--bg-secondary);
     cursor: pointer;
@@ -496,28 +590,28 @@ include '../../includes/header.php';
 }
 
 .emp-modal-body {
-    padding: 1.5rem;
+    padding: 1.75rem;
 }
 
 .emp-form-row {
     display: grid;
     grid-template-columns: 1fr 1fr;
-    gap: 1rem;
-    margin-bottom: 1rem;
+    gap: 1.1rem;
+    margin-bottom: 1.1rem;
 }
 
 .emp-form-group {
-    margin-bottom: 1rem;
+    margin-bottom: 1.1rem;
 }
 
 .emp-form-group:last-child { margin-bottom: 0; }
 
 .emp-form-label {
     display: block;
-    font-size: 0.8rem;
+    font-size: 0.82rem;
     font-weight: 600;
     color: var(--text-secondary);
-    margin-bottom: 0.4rem;
+    margin-bottom: 0.45rem;
 }
 
 .emp-form-label.required::after {
@@ -528,12 +622,13 @@ include '../../includes/header.php';
 
 .emp-form-input {
     width: 100%;
-    padding: 0.65rem 0.9rem;
+    padding: 0.7rem 1rem;
     border: 1px solid var(--border-color);
     border-radius: 10px;
-    font-size: 0.9rem;
+    font-size: 0.92rem;
     background: var(--bg-primary);
     transition: all 0.2s;
+    color: var(--text-primary);
 }
 
 .emp-form-input:focus {
@@ -543,9 +638,9 @@ include '../../includes/header.php';
 }
 
 .emp-form-note {
-    font-size: 0.75rem;
+    font-size: 0.76rem;
     color: var(--text-tertiary);
-    margin-top: 0.35rem;
+    margin-top: 0.4rem;
 }
 
 .emp-salary-input {
@@ -563,41 +658,42 @@ include '../../includes/header.php';
 }
 
 .emp-salary-prefix {
-    padding: 0.65rem 0.9rem;
+    padding: 0.7rem 1rem;
     background: var(--bg-secondary);
-    font-weight: 600;
+    font-weight: 700;
     color: var(--text-secondary);
-    font-size: 0.85rem;
+    font-size: 0.9rem;
     border-right: 1px solid var(--border-color);
 }
 
 .emp-salary-input input {
     flex: 1;
     border: none;
-    padding: 0.65rem 0.9rem;
-    font-size: 0.9rem;
+    padding: 0.7rem 1rem;
+    font-size: 0.92rem;
     background: transparent;
+    color: var(--text-primary);
 }
 
 .emp-salary-input input:focus { outline: none; }
 
 .emp-modal-footer {
-    padding: 1rem 1.5rem;
+    padding: 1.25rem 1.75rem;
     border-top: 1px solid var(--border-color);
     display: flex;
     justify-content: flex-end;
-    gap: 0.75rem;
+    gap: 0.85rem;
 }
 
 .emp-btn-cancel {
-    padding: 0.65rem 1.25rem;
+    padding: 0.7rem 1.5rem;
     border-radius: 10px;
     border: 1px solid var(--border-color);
     background: transparent;
     font-weight: 500;
     cursor: pointer;
     transition: all 0.2s;
-    font-size: 0.9rem;
+    font-size: 0.92rem;
     color: var(--text-secondary);
 }
 
@@ -606,33 +702,41 @@ include '../../includes/header.php';
 }
 
 .emp-btn-save {
-    padding: 0.65rem 1.5rem;
+    padding: 0.7rem 1.75rem;
     border-radius: 10px;
     border: none;
     background: var(--pr-gradient-1);
     color: #fff;
-    font-weight: 600;
+    font-weight: 700;
     cursor: pointer;
     transition: all 0.2s;
-    font-size: 0.9rem;
+    font-size: 0.92rem;
 }
 
 .emp-btn-save:hover {
     transform: translateY(-2px);
-    box-shadow: 0 8px 20px rgba(102,126,234,0.3);
+    box-shadow: 0 8px 24px rgba(102,126,234,0.35);
+}
+
+/* Page Wrapper - Full width */
+.emp-page-wrapper {
+    max-width: 100%;
+    margin: 0 auto;
+    padding: 0;
+}
+
+/* Responsive */
+@media (max-width: 1200px) {
+    .emp-stats { grid-template-columns: repeat(2, 1fr); }
 }
 
 @media (max-width: 768px) {
+    .emp-stats { grid-template-columns: 1fr; }
     .emp-form-row { grid-template-columns: 1fr; }
     .emp-table-header { flex-direction: column; align-items: stretch; }
     .emp-search { width: 100%; }
-}
-
-/* Page Wrapper - Compact & Centered */
-.emp-page-wrapper {
-    max-width: 1100px;
-    margin: 0 auto;
-    padding: 0;
+    .emp-header { padding: 1.5rem; }
+    .emp-header h1 { font-size: 1.3rem; }
 }
 </style>
 
@@ -670,6 +774,24 @@ include '../../includes/header.php';
                 <h3 class="emp-stat-value">Rp <?php echo number_format($totalBase, 0, ',', '.'); ?></h3>
             </div>
         </div>
+        <div class="emp-stat-item">
+            <div class="emp-stat-icon blue">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><line x1="12" y1="1" x2="12" y2="23"></line><path d="M17 5H9.5a3.5 3.5 0 0 0 0 7h5a3.5 3.5 0 0 1 0 7H6"></path></svg>
+            </div>
+            <div>
+                <p class="emp-stat-label">Average Salary</p>
+                <h3 class="emp-stat-value">Rp <?php echo number_format($avgSalary, 0, ',', '.'); ?></h3>
+            </div>
+        </div>
+        <div class="emp-stat-item">
+            <div class="emp-stat-icon orange">
+                <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M22 19a2 2 0 0 1-2 2H4a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h5l2 3h9a2 2 0 0 1 2 2z"></path></svg>
+            </div>
+            <div>
+                <p class="emp-stat-label">Departments</p>
+                <h3 class="emp-stat-value"><?php echo $totalDepts; ?></h3>
+            </div>
+        </div>
     </div>
 
     <!-- Table Card -->
@@ -698,7 +820,8 @@ include '../../includes/header.php';
                     <th>Position</th>
                     <th>Join Date</th>
                     <th>Base Salary</th>
-                    <th>Bank Account</th><th style="text-align:center;">� Finger ID</th><th style="text-align:center;">�👁️ Wajah</th>
+                    <th>Bank Account</th>
+                    <th style="text-align:center;">Biometrics</th>
                     <th style="text-align: center;">Actions</th>
                 </tr>
             </thead>
@@ -729,25 +852,25 @@ include '../../includes/header.php';
                         </div>
                     </td>
                     <td style="text-align:center;">
+                        <div style="display:flex; flex-direction:column; align-items:center; gap:0.3rem;">
                         <?php if (!empty($emp['finger_id'])): ?>
-                            <span style="font-size:11px; background:#eff6ff; color:#1e40af; padding:2px 7px; border-radius:4px; font-weight:700">🔒 PIN <?php echo htmlspecialchars($emp['finger_id']); ?></span>
+                            <span class="emp-badge emp-badge-finger">🔒 PIN <?php echo htmlspecialchars($emp['finger_id']); ?></span>
                         <?php else: ?>
-                            <span style="font-size:11px; color:#94a3b8;">— Belum</span>
+                            <span class="emp-badge-empty">— No PIN</span>
                         <?php endif; ?>
-                    </td>
-                    <td style="text-align:center;">
                         <?php if (!empty($emp['face_descriptor'])): ?>
-                            <span style="font-size:11px; background:#f0fdf4; color:#166534; padding:2px 7px; border-radius:4px; font-weight:700">👁️ Terdaftar</span>
+                            <span class="emp-badge emp-badge-face">👁️ Face</span>
                         <?php else: ?>
-                            <span style="font-size:11px; color:#94a3b8;">— Belum</span>
+                            <span class="emp-badge-empty">— No Face</span>
                         <?php endif; ?>
+                        </div>
                     </td>
                     <td>
                         <div class="emp-actions" style="justify-content: center;">
-                            <button class="emp-btn-action edit" onclick='editEmployee(<?php echo json_encode($emp); ?>)'>
+                            <button class="emp-btn-action edit" title="Edit" onclick='editEmployee(<?php echo json_encode($emp); ?>)'>
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"></path><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"></path></svg>
                             </button>
-                            <button class="emp-btn-action delete" onclick="deleteEmployee(<?php echo $emp['id']; ?>)">
+                            <button class="emp-btn-action delete" title="Delete" onclick="deleteEmployee(<?php echo $emp['id']; ?>)">
                                 <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="3 6 5 6 21 6"></polyline><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6m3 0V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"></path></svg>
                             </button>
                         </div>
