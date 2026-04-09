@@ -757,9 +757,15 @@ function saveEdit(event) {
         });
         formData.append('is_group', '1');
         formData.append('rooms_json', JSON.stringify(roomsData));
+        console.log('GROUP SAVE rooms:', roomsData);
     }
     
-    fetch(BASE_URL + '/api/update-reservation.php', {
+    const apiUrl = BASE_URL + '/api/update-reservation.php';
+    console.log('Saving to:', apiUrl);
+    console.log('FormData entries:');
+    for (let [k,v] of formData.entries()) { console.log('  ', k, '=', typeof v === 'string' && v.length > 200 ? v.substring(0,200)+'...' : v); }
+    
+    fetch(apiUrl, {
         method: 'POST',
         body: formData
     })

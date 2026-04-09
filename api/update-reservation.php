@@ -100,6 +100,8 @@ try {
     // Build booking update fields
     $updates = [];
     $params = [];
+    $isGroupMode = !empty($_POST['is_group']);
+    error_log("is_group mode: " . ($isGroupMode ? 'YES' : 'NO'));
 
     if (isset($_POST['special_requests'])) {
         $updates[] = 'special_request = ?';
@@ -121,8 +123,6 @@ try {
     // Date changes
     $checkIn = !empty($_POST['check_in_date']) ? trim($_POST['check_in_date']) : $booking['check_in_date'];
     $checkOut = !empty($_POST['check_out_date']) ? trim($_POST['check_out_date']) : $booking['check_out_date'];
-    $newRoomId = !empty($_POST['room_id']) ? intval($_POST['room_id']) : $booking['room_id'];
-    $roomId = $newRoomId;
 
     $ciDate = new DateTime($checkIn);
     $coDate = new DateTime($checkOut);
@@ -131,53 +131,7 @@ try {
     }
     $nights = $ciDate->diff($coDate)->days;
 
-    // Check availability if dates or room changed
-    if ($checkIn !== $booking['check_in_date'] || $checkOut !== $booking['check_out_date'] || $roomId !== intval($booking['room_id'])) {
-        $stmt = $conn->prepare("
-            SELECT COUNT(*) FROM bookings 
-            WHERE room_id = ? AND id != ? 
-            AND status NOT IN ('cancelled', 'checked_out')
-            AND check_in_date < ? AND check_out_date > ?
-        ");
-        $stmt->execute([$roomId, $bookingId, $checkOut, $checkIn]);
-        if ($stmt->fetchColumn() > 0) {
-            throw new Exception('Room is not available for selected dates');
-        }
-    }
-
-    // Handle room change
-    if ($roomId !== intval($booking['room_id'])) {
-        $updates[] = 'room_id = ?';
-        $params[] = $roomId;
-    }
-
-    // Get room price
-    $roomPrice = floatval($_POST['room_price'] ?? 0);
-    if (!$roomPrice) {
-        $roomPrice = floatval($booking['room_price']);
-    }
-    if (!$roomPrice) {
-        // Fallback to room_types base_price
-        $stmt = $conn->prepare("SELECT rt.base_price FROM rooms r JOIN room_types rt ON r.room_type_id = rt.id WHERE r.id = ?");
-        $stmt->execute([$roomId]);
-        $rtRow = $stmt->fetch(PDO::FETCH_ASSOC);
-        $roomPrice = $rtRow ? $rtRow['base_price'] : 0;
-    }
-
-    $totalPrice = $roomPrice * $nights;
-    
-    // Discount handling
-    $discountType = $_POST['discount_type'] ?? 'rp';
-    $discountValue = floatval($_POST['discount_value'] ?? 0);
-    if ($discountType === 'percent' && $discountValue > 0) {
-        $discount = round($totalPrice * $discountValue / 100);
-    } else {
-        $discount = $discountValue;
-    }
-    
-    $afterDiscount = $totalPrice - $discount;
-    
-    // OTA fee calculation
+    // OTA fee calculation (needed for both single and group)
     $bookingSource = trim($_POST['booking_source'] ?? $booking['booking_source']);
     $otaFeePercent = 0;
     try {
@@ -190,39 +144,92 @@ try {
     } catch (Exception $e) {
         // fallback: no fee
     }
-    
-    $otaFeeAmount = 0;
-    if ($otaFeePercent > 0) {
-        $otaFeeAmount = round($afterDiscount * $otaFeePercent / 100);
-    }
-    
-    $roomFinalPrice = $afterDiscount - $otaFeeAmount;
-    
-    // Include extras in final price
-    $extrasTotal = 0;
-    try {
-        $extStmt = $conn->prepare("SELECT COALESCE(SUM(total_price), 0) as total FROM booking_extras WHERE booking_id = ?");
-        $extStmt->execute([$bookingId]);
-        $extrasTotal = (float)$extStmt->fetch(PDO::FETCH_ASSOC)['total'];
-    } catch (Exception $e) { /* table might not exist */ }
-    
-    $finalPrice = $roomFinalPrice + $extrasTotal;
 
-    // Add date/price fields to booking update
+    // For GROUP mode: only update shared fields (dates, source, guest info) on primary booking
+    // Per-room fields (room_id, room_price, discount, final_price) are handled in group loop below
+    if (!$isGroupMode) {
+        $newRoomId = !empty($_POST['room_id']) ? intval($_POST['room_id']) : $booking['room_id'];
+        $roomId = $newRoomId;
+
+        // Check availability if dates or room changed
+        if ($checkIn !== $booking['check_in_date'] || $checkOut !== $booking['check_out_date'] || $roomId !== intval($booking['room_id'])) {
+            $stmt = $conn->prepare("
+                SELECT COUNT(*) FROM bookings 
+                WHERE room_id = ? AND id != ? 
+                AND status NOT IN ('cancelled', 'checked_out')
+                AND check_in_date < ? AND check_out_date > ?
+            ");
+            $stmt->execute([$roomId, $bookingId, $checkOut, $checkIn]);
+            if ($stmt->fetchColumn() > 0) {
+                throw new Exception('Room is not available for selected dates');
+            }
+        }
+
+        // Handle room change
+        if ($roomId !== intval($booking['room_id'])) {
+            $updates[] = 'room_id = ?';
+            $params[] = $roomId;
+        }
+
+        // Get room price
+        $roomPrice = floatval($_POST['room_price'] ?? 0);
+        if (!$roomPrice) {
+            $roomPrice = floatval($booking['room_price']);
+        }
+        if (!$roomPrice) {
+            $stmt = $conn->prepare("SELECT rt.base_price FROM rooms r JOIN room_types rt ON r.room_type_id = rt.id WHERE r.id = ?");
+            $stmt->execute([$roomId]);
+            $rtRow = $stmt->fetch(PDO::FETCH_ASSOC);
+            $roomPrice = $rtRow ? $rtRow['base_price'] : 0;
+        }
+
+        $totalPrice = $roomPrice * $nights;
+        
+        // Discount handling
+        $discountType = $_POST['discount_type'] ?? 'rp';
+        $discountValue = floatval($_POST['discount_value'] ?? 0);
+        if ($discountType === 'percent' && $discountValue > 0) {
+            $discount = round($totalPrice * $discountValue / 100);
+        } else {
+            $discount = $discountValue;
+        }
+        
+        $afterDiscount = $totalPrice - $discount;
+        
+        $otaFeeAmount = 0;
+        if ($otaFeePercent > 0) {
+            $otaFeeAmount = round($afterDiscount * $otaFeePercent / 100);
+        }
+        
+        $roomFinalPrice = $afterDiscount - $otaFeeAmount;
+        
+        // Include extras in final price
+        $extrasTotal = 0;
+        try {
+            $extStmt = $conn->prepare("SELECT COALESCE(SUM(total_price), 0) as total FROM booking_extras WHERE booking_id = ?");
+            $extStmt->execute([$bookingId]);
+            $extrasTotal = (float)$extStmt->fetch(PDO::FETCH_ASSOC)['total'];
+        } catch (Exception $e) { /* table might not exist */ }
+        
+        $finalPrice = $roomFinalPrice + $extrasTotal;
+
+        $updates[] = 'room_price = ?';
+        $params[] = $roomPrice;
+        $updates[] = 'total_price = ?';
+        $params[] = $totalPrice;
+        $updates[] = 'discount = ?';
+        $params[] = $discount;
+        $updates[] = 'final_price = ?';
+        $params[] = $finalPrice;
+    }
+
+    // Add date fields to booking update (shared for both single and group)
     $updates[] = 'check_in_date = ?';
     $params[] = $checkIn;
     $updates[] = 'check_out_date = ?';
     $params[] = $checkOut;
     $updates[] = 'total_nights = ?';
     $params[] = $nights;
-    $updates[] = 'room_price = ?';
-    $params[] = $roomPrice;
-    $updates[] = 'total_price = ?';
-    $params[] = $totalPrice;
-    $updates[] = 'discount = ?';
-    $params[] = $discount;
-    $updates[] = 'final_price = ?';
-    $params[] = $finalPrice;
     $updates[] = 'updated_at = NOW()';
 
     // Execute booking update
@@ -239,12 +246,12 @@ try {
     $intendedSource = trim($_POST['booking_source'] ?? $booking['booking_source']);
     $standaloneRows = -1;
     $standaloneError = '';
-    if (!empty($intendedSource)) {
+    if (!empty($intendedSource) && !$isGroupMode) {
         try {
-            $srcSql = "UPDATE bookings SET booking_source = '{$intendedSource}' WHERE id = {$bookingId}";
-            error_log("STANDALONE RAW SQL: " . $srcSql);
-            $srcStmt = $conn->exec($srcSql);
-            $standaloneRows = $srcStmt;
+            $srcSql = "UPDATE bookings SET booking_source = ? WHERE id = ?";
+            $srcStmt = $conn->prepare($srcSql);
+            $srcStmt->execute([$intendedSource, $bookingId]);
+            $standaloneRows = $srcStmt->rowCount();
             error_log("STANDALONE rows: " . $standaloneRows);
         } catch (Exception $se) {
             $standaloneError = $se->getMessage();
@@ -265,18 +272,29 @@ try {
 
     // GROUP UPDATE: update each room in the group
     $groupUpdated = [];
-    if (!empty($_POST['is_group']) && !empty($_POST['rooms_json'])) {
+    if ($isGroupMode && !empty($_POST['rooms_json'])) {
+        error_log("GROUP MODE: processing rooms_json");
         $roomsData = json_decode($_POST['rooms_json'], true);
+        error_log("rooms_json decoded: " . json_encode($roomsData));
         if (is_array($roomsData)) {
-            foreach ($roomsData as $rd) {
+            foreach ($roomsData as $rdIdx => $rd) {
                 $rdBookingId = intval($rd['booking_id'] ?? 0);
-                if (!$rdBookingId) continue;
+                if (!$rdBookingId) { error_log("GROUP: skip idx=$rdIdx no booking_id"); continue; }
                 
                 $rdRoomId = intval($rd['room_id'] ?? 0);
                 $rdRoomPrice = floatval($rd['room_price'] ?? 0);
                 $rdDiscount = floatval($rd['discount'] ?? 0);
                 
-                if (!$rdRoomId || !$rdRoomPrice) continue;
+                error_log("GROUP room[$rdIdx]: bid=$rdBookingId rid=$rdRoomId price=$rdRoomPrice disc=$rdDiscount");
+                
+                if (!$rdRoomId) { error_log("GROUP: skip idx=$rdIdx no room_id"); continue; }
+                if (!$rdRoomPrice) {
+                    // Fallback to room_types base_price
+                    $rpStmt = $conn->prepare("SELECT rt.base_price FROM rooms r JOIN room_types rt ON r.room_type_id = rt.id WHERE r.id = ?");
+                    $rpStmt->execute([$rdRoomId]);
+                    $rpRow = $rpStmt->fetch(PDO::FETCH_ASSOC);
+                    $rdRoomPrice = $rpRow ? (float)$rpRow['base_price'] : 0;
+                }
                 
                 $rdTotalPrice = $rdRoomPrice * $nights;
                 $rdAfterDiscount = $rdTotalPrice - $rdDiscount;
@@ -314,7 +332,7 @@ try {
                     }
                 }
                 
-                // Update this booking
+                // Update this booking (room fields + shared fields)
                 $grpStmt = $conn->prepare("
                     UPDATE bookings SET 
                         room_id = ?, room_price = ?, total_price = ?, discount = ?, final_price = ?,
@@ -327,8 +345,18 @@ try {
                     $checkIn, $checkOut, $nights,
                     $intendedSource, $rdBookingId
                 ]);
+                error_log("GROUP room[$rdIdx] updated: final_price=$rdFinalPrice");
                 $groupUpdated[] = ['booking_id' => $rdBookingId, 'status' => 'updated', 'final_price' => $rdFinalPrice];
             }
+        }
+    }
+
+    // Calculate combined totals for response
+    $respTotalPrice = $isGroupMode ? 0 : ($totalPrice ?? 0);
+    $respFinalPrice = $isGroupMode ? 0 : ($finalPrice ?? 0);
+    if ($isGroupMode && !empty($groupUpdated)) {
+        foreach ($groupUpdated as $gu) {
+            if (isset($gu['final_price'])) $respFinalPrice += $gu['final_price'];
         }
     }
 
@@ -340,10 +368,11 @@ try {
             'check_in' => $checkIn,
             'check_out' => $checkOut,
             'nights' => $nights,
-            'total_price' => $totalPrice,
-            'final_price' => $finalPrice,
+            'total_price' => $respTotalPrice,
+            'final_price' => $respFinalPrice,
             'booking_source' => $verifiedSource,
-            'intended_source' => $intendedSource
+            'intended_source' => $intendedSource,
+            'is_group' => $isGroupMode
         ],
         'debug' => [
             'main_update_rows' => $mainRows,
