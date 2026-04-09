@@ -20,7 +20,7 @@ if (!$key) {
 if (!$key) {
     while ($e = openssl_error_string()) echo "OpenSSL Error: $e\n";
     echo "Failed to generate EC key. Trying openssl CLI...\n";
-    
+
     // Use openssl CLI as fallback
     $tmpKey = tempnam(sys_get_temp_dir(), 'vapid');
     exec("openssl ecparam -genkey -name prime256v1 -noout -out " . escapeshellarg($tmpKey) . " 2>&1", $out, $ret);
@@ -40,7 +40,8 @@ $x = $details['ec']['x'];
 $y = $details['ec']['y'];
 $d = $details['ec']['d'];
 
-function base64url_encode($data) {
+function base64url_encode($data)
+{
     return rtrim(strtr(base64_encode($data), '+/', '-_'), '=');
 }
 

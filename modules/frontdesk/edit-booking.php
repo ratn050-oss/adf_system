@@ -46,6 +46,39 @@ if (!$booking) {
     exit;
 }
 
+// Detect group booking - fetch all rooms in the group
+$groupBookings = [];
+$isGroup = false;
+$groupId = $booking['group_id'] ?? null;
+if ($groupId) {
+    $gStmt = $pdo->prepare("
+        SELECT b.*, r.room_number, rt.type_name, rt.base_price
+        FROM bookings b
+        JOIN rooms r ON b.room_id = r.id
+        JOIN room_types rt ON r.room_type_id = rt.id
+        WHERE b.group_id = ? AND b.status != 'cancelled'
+        ORDER BY r.room_number ASC
+    ");
+    $gStmt->execute([$groupId]);
+    $groupBookings = $gStmt->fetchAll(PDO::FETCH_ASSOC);
+    $isGroup = count($groupBookings) > 1;
+}
+if (!$isGroup) {
+    $groupBookings = [$booking];
+}
+
+// Get combined paid for group
+$allBookingIds = array_column($groupBookings, 'id');
+$placeholders = implode(',', array_fill(0, count($allBookingIds), '?'));
+$paidRow = $db->fetchOne("SELECT COALESCE(SUM(amount),0) as total FROM booking_payments WHERE booking_id IN ($placeholders)", $allBookingIds);
+$totalPaid = (float)($paidRow['total'] ?? 0);
+
+// Combined final price for group
+$combinedFinalPrice = 0;
+foreach ($groupBookings as $gb) {
+    $combinedFinalPrice += (float)$gb['final_price'];
+}
+
 // Get all rooms
 $rooms = $db->fetchAll("
     SELECT r.id, r.room_number, rt.type_name, rt.base_price
@@ -76,15 +109,13 @@ foreach ($bookingSources as $src) {
     $otaFees[$src['source_key']] = (float)$src['fee_percent'];
 }
 
-// Get total paid
-$paidRow = $db->fetchOne("SELECT COALESCE(SUM(amount),0) as total FROM booking_payments WHERE booking_id = ?", [$bookingId]);
-$totalPaid = (float)($paidRow['total'] ?? 0);
+// Get total paid - already calculated above for group
 
-// Get existing extras
+// Get existing extras for ALL bookings in group
 $bookingExtras = [];
 $totalExtras = 0;
 try {
-    $bookingExtras = $db->fetchAll("SELECT id, item_name, quantity, unit_price, total_price, notes FROM booking_extras WHERE booking_id = ? ORDER BY created_at ASC", [$bookingId]);
+    $bookingExtras = $db->fetchAll("SELECT id, booking_id, item_name, quantity, unit_price, total_price, notes FROM booking_extras WHERE booking_id IN ($placeholders) ORDER BY created_at ASC", $allBookingIds);
     foreach ($bookingExtras as $ex) {
         $totalExtras += (float)$ex['total_price'];
     }
@@ -168,13 +199,25 @@ include '../../includes/header.php';
 .preset-btns { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.5rem; }
 .preset-btn { padding: 0.25rem 0.5rem; background: white; border: 1px solid #d1d5db; border-radius: 4px; font-size: 0.75rem; cursor: pointer; }
 .preset-btn:hover { background: #6366f1; color: white; border-color: #6366f1; }
+
+/* GROUP ROOMS */
+.group-badge { display: inline-block; background: rgba(255,255,255,0.25); padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 700; margin-left: 0.5rem; }
+.room-cards { display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1rem; }
+.room-card { background: rgba(99,102,241,0.03); border: 1px solid rgba(99,102,241,0.15); border-radius: 8px; padding: 0.75rem; }
+.room-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; padding-bottom: 0.4rem; border-bottom: 1px solid rgba(99,102,241,0.1); }
+.room-card-title { font-weight: 700; font-size: 0.9rem; color: #6366f1; }
+.room-card-status { font-size: 0.7rem; }
+.room-card .form-row { margin-bottom: 0.5rem; }
+.room-card .form-group { margin-bottom: 0.5rem; }
+.room-card .form-group label { font-size: 0.78rem; }
+.room-card .price-box { margin-bottom: 0; }
 </style>
 
 <div class="edit-page">
     <div class="edit-card">
         <div class="edit-card-header">
-            <h2>✏️ Edit Reservasi</h2>
-            <div class="booking-code"><?php echo htmlspecialchars($booking['booking_code']); ?> · 
+            <h2>✏️ Edit Reservasi<?php if ($isGroup): ?><span class="group-badge">📦 <?php echo count($groupBookings); ?> Rooms</span><?php endif; ?></h2>
+            <div class="booking-code"><?php echo htmlspecialchars($booking['booking_code']); ?><?php if ($isGroup): ?> (Group)<?php endif; ?> · 
                 <span class="status-badge status-<?php echo $booking['status']; ?>"><?php echo strtoupper(str_replace('_',' ',$booking['status'])); ?></span>
             </div>
         </div>
@@ -185,7 +228,7 @@ include '../../includes/header.php';
             <?php if ($totalPaid > 0): ?>
             <div class="paid-info">
                 💰 Sudah Dibayar: <strong>Rp <?php echo number_format($totalPaid, 0, ',', '.'); ?></strong>
-                <?php if ($totalPaid >= $booking['final_price']): ?>
+                <?php if ($totalPaid >= $combinedFinalPrice): ?>
                     <span style="margin-left:0.5rem;background:#10b981;color:white;padding:2px 8px;border-radius:4px;font-size:0.7rem;">LUNAS</span>
                 <?php endif; ?>
             </div>
@@ -193,6 +236,9 @@ include '../../includes/header.php';
             
             <form id="editForm" onsubmit="return saveEdit(event)">
                 <input type="hidden" name="booking_id" value="<?php echo $bookingId; ?>">
+                <?php if ($isGroup): ?>
+                <input type="hidden" name="group_id" value="<?php echo htmlspecialchars($groupId); ?>">
+                <?php endif; ?>
                 
                 <!-- GUEST INFO -->
                 <div class="form-row">
@@ -228,7 +274,77 @@ include '../../includes/header.php';
                     </div>
                 </div>
                 
-                <!-- ROOM -->
+                <!-- ROOM(S) -->
+                <?php if ($isGroup): ?>
+                <!-- GROUP: Multiple Room Cards -->
+                <div class="room-cards">
+                    <?php foreach ($groupBookings as $idx => $gb): ?>
+                    <div class="room-card" data-room-idx="<?php echo $idx; ?>">
+                        <input type="hidden" name="rooms[<?php echo $idx; ?>][booking_id]" value="<?php echo $gb['id']; ?>">
+                        <div class="room-card-header">
+                            <span class="room-card-title">🏠 Room <?php echo htmlspecialchars($gb['room_number']); ?> — <?php echo htmlspecialchars($gb['type_name']); ?></span>
+                            <span class="room-card-status status-badge status-<?php echo $gb['status']; ?>"><?php echo strtoupper(str_replace('_',' ',$gb['status'])); ?></span>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Kamar</label>
+                                <select name="rooms[<?php echo $idx; ?>][room_id]" class="grp-room-select" data-idx="<?php echo $idx; ?>" onchange="recalculate()">
+                                    <?php foreach ($rooms as $room): ?>
+                                    <option value="<?php echo $room['id']; ?>" 
+                                            data-price="<?php echo $room['base_price']; ?>"
+                                            <?php echo $room['id'] == $gb['room_id'] ? 'selected' : ''; ?>>
+                                        Room <?php echo $room['room_number']; ?> - <?php echo $room['type_name']; ?> (Rp <?php echo number_format($room['base_price'],0,',','.'); ?>)
+                                    </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="form-group">
+                                <label>Harga/Malam (Rp)</label>
+                                <input type="number" name="rooms[<?php echo $idx; ?>][room_price]" class="grp-room-price" data-idx="<?php echo $idx; ?>" value="<?php echo $gb['room_price']; ?>" step="1000" onchange="recalculate()">
+                            </div>
+                        </div>
+                        <div class="form-group">
+                            <label>Diskon (Rp)</label>
+                            <input type="number" name="rooms[<?php echo $idx; ?>][discount]" class="grp-discount" data-idx="<?php echo $idx; ?>" value="<?php echo $gb['discount']; ?>" min="0" onchange="recalculate()">
+                        </div>
+                    </div>
+                    <?php endforeach; ?>
+                </div>
+                
+                <!-- SOURCE (shared for group) -->
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Booking Source</label>
+                        <select name="booking_source" id="bookingSource" onchange="recalculate()">
+                            <?php 
+                            $directSources = array_filter($bookingSources, fn($s) => $s['source_type'] === 'direct');
+                            $otaSrc = array_filter($bookingSources, fn($s) => $s['source_type'] !== 'direct');
+                            ?>
+                            <optgroup label="Direct">
+                                <?php foreach ($directSources as $src): ?>
+                                <option value="<?php echo $src['source_key']; ?>" 
+                                        <?php echo $src['source_key'] === $booking['booking_source'] ? 'selected' : ''; ?>>
+                                    <?php echo $src['icon'] . ' ' . $src['source_name']; ?>
+                                </option>
+                                <?php endforeach; ?>
+                            </optgroup>
+                            <optgroup label="OTA">
+                                <?php foreach ($otaSrc as $src): ?>
+                                <option value="<?php echo $src['source_key']; ?>"
+                                        <?php echo $src['source_key'] === $booking['booking_source'] ? 'selected' : ''; ?>>
+                                    <?php echo $src['icon'] . ' ' . $src['source_name'] . ' (fee ' . $src['fee_percent'] . '%)'; ?>
+                                </option>
+                                <?php endforeach; ?>
+                            </optgroup>
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Jumlah Tamu</label>
+                        <input type="number" name="num_guests" min="1" max="30" value="<?php echo $booking['adults'] ?? 1; ?>">
+                    </div>
+                </div>
+                <?php else: ?>
+                <!-- SINGLE ROOM -->
                 <div class="form-row">
                     <div class="form-group">
                         <label>Kamar</label>
@@ -291,6 +407,7 @@ include '../../includes/header.php';
                         <input type="hidden" name="discount_type" id="discountType" value="rp">
                     </div>
                 </div>
+                <?php endif; ?>
                 
                 <!-- SPECIAL REQUEST -->
                 <div class="form-group">
@@ -398,6 +515,8 @@ include '../../includes/header.php';
 const OTA_FEES = <?php echo json_encode($otaFees); ?>;
 const BASE_URL = '<?php echo BASE_URL; ?>';
 const BOOKING_ID = <?php echo $bookingId; ?>;
+const IS_GROUP = <?php echo $isGroup ? 'true' : 'false'; ?>;
+const ALL_BOOKING_IDS = <?php echo json_encode($allBookingIds); ?>;
 let discountType = 'rp';
 let currentExtrasTotal = <?php echo $totalExtras; ?>;
 
@@ -416,38 +535,55 @@ function recalculate() {
     if (!ci || !co || co <= ci) return;
     
     const nights = Math.ceil((co - ci) / 86400000);
-    const price = parseFloat(document.getElementById('roomPrice').value) || 0;
-    const subtotal = nights * price;
     
-    // Discount
-    const discVal = parseFloat(document.getElementById('discountValue').value) || 0;
-    let discountAmount = 0;
-    if (discountType === 'percent') {
-        discountAmount = Math.round(subtotal * discVal / 100);
-    } else {
-        discountAmount = discVal;
-    }
-    
-    const afterDiscount = subtotal - discountAmount;
-    
-    // OTA Fee
+    // OTA Fee percent from source
     const source = document.getElementById('bookingSource').value;
     const feePercent = OTA_FEES[source] || 0;
-    let feeAmount = 0;
-    if (feePercent > 0) {
-        feeAmount = Math.round(afterDiscount * feePercent / 100);
+    
+    let grandSubtotal = 0;
+    let grandDiscount = 0;
+    let grandFee = 0;
+    let grandRoomNet = 0;
+    
+    if (IS_GROUP) {
+        // Sum across all room cards
+        document.querySelectorAll('.room-card').forEach(card => {
+            const price = parseFloat(card.querySelector('.grp-room-price').value) || 0;
+            const disc = parseFloat(card.querySelector('.grp-discount').value) || 0;
+            const sub = nights * price;
+            const afterDisc = sub - disc;
+            const fee = feePercent > 0 ? Math.round(afterDisc * feePercent / 100) : 0;
+            grandSubtotal += sub;
+            grandDiscount += disc;
+            grandFee += fee;
+            grandRoomNet += (afterDisc - fee);
+        });
+    } else {
+        const price = parseFloat(document.getElementById('roomPrice').value) || 0;
+        grandSubtotal = nights * price;
+        
+        // Discount
+        const discVal = parseFloat(document.getElementById('discountValue').value) || 0;
+        if (discountType === 'percent') {
+            grandDiscount = Math.round(grandSubtotal * discVal / 100);
+        } else {
+            grandDiscount = discVal;
+        }
+        
+        const afterDiscount = grandSubtotal - grandDiscount;
+        grandFee = feePercent > 0 ? Math.round(afterDiscount * feePercent / 100) : 0;
+        grandRoomNet = afterDiscount - grandFee;
     }
     
-    const roomNet = afterDiscount - feeAmount;
-    const total = roomNet + currentExtrasTotal;
+    const total = grandRoomNet + currentExtrasTotal;
     
     // Update display
     document.getElementById('dispNights').textContent = nights;
-    document.getElementById('dispSubtotal').textContent = 'Rp ' + subtotal.toLocaleString('id-ID');
+    document.getElementById('dispSubtotal').textContent = 'Rp ' + grandSubtotal.toLocaleString('id-ID');
     
-    if (discountAmount > 0) {
+    if (grandDiscount > 0) {
         document.getElementById('discountRow').style.display = 'flex';
-        document.getElementById('dispDiscount').textContent = '- Rp ' + discountAmount.toLocaleString('id-ID');
+        document.getElementById('dispDiscount').textContent = '- Rp ' + grandDiscount.toLocaleString('id-ID');
     } else {
         document.getElementById('discountRow').style.display = 'none';
     }
@@ -455,7 +591,7 @@ function recalculate() {
     if (feePercent > 0) {
         document.getElementById('otaFeeRow').style.display = 'flex';
         document.getElementById('dispFeePercent').textContent = feePercent;
-        document.getElementById('dispFeeAmount').textContent = '- Rp ' + feeAmount.toLocaleString('id-ID');
+        document.getElementById('dispFeeAmount').textContent = '- Rp ' + grandFee.toLocaleString('id-ID');
     } else {
         document.getElementById('otaFeeRow').style.display = 'none';
     }
@@ -606,6 +742,22 @@ function saveEdit(event) {
     
     const form = document.getElementById('editForm');
     const formData = new FormData(form);
+    
+    if (IS_GROUP) {
+        // Group save: send all rooms data as JSON
+        const roomCards = document.querySelectorAll('.room-card');
+        const roomsData = [];
+        roomCards.forEach(card => {
+            roomsData.push({
+                booking_id: card.querySelector('input[name*="[booking_id]"]').value,
+                room_id: card.querySelector('.grp-room-select').value,
+                room_price: card.querySelector('.grp-room-price').value,
+                discount: card.querySelector('.grp-discount').value
+            });
+        });
+        formData.append('is_group', '1');
+        formData.append('rooms_json', JSON.stringify(roomsData));
+    }
     
     fetch(BASE_URL + '/api/update-reservation.php', {
         method: 'POST',

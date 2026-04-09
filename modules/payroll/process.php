@@ -9,7 +9,8 @@ require_once '../../includes/functions.php';
 
 // Helper: Execute query that MUST succeed — throws on failure
 // $db->query() silently swallows PDOException and returns false
-function dbExec($db, $sql, $params = []) {
+function dbExec($db, $sql, $params = [])
+{
     $pdo = $db->getConnection();
     $stmt = $pdo->prepare($sql);
     $stmt->execute($params);
@@ -134,7 +135,10 @@ try {
         "ADD COLUMN IF NOT EXISTS locked TINYINT(1) NOT NULL DEFAULT 0",
     ];
     foreach ($cols as $c) {
-        try { $pdo->exec("ALTER TABLE payroll_slips $c"); } catch (\Throwable $e) {}
+        try {
+            $pdo->exec("ALTER TABLE payroll_slips $c");
+        } catch (\Throwable $e) {
+        }
     }
 } catch (\Throwable $e) {
     // Schema migration errors are non-fatal
@@ -186,7 +190,8 @@ function recalcAttendanceHours($db, $month, $year)
             if ($t4 > $t3) $sh2 = round(($t4 - $t3) / 3600, 2);
         }
         $wh = round(($sh1 ?? 0) + ($sh2 ?? 0), 2);
-        dbExec($db,
+        dbExec(
+            $db,
             "UPDATE payroll_attendance SET shift_1_hours = ?, shift_2_hours = ?, work_hours = ? WHERE id = ?",
             [$sh1, $sh2, $wh, $r['id']]
         );
@@ -305,7 +310,8 @@ function syncSlipsWithAttendance($db, $periodId, $month, $year)
         $netSalary = $totalEarn - $totalDed;
 
         // Update via direct PDO to avoid silent error swallowing
-        dbExec($db,
+        dbExec(
+            $db,
             "UPDATE payroll_slips SET work_hours=?, actual_base=?, overtime_rate=?, overtime_amount=?, total_earnings=?, total_deductions=?, net_salary=? WHERE id=?",
             [$workH, $actualBase, $otRate, $otAmount, $totalEarn, $totalDed, $netSalary, $slip['id']]
         );
@@ -329,7 +335,8 @@ if (isset($_POST['sync_attendance']) && $period) {
 if (!$period && isset($_POST['create_period'])) {
     try {
         $label = $months[$month] . ' ' . $year;
-        dbExec($db,
+        dbExec(
+            $db,
             "INSERT INTO payroll_periods (period_month, period_year, period_label, status, created_by) VALUES (?, ?, ?, 'draft', ?)",
             [$month, $year, $label, $_SESSION['user_id']]
         );
@@ -348,7 +355,8 @@ if (!$period && isset($_POST['create_period'])) {
             $otAmount = round($otH * $otRate, 2);
             $totalEarn = $actualBase + $otAmount;
             $netSalary = $totalEarn;
-            dbExec($db,
+            dbExec(
+                $db,
                 "INSERT INTO payroll_slips (period_id, employee_id, employee_name, position, base_salary, work_hours, actual_base, overtime_hours, overtime_rate, overtime_amount, total_earnings, net_salary) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 [$period['id'], $emp['id'], $emp['full_name'], $emp['position'], $baseSalary, $workH, $actualBase, $otH, $otRate, $otAmount, $totalEarn, $netSalary]
             );
@@ -458,7 +466,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_unlock_hours']))
         $slip = $db->fetchOne("SELECT employee_id FROM payroll_slips WHERE id = ?", [$slip_id]);
         if (!$slip) throw new Exception('Slip not found');
         $att = getAttendanceHours($db, $slip['employee_id'], $month, $year);
-        dbExec($db,
+        dbExec(
+            $db,
             "UPDATE payroll_slips SET hours_locked = 0, work_hours = ?, overtime_hours = ? WHERE id = ?",
             [$att['work_hours'], $att['overtime_hours'], $slip_id]
         );
@@ -509,7 +518,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_save_daily_atten
             }
             $workHours = round($shift1Hours + $shift2Hours, 2);
 
-            dbExec($db,
+            dbExec(
+                $db,
                 "INSERT INTO payroll_attendance (employee_id, attendance_date, check_in_time, check_out_time, scan_3, scan_4, shift_1_hours, shift_2_hours, work_hours, status)
                  VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                  ON DUPLICATE KEY UPDATE check_in_time=VALUES(check_in_time), check_out_time=VALUES(check_out_time),
@@ -535,7 +545,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['ajax_save_daily_atten
                 $totalDed = (float)($slip['deduction_loan'] ?? 0) + (float)($slip['deduction_absence'] ?? 0) + (float)($slip['deduction_tax'] ?? 0) + (float)($slip['deduction_bpjs'] ?? 0) + (float)($slip['deduction_other'] ?? 0);
                 $netSalary = $totalEarn - $totalDed;
                 // Only update work_hours and recalculated totals — preserve hours_locked state
-                dbExec($db,
+                dbExec(
+                    $db,
                     "UPDATE payroll_slips SET work_hours=?, overtime_hours=?, actual_base=?, overtime_rate=?, overtime_amount=?, total_earnings=?, total_deductions=?, net_salary=? WHERE id=?",
                     [$workH, $otH, $actualBase, $hourlyRate, $otAmount, $totalEarn, $totalDed, $netSalary, $slip['id']]
                 );
@@ -619,7 +630,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_proses'])) {
             $total_earnings = $actual_base + $overtime_amount + $incentive + $allowance + $uang_makan + $bonus + $other;
             $total_deductions = $loan + $absence + $tax + $bpjs + $ded_other;
             $net_salary = $total_earnings - $total_deductions;
-            dbExec($db,
+            dbExec(
+                $db,
                 "UPDATE payroll_slips SET actual_base=?, overtime_rate=?, overtime_amount=?, total_earnings=?, total_deductions=?, net_salary=?, uang_makan=? WHERE id=?",
                 [$actual_base, $overtime_rate, $overtime_amount, $total_earnings, $total_deductions, $net_salary, $uang_makan, $slip['id']]
             );
@@ -634,7 +646,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_proses'])) {
 
 // Handle Submit Period
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_period'])) {
-    dbExec($db,
+    dbExec(
+        $db,
         "UPDATE payroll_periods SET status = 'submitted', submitted_at = NOW(), submitted_by = ? WHERE id = ?",
         [$_SESSION['user_id'], $period['id']]
     );
@@ -646,7 +659,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_period'])) {
 // Handle Approve Period (Owner) - Record to Cashbook
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['approve_period'])) {
     try {
-        dbExec($db,
+        dbExec(
+            $db,
             "UPDATE payroll_periods SET status = 'approved', approved_at = NOW(), approved_by = ? WHERE id = ?",
             [$_SESSION['user_id'], $period['id']]
         );
@@ -663,7 +677,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['approve_period'])) {
             $div = $db->fetchOne("SELECT id FROM divisions WHERE LOWER(division_name) LIKE '%hotel%' OR id = 1 LIMIT 1");
             $cat = $db->fetchOne("SELECT id FROM categories WHERE LOWER(category_name) LIKE '%gaji%' OR LOWER(category_name) LIKE '%payroll%' OR LOWER(category_name) LIKE '%salary%' OR id = 1 LIMIT 1");
             $txNum = 'PAY-' . date('Ymd') . '-' . $period['id'];
-            dbExec($db,
+            dbExec(
+                $db,
                 "INSERT INTO cash_book (transaction_date, transaction_time, transaction_number, division_id, category_id, account_id, transaction_type, amount, description, reference_number, payment_method, status, created_by) 
                  VALUES (CURDATE(), CURTIME(), ?, ?, ?, ?, 'expense', ?, ?, ?, 'bank_transfer', 'posted', ?)",
                 [$txNum, $div['id'] ?? 1, $cat['id'] ?? 1, $accountId, $amount, $description, 'PAYROLL-' . $period['id'], $_SESSION['user_id']]
@@ -709,19 +724,24 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['quick_pay'])) {
             $tE = $ab + $oA + (float)($sl['incentive'] ?? 0) + (float)($sl['allowance'] ?? 0) + (float)($sl['uang_makan'] ?? 0) + (float)($sl['bonus'] ?? 0) + (float)($sl['other_income'] ?? 0);
             $tD = (float)($sl['deduction_loan'] ?? 0) + (float)($sl['deduction_absence'] ?? 0) + (float)($sl['deduction_tax'] ?? 0) + (float)($sl['deduction_bpjs'] ?? 0) + (float)($sl['deduction_other'] ?? 0);
             $nS = $tE - $tD;
-            dbExec($db, "UPDATE payroll_slips SET actual_base=?, overtime_rate=?, overtime_amount=?, total_earnings=?, total_deductions=?, net_salary=? WHERE id=?",
-                [$ab, $hr, $oA, $tE, $tD, $nS, $sl['id']]);
+            dbExec(
+                $db,
+                "UPDATE payroll_slips SET actual_base=?, overtime_rate=?, overtime_amount=?, total_earnings=?, total_deductions=?, net_salary=? WHERE id=?",
+                [$ab, $hr, $oA, $tE, $tD, $nS, $sl['id']]
+            );
             $totalNet += $nS;
         }
 
         // 2. Update period totals
-        dbExec($db,
+        dbExec(
+            $db,
             "UPDATE payroll_periods SET total_net = ?, total_employees = ? WHERE id = ?",
             [$totalNet, count($allSlips), $period['id']]
         );
 
         // 3. Skip to approved + cashbook
-        dbExec($db,
+        dbExec(
+            $db,
             "UPDATE payroll_periods SET status = 'approved', submitted_at = NOW(), submitted_by = ?, approved_at = NOW(), approved_by = ? WHERE id = ?",
             [$_SESSION['user_id'], $_SESSION['user_id'], $period['id']]
         );
@@ -740,7 +760,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['quick_pay'])) {
                 $div = $db->fetchOne("SELECT id FROM divisions WHERE LOWER(division_name) LIKE '%hotel%' OR id = 1 LIMIT 1");
                 $cat = $db->fetchOne("SELECT id FROM categories WHERE LOWER(category_name) LIKE '%gaji%' OR LOWER(category_name) LIKE '%payroll%' OR LOWER(category_name) LIKE '%salary%' OR id = 1 LIMIT 1");
                 $txNum = 'PAY-' . date('Ymd') . '-' . $period['id'];
-                dbExec($db,
+                dbExec(
+                    $db,
                     "INSERT INTO cash_book (transaction_date, transaction_time, transaction_number, division_id, category_id, account_id, transaction_type, amount, description, reference_number, payment_method, status, created_by) 
                      VALUES (CURDATE(), CURTIME(), ?, ?, ?, ?, 'expense', ?, ?, ?, 'bank_transfer', 'posted', ?)",
                     [$txNum, $div['id'] ?? 1, $cat['id'] ?? 1, $accountId, $amount, $description, 'PAYROLL-' . $period['id'], $_SESSION['user_id']]
@@ -778,24 +799,32 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['quick_pay_selected'])
         foreach ($ids as $sid) {
             $sl = $db->fetchOne("SELECT * FROM payroll_slips WHERE id = ?", [$sid]);
             if (!$sl) continue;
-            $bs = (float)$sl['base_salary']; $wh = (float)$sl['work_hours']; $hr = $bs / 200;
+            $bs = (float)$sl['base_salary'];
+            $wh = (float)$sl['work_hours'];
+            $hr = $bs / 200;
             $ab = ($wh >= 200) ? $bs : round($wh * $hr, 2);
-            $oH = (float)$sl['overtime_hours']; $oA = round($oH * $hr, 2);
+            $oH = (float)$sl['overtime_hours'];
+            $oA = round($oH * $hr, 2);
             $tE = $ab + $oA + (float)($sl['incentive'] ?? 0) + (float)($sl['allowance'] ?? 0) + (float)($sl['uang_makan'] ?? 0) + (float)($sl['bonus'] ?? 0) + (float)($sl['other_income'] ?? 0);
             $tD = (float)($sl['deduction_loan'] ?? 0) + (float)($sl['deduction_absence'] ?? 0) + (float)($sl['deduction_tax'] ?? 0) + (float)($sl['deduction_bpjs'] ?? 0) + (float)($sl['deduction_other'] ?? 0);
             $nS = $tE - $tD;
-            dbExec($db, "UPDATE payroll_slips SET actual_base=?, overtime_rate=?, overtime_amount=?, total_earnings=?, total_deductions=?, net_salary=? WHERE id=?",
-                [$ab, $hr, $oA, $tE, $tD, $nS, $sid]);
+            dbExec(
+                $db,
+                "UPDATE payroll_slips SET actual_base=?, overtime_rate=?, overtime_amount=?, total_earnings=?, total_deductions=?, net_salary=? WHERE id=?",
+                [$ab, $hr, $oA, $tE, $tD, $nS, $sid]
+            );
         }
 
         // Ensure period is at least approved (so portal can see it)
         if ($period['status'] === 'draft') {
-            dbExec($db,
+            dbExec(
+                $db,
                 "UPDATE payroll_periods SET status = 'approved', submitted_at = NOW(), submitted_by = ?, approved_at = NOW(), approved_by = ? WHERE id = ?",
                 [$_SESSION['user_id'], $_SESSION['user_id'], $period['id']]
             );
         } elseif ($period['status'] === 'submitted') {
-            dbExec($db,
+            dbExec(
+                $db,
                 "UPDATE payroll_periods SET status = 'approved', approved_at = NOW(), approved_by = ? WHERE id = ?",
                 [$_SESSION['user_id'], $period['id']]
             );
@@ -829,7 +858,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['quick_pay_selected'])
             $div = $db->fetchOne("SELECT id FROM divisions WHERE LOWER(division_name) LIKE '%hotel%' OR id = 1 LIMIT 1");
             $cat = $db->fetchOne("SELECT id FROM categories WHERE LOWER(category_name) LIKE '%gaji%' OR LOWER(category_name) LIKE '%payroll%' OR LOWER(category_name) LIKE '%salary%' OR id = 1 LIMIT 1");
             $txNum = 'PAY-' . date('Ymd') . '-' . substr(md5($ref), 0, 6);
-            dbExec($db,
+            dbExec(
+                $db,
                 "INSERT INTO cash_book (transaction_date, transaction_time, transaction_number, division_id, category_id, account_id, transaction_type, amount, description, reference_number, payment_method, status, created_by) 
                  VALUES (CURDATE(), CURTIME(), ?, ?, ?, ?, 'expense', ?, ?, ?, 'bank_transfer', 'posted', ?)",
                 [$txNum, $div['id'] ?? 1, $cat['id'] ?? 1, $accountId, $totalPaid, $description, $ref, $_SESSION['user_id']]
@@ -902,7 +932,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['refresh_employees']))
             $baseSalary = (float)$emp['base_salary'];
             $hourlyRate = $baseSalary / 200;
             $actualBase = ($workH >= 200) ? $baseSalary : round($workH * $hourlyRate, 2);
-            dbExec($db,
+            dbExec(
+                $db,
                 "INSERT INTO payroll_slips (period_id, employee_id, employee_name, position, base_salary, work_hours, actual_base, overtime_hours, overtime_rate, overtime_amount) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)",
                 [$period['id'], $emp['id'], $emp['full_name'], $emp['position'], $baseSalary, $workH, $actualBase, $att['overtime_hours'], $hourlyRate, round($att['overtime_hours'] * $hourlyRate, 2)]
             );
@@ -913,7 +944,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['refresh_employees']))
     // Update employee info (name, position) for existing slips
     foreach ($employees as $emp) {
         if (in_array($emp['id'], $existingIds)) {
-            dbExec($db,
+            dbExec(
+                $db,
                 "UPDATE payroll_slips SET employee_name = ?, position = ? WHERE period_id = ? AND employee_id = ?",
                 [$emp['full_name'], $emp['position'], $period['id'], $emp['id']]
             );
@@ -2534,7 +2566,9 @@ include '../../includes/header.php';
                 credentials: 'same-origin'
             }).then(res => {
                 if (!res.ok) {
-                    return res.text().then(t => { throw new Error('HTTP ' + res.status + ': ' + t.substring(0, 200)); });
+                    return res.text().then(t => {
+                        throw new Error('HTTP ' + res.status + ': ' + t.substring(0, 200));
+                    });
                 }
                 return res.json();
             })

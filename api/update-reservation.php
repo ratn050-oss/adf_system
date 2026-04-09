@@ -263,6 +263,75 @@ try {
     $dbNameStmt = $conn->query("SELECT DATABASE()");
     $currentDb = $dbNameStmt->fetchColumn();
 
+    // GROUP UPDATE: update each room in the group
+    $groupUpdated = [];
+    if (!empty($_POST['is_group']) && !empty($_POST['rooms_json'])) {
+        $roomsData = json_decode($_POST['rooms_json'], true);
+        if (is_array($roomsData)) {
+            foreach ($roomsData as $rd) {
+                $rdBookingId = intval($rd['booking_id'] ?? 0);
+                if (!$rdBookingId) continue;
+                
+                $rdRoomId = intval($rd['room_id'] ?? 0);
+                $rdRoomPrice = floatval($rd['room_price'] ?? 0);
+                $rdDiscount = floatval($rd['discount'] ?? 0);
+                
+                if (!$rdRoomId || !$rdRoomPrice) continue;
+                
+                $rdTotalPrice = $rdRoomPrice * $nights;
+                $rdAfterDiscount = $rdTotalPrice - $rdDiscount;
+                
+                // OTA fee
+                $rdFee = 0;
+                if ($otaFeePercent > 0) {
+                    $rdFee = round($rdAfterDiscount * $otaFeePercent / 100);
+                }
+                $rdRoomNet = $rdAfterDiscount - $rdFee;
+                
+                // Extras for this specific booking
+                $rdExtras = 0;
+                try {
+                    $extCheck = $conn->prepare("SELECT COALESCE(SUM(total_price), 0) FROM booking_extras WHERE booking_id = ?");
+                    $extCheck->execute([$rdBookingId]);
+                    $rdExtras = (float)$extCheck->fetchColumn();
+                } catch (Exception $e) { /* table might not exist */ }
+                
+                $rdFinalPrice = $rdRoomNet + $rdExtras;
+                
+                // Check room availability for this booking
+                if ($rdRoomId) {
+                    $avStmt = $conn->prepare("
+                        SELECT COUNT(*) FROM bookings 
+                        WHERE room_id = ? AND id != ? 
+                        AND status NOT IN ('cancelled', 'checked_out')
+                        AND check_in_date < ? AND check_out_date > ?
+                    ");
+                    $avStmt->execute([$rdRoomId, $rdBookingId, $checkOut, $checkIn]);
+                    if ($avStmt->fetchColumn() > 0) {
+                        // Skip this room - not available (don't fail entire request)
+                        $groupUpdated[] = ['booking_id' => $rdBookingId, 'status' => 'skipped', 'reason' => 'room not available'];
+                        continue;
+                    }
+                }
+                
+                // Update this booking
+                $grpStmt = $conn->prepare("
+                    UPDATE bookings SET 
+                        room_id = ?, room_price = ?, total_price = ?, discount = ?, final_price = ?,
+                        check_in_date = ?, check_out_date = ?, total_nights = ?,
+                        booking_source = ?, updated_at = NOW()
+                    WHERE id = ?
+                ");
+                $grpStmt->execute([
+                    $rdRoomId, $rdRoomPrice, $rdTotalPrice, $rdDiscount, $rdFinalPrice,
+                    $checkIn, $checkOut, $nights,
+                    $intendedSource, $rdBookingId
+                ]);
+                $groupUpdated[] = ['booking_id' => $rdBookingId, 'status' => 'updated', 'final_price' => $rdFinalPrice];
+            }
+        }
+    }
+
     echo json_encode([
         'success' => true,
         'message' => 'Reservation updated successfully',
@@ -283,7 +352,8 @@ try {
             'verified_row' => $verifyRow,
             'current_db' => $currentDb,
             'post_booking_source' => $_POST['booking_source'] ?? '__NOT_SET__',
-            'original_source' => $booking['booking_source']
+            'original_source' => $booking['booking_source'],
+            'group_updated' => $groupUpdated
         ]
     ]);
 

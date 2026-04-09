@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Cashbook Export to Excel (.xlsx via HTML table)
  * Accepts the same GET filters as index.php
@@ -88,7 +89,11 @@ $whereSQL = count($whereClauses) > 0 ? 'WHERE ' . implode(' AND ', $whereClauses
 
 // Check transaction_time column
 $hasTransactionTime = true;
-try { $pdo->query("SELECT transaction_time FROM cash_book LIMIT 1"); } catch (\Throwable $e) { $hasTransactionTime = false; }
+try {
+    $pdo->query("SELECT transaction_time FROM cash_book LIMIT 1");
+} catch (\Throwable $e) {
+    $hasTransactionTime = false;
+}
 $orderBy = $hasTransactionTime ? 'cb.transaction_date ASC, cb.transaction_time ASC' : 'cb.transaction_date ASC, cb.id ASC';
 
 $transactions = $db->fetchAll(
@@ -145,85 +150,99 @@ if (!empty($filterDate)) {
 }
 ?>
 <html xmlns:o="urn:schemas-microsoft-com:office:office" xmlns:x="urn:schemas-microsoft-com:office:excel" xmlns="http://www.w3.org/TR/REC-html40">
+
 <head>
-<meta charset="utf-8">
-<!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>
+    <meta charset="utf-8">
+    <!--[if gte mso 9]><xml><x:ExcelWorkbook><x:ExcelWorksheets><x:ExcelWorksheet>
 <x:Name>Buku Kas</x:Name>
 <x:WorksheetOptions><x:DisplayGridlines/></x:WorksheetOptions>
 </x:ExcelWorksheet></x:ExcelWorksheets></x:ExcelWorkbook></xml><![endif]-->
-<style>
-    td, th { mso-number-format:\@; }
-    .num { mso-number-format:"#,##0"; }
-</style>
+    <style>
+        td,
+        th {
+            mso-number-format: \@;
+        }
+
+        .num {
+            mso-number-format: "#,##0";
+        }
+    </style>
 </head>
+
 <body>
-<table border="1" cellpadding="4" cellspacing="0" style="border-collapse:collapse; font-family:Arial; font-size:11px;">
-    <tr>
-        <td colspan="9" style="font-size:16px; font-weight:bold; text-align:center; background:#0d1f3c; color:#ffffff; padding:10px;">
-            Buku Kas Besar — <?php echo htmlspecialchars($companyName); ?>
-        </td>
-    </tr>
-    <tr>
-        <td colspan="9" style="text-align:center; background:#f0f4ff; padding:6px; font-size:11px;">
-            <?php echo htmlspecialchars($periodLabel); ?> &nbsp;|&nbsp; Diekspor: <?php echo date('d/m/Y H:i'); ?> WIB
-        </td>
-    </tr>
-    <tr><td colspan="9"></td></tr>
-    <tr style="background:#1e3a5f; color:#ffffff; font-weight:bold; text-align:center;">
-        <th style="width:60px;">No</th>
-        <th style="width:90px;">Tanggal</th>
-        <th style="width:60px;">Waktu</th>
-        <th style="width:120px;">Divisi</th>
-        <th style="width:140px;">Kategori</th>
-        <th style="width:70px;">Tipe</th>
-        <th style="width:80px;">Metode</th>
-        <th style="width:120px;">Jumlah</th>
-        <th style="width:200px;">Keterangan</th>
-        <th style="width:100px;">Input By</th>
-    </tr>
-    <?php $no = 0; foreach ($transactions as $t): $no++; 
-        $isIncome = $t['transaction_type'] === 'income';
-        $rowBg = $no % 2 === 0 ? '#f9fafb' : '#ffffff';
-        $descClean = $t['description'] ?: '-';
-        $descClean = trim(preg_replace('/\[CQC_PROJECT:\d+\]\s*/', '', $descClean));
-        $descClean = trim(preg_replace('/\[OPERATIONAL_OFFICE\]\s*/', '', $descClean));
-    ?>
-    <tr style="background:<?php echo $rowBg; ?>;">
-        <td style="text-align:center;"><?php echo $no; ?></td>
-        <td style="text-align:center;"><?php echo date('d/m/Y', strtotime($t['transaction_date'])); ?></td>
-        <td style="text-align:center;"><?php echo isset($t['transaction_time']) ? date('H:i', strtotime($t['transaction_time'])) : '-'; ?></td>
-        <td><?php echo htmlspecialchars($t['division_name']); ?></td>
-        <td><?php echo htmlspecialchars($t['category_name']); ?></td>
-        <td style="text-align:center; color:<?php echo $isIncome ? '#059669' : '#dc2626'; ?>; font-weight:bold;">
-            <?php echo $isIncome ? 'MASUK' : 'KELUAR'; ?>
-        </td>
-        <td style="text-align:center;"><?php echo htmlspecialchars(strtoupper($t['payment_method'] ?? '-')); ?></td>
-        <td class="num" style="text-align:right; font-weight:bold; color:<?php echo $isIncome ? '#059669' : '#dc2626'; ?>;">
-            <?php echo number_format($t['amount'], 0, ',', '.'); ?>
-        </td>
-        <td><?php echo htmlspecialchars($descClean); ?></td>
-        <td style="text-align:center;"><?php echo htmlspecialchars($t['created_by_name'] ?: 'System'); ?></td>
-    </tr>
-    <?php endforeach; ?>
-    
-    <tr><td colspan="10"></td></tr>
-    <tr style="background:#e8f5e9; font-weight:bold;">
-        <td colspan="7" style="text-align:right; padding:8px;">Total Pemasukan:</td>
-        <td class="num" style="text-align:right; color:#059669; padding:8px;"><?php echo number_format($totalIncome, 0, ',', '.'); ?></td>
-        <td colspan="2"></td>
-    </tr>
-    <tr style="background:#fce4ec; font-weight:bold;">
-        <td colspan="7" style="text-align:right; padding:8px;">Total Pengeluaran:</td>
-        <td class="num" style="text-align:right; color:#dc2626; padding:8px;"><?php echo number_format($totalExpense, 0, ',', '.'); ?></td>
-        <td colspan="2"></td>
-    </tr>
-    <tr style="background:#e3f2fd; font-weight:bold; font-size:13px;">
-        <td colspan="7" style="text-align:right; padding:8px;">Saldo:</td>
-        <td class="num" style="text-align:right; color:<?php echo $saldo >= 0 ? '#059669' : '#dc2626'; ?>; padding:8px;">
-            <?php echo number_format($saldo, 0, ',', '.'); ?>
-        </td>
-        <td colspan="2"></td>
-    </tr>
-</table>
+    <table border="1" cellpadding="4" cellspacing="0" style="border-collapse:collapse; font-family:Arial; font-size:11px;">
+        <tr>
+            <td colspan="9" style="font-size:16px; font-weight:bold; text-align:center; background:#0d1f3c; color:#ffffff; padding:10px;">
+                Buku Kas Besar — <?php echo htmlspecialchars($companyName); ?>
+            </td>
+        </tr>
+        <tr>
+            <td colspan="9" style="text-align:center; background:#f0f4ff; padding:6px; font-size:11px;">
+                <?php echo htmlspecialchars($periodLabel); ?> &nbsp;|&nbsp; Diekspor: <?php echo date('d/m/Y H:i'); ?> WIB
+            </td>
+        </tr>
+        <tr>
+            <td colspan="9"></td>
+        </tr>
+        <tr style="background:#1e3a5f; color:#ffffff; font-weight:bold; text-align:center;">
+            <th style="width:60px;">No</th>
+            <th style="width:90px;">Tanggal</th>
+            <th style="width:60px;">Waktu</th>
+            <th style="width:120px;">Divisi</th>
+            <th style="width:140px;">Kategori</th>
+            <th style="width:70px;">Tipe</th>
+            <th style="width:80px;">Metode</th>
+            <th style="width:120px;">Jumlah</th>
+            <th style="width:200px;">Keterangan</th>
+            <th style="width:100px;">Input By</th>
+        </tr>
+        <?php $no = 0;
+        foreach ($transactions as $t): $no++;
+            $isIncome = $t['transaction_type'] === 'income';
+            $rowBg = $no % 2 === 0 ? '#f9fafb' : '#ffffff';
+            $descClean = $t['description'] ?: '-';
+            $descClean = trim(preg_replace('/\[CQC_PROJECT:\d+\]\s*/', '', $descClean));
+            $descClean = trim(preg_replace('/\[OPERATIONAL_OFFICE\]\s*/', '', $descClean));
+        ?>
+            <tr style="background:<?php echo $rowBg; ?>;">
+                <td style="text-align:center;"><?php echo $no; ?></td>
+                <td style="text-align:center;"><?php echo date('d/m/Y', strtotime($t['transaction_date'])); ?></td>
+                <td style="text-align:center;"><?php echo isset($t['transaction_time']) ? date('H:i', strtotime($t['transaction_time'])) : '-'; ?></td>
+                <td><?php echo htmlspecialchars($t['division_name']); ?></td>
+                <td><?php echo htmlspecialchars($t['category_name']); ?></td>
+                <td style="text-align:center; color:<?php echo $isIncome ? '#059669' : '#dc2626'; ?>; font-weight:bold;">
+                    <?php echo $isIncome ? 'MASUK' : 'KELUAR'; ?>
+                </td>
+                <td style="text-align:center;"><?php echo htmlspecialchars(strtoupper($t['payment_method'] ?? '-')); ?></td>
+                <td class="num" style="text-align:right; font-weight:bold; color:<?php echo $isIncome ? '#059669' : '#dc2626'; ?>;">
+                    <?php echo number_format($t['amount'], 0, ',', '.'); ?>
+                </td>
+                <td><?php echo htmlspecialchars($descClean); ?></td>
+                <td style="text-align:center;"><?php echo htmlspecialchars($t['created_by_name'] ?: 'System'); ?></td>
+            </tr>
+        <?php endforeach; ?>
+
+        <tr>
+            <td colspan="10"></td>
+        </tr>
+        <tr style="background:#e8f5e9; font-weight:bold;">
+            <td colspan="7" style="text-align:right; padding:8px;">Total Pemasukan:</td>
+            <td class="num" style="text-align:right; color:#059669; padding:8px;"><?php echo number_format($totalIncome, 0, ',', '.'); ?></td>
+            <td colspan="2"></td>
+        </tr>
+        <tr style="background:#fce4ec; font-weight:bold;">
+            <td colspan="7" style="text-align:right; padding:8px;">Total Pengeluaran:</td>
+            <td class="num" style="text-align:right; color:#dc2626; padding:8px;"><?php echo number_format($totalExpense, 0, ',', '.'); ?></td>
+            <td colspan="2"></td>
+        </tr>
+        <tr style="background:#e3f2fd; font-weight:bold; font-size:13px;">
+            <td colspan="7" style="text-align:right; padding:8px;">Saldo:</td>
+            <td class="num" style="text-align:right; color:<?php echo $saldo >= 0 ? '#059669' : '#dc2626'; ?>; padding:8px;">
+                <?php echo number_format($saldo, 0, ',', '.'); ?>
+            </td>
+            <td colspan="2"></td>
+        </tr>
+    </table>
 </body>
+
 </html>

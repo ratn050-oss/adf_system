@@ -1,4 +1,5 @@
 <?php
+
 /**
  * API: Notifications
  * Handles admin pending requests + staff notifications
@@ -69,14 +70,17 @@ if ($type === 'admin_action' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $leaveId = (int)($_POST['leave_id'] ?? 0);
         $newStatus = ($action === 'approve_leave') ? 'approved' : 'rejected';
         if ($leaveId > 0) {
-            $db->query("UPDATE leave_requests SET status = ?, approved_by = ?, approved_at = NOW(), admin_notes = ? WHERE id = ?",
-                [$newStatus, $approver, $adminNotes, $leaveId]);
+            $db->query(
+                "UPDATE leave_requests SET status = ?, approved_by = ?, approved_at = NOW(), admin_notes = ? WHERE id = ?",
+                [$newStatus, $approver, $adminNotes, $leaveId]
+            );
             $req = $db->fetchOne("SELECT employee_id, leave_type, start_date, end_date FROM leave_requests WHERE id = ?", [$leaveId]);
             if ($req) {
-                $tl = ['cuti'=>'Cuti','sakit'=>'Sakit','izin'=>'Izin','cuti_khusus'=>'Cuti Khusus'][$req['leave_type']] ?? $req['leave_type'];
+                $tl = ['cuti' => 'Cuti', 'sakit' => 'Sakit', 'izin' => 'Izin', 'cuti_khusus' => 'Cuti Khusus'][$req['leave_type']] ?? $req['leave_type'];
                 $sl = $newStatus === 'approved' ? 'Disetujui' : 'Ditolak';
                 $db->query("INSERT INTO notifications (user_id, type, title, message, data, created_at) VALUES (?, 'leave_response', ?, ?, ?, NOW())", [
-                    $req['employee_id'], $tl . ' ' . $sl,
+                    $req['employee_id'],
+                    $tl . ' ' . $sl,
                     $tl . ' (' . $req['start_date'] . ' s/d ' . $req['end_date'] . ') ' . strtolower($sl) . ($adminNotes ? '. Catatan: ' . $adminNotes : ''),
                     json_encode(['leave_id' => $leaveId, 'status' => $newStatus, 'leave_type' => $req['leave_type']])
                 ]);
@@ -109,13 +113,16 @@ if ($type === 'admin_action' && $_SERVER['REQUEST_METHOD'] === 'POST') {
         $otId = (int)($_POST['overtime_id'] ?? 0);
         $newStatus = ($action === 'approve_overtime') ? 'approved' : 'rejected';
         if ($otId > 0) {
-            $db->query("UPDATE overtime_requests SET status = ?, approved_by = ?, approved_at = NOW(), admin_notes = ? WHERE id = ?",
-                [$newStatus, $approver, $adminNotes, $otId]);
+            $db->query(
+                "UPDATE overtime_requests SET status = ?, approved_by = ?, approved_at = NOW(), admin_notes = ? WHERE id = ?",
+                [$newStatus, $approver, $adminNotes, $otId]
+            );
             $req = $db->fetchOne("SELECT employee_id, overtime_date FROM overtime_requests WHERE id = ?", [$otId]);
             if ($req) {
                 $sl = $newStatus === 'approved' ? 'Disetujui' : 'Ditolak';
                 $db->query("INSERT INTO notifications (user_id, type, title, message, data, created_at) VALUES (?, 'overtime_response', ?, ?, ?, NOW())", [
-                    $req['employee_id'], 'Lembur ' . $sl,
+                    $req['employee_id'],
+                    'Lembur ' . $sl,
                     'Pengajuan lembur tanggal ' . $req['overtime_date'] . ' ' . strtolower($sl) . ($adminNotes ? '. Catatan: ' . $adminNotes : ''),
                     json_encode(['overtime_id' => $otId, 'status' => $newStatus, 'overtime_date' => $req['overtime_date']])
                 ]);
@@ -192,7 +199,8 @@ try {
     echo json_encode(['success' => false, 'notifications' => [], 'unread_count' => 0]);
 }
 
-function getRelativeTime($datetime) {
+function getRelativeTime($datetime)
+{
     $now = new DateTime();
     $then = new DateTime($datetime);
     $diff = $now->diff($then);

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * API: Check-in Guest
  * Update booking status to 'checked_in' and record check-in time
@@ -64,11 +65,11 @@ try {
 
     // Get booking ID from request
     $bookingId = $_POST['booking_id'] ?? null;
-    
+
     if (!$bookingId) {
         throw new Exception('Booking ID is required');
     }
-    
+
     $createInvoice = ($_POST['create_invoice'] ?? '0') == '1';
     $payNow    = ($_POST['pay_now']    ?? '0') === '1';
     $payAmount = (float)($_POST['pay_amount'] ?? 0);
@@ -84,21 +85,21 @@ try {
         LEFT JOIN rooms r ON b.room_id = r.id
         WHERE b.id = ?
     ", [$bookingId]);
-    
+
     if (!$booking) {
         throw new Exception('Booking not found');
     }
-    
+
     // Check if already checked in
     if ($booking['status'] === 'checked_in') {
         throw new Exception('Guest sudah check-in sebelumnya');
     }
-    
+
     // Check if booking is confirmed or pending
     if (!in_array($booking['status'], ['confirmed', 'pending'])) {
         throw new Exception('Booking status tidak valid untuk check-in');
     }
-    
+
     // Calculate remaining payment
     $payment = $db->fetchOne("SELECT COALESCE(SUM(amount), 0) as paid FROM booking_payments WHERE booking_id = ?", [$bookingId]);
     $totalPaid = max((float)$payment['paid'], (float)$booking['paid_amount']);
@@ -118,13 +119,13 @@ try {
     } catch (\Throwable $e) {
         // Table might not exist, fall through to hardcoded detection
     }
-    
+
     // Fallback: hardcoded detection if not found in booking_sources table
     if (!$isOTA && !$sourceInfo) {
         $normalizedSource = strtolower(trim($booking['booking_source'] ?? ''));
         $normalizedSource = str_replace(['.com', '.co.id', '.id'], '', $normalizedSource);
         $normalizedSource = preg_replace('/[^a-z0-9]/', '', $normalizedSource);
-        
+
         $otaSources = ['agoda', 'booking', 'bookingcom', 'tiket', 'tiketcom', 'airbnb', 'ota', 'traveloka', 'pegipegi', 'expedia'];
         foreach ($otaSources as $ota) {
             if (strpos($normalizedSource, $ota) !== false || $normalizedSource === $ota) {
@@ -187,17 +188,17 @@ try {
     if ($remaining > 0 && $createInvoice) {
         // Priority 1: Exact match for 'Hotel' or 'Front Desk'
         $division = $db->fetchOne("SELECT id FROM divisions WHERE is_active = 1 AND (division_name = 'Hotel' OR division_name = 'Front Desk' OR division_name = 'Room Sell') LIMIT 1");
-        
+
         // Priority 2: Contains 'Hotel' or 'Front'
         if (!$division) {
             $division = $db->fetchOne("SELECT id FROM divisions WHERE is_active = 1 AND (division_name LIKE '%Hotel%' OR division_name LIKE '%Front%') ORDER BY id ASC LIMIT 1");
         }
-        
+
         // Priority 3: Fallback to any division
         if (!$division) {
             $division = $db->fetchOne("SELECT id FROM divisions WHERE is_active = 1 ORDER BY id ASC LIMIT 1");
         }
-        
+
         if (!$division) {
             throw new Exception('Divisi tidak ditemukan untuk invoice');
         }
@@ -241,7 +242,7 @@ try {
             'notes' => null
         ]);
     }
-    
+
     // Update booking status to checked_in
     $db->query("
         UPDATE bookings 
@@ -251,7 +252,7 @@ try {
             updated_at = NOW()
         WHERE id = ?
     ", [$validUserId, $bookingId]);
-    
+
     // Update room status to occupied
     $db->query("
         UPDATE rooms 
@@ -260,7 +261,7 @@ try {
             updated_at = NOW()
         WHERE id = ?
     ", [$booking['guest_id'], $booking['room_id']]);
-    
+
     // Log activity
     if ($validUserId) {
         $db->query("
@@ -272,7 +273,7 @@ try {
             "Check-in guest: {$booking['guest_name']} - Room {$booking['room_number']} - Booking #{$booking['booking_code']}"
         ]);
     }
-    
+
     // ==========================================
     // SYNC TO CASHBOOK:
     // - OTA: sync saat check-in (uang baru tercatat masuk kas saat tamu datang)
@@ -323,16 +324,16 @@ try {
             if ($cashbookSynced && !empty($syncResult['transaction_id'])) {
                 try {
                     $db->query("UPDATE booking_payments SET synced_to_cashbook = 1, cashbook_id = ? WHERE booking_id = ?", [$syncResult['transaction_id'], $bookingId]);
-                } catch (\Throwable $e) {}
+                } catch (\Throwable $e) {
+                }
             }
-
         } catch (\Throwable $e) {
             error_log("Cashbook sync error at check-in: " . $e->getMessage());
         }
     }
-    
+
     $db->commit();
-    
+
     // Build success message
     $successMessage = "Check-in berhasil! {$booking['guest_name']} - Room {$booking['room_number']}";
 
@@ -356,7 +357,7 @@ try {
         if ($invoiceNumber) $successMessage .= "\n📋 Invoice #{$invoiceNumber} telah dibuat";
         $successMessage .= "\nHarap lunasi sebelum CHECK-OUT!";
     }
-    
+
     // ═══ PUSH NOTIFICATION: Check-In ═══
     try {
         require_once dirname(dirname(__FILE__)) . '/includes/PushNotificationHelper.php';
@@ -390,17 +391,16 @@ try {
         'final_price' => (float)$booking['final_price'],
         'paid_amount' => $totalPaid
     ]);
-    
 } catch (Exception $e) {
     if ($db->inTransaction()) {
         $db->rollBack();
     }
-    
+
     error_log("Check-in Error: " . $e->getMessage());
-    
+
     // Clean output buffer before sending JSON
     ob_clean();
-    
+
     echo json_encode([
         'success' => false,
         'message' => $e->getMessage()

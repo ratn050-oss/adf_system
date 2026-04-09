@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Deploy Status & Webhook
  * - GET with token: show current deploy status
@@ -78,15 +79,19 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     chdir($deployDir);
     $pulled = false;
     $pullOutput = '';
-    
+
     // Force reset any local changes to avoid merge conflicts
     $resetCmd = 'cd ' . escapeshellarg($deployDir) . ' && git fetch origin 2>&1 && git reset --hard origin/main 2>&1';
-    if (function_exists('exec')) { @exec($resetCmd, $resetOut); $result['reset'] = implode("\n", $resetOut ?? []); }
-    elseif (function_exists('shell_exec')) { $result['reset'] = @shell_exec($resetCmd); }
-    
+    if (function_exists('exec')) {
+        @exec($resetCmd, $resetOut);
+        $result['reset'] = implode("\n", $resetOut ?? []);
+    } elseif (function_exists('shell_exec')) {
+        $result['reset'] = @shell_exec($resetCmd);
+    }
+
     // Try multiple shell execution methods
     $cmd = 'cd ' . escapeshellarg($deployDir) . ' && git pull origin main 2>&1';
-    
+
     if (!$pulled && function_exists('exec')) {
         $output = [];
         $code = 0;
@@ -94,26 +99,26 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         $pullOutput = implode("\n", $output);
         $pulled = ($code === 0 && !empty($pullOutput));
     }
-    
+
     if (!$pulled && function_exists('shell_exec')) {
         $pullOutput = @shell_exec($cmd);
         $pulled = ($pullOutput !== null && $pullOutput !== false);
     }
-    
+
     if (!$pulled && function_exists('system')) {
         ob_start();
         @system($cmd, $code);
         $pullOutput = ob_get_clean();
         $pulled = ($code === 0);
     }
-    
+
     if (!$pulled && function_exists('passthru')) {
         ob_start();
         @passthru($cmd, $code);
         $pullOutput = ob_get_clean();
         $pulled = ($code === 0);
     }
-    
+
     if (!$pulled && function_exists('proc_open')) {
         $descriptors = [0 => ['pipe', 'r'], 1 => ['pipe', 'w'], 2 => ['pipe', 'w']];
         $process = @proc_open($cmd, $descriptors, $pipes);
@@ -127,7 +132,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $pulled = ($code === 0);
         }
     }
-    
+
     if ($pulled) {
         $result['pull'] = ['status' => 'success', 'output' => trim($pullOutput)];
     } else {

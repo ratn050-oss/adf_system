@@ -141,8 +141,7 @@ self.addEventListener("notificationclick", (event) => {
   event.notification.close();
   if (event.action === "dismiss") return;
 
-  const urlToOpen =
-    event.notification.data?.url || "./staff-portal.php";
+  const urlToOpen = event.notification.data?.url || "./staff-portal.php";
 
   event.waitUntil(
     clients

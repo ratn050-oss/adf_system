@@ -1,4 +1,5 @@
 <?php
+
 /**
  * VAPID Configuration for Web Push Notifications
  * Generated keys - DO NOT share privateKey publicly

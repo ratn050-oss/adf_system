@@ -1,4 +1,5 @@
 ﻿<?php
+
 /**
  * INVOICE / BILL for Booking
  * Print-friendly invoice page
@@ -183,6 +184,7 @@ if (empty($companySettings['name'])) {
 ?>
 <!DOCTYPE html>
 <html lang="id">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -190,8 +192,12 @@ if (empty($companySettings['name'])) {
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
         body {
             font-family: 'Inter', -apple-system, sans-serif;
             background: #e8e4df;
@@ -201,7 +207,7 @@ if (empty($companySettings['name'])) {
             -webkit-print-color-adjust: exact;
             print-color-adjust: exact;
         }
-        
+
         .invoice-page {
             max-width: 794px;
             margin: 0 auto;
@@ -209,11 +215,12 @@ if (empty($companySettings['name'])) {
             position: relative;
             overflow: hidden;
         }
-        
+
         /* â”€â”€ Watermark â”€â”€ */
         .watermark {
             position: absolute;
-            top: 50%; left: 50%;
+            top: 50%;
+            left: 50%;
             transform: translate(-50%, -50%) rotate(-30deg);
             font-family: 'Playfair Display', serif;
             font-size: 140px;
@@ -224,16 +231,25 @@ if (empty($companySettings['name'])) {
             white-space: nowrap;
             letter-spacing: 20px;
         }
-        .wm-paid { color: #16a34a; }
-        .wm-unpaid { color: #dc2626; }
-        .wm-partial { color: #ca8a04; }
-        
+
+        .wm-paid {
+            color: #16a34a;
+        }
+
+        .wm-unpaid {
+            color: #dc2626;
+        }
+
+        .wm-partial {
+            color: #ca8a04;
+        }
+
         /* â”€â”€ Top Border Pattern â”€â”€ */
         .top-border {
             height: 6px;
             background: repeating-linear-gradient(90deg, #1a1a2e 0px, #1a1a2e 30px, #c9a84c 30px, #c9a84c 32px);
         }
-        
+
         /* â”€â”€ Header â”€â”€ */
         .header {
             padding: 28px 36px 20px;
@@ -243,13 +259,13 @@ if (empty($companySettings['name'])) {
             position: relative;
             z-index: 2;
         }
-        
+
         .brand {
             display: flex;
             align-items: center;
             gap: 14px;
         }
-        
+
         .brand-logo {
             width: 64px;
             height: 64px;
@@ -257,7 +273,7 @@ if (empty($companySettings['name'])) {
             object-fit: cover;
             border: 2px solid #f0ece6;
         }
-        
+
         .brand-text h1 {
             font-family: 'Playfair Display', serif;
             font-size: 1.6rem;
@@ -265,7 +281,7 @@ if (empty($companySettings['name'])) {
             color: #1a1a2e;
             letter-spacing: 0.5px;
         }
-        
+
         .brand-text .sub {
             font-size: 0.6rem;
             font-weight: 600;
@@ -274,11 +290,11 @@ if (empty($companySettings['name'])) {
             color: #c9a84c;
             margin-top: 1px;
         }
-        
+
         .header-right {
             text-align: right;
         }
-        
+
         .header-right .inv-label {
             font-family: 'Playfair Display', serif;
             font-size: 2rem;
@@ -287,27 +303,27 @@ if (empty($companySettings['name'])) {
             letter-spacing: 6px;
             line-height: 1;
         }
-        
+
         .header-right .inv-meta {
             font-size: 0.72rem;
             color: #888;
             margin-top: 6px;
             line-height: 1.5;
         }
-        
+
         .header-right .inv-meta strong {
             color: #1a1a2e;
             font-family: 'Courier New', monospace;
             font-size: 0.78rem;
         }
-        
+
         /* â”€â”€ Gold Separator â”€â”€ */
         .sep-gold {
             height: 1px;
             margin: 0 36px;
             background: linear-gradient(90deg, #c9a84c, #e8dcc8 50%, #c9a84c);
         }
-        
+
         /* â”€â”€ Status Bar â”€â”€ */
         .status-bar {
             display: flex;
@@ -317,13 +333,13 @@ if (empty($companySettings['name'])) {
             position: relative;
             z-index: 2;
         }
-        
+
         .status-bar .hotel-contact {
             font-size: 0.68rem;
             color: #999;
             line-height: 1.6;
         }
-        
+
         .status-badge {
             display: inline-block;
             padding: 5px 18px;
@@ -334,18 +350,32 @@ if (empty($companySettings['name'])) {
             border: 2.5px solid;
             border-radius: 4px;
         }
-        
-        .badge-paid { color: #16a34a; border-color: #16a34a; background: rgba(22,163,74,0.04); }
-        .badge-unpaid { color: #dc2626; border-color: #dc2626; background: rgba(220,38,38,0.04); }
-        .badge-partial { color: #ca8a04; border-color: #ca8a04; background: rgba(202,138,4,0.04); }
-        
+
+        .badge-paid {
+            color: #16a34a;
+            border-color: #16a34a;
+            background: rgba(22, 163, 74, 0.04);
+        }
+
+        .badge-unpaid {
+            color: #dc2626;
+            border-color: #dc2626;
+            background: rgba(220, 38, 38, 0.04);
+        }
+
+        .badge-partial {
+            color: #ca8a04;
+            border-color: #ca8a04;
+            background: rgba(202, 138, 4, 0.04);
+        }
+
         /* â”€â”€ Body â”€â”€ */
         .body {
             padding: 6px 36px 28px;
             position: relative;
             z-index: 2;
         }
-        
+
         /* â”€â”€ Info Cards â”€â”€ */
         .info-cards {
             display: grid;
@@ -353,13 +383,13 @@ if (empty($companySettings['name'])) {
             gap: 16px;
             margin: 14px 0 20px;
         }
-        
+
         .info-card {
             border: 1px solid #f0ece6;
             border-radius: 8px;
             padding: 14px 16px;
         }
-        
+
         .info-card .card-title {
             font-size: 0.58rem;
             font-weight: 700;
@@ -370,17 +400,26 @@ if (empty($companySettings['name'])) {
             padding-bottom: 6px;
             border-bottom: 1px solid #f5f1eb;
         }
-        
+
         .info-card .row {
             display: flex;
             justify-content: space-between;
             padding: 2.5px 0;
             font-size: 0.78rem;
         }
-        
-        .info-card .row .lbl { color: #999; font-weight: 400; }
-        .info-card .row .val { color: #2c2c2c; font-weight: 600; text-align: right; max-width: 60%; }
-        
+
+        .info-card .row .lbl {
+            color: #999;
+            font-weight: 400;
+        }
+
+        .info-card .row .val {
+            color: #2c2c2c;
+            font-weight: 600;
+            text-align: right;
+            max-width: 60%;
+        }
+
         /* â”€â”€ Room Table â”€â”€ */
         .tbl-room {
             width: 100%;
@@ -388,7 +427,7 @@ if (empty($companySettings['name'])) {
             margin: 16px 0 6px;
             font-size: 0.78rem;
         }
-        
+
         .tbl-room thead th {
             background: #1a1a2e;
             color: #e8dcc8;
@@ -399,36 +438,49 @@ if (empty($companySettings['name'])) {
             letter-spacing: 1px;
             text-align: left;
         }
-        
+
         .tbl-room thead th:last-child,
         .tbl-room thead th:nth-child(3),
-        .tbl-room thead th:nth-child(4) { text-align: right; }
-        
+        .tbl-room thead th:nth-child(4) {
+            text-align: right;
+        }
+
         .tbl-room tbody td {
             padding: 9px 14px;
             border-bottom: 1px solid #f5f1eb;
         }
-        
+
         .tbl-room tbody td:last-child,
         .tbl-room tbody td:nth-child(3),
-        .tbl-room tbody td:nth-child(4) { text-align: right; }
-        
-        .tbl-room tbody td:last-child { font-weight: 700; font-family: 'Courier New', monospace; font-size: 0.8rem; }
-        .tbl-room tbody td:nth-child(4) { font-family: 'Courier New', monospace; }
-        
-        .tbl-room tbody tr:nth-child(even) { background: #fdfcfa; }
-        
+        .tbl-room tbody td:nth-child(4) {
+            text-align: right;
+        }
+
+        .tbl-room tbody td:last-child {
+            font-weight: 700;
+            font-family: 'Courier New', monospace;
+            font-size: 0.8rem;
+        }
+
+        .tbl-room tbody td:nth-child(4) {
+            font-family: 'Courier New', monospace;
+        }
+
+        .tbl-room tbody tr:nth-child(even) {
+            background: #fdfcfa;
+        }
+
         /* â”€â”€ Summary â”€â”€ */
         .summary-wrap {
             display: flex;
             justify-content: flex-end;
             margin-top: 4px;
         }
-        
+
         .summary {
             width: 300px;
         }
-        
+
         .sum-row {
             display: flex;
             justify-content: space-between;
@@ -436,11 +488,20 @@ if (empty($companySettings['name'])) {
             font-size: 0.8rem;
             border-bottom: 1px solid #f5f1eb;
         }
-        
-        .sum-row .sl { color: #888; }
-        .sum-row .sv { font-weight: 600; font-family: 'Courier New', monospace; }
-        .sum-row.disc .sv { color: #dc2626; }
-        
+
+        .sum-row .sl {
+            color: #888;
+        }
+
+        .sum-row .sv {
+            font-weight: 600;
+            font-family: 'Courier New', monospace;
+        }
+
+        .sum-row.disc .sv {
+            color: #dc2626;
+        }
+
         .sum-total {
             display: flex;
             justify-content: space-between;
@@ -449,10 +510,18 @@ if (empty($companySettings['name'])) {
             border-top: 2px solid #1a1a2e;
             font-size: 0.95rem;
         }
-        
-        .sum-total .sl { font-weight: 800; color: #1a1a2e; }
-        .sum-total .sv { font-weight: 800; font-family: 'Courier New', monospace; color: #1a1a2e; }
-        
+
+        .sum-total .sl {
+            font-weight: 800;
+            color: #1a1a2e;
+        }
+
+        .sum-total .sv {
+            font-weight: 800;
+            font-family: 'Courier New', monospace;
+            color: #1a1a2e;
+        }
+
         .sum-paid {
             display: flex;
             justify-content: space-between;
@@ -462,9 +531,18 @@ if (empty($companySettings['name'])) {
             border-radius: 5px;
             font-size: 0.82rem;
         }
-        .sum-paid .sl { color: #16a34a; font-weight: 600; }
-        .sum-paid .sv { color: #16a34a; font-weight: 700; font-family: 'Courier New', monospace; }
-        
+
+        .sum-paid .sl {
+            color: #16a34a;
+            font-weight: 600;
+        }
+
+        .sum-paid .sv {
+            color: #16a34a;
+            font-weight: 700;
+            font-family: 'Courier New', monospace;
+        }
+
         .sum-due {
             display: flex;
             justify-content: space-between;
@@ -474,12 +552,23 @@ if (empty($companySettings['name'])) {
             border-radius: 5px;
             font-size: 0.88rem;
         }
-        .sum-due .sl { color: #dc2626; font-weight: 700; }
-        .sum-due .sv { color: #dc2626; font-weight: 800; font-family: 'Courier New', monospace; }
-        
+
+        .sum-due .sl {
+            color: #dc2626;
+            font-weight: 700;
+        }
+
+        .sum-due .sv {
+            color: #dc2626;
+            font-weight: 800;
+            font-family: 'Courier New', monospace;
+        }
+
         /* â”€â”€ Payment History â”€â”€ */
-        .pay-section { margin-top: 22px; }
-        
+        .pay-section {
+            margin-top: 22px;
+        }
+
         .sec-title {
             font-size: 0.6rem;
             font-weight: 700;
@@ -490,13 +579,13 @@ if (empty($companySettings['name'])) {
             padding-bottom: 6px;
             border-bottom: 1px solid #f0ece6;
         }
-        
+
         .tbl-pay {
             width: 100%;
             border-collapse: collapse;
             font-size: 0.74rem;
         }
-        
+
         .tbl-pay th {
             background: #faf8f5;
             padding: 7px 12px;
@@ -508,12 +597,12 @@ if (empty($companySettings['name'])) {
             letter-spacing: 0.5px;
             border-bottom: 1px solid #f0ece6;
         }
-        
+
         .tbl-pay td {
             padding: 7px 12px;
             border-bottom: 1px solid #f8f5f0;
         }
-        
+
         /* â”€â”€ Note â”€â”€ */
         .note-box {
             margin-top: 18px;
@@ -524,9 +613,12 @@ if (empty($companySettings['name'])) {
             font-size: 0.78rem;
             color: #7c6a3a;
         }
-        
-        .note-box strong { color: #5c4e2e; }
-                /* Bank Account */
+
+        .note-box strong {
+            color: #5c4e2e;
+        }
+
+        /* Bank Account */
         .bank-info {
             margin-top: 22px;
             padding: 14px 18px;
@@ -537,7 +629,7 @@ if (empty($companySettings['name'])) {
             align-items: center;
             gap: 14px;
         }
-        
+
         .bank-info .bank-icon {
             width: 40px;
             height: 40px;
@@ -550,12 +642,12 @@ if (empty($companySettings['name'])) {
             font-size: 1.1rem;
             flex-shrink: 0;
         }
-        
+
         .bank-info .bank-details {
             font-size: 0.78rem;
             line-height: 1.6;
         }
-        
+
         .bank-info .bank-details .bank-label {
             font-size: 0.6rem;
             font-weight: 700;
@@ -564,7 +656,7 @@ if (empty($companySettings['name'])) {
             color: #c9a84c;
             margin-bottom: 2px;
         }
-        
+
         .bank-info .bank-details .bank-number {
             font-family: 'Courier New', monospace;
             font-size: 1rem;
@@ -572,19 +664,20 @@ if (empty($companySettings['name'])) {
             color: #1a1a2e;
             letter-spacing: 1px;
         }
-        
+
         .bank-info .bank-details .bank-holder {
             color: #666;
             font-size: 0.72rem;
         }
-                /* â”€â”€ Footer â”€â”€ */
+
+        /* â”€â”€ Footer â”€â”€ */
         .footer {
             margin-top: 28px;
             text-align: center;
             padding-top: 18px;
             border-top: 1px solid #f0ece6;
         }
-        
+
         .footer .ty {
             font-family: 'Playfair Display', serif;
             font-size: 1rem;
@@ -592,25 +685,25 @@ if (empty($companySettings['name'])) {
             color: #1a1a2e;
             margin-bottom: 4px;
         }
-        
+
         .footer .fc {
             font-size: 0.65rem;
             color: #aaa;
             line-height: 1.7;
         }
-        
+
         .footer-bar {
             margin-top: 18px;
             height: 3px;
             background: linear-gradient(90deg, transparent 5%, #c9a84c 30%, #1a1a2e 50%, #c9a84c 70%, transparent 95%);
         }
-        
+
         /* â”€â”€ Bottom Border â”€â”€ */
         .bottom-border {
             height: 6px;
             background: repeating-linear-gradient(90deg, #1a1a2e 0px, #1a1a2e 30px, #c9a84c 30px, #c9a84c 32px);
         }
-        
+
         /* â”€â”€ Action Bar â”€â”€ */
         .actions {
             text-align: center;
@@ -619,7 +712,7 @@ if (empty($companySettings['name'])) {
             justify-content: center;
             gap: 10px;
         }
-        
+
         .btn {
             padding: 10px 30px;
             border: none;
@@ -633,49 +726,75 @@ if (empty($companySettings['name'])) {
             gap: 6px;
             text-decoration: none;
         }
-        
+
         .btn-dark {
             background: #1a1a2e;
             color: #c9a84c;
         }
-        .btn-dark:hover { background: #2d2d5e; transform: translateY(-1px); box-shadow: 0 4px 16px rgba(26,26,46,0.25); }
-        
+
+        .btn-dark:hover {
+            background: #2d2d5e;
+            transform: translateY(-1px);
+            box-shadow: 0 4px 16px rgba(26, 26, 46, 0.25);
+        }
+
         .btn-light {
             background: #f5f1eb;
             color: #1a1a2e;
             border: 1px solid #e0dbd3;
         }
-        .btn-light:hover { background: #ebe6de; }
-        
-        @media print {
-            body { padding: 0; background: #fff; }
-            .invoice-page { box-shadow: none; }
-            .actions { display: none !important; }
-            .top-border, .bottom-border { -webkit-print-color-adjust: exact; }
+
+        .btn-light:hover {
+            background: #ebe6de;
         }
-        @page { margin: 8mm; size: A4; }
+
+        @media print {
+            body {
+                padding: 0;
+                background: #fff;
+            }
+
+            .invoice-page {
+                box-shadow: none;
+            }
+
+            .actions {
+                display: none !important;
+            }
+
+            .top-border,
+            .bottom-border {
+                -webkit-print-color-adjust: exact;
+            }
+        }
+
+        @page {
+            margin: 8mm;
+            size: A4;
+        }
     </style>
 </head>
+
 <body>
     <div class="invoice-page" id="invoiceContent">
         <div class="watermark wm-<?php echo strtolower($overallStatus); ?>"><?php echo $overallStatus; ?></div>
-        
+
         <div class="top-border"></div>
-        
+
         <!-- Header -->
         <div class="header">
             <div class="brand">
                 <?php if ($logoUrl): ?>
-                <img class="brand-logo" src="<?php echo htmlspecialchars($logoUrl); ?>" alt="<?php echo htmlspecialchars($companySettings['name']); ?>">
+                    <img class="brand-logo" src="<?php echo htmlspecialchars($logoUrl); ?>" alt="<?php echo htmlspecialchars($companySettings['name']); ?>">
                 <?php else: ?>
-                <div style="width:64px;height:64px;border-radius:10px;background:#1a1a2e;display:flex;align-items:center;justify-content:center;color:#c9a84c;font-family:'Playfair Display',serif;font-size:1.5rem;font-weight:800;">N</div>
+                    <div style="width:64px;height:64px;border-radius:10px;background:#1a1a2e;display:flex;align-items:center;justify-content:center;color:#c9a84c;font-family:'Playfair Display',serif;font-size:1.5rem;font-weight:800;">N</div>
                 <?php endif; ?>
                 <div class="brand-text">
                     <h1><?php echo htmlspecialchars($companySettings['name']); ?></h1>
                     <?php if (!empty($companySettings['tagline'])): ?>
-                    <div class="sub"><?php echo htmlspecialchars($companySettings['tagline']); ?></div>
+                        <div class="sub"><?php echo htmlspecialchars($companySettings['tagline']); ?></div>
                     <?php else: ?>
-                    <div class="sub">Karimunjawa Island</div>
+                        <div class="sub">Karimunjawa Island</div>
                     <?php endif; ?>
                 </div>
             </div>
@@ -684,15 +803,15 @@ if (empty($companySettings['name'])) {
                 <div class="inv-meta">
                     No. <strong><?php echo htmlspecialchars($allBookings[0]['booking_code']); ?></strong>
                     <?php if ($isMultiRoom && count($allBookings) > 1): ?>
-                    <br><span style="color:#c9a84c;">+ <?php echo count($allBookings) - 1; ?> room<?php echo count($allBookings) - 1 > 1 ? 's' : ''; ?></span>
+                        <br><span style="color:#c9a84c;">+ <?php echo count($allBookings) - 1; ?> room<?php echo count($allBookings) - 1 > 1 ? 's' : ''; ?></span>
                     <?php endif; ?>
                     <br><?php echo date('d F Y', strtotime($booking['created_at'])); ?>
                 </div>
             </div>
         </div>
-        
+
         <div class="sep-gold"></div>
-        
+
         <!-- Status Bar -->
         <div class="status-bar">
             <div class="hotel-contact">
@@ -701,9 +820,9 @@ if (empty($companySettings['name'])) {
             </div>
             <span class="status-badge badge-<?php echo strtolower($overallStatus); ?>"><?php echo $overallStatus; ?></span>
         </div>
-        
+
         <div style="height:1px;margin:0 36px;background:#f0ece6;"></div>
-        
+
         <!-- Body -->
         <div class="body">
             <!-- Guest & Stay Info -->
@@ -714,7 +833,7 @@ if (empty($companySettings['name'])) {
                     <div class="row"><span class="lbl">Phone</span><span class="val"><?php echo htmlspecialchars($booking['phone'] ?? '-'); ?></span></div>
                     <div class="row"><span class="lbl">Email</span><span class="val"><?php echo htmlspecialchars($booking['email'] ?? '-'); ?></span></div>
                     <?php if (!empty($booking['id_card_number'])): ?>
-                    <div class="row"><span class="lbl">ID No.</span><span class="val"><?php echo htmlspecialchars($booking['id_card_number']); ?></span></div>
+                        <div class="row"><span class="lbl">ID No.</span><span class="val"><?php echo htmlspecialchars($booking['id_card_number']); ?></span></div>
                     <?php endif; ?>
                 </div>
                 <div class="info-card">
@@ -726,7 +845,7 @@ if (empty($companySettings['name'])) {
                     <div class="row"><span class="lbl">Source</span><span class="val"><?php echo ucwords(str_replace('_', ' ', $booking['booking_source'] ?? 'Walk-in')); ?></span></div>
                 </div>
             </div>
-            
+
             <!-- Room & Price Table -->
             <table class="tbl-room">
                 <thead>
@@ -740,17 +859,17 @@ if (empty($companySettings['name'])) {
                 </thead>
                 <tbody>
                     <?php foreach ($allBookings as $bk): ?>
-                    <tr>
-                        <td><strong><?php echo htmlspecialchars($bk['room_number']); ?></strong></td>
-                        <td><?php echo htmlspecialchars($bk['room_type']); ?></td>
-                        <td><?php echo $bk['total_nights']; ?></td>
-                        <td>Rp <?php echo number_format($bk['room_price'], 0, ',', '.'); ?></td>
-                        <td>Rp <?php echo number_format($bk['total_price'], 0, ',', '.'); ?></td>
-                    </tr>
+                        <tr>
+                            <td><strong><?php echo htmlspecialchars($bk['room_number']); ?></strong></td>
+                            <td><?php echo htmlspecialchars($bk['room_type']); ?></td>
+                            <td><?php echo $bk['total_nights']; ?></td>
+                            <td>Rp <?php echo number_format($bk['room_price'], 0, ',', '.'); ?></td>
+                            <td>Rp <?php echo number_format($bk['total_price'], 0, ',', '.'); ?></td>
+                        </tr>
                     <?php endforeach; ?>
                 </tbody>
             </table>
-            
+
             <!-- Summary -->
             <div class="summary-wrap">
                 <div class="summary">
@@ -759,10 +878,10 @@ if (empty($companySettings['name'])) {
                         <span class="sv">Rp <?php echo number_format($combinedTotalPrice, 0, ',', '.'); ?></span>
                     </div>
                     <?php if ($combinedDiscount > 0): ?>
-                    <div class="sum-row disc">
-                        <span class="sl">Discount</span>
-                        <span class="sv">- Rp <?php echo number_format($combinedDiscount, 0, ',', '.'); ?></span>
-                    </div>
+                        <div class="sum-row disc">
+                            <span class="sl">Discount</span>
+                            <span class="sv">- Rp <?php echo number_format($combinedDiscount, 0, ',', '.'); ?></span>
+                        </div>
                     <?php endif; ?>
                     <div class="sum-total">
                         <span class="sl">TOTAL</span>
@@ -773,50 +892,50 @@ if (empty($companySettings['name'])) {
                         <span class="sv">Rp <?php echo number_format($totalPaid, 0, ',', '.'); ?></span>
                     </div>
                     <?php if ($remaining > 0): ?>
-                    <div class="sum-due">
-                        <span class="sl">Balance Due</span>
-                        <span class="sv">Rp <?php echo number_format($remaining, 0, ',', '.'); ?></span>
-                    </div>
+                        <div class="sum-due">
+                            <span class="sl">Balance Due</span>
+                            <span class="sv">Rp <?php echo number_format($remaining, 0, ',', '.'); ?></span>
+                        </div>
                     <?php endif; ?>
                 </div>
             </div>
-            
+
             <!-- Payment History -->
             <?php if (!empty($payments)): ?>
-            <div class="pay-section">
-                <div class="sec-title">Payment History</div>
-                <table class="tbl-pay">
-                    <thead>
-                        <tr>
-                            <th>Date</th>
-                            <?php if ($isMultiRoom): ?><th>Room</th><?php endif; ?>
-                            <th>Method</th>
-                            <th>Amount</th>
-                            <th>Notes</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php foreach ($payments as $p): ?>
-                        <tr>
-                            <td><?php echo date('d M Y, H:i', strtotime($p['payment_date'])); ?></td>
-                            <?php if ($isMultiRoom): ?><td><?php echo htmlspecialchars($p['room_number'] ?? '-'); ?></td><?php endif; ?>
-                            <td><?php echo strtoupper($p['payment_method']); ?></td>
-                            <td style="font-weight:600;">Rp <?php echo number_format($p['amount'], 0, ',', '.'); ?></td>
-                            <td style="color:#999;"><?php echo htmlspecialchars($p['notes'] ?? '-'); ?></td>
-                        </tr>
-                        <?php endforeach; ?>
-                    </tbody>
-                </table>
-            </div>
+                <div class="pay-section">
+                    <div class="sec-title">Payment History</div>
+                    <table class="tbl-pay">
+                        <thead>
+                            <tr>
+                                <th>Date</th>
+                                <?php if ($isMultiRoom): ?><th>Room</th><?php endif; ?>
+                                <th>Method</th>
+                                <th>Amount</th>
+                                <th>Notes</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($payments as $p): ?>
+                                <tr>
+                                    <td><?php echo date('d M Y, H:i', strtotime($p['payment_date'])); ?></td>
+                                    <?php if ($isMultiRoom): ?><td><?php echo htmlspecialchars($p['room_number'] ?? '-'); ?></td><?php endif; ?>
+                                    <td><?php echo strtoupper($p['payment_method']); ?></td>
+                                    <td style="font-weight:600;">Rp <?php echo number_format($p['amount'], 0, ',', '.'); ?></td>
+                                    <td style="color:#999;"><?php echo htmlspecialchars($p['notes'] ?? '-'); ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
             <?php endif; ?>
-            
+
             <!-- Special Request -->
             <?php if (!empty($booking['special_request'])): ?>
-            <div class="note-box">
-                <strong>Guest Note:</strong> <?php echo nl2br(htmlspecialchars($booking['special_request'])); ?>
-            </div>
+                <div class="note-box">
+                    <strong>Guest Note:</strong> <?php echo nl2br(htmlspecialchars($booking['special_request'])); ?>
+                </div>
             <?php endif; ?>
-            
+
             <!-- Bank Account -->
             <div class="bank-info">
                 <div class="bank-icon">🏦</div>
@@ -826,7 +945,7 @@ if (empty($companySettings['name'])) {
                     <div class="bank-holder">a.n. Narayana Hotel Karimunjawa &mdash; BNI Jepara</div>
                 </div>
             </div>
-            
+
             <!-- Footer -->
             <div class="footer">
                 <div class="ty">Thank you for staying with us</div>
@@ -838,24 +957,29 @@ if (empty($companySettings['name'])) {
                 <div class="footer-bar"></div>
             </div>
         </div>
-        
+
         <div class="bottom-border"></div>
     </div>
-    
+
     <!-- Actions -->
     <div class="actions">
         <button class="btn btn-dark" onclick="savePDF()">ðŸ“¥ Save as PDF</button>
         <button class="btn btn-light" onclick="window.print()">ðŸ–¨ï¸ Print</button>
     </div>
-    
+
     <script>
-    function savePDF() {
-        document.title = 'Invoice_<?php echo $isMultiRoom ? preg_replace('/[^a-zA-Z0-9]/', '_', $booking['guest_name']) : $booking['booking_code']; ?>_<?php echo date('Ymd'); ?>';
-        window.print();
-    }
-    <?php if ($isPdf): ?>
-    window.onload = function() { setTimeout(function() { window.print(); }, 500); };
-    <?php endif; ?>
+        function savePDF() {
+            document.title = 'Invoice_<?php echo $isMultiRoom ? preg_replace('/[^a-zA-Z0-9]/', '_', $booking['guest_name']) : $booking['booking_code']; ?>_<?php echo date('Ymd'); ?>';
+            window.print();
+        }
+        <?php if ($isPdf): ?>
+            window.onload = function() {
+                setTimeout(function() {
+                    window.print();
+                }, 500);
+            };
+        <?php endif; ?>
     </script>
 </body>
+
 </html>

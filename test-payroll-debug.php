@@ -52,7 +52,7 @@ $period = $db->fetchOne(
 
 if ($period) {
     echo "Period: {$period['period_label']} (ID: {$period['id']}, Status: {$period['status']})\n\n";
-    
+
     $slips = $db->fetchAll(
         "SELECT ps.id, ps.employee_id, ps.employee_name, ps.work_hours, ps.overtime_hours, ps.hours_locked, ps.actual_base, ps.base_salary
          FROM payroll_slips ps
@@ -60,7 +60,7 @@ if ($period) {
          ORDER BY ps.employee_name",
         [$period['id']]
     );
-    
+
     foreach ($slips as $s) {
         echo "[Slip {$s['id']}] {$s['employee_name']} (emp:{$s['employee_id']}): work_hours={$s['work_hours']}, overtime={$s['overtime_hours']}, locked={$s['hours_locked']}, base={$s['base_salary']}, actual_base={$s['actual_base']}\n";
     }
@@ -73,7 +73,7 @@ echo "\n\n--- Test getAttendanceHours ---\n";
 $dela = $db->fetchOne("SELECT id, full_name FROM payroll_employees WHERE full_name LIKE '%dela%'");
 if ($dela) {
     echo "Testing for: {$dela['full_name']} (ID: {$dela['id']})\n";
-    
+
     $rows = $db->fetchAll(
         "SELECT attendance_date, check_in_time, check_out_time, scan_3, scan_4, work_hours, shift_1_hours, shift_2_hours
          FROM payroll_attendance 
@@ -81,7 +81,7 @@ if ($dela) {
          ORDER BY attendance_date",
         [$dela['id'], $monthStr]
     );
-    
+
     echo "Found " . count($rows) . " attendance records:\n";
     $total = 0;
     foreach ($rows as $r) {
