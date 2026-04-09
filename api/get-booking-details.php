@@ -87,6 +87,20 @@ try {
         $payments = $pStmt->fetchAll(PDO::FETCH_ASSOC);
     } catch (Exception $e) { /* ignore */ }
     $booking['payments'] = $payments;
+
+    // Fetch extras (extra bed, laundry, dll)
+    $extras = [];
+    $totalExtras = 0;
+    try {
+        $eStmt = $conn->prepare("SELECT id, item_name, quantity, unit_price, total_price, notes, created_at FROM booking_extras WHERE booking_id = ? ORDER BY created_at ASC");
+        $eStmt->execute([$bookingId]);
+        $extras = $eStmt->fetchAll(PDO::FETCH_ASSOC);
+        foreach ($extras as $ex) {
+            $totalExtras += (float)$ex['total_price'];
+        }
+    } catch (Exception $e) { /* table might not exist yet */ }
+    $booking['extras'] = $extras;
+    $booking['total_extras'] = $totalExtras;
     
     // Fetch created_at
     try {

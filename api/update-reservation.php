@@ -196,7 +196,17 @@ try {
         $otaFeeAmount = round($afterDiscount * $otaFeePercent / 100);
     }
     
-    $finalPrice = $afterDiscount - $otaFeeAmount;
+    $roomFinalPrice = $afterDiscount - $otaFeeAmount;
+    
+    // Include extras in final price
+    $extrasTotal = 0;
+    try {
+        $extStmt = $conn->prepare("SELECT COALESCE(SUM(total_price), 0) as total FROM booking_extras WHERE booking_id = ?");
+        $extStmt->execute([$bookingId]);
+        $extrasTotal = (float)$extStmt->fetch(PDO::FETCH_ASSOC)['total'];
+    } catch (Exception $e) { /* table might not exist */ }
+    
+    $finalPrice = $roomFinalPrice + $extrasTotal;
 
     // Add date/price fields to booking update
     $updates[] = 'check_in_date = ?';

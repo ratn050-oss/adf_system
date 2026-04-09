@@ -2732,6 +2732,16 @@ include '../../includes/header.php';
             </div>
             ` : ''}
 
+            ${booking.extras && booking.extras.length > 0 ? `
+            <div style="margin:0.25rem 0; padding:0.35rem 0; border-top:1px dashed rgba(99,102,241,0.15);">
+                <div style="font-size:0.65rem;color:var(--text-secondary);font-weight:600;margin-bottom:3px;">EXTRAS</div>
+                ${booking.extras.map(ex => `<div style="display:flex;justify-content:space-between;font-size:0.72rem;padding:1px 0;">
+                    <span style="color:var(--text-secondary);">${ex.item_name} (${ex.quantity}x)</span>
+                    <span style="color:#6366f1;font-weight:600;">+Rp ${new Intl.NumberFormat('id-ID').format(ex.total_price)}</span>
+                </div>`).join('')}
+            </div>
+            ` : ''}
+
             <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem; padding-top:0.25rem; border-top:1px solid rgba(99,102,241,0.1);">
                 <span style="font-size: 0.75rem; color: var(--text-secondary); font-weight:600;">Total:</span>
                 <span style="font-size: 0.85rem; font-weight: 700; color: var(--text-primary);">Rp ${totalPrice}</span>

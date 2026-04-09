@@ -80,6 +80,16 @@ foreach ($bookingSources as $src) {
 $paidRow = $db->fetchOne("SELECT COALESCE(SUM(amount),0) as total FROM booking_payments WHERE booking_id = ?", [$bookingId]);
 $totalPaid = (float)($paidRow['total'] ?? 0);
 
+// Get existing extras
+$bookingExtras = [];
+$totalExtras = 0;
+try {
+    $bookingExtras = $db->fetchAll("SELECT id, item_name, quantity, unit_price, total_price, notes FROM booking_extras WHERE booking_id = ? ORDER BY created_at ASC", [$bookingId]);
+    foreach ($bookingExtras as $ex) {
+        $totalExtras += (float)$ex['total_price'];
+    }
+} catch (Exception $e) { /* table might not exist yet */ }
+
 $pageTitle = 'Edit Booking';
 include '../../includes/header.php';
 ?>
@@ -128,6 +138,36 @@ include '../../includes/header.php';
 .alert-error { background: rgba(239,68,68,0.1); color: #ef4444; border: 1px solid #fee2e2; }
 
 .paid-info { background: rgba(16,185,129,0.06); border: 1px solid rgba(16,185,129,0.2); border-radius: 6px; padding: 0.5rem 0.75rem; font-size: 0.85rem; color: #059669; margin-bottom: 1rem; }
+
+/* EXTRAS SECTION */
+.extras-section { margin-bottom: 1rem; }
+.extras-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
+.extras-header h3 { margin: 0; font-size: 0.95rem; font-weight: 700; color: var(--text-primary, #1e293b); }
+.btn-add-extra { padding: 0.35rem 0.75rem; background: #6366f1; color: white; border: none; border-radius: 6px; font-size: 0.8rem; cursor: pointer; font-weight: 600; }
+.btn-add-extra:hover { background: #4f46e5; }
+.extras-list { display: flex; flex-direction: column; gap: 0.5rem; }
+.extra-item { display: flex; align-items: center; justify-content: space-between; background: rgba(99,102,241,0.04); border: 1px solid rgba(99,102,241,0.12); border-radius: 6px; padding: 0.5rem 0.75rem; font-size: 0.85rem; }
+.extra-item-info { flex: 1; }
+.extra-item-name { font-weight: 600; color: var(--text-primary, #1e293b); }
+.extra-item-detail { font-size: 0.78rem; color: var(--text-secondary, #64748b); margin-top: 0.15rem; }
+.extra-item-price { font-weight: 700; color: #6366f1; margin: 0 0.75rem; white-space: nowrap; }
+.extra-item-delete { background: none; border: none; color: #ef4444; cursor: pointer; font-size: 1.1rem; padding: 0.2rem; line-height: 1; }
+.extra-item-delete:hover { color: #dc2626; }
+.extras-empty { padding: 0.75rem; text-align: center; color: var(--text-secondary, #64748b); font-size: 0.85rem; font-style: italic; }
+.extras-total { display: flex; justify-content: space-between; padding: 0.5rem 0.75rem; background: rgba(99,102,241,0.08); border-radius: 6px; font-weight: 700; font-size: 0.9rem; margin-top: 0.5rem; }
+
+/* Add Extra Form */
+.add-extra-form { background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px; padding: 0.75rem; margin-top: 0.5rem; display: none; }
+.add-extra-form.active { display: block; }
+.add-extra-row { display: grid; grid-template-columns: 2fr 1fr 1.5fr; gap: 0.5rem; margin-bottom: 0.5rem; }
+.add-extra-row input, .add-extra-row select { padding: 0.45rem 0.5rem; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 0.82rem; }
+.add-extra-actions { display: flex; gap: 0.5rem; justify-content: flex-end; }
+.add-extra-actions button { padding: 0.35rem 0.75rem; border: none; border-radius: 4px; font-size: 0.8rem; cursor: pointer; font-weight: 600; }
+.btn-confirm-extra { background: #10b981; color: white; }
+.btn-cancel-extra { background: #e5e7eb; color: #6b7280; }
+.preset-btns { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.5rem; }
+.preset-btn { padding: 0.25rem 0.5rem; background: white; border: 1px solid #d1d5db; border-radius: 4px; font-size: 0.75rem; cursor: pointer; }
+.preset-btn:hover { background: #6366f1; color: white; border-color: #6366f1; }
 </style>
 
 <div class="edit-page">
@@ -258,6 +298,65 @@ include '../../includes/header.php';
                     <textarea name="special_requests"><?php echo htmlspecialchars($booking['special_request'] ?? ''); ?></textarea>
                 </div>
                 
+                <!-- EXTRAS (Extra Bed, Laundry, dll) -->
+                <div class="extras-section">
+                    <div class="extras-header">
+                        <h3>🛏️ Tambahan / Extras</h3>
+                        <button type="button" class="btn-add-extra" onclick="toggleAddExtraForm()">+ Tambah</button>
+                    </div>
+                    
+                    <!-- ADD FORM -->
+                    <div id="addExtraForm" class="add-extra-form">
+                        <div class="preset-btns">
+                            <button type="button" class="preset-btn" onclick="fillPreset('Extra Bed', 150000)">🛏️ Extra Bed</button>
+                            <button type="button" class="preset-btn" onclick="fillPreset('Laundry', 25000)">👔 Laundry</button>
+                            <button type="button" class="preset-btn" onclick="fillPreset('Breakfast', 35000)">🍳 Breakfast</button>
+                            <button type="button" class="preset-btn" onclick="fillPreset('Mini Bar', 15000)">🍺 Mini Bar</button>
+                            <button type="button" class="preset-btn" onclick="fillPreset('Transport', 50000)">🚗 Transport</button>
+                            <button type="button" class="preset-btn" onclick="fillPreset('Towel Extra', 10000)">🧴 Towel</button>
+                        </div>
+                        <div class="add-extra-row">
+                            <input type="text" id="extraItemName" placeholder="Nama item (eg. Extra Bed)">
+                            <input type="number" id="extraQty" placeholder="Qty" value="1" min="1">
+                            <input type="number" id="extraUnitPrice" placeholder="Harga satuan" min="0" step="1000">
+                        </div>
+                        <div class="add-extra-actions">
+                            <button type="button" class="btn-cancel-extra" onclick="toggleAddExtraForm()">Batal</button>
+                            <button type="button" class="btn-confirm-extra" onclick="addExtra()">✅ Simpan</button>
+                        </div>
+                    </div>
+                    
+                    <!-- LIST -->
+                    <div id="extrasList" class="extras-list">
+                        <?php if (empty($bookingExtras)): ?>
+                            <div class="extras-empty" id="extrasEmpty">Belum ada tambahan</div>
+                        <?php else: ?>
+                            <?php foreach ($bookingExtras as $ex): ?>
+                            <div class="extra-item" data-extra-id="<?php echo $ex['id']; ?>">
+                                <div class="extra-item-info">
+                                    <div class="extra-item-name"><?php echo htmlspecialchars($ex['item_name']); ?></div>
+                                    <div class="extra-item-detail"><?php echo $ex['quantity']; ?>x @ Rp <?php echo number_format($ex['unit_price'], 0, ',', '.'); ?></div>
+                                </div>
+                                <div class="extra-item-price">Rp <?php echo number_format($ex['total_price'], 0, ',', '.'); ?></div>
+                                <button type="button" class="extra-item-delete" onclick="deleteExtra(<?php echo $ex['id']; ?>, this)" title="Hapus">🗑️</button>
+                            </div>
+                            <?php endforeach; ?>
+                        <?php endif; ?>
+                    </div>
+                    
+                    <?php if ($totalExtras > 0): ?>
+                    <div class="extras-total" id="extrasTotal">
+                        <span>Total Extras:</span>
+                        <span>Rp <?php echo number_format($totalExtras, 0, ',', '.'); ?></span>
+                    </div>
+                    <?php else: ?>
+                    <div class="extras-total" id="extrasTotal" style="display:none;">
+                        <span>Total Extras:</span>
+                        <span>Rp 0</span>
+                    </div>
+                    <?php endif; ?>
+                </div>
+                
                 <!-- PRICE SUMMARY -->
                 <div class="price-box">
                     <div class="price-line">
@@ -276,6 +375,10 @@ include '../../includes/header.php';
                         <span style="color:#92400e;">Fee OTA (<span id="dispFeePercent">0</span>%):</span>
                         <strong id="dispFeeAmount" style="color:#dc2626;">- Rp 0</strong>
                     </div>
+                    <div class="price-line" id="extrasRow" style="<?php echo $totalExtras > 0 ? '' : 'display:none'; ?>">
+                        <span>Extras:</span>
+                        <strong id="dispExtras" style="color:#6366f1;">+ Rp <?php echo number_format($totalExtras, 0, ',', '.'); ?></strong>
+                    </div>
                     <div class="price-line-total">
                         <span>TOTAL (Net):</span>
                         <strong id="dispTotal" style="color:#10b981;">Rp <?php echo number_format($booking['final_price'],0,',','.'); ?></strong>
@@ -293,7 +396,10 @@ include '../../includes/header.php';
 
 <script>
 const OTA_FEES = <?php echo json_encode($otaFees); ?>;
+const BASE_URL = '<?php echo BASE_URL; ?>';
+const BOOKING_ID = <?php echo $bookingId; ?>;
 let discountType = 'rp';
+let currentExtrasTotal = <?php echo $totalExtras; ?>;
 
 function setDiscType(type) {
     discountType = type;
@@ -332,7 +438,8 @@ function recalculate() {
         feeAmount = Math.round(afterDiscount * feePercent / 100);
     }
     
-    const total = afterDiscount - feeAmount;
+    const roomNet = afterDiscount - feeAmount;
+    const total = roomNet + currentExtrasTotal;
     
     // Update display
     document.getElementById('dispNights').textContent = nights;
@@ -353,7 +460,141 @@ function recalculate() {
         document.getElementById('otaFeeRow').style.display = 'none';
     }
     
+    // Extras row
+    if (currentExtrasTotal > 0) {
+        document.getElementById('extrasRow').style.display = 'flex';
+        document.getElementById('dispExtras').textContent = '+ Rp ' + currentExtrasTotal.toLocaleString('id-ID');
+    } else {
+        document.getElementById('extrasRow').style.display = 'none';
+    }
+    
     document.getElementById('dispTotal').textContent = 'Rp ' + total.toLocaleString('id-ID');
+}
+
+// ========== EXTRAS MANAGEMENT ==========
+
+function toggleAddExtraForm() {
+    const form = document.getElementById('addExtraForm');
+    form.classList.toggle('active');
+    if (form.classList.contains('active')) {
+        document.getElementById('extraItemName').focus();
+    }
+}
+
+function fillPreset(name, price) {
+    document.getElementById('extraItemName').value = name;
+    document.getElementById('extraUnitPrice').value = price;
+    document.getElementById('extraQty').value = 1;
+    document.getElementById('extraItemName').focus();
+}
+
+function addExtra() {
+    const itemName = document.getElementById('extraItemName').value.trim();
+    const qty = parseInt(document.getElementById('extraQty').value) || 1;
+    const unitPrice = parseFloat(document.getElementById('extraUnitPrice').value) || 0;
+    
+    if (!itemName) { alert('Nama item harus diisi'); return; }
+    if (unitPrice <= 0) { alert('Harga harus lebih dari 0'); return; }
+    
+    const formData = new FormData();
+    formData.append('action', 'add');
+    formData.append('booking_id', BOOKING_ID);
+    formData.append('item_name', itemName);
+    formData.append('quantity', qty);
+    formData.append('unit_price', unitPrice);
+    
+    fetch(BASE_URL + '/api/booking-extras.php', { method: 'POST', body: formData })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            const totalPrice = qty * unitPrice;
+            currentExtrasTotal += totalPrice;
+            
+            // Remove empty message
+            const empty = document.getElementById('extrasEmpty');
+            if (empty) empty.remove();
+            
+            // Add item to list
+            const list = document.getElementById('extrasList');
+            const div = document.createElement('div');
+            div.className = 'extra-item';
+            div.dataset.extraId = data.extra.id;
+            div.innerHTML = `
+                <div class="extra-item-info">
+                    <div class="extra-item-name">${escHtml(itemName)}</div>
+                    <div class="extra-item-detail">${qty}x @ Rp ${unitPrice.toLocaleString('id-ID')}</div>
+                </div>
+                <div class="extra-item-price">Rp ${totalPrice.toLocaleString('id-ID')}</div>
+                <button type="button" class="extra-item-delete" onclick="deleteExtra(${data.extra.id}, this)" title="Hapus">🗑️</button>
+            `;
+            list.appendChild(div);
+            
+            // Update extras total display
+            updateExtrasTotalDisplay();
+            
+            // Clear form
+            document.getElementById('extraItemName').value = '';
+            document.getElementById('extraQty').value = '1';
+            document.getElementById('extraUnitPrice').value = '';
+            document.getElementById('addExtraForm').classList.remove('active');
+            
+            recalculate();
+        } else {
+            alert('❌ ' + data.message);
+        }
+    })
+    .catch(err => alert('Error: ' + err.message));
+}
+
+function deleteExtra(extraId, btn) {
+    if (!confirm('Hapus item ini?')) return;
+    
+    const item = btn.closest('.extra-item');
+    const priceText = item.querySelector('.extra-item-price').textContent;
+    const price = parseFloat(priceText.replace(/[^\d]/g, '')) || 0;
+    
+    const formData = new FormData();
+    formData.append('action', 'delete');
+    formData.append('extra_id', extraId);
+    
+    fetch(BASE_URL + '/api/booking-extras.php', { method: 'POST', body: formData })
+    .then(r => r.json())
+    .then(data => {
+        if (data.success) {
+            currentExtrasTotal -= price;
+            if (currentExtrasTotal < 0) currentExtrasTotal = 0;
+            
+            item.remove();
+            
+            // Show empty if no items left
+            const list = document.getElementById('extrasList');
+            if (!list.querySelector('.extra-item')) {
+                list.innerHTML = '<div class="extras-empty" id="extrasEmpty">Belum ada tambahan</div>';
+            }
+            
+            updateExtrasTotalDisplay();
+            recalculate();
+        } else {
+            alert('❌ ' + data.message);
+        }
+    })
+    .catch(err => alert('Error: ' + err.message));
+}
+
+function updateExtrasTotalDisplay() {
+    const el = document.getElementById('extrasTotal');
+    if (currentExtrasTotal > 0) {
+        el.style.display = 'flex';
+        el.innerHTML = '<span>Total Extras:</span><span>Rp ' + currentExtrasTotal.toLocaleString('id-ID') + '</span>';
+    } else {
+        el.style.display = 'none';
+    }
+}
+
+function escHtml(str) {
+    const div = document.createElement('div');
+    div.textContent = str;
+    return div.innerHTML;
 }
 
 function saveEdit(event) {
@@ -366,7 +607,7 @@ function saveEdit(event) {
     const form = document.getElementById('editForm');
     const formData = new FormData(form);
     
-    fetch('<?php echo BASE_URL; ?>/api/update-reservation.php', {
+    fetch(BASE_URL + '/api/update-reservation.php', {
         method: 'POST',
         body: formData
     })
