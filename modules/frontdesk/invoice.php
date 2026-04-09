@@ -121,6 +121,21 @@ $payments = $db->fetchAll("
     ORDER BY bp.payment_date ASC
 ", $allBookingIds);
 
+// Get extras for all related bookings
+$allExtras = $db->fetchAll("
+    SELECT be.*, r.room_number
+    FROM booking_extras be
+    LEFT JOIN bookings bk ON be.booking_id = bk.id
+    LEFT JOIN rooms r ON bk.room_id = r.id
+    WHERE be.booking_id IN ($placeholders)
+    ORDER BY r.room_number ASC, be.created_at ASC
+", $allBookingIds);
+
+$combinedExtrasTotal = 0;
+foreach ($allExtras as $ex) {
+    $combinedExtrasTotal += $ex['total_price'];
+}
+
 // Calculate combined totals
 $totalPaid = 0;
 foreach ($payments as $payment) {
@@ -867,6 +882,21 @@ if (empty($companySettings['name'])) {
                             <td>Rp <?php echo number_format($bk['total_price'], 0, ',', '.'); ?></td>
                         </tr>
                     <?php endforeach; ?>
+                    <?php if (!empty($allExtras)): ?>
+                        <?php foreach ($allExtras as $ex): ?>
+                            <tr style="background:#fefbf3;">
+                                <td colspan="2" style="padding-left:20px; color:#7c6a3a;">
+                                    <?php if ($isMultiRoom): ?>
+                                        <span style="color:#999;font-size:0.65rem;">Rm <?php echo htmlspecialchars($ex['room_number']); ?> ·</span>
+                                    <?php endif; ?>
+                                    <?php echo htmlspecialchars($ex['item_name']); ?>
+                                </td>
+                                <td style="color:#7c6a3a;"><?php echo $ex['quantity']; ?>x</td>
+                                <td style="color:#7c6a3a;">Rp <?php echo number_format($ex['unit_price'], 0, ',', '.'); ?></td>
+                                <td style="color:#7c6a3a;">Rp <?php echo number_format($ex['total_price'], 0, ',', '.'); ?></td>
+                            </tr>
+                        <?php endforeach; ?>
+                    <?php endif; ?>
                 </tbody>
             </table>
 
@@ -881,6 +911,12 @@ if (empty($companySettings['name'])) {
                         <div class="sum-row disc">
                             <span class="sl">Discount</span>
                             <span class="sv">- Rp <?php echo number_format($combinedDiscount, 0, ',', '.'); ?></span>
+                        </div>
+                    <?php endif; ?>
+                    <?php if ($combinedExtrasTotal > 0): ?>
+                        <div class="sum-row" style="color:#6366f1;">
+                            <span class="sl">Extras</span>
+                            <span class="sv">+ Rp <?php echo number_format($combinedExtrasTotal, 0, ',', '.'); ?></span>
                         </div>
                     <?php endif; ?>
                     <div class="sum-total">

@@ -1097,29 +1097,8 @@ include '../../includes/header.php';
                     <textarea name="special_request" id="specialRequest" rows="2" style="width: 100%; padding: 8px; border-radius: 5px; border: 1px solid #ddd;"></textarea>
                 </div>
 
-                <!-- EXTRAS (Extra Bed, Laundry, dll) -->
-                <div class="input-compact">
-                    <label>Tambahan (Extra Bed, Laundry, dll)</label>
-                    <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px;">
-                        <button type="button" class="btn-preset-extra" onclick="addNewExtra('Extra Bed', 150000)">🛏️ Extra Bed</button>
-                        <button type="button" class="btn-preset-extra" onclick="addNewExtra('Laundry', 25000)">👔 Laundry</button>
-                        <button type="button" class="btn-preset-extra" onclick="addNewExtra('Extra Pillow', 25000)">🛏️ Pillow</button>
-                        <button type="button" class="btn-preset-extra" onclick="addNewExtra('Extra Towel', 15000)">🧺 Towel</button>
-                        <button type="button" class="btn-preset-extra" onclick="addNewExtra('Breakfast', 35000)">🍳 Breakfast</button>
-                        <button type="button" class="btn-preset-extra" onclick="showCustomExtra()">➕ Lainnya</button>
-                    </div>
-                    <div id="customExtraRow" style="display:none; gap:6px; margin-bottom:8px;">
-                        <input type="text" id="newExtraName" placeholder="Nama item" style="flex:2; padding:6px 8px; border:1px solid #ddd; border-radius:4px; font-size:0.85rem;">
-                        <input type="number" id="newExtraQty" value="1" min="1" style="width:50px; padding:6px 8px; border:1px solid #ddd; border-radius:4px; font-size:0.85rem;">
-                        <input type="number" id="newExtraPrice" placeholder="Harga" step="1000" style="flex:1; padding:6px 8px; border:1px solid #ddd; border-radius:4px; font-size:0.85rem;">
-                        <button type="button" onclick="addCustomExtra()" style="padding:6px 12px; background:#6366f1; color:white; border:none; border-radius:4px; cursor:pointer; font-size:0.85rem;">+</button>
-                    </div>
-                    <div id="newExtrasList"></div>
-                    <div id="newExtrasTotalRow" style="display:none; justify-content:space-between; padding:6px 0; font-weight:600; color:#6366f1; font-size:0.9rem; border-top:1px solid #e2e8f0; margin-top:4px;">
-                        <span>Total Extras:</span>
-                        <span id="newExtrasTotal">Rp 0</span>
-                    </div>
-                </div>
+                <!-- PER-ROOM EXTRAS (rendered dynamically per checked room) -->
+                <div id="perRoomExtrasContainer"></div>
             </div>
 
             <div class="modal-footer-compact">
@@ -1325,6 +1304,18 @@ include '../../includes/header.php';
         background: #f0fdf4; border-radius: 6px; margin-bottom: 4px; font-size: 0.85rem;
     }
     .new-extra-item .extra-del { background: none; border: none; cursor: pointer; font-size: 1rem; padding: 0 4px; }
+
+    .per-room-extra-card {
+        border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 12px; margin-bottom: 8px;
+        background: #fafbfc;
+    }
+    .per-room-extra-card .room-extra-header {
+        font-weight: 600; font-size: 0.85rem; color: #1a1a2e; margin-bottom: 6px;
+        display: flex; align-items: center; gap: 6px;
+    }
+    .per-room-extra-card .room-extra-header .room-badge {
+        background: #6366f1; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.72rem;
+    }
 
     .btn-cancel {
         padding: 0.7rem 1.5rem;
@@ -1590,7 +1581,7 @@ include '../../includes/header.php';
                                data-price="${room.base_price}"
                                data-room="${room.room_number}"
                                data-type="${room.type_name}"
-                               onchange="calculateMultiRoomTotal()"
+                               onchange="onRoomCheckChange()"
                                style="margin-right: 8px;">
                         <strong>Room ${room.room_number}</strong> - ${room.type_name}
                         <span style="color: #10b981; font-weight: bold;">(Rp ${parseInt(room.base_price).toLocaleString('id-ID')}/night)</span>
@@ -1758,71 +1749,123 @@ include '../../includes/header.php';
         }
     }
 
-    // ========== NEW BOOKING EXTRAS ==========
-    let newBookingExtras = [];
+    // ========== PER-ROOM EXTRAS ==========
+    let perRoomExtras = {}; // { roomId: [{ name, qty, price, total }] }
 
-    function addNewExtra(name, price, qty = 1) {
-        newBookingExtras.push({ name, qty, price, total: qty * price });
-        renderNewExtras();
+    function onRoomCheckChange() {
+        renderPerRoomExtras();
         calculateMultiRoomTotal();
     }
 
-    function showCustomExtra() {
-        const row = document.getElementById('customExtraRow');
-        row.style.display = row.style.display === 'none' ? 'flex' : 'none';
-        if (row.style.display === 'flex') document.getElementById('newExtraName').focus();
-    }
-
-    function addCustomExtra() {
-        const name = document.getElementById('newExtraName').value.trim();
-        const qty = parseInt(document.getElementById('newExtraQty').value) || 1;
-        const price = parseFloat(document.getElementById('newExtraPrice').value) || 0;
-        if (!name) { alert('Nama item harus diisi'); return; }
-        if (price <= 0) { alert('Harga harus > 0'); return; }
-        addNewExtra(name, price, qty);
-        document.getElementById('newExtraName').value = '';
-        document.getElementById('newExtraQty').value = '1';
-        document.getElementById('newExtraPrice').value = '';
-        document.getElementById('customExtraRow').style.display = 'none';
-    }
-
-    function removeNewExtra(idx) {
-        newBookingExtras.splice(idx, 1);
-        renderNewExtras();
-        calculateMultiRoomTotal();
-    }
-
-    function renderNewExtras() {
-        const list = document.getElementById('newExtrasList');
-        const totalRow = document.getElementById('newExtrasTotalRow');
-        const totalEl = document.getElementById('newExtrasTotal');
-        if (newBookingExtras.length === 0) {
-            list.innerHTML = '';
-            totalRow.style.display = 'none';
+    function renderPerRoomExtras() {
+        const container = document.getElementById('perRoomExtrasContainer');
+        const checkedRooms = document.querySelectorAll('input[name="rooms[]"]:checked');
+        
+        if (checkedRooms.length === 0) {
+            container.innerHTML = '';
             return;
         }
-        let total = 0;
-        list.innerHTML = newBookingExtras.map((ex, i) => {
-            total += ex.total;
-            return `<div class="new-extra-item">
-                <span>${ex.name} (${ex.qty}x @ Rp ${ex.price.toLocaleString('id-ID')})</span>
-                <div style="display:flex;align-items:center;gap:8px;">
-                    <strong>Rp ${ex.total.toLocaleString('id-ID')}</strong>
-                    <button type="button" class="extra-del" onclick="removeNewExtra(${i})">🗑️</button>
+
+        // Clean up extras for unchecked rooms
+        const checkedIds = new Set();
+        checkedRooms.forEach(cb => checkedIds.add(cb.value));
+        Object.keys(perRoomExtras).forEach(rid => {
+            if (!checkedIds.has(rid)) delete perRoomExtras[rid];
+        });
+
+        let html = '<div class="input-compact"><label>Tambahan Per Room (Extra Bed, Laundry, dll)</label>';
+        checkedRooms.forEach(cb => {
+            const roomId = cb.value;
+            const roomNum = cb.dataset.room;
+            const roomType = cb.dataset.type;
+            if (!perRoomExtras[roomId]) perRoomExtras[roomId] = [];
+            const extras = perRoomExtras[roomId];
+            let extrasTotal = extras.reduce((s, e) => s + e.total, 0);
+
+            html += `<div class="per-room-extra-card">
+                <div class="room-extra-header">
+                    <span class="room-badge">Room ${roomNum}</span> ${roomType}
+                    ${extrasTotal > 0 ? `<span style="margin-left:auto;color:#6366f1;font-size:0.78rem;">Rp ${extrasTotal.toLocaleString('id-ID')}</span>` : ''}
                 </div>
-            </div>`;
-        }).join('');
-        totalRow.style.display = 'flex';
-        totalEl.textContent = 'Rp ' + total.toLocaleString('id-ID');
+                <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;">
+                    <button type="button" class="btn-preset-extra" onclick="addRoomExtra('${roomId}','Extra Bed',150000)">🛏️ Extra Bed</button>
+                    <button type="button" class="btn-preset-extra" onclick="addRoomExtra('${roomId}','Laundry',25000)">👔 Laundry</button>
+                    <button type="button" class="btn-preset-extra" onclick="addRoomExtra('${roomId}','Extra Pillow',25000)">🛏️ Pillow</button>
+                    <button type="button" class="btn-preset-extra" onclick="addRoomExtra('${roomId}','Extra Towel',15000)">🧺 Towel</button>
+                    <button type="button" class="btn-preset-extra" onclick="addRoomExtra('${roomId}','Breakfast',35000)">🍳 Breakfast</button>
+                    <button type="button" class="btn-preset-extra" onclick="showRoomCustomExtra('${roomId}')">➕ Lainnya</button>
+                </div>
+                <div id="customExtraRow_${roomId}" style="display:none;gap:6px;margin-bottom:6px;">
+                    <input type="text" id="extraName_${roomId}" placeholder="Nama item" style="flex:2;padding:5px 7px;border:1px solid #ddd;border-radius:4px;font-size:0.82rem;">
+                    <input type="number" id="extraQty_${roomId}" value="1" min="1" style="width:45px;padding:5px 7px;border:1px solid #ddd;border-radius:4px;font-size:0.82rem;">
+                    <input type="number" id="extraPrice_${roomId}" placeholder="Harga" step="1000" style="flex:1;padding:5px 7px;border:1px solid #ddd;border-radius:4px;font-size:0.82rem;">
+                    <button type="button" onclick="addRoomCustomExtra('${roomId}')" style="padding:5px 10px;background:#6366f1;color:white;border:none;border-radius:4px;cursor:pointer;font-size:0.82rem;">+</button>
+                </div>`;
+
+            if (extras.length > 0) {
+                extras.forEach((ex, idx) => {
+                    html += `<div class="new-extra-item">
+                        <span>${ex.name} (${ex.qty}x @ Rp ${ex.price.toLocaleString('id-ID')})</span>
+                        <div style="display:flex;align-items:center;gap:8px;">
+                            <strong>Rp ${ex.total.toLocaleString('id-ID')}</strong>
+                            <button type="button" class="extra-del" onclick="removeRoomExtra('${roomId}',${idx})">🗑️</button>
+                        </div>
+                    </div>`;
+                });
+            }
+            html += '</div>';
+        });
+        html += '</div>';
+        container.innerHTML = html;
+    }
+
+    function addRoomExtra(roomId, name, price, qty = 1) {
+        if (!perRoomExtras[roomId]) perRoomExtras[roomId] = [];
+        perRoomExtras[roomId].push({ name, qty, price, total: qty * price });
+        renderPerRoomExtras();
+        calculateMultiRoomTotal();
+    }
+
+    function showRoomCustomExtra(roomId) {
+        const row = document.getElementById('customExtraRow_' + roomId);
+        row.style.display = row.style.display === 'none' ? 'flex' : 'none';
+        if (row.style.display === 'flex') document.getElementById('extraName_' + roomId).focus();
+    }
+
+    function addRoomCustomExtra(roomId) {
+        const name = document.getElementById('extraName_' + roomId).value.trim();
+        const qty = parseInt(document.getElementById('extraQty_' + roomId).value) || 1;
+        const price = parseFloat(document.getElementById('extraPrice_' + roomId).value) || 0;
+        if (!name) { alert('Nama item harus diisi'); return; }
+        if (price <= 0) { alert('Harga harus > 0'); return; }
+        addRoomExtra(roomId, name, price, qty);
+    }
+
+    function removeRoomExtra(roomId, idx) {
+        if (perRoomExtras[roomId]) {
+            perRoomExtras[roomId].splice(idx, 1);
+        }
+        renderPerRoomExtras();
+        calculateMultiRoomTotal();
     }
 
     function getNewExtrasTotal() {
-        return newBookingExtras.reduce((sum, ex) => sum + ex.total, 0);
+        let total = 0;
+        Object.values(perRoomExtras).forEach(extras => {
+            extras.forEach(ex => total += ex.total);
+        });
+        return total;
+    }
+
+    function getRoomExtrasTotal(roomId) {
+        if (!perRoomExtras[roomId]) return 0;
+        return perRoomExtras[roomId].reduce((s, e) => s + e.total, 0);
     }
 
     function resetNewExtras() {
-        newBookingExtras = [];
-        renderNewExtras();
+        perRoomExtras = {};
+        const container = document.getElementById('perRoomExtrasContainer');
+        if (container) container.innerHTML = '';
     }
 
     function payFullMultiRoom() {
@@ -1883,15 +1926,16 @@ include '../../includes/header.php';
         // NOTE: OTA fee is NOT subtracted from final_price - CashbookHelper handles fee deduction
         const discountPerRoom = discount / checkedRooms.length;
 
-        // Extras total (shared across group, saved to first booking only for simplicity)
+        // Extras total per room (each room has its own extras now)
         const extrasTotal = getNewExtrasTotal();
-        const extrasTotalPerRoom = checkedRooms.length > 0 ? extrasTotal / checkedRooms.length : 0;
 
         // Calculate payment per room (distribute proportionally)
         let totalPrice = 0;
         const roomPrices = [];
         checkedRooms.forEach(checkbox => {
-            const price = parseFloat(checkbox.dataset.price) * nights - discountPerRoom + extrasTotalPerRoom;
+            const roomId = checkbox.value;
+            const roomExtrasTotal = getRoomExtrasTotal(roomId);
+            const price = parseFloat(checkbox.dataset.price) * nights - discountPerRoom + roomExtrasTotal;
             roomPrices.push(price);
             totalPrice += price;
         });
@@ -1921,7 +1965,8 @@ include '../../includes/header.php';
             // Create FormData for API
             const roomBasePrice = parseFloat(checkbox.dataset.price);
             const roomTotalPrice = roomBasePrice * nights;
-            const roomFinalPrice = roomTotalPrice - discountPerRoom + extrasTotalPerRoom;
+            const roomExtrasTotal = getRoomExtrasTotal(roomId);
+            const roomFinalPrice = roomTotalPrice - discountPerRoom + roomExtrasTotal;
 
             const formData = new FormData();
             if (groupId) formData.append('group_id', groupId);
@@ -1954,9 +1999,10 @@ include '../../includes/header.php';
                     successCount++;
                     bookingCodes.push(result.booking_code);
                     
-                    // Save extras to first booking only (group shares extras)
-                    if (i === 0 && newBookingExtras.length > 0 && result.booking_id) {
-                        for (const ex of newBookingExtras) {
+                    // Save extras for this room's booking
+                    const roomExtras = perRoomExtras[roomId] || [];
+                    if (roomExtras.length > 0 && result.booking_id) {
+                        for (const ex of roomExtras) {
                             try {
                                 const extForm = new FormData();
                                 extForm.append('action', 'add');
