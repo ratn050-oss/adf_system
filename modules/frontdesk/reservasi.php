@@ -1072,6 +1072,10 @@ include '../../includes/header.php';
                         <strong id="otaFeeAmountDisplay" style="color: #dc2626;">- Rp 0</strong>
                         <input type="hidden" id="otaFeeAmount" name="ota_fee_amount" value="0">
                     </div>
+                    <div class="price-line" id="extrasSummaryRow" style="display: none;">
+                        <span>Extras:</span>
+                        <strong id="extrasSummaryAmount" style="color:#6366f1;">+ Rp 0</strong>
+                    </div>
                     <div class="price-line-total">
                         <span>GRAND TOTAL:</span>
                         <strong id="grandTotalDisplay" style="color:#10b981; font-size: 1.3rem;">Rp 0</strong>
@@ -1091,6 +1095,30 @@ include '../../includes/header.php';
                 <div class="input-compact">
                     <label>Special Request</label>
                     <textarea name="special_request" id="specialRequest" rows="2" style="width: 100%; padding: 8px; border-radius: 5px; border: 1px solid #ddd;"></textarea>
+                </div>
+
+                <!-- EXTRAS (Extra Bed, Laundry, dll) -->
+                <div class="input-compact">
+                    <label>Tambahan (Extra Bed, Laundry, dll)</label>
+                    <div style="display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 8px;">
+                        <button type="button" class="btn-preset-extra" onclick="addNewExtra('Extra Bed', 150000)">🛏️ Extra Bed</button>
+                        <button type="button" class="btn-preset-extra" onclick="addNewExtra('Laundry', 25000)">👔 Laundry</button>
+                        <button type="button" class="btn-preset-extra" onclick="addNewExtra('Extra Pillow', 25000)">🛏️ Pillow</button>
+                        <button type="button" class="btn-preset-extra" onclick="addNewExtra('Extra Towel', 15000)">🧺 Towel</button>
+                        <button type="button" class="btn-preset-extra" onclick="addNewExtra('Breakfast', 35000)">🍳 Breakfast</button>
+                        <button type="button" class="btn-preset-extra" onclick="showCustomExtra()">➕ Lainnya</button>
+                    </div>
+                    <div id="customExtraRow" style="display:none; gap:6px; margin-bottom:8px;">
+                        <input type="text" id="newExtraName" placeholder="Nama item" style="flex:2; padding:6px 8px; border:1px solid #ddd; border-radius:4px; font-size:0.85rem;">
+                        <input type="number" id="newExtraQty" value="1" min="1" style="width:50px; padding:6px 8px; border:1px solid #ddd; border-radius:4px; font-size:0.85rem;">
+                        <input type="number" id="newExtraPrice" placeholder="Harga" step="1000" style="flex:1; padding:6px 8px; border:1px solid #ddd; border-radius:4px; font-size:0.85rem;">
+                        <button type="button" onclick="addCustomExtra()" style="padding:6px 12px; background:#6366f1; color:white; border:none; border-radius:4px; cursor:pointer; font-size:0.85rem;">+</button>
+                    </div>
+                    <div id="newExtrasList"></div>
+                    <div id="newExtrasTotalRow" style="display:none; justify-content:space-between; padding:6px 0; font-weight:600; color:#6366f1; font-size:0.9rem; border-top:1px solid #e2e8f0; margin-top:4px;">
+                        <span>Total Extras:</span>
+                        <span id="newExtrasTotal">Rp 0</span>
+                    </div>
                 </div>
             </div>
 
@@ -1286,6 +1314,17 @@ include '../../includes/header.php';
         position: sticky;
         bottom: 0;
     }
+
+    .btn-preset-extra {
+        padding: 4px 10px; font-size: 0.78rem; border: 1px solid #e2e8f0; background: #f8fafc;
+        border-radius: 20px; cursor: pointer; transition: all 0.2s; white-space: nowrap;
+    }
+    .btn-preset-extra:hover { background: #6366f1; color: white; border-color: #6366f1; }
+    .new-extra-item {
+        display: flex; align-items: center; justify-content: space-between; padding: 6px 8px;
+        background: #f0fdf4; border-radius: 6px; margin-bottom: 4px; font-size: 0.85rem;
+    }
+    .new-extra-item .extra-del { background: none; border: none; cursor: pointer; font-size: 1rem; padding: 0 4px; }
 
     .btn-cancel {
         padding: 0.7rem 1.5rem;
@@ -1489,6 +1528,7 @@ include '../../includes/header.php';
     function closeNewBookingModal() {
         document.getElementById('newBookingModal').style.display = 'none';
         document.getElementById('newBookingForm').reset();
+        resetNewExtras();
     }
 
     function updateCheckOutMinDate() {
@@ -1687,13 +1727,26 @@ include '../../includes/header.php';
             otaFeeAmountInput.value = 0;
         }
 
-        // Grand total = subtotal - discount only (OTA fee is deducted by CashbookHelper, not from guest price)
-        const grandTotal = subtotal - discountAmount;
+        // Grand total = subtotal - discount + extras (OTA fee is deducted by CashbookHelper, not from guest price)
+        const extrasTotal = typeof getNewExtrasTotal === 'function' ? getNewExtrasTotal() : 0;
+        const grandTotal = subtotal - discountAmount + extrasTotal;
 
         // Update display
         document.getElementById('totalRoomsDisplay').textContent = totalRooms + ' room' + (totalRooms !== 1 ? 's' : '');
         document.getElementById('displayNights').textContent = nights + ' night' + (nights !== 1 ? 's' : '');
         document.getElementById('subtotalDisplay').textContent = 'Rp ' + subtotal.toLocaleString('id-ID');
+        
+        // Extras row in summary
+        const extrasRow = document.getElementById('extrasSummaryRow');
+        if (extrasRow) {
+            if (extrasTotal > 0) {
+                extrasRow.style.display = 'flex';
+                document.getElementById('extrasSummaryAmount').textContent = '+ Rp ' + extrasTotal.toLocaleString('id-ID');
+            } else {
+                extrasRow.style.display = 'none';
+            }
+        }
+        
         document.getElementById('grandTotalDisplay').textContent = 'Rp ' + grandTotal.toLocaleString('id-ID');
 
         // Update summary
@@ -1703,6 +1756,73 @@ include '../../includes/header.php';
         } else {
             document.getElementById('selectedRoomsSummary').innerHTML = '<em style="color: #ef4444;">Belum ada room yang dipilih</em>';
         }
+    }
+
+    // ========== NEW BOOKING EXTRAS ==========
+    let newBookingExtras = [];
+
+    function addNewExtra(name, price, qty = 1) {
+        newBookingExtras.push({ name, qty, price, total: qty * price });
+        renderNewExtras();
+        calculateMultiRoomTotal();
+    }
+
+    function showCustomExtra() {
+        const row = document.getElementById('customExtraRow');
+        row.style.display = row.style.display === 'none' ? 'flex' : 'none';
+        if (row.style.display === 'flex') document.getElementById('newExtraName').focus();
+    }
+
+    function addCustomExtra() {
+        const name = document.getElementById('newExtraName').value.trim();
+        const qty = parseInt(document.getElementById('newExtraQty').value) || 1;
+        const price = parseFloat(document.getElementById('newExtraPrice').value) || 0;
+        if (!name) { alert('Nama item harus diisi'); return; }
+        if (price <= 0) { alert('Harga harus > 0'); return; }
+        addNewExtra(name, price, qty);
+        document.getElementById('newExtraName').value = '';
+        document.getElementById('newExtraQty').value = '1';
+        document.getElementById('newExtraPrice').value = '';
+        document.getElementById('customExtraRow').style.display = 'none';
+    }
+
+    function removeNewExtra(idx) {
+        newBookingExtras.splice(idx, 1);
+        renderNewExtras();
+        calculateMultiRoomTotal();
+    }
+
+    function renderNewExtras() {
+        const list = document.getElementById('newExtrasList');
+        const totalRow = document.getElementById('newExtrasTotalRow');
+        const totalEl = document.getElementById('newExtrasTotal');
+        if (newBookingExtras.length === 0) {
+            list.innerHTML = '';
+            totalRow.style.display = 'none';
+            return;
+        }
+        let total = 0;
+        list.innerHTML = newBookingExtras.map((ex, i) => {
+            total += ex.total;
+            return `<div class="new-extra-item">
+                <span>${ex.name} (${ex.qty}x @ Rp ${ex.price.toLocaleString('id-ID')})</span>
+                <div style="display:flex;align-items:center;gap:8px;">
+                    <strong>Rp ${ex.total.toLocaleString('id-ID')}</strong>
+                    <button type="button" class="extra-del" onclick="removeNewExtra(${i})">🗑️</button>
+                </div>
+            </div>`;
+        }).join('');
+        totalRow.style.display = 'flex';
+        totalEl.textContent = 'Rp ' + total.toLocaleString('id-ID');
+    }
+
+    function getNewExtrasTotal() {
+        return newBookingExtras.reduce((sum, ex) => sum + ex.total, 0);
+    }
+
+    function resetNewExtras() {
+        newBookingExtras = [];
+        renderNewExtras();
     }
 
     function payFullMultiRoom() {
@@ -1763,11 +1883,15 @@ include '../../includes/header.php';
         // NOTE: OTA fee is NOT subtracted from final_price - CashbookHelper handles fee deduction
         const discountPerRoom = discount / checkedRooms.length;
 
+        // Extras total (shared across group, saved to first booking only for simplicity)
+        const extrasTotal = getNewExtrasTotal();
+        const extrasTotalPerRoom = checkedRooms.length > 0 ? extrasTotal / checkedRooms.length : 0;
+
         // Calculate payment per room (distribute proportionally)
         let totalPrice = 0;
         const roomPrices = [];
         checkedRooms.forEach(checkbox => {
-            const price = parseFloat(checkbox.dataset.price) * nights - discountPerRoom;
+            const price = parseFloat(checkbox.dataset.price) * nights - discountPerRoom + extrasTotalPerRoom;
             roomPrices.push(price);
             totalPrice += price;
         });
@@ -1797,7 +1921,7 @@ include '../../includes/header.php';
             // Create FormData for API
             const roomBasePrice = parseFloat(checkbox.dataset.price);
             const roomTotalPrice = roomBasePrice * nights;
-            const roomFinalPrice = roomTotalPrice - discountPerRoom;
+            const roomFinalPrice = roomTotalPrice - discountPerRoom + extrasTotalPerRoom;
 
             const formData = new FormData();
             if (groupId) formData.append('group_id', groupId);
@@ -1829,6 +1953,23 @@ include '../../includes/header.php';
                 if (result.success) {
                     successCount++;
                     bookingCodes.push(result.booking_code);
+                    
+                    // Save extras to first booking only (group shares extras)
+                    if (i === 0 && newBookingExtras.length > 0 && result.booking_id) {
+                        for (const ex of newBookingExtras) {
+                            try {
+                                const extForm = new FormData();
+                                extForm.append('action', 'add');
+                                extForm.append('booking_id', result.booking_id);
+                                extForm.append('item_name', ex.name);
+                                extForm.append('quantity', ex.qty);
+                                extForm.append('unit_price', ex.price);
+                                await fetch('<?php echo BASE_URL; ?>/api/booking-extras.php', { method: 'POST', body: extForm });
+                            } catch (extErr) {
+                                console.error('Error saving extra:', extErr);
+                            }
+                        }
+                    }
                 } else {
                     errorCount++;
                     console.error(`Error booking Room ${roomNumber}:`, result.message);
@@ -1846,6 +1987,7 @@ include '../../includes/header.php';
         // Show results
         if (successCount > 0) {
             alert(`✅ Berhasil membuat ${successCount} booking!\n\nBooking Codes: ${bookingCodes.join(', ')}\n\n${errorCount > 0 ? `⚠️ ${errorCount} booking gagal dibuat.` : ''}`);
+            resetNewExtras();
             closeNewBookingModal();
             window.location.reload(); // Refresh to show new bookings
         } else {
