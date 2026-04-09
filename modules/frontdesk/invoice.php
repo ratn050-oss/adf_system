@@ -199,601 +199,113 @@ if (empty($companySettings['name'])) {
 ?>
 <!DOCTYPE html>
 <html lang="id">
-
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Invoice - <?php echo $isMultiRoom ? $booking['guest_name'] . ' (' . count($allBookings) . ' rooms)' : $booking['booking_code']; ?></title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Playfair+Display:wght@400;600;700;800&family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <style>
-        * {
-            margin: 0;
-            padding: 0;
-            box-sizing: border-box;
-        }
-
+        * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Inter', -apple-system, sans-serif;
-            background: #e8e4df;
-            color: #2c2c2c;
-            line-height: 1.55;
-            padding: 24px;
-            -webkit-print-color-adjust: exact;
-            print-color-adjust: exact;
+            background: #f0f0f0; color: #333; line-height: 1.5; padding: 20px;
+            -webkit-print-color-adjust: exact; print-color-adjust: exact;
         }
-
         .invoice-page {
-            max-width: 794px;
-            margin: 0 auto;
-            background: #fff;
-            position: relative;
-            overflow: hidden;
+            max-width: 794px; margin: 0 auto; background: #fff;
+            position: relative; overflow: hidden; border: 1px solid #e0e0e0;
         }
-
-        /* â”€â”€ Watermark â”€â”€ */
         .watermark {
-            position: absolute;
-            top: 50%;
-            left: 50%;
-            transform: translate(-50%, -50%) rotate(-30deg);
-            font-family: 'Playfair Display', serif;
-            font-size: 140px;
-            font-weight: 800;
-            opacity: 0.035;
-            pointer-events: none;
-            z-index: 1;
-            white-space: nowrap;
-            letter-spacing: 20px;
+            position: absolute; top: 50%; left: 50%;
+            transform: translate(-50%, -50%) rotate(-35deg);
+            font-size: 100px; font-weight: 700; opacity: 0.04;
+            pointer-events: none; z-index: 1; white-space: nowrap; letter-spacing: 12px;
         }
-
-        .wm-paid {
-            color: #16a34a;
-        }
-
-        .wm-unpaid {
-            color: #dc2626;
-        }
-
-        .wm-partial {
-            color: #ca8a04;
-        }
-
-        /* â”€â”€ Top Border Pattern â”€â”€ */
-        .top-border {
-            height: 6px;
-            background: repeating-linear-gradient(90deg, #1a1a2e 0px, #1a1a2e 30px, #c9a84c 30px, #c9a84c 32px);
-        }
-
-        /* â”€â”€ Header â”€â”€ */
+        .wm-paid { color: #16a34a; } .wm-unpaid { color: #dc2626; } .wm-partial { color: #ca8a04; }
+        .top-border { height: 4px; background: #2c3e50; }
         .header {
-            padding: 28px 36px 20px;
-            display: flex;
-            justify-content: space-between;
-            align-items: flex-start;
-            position: relative;
-            z-index: 2;
-        }
-
-        .brand {
-            display: flex;
-            align-items: center;
-            gap: 14px;
-        }
-
-        .brand-logo {
-            width: 64px;
-            height: 64px;
-            border-radius: 10px;
-            object-fit: cover;
-            border: 2px solid #f0ece6;
-        }
-
-        .brand-text h1 {
-            font-family: 'Playfair Display', serif;
-            font-size: 1.6rem;
-            font-weight: 700;
-            color: #1a1a2e;
-            letter-spacing: 0.5px;
-        }
-
-        .brand-text .sub {
-            font-size: 0.6rem;
-            font-weight: 600;
-            text-transform: uppercase;
-            letter-spacing: 3.5px;
-            color: #c9a84c;
-            margin-top: 1px;
-        }
-
-        .header-right {
-            text-align: right;
-        }
-
-        .header-right .inv-label {
-            font-family: 'Playfair Display', serif;
-            font-size: 2rem;
-            font-weight: 800;
-            color: #1a1a2e;
-            letter-spacing: 6px;
-            line-height: 1;
-        }
-
-        .header-right .inv-meta {
-            font-size: 0.72rem;
-            color: #888;
-            margin-top: 6px;
-            line-height: 1.5;
-        }
-
-        .header-right .inv-meta strong {
-            color: #1a1a2e;
-            font-family: 'Courier New', monospace;
-            font-size: 0.78rem;
-        }
-
-        /* â”€â”€ Gold Separator â”€â”€ */
-        .sep-gold {
-            height: 1px;
-            margin: 0 36px;
-            background: linear-gradient(90deg, #c9a84c, #e8dcc8 50%, #c9a84c);
-        }
-
-        /* â”€â”€ Status Bar â”€â”€ */
-        .status-bar {
-            display: flex;
-            justify-content: space-between;
-            align-items: center;
-            padding: 12px 36px;
-            position: relative;
-            z-index: 2;
-        }
-
-        .status-bar .hotel-contact {
-            font-size: 0.68rem;
-            color: #999;
-            line-height: 1.6;
-        }
-
-        .status-badge {
-            display: inline-block;
-            padding: 5px 18px;
-            font-weight: 800;
-            font-size: 0.7rem;
-            letter-spacing: 3px;
-            text-transform: uppercase;
-            border: 2.5px solid;
-            border-radius: 4px;
-        }
-
-        .badge-paid {
-            color: #16a34a;
-            border-color: #16a34a;
-            background: rgba(22, 163, 74, 0.04);
-        }
-
-        .badge-unpaid {
-            color: #dc2626;
-            border-color: #dc2626;
-            background: rgba(220, 38, 38, 0.04);
-        }
-
-        .badge-partial {
-            color: #ca8a04;
-            border-color: #ca8a04;
-            background: rgba(202, 138, 4, 0.04);
-        }
-
-        /* â”€â”€ Body â”€â”€ */
-        .body {
-            padding: 6px 36px 28px;
-            position: relative;
-            z-index: 2;
-        }
-
-        /* â”€â”€ Info Cards â”€â”€ */
-        .info-cards {
-            display: grid;
-            grid-template-columns: 1fr 1fr;
-            gap: 16px;
-            margin: 14px 0 20px;
-        }
-
-        .info-card {
-            border: 1px solid #f0ece6;
-            border-radius: 8px;
-            padding: 14px 16px;
-        }
-
-        .info-card .card-title {
-            font-size: 0.58rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            color: #c9a84c;
-            margin-bottom: 10px;
-            padding-bottom: 6px;
-            border-bottom: 1px solid #f5f1eb;
-        }
-
-        .info-card .row {
-            display: flex;
-            justify-content: space-between;
-            padding: 2.5px 0;
-            font-size: 0.78rem;
-        }
-
-        .info-card .row .lbl {
-            color: #999;
-            font-weight: 400;
-        }
-
-        .info-card .row .val {
-            color: #2c2c2c;
-            font-weight: 600;
-            text-align: right;
-            max-width: 60%;
-        }
-
-        /* â”€â”€ Room Table â”€â”€ */
-        .tbl-room {
-            width: 100%;
-            border-collapse: collapse;
-            margin: 16px 0 6px;
-            font-size: 0.78rem;
-        }
-
-        .tbl-room thead th {
-            background: #1a1a2e;
-            color: #e8dcc8;
-            padding: 9px 14px;
-            font-weight: 600;
-            font-size: 0.64rem;
-            text-transform: uppercase;
-            letter-spacing: 1px;
-            text-align: left;
-        }
-
-        .tbl-room thead th:last-child,
-        .tbl-room thead th:nth-child(3),
-        .tbl-room thead th:nth-child(4) {
-            text-align: right;
-        }
-
-        .tbl-room tbody td {
-            padding: 9px 14px;
-            border-bottom: 1px solid #f5f1eb;
-        }
-
-        .tbl-room tbody td:last-child,
-        .tbl-room tbody td:nth-child(3),
-        .tbl-room tbody td:nth-child(4) {
-            text-align: right;
-        }
-
-        .tbl-room tbody td:last-child {
-            font-weight: 700;
-            font-family: 'Courier New', monospace;
-            font-size: 0.8rem;
-        }
-
-        .tbl-room tbody td:nth-child(4) {
-            font-family: 'Courier New', monospace;
-        }
-
-        .tbl-room tbody tr:nth-child(even) {
-            background: #fdfcfa;
-        }
-
-        /* â”€â”€ Summary â”€â”€ */
-        .summary-wrap {
-            display: flex;
-            justify-content: flex-end;
-            margin-top: 4px;
-        }
-
-        .summary {
-            width: 300px;
-        }
-
-        .sum-row {
-            display: flex;
-            justify-content: space-between;
-            padding: 5px 0;
-            font-size: 0.8rem;
-            border-bottom: 1px solid #f5f1eb;
-        }
-
-        .sum-row .sl {
-            color: #888;
-        }
-
-        .sum-row .sv {
-            font-weight: 600;
-            font-family: 'Courier New', monospace;
-        }
-
-        .sum-row.disc .sv {
-            color: #dc2626;
-        }
-
-        .sum-total {
-            display: flex;
-            justify-content: space-between;
-            padding: 9px 0 5px;
-            margin-top: 4px;
-            border-top: 2px solid #1a1a2e;
-            font-size: 0.95rem;
-        }
-
-        .sum-total .sl {
-            font-weight: 800;
-            color: #1a1a2e;
-        }
-
-        .sum-total .sv {
-            font-weight: 800;
-            font-family: 'Courier New', monospace;
-            color: #1a1a2e;
-        }
-
-        .sum-paid {
-            display: flex;
-            justify-content: space-between;
-            padding: 6px 10px;
-            margin-top: 6px;
-            background: #f0fdf4;
-            border-radius: 5px;
-            font-size: 0.82rem;
-        }
-
-        .sum-paid .sl {
-            color: #16a34a;
-            font-weight: 600;
-        }
-
-        .sum-paid .sv {
-            color: #16a34a;
-            font-weight: 700;
-            font-family: 'Courier New', monospace;
-        }
-
-        .sum-due {
-            display: flex;
-            justify-content: space-between;
-            padding: 6px 10px;
-            margin-top: 4px;
-            background: #fef2f2;
-            border-radius: 5px;
-            font-size: 0.88rem;
-        }
-
-        .sum-due .sl {
-            color: #dc2626;
-            font-weight: 700;
-        }
-
-        .sum-due .sv {
-            color: #dc2626;
-            font-weight: 800;
-            font-family: 'Courier New', monospace;
-        }
-
-        /* â”€â”€ Payment History â”€â”€ */
-        .pay-section {
-            margin-top: 22px;
-        }
-
-        .sec-title {
-            font-size: 0.6rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            color: #c9a84c;
-            margin-bottom: 8px;
-            padding-bottom: 6px;
-            border-bottom: 1px solid #f0ece6;
-        }
-
-        .tbl-pay {
-            width: 100%;
-            border-collapse: collapse;
-            font-size: 0.74rem;
-        }
-
-        .tbl-pay th {
-            background: #faf8f5;
-            padding: 7px 12px;
-            text-align: left;
-            font-weight: 600;
-            font-size: 0.62rem;
-            color: #999;
-            text-transform: uppercase;
-            letter-spacing: 0.5px;
-            border-bottom: 1px solid #f0ece6;
-        }
-
-        .tbl-pay td {
-            padding: 7px 12px;
-            border-bottom: 1px solid #f8f5f0;
-        }
-
-        /* â”€â”€ Note â”€â”€ */
-        .note-box {
-            margin-top: 18px;
-            padding: 10px 14px;
-            background: #fefbf3;
-            border-left: 3px solid #c9a84c;
-            border-radius: 0 6px 6px 0;
-            font-size: 0.78rem;
-            color: #7c6a3a;
-        }
-
-        .note-box strong {
-            color: #5c4e2e;
-        }
-
-        /* Bank Account */
-        .bank-info {
-            margin-top: 22px;
-            padding: 14px 18px;
-            background: #f8f9fb;
-            border: 1px solid #e8e4df;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            gap: 14px;
-        }
-
-        .bank-info .bank-icon {
-            width: 40px;
-            height: 40px;
-            background: #1a1a2e;
-            border-radius: 8px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            color: #c9a84c;
-            font-size: 1.1rem;
-            flex-shrink: 0;
-        }
-
-        .bank-info .bank-details {
-            font-size: 0.78rem;
-            line-height: 1.6;
-        }
-
-        .bank-info .bank-details .bank-label {
-            font-size: 0.6rem;
-            font-weight: 700;
-            text-transform: uppercase;
-            letter-spacing: 2px;
-            color: #c9a84c;
-            margin-bottom: 2px;
-        }
-
-        .bank-info .bank-details .bank-number {
-            font-family: 'Courier New', monospace;
-            font-size: 1rem;
-            font-weight: 700;
-            color: #1a1a2e;
-            letter-spacing: 1px;
-        }
-
-        .bank-info .bank-details .bank-holder {
-            color: #666;
-            font-size: 0.72rem;
-        }
-
-        /* â”€â”€ Footer â”€â”€ */
-        .footer {
-            margin-top: 28px;
-            text-align: center;
-            padding-top: 18px;
-            border-top: 1px solid #f0ece6;
-        }
-
-        .footer .ty {
-            font-family: 'Playfair Display', serif;
-            font-size: 1rem;
-            font-weight: 600;
-            color: #1a1a2e;
-            margin-bottom: 4px;
-        }
-
-        .footer .fc {
-            font-size: 0.65rem;
-            color: #aaa;
-            line-height: 1.7;
-        }
-
-        .footer-bar {
-            margin-top: 18px;
-            height: 3px;
-            background: linear-gradient(90deg, transparent 5%, #c9a84c 30%, #1a1a2e 50%, #c9a84c 70%, transparent 95%);
-        }
-
-        /* â”€â”€ Bottom Border â”€â”€ */
-        .bottom-border {
-            height: 6px;
-            background: repeating-linear-gradient(90deg, #1a1a2e 0px, #1a1a2e 30px, #c9a84c 30px, #c9a84c 32px);
-        }
-
-        /* â”€â”€ Action Bar â”€â”€ */
-        .actions {
-            text-align: center;
-            padding: 18px 0;
-            display: flex;
-            justify-content: center;
-            gap: 10px;
-        }
-
-        .btn {
-            padding: 10px 30px;
-            border: none;
-            border-radius: 8px;
-            font-weight: 700;
-            font-size: 0.82rem;
-            cursor: pointer;
-            transition: all 0.2s;
-            display: inline-flex;
-            align-items: center;
-            gap: 6px;
-            text-decoration: none;
-        }
-
-        .btn-dark {
-            background: #1a1a2e;
-            color: #c9a84c;
-        }
-
-        .btn-dark:hover {
-            background: #2d2d5e;
-            transform: translateY(-1px);
-            box-shadow: 0 4px 16px rgba(26, 26, 46, 0.25);
-        }
-
-        .btn-light {
-            background: #f5f1eb;
-            color: #1a1a2e;
-            border: 1px solid #e0dbd3;
-        }
-
-        .btn-light:hover {
-            background: #ebe6de;
-        }
-
+            padding: 24px 32px 16px; display: flex; justify-content: space-between;
+            align-items: flex-start; position: relative; z-index: 2;
+        }
+        .brand { display: flex; align-items: center; gap: 12px; }
+        .brand-logo { width: 52px; height: 52px; border-radius: 6px; object-fit: cover; border: 1px solid #e5e5e5; }
+        .brand-text h1 { font-size: 1.2rem; font-weight: 700; color: #2c3e50; }
+        .brand-text .sub { font-size: 0.65rem; font-weight: 500; text-transform: uppercase; letter-spacing: 2px; color: #7f8c8d; margin-top: 1px; }
+        .header-right { text-align: right; }
+        .header-right .inv-label { font-size: 1.5rem; font-weight: 700; color: #2c3e50; letter-spacing: 4px; }
+        .header-right .inv-meta { font-size: 0.72rem; color: #999; margin-top: 4px; line-height: 1.5; }
+        .header-right .inv-meta strong { color: #333; font-family: 'Courier New', monospace; font-size: 0.75rem; }
+        .sep-line { height: 1px; margin: 0 32px; background: #e5e5e5; }
+        .status-bar { display: flex; justify-content: space-between; align-items: center; padding: 10px 32px; position: relative; z-index: 2; }
+        .status-bar .hotel-contact { font-size: 0.68rem; color: #999; line-height: 1.5; }
+        .status-badge { display: inline-block; padding: 4px 14px; font-weight: 700; font-size: 0.65rem; letter-spacing: 2px; text-transform: uppercase; border: 1.5px solid; border-radius: 3px; }
+        .badge-paid { color: #16a34a; border-color: #16a34a; background: #f0fdf4; }
+        .badge-unpaid { color: #dc2626; border-color: #dc2626; background: #fef2f2; }
+        .badge-partial { color: #ca8a04; border-color: #ca8a04; background: #fefce8; }
+        .body { padding: 4px 32px 24px; position: relative; z-index: 2; }
+        .info-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 12px 0 18px; }
+        .info-card { border: 1px solid #e5e5e5; border-radius: 6px; padding: 12px 14px; }
+        .info-card .card-title { font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: #7f8c8d; margin-bottom: 8px; padding-bottom: 5px; border-bottom: 1px solid #f0f0f0; }
+        .info-card .row { display: flex; justify-content: space-between; padding: 2px 0; font-size: 0.78rem; }
+        .info-card .row .lbl { color: #999; }
+        .info-card .row .val { color: #333; font-weight: 600; text-align: right; max-width: 60%; }
+        .tbl-room { width: 100%; border-collapse: collapse; margin: 14px 0 6px; font-size: 0.78rem; }
+        .tbl-room thead th { background: #f7f7f7; color: #555; padding: 8px 12px; font-weight: 600; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.5px; text-align: left; border-top: 2px solid #2c3e50; border-bottom: 1px solid #ddd; }
+        .tbl-room thead th:last-child, .tbl-room thead th:nth-child(3), .tbl-room thead th:nth-child(4) { text-align: right; }
+        .tbl-room tbody td { padding: 8px 12px; border-bottom: 1px solid #f0f0f0; }
+        .tbl-room tbody td:last-child, .tbl-room tbody td:nth-child(3), .tbl-room tbody td:nth-child(4) { text-align: right; }
+        .tbl-room tbody td:last-child { font-weight: 600; font-family: 'Courier New', monospace; font-size: 0.8rem; }
+        .tbl-room tbody td:nth-child(4) { font-family: 'Courier New', monospace; }
+        .summary-wrap { display: flex; justify-content: flex-end; margin-top: 4px; }
+        .summary { width: 280px; }
+        .sum-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 0.8rem; border-bottom: 1px solid #f0f0f0; }
+        .sum-row .sl { color: #777; }
+        .sum-row .sv { font-weight: 600; font-family: 'Courier New', monospace; }
+        .sum-row.disc .sv { color: #dc2626; }
+        .sum-total { display: flex; justify-content: space-between; padding: 8px 0 4px; margin-top: 4px; border-top: 2px solid #2c3e50; font-size: 0.95rem; }
+        .sum-total .sl { font-weight: 700; color: #2c3e50; }
+        .sum-total .sv { font-weight: 700; font-family: 'Courier New', monospace; color: #2c3e50; }
+        .sum-paid { display: flex; justify-content: space-between; padding: 5px 8px; margin-top: 6px; background: #f0fdf4; border-radius: 4px; font-size: 0.8rem; }
+        .sum-paid .sl { color: #16a34a; font-weight: 600; }
+        .sum-paid .sv { color: #16a34a; font-weight: 700; font-family: 'Courier New', monospace; }
+        .sum-due { display: flex; justify-content: space-between; padding: 5px 8px; margin-top: 3px; background: #fef2f2; border-radius: 4px; font-size: 0.85rem; }
+        .sum-due .sl { color: #dc2626; font-weight: 700; }
+        .sum-due .sv { color: #dc2626; font-weight: 700; font-family: 'Courier New', monospace; }
+        .pay-section { margin-top: 18px; }
+        .sec-title { font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: #7f8c8d; margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid #e5e5e5; }
+        .tbl-pay { width: 100%; border-collapse: collapse; font-size: 0.74rem; }
+        .tbl-pay th { background: #f7f7f7; padding: 6px 10px; text-align: left; font-weight: 600; font-size: 0.62rem; color: #999; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #e5e5e5; }
+        .tbl-pay td { padding: 6px 10px; border-bottom: 1px solid #f0f0f0; }
+        .note-box { margin-top: 14px; padding: 8px 12px; background: #f9f9f9; border-left: 3px solid #7f8c8d; border-radius: 0 4px 4px 0; font-size: 0.78rem; color: #555; }
+        .note-box strong { color: #333; }
+        .bank-info { margin-top: 18px; padding: 12px 16px; background: #f9f9f9; border: 1px solid #e5e5e5; border-radius: 6px; display: flex; align-items: center; gap: 12px; }
+        .bank-info .bank-icon { width: 36px; height: 36px; background: #2c3e50; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 1rem; flex-shrink: 0; }
+        .bank-info .bank-details { font-size: 0.78rem; line-height: 1.5; }
+        .bank-info .bank-details .bank-label { font-size: 0.58rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: #7f8c8d; margin-bottom: 1px; }
+        .bank-info .bank-details .bank-number { font-family: 'Courier New', monospace; font-size: 0.95rem; font-weight: 700; color: #2c3e50; letter-spacing: 1px; }
+        .bank-info .bank-details .bank-holder { color: #777; font-size: 0.72rem; }
+        .footer { margin-top: 24px; text-align: center; padding-top: 14px; border-top: 1px solid #e5e5e5; }
+        .footer .ty { font-size: 0.85rem; font-weight: 600; color: #2c3e50; margin-bottom: 3px; }
+        .footer .fc { font-size: 0.62rem; color: #aaa; line-height: 1.6; }
+        .bottom-border { height: 4px; background: #2c3e50; }
+        .actions { text-align: center; padding: 16px 0; display: flex; justify-content: center; gap: 10px; }
+        .btn { padding: 9px 24px; border: none; border-radius: 6px; font-weight: 600; font-size: 0.8rem; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
+        .btn-dark { background: #2c3e50; color: #fff; }
+        .btn-dark:hover { background: #34495e; }
+        .btn-light { background: #f5f5f5; color: #333; border: 1px solid #ddd; }
+        .btn-light:hover { background: #eee; }
         @media print {
-            body {
-                padding: 0;
-                background: #fff;
-            }
-
-            .invoice-page {
-                box-shadow: none;
-            }
-
-            .actions {
-                display: none !important;
-            }
-
-            .top-border,
-            .bottom-border {
-                -webkit-print-color-adjust: exact;
-            }
+            body { padding: 0; background: #fff; }
+            .invoice-page { box-shadow: none; border: none; }
+            .actions { display: none !important; }
         }
-
-        @page {
-            margin: 8mm;
-            size: A4;
-        }
+        @page { margin: 8mm; size: A4; }
     </style>
 </head>
-
 <body>
     <div class="invoice-page" id="invoiceContent">
         <div class="watermark wm-<?php echo strtolower($overallStatus); ?>"><?php echo $overallStatus; ?></div>
-
         <div class="top-border"></div>
 
         <!-- Header -->
@@ -802,7 +314,7 @@ if (empty($companySettings['name'])) {
                 <?php if ($logoUrl): ?>
                     <img class="brand-logo" src="<?php echo htmlspecialchars($logoUrl); ?>" alt="<?php echo htmlspecialchars($companySettings['name']); ?>">
                 <?php else: ?>
-                    <div style="width:64px;height:64px;border-radius:10px;background:#1a1a2e;display:flex;align-items:center;justify-content:center;color:#c9a84c;font-family:'Playfair Display',serif;font-size:1.5rem;font-weight:800;">N</div>
+                    <div style="width:52px;height:52px;border-radius:6px;background:#2c3e50;display:flex;align-items:center;justify-content:center;color:#fff;font-size:1.2rem;font-weight:700;">N</div>
                 <?php endif; ?>
                 <div class="brand-text">
                     <h1><?php echo htmlspecialchars($companySettings['name']); ?></h1>
@@ -818,29 +330,28 @@ if (empty($companySettings['name'])) {
                 <div class="inv-meta">
                     No. <strong><?php echo htmlspecialchars($allBookings[0]['booking_code']); ?></strong>
                     <?php if ($isMultiRoom && count($allBookings) > 1): ?>
-                        <br><span style="color:#c9a84c;">+ <?php echo count($allBookings) - 1; ?> room<?php echo count($allBookings) - 1 > 1 ? 's' : ''; ?></span>
+                        <br><span style="color:#7f8c8d;">+ <?php echo count($allBookings) - 1; ?> room<?php echo count($allBookings) - 1 > 1 ? 's' : ''; ?></span>
                     <?php endif; ?>
                     <br><?php echo date('d F Y', strtotime($booking['created_at'])); ?>
                 </div>
             </div>
         </div>
 
-        <div class="sep-gold"></div>
+        <div class="sep-line"></div>
 
         <!-- Status Bar -->
         <div class="status-bar">
             <div class="hotel-contact">
                 Jl. Kasimo Jatikerep Karimunjawa Jepara Jawatengah 59455<br>
-                Tel: 081222228590 · narayanahotelkarimunjawa@gmail.com
+                Tel: 081222228590 &middot; narayanahotelkarimunjawa@gmail.com
             </div>
             <span class="status-badge badge-<?php echo strtolower($overallStatus); ?>"><?php echo $overallStatus; ?></span>
         </div>
 
-        <div style="height:1px;margin:0 36px;background:#f0ece6;"></div>
+        <div class="sep-line"></div>
 
         <!-- Body -->
         <div class="body">
-            <!-- Guest & Stay Info -->
             <div class="info-cards">
                 <div class="info-card">
                     <div class="card-title">Bill To</div>
@@ -866,9 +377,9 @@ if (empty($companySettings['name'])) {
                 <thead>
                     <tr>
                         <th style="width:15%">Room</th>
-                        <th>Type</th>
-                        <th style="width:12%">Nights</th>
-                        <th style="width:22%">Rate / Night</th>
+                        <th>Description</th>
+                        <th style="width:10%">Qty</th>
+                        <th style="width:22%">Rate</th>
                         <th style="width:22%">Amount</th>
                     </tr>
                 </thead>
@@ -876,27 +387,21 @@ if (empty($companySettings['name'])) {
                     <?php foreach ($allBookings as $bk): ?>
                         <tr>
                             <td><strong><?php echo htmlspecialchars($bk['room_number']); ?></strong></td>
-                            <td><?php echo htmlspecialchars($bk['room_type']); ?></td>
+                            <td><?php echo htmlspecialchars($bk['room_type']); ?> &mdash; <?php echo $bk['total_nights']; ?> night<?php echo $bk['total_nights'] > 1 ? 's' : ''; ?></td>
                             <td><?php echo $bk['total_nights']; ?></td>
                             <td>Rp <?php echo number_format($bk['room_price'], 0, ',', '.'); ?></td>
                             <td>Rp <?php echo number_format($bk['total_price'], 0, ',', '.'); ?></td>
                         </tr>
                     <?php endforeach; ?>
-                    <?php if (!empty($allExtras)): ?>
-                        <?php foreach ($allExtras as $ex): ?>
-                            <tr style="background:#fefbf3;">
-                                <td colspan="2" style="padding-left:20px; color:#7c6a3a;">
-                                    <?php if ($isMultiRoom): ?>
-                                        <span style="color:#999;font-size:0.65rem;">Rm <?php echo htmlspecialchars($ex['room_number']); ?> ·</span>
-                                    <?php endif; ?>
-                                    <?php echo htmlspecialchars($ex['item_name']); ?>
-                                </td>
-                                <td style="color:#7c6a3a;"><?php echo $ex['quantity']; ?>x</td>
-                                <td style="color:#7c6a3a;">Rp <?php echo number_format($ex['unit_price'], 0, ',', '.'); ?></td>
-                                <td style="color:#7c6a3a;">Rp <?php echo number_format($ex['total_price'], 0, ',', '.'); ?></td>
-                            </tr>
-                        <?php endforeach; ?>
-                    <?php endif; ?>
+                    <?php foreach ($allExtras as $ex): ?>
+                        <tr>
+                            <td><?php echo $isMultiRoom ? htmlspecialchars($ex['room_number']) : ''; ?></td>
+                            <td><?php echo htmlspecialchars($ex['item_name']); ?></td>
+                            <td><?php echo $ex['quantity']; ?></td>
+                            <td>Rp <?php echo number_format($ex['unit_price'], 0, ',', '.'); ?></td>
+                            <td>Rp <?php echo number_format($ex['total_price'], 0, ',', '.'); ?></td>
+                        </tr>
+                    <?php endforeach; ?>
                 </tbody>
             </table>
 
@@ -914,8 +419,13 @@ if (empty($companySettings['name'])) {
                         </div>
                     <?php endif; ?>
                     <?php if ($combinedExtrasTotal > 0): ?>
-                        <div class="sum-row" style="color:#6366f1;">
-                            <span class="sl">Extras</span>
+                        <?php
+                        // Build label from actual extra item names
+                        $extraNames = array_unique(array_column($allExtras, 'item_name'));
+                        $extrasLabel = implode(', ', $extraNames);
+                        ?>
+                        <div class="sum-row">
+                            <span class="sl"><?php echo htmlspecialchars($extrasLabel); ?></span>
                             <span class="sv">+ Rp <?php echo number_format($combinedExtrasTotal, 0, ',', '.'); ?></span>
                         </div>
                     <?php endif; ?>
@@ -974,7 +484,7 @@ if (empty($companySettings['name'])) {
 
             <!-- Bank Account -->
             <div class="bank-info">
-                <div class="bank-icon">🏦</div>
+                <div class="bank-icon">&#9889;</div>
                 <div class="bank-details">
                     <div class="bank-label">Transfer Payment</div>
                     <div class="bank-number">1926663992</div>
@@ -988,9 +498,8 @@ if (empty($companySettings['name'])) {
                 <div class="fc">
                     <?php echo htmlspecialchars($companySettings['name']); ?><br>
                     Jl. Kasimo Jatikerep Karimunjawa Jepara Jawatengah 59455<br>
-                    081222228590 · narayanahotelkarimunjawa@gmail.com · www.narayanakarimunjawa.com
+                    081222228590 &middot; narayanahotelkarimunjawa@gmail.com &middot; www.narayanakarimunjawa.com
                 </div>
-                <div class="footer-bar"></div>
             </div>
         </div>
 
@@ -999,8 +508,8 @@ if (empty($companySettings['name'])) {
 
     <!-- Actions -->
     <div class="actions">
-        <button class="btn btn-dark" onclick="savePDF()">ðŸ“¥ Save as PDF</button>
-        <button class="btn btn-light" onclick="window.print()">ðŸ–¨ï¸ Print</button>
+        <button class="btn btn-dark" onclick="savePDF()">Save as PDF</button>
+        <button class="btn btn-light" onclick="window.print()">Print</button>
     </div>
 
     <script>
@@ -1009,13 +518,8 @@ if (empty($companySettings['name'])) {
             window.print();
         }
         <?php if ($isPdf): ?>
-            window.onload = function() {
-                setTimeout(function() {
-                    window.print();
-                }, 500);
-            };
+            window.onload = function() { setTimeout(function() { window.print(); }, 500); };
         <?php endif; ?>
     </script>
 </body>
-
 </html>
