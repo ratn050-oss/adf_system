@@ -979,7 +979,6 @@ include '../../includes/header.php';
     const AVAILABLE_ROOMS = <?php echo json_encode(array_values($rooms)); ?>;
     const ROOMS_BY_TYPE = <?php echo json_encode($roomsByType); ?>;
     let roomCardIndex = <?php echo count($groupBookings); ?>;
-    const ALL_BOOKING_IDS = <?php echo json_encode($allBookingIds); ?>;
     let discountType = 'rp';
     let currentExtrasTotal = <?php echo $totalExtras; ?>;
 
