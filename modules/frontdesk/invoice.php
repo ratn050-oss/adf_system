@@ -811,11 +811,7 @@ if (empty($companySettings['name'])) {
                 <?php endif; ?>
                 <div class="brand-text">
                     <h1><?php echo htmlspecialchars($companySettings['name']); ?></h1>
-                    <?php if (!empty($companySettings['tagline'])): ?>
-                        <div class="sub"><?php echo htmlspecialchars($companySettings['tagline']); ?></div>
-                    <?php else: ?>
-                        <div class="sub">Karimunjawa Island</div>
-                    <?php endif; ?>
+                    <div class="sub">The Paradise of Java</div>
                 </div>
             </div>
             <div class="header-right">
