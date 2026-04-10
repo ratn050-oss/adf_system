@@ -80,13 +80,24 @@ foreach ($groupBookings as $gb) {
     $combinedFinalPrice += (float)$gb['final_price'];
 }
 
-// Get all rooms
+// Get available rooms (not booked during this booking's dates, plus currently assigned rooms)
+$currentRoomIds = array_column($groupBookings, 'room_id');
+$currentRoomPlaceholders = implode(',', array_fill(0, count($currentRoomIds), '?'));
 $rooms = $db->fetchAll("
     SELECT r.id, r.room_number, rt.type_name, rt.base_price
     FROM rooms r JOIN room_types rt ON r.room_type_id = rt.id
     WHERE r.status != 'maintenance'
+    AND (
+        r.id IN ($currentRoomPlaceholders)
+        OR r.id NOT IN (
+            SELECT ob.room_id FROM bookings ob
+            WHERE ob.status NOT IN ('cancelled','checked_out')
+            AND ob.id NOT IN ($placeholders)
+            AND ob.check_in_date < ? AND ob.check_out_date > ?
+        )
+    )
     ORDER BY r.room_number
-");
+", array_merge($currentRoomIds, $allBookingIds, [$booking['check_out_date'], $booking['check_in_date']]));
 
 // Get booking sources from DB
 $bookingSources = $db->fetchAll("SELECT source_key, source_name, source_type, fee_percent, icon FROM booking_sources WHERE is_active = 1 ORDER BY sort_order ASC");
@@ -676,7 +687,7 @@ include '../../includes/header.php';
                                 <div class="form-row">
                                     <div class="form-group">
                                         <label>Kamar</label>
-                                        <select name="rooms[<?php echo $idx; ?>][room_id]" class="grp-room-select" data-idx="<?php echo $idx; ?>" onchange="recalculate()">
+                                        <select name="rooms[<?php echo $idx; ?>][room_id]" class="grp-room-select" data-idx="<?php echo $idx; ?>" onchange="onRoomChange(this); recalculate()">
                                             <?php foreach ($rooms as $room): ?>
                                                 <option value="<?php echo $room['id']; ?>"
                                                     data-price="<?php echo $room['base_price']; ?>"
@@ -736,7 +747,7 @@ include '../../includes/header.php';
                     <div class="form-row">
                         <div class="form-group">
                             <label>Kamar</label>
-                            <select name="room_id" id="roomSelect" onchange="recalculate()">
+                            <select name="room_id" id="roomSelect" onchange="onRoomChange(this); recalculate()">
                                 <?php foreach ($rooms as $room): ?>
                                     <option value="<?php echo $room['id']; ?>"
                                         data-price="<?php echo $room['base_price']; ?>"
@@ -917,29 +928,23 @@ include '../../includes/header.php';
         recalculate();
     }
 
+    function onRoomChange(selectEl) {
+        const opt = selectEl.options[selectEl.selectedIndex];
+        if (!opt || !opt.dataset.price) return;
+        if (IS_GROUP) {
+            const card = selectEl.closest('.room-card');
+            if (card) card.querySelector('.grp-room-price').value = opt.dataset.price;
+        } else {
+            document.getElementById('roomPrice').value = opt.dataset.price;
+        }
+    }
+
     function recalculate() {
         const ci = new Date(document.getElementById('checkIn').value);
         const co = new Date(document.getElementById('checkOut').value);
         if (!ci || !co || co <= ci) return;
 
         const nights = Math.ceil((co - ci) / 86400000);
-
-        // Auto-update room price when room selection changes
-        if (IS_GROUP) {
-            document.querySelectorAll('.room-card').forEach(card => {
-                const sel = card.querySelector('.grp-room-select');
-                const opt = sel.options[sel.selectedIndex];
-                if (opt && opt.dataset.price) {
-                    card.querySelector('.grp-room-price').value = opt.dataset.price;
-                }
-            });
-        } else {
-            const roomSel = document.getElementById('roomSelect');
-            const selOpt = roomSel.options[roomSel.selectedIndex];
-            if (selOpt && selOpt.dataset.price) {
-                document.getElementById('roomPrice').value = selOpt.dataset.price;
-            }
-        }
 
         // OTA Fee percent from source
         const source = document.getElementById('bookingSource').value;
