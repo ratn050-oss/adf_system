@@ -421,6 +421,35 @@ include '../../includes/header.php';
         background: #4f46e5;
     }
 
+    .btn-add-room {
+        display: block;
+        width: 100%;
+        padding: 0.6rem;
+        margin: 0.5rem 0 1rem;
+        background: #f0fdf4;
+        color: #16a34a;
+        border: 2px dashed #86efac;
+        border-radius: 8px;
+        font-size: 0.85rem;
+        font-weight: 600;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .btn-add-room:hover {
+        background: #dcfce7;
+        border-color: #16a34a;
+    }
+    .new-room-badge {
+        display: inline-block;
+        background: #fbbf24;
+        color: #78350f;
+        padding: 1px 8px;
+        border-radius: 4px;
+        font-size: 0.65rem;
+        font-weight: 700;
+        letter-spacing: 0.5px;
+    }
+
     .extras-list {
         display: flex;
         flex-direction: column;
@@ -731,6 +760,7 @@ include '../../includes/header.php';
                             </div>
                         <?php endforeach; ?>
                     </div>
+                    <button type="button" class="btn-add-room" onclick="addNewRoomCard()">➕ Tambah Room</button>
 
                     <!-- SOURCE (shared for group) -->
                     <div class="form-row">
@@ -788,6 +818,8 @@ include '../../includes/header.php';
                             <input type="number" name="num_guests" min="1" max="10" value="<?php echo $booking['adults'] ?? 1; ?>">
                         </div>
                     </div>
+
+                    <button type="button" class="btn-add-room" onclick="convertToGroupAndAddRoom()">➕ Tambah Room</button>
 
                     <!-- SOURCE & PRICE -->
                     <div class="form-row">
@@ -850,7 +882,7 @@ include '../../includes/header.php';
                     <!-- ADD FORM -->
                     <div id="addExtraForm" class="add-extra-form">
                         <div class="preset-btns">
-                            <button type="button" class="preset-btn" onclick="fillPreset('Extra Bed', 150000)">🛏️ Extra Bed</button>
+                            <button type="button" class="preset-btn" onclick="fillPreset('Extra Bed', 350000)">🛏️ Extra Bed</button>
                             <button type="button" class="preset-btn" onclick="fillPreset('Laundry', 25000)">👔 Laundry</button>
                             <button type="button" class="preset-btn" onclick="fillPreset('Breakfast', 35000)">🍳 Breakfast</button>
                             <button type="button" class="preset-btn" onclick="fillPreset('Mini Bar', 15000)">🍺 Mini Bar</button>
@@ -940,7 +972,13 @@ include '../../includes/header.php';
     const OTA_FEES = <?php echo json_encode($otaFees); ?>;
     const BASE_URL = '<?php echo BASE_URL; ?>';
     const BOOKING_ID = <?php echo $bookingId; ?>;
-    const IS_GROUP = <?php echo $isGroup ? 'true' : 'false'; ?>;
+    let IS_GROUP = <?php echo $isGroup ? 'true' : 'false'; ?>;
+    const ALL_BOOKING_IDS = <?php echo json_encode($allBookingIds); ?>;
+    const GUEST_ID = <?php echo intval($booking['guest_id']); ?>;
+    const GROUP_ID = '<?php echo htmlspecialchars($booking['group_id'] ?? ''); ?>';
+    const AVAILABLE_ROOMS = <?php echo json_encode(array_values($rooms)); ?>;
+    const ROOMS_BY_TYPE = <?php echo json_encode($roomsByType); ?>;
+    let roomCardIndex = <?php echo count($groupBookings); ?>;
     const ALL_BOOKING_IDS = <?php echo json_encode($allBookingIds); ?>;
     let discountType = 'rp';
     let currentExtrasTotal = <?php echo $totalExtras; ?>;
@@ -985,6 +1023,117 @@ include '../../includes/header.php';
                 opt.style.display = takenByOther ? 'none' : '';
             });
         });
+    }
+
+    function buildRoomOptionsByType(selectedRoomId) {
+        let html = '';
+        for (const [typeName, rooms] of Object.entries(ROOMS_BY_TYPE)) {
+            const price = rooms[0].base_price;
+            html += `<optgroup label="${typeName} (Rp ${parseInt(price).toLocaleString('id-ID')})">`;
+            rooms.forEach(r => {
+                const sel = (r.id == selectedRoomId) ? 'selected' : '';
+                html += `<option value="${r.id}" data-price="${r.base_price}" ${sel}>${r.room_number}</option>`;
+            });
+            html += '</optgroup>';
+        }
+        return html;
+    }
+
+    function addNewRoomCard() {
+        const idx = roomCardIndex++;
+        const firstRoom = AVAILABLE_ROOMS[0];
+        const container = document.querySelector('.room-cards');
+        const card = document.createElement('div');
+        card.className = 'room-card';
+        card.dataset.roomIdx = idx;
+        card.dataset.isNew = 'true';
+        card.innerHTML = `
+            <input type="hidden" name="rooms[${idx}][booking_id]" value="0">
+            <div class="room-card-header">
+                <span class="room-card-title">🏠 Room Baru</span>
+                <span class="new-room-badge">NEW</span>
+                <button type="button" onclick="this.closest('.room-card').remove(); recalculate(); updateGroupRoomOptions();" style="background:#fee2e2;color:#dc2626;border:none;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:0.75rem;font-weight:600;margin-left:auto;">✕ Hapus</button>
+            </div>
+            <div class="form-row">
+                <div class="form-group">
+                    <label>Kamar</label>
+                    <select class="grp-room-select" data-idx="${idx}" onchange="onRoomChange(this); recalculate()">
+                        ${buildRoomOptionsByType('')}
+                    </select>
+                </div>
+                <div class="form-group">
+                    <label>Harga/Malam (Rp)</label>
+                    <input type="number" class="grp-room-price" data-idx="${idx}" value="${firstRoom ? firstRoom.base_price : 0}" step="1000" onchange="recalculate()">
+                </div>
+            </div>
+            <div class="form-group">
+                <label>Diskon (Rp)</label>
+                <input type="number" class="grp-discount" data-idx="${idx}" value="0" min="0" onchange="recalculate()">
+            </div>
+        `;
+        container.appendChild(card);
+        // Auto-select first available room and update price
+        const newSel = card.querySelector('.grp-room-select');
+        onRoomChange(newSel);
+        updateGroupRoomOptions();
+        recalculate();
+    }
+
+    function convertToGroupAndAddRoom() {
+        // Convert single booking to group mode
+        IS_GROUP = true;
+
+        // Get current single room data
+        const currentRoomId = document.getElementById('roomSelect').value;
+        const currentRoomPrice = document.getElementById('roomPrice').value;
+        const discVal = document.getElementById('discountValue') ? document.getElementById('discountValue').value : '0';
+
+        // Replace single room section with group room cards
+        const roomSection = document.querySelector('.form-row:has(#roomSelect)');
+        const priceSection = roomSection.nextElementSibling; // SOURCE & PRICE row
+
+        // Build group container
+        const container = document.createElement('div');
+        container.className = 'room-cards';
+        container.innerHTML = `
+            <div class="room-card" data-room-idx="0">
+                <input type="hidden" name="rooms[0][booking_id]" value="${BOOKING_ID}">
+                <div class="room-card-header">
+                    <span class="room-card-title">🏠 Room Saat Ini</span>
+                    <span class="room-card-status status-badge" style="background:#dbeafe;color:#1d4ed8;border:1px solid #93c5fd;padding:2px 8px;font-size:0.65rem;">EXISTING</span>
+                </div>
+                <div class="form-row">
+                    <div class="form-group">
+                        <label>Kamar</label>
+                        <select class="grp-room-select" data-idx="0" onchange="onRoomChange(this); recalculate()">
+                            ${buildRoomOptionsByType(currentRoomId)}
+                        </select>
+                    </div>
+                    <div class="form-group">
+                        <label>Harga/Malam (Rp)</label>
+                        <input type="number" class="grp-room-price" data-idx="0" value="${currentRoomPrice}" step="1000" onchange="recalculate()">
+                    </div>
+                </div>
+                <div class="form-group">
+                    <label>Diskon (Rp)</label>
+                    <input type="number" class="grp-discount" data-idx="0" value="${discVal}" min="0" onchange="recalculate()">
+                </div>
+            </div>
+        `;
+
+        // Insert container and add room button before the source row
+        roomSection.replaceWith(container);
+
+        const addBtn = document.createElement('button');
+        addBtn.type = 'button';
+        addBtn.className = 'btn-add-room';
+        addBtn.textContent = '➕ Tambah Room';
+        addBtn.onclick = addNewRoomCard;
+        container.after(addBtn);
+
+        roomCardIndex = 1;
+        addNewRoomCard();
+        updateGroupRoomOptions();
     }
 
     function recalculate() {
@@ -1228,17 +1377,27 @@ include '../../includes/header.php';
             // Group save: send all rooms data as JSON
             const roomCards = document.querySelectorAll('.room-card');
             const roomsData = [];
+            const newRooms = [];
             roomCards.forEach(card => {
-                roomsData.push({
-                    booking_id: card.querySelector('input[name*="[booking_id]"]').value,
+                const bookingId = card.querySelector('input[name*="[booking_id]"]')?.value || '0';
+                const roomData = {
+                    booking_id: bookingId,
                     room_id: card.querySelector('.grp-room-select').value,
                     room_price: card.querySelector('.grp-room-price').value,
                     discount: card.querySelector('.grp-discount').value
-                });
+                };
+                if (bookingId === '0' || card.dataset.isNew === 'true') {
+                    newRooms.push(roomData);
+                } else {
+                    roomsData.push(roomData);
+                }
             });
             formData.append('is_group', '1');
             formData.append('rooms_json', JSON.stringify(roomsData));
-            console.log('GROUP SAVE rooms:', roomsData);
+            if (newRooms.length > 0) {
+                formData.append('new_rooms_json', JSON.stringify(newRooms));
+            }
+            console.log('GROUP SAVE existing:', roomsData, 'new:', newRooms);
         }
 
         const apiUrl = BASE_URL + '/api/update-reservation.php';

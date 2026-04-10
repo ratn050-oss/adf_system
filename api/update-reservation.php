@@ -374,6 +374,85 @@ try {
         }
     }
 
+    // Handle NEW ROOMS added to the group
+    $newRoomsAdded = [];
+    if (!empty($_POST['new_rooms_json'])) {
+        $newRoomsData = json_decode($_POST['new_rooms_json'], true);
+        if (is_array($newRoomsData) && count($newRoomsData) > 0) {
+            error_log("NEW ROOMS: " . count($newRoomsData) . " rooms to add");
+
+            // Ensure group_id exists
+            $groupId = $booking['group_id'];
+            if (empty($groupId)) {
+                $groupId = 'GRP-' . date('Ymd') . '-' . substr(uniqid(), -6);
+                // Update existing booking with group_id
+                $conn->prepare("UPDATE bookings SET group_id = ? WHERE id = ?")->execute([$groupId, $bookingId]);
+                error_log("Created new group_id: $groupId");
+            }
+
+            foreach ($newRoomsData as $nrIdx => $nr) {
+                $nrRoomId = intval($nr['room_id'] ?? 0);
+                $nrRoomPrice = floatval($nr['room_price'] ?? 0);
+                $nrDiscount = floatval($nr['discount'] ?? 0);
+
+                if (!$nrRoomId) continue;
+
+                if (!$nrRoomPrice) {
+                    $rpStmt = $conn->prepare("SELECT rt.base_price FROM rooms r JOIN room_types rt ON r.room_type_id = rt.id WHERE r.id = ?");
+                    $rpStmt->execute([$nrRoomId]);
+                    $rpRow = $rpStmt->fetch(PDO::FETCH_ASSOC);
+                    $nrRoomPrice = $rpRow ? (float)$rpRow['base_price'] : 0;
+                }
+
+                // Check availability
+                $avStmt = $conn->prepare("
+                    SELECT COUNT(*) FROM bookings 
+                    WHERE room_id = ? AND status NOT IN ('cancelled','checked_out')
+                    AND check_in_date < ? AND check_out_date > ?
+                ");
+                $avStmt->execute([$nrRoomId, $checkOut, $checkIn]);
+                if ($avStmt->fetchColumn() > 0) {
+                    $newRoomsAdded[] = ['room_id' => $nrRoomId, 'status' => 'skipped', 'reason' => 'room not available'];
+                    continue;
+                }
+
+                $nrTotalPrice = $nrRoomPrice * $nights;
+                $nrAfterDiscount = $nrTotalPrice - $nrDiscount;
+                $nrFee = $otaFeePercent > 0 ? round($nrAfterDiscount * $otaFeePercent / 100) : 0;
+                $nrFinalPrice = $nrAfterDiscount - $nrFee;
+
+                // Generate booking code
+                $nrBookingCode = 'BK-' . date('Ymd') . '-' . rand(1000, 9999);
+
+                $insStmt = $conn->prepare("
+                    INSERT INTO bookings (
+                        booking_code, group_id, guest_id, room_id,
+                        check_in_date, check_out_date, total_nights,
+                        adults, children,
+                        room_price, total_price, discount, final_price,
+                        booking_source, status, payment_status, paid_amount,
+                        special_request, created_at, updated_at
+                    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'confirmed', 'unpaid', 0, '', NOW(), NOW())
+                ");
+                $insStmt->execute([
+                    $nrBookingCode, $groupId, $booking['gid'], $nrRoomId,
+                    $checkIn, $checkOut, $nights,
+                    $booking['adults'] ?? 1, $booking['children'] ?? 0,
+                    $nrRoomPrice, $nrTotalPrice, $nrDiscount, $nrFinalPrice,
+                    $intendedSource
+                ]);
+                $newId = $conn->lastInsertId();
+                error_log("NEW ROOM added: booking_id=$newId room_id=$nrRoomId code=$nrBookingCode");
+                $newRoomsAdded[] = ['booking_id' => $newId, 'room_id' => $nrRoomId, 'status' => 'created', 'code' => $nrBookingCode];
+            }
+
+            // Also update existing booking's group_id if it was just created
+            if (!$booking['group_id'] && !empty($groupId)) {
+                $conn->prepare("UPDATE bookings SET group_id = ? WHERE id = ?")->execute([$groupId, $bookingId]);
+            }
+        }
+    }
+
     // Calculate combined totals for response
     $respTotalPrice = $isGroupMode ? 0 : ($totalPrice ?? 0);
     $respFinalPrice = $isGroupMode ? 0 : ($finalPrice ?? 0);
@@ -385,6 +464,12 @@ try {
 
     // Build descriptive success message
     $successMsg = 'Reservation updated successfully';
+    if (!empty($newRoomsAdded)) {
+        $createdCount = count(array_filter($newRoomsAdded, fn($r) => $r['status'] === 'created'));
+        if ($createdCount > 0) {
+            $successMsg .= " + $createdCount room baru ditambahkan";
+        }
+    }
     if (!$isGroupMode && $verifyRow) {
         $successMsg .= ' — Room ' . $verifyRow['room_number'] . ' (' . $verifyRow['type_name'] . ')';
     }

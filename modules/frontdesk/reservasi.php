@@ -1827,7 +1827,7 @@ include '../../includes/header.php';
                     ${extrasTotal > 0 ? `<span style="margin-left:auto;color:#6366f1;font-size:0.78rem;">Rp ${extrasTotal.toLocaleString('id-ID')}</span>` : ''}
                 </div>
                 <div style="display:flex;flex-wrap:wrap;gap:4px;margin-bottom:6px;">
-                    <button type="button" class="btn-preset-extra" onclick="addRoomExtra('${roomId}','Extra Bed',150000)">🛏️ Extra Bed</button>
+                    <button type="button" class="btn-preset-extra" onclick="addRoomExtra('${roomId}','Extra Bed',350000)">🛏️ Extra Bed</button>
                     <button type="button" class="btn-preset-extra" onclick="addRoomExtra('${roomId}','Laundry',25000)">👔 Laundry</button>
                     <button type="button" class="btn-preset-extra" onclick="addRoomExtra('${roomId}','Extra Pillow',25000)">🛏️ Pillow</button>
                     <button type="button" class="btn-preset-extra" onclick="addRoomExtra('${roomId}','Extra Towel',15000)">🧺 Towel</button>
