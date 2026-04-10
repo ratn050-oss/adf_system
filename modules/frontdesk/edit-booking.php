@@ -80,24 +80,33 @@ foreach ($groupBookings as $gb) {
     $combinedFinalPrice += (float)$gb['final_price'];
 }
 
-// Get available rooms (not booked during this booking's dates, plus currently assigned rooms)
+// Get available rooms: exclude rooms with overlapping bookings (except current booking's rooms)
 $currentRoomIds = array_column($groupBookings, 'room_id');
-$currentRoomPlaceholders = implode(',', array_fill(0, count($currentRoomIds), '?'));
+
+// First get IDs of rooms that are booked during this period (excluding current booking group)
+$bookedRoomIds = [];
+$brStmt = $pdo->prepare("
+    SELECT DISTINCT room_id FROM bookings
+    WHERE status NOT IN ('cancelled','checked_out')
+    AND id NOT IN ($placeholders)
+    AND check_in_date < ? AND check_out_date > ?
+");
+$brStmt->execute(array_merge($allBookingIds, [$booking['check_out_date'], $booking['check_in_date']]));
+$bookedRoomIds = $brStmt->fetchAll(PDO::FETCH_COLUMN);
+
+// Fetch all non-maintenance rooms, mark which are available
 $rooms = $db->fetchAll("
     SELECT r.id, r.room_number, rt.type_name, rt.base_price
     FROM rooms r JOIN room_types rt ON r.room_type_id = rt.id
     WHERE r.status != 'maintenance'
-    AND (
-        r.id IN ($currentRoomPlaceholders)
-        OR r.id NOT IN (
-            SELECT ob.room_id FROM bookings ob
-            WHERE ob.status NOT IN ('cancelled','checked_out')
-            AND ob.id NOT IN ($placeholders)
-            AND ob.check_in_date < ? AND ob.check_out_date > ?
-        )
-    )
     ORDER BY r.room_number
-", array_merge($currentRoomIds, $allBookingIds, [$booking['check_out_date'], $booking['check_in_date']]));
+");
+
+// Filter: keep only available rooms + currently assigned rooms
+$rooms = array_filter($rooms, function($room) use ($bookedRoomIds, $currentRoomIds) {
+    return in_array($room['id'], $currentRoomIds) || !in_array($room['id'], $bookedRoomIds);
+});
+$rooms = array_values($rooms);
 
 // Get booking sources from DB
 $bookingSources = $db->fetchAll("SELECT source_key, source_name, source_type, fee_percent, icon FROM booking_sources WHERE is_active = 1 ORDER BY sort_order ASC");
@@ -688,11 +697,13 @@ include '../../includes/header.php';
                                     <div class="form-group">
                                         <label>Kamar</label>
                                         <select name="rooms[<?php echo $idx; ?>][room_id]" class="grp-room-select" data-idx="<?php echo $idx; ?>" onchange="onRoomChange(this); recalculate()">
-                                            <?php foreach ($rooms as $room): ?>
+                                            <?php foreach ($rooms as $room): 
+                                                $isCurrent = ($room['id'] == $gb['room_id']);
+                                            ?>
                                                 <option value="<?php echo $room['id']; ?>"
                                                     data-price="<?php echo $room['base_price']; ?>"
-                                                    <?php echo $room['id'] == $gb['room_id'] ? 'selected' : ''; ?>>
-                                                    Room <?php echo $room['room_number']; ?> - <?php echo $room['type_name']; ?> (Rp <?php echo number_format($room['base_price'], 0, ',', '.'); ?>)
+                                                    <?php echo $isCurrent ? 'selected' : ''; ?>>
+                                                    Room <?php echo $room['room_number']; ?> - <?php echo $room['type_name']; ?> (Rp <?php echo number_format($room['base_price'], 0, ',', '.'); ?>)<?php echo $isCurrent ? ' ✓' : ''; ?>
                                                 </option>
                                             <?php endforeach; ?>
                                         </select>
@@ -748,11 +759,14 @@ include '../../includes/header.php';
                         <div class="form-group">
                             <label>Kamar</label>
                             <select name="room_id" id="roomSelect" onchange="onRoomChange(this); recalculate()">
-                                <?php foreach ($rooms as $room): ?>
+                                <?php foreach ($rooms as $room): 
+                                    $isCurrent = ($room['id'] == $booking['room_id']);
+                                    $isBooked = in_array($room['id'], $bookedRoomIds);
+                                ?>
                                     <option value="<?php echo $room['id']; ?>"
                                         data-price="<?php echo $room['base_price']; ?>"
-                                        <?php echo $room['id'] == $booking['room_id'] ? 'selected' : ''; ?>>
-                                        Room <?php echo $room['room_number']; ?> - <?php echo $room['type_name']; ?> (Rp <?php echo number_format($room['base_price'], 0, ',', '.'); ?>)
+                                        <?php echo $isCurrent ? 'selected' : ''; ?>>
+                                        Room <?php echo $room['room_number']; ?> - <?php echo $room['type_name']; ?> (Rp <?php echo number_format($room['base_price'], 0, ',', '.'); ?>)<?php echo $isCurrent ? ' ✓' : ''; ?>
                                     </option>
                                 <?php endforeach; ?>
                             </select>
@@ -1165,6 +1179,17 @@ include '../../includes/header.php';
         const form = document.getElementById('editForm');
         const formData = new FormData(form);
 
+        // Debug: log room info before save
+        if (!IS_GROUP) {
+            const roomSel = document.getElementById('roomSelect');
+            const selectedOpt = roomSel.options[roomSel.selectedIndex];
+            console.log('🔑 ROOM SAVE DEBUG:', {
+                room_id: formData.get('room_id'),
+                room_price: formData.get('room_price'),
+                selected_text: selectedOpt ? selectedOpt.textContent.trim() : 'N/A'
+            });
+        }
+
         if (IS_GROUP) {
             // Group save: send all rooms data as JSON
             const roomCards = document.querySelectorAll('.room-card');
@@ -1204,14 +1229,20 @@ include '../../includes/header.php';
                 }
                 const alertBox = document.getElementById('alertBox');
                 if (data.success) {
+                    console.log('✅ SERVER RESPONSE:', JSON.stringify(data, null, 2));
+                    let msg = '✅ ' + data.message;
+                    if (data.debug && data.debug.verified_row) {
+                        msg += '\n\nVerifikasi DB:\n- Room ID: ' + data.debug.verified_row.room_id;
+                        msg += '\n- Status: ' + data.debug.verified_row.status;
+                    }
                     alertBox.innerHTML = '<div class="alert alert-success">✅ ' + data.message + '</div>';
                     alertBox.scrollIntoView({
                         behavior: 'smooth'
                     });
-                    alert('✅ ' + data.message);
+                    alert(msg);
                     setTimeout(() => {
                         window.location.href = 'reservasi.php';
-                    }, 1000);
+                    }, 1200);
                 } else {
                     alertBox.innerHTML = '<div class="alert alert-error">❌ ' + data.message + '</div>';
                     alertBox.scrollIntoView({

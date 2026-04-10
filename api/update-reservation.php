@@ -262,7 +262,14 @@ try {
     }
 
     // VERIFY: Re-read FULL row from database
-    $verifyStmt = $conn->prepare("SELECT id, booking_source, status, room_id FROM bookings WHERE id = ?");
+    $verifyStmt = $conn->prepare("
+        SELECT b.id, b.booking_source, b.status, b.room_id, b.room_price, b.final_price,
+               r.room_number, rt.type_name
+        FROM bookings b
+        LEFT JOIN rooms r ON b.room_id = r.id
+        LEFT JOIN room_types rt ON r.room_type_id = rt.id
+        WHERE b.id = ?
+    ");
     $verifyStmt->execute([$bookingId]);
     $verifyRow = $verifyStmt->fetch(PDO::FETCH_ASSOC);
     $verifiedSource = $verifyRow ? $verifyRow['booking_source'] : '__ROW_NOT_FOUND__';
@@ -376,9 +383,15 @@ try {
         }
     }
 
+    // Build descriptive success message
+    $successMsg = 'Reservation updated successfully';
+    if (!$isGroupMode && $verifyRow) {
+        $successMsg .= ' — Room ' . $verifyRow['room_number'] . ' (' . $verifyRow['type_name'] . ')';
+    }
+
     echo json_encode([
         'success' => true,
-        'message' => 'Reservation updated successfully',
+        'message' => $successMsg,
         'data' => [
             'booking_id' => $bookingId,
             'check_in' => $checkIn,
