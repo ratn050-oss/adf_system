@@ -204,100 +204,216 @@ if (empty($companySettings['name'])) {
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Invoice - <?php echo $isMultiRoom ? $booking['guest_name'] . ' (' . count($allBookings) . ' rooms)' : $booking['booking_code']; ?></title>
     <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display&family=Inter:wght@300;400;500;600&family=Source+Code+Pro:wght@400;600;700&display=swap" rel="stylesheet">
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
             font-family: 'Inter', -apple-system, sans-serif;
-            background: #f0f0f0; color: #333; line-height: 1.5; padding: 20px;
+            background: #e8e6e1; color: #2d2d2d; line-height: 1.6; padding: 24px;
+            font-size: 13px; font-weight: 400;
             -webkit-print-color-adjust: exact; print-color-adjust: exact;
         }
         .invoice-page {
             max-width: 794px; margin: 0 auto; background: #fff;
-            position: relative; overflow: hidden; border: 1px solid #e0e0e0;
+            position: relative; overflow: hidden;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.08), 0 8px 30px rgba(0,0,0,0.06);
         }
+
+        /* Watermark */
         .watermark {
             position: absolute; top: 50%; left: 50%;
-            transform: translate(-50%, -50%) rotate(-35deg);
-            font-size: 100px; font-weight: 700; opacity: 0.04;
-            pointer-events: none; z-index: 1; white-space: nowrap; letter-spacing: 12px;
+            transform: translate(-50%, -50%) rotate(-30deg);
+            font-family: 'DM Serif Display', serif;
+            font-size: 110px; font-weight: 400; opacity: 0.03;
+            pointer-events: none; z-index: 1; white-space: nowrap; letter-spacing: 16px;
         }
-        .wm-paid { color: #16a34a; } .wm-unpaid { color: #dc2626; } .wm-partial { color: #ca8a04; }
-        .top-border { height: 4px; background: #2c3e50; }
+        .wm-paid { color: #2e7d5a; } .wm-unpaid { color: #c0392b; } .wm-partial { color: #b8860b; }
+
+        /* Top accent line */
+        .top-border { height: 3px; background: linear-gradient(90deg, #1a2332 0%, #2c3e50 40%, #8b7355 100%); }
+
+        /* Header */
         .header {
-            padding: 24px 32px 16px; display: flex; justify-content: space-between;
+            padding: 28px 36px 20px; display: flex; justify-content: space-between;
             align-items: flex-start; position: relative; z-index: 2;
         }
-        .brand { display: flex; align-items: center; gap: 12px; }
-        .brand-logo { width: 52px; height: 52px; border-radius: 6px; object-fit: cover; border: 1px solid #e5e5e5; }
-        .brand-text h1 { font-size: 1.2rem; font-weight: 700; color: #2c3e50; }
-        .brand-text .sub { font-size: 0.65rem; font-weight: 500; text-transform: uppercase; letter-spacing: 2px; color: #7f8c8d; margin-top: 1px; }
+        .brand { display: flex; align-items: center; gap: 14px; }
+        .brand-logo { width: 50px; height: 50px; border-radius: 4px; object-fit: cover; border: 1px solid #e0ddd6; }
+        .brand-text h1 {
+            font-family: 'DM Serif Display', serif;
+            font-size: 1.35rem; font-weight: 400; color: #1a2332; letter-spacing: 0.5px;
+        }
+        .brand-text .sub {
+            font-size: 0.6rem; font-weight: 500; text-transform: uppercase;
+            letter-spacing: 3px; color: #8b7355; margin-top: 2px;
+        }
         .header-right { text-align: right; }
-        .header-right .inv-label { font-size: 1.5rem; font-weight: 700; color: #2c3e50; letter-spacing: 4px; }
-        .header-right .inv-meta { font-size: 0.72rem; color: #999; margin-top: 4px; line-height: 1.5; }
-        .header-right .inv-meta strong { color: #333; font-family: 'Courier New', monospace; font-size: 0.75rem; }
-        .sep-line { height: 1px; margin: 0 32px; background: #e5e5e5; }
-        .status-bar { display: flex; justify-content: space-between; align-items: center; padding: 10px 32px; position: relative; z-index: 2; }
-        .status-bar .hotel-contact { font-size: 0.68rem; color: #999; line-height: 1.5; }
-        .status-badge { display: inline-block; padding: 4px 14px; font-weight: 700; font-size: 0.65rem; letter-spacing: 2px; text-transform: uppercase; border: 1.5px solid; border-radius: 3px; }
-        .badge-paid { color: #16a34a; border-color: #16a34a; background: #f0fdf4; }
-        .badge-unpaid { color: #dc2626; border-color: #dc2626; background: #fef2f2; }
-        .badge-partial { color: #ca8a04; border-color: #ca8a04; background: #fefce8; }
-        .body { padding: 4px 32px 24px; position: relative; z-index: 2; }
-        .info-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin: 12px 0 18px; }
-        .info-card { border: 1px solid #e5e5e5; border-radius: 6px; padding: 12px 14px; }
-        .info-card .card-title { font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: #7f8c8d; margin-bottom: 8px; padding-bottom: 5px; border-bottom: 1px solid #f0f0f0; }
-        .info-card .row { display: flex; justify-content: space-between; padding: 2px 0; font-size: 0.78rem; }
-        .info-card .row .lbl { color: #999; }
-        .info-card .row .val { color: #333; font-weight: 600; text-align: right; max-width: 60%; }
-        .tbl-room { width: 100%; border-collapse: collapse; margin: 14px 0 6px; font-size: 0.78rem; }
-        .tbl-room thead th { background: #f7f7f7; color: #555; padding: 8px 12px; font-weight: 600; font-size: 0.65rem; text-transform: uppercase; letter-spacing: 0.5px; text-align: left; border-top: 2px solid #2c3e50; border-bottom: 1px solid #ddd; }
-        .tbl-room thead th:last-child, .tbl-room thead th:nth-child(3), .tbl-room thead th:nth-child(4) { text-align: right; }
-        .tbl-room tbody td { padding: 8px 12px; border-bottom: 1px solid #f0f0f0; }
-        .tbl-room tbody td:last-child, .tbl-room tbody td:nth-child(3), .tbl-room tbody td:nth-child(4) { text-align: right; }
-        .tbl-room tbody td:last-child { font-weight: 600; font-family: 'Courier New', monospace; font-size: 0.8rem; }
-        .tbl-room tbody td:nth-child(4) { font-family: 'Courier New', monospace; }
-        .summary-wrap { display: flex; justify-content: flex-end; margin-top: 4px; }
-        .summary { width: 280px; }
-        .sum-row { display: flex; justify-content: space-between; padding: 4px 0; font-size: 0.8rem; border-bottom: 1px solid #f0f0f0; }
-        .sum-row .sl { color: #777; }
-        .sum-row .sv { font-weight: 600; font-family: 'Courier New', monospace; }
-        .sum-row.disc .sv { color: #dc2626; }
-        .sum-total { display: flex; justify-content: space-between; padding: 8px 0 4px; margin-top: 4px; border-top: 2px solid #2c3e50; font-size: 0.95rem; }
-        .sum-total .sl { font-weight: 700; color: #2c3e50; }
-        .sum-total .sv { font-weight: 700; font-family: 'Courier New', monospace; color: #2c3e50; }
-        .sum-paid { display: flex; justify-content: space-between; padding: 5px 8px; margin-top: 6px; background: #f0fdf4; border-radius: 4px; font-size: 0.8rem; }
-        .sum-paid .sl { color: #16a34a; font-weight: 600; }
-        .sum-paid .sv { color: #16a34a; font-weight: 700; font-family: 'Courier New', monospace; }
-        .sum-due { display: flex; justify-content: space-between; padding: 5px 8px; margin-top: 3px; background: #fef2f2; border-radius: 4px; font-size: 0.85rem; }
-        .sum-due .sl { color: #dc2626; font-weight: 700; }
-        .sum-due .sv { color: #dc2626; font-weight: 700; font-family: 'Courier New', monospace; }
-        .pay-section { margin-top: 18px; }
-        .sec-title { font-size: 0.6rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: #7f8c8d; margin-bottom: 6px; padding-bottom: 4px; border-bottom: 1px solid #e5e5e5; }
+        .header-right .inv-label {
+            font-family: 'DM Serif Display', serif;
+            font-size: 1.6rem; font-weight: 400; color: #1a2332; letter-spacing: 5px;
+        }
+        .header-right .inv-meta { font-size: 0.72rem; color: #8a8a8a; margin-top: 6px; line-height: 1.6; }
+        .header-right .inv-meta strong {
+            color: #1a2332; font-family: 'Source Code Pro', monospace; font-size: 0.73rem; font-weight: 600;
+        }
+
+        /* Separator */
+        .sep-line { height: 1px; margin: 0 36px; background: #e8e6e1; }
+
+        /* Status bar */
+        .status-bar { display: flex; justify-content: space-between; align-items: center; padding: 12px 36px; position: relative; z-index: 2; }
+        .status-bar .hotel-contact { font-size: 0.68rem; color: #9a9590; line-height: 1.6; letter-spacing: 0.2px; }
+        .status-badge {
+            display: inline-block; padding: 4px 16px;
+            font-weight: 600; font-size: 0.6rem; letter-spacing: 2.5px;
+            text-transform: uppercase; border-radius: 2px;
+        }
+        .badge-paid { color: #2e7d5a; background: #f0f7f4; border: 1px solid #c8e0d4; }
+        .badge-unpaid { color: #c0392b; background: #fdf2f0; border: 1px solid #f0cdc8; }
+        .badge-partial { color: #b8860b; background: #fdf8ef; border: 1px solid #eddcb5; }
+
+        /* Body */
+        .body { padding: 6px 36px 28px; position: relative; z-index: 2; }
+
+        /* Info cards */
+        .info-cards { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin: 14px 0 22px; }
+        .info-card { padding: 14px 16px; background: #fafaf8; border-radius: 4px; }
+        .info-card .card-title {
+            font-family: 'DM Serif Display', serif;
+            font-size: 0.72rem; font-weight: 400; color: #8b7355;
+            text-transform: uppercase; letter-spacing: 2px;
+            margin-bottom: 10px; padding-bottom: 6px; border-bottom: 1px solid #e8e6e1;
+        }
+        .info-card .row { display: flex; justify-content: space-between; padding: 2.5px 0; font-size: 0.76rem; }
+        .info-card .row .lbl { color: #9a9590; font-weight: 400; }
+        .info-card .row .val { color: #2d2d2d; font-weight: 500; text-align: right; max-width: 62%; }
+
+        /* Room table */
+        .tbl-room { width: 100%; border-collapse: collapse; margin: 16px 0 8px; font-size: 0.78rem; }
+        .tbl-room thead th {
+            background: #1a2332; color: #d4cfc7;
+            padding: 9px 14px; font-weight: 500; font-size: 0.62rem;
+            text-transform: uppercase; letter-spacing: 1.2px; text-align: left;
+        }
+        .tbl-room thead th:last-child,
+        .tbl-room thead th:nth-child(3),
+        .tbl-room thead th:nth-child(4) { text-align: right; }
+        .tbl-room tbody td {
+            padding: 10px 14px; border-bottom: 1px solid #f0eeea; color: #3d3d3d;
+        }
+        .tbl-room tbody tr:last-child td { border-bottom: none; }
+        .tbl-room tbody td:last-child,
+        .tbl-room tbody td:nth-child(3),
+        .tbl-room tbody td:nth-child(4) { text-align: right; }
+        .tbl-room tbody td:last-child {
+            font-weight: 600; font-family: 'Source Code Pro', monospace; font-size: 0.78rem; color: #1a2332;
+        }
+        .tbl-room tbody td:nth-child(4) { font-family: 'Source Code Pro', monospace; color: #5a5a5a; }
+        .tbl-room tbody { border-bottom: 2px solid #1a2332; }
+
+        /* Summary */
+        .summary-wrap { display: flex; justify-content: flex-end; margin-top: 8px; }
+        .summary { width: 290px; }
+        .sum-row {
+            display: flex; justify-content: space-between; padding: 5px 0;
+            font-size: 0.78rem; border-bottom: 1px solid #f0eeea;
+        }
+        .sum-row .sl { color: #8a8a8a; font-weight: 400; }
+        .sum-row .sv { font-weight: 600; font-family: 'Source Code Pro', monospace; color: #2d2d2d; }
+        .sum-row.disc .sv { color: #c0392b; }
+        .sum-total {
+            display: flex; justify-content: space-between; padding: 10px 0 6px;
+            margin-top: 6px; border-top: 2px solid #1a2332; font-size: 0.95rem;
+        }
+        .sum-total .sl {
+            font-family: 'DM Serif Display', serif;
+            font-weight: 400; color: #1a2332; font-size: 0.95rem;
+        }
+        .sum-total .sv { font-weight: 700; font-family: 'Source Code Pro', monospace; color: #1a2332; }
+        .sum-paid {
+            display: flex; justify-content: space-between; padding: 6px 10px;
+            margin-top: 8px; background: #f0f7f4; border-radius: 3px; font-size: 0.78rem;
+        }
+        .sum-paid .sl { color: #2e7d5a; font-weight: 500; }
+        .sum-paid .sv { color: #2e7d5a; font-weight: 700; font-family: 'Source Code Pro', monospace; }
+        .sum-due {
+            display: flex; justify-content: space-between; padding: 6px 10px;
+            margin-top: 4px; background: #fdf2f0; border-radius: 3px; font-size: 0.82rem;
+        }
+        .sum-due .sl { color: #c0392b; font-weight: 600; }
+        .sum-due .sv { color: #c0392b; font-weight: 700; font-family: 'Source Code Pro', monospace; }
+
+        /* Payment section */
+        .pay-section { margin-top: 22px; }
+        .sec-title {
+            font-family: 'DM Serif Display', serif;
+            font-size: 0.72rem; font-weight: 400; color: #8b7355;
+            text-transform: uppercase; letter-spacing: 2px;
+            margin-bottom: 8px; padding-bottom: 5px; border-bottom: 1px solid #e8e6e1;
+        }
         .tbl-pay { width: 100%; border-collapse: collapse; font-size: 0.74rem; }
-        .tbl-pay th { background: #f7f7f7; padding: 6px 10px; text-align: left; font-weight: 600; font-size: 0.62rem; color: #999; text-transform: uppercase; letter-spacing: 0.5px; border-bottom: 1px solid #e5e5e5; }
-        .tbl-pay td { padding: 6px 10px; border-bottom: 1px solid #f0f0f0; }
-        .note-box { margin-top: 14px; padding: 8px 12px; background: #f9f9f9; border-left: 3px solid #7f8c8d; border-radius: 0 4px 4px 0; font-size: 0.78rem; color: #555; }
-        .note-box strong { color: #333; }
-        .bank-info { margin-top: 18px; padding: 12px 16px; background: #f9f9f9; border: 1px solid #e5e5e5; border-radius: 6px; display: flex; align-items: center; gap: 12px; }
-        .bank-info .bank-icon { width: 36px; height: 36px; background: #2c3e50; border-radius: 6px; display: flex; align-items: center; justify-content: center; color: #fff; font-size: 1rem; flex-shrink: 0; }
-        .bank-info .bank-details { font-size: 0.78rem; line-height: 1.5; }
-        .bank-info .bank-details .bank-label { font-size: 0.58rem; font-weight: 700; text-transform: uppercase; letter-spacing: 1.5px; color: #7f8c8d; margin-bottom: 1px; }
-        .bank-info .bank-details .bank-number { font-family: 'Courier New', monospace; font-size: 0.95rem; font-weight: 700; color: #2c3e50; letter-spacing: 1px; }
-        .bank-info .bank-details .bank-holder { color: #777; font-size: 0.72rem; }
-        .footer { margin-top: 24px; text-align: center; padding-top: 14px; border-top: 1px solid #e5e5e5; }
-        .footer .ty { font-size: 0.85rem; font-weight: 600; color: #2c3e50; margin-bottom: 3px; }
-        .footer .fc { font-size: 0.62rem; color: #aaa; line-height: 1.6; }
-        .bottom-border { height: 4px; background: #2c3e50; }
-        .actions { text-align: center; padding: 16px 0; display: flex; justify-content: center; gap: 10px; }
-        .btn { padding: 9px 24px; border: none; border-radius: 6px; font-weight: 600; font-size: 0.8rem; cursor: pointer; transition: all 0.2s; display: inline-flex; align-items: center; gap: 6px; text-decoration: none; }
-        .btn-dark { background: #2c3e50; color: #fff; }
-        .btn-dark:hover { background: #34495e; }
-        .btn-light { background: #f5f5f5; color: #333; border: 1px solid #ddd; }
-        .btn-light:hover { background: #eee; }
+        .tbl-pay th {
+            background: #fafaf8; padding: 7px 12px; text-align: left;
+            font-weight: 500; font-size: 0.6rem; color: #9a9590;
+            text-transform: uppercase; letter-spacing: 1px; border-bottom: 1px solid #e8e6e1;
+        }
+        .tbl-pay td { padding: 7px 12px; border-bottom: 1px solid #f0eeea; color: #3d3d3d; }
+
+        /* Note box */
+        .note-box {
+            margin-top: 16px; padding: 10px 14px;
+            background: #fafaf8; border-left: 2px solid #8b7355;
+            border-radius: 0 3px 3px 0; font-size: 0.76rem; color: #5a5a5a;
+        }
+        .note-box strong { color: #1a2332; font-weight: 600; }
+
+        /* Bank info */
+        .bank-info {
+            margin-top: 22px; padding: 14px 18px;
+            background: #fafaf8; border: 1px solid #e8e6e1; border-radius: 4px;
+            display: flex; align-items: center; gap: 14px;
+        }
+        .bank-info .bank-icon {
+            width: 38px; height: 38px; background: #1a2332; border-radius: 4px;
+            display: flex; align-items: center; justify-content: center;
+            color: #d4cfc7; font-size: 0.95rem; flex-shrink: 0;
+        }
+        .bank-info .bank-details { font-size: 0.76rem; line-height: 1.6; }
+        .bank-info .bank-details .bank-label {
+            font-size: 0.55rem; font-weight: 500; text-transform: uppercase;
+            letter-spacing: 2px; color: #8b7355; margin-bottom: 2px;
+        }
+        .bank-info .bank-details .bank-number {
+            font-family: 'Source Code Pro', monospace; font-size: 0.95rem;
+            font-weight: 700; color: #1a2332; letter-spacing: 1.5px;
+        }
+        .bank-info .bank-details .bank-holder { color: #8a8a8a; font-size: 0.7rem; }
+
+        /* Footer */
+        .footer { margin-top: 28px; text-align: center; padding-top: 16px; border-top: 1px solid #e8e6e1; }
+        .footer .ty {
+            font-family: 'DM Serif Display', serif;
+            font-size: 0.9rem; font-weight: 400; color: #1a2332; margin-bottom: 4px;
+        }
+        .footer .fc { font-size: 0.6rem; color: #9a9590; line-height: 1.7; letter-spacing: 0.3px; }
+        .bottom-border { height: 3px; background: linear-gradient(90deg, #1a2332 0%, #2c3e50 40%, #8b7355 100%); }
+
+        /* Action buttons */
+        .actions { text-align: center; padding: 18px 0; display: flex; justify-content: center; gap: 10px; }
+        .btn {
+            padding: 10px 26px; border: none; border-radius: 4px; font-weight: 500;
+            font-size: 0.8rem; cursor: pointer; transition: all 0.2s;
+            display: inline-flex; align-items: center; gap: 6px; text-decoration: none;
+            letter-spacing: 0.3px;
+        }
+        .btn-dark { background: #1a2332; color: #d4cfc7; }
+        .btn-dark:hover { background: #2c3e50; }
+        .btn-light { background: #fafaf8; color: #3d3d3d; border: 1px solid #d4cfc7; }
+        .btn-light:hover { background: #f0eeea; }
+
         @media print {
             body { padding: 0; background: #fff; }
-            .invoice-page { box-shadow: none; border: none; }
+            .invoice-page { box-shadow: none; }
             .actions { display: none !important; }
         }
         @page { margin: 8mm; size: A4; }
@@ -314,7 +430,7 @@ if (empty($companySettings['name'])) {
                 <?php if ($logoUrl): ?>
                     <img class="brand-logo" src="<?php echo htmlspecialchars($logoUrl); ?>" alt="<?php echo htmlspecialchars($companySettings['name']); ?>">
                 <?php else: ?>
-                    <div style="width:52px;height:52px;border-radius:6px;background:#2c3e50;display:flex;align-items:center;justify-content:center;color:#fff;font-size:1.2rem;font-weight:700;">N</div>
+                    <div style="width:50px;height:50px;border-radius:4px;background:#1a2332;display:flex;align-items:center;justify-content:center;color:#d4cfc7;font-family:'DM Serif Display',serif;font-size:1.3rem;">N</div>
                 <?php endif; ?>
                 <div class="brand-text">
                     <h1><?php echo htmlspecialchars($companySettings['name']); ?></h1>

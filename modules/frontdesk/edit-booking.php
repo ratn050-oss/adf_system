@@ -924,6 +924,23 @@ include '../../includes/header.php';
 
         const nights = Math.ceil((co - ci) / 86400000);
 
+        // Auto-update room price when room selection changes
+        if (IS_GROUP) {
+            document.querySelectorAll('.room-card').forEach(card => {
+                const sel = card.querySelector('.grp-room-select');
+                const opt = sel.options[sel.selectedIndex];
+                if (opt && opt.dataset.price) {
+                    card.querySelector('.grp-room-price').value = opt.dataset.price;
+                }
+            });
+        } else {
+            const roomSel = document.getElementById('roomSelect');
+            const selOpt = roomSel.options[roomSel.selectedIndex];
+            if (selOpt && selOpt.dataset.price) {
+                document.getElementById('roomPrice').value = selOpt.dataset.price;
+            }
+        }
+
         // OTA Fee percent from source
         const source = document.getElementById('bookingSource').value;
         const feePercent = OTA_FEES[source] || 0;
