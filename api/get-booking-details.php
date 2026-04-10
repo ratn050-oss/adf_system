@@ -9,25 +9,25 @@ try {
     // Clear any buffered output
     while (ob_get_level() > 0) ob_end_clean();
     ob_start();
-    
+
     define('APP_ACCESS', true);
     require_once '../config/config.php';
     require_once '../config/database.php';
-    
+
     // Re-suppress errors AFTER config.php
     error_reporting(0);
     ini_set('display_errors', 0);
-    
+
     $db = Database::getInstance();
     $conn = $db->getConnection();
-    
+
     $bookingId = intval($_GET['id'] ?? 0);
-    
+
     if (!$bookingId) {
         echo json_encode(['success' => false, 'message' => 'Booking ID required']);
         exit;
     }
-    
+
     // Fetch booking with guest and room details
     $query = "
         SELECT 
@@ -64,28 +64,29 @@ try {
         WHERE b.id = ?
         GROUP BY b.id
     ";
-    
+
     $stmt = $conn->prepare($query);
     $stmt->execute([$bookingId]);
     $booking = $stmt->fetch(PDO::FETCH_ASSOC);
-    
+
     if (!$booking) {
         echo json_encode(['success' => false, 'message' => 'Booking not found with ID: ' . $bookingId]);
         exit;
     }
-    
+
     // Ensure all fields have values
     $booking['guest_phone'] = $booking['guest_phone'] ?? '-';
     $booking['guest_email'] = $booking['guest_email'] ?? '-';
     $booking['guest_id_number'] = $booking['guest_id_number'] ?? '-';
-    
+
     // Fetch payment history
     $payments = [];
     try {
         $pStmt = $conn->prepare("SELECT amount, payment_method, payment_date, notes FROM booking_payments WHERE booking_id = ? ORDER BY payment_date DESC");
         $pStmt->execute([$bookingId]);
         $payments = $pStmt->fetchAll(PDO::FETCH_ASSOC);
-    } catch (Exception $e) { /* ignore */ }
+    } catch (Exception $e) { /* ignore */
+    }
     $booking['payments'] = $payments;
 
     // Fetch extras (extra bed, laundry, dll)
@@ -98,23 +99,24 @@ try {
         foreach ($extras as $ex) {
             $totalExtras += (float)$ex['total_price'];
         }
-    } catch (Exception $e) { /* table might not exist yet */ }
+    } catch (Exception $e) { /* table might not exist yet */
+    }
     $booking['extras'] = $extras;
     $booking['total_extras'] = $totalExtras;
-    
+
     // Fetch created_at
     try {
         $cStmt = $conn->prepare("SELECT created_at FROM bookings WHERE id = ?");
         $cStmt->execute([$bookingId]);
         $cRow = $cStmt->fetch(PDO::FETCH_ASSOC);
         $booking['created_at'] = $cRow['created_at'] ?? null;
-    } catch (Exception $e) { /* ignore */ }
-    
+    } catch (Exception $e) { /* ignore */
+    }
+
     echo json_encode([
         'success' => true,
         'booking' => $booking
     ], JSON_UNESCAPED_UNICODE);
-    
 } catch (PDOException $e) {
     ob_clean();
     echo json_encode([
@@ -130,4 +132,3 @@ try {
 }
 
 ob_end_flush();
-?>

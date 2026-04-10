@@ -2560,8 +2560,7 @@ include '../../includes/header.php';
         // Override payment status badge for OTA if necessary or make it more detailed
         // Check if it's an OTA booking to show specific status
         const otaKeysForBadge = (typeof OTA_SOURCE_KEYS !== 'undefined' && OTA_SOURCE_KEYS.length > 0) ?
-            OTA_SOURCE_KEYS :
-            ['ota', 'agoda', 'booking', 'tiket', 'traveloka', 'airbnb', 'expedia', 'pegipegi'];
+            OTA_SOURCE_KEYS : ['ota', 'agoda', 'booking', 'tiket', 'traveloka', 'airbnb', 'expedia', 'pegipegi'];
         if (otaKeysForBadge.includes(bkSrc)) {
             if (booking.payment_status === 'paid') {
                 paymentBadge = '<span style="background: #10b981; color: white; padding: 0.25rem 0.6rem; border-radius: 4px; font-size: 0.7rem; font-weight: 700;">LUNAS (By ' + source + ')</span>';
@@ -3019,8 +3018,7 @@ include '../../includes/header.php';
 
         // Detect OTA booking - use dynamic list from booking_sources table
         const otaSources = (typeof OTA_SOURCE_KEYS !== 'undefined' && OTA_SOURCE_KEYS.length > 0) ?
-            OTA_SOURCE_KEYS :
-            ['ota', 'agoda', 'booking', 'tiket', 'traveloka', 'airbnb', 'expedia', 'pegipegi'];
+            OTA_SOURCE_KEYS : ['ota', 'agoda', 'booking', 'tiket', 'traveloka', 'airbnb', 'expedia', 'pegipegi'];
         const rawSource = (b.booking_source || '').trim();
         const bookingSource = rawSource.toLowerCase().replace(/\.com|\.co\.id|\.id/g, '').replace(/[^a-z0-9]/g, '');
         // Check: exact match in OTA list OR fuzzy match (source contains OTA keyword or vice versa)
@@ -4025,7 +4023,7 @@ include '../../includes/header.php';
         const errorMessages = [];
 
         // Generate group_id for multi-room bookings
-        const groupId = checkedRooms.length > 1 ? 'GRP-' + new Date().toISOString().slice(0,10).replace(/-/g,'') + '-' + Math.random().toString(36).substr(2, 6).toUpperCase() : '';
+        const groupId = checkedRooms.length > 1 ? 'GRP-' + new Date().toISOString().slice(0, 10).replace(/-/g, '') + '-' + Math.random().toString(36).substr(2, 6).toUpperCase() : '';
 
         // Create booking for each room
         for (let i = 0; i < checkedRooms.length; i++) {

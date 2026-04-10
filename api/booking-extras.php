@@ -1,4 +1,5 @@
 <?php
+
 /**
  * API: Booking Extras (Extra Bed, Laundry, dll)
  * CRUD for additional charges per booking
@@ -172,7 +173,6 @@ try {
     }
 
     throw new Exception('Method not allowed');
-
 } catch (Exception $e) {
     echo json_encode(['success' => false, 'message' => $e->getMessage()]);
 }
@@ -181,7 +181,8 @@ try {
  * Recalculate booking final_price including extras
  * final_price = (room_price × nights - discount - ota_fee) + SUM(extras)
  */
-function recalcFinalPrice($conn, $bookingId) {
+function recalcFinalPrice($conn, $bookingId)
+{
     // Get current booking data
     $stmt = $conn->prepare("SELECT room_price, total_nights, total_price, discount, booking_source FROM bookings WHERE id = ?");
     $stmt->execute([$bookingId]);
@@ -199,7 +200,8 @@ function recalcFinalPrice($conn, $bookingId) {
         $feeStmt->execute([$booking['booking_source']]);
         $feeRow = $feeStmt->fetch(PDO::FETCH_ASSOC);
         if ($feeRow) $otaFeePercent = (float)$feeRow['fee_percent'];
-    } catch (Exception $e) {}
+    } catch (Exception $e) {
+    }
 
     $otaFee = $otaFeePercent > 0 ? round($afterDiscount * $otaFeePercent / 100) : 0;
     $roomFinal = $afterDiscount - $otaFee;

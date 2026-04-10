@@ -1295,26 +1295,65 @@ include '../../includes/header.php';
     }
 
     .btn-preset-extra {
-        padding: 4px 10px; font-size: 0.78rem; border: 1px solid #e2e8f0; background: #f8fafc;
-        border-radius: 20px; cursor: pointer; transition: all 0.2s; white-space: nowrap;
+        padding: 4px 10px;
+        font-size: 0.78rem;
+        border: 1px solid #e2e8f0;
+        background: #f8fafc;
+        border-radius: 20px;
+        cursor: pointer;
+        transition: all 0.2s;
+        white-space: nowrap;
     }
-    .btn-preset-extra:hover { background: #6366f1; color: white; border-color: #6366f1; }
+
+    .btn-preset-extra:hover {
+        background: #6366f1;
+        color: white;
+        border-color: #6366f1;
+    }
+
     .new-extra-item {
-        display: flex; align-items: center; justify-content: space-between; padding: 6px 8px;
-        background: #f0fdf4; border-radius: 6px; margin-bottom: 4px; font-size: 0.85rem;
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 6px 8px;
+        background: #f0fdf4;
+        border-radius: 6px;
+        margin-bottom: 4px;
+        font-size: 0.85rem;
     }
-    .new-extra-item .extra-del { background: none; border: none; cursor: pointer; font-size: 1rem; padding: 0 4px; }
+
+    .new-extra-item .extra-del {
+        background: none;
+        border: none;
+        cursor: pointer;
+        font-size: 1rem;
+        padding: 0 4px;
+    }
 
     .per-room-extra-card {
-        border: 1px solid #e2e8f0; border-radius: 8px; padding: 10px 12px; margin-bottom: 8px;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        padding: 10px 12px;
+        margin-bottom: 8px;
         background: #fafbfc;
     }
+
     .per-room-extra-card .room-extra-header {
-        font-weight: 600; font-size: 0.85rem; color: #1a1a2e; margin-bottom: 6px;
-        display: flex; align-items: center; gap: 6px;
+        font-weight: 600;
+        font-size: 0.85rem;
+        color: #1a1a2e;
+        margin-bottom: 6px;
+        display: flex;
+        align-items: center;
+        gap: 6px;
     }
+
     .per-room-extra-card .room-extra-header .room-badge {
-        background: #6366f1; color: white; padding: 2px 8px; border-radius: 12px; font-size: 0.72rem;
+        background: #6366f1;
+        color: white;
+        padding: 2px 8px;
+        border-radius: 12px;
+        font-size: 0.72rem;
     }
 
     .btn-cancel {
@@ -1726,7 +1765,7 @@ include '../../includes/header.php';
         document.getElementById('totalRoomsDisplay').textContent = totalRooms + ' room' + (totalRooms !== 1 ? 's' : '');
         document.getElementById('displayNights').textContent = nights + ' night' + (nights !== 1 ? 's' : '');
         document.getElementById('subtotalDisplay').textContent = 'Rp ' + subtotal.toLocaleString('id-ID');
-        
+
         // Extras row in summary
         const extrasRow = document.getElementById('extrasSummaryRow');
         if (extrasRow) {
@@ -1737,7 +1776,7 @@ include '../../includes/header.php';
                 extrasRow.style.display = 'none';
             }
         }
-        
+
         document.getElementById('grandTotalDisplay').textContent = 'Rp ' + grandTotal.toLocaleString('id-ID');
 
         // Update summary
@@ -1760,7 +1799,7 @@ include '../../includes/header.php';
     function renderPerRoomExtras() {
         const container = document.getElementById('perRoomExtrasContainer');
         const checkedRooms = document.querySelectorAll('input[name="rooms[]"]:checked');
-        
+
         if (checkedRooms.length === 0) {
             container.innerHTML = '';
             return;
@@ -1821,7 +1860,12 @@ include '../../includes/header.php';
 
     function addRoomExtra(roomId, name, price, qty = 1) {
         if (!perRoomExtras[roomId]) perRoomExtras[roomId] = [];
-        perRoomExtras[roomId].push({ name, qty, price, total: qty * price });
+        perRoomExtras[roomId].push({
+            name,
+            qty,
+            price,
+            total: qty * price
+        });
         renderPerRoomExtras();
         calculateMultiRoomTotal();
     }
@@ -1836,8 +1880,14 @@ include '../../includes/header.php';
         const name = document.getElementById('extraName_' + roomId).value.trim();
         const qty = parseInt(document.getElementById('extraQty_' + roomId).value) || 1;
         const price = parseFloat(document.getElementById('extraPrice_' + roomId).value) || 0;
-        if (!name) { alert('Nama item harus diisi'); return; }
-        if (price <= 0) { alert('Harga harus > 0'); return; }
+        if (!name) {
+            alert('Nama item harus diisi');
+            return;
+        }
+        if (price <= 0) {
+            alert('Harga harus > 0');
+            return;
+        }
         addRoomExtra(roomId, name, price, qty);
     }
 
@@ -1998,7 +2048,7 @@ include '../../includes/header.php';
                 if (result.success) {
                     successCount++;
                     bookingCodes.push(result.booking_code);
-                    
+
                     // Save extras for this room's booking
                     const roomExtras = perRoomExtras[roomId] || [];
                     if (roomExtras.length > 0 && result.booking_id) {
@@ -2010,7 +2060,10 @@ include '../../includes/header.php';
                                 extForm.append('item_name', ex.name);
                                 extForm.append('quantity', ex.qty);
                                 extForm.append('unit_price', ex.price);
-                                await fetch('<?php echo BASE_URL; ?>/api/booking-extras.php', { method: 'POST', body: extForm });
+                                await fetch('<?php echo BASE_URL; ?>/api/booking-extras.php', {
+                                    method: 'POST',
+                                    body: extForm
+                                });
                             } catch (extErr) {
                                 console.error('Error saving extra:', extErr);
                             }

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * EDIT BOOKING PAGE
  * Full edit form matching reservation form
@@ -91,15 +92,15 @@ $rooms = $db->fetchAll("
 $bookingSources = $db->fetchAll("SELECT source_key, source_name, source_type, fee_percent, icon FROM booking_sources WHERE is_active = 1 ORDER BY sort_order ASC");
 if (!$bookingSources) {
     $bookingSources = [
-        ['source_key'=>'walk_in','source_name'=>'Walk-in','source_type'=>'direct','fee_percent'=>0,'icon'=>'🚶'],
-        ['source_key'=>'phone','source_name'=>'Phone','source_type'=>'direct','fee_percent'=>0,'icon'=>'📞'],
-        ['source_key'=>'online','source_name'=>'Online','source_type'=>'direct','fee_percent'=>0,'icon'=>'🌐'],
-        ['source_key'=>'agoda','source_name'=>'Agoda','source_type'=>'ota','fee_percent'=>15,'icon'=>'🅰️'],
-        ['source_key'=>'booking','source_name'=>'Booking.com','source_type'=>'ota','fee_percent'=>12,'icon'=>'🅱️'],
-        ['source_key'=>'tiket','source_name'=>'Tiket.com','source_type'=>'ota','fee_percent'=>10,'icon'=>'🎫'],
-        ['source_key'=>'traveloka','source_name'=>'Traveloka','source_type'=>'ota','fee_percent'=>15,'icon'=>'✈️'],
-        ['source_key'=>'airbnb','source_name'=>'Airbnb','source_type'=>'ota','fee_percent'=>3,'icon'=>'🏡'],
-        ['source_key'=>'ota','source_name'=>'OTA Lainnya','source_type'=>'ota','fee_percent'=>10,'icon'=>'🌐'],
+        ['source_key' => 'walk_in', 'source_name' => 'Walk-in', 'source_type' => 'direct', 'fee_percent' => 0, 'icon' => '🚶'],
+        ['source_key' => 'phone', 'source_name' => 'Phone', 'source_type' => 'direct', 'fee_percent' => 0, 'icon' => '📞'],
+        ['source_key' => 'online', 'source_name' => 'Online', 'source_type' => 'direct', 'fee_percent' => 0, 'icon' => '🌐'],
+        ['source_key' => 'agoda', 'source_name' => 'Agoda', 'source_type' => 'ota', 'fee_percent' => 15, 'icon' => '🅰️'],
+        ['source_key' => 'booking', 'source_name' => 'Booking.com', 'source_type' => 'ota', 'fee_percent' => 12, 'icon' => '🅱️'],
+        ['source_key' => 'tiket', 'source_name' => 'Tiket.com', 'source_type' => 'ota', 'fee_percent' => 10, 'icon' => '🎫'],
+        ['source_key' => 'traveloka', 'source_name' => 'Traveloka', 'source_type' => 'ota', 'fee_percent' => 15, 'icon' => '✈️'],
+        ['source_key' => 'airbnb', 'source_name' => 'Airbnb', 'source_type' => 'ota', 'fee_percent' => 3, 'icon' => '🏡'],
+        ['source_key' => 'ota', 'source_name' => 'OTA Lainnya', 'source_type' => 'ota', 'fee_percent' => 10, 'icon' => '🌐'],
     ];
 }
 
@@ -119,127 +120,514 @@ try {
     foreach ($bookingExtras as $ex) {
         $totalExtras += (float)$ex['total_price'];
     }
-} catch (Exception $e) { /* table might not exist yet */ }
+} catch (Exception $e) { /* table might not exist yet */
+}
 
 $pageTitle = 'Edit Booking';
 include '../../includes/header.php';
 ?>
 
 <style>
-.edit-page { max-width: 680px; margin: 0 auto; padding: 1.5rem 1rem; }
-.edit-card { background: var(--bg-primary, #fff); border-radius: 12px; box-shadow: 0 2px 12px rgba(0,0,0,0.08); overflow: hidden; }
-.edit-card-header { background: linear-gradient(135deg, #6366f1, #8b5cf6); color: white; padding: 1rem 1.5rem; }
-.edit-card-header h2 { margin: 0; font-size: 1.2rem; }
-.edit-card-header .booking-code { opacity: 0.85; font-size: 0.85rem; margin-top: 0.25rem; font-family: 'Courier New', monospace; }
-.edit-card-body { padding: 1.5rem; }
-.form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
-.form-group { margin-bottom: 1rem; }
-.form-group label { display: block; font-size: 0.85rem; font-weight: 600; margin-bottom: 0.3rem; color: var(--text-secondary, #475569); }
-.form-group input, .form-group select, .form-group textarea {
-    width: 100%; padding: 0.6rem 0.75rem; border: 1px solid var(--border-color, #e2e8f0);
-    border-radius: 6px; font-size: 0.9rem; background: var(--bg-secondary, #f8fafc);
-    color: var(--text-primary, #1e293b); box-sizing: border-box; transition: border-color 0.2s;
-}
-.form-group input:focus, .form-group select:focus { outline: none; border-color: #6366f1; box-shadow: 0 0 0 3px rgba(99,102,241,0.1); }
-.form-group textarea { min-height: 60px; resize: vertical; }
+    .edit-page {
+        max-width: 680px;
+        margin: 0 auto;
+        padding: 1.5rem 1rem;
+    }
 
-.price-box { background: rgba(99,102,241,0.04); border: 1px solid rgba(99,102,241,0.15); border-radius: 8px; padding: 1rem; margin-bottom: 1rem; }
-.price-line { display: flex; justify-content: space-between; align-items: center; padding: 0.35rem 0; font-size: 0.9rem; }
-.price-line-total { display: flex; justify-content: space-between; align-items: center; padding: 0.5rem 0; border-top: 2px solid rgba(99,102,241,0.2); margin-top: 0.5rem; font-weight: 700; font-size: 1.05rem; }
-.ota-fee-row { background: #fef3c7; padding: 0.5rem 0.75rem; border-radius: 6px; margin: 0.5rem 0; }
+    .edit-card {
+        background: var(--bg-primary, #fff);
+        border-radius: 12px;
+        box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
+        overflow: hidden;
+    }
 
-.status-badge { display: inline-block; padding: 0.2rem 0.6rem; border-radius: 4px; font-size: 0.75rem; font-weight: 700; color: white; }
-.status-pending { background: #f59e0b; }
-.status-confirmed { background: #6366f1; }
-.status-checked_in { background: #10b981; }
+    .edit-card-header {
+        background: linear-gradient(135deg, #6366f1, #8b5cf6);
+        color: white;
+        padding: 1rem 1.5rem;
+    }
 
-.discount-row { display: flex; align-items: center; gap: 0.5rem; }
-.disc-type-btn { padding: 4px 10px; font-size: 0.75rem; border: 1px solid #6366f1; cursor: pointer; transition: all 0.2s; }
-.disc-type-btn.active { background: #6366f1; color: white; }
-.disc-type-btn:not(.active) { background: white; color: #6366f1; }
+    .edit-card-header h2 {
+        margin: 0;
+        font-size: 1.2rem;
+    }
 
-.btn-row { display: flex; gap: 1rem; margin-top: 1.5rem; }
-.btn-save { flex: 1; padding: 0.75rem; background: #10b981; color: white; border: none; border-radius: 8px; font-weight: 700; font-size: 0.95rem; cursor: pointer; transition: all 0.2s; }
-.btn-save:hover { background: #059669; transform: translateY(-1px); }
-.btn-cancel { flex: 1; padding: 0.75rem; background: var(--bg-secondary, #f3f4f6); color: var(--text-secondary, #6b7280); border: 1px solid var(--border-color, #e5e7eb); border-radius: 8px; font-weight: 600; font-size: 0.95rem; cursor: pointer; text-decoration: none; text-align: center; }
-.btn-cancel:hover { background: #e5e7eb; }
+    .edit-card-header .booking-code {
+        opacity: 0.85;
+        font-size: 0.85rem;
+        margin-top: 0.25rem;
+        font-family: 'Courier New', monospace;
+    }
 
-.alert { padding: 0.75rem 1rem; border-radius: 6px; margin-bottom: 1rem; font-size: 0.9rem; }
-.alert-success { background: rgba(16,185,129,0.1); color: #059669; border: 1px solid #d1fae5; }
-.alert-error { background: rgba(239,68,68,0.1); color: #ef4444; border: 1px solid #fee2e2; }
+    .edit-card-body {
+        padding: 1.5rem;
+    }
 
-.paid-info { background: rgba(16,185,129,0.06); border: 1px solid rgba(16,185,129,0.2); border-radius: 6px; padding: 0.5rem 0.75rem; font-size: 0.85rem; color: #059669; margin-bottom: 1rem; }
+    .form-row {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1rem;
+        margin-bottom: 1rem;
+    }
 
-/* EXTRAS SECTION */
-.extras-section { margin-bottom: 1rem; }
-.extras-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.75rem; }
-.extras-header h3 { margin: 0; font-size: 0.95rem; font-weight: 700; color: var(--text-primary, #1e293b); }
-.btn-add-extra { padding: 0.35rem 0.75rem; background: #6366f1; color: white; border: none; border-radius: 6px; font-size: 0.8rem; cursor: pointer; font-weight: 600; }
-.btn-add-extra:hover { background: #4f46e5; }
-.extras-list { display: flex; flex-direction: column; gap: 0.5rem; }
-.extra-item { display: flex; align-items: center; justify-content: space-between; background: rgba(99,102,241,0.04); border: 1px solid rgba(99,102,241,0.12); border-radius: 6px; padding: 0.5rem 0.75rem; font-size: 0.85rem; }
-.extra-item-info { flex: 1; }
-.extra-item-name { font-weight: 600; color: var(--text-primary, #1e293b); }
-.extra-item-detail { font-size: 0.78rem; color: var(--text-secondary, #64748b); margin-top: 0.15rem; }
-.extra-item-price { font-weight: 700; color: #6366f1; margin: 0 0.75rem; white-space: nowrap; }
-.extra-item-delete { background: none; border: none; color: #ef4444; cursor: pointer; font-size: 1.1rem; padding: 0.2rem; line-height: 1; }
-.extra-item-delete:hover { color: #dc2626; }
-.extras-empty { padding: 0.75rem; text-align: center; color: var(--text-secondary, #64748b); font-size: 0.85rem; font-style: italic; }
-.extras-total { display: flex; justify-content: space-between; padding: 0.5rem 0.75rem; background: rgba(99,102,241,0.08); border-radius: 6px; font-weight: 700; font-size: 0.9rem; margin-top: 0.5rem; }
+    .form-group {
+        margin-bottom: 1rem;
+    }
 
-/* Add Extra Form */
-.add-extra-form { background: #f8fafc; border: 1px dashed #cbd5e1; border-radius: 8px; padding: 0.75rem; margin-top: 0.5rem; display: none; }
-.add-extra-form.active { display: block; }
-.add-extra-row { display: grid; grid-template-columns: 2fr 1fr 1.5fr; gap: 0.5rem; margin-bottom: 0.5rem; }
-.add-extra-row input, .add-extra-row select { padding: 0.45rem 0.5rem; border: 1px solid #e2e8f0; border-radius: 4px; font-size: 0.82rem; }
-.add-extra-actions { display: flex; gap: 0.5rem; justify-content: flex-end; }
-.add-extra-actions button { padding: 0.35rem 0.75rem; border: none; border-radius: 4px; font-size: 0.8rem; cursor: pointer; font-weight: 600; }
-.btn-confirm-extra { background: #10b981; color: white; }
-.btn-cancel-extra { background: #e5e7eb; color: #6b7280; }
-.preset-btns { display: flex; flex-wrap: wrap; gap: 0.35rem; margin-bottom: 0.5rem; }
-.preset-btn { padding: 0.25rem 0.5rem; background: white; border: 1px solid #d1d5db; border-radius: 4px; font-size: 0.75rem; cursor: pointer; }
-.preset-btn:hover { background: #6366f1; color: white; border-color: #6366f1; }
+    .form-group label {
+        display: block;
+        font-size: 0.85rem;
+        font-weight: 600;
+        margin-bottom: 0.3rem;
+        color: var(--text-secondary, #475569);
+    }
 
-/* GROUP ROOMS */
-.group-badge { display: inline-block; background: rgba(255,255,255,0.25); padding: 0.15rem 0.5rem; border-radius: 4px; font-size: 0.75rem; font-weight: 700; margin-left: 0.5rem; }
-.room-cards { display: flex; flex-direction: column; gap: 0.75rem; margin-bottom: 1rem; }
-.room-card { background: rgba(99,102,241,0.03); border: 1px solid rgba(99,102,241,0.15); border-radius: 8px; padding: 0.75rem; }
-.room-card-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem; padding-bottom: 0.4rem; border-bottom: 1px solid rgba(99,102,241,0.1); }
-.room-card-title { font-weight: 700; font-size: 0.9rem; color: #6366f1; }
-.room-card-status { font-size: 0.7rem; }
-.room-card .form-row { margin-bottom: 0.5rem; }
-.room-card .form-group { margin-bottom: 0.5rem; }
-.room-card .form-group label { font-size: 0.78rem; }
-.room-card .price-box { margin-bottom: 0; }
+    .form-group input,
+    .form-group select,
+    .form-group textarea {
+        width: 100%;
+        padding: 0.6rem 0.75rem;
+        border: 1px solid var(--border-color, #e2e8f0);
+        border-radius: 6px;
+        font-size: 0.9rem;
+        background: var(--bg-secondary, #f8fafc);
+        color: var(--text-primary, #1e293b);
+        box-sizing: border-box;
+        transition: border-color 0.2s;
+    }
+
+    .form-group input:focus,
+    .form-group select:focus {
+        outline: none;
+        border-color: #6366f1;
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+    }
+
+    .form-group textarea {
+        min-height: 60px;
+        resize: vertical;
+    }
+
+    .price-box {
+        background: rgba(99, 102, 241, 0.04);
+        border: 1px solid rgba(99, 102, 241, 0.15);
+        border-radius: 8px;
+        padding: 1rem;
+        margin-bottom: 1rem;
+    }
+
+    .price-line {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.35rem 0;
+        font-size: 0.9rem;
+    }
+
+    .price-line-total {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        padding: 0.5rem 0;
+        border-top: 2px solid rgba(99, 102, 241, 0.2);
+        margin-top: 0.5rem;
+        font-weight: 700;
+        font-size: 1.05rem;
+    }
+
+    .ota-fee-row {
+        background: #fef3c7;
+        padding: 0.5rem 0.75rem;
+        border-radius: 6px;
+        margin: 0.5rem 0;
+    }
+
+    .status-badge {
+        display: inline-block;
+        padding: 0.2rem 0.6rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        color: white;
+    }
+
+    .status-pending {
+        background: #f59e0b;
+    }
+
+    .status-confirmed {
+        background: #6366f1;
+    }
+
+    .status-checked_in {
+        background: #10b981;
+    }
+
+    .discount-row {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+    }
+
+    .disc-type-btn {
+        padding: 4px 10px;
+        font-size: 0.75rem;
+        border: 1px solid #6366f1;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .disc-type-btn.active {
+        background: #6366f1;
+        color: white;
+    }
+
+    .disc-type-btn:not(.active) {
+        background: white;
+        color: #6366f1;
+    }
+
+    .btn-row {
+        display: flex;
+        gap: 1rem;
+        margin-top: 1.5rem;
+    }
+
+    .btn-save {
+        flex: 1;
+        padding: 0.75rem;
+        background: #10b981;
+        color: white;
+        border: none;
+        border-radius: 8px;
+        font-weight: 700;
+        font-size: 0.95rem;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+
+    .btn-save:hover {
+        background: #059669;
+        transform: translateY(-1px);
+    }
+
+    .btn-cancel {
+        flex: 1;
+        padding: 0.75rem;
+        background: var(--bg-secondary, #f3f4f6);
+        color: var(--text-secondary, #6b7280);
+        border: 1px solid var(--border-color, #e5e7eb);
+        border-radius: 8px;
+        font-weight: 600;
+        font-size: 0.95rem;
+        cursor: pointer;
+        text-decoration: none;
+        text-align: center;
+    }
+
+    .btn-cancel:hover {
+        background: #e5e7eb;
+    }
+
+    .alert {
+        padding: 0.75rem 1rem;
+        border-radius: 6px;
+        margin-bottom: 1rem;
+        font-size: 0.9rem;
+    }
+
+    .alert-success {
+        background: rgba(16, 185, 129, 0.1);
+        color: #059669;
+        border: 1px solid #d1fae5;
+    }
+
+    .alert-error {
+        background: rgba(239, 68, 68, 0.1);
+        color: #ef4444;
+        border: 1px solid #fee2e2;
+    }
+
+    .paid-info {
+        background: rgba(16, 185, 129, 0.06);
+        border: 1px solid rgba(16, 185, 129, 0.2);
+        border-radius: 6px;
+        padding: 0.5rem 0.75rem;
+        font-size: 0.85rem;
+        color: #059669;
+        margin-bottom: 1rem;
+    }
+
+    /* EXTRAS SECTION */
+    .extras-section {
+        margin-bottom: 1rem;
+    }
+
+    .extras-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.75rem;
+    }
+
+    .extras-header h3 {
+        margin: 0;
+        font-size: 0.95rem;
+        font-weight: 700;
+        color: var(--text-primary, #1e293b);
+    }
+
+    .btn-add-extra {
+        padding: 0.35rem 0.75rem;
+        background: #6366f1;
+        color: white;
+        border: none;
+        border-radius: 6px;
+        font-size: 0.8rem;
+        cursor: pointer;
+        font-weight: 600;
+    }
+
+    .btn-add-extra:hover {
+        background: #4f46e5;
+    }
+
+    .extras-list {
+        display: flex;
+        flex-direction: column;
+        gap: 0.5rem;
+    }
+
+    .extra-item {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        background: rgba(99, 102, 241, 0.04);
+        border: 1px solid rgba(99, 102, 241, 0.12);
+        border-radius: 6px;
+        padding: 0.5rem 0.75rem;
+        font-size: 0.85rem;
+    }
+
+    .extra-item-info {
+        flex: 1;
+    }
+
+    .extra-item-name {
+        font-weight: 600;
+        color: var(--text-primary, #1e293b);
+    }
+
+    .extra-item-detail {
+        font-size: 0.78rem;
+        color: var(--text-secondary, #64748b);
+        margin-top: 0.15rem;
+    }
+
+    .extra-item-price {
+        font-weight: 700;
+        color: #6366f1;
+        margin: 0 0.75rem;
+        white-space: nowrap;
+    }
+
+    .extra-item-delete {
+        background: none;
+        border: none;
+        color: #ef4444;
+        cursor: pointer;
+        font-size: 1.1rem;
+        padding: 0.2rem;
+        line-height: 1;
+    }
+
+    .extra-item-delete:hover {
+        color: #dc2626;
+    }
+
+    .extras-empty {
+        padding: 0.75rem;
+        text-align: center;
+        color: var(--text-secondary, #64748b);
+        font-size: 0.85rem;
+        font-style: italic;
+    }
+
+    .extras-total {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.5rem 0.75rem;
+        background: rgba(99, 102, 241, 0.08);
+        border-radius: 6px;
+        font-weight: 700;
+        font-size: 0.9rem;
+        margin-top: 0.5rem;
+    }
+
+    /* Add Extra Form */
+    .add-extra-form {
+        background: #f8fafc;
+        border: 1px dashed #cbd5e1;
+        border-radius: 8px;
+        padding: 0.75rem;
+        margin-top: 0.5rem;
+        display: none;
+    }
+
+    .add-extra-form.active {
+        display: block;
+    }
+
+    .add-extra-row {
+        display: grid;
+        grid-template-columns: 2fr 1fr 1.5fr;
+        gap: 0.5rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .add-extra-row input,
+    .add-extra-row select {
+        padding: 0.45rem 0.5rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 4px;
+        font-size: 0.82rem;
+    }
+
+    .add-extra-actions {
+        display: flex;
+        gap: 0.5rem;
+        justify-content: flex-end;
+    }
+
+    .add-extra-actions button {
+        padding: 0.35rem 0.75rem;
+        border: none;
+        border-radius: 4px;
+        font-size: 0.8rem;
+        cursor: pointer;
+        font-weight: 600;
+    }
+
+    .btn-confirm-extra {
+        background: #10b981;
+        color: white;
+    }
+
+    .btn-cancel-extra {
+        background: #e5e7eb;
+        color: #6b7280;
+    }
+
+    .preset-btns {
+        display: flex;
+        flex-wrap: wrap;
+        gap: 0.35rem;
+        margin-bottom: 0.5rem;
+    }
+
+    .preset-btn {
+        padding: 0.25rem 0.5rem;
+        background: white;
+        border: 1px solid #d1d5db;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        cursor: pointer;
+    }
+
+    .preset-btn:hover {
+        background: #6366f1;
+        color: white;
+        border-color: #6366f1;
+    }
+
+    /* GROUP ROOMS */
+    .group-badge {
+        display: inline-block;
+        background: rgba(255, 255, 255, 0.25);
+        padding: 0.15rem 0.5rem;
+        border-radius: 4px;
+        font-size: 0.75rem;
+        font-weight: 700;
+        margin-left: 0.5rem;
+    }
+
+    .room-cards {
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        margin-bottom: 1rem;
+    }
+
+    .room-card {
+        background: rgba(99, 102, 241, 0.03);
+        border: 1px solid rgba(99, 102, 241, 0.15);
+        border-radius: 8px;
+        padding: 0.75rem;
+    }
+
+    .room-card-header {
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        margin-bottom: 0.5rem;
+        padding-bottom: 0.4rem;
+        border-bottom: 1px solid rgba(99, 102, 241, 0.1);
+    }
+
+    .room-card-title {
+        font-weight: 700;
+        font-size: 0.9rem;
+        color: #6366f1;
+    }
+
+    .room-card-status {
+        font-size: 0.7rem;
+    }
+
+    .room-card .form-row {
+        margin-bottom: 0.5rem;
+    }
+
+    .room-card .form-group {
+        margin-bottom: 0.5rem;
+    }
+
+    .room-card .form-group label {
+        font-size: 0.78rem;
+    }
+
+    .room-card .price-box {
+        margin-bottom: 0;
+    }
 </style>
 
 <div class="edit-page">
     <div class="edit-card">
         <div class="edit-card-header">
             <h2>✏️ Edit Reservasi<?php if ($isGroup): ?><span class="group-badge">📦 <?php echo count($groupBookings); ?> Rooms</span><?php endif; ?></h2>
-            <div class="booking-code"><?php echo htmlspecialchars($booking['booking_code']); ?><?php if ($isGroup): ?> (Group)<?php endif; ?> · 
-                <span class="status-badge status-<?php echo $booking['status']; ?>"><?php echo strtoupper(str_replace('_',' ',$booking['status'])); ?></span>
+            <div class="booking-code"><?php echo htmlspecialchars($booking['booking_code']); ?><?php if ($isGroup): ?> (Group)<?php endif; ?> ·
+                <span class="status-badge status-<?php echo $booking['status']; ?>"><?php echo strtoupper(str_replace('_', ' ', $booking['status'])); ?></span>
             </div>
         </div>
-        
+
         <div class="edit-card-body">
             <div id="alertBox"></div>
-            
+
             <?php if ($totalPaid > 0): ?>
-            <div class="paid-info">
-                💰 Sudah Dibayar: <strong>Rp <?php echo number_format($totalPaid, 0, ',', '.'); ?></strong>
-                <?php if ($totalPaid >= $combinedFinalPrice): ?>
-                    <span style="margin-left:0.5rem;background:#10b981;color:white;padding:2px 8px;border-radius:4px;font-size:0.7rem;">LUNAS</span>
-                <?php endif; ?>
-            </div>
+                <div class="paid-info">
+                    💰 Sudah Dibayar: <strong>Rp <?php echo number_format($totalPaid, 0, ',', '.'); ?></strong>
+                    <?php if ($totalPaid >= $combinedFinalPrice): ?>
+                        <span style="margin-left:0.5rem;background:#10b981;color:white;padding:2px 8px;border-radius:4px;font-size:0.7rem;">LUNAS</span>
+                    <?php endif; ?>
+                </div>
             <?php endif; ?>
-            
+
             <form id="editForm" onsubmit="return saveEdit(event)">
                 <input type="hidden" name="booking_id" value="<?php echo $bookingId; ?>">
                 <?php if ($isGroup): ?>
-                <input type="hidden" name="group_id" value="<?php echo htmlspecialchars($groupId); ?>">
+                    <input type="hidden" name="group_id" value="<?php echo htmlspecialchars($groupId); ?>">
                 <?php endif; ?>
-                
+
                 <!-- GUEST INFO -->
                 <div class="form-row">
                     <div class="form-group">
@@ -261,7 +649,7 @@ include '../../includes/header.php';
                         <input type="text" name="guest_id_number" value="<?php echo htmlspecialchars($booking['guest_id_number'] ?? ''); ?>">
                     </div>
                 </div>
-                
+
                 <!-- DATES -->
                 <div class="form-row">
                     <div class="form-group">
@@ -273,155 +661,155 @@ include '../../includes/header.php';
                         <input type="date" name="check_out_date" id="checkOut" value="<?php echo $booking['check_out_date']; ?>" required onchange="recalculate()">
                     </div>
                 </div>
-                
+
                 <!-- ROOM(S) -->
                 <?php if ($isGroup): ?>
-                <!-- GROUP: Multiple Room Cards -->
-                <div class="room-cards">
-                    <?php foreach ($groupBookings as $idx => $gb): ?>
-                    <div class="room-card" data-room-idx="<?php echo $idx; ?>">
-                        <input type="hidden" name="rooms[<?php echo $idx; ?>][booking_id]" value="<?php echo $gb['id']; ?>">
-                        <div class="room-card-header">
-                            <span class="room-card-title">🏠 Room <?php echo htmlspecialchars($gb['room_number']); ?> — <?php echo htmlspecialchars($gb['type_name']); ?></span>
-                            <span class="room-card-status status-badge status-<?php echo $gb['status']; ?>"><?php echo strtoupper(str_replace('_',' ',$gb['status'])); ?></span>
-                        </div>
-                        <div class="form-row">
-                            <div class="form-group">
-                                <label>Kamar</label>
-                                <select name="rooms[<?php echo $idx; ?>][room_id]" class="grp-room-select" data-idx="<?php echo $idx; ?>" onchange="recalculate()">
-                                    <?php foreach ($rooms as $room): ?>
-                                    <option value="<?php echo $room['id']; ?>" 
-                                            data-price="<?php echo $room['base_price']; ?>"
-                                            <?php echo $room['id'] == $gb['room_id'] ? 'selected' : ''; ?>>
-                                        Room <?php echo $room['room_number']; ?> - <?php echo $room['type_name']; ?> (Rp <?php echo number_format($room['base_price'],0,',','.'); ?>)
-                                    </option>
+                    <!-- GROUP: Multiple Room Cards -->
+                    <div class="room-cards">
+                        <?php foreach ($groupBookings as $idx => $gb): ?>
+                            <div class="room-card" data-room-idx="<?php echo $idx; ?>">
+                                <input type="hidden" name="rooms[<?php echo $idx; ?>][booking_id]" value="<?php echo $gb['id']; ?>">
+                                <div class="room-card-header">
+                                    <span class="room-card-title">🏠 Room <?php echo htmlspecialchars($gb['room_number']); ?> — <?php echo htmlspecialchars($gb['type_name']); ?></span>
+                                    <span class="room-card-status status-badge status-<?php echo $gb['status']; ?>"><?php echo strtoupper(str_replace('_', ' ', $gb['status'])); ?></span>
+                                </div>
+                                <div class="form-row">
+                                    <div class="form-group">
+                                        <label>Kamar</label>
+                                        <select name="rooms[<?php echo $idx; ?>][room_id]" class="grp-room-select" data-idx="<?php echo $idx; ?>" onchange="recalculate()">
+                                            <?php foreach ($rooms as $room): ?>
+                                                <option value="<?php echo $room['id']; ?>"
+                                                    data-price="<?php echo $room['base_price']; ?>"
+                                                    <?php echo $room['id'] == $gb['room_id'] ? 'selected' : ''; ?>>
+                                                    Room <?php echo $room['room_number']; ?> - <?php echo $room['type_name']; ?> (Rp <?php echo number_format($room['base_price'], 0, ',', '.'); ?>)
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
+                                    <div class="form-group">
+                                        <label>Harga/Malam (Rp)</label>
+                                        <input type="number" name="rooms[<?php echo $idx; ?>][room_price]" class="grp-room-price" data-idx="<?php echo $idx; ?>" value="<?php echo $gb['room_price']; ?>" step="1000" onchange="recalculate()">
+                                    </div>
+                                </div>
+                                <div class="form-group">
+                                    <label>Diskon (Rp)</label>
+                                    <input type="number" name="rooms[<?php echo $idx; ?>][discount]" class="grp-discount" data-idx="<?php echo $idx; ?>" value="<?php echo $gb['discount']; ?>" min="0" onchange="recalculate()">
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+
+                    <!-- SOURCE (shared for group) -->
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Booking Source</label>
+                            <select name="booking_source" id="bookingSource" onchange="recalculate()">
+                                <?php
+                                $directSources = array_filter($bookingSources, fn($s) => $s['source_type'] === 'direct');
+                                $otaSrc = array_filter($bookingSources, fn($s) => $s['source_type'] !== 'direct');
+                                ?>
+                                <optgroup label="Direct">
+                                    <?php foreach ($directSources as $src): ?>
+                                        <option value="<?php echo $src['source_key']; ?>"
+                                            <?php echo $src['source_key'] === $booking['booking_source'] ? 'selected' : ''; ?>>
+                                            <?php echo $src['icon'] . ' ' . $src['source_name']; ?>
+                                        </option>
                                     <?php endforeach; ?>
-                                </select>
-                            </div>
-                            <div class="form-group">
-                                <label>Harga/Malam (Rp)</label>
-                                <input type="number" name="rooms[<?php echo $idx; ?>][room_price]" class="grp-room-price" data-idx="<?php echo $idx; ?>" value="<?php echo $gb['room_price']; ?>" step="1000" onchange="recalculate()">
-                            </div>
+                                </optgroup>
+                                <optgroup label="OTA">
+                                    <?php foreach ($otaSrc as $src): ?>
+                                        <option value="<?php echo $src['source_key']; ?>"
+                                            <?php echo $src['source_key'] === $booking['booking_source'] ? 'selected' : ''; ?>>
+                                            <?php echo $src['icon'] . ' ' . $src['source_name'] . ' (fee ' . $src['fee_percent'] . '%)'; ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </optgroup>
+                            </select>
                         </div>
                         <div class="form-group">
-                            <label>Diskon (Rp)</label>
-                            <input type="number" name="rooms[<?php echo $idx; ?>][discount]" class="grp-discount" data-idx="<?php echo $idx; ?>" value="<?php echo $gb['discount']; ?>" min="0" onchange="recalculate()">
+                            <label>Jumlah Tamu</label>
+                            <input type="number" name="num_guests" min="1" max="30" value="<?php echo $booking['adults'] ?? 1; ?>">
                         </div>
                     </div>
-                    <?php endforeach; ?>
-                </div>
-                
-                <!-- SOURCE (shared for group) -->
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Booking Source</label>
-                        <select name="booking_source" id="bookingSource" onchange="recalculate()">
-                            <?php 
-                            $directSources = array_filter($bookingSources, fn($s) => $s['source_type'] === 'direct');
-                            $otaSrc = array_filter($bookingSources, fn($s) => $s['source_type'] !== 'direct');
-                            ?>
-                            <optgroup label="Direct">
-                                <?php foreach ($directSources as $src): ?>
-                                <option value="<?php echo $src['source_key']; ?>" 
-                                        <?php echo $src['source_key'] === $booking['booking_source'] ? 'selected' : ''; ?>>
-                                    <?php echo $src['icon'] . ' ' . $src['source_name']; ?>
-                                </option>
-                                <?php endforeach; ?>
-                            </optgroup>
-                            <optgroup label="OTA">
-                                <?php foreach ($otaSrc as $src): ?>
-                                <option value="<?php echo $src['source_key']; ?>"
-                                        <?php echo $src['source_key'] === $booking['booking_source'] ? 'selected' : ''; ?>>
-                                    <?php echo $src['icon'] . ' ' . $src['source_name'] . ' (fee ' . $src['fee_percent'] . '%)'; ?>
-                                </option>
-                                <?php endforeach; ?>
-                            </optgroup>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Jumlah Tamu</label>
-                        <input type="number" name="num_guests" min="1" max="30" value="<?php echo $booking['adults'] ?? 1; ?>">
-                    </div>
-                </div>
                 <?php else: ?>
-                <!-- SINGLE ROOM -->
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Kamar</label>
-                        <select name="room_id" id="roomSelect" onchange="recalculate()">
-                            <?php foreach ($rooms as $room): ?>
-                            <option value="<?php echo $room['id']; ?>" 
-                                    data-price="<?php echo $room['base_price']; ?>"
-                                    <?php echo $room['id'] == $booking['room_id'] ? 'selected' : ''; ?>>
-                                Room <?php echo $room['room_number']; ?> - <?php echo $room['type_name']; ?> (Rp <?php echo number_format($room['base_price'],0,',','.'); ?>)
-                            </option>
-                            <?php endforeach; ?>
-                        </select>
-                    </div>
-                    <div class="form-group">
-                        <label>Jumlah Tamu</label>
-                        <input type="number" name="num_guests" min="1" max="10" value="<?php echo $booking['adults'] ?? 1; ?>">
-                    </div>
-                </div>
-                
-                <!-- SOURCE & PRICE -->
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Booking Source</label>
-                        <select name="booking_source" id="bookingSource" onchange="recalculate()">
-                            <?php 
-                            $directSources = array_filter($bookingSources, fn($s) => $s['source_type'] === 'direct');
-                            $otaSrc = array_filter($bookingSources, fn($s) => $s['source_type'] !== 'direct');
-                            ?>
-                            <optgroup label="Direct">
-                                <?php foreach ($directSources as $src): ?>
-                                <option value="<?php echo $src['source_key']; ?>" 
-                                        <?php echo $src['source_key'] === $booking['booking_source'] ? 'selected' : ''; ?>>
-                                    <?php echo $src['icon'] . ' ' . $src['source_name']; ?>
-                                </option>
+                    <!-- SINGLE ROOM -->
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Kamar</label>
+                            <select name="room_id" id="roomSelect" onchange="recalculate()">
+                                <?php foreach ($rooms as $room): ?>
+                                    <option value="<?php echo $room['id']; ?>"
+                                        data-price="<?php echo $room['base_price']; ?>"
+                                        <?php echo $room['id'] == $booking['room_id'] ? 'selected' : ''; ?>>
+                                        Room <?php echo $room['room_number']; ?> - <?php echo $room['type_name']; ?> (Rp <?php echo number_format($room['base_price'], 0, ',', '.'); ?>)
+                                    </option>
                                 <?php endforeach; ?>
-                            </optgroup>
-                            <optgroup label="OTA">
-                                <?php foreach ($otaSrc as $src): ?>
-                                <option value="<?php echo $src['source_key']; ?>"
-                                        <?php echo $src['source_key'] === $booking['booking_source'] ? 'selected' : ''; ?>>
-                                    <?php echo $src['icon'] . ' ' . $src['source_name'] . ' (fee ' . $src['fee_percent'] . '%)'; ?>
-                                </option>
-                                <?php endforeach; ?>
-                            </optgroup>
-                        </select>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Jumlah Tamu</label>
+                            <input type="number" name="num_guests" min="1" max="10" value="<?php echo $booking['adults'] ?? 1; ?>">
+                        </div>
                     </div>
+
+                    <!-- SOURCE & PRICE -->
+                    <div class="form-row">
+                        <div class="form-group">
+                            <label>Booking Source</label>
+                            <select name="booking_source" id="bookingSource" onchange="recalculate()">
+                                <?php
+                                $directSources = array_filter($bookingSources, fn($s) => $s['source_type'] === 'direct');
+                                $otaSrc = array_filter($bookingSources, fn($s) => $s['source_type'] !== 'direct');
+                                ?>
+                                <optgroup label="Direct">
+                                    <?php foreach ($directSources as $src): ?>
+                                        <option value="<?php echo $src['source_key']; ?>"
+                                            <?php echo $src['source_key'] === $booking['booking_source'] ? 'selected' : ''; ?>>
+                                            <?php echo $src['icon'] . ' ' . $src['source_name']; ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </optgroup>
+                                <optgroup label="OTA">
+                                    <?php foreach ($otaSrc as $src): ?>
+                                        <option value="<?php echo $src['source_key']; ?>"
+                                            <?php echo $src['source_key'] === $booking['booking_source'] ? 'selected' : ''; ?>>
+                                            <?php echo $src['icon'] . ' ' . $src['source_name'] . ' (fee ' . $src['fee_percent'] . '%)'; ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </optgroup>
+                            </select>
+                        </div>
+                        <div class="form-group">
+                            <label>Harga/Malam (Rp)</label>
+                            <input type="number" name="room_price" id="roomPrice" value="<?php echo $booking['room_price']; ?>" step="1000" onchange="recalculate()">
+                        </div>
+                    </div>
+
+                    <!-- DISCOUNT -->
                     <div class="form-group">
-                        <label>Harga/Malam (Rp)</label>
-                        <input type="number" name="room_price" id="roomPrice" value="<?php echo $booking['room_price']; ?>" step="1000" onchange="recalculate()">
+                        <label>Diskon</label>
+                        <div class="discount-row">
+                            <button type="button" class="disc-type-btn active" data-type="rp" onclick="setDiscType('rp')" style="border-radius:4px 0 0 4px;">Rp</button>
+                            <button type="button" class="disc-type-btn" data-type="percent" onclick="setDiscType('percent')" style="border-radius:0 4px 4px 0;">%</button>
+                            <input type="number" name="discount_value" id="discountValue" value="<?php echo $booking['discount']; ?>" min="0" style="flex:1;" onchange="recalculate()">
+                            <input type="hidden" name="discount_type" id="discountType" value="rp">
+                        </div>
                     </div>
-                </div>
-                
-                <!-- DISCOUNT -->
-                <div class="form-group">
-                    <label>Diskon</label>
-                    <div class="discount-row">
-                        <button type="button" class="disc-type-btn active" data-type="rp" onclick="setDiscType('rp')" style="border-radius:4px 0 0 4px;">Rp</button>
-                        <button type="button" class="disc-type-btn" data-type="percent" onclick="setDiscType('percent')" style="border-radius:0 4px 4px 0;">%</button>
-                        <input type="number" name="discount_value" id="discountValue" value="<?php echo $booking['discount']; ?>" min="0" style="flex:1;" onchange="recalculate()">
-                        <input type="hidden" name="discount_type" id="discountType" value="rp">
-                    </div>
-                </div>
                 <?php endif; ?>
-                
+
                 <!-- SPECIAL REQUEST -->
                 <div class="form-group">
                     <label>Catatan / Permintaan Khusus</label>
                     <textarea name="special_requests"><?php echo htmlspecialchars($booking['special_request'] ?? ''); ?></textarea>
                 </div>
-                
+
                 <!-- EXTRAS (Extra Bed, Laundry, dll) -->
                 <div class="extras-section">
                     <div class="extras-header">
                         <h3>🛏️ Tambahan / Extras</h3>
                         <button type="button" class="btn-add-extra" onclick="toggleAddExtraForm()">+ Tambah</button>
                     </div>
-                    
+
                     <!-- ADD FORM -->
                     <div id="addExtraForm" class="add-extra-form">
                         <div class="preset-btns">
@@ -442,38 +830,38 @@ include '../../includes/header.php';
                             <button type="button" class="btn-confirm-extra" onclick="addExtra()">✅ Simpan</button>
                         </div>
                     </div>
-                    
+
                     <!-- LIST -->
                     <div id="extrasList" class="extras-list">
                         <?php if (empty($bookingExtras)): ?>
                             <div class="extras-empty" id="extrasEmpty">Belum ada tambahan</div>
                         <?php else: ?>
                             <?php foreach ($bookingExtras as $ex): ?>
-                            <div class="extra-item" data-extra-id="<?php echo $ex['id']; ?>">
-                                <div class="extra-item-info">
-                                    <div class="extra-item-name"><?php echo htmlspecialchars($ex['item_name']); ?></div>
-                                    <div class="extra-item-detail"><?php echo $ex['quantity']; ?>x @ Rp <?php echo number_format($ex['unit_price'], 0, ',', '.'); ?></div>
+                                <div class="extra-item" data-extra-id="<?php echo $ex['id']; ?>">
+                                    <div class="extra-item-info">
+                                        <div class="extra-item-name"><?php echo htmlspecialchars($ex['item_name']); ?></div>
+                                        <div class="extra-item-detail"><?php echo $ex['quantity']; ?>x @ Rp <?php echo number_format($ex['unit_price'], 0, ',', '.'); ?></div>
+                                    </div>
+                                    <div class="extra-item-price">Rp <?php echo number_format($ex['total_price'], 0, ',', '.'); ?></div>
+                                    <button type="button" class="extra-item-delete" onclick="deleteExtra(<?php echo $ex['id']; ?>, this)" title="Hapus">🗑️</button>
                                 </div>
-                                <div class="extra-item-price">Rp <?php echo number_format($ex['total_price'], 0, ',', '.'); ?></div>
-                                <button type="button" class="extra-item-delete" onclick="deleteExtra(<?php echo $ex['id']; ?>, this)" title="Hapus">🗑️</button>
-                            </div>
                             <?php endforeach; ?>
                         <?php endif; ?>
                     </div>
-                    
+
                     <?php if ($totalExtras > 0): ?>
-                    <div class="extras-total" id="extrasTotal">
-                        <span>Total Extras:</span>
-                        <span>Rp <?php echo number_format($totalExtras, 0, ',', '.'); ?></span>
-                    </div>
+                        <div class="extras-total" id="extrasTotal">
+                            <span>Total Extras:</span>
+                            <span>Rp <?php echo number_format($totalExtras, 0, ',', '.'); ?></span>
+                        </div>
                     <?php else: ?>
-                    <div class="extras-total" id="extrasTotal" style="display:none;">
-                        <span>Total Extras:</span>
-                        <span>Rp 0</span>
-                    </div>
+                        <div class="extras-total" id="extrasTotal" style="display:none;">
+                            <span>Total Extras:</span>
+                            <span>Rp 0</span>
+                        </div>
                     <?php endif; ?>
                 </div>
-                
+
                 <!-- PRICE SUMMARY -->
                 <div class="price-box">
                     <div class="price-line">
@@ -482,11 +870,11 @@ include '../../includes/header.php';
                     </div>
                     <div class="price-line">
                         <span>Subtotal:</span>
-                        <strong id="dispSubtotal">Rp <?php echo number_format($booking['total_price'],0,',','.'); ?></strong>
+                        <strong id="dispSubtotal">Rp <?php echo number_format($booking['total_price'], 0, ',', '.'); ?></strong>
                     </div>
                     <div class="price-line" id="discountRow" style="<?php echo $booking['discount'] > 0 ? '' : 'display:none'; ?>">
                         <span>Diskon:</span>
-                        <strong id="dispDiscount" style="color:#ef4444;">- Rp <?php echo number_format($booking['discount'],0,',','.'); ?></strong>
+                        <strong id="dispDiscount" style="color:#ef4444;">- Rp <?php echo number_format($booking['discount'], 0, ',', '.'); ?></strong>
                     </div>
                     <div class="price-line ota-fee-row" id="otaFeeRow" style="display:none;">
                         <span style="color:#92400e;">Fee OTA (<span id="dispFeePercent">0</span>%):</span>
@@ -498,10 +886,10 @@ include '../../includes/header.php';
                     </div>
                     <div class="price-line-total">
                         <span>TOTAL (Net):</span>
-                        <strong id="dispTotal" style="color:#10b981;">Rp <?php echo number_format($booking['final_price'],0,',','.'); ?></strong>
+                        <strong id="dispTotal" style="color:#10b981;">Rp <?php echo number_format($booking['final_price'], 0, ',', '.'); ?></strong>
                     </div>
                 </div>
-                
+
                 <div class="btn-row">
                     <button type="submit" class="btn-save" id="btnSave">💾 Simpan Perubahan</button>
                     <a href="reservasi.php" class="btn-cancel">❌ Batal</a>
@@ -512,150 +900,159 @@ include '../../includes/header.php';
 </div>
 
 <script>
-const OTA_FEES = <?php echo json_encode($otaFees); ?>;
-const BASE_URL = '<?php echo BASE_URL; ?>';
-const BOOKING_ID = <?php echo $bookingId; ?>;
-const IS_GROUP = <?php echo $isGroup ? 'true' : 'false'; ?>;
-const ALL_BOOKING_IDS = <?php echo json_encode($allBookingIds); ?>;
-let discountType = 'rp';
-let currentExtrasTotal = <?php echo $totalExtras; ?>;
+    const OTA_FEES = <?php echo json_encode($otaFees); ?>;
+    const BASE_URL = '<?php echo BASE_URL; ?>';
+    const BOOKING_ID = <?php echo $bookingId; ?>;
+    const IS_GROUP = <?php echo $isGroup ? 'true' : 'false'; ?>;
+    const ALL_BOOKING_IDS = <?php echo json_encode($allBookingIds); ?>;
+    let discountType = 'rp';
+    let currentExtrasTotal = <?php echo $totalExtras; ?>;
 
-function setDiscType(type) {
-    discountType = type;
-    document.getElementById('discountType').value = type;
-    document.querySelectorAll('.disc-type-btn').forEach(b => {
-        b.classList.toggle('active', b.dataset.type === type);
-    });
-    recalculate();
-}
-
-function recalculate() {
-    const ci = new Date(document.getElementById('checkIn').value);
-    const co = new Date(document.getElementById('checkOut').value);
-    if (!ci || !co || co <= ci) return;
-    
-    const nights = Math.ceil((co - ci) / 86400000);
-    
-    // OTA Fee percent from source
-    const source = document.getElementById('bookingSource').value;
-    const feePercent = OTA_FEES[source] || 0;
-    
-    let grandSubtotal = 0;
-    let grandDiscount = 0;
-    let grandFee = 0;
-    let grandRoomNet = 0;
-    
-    if (IS_GROUP) {
-        // Sum across all room cards
-        document.querySelectorAll('.room-card').forEach(card => {
-            const price = parseFloat(card.querySelector('.grp-room-price').value) || 0;
-            const disc = parseFloat(card.querySelector('.grp-discount').value) || 0;
-            const sub = nights * price;
-            const afterDisc = sub - disc;
-            const fee = feePercent > 0 ? Math.round(afterDisc * feePercent / 100) : 0;
-            grandSubtotal += sub;
-            grandDiscount += disc;
-            grandFee += fee;
-            grandRoomNet += (afterDisc - fee);
+    function setDiscType(type) {
+        discountType = type;
+        document.getElementById('discountType').value = type;
+        document.querySelectorAll('.disc-type-btn').forEach(b => {
+            b.classList.toggle('active', b.dataset.type === type);
         });
-    } else {
-        const price = parseFloat(document.getElementById('roomPrice').value) || 0;
-        grandSubtotal = nights * price;
-        
-        // Discount
-        const discVal = parseFloat(document.getElementById('discountValue').value) || 0;
-        if (discountType === 'percent') {
-            grandDiscount = Math.round(grandSubtotal * discVal / 100);
+        recalculate();
+    }
+
+    function recalculate() {
+        const ci = new Date(document.getElementById('checkIn').value);
+        const co = new Date(document.getElementById('checkOut').value);
+        if (!ci || !co || co <= ci) return;
+
+        const nights = Math.ceil((co - ci) / 86400000);
+
+        // OTA Fee percent from source
+        const source = document.getElementById('bookingSource').value;
+        const feePercent = OTA_FEES[source] || 0;
+
+        let grandSubtotal = 0;
+        let grandDiscount = 0;
+        let grandFee = 0;
+        let grandRoomNet = 0;
+
+        if (IS_GROUP) {
+            // Sum across all room cards
+            document.querySelectorAll('.room-card').forEach(card => {
+                const price = parseFloat(card.querySelector('.grp-room-price').value) || 0;
+                const disc = parseFloat(card.querySelector('.grp-discount').value) || 0;
+                const sub = nights * price;
+                const afterDisc = sub - disc;
+                const fee = feePercent > 0 ? Math.round(afterDisc * feePercent / 100) : 0;
+                grandSubtotal += sub;
+                grandDiscount += disc;
+                grandFee += fee;
+                grandRoomNet += (afterDisc - fee);
+            });
         } else {
-            grandDiscount = discVal;
+            const price = parseFloat(document.getElementById('roomPrice').value) || 0;
+            grandSubtotal = nights * price;
+
+            // Discount
+            const discVal = parseFloat(document.getElementById('discountValue').value) || 0;
+            if (discountType === 'percent') {
+                grandDiscount = Math.round(grandSubtotal * discVal / 100);
+            } else {
+                grandDiscount = discVal;
+            }
+
+            const afterDiscount = grandSubtotal - grandDiscount;
+            grandFee = feePercent > 0 ? Math.round(afterDiscount * feePercent / 100) : 0;
+            grandRoomNet = afterDiscount - grandFee;
         }
-        
-        const afterDiscount = grandSubtotal - grandDiscount;
-        grandFee = feePercent > 0 ? Math.round(afterDiscount * feePercent / 100) : 0;
-        grandRoomNet = afterDiscount - grandFee;
-    }
-    
-    const total = grandRoomNet + currentExtrasTotal;
-    
-    // Update display
-    document.getElementById('dispNights').textContent = nights;
-    document.getElementById('dispSubtotal').textContent = 'Rp ' + grandSubtotal.toLocaleString('id-ID');
-    
-    if (grandDiscount > 0) {
-        document.getElementById('discountRow').style.display = 'flex';
-        document.getElementById('dispDiscount').textContent = '- Rp ' + grandDiscount.toLocaleString('id-ID');
-    } else {
-        document.getElementById('discountRow').style.display = 'none';
-    }
-    
-    if (feePercent > 0) {
-        document.getElementById('otaFeeRow').style.display = 'flex';
-        document.getElementById('dispFeePercent').textContent = feePercent;
-        document.getElementById('dispFeeAmount').textContent = '- Rp ' + grandFee.toLocaleString('id-ID');
-    } else {
-        document.getElementById('otaFeeRow').style.display = 'none';
-    }
-    
-    // Extras row
-    if (currentExtrasTotal > 0) {
-        document.getElementById('extrasRow').style.display = 'flex';
-        document.getElementById('dispExtras').textContent = '+ Rp ' + currentExtrasTotal.toLocaleString('id-ID');
-    } else {
-        document.getElementById('extrasRow').style.display = 'none';
-    }
-    
-    document.getElementById('dispTotal').textContent = 'Rp ' + total.toLocaleString('id-ID');
-}
 
-// ========== EXTRAS MANAGEMENT ==========
+        const total = grandRoomNet + currentExtrasTotal;
 
-function toggleAddExtraForm() {
-    const form = document.getElementById('addExtraForm');
-    form.classList.toggle('active');
-    if (form.classList.contains('active')) {
+        // Update display
+        document.getElementById('dispNights').textContent = nights;
+        document.getElementById('dispSubtotal').textContent = 'Rp ' + grandSubtotal.toLocaleString('id-ID');
+
+        if (grandDiscount > 0) {
+            document.getElementById('discountRow').style.display = 'flex';
+            document.getElementById('dispDiscount').textContent = '- Rp ' + grandDiscount.toLocaleString('id-ID');
+        } else {
+            document.getElementById('discountRow').style.display = 'none';
+        }
+
+        if (feePercent > 0) {
+            document.getElementById('otaFeeRow').style.display = 'flex';
+            document.getElementById('dispFeePercent').textContent = feePercent;
+            document.getElementById('dispFeeAmount').textContent = '- Rp ' + grandFee.toLocaleString('id-ID');
+        } else {
+            document.getElementById('otaFeeRow').style.display = 'none';
+        }
+
+        // Extras row
+        if (currentExtrasTotal > 0) {
+            document.getElementById('extrasRow').style.display = 'flex';
+            document.getElementById('dispExtras').textContent = '+ Rp ' + currentExtrasTotal.toLocaleString('id-ID');
+        } else {
+            document.getElementById('extrasRow').style.display = 'none';
+        }
+
+        document.getElementById('dispTotal').textContent = 'Rp ' + total.toLocaleString('id-ID');
+    }
+
+    // ========== EXTRAS MANAGEMENT ==========
+
+    function toggleAddExtraForm() {
+        const form = document.getElementById('addExtraForm');
+        form.classList.toggle('active');
+        if (form.classList.contains('active')) {
+            document.getElementById('extraItemName').focus();
+        }
+    }
+
+    function fillPreset(name, price) {
+        document.getElementById('extraItemName').value = name;
+        document.getElementById('extraUnitPrice').value = price;
+        document.getElementById('extraQty').value = 1;
         document.getElementById('extraItemName').focus();
     }
-}
 
-function fillPreset(name, price) {
-    document.getElementById('extraItemName').value = name;
-    document.getElementById('extraUnitPrice').value = price;
-    document.getElementById('extraQty').value = 1;
-    document.getElementById('extraItemName').focus();
-}
+    function addExtra() {
+        const itemName = document.getElementById('extraItemName').value.trim();
+        const qty = parseInt(document.getElementById('extraQty').value) || 1;
+        const unitPrice = parseFloat(document.getElementById('extraUnitPrice').value) || 0;
 
-function addExtra() {
-    const itemName = document.getElementById('extraItemName').value.trim();
-    const qty = parseInt(document.getElementById('extraQty').value) || 1;
-    const unitPrice = parseFloat(document.getElementById('extraUnitPrice').value) || 0;
-    
-    if (!itemName) { alert('Nama item harus diisi'); return; }
-    if (unitPrice <= 0) { alert('Harga harus lebih dari 0'); return; }
-    
-    const formData = new FormData();
-    formData.append('action', 'add');
-    formData.append('booking_id', BOOKING_ID);
-    formData.append('item_name', itemName);
-    formData.append('quantity', qty);
-    formData.append('unit_price', unitPrice);
-    
-    fetch(BASE_URL + '/api/booking-extras.php', { method: 'POST', body: formData })
-    .then(r => r.json())
-    .then(data => {
-        if (data.success) {
-            const totalPrice = qty * unitPrice;
-            currentExtrasTotal += totalPrice;
-            
-            // Remove empty message
-            const empty = document.getElementById('extrasEmpty');
-            if (empty) empty.remove();
-            
-            // Add item to list
-            const list = document.getElementById('extrasList');
-            const div = document.createElement('div');
-            div.className = 'extra-item';
-            div.dataset.extraId = data.extra.id;
-            div.innerHTML = `
+        if (!itemName) {
+            alert('Nama item harus diisi');
+            return;
+        }
+        if (unitPrice <= 0) {
+            alert('Harga harus lebih dari 0');
+            return;
+        }
+
+        const formData = new FormData();
+        formData.append('action', 'add');
+        formData.append('booking_id', BOOKING_ID);
+        formData.append('item_name', itemName);
+        formData.append('quantity', qty);
+        formData.append('unit_price', unitPrice);
+
+        fetch(BASE_URL + '/api/booking-extras.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    const totalPrice = qty * unitPrice;
+                    currentExtrasTotal += totalPrice;
+
+                    // Remove empty message
+                    const empty = document.getElementById('extrasEmpty');
+                    if (empty) empty.remove();
+
+                    // Add item to list
+                    const list = document.getElementById('extrasList');
+                    const div = document.createElement('div');
+                    div.className = 'extra-item';
+                    div.dataset.extraId = data.extra.id;
+                    div.innerHTML = `
                 <div class="extra-item-info">
                     <div class="extra-item-name">${escHtml(itemName)}</div>
                     <div class="extra-item-detail">${qty}x @ Rp ${unitPrice.toLocaleString('id-ID')}</div>
@@ -663,147 +1060,162 @@ function addExtra() {
                 <div class="extra-item-price">Rp ${totalPrice.toLocaleString('id-ID')}</div>
                 <button type="button" class="extra-item-delete" onclick="deleteExtra(${data.extra.id}, this)" title="Hapus">🗑️</button>
             `;
-            list.appendChild(div);
-            
-            // Update extras total display
-            updateExtrasTotalDisplay();
-            
-            // Clear form
-            document.getElementById('extraItemName').value = '';
-            document.getElementById('extraQty').value = '1';
-            document.getElementById('extraUnitPrice').value = '';
-            document.getElementById('addExtraForm').classList.remove('active');
-            
-            recalculate();
-        } else {
-            alert('❌ ' + data.message);
-        }
-    })
-    .catch(err => alert('Error: ' + err.message));
-}
+                    list.appendChild(div);
 
-function deleteExtra(extraId, btn) {
-    if (!confirm('Hapus item ini?')) return;
-    
-    const item = btn.closest('.extra-item');
-    const priceText = item.querySelector('.extra-item-price').textContent;
-    const price = parseFloat(priceText.replace(/[^\d]/g, '')) || 0;
-    
-    const formData = new FormData();
-    formData.append('action', 'delete');
-    formData.append('extra_id', extraId);
-    
-    fetch(BASE_URL + '/api/booking-extras.php', { method: 'POST', body: formData })
-    .then(r => r.json())
-    .then(data => {
-        if (data.success) {
-            currentExtrasTotal -= price;
-            if (currentExtrasTotal < 0) currentExtrasTotal = 0;
-            
-            item.remove();
-            
-            // Show empty if no items left
-            const list = document.getElementById('extrasList');
-            if (!list.querySelector('.extra-item')) {
-                list.innerHTML = '<div class="extras-empty" id="extrasEmpty">Belum ada tambahan</div>';
-            }
-            
-            updateExtrasTotalDisplay();
-            recalculate();
-        } else {
-            alert('❌ ' + data.message);
-        }
-    })
-    .catch(err => alert('Error: ' + err.message));
-}
+                    // Update extras total display
+                    updateExtrasTotalDisplay();
 
-function updateExtrasTotalDisplay() {
-    const el = document.getElementById('extrasTotal');
-    if (currentExtrasTotal > 0) {
-        el.style.display = 'flex';
-        el.innerHTML = '<span>Total Extras:</span><span>Rp ' + currentExtrasTotal.toLocaleString('id-ID') + '</span>';
-    } else {
-        el.style.display = 'none';
+                    // Clear form
+                    document.getElementById('extraItemName').value = '';
+                    document.getElementById('extraQty').value = '1';
+                    document.getElementById('extraUnitPrice').value = '';
+                    document.getElementById('addExtraForm').classList.remove('active');
+
+                    recalculate();
+                } else {
+                    alert('❌ ' + data.message);
+                }
+            })
+            .catch(err => alert('Error: ' + err.message));
     }
-}
 
-function escHtml(str) {
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
-}
+    function deleteExtra(extraId, btn) {
+        if (!confirm('Hapus item ini?')) return;
 
-function saveEdit(event) {
-    event.preventDefault();
-    
-    const btn = document.getElementById('btnSave');
-    btn.innerHTML = '⏳ Menyimpan...';
-    btn.disabled = true;
-    
-    const form = document.getElementById('editForm');
-    const formData = new FormData(form);
-    
-    if (IS_GROUP) {
-        // Group save: send all rooms data as JSON
-        const roomCards = document.querySelectorAll('.room-card');
-        const roomsData = [];
-        roomCards.forEach(card => {
-            roomsData.push({
-                booking_id: card.querySelector('input[name*="[booking_id]"]').value,
-                room_id: card.querySelector('.grp-room-select').value,
-                room_price: card.querySelector('.grp-room-price').value,
-                discount: card.querySelector('.grp-discount').value
+        const item = btn.closest('.extra-item');
+        const priceText = item.querySelector('.extra-item-price').textContent;
+        const price = parseFloat(priceText.replace(/[^\d]/g, '')) || 0;
+
+        const formData = new FormData();
+        formData.append('action', 'delete');
+        formData.append('extra_id', extraId);
+
+        fetch(BASE_URL + '/api/booking-extras.php', {
+                method: 'POST',
+                body: formData
+            })
+            .then(r => r.json())
+            .then(data => {
+                if (data.success) {
+                    currentExtrasTotal -= price;
+                    if (currentExtrasTotal < 0) currentExtrasTotal = 0;
+
+                    item.remove();
+
+                    // Show empty if no items left
+                    const list = document.getElementById('extrasList');
+                    if (!list.querySelector('.extra-item')) {
+                        list.innerHTML = '<div class="extras-empty" id="extrasEmpty">Belum ada tambahan</div>';
+                    }
+
+                    updateExtrasTotalDisplay();
+                    recalculate();
+                } else {
+                    alert('❌ ' + data.message);
+                }
+            })
+            .catch(err => alert('Error: ' + err.message));
+    }
+
+    function updateExtrasTotalDisplay() {
+        const el = document.getElementById('extrasTotal');
+        if (currentExtrasTotal > 0) {
+            el.style.display = 'flex';
+            el.innerHTML = '<span>Total Extras:</span><span>Rp ' + currentExtrasTotal.toLocaleString('id-ID') + '</span>';
+        } else {
+            el.style.display = 'none';
+        }
+    }
+
+    function escHtml(str) {
+        const div = document.createElement('div');
+        div.textContent = str;
+        return div.innerHTML;
+    }
+
+    function saveEdit(event) {
+        event.preventDefault();
+
+        const btn = document.getElementById('btnSave');
+        btn.innerHTML = '⏳ Menyimpan...';
+        btn.disabled = true;
+
+        const form = document.getElementById('editForm');
+        const formData = new FormData(form);
+
+        if (IS_GROUP) {
+            // Group save: send all rooms data as JSON
+            const roomCards = document.querySelectorAll('.room-card');
+            const roomsData = [];
+            roomCards.forEach(card => {
+                roomsData.push({
+                    booking_id: card.querySelector('input[name*="[booking_id]"]').value,
+                    room_id: card.querySelector('.grp-room-select').value,
+                    room_price: card.querySelector('.grp-room-price').value,
+                    discount: card.querySelector('.grp-discount').value
+                });
             });
-        });
-        formData.append('is_group', '1');
-        formData.append('rooms_json', JSON.stringify(roomsData));
-        console.log('GROUP SAVE rooms:', roomsData);
-    }
-    
-    const apiUrl = BASE_URL + '/api/update-reservation.php';
-    console.log('Saving to:', apiUrl);
-    console.log('FormData entries:');
-    for (let [k,v] of formData.entries()) { console.log('  ', k, '=', typeof v === 'string' && v.length > 200 ? v.substring(0,200)+'...' : v); }
-    
-    fetch(apiUrl, {
-        method: 'POST',
-        body: formData
-    })
-    .then(r => r.text())
-    .then(text => {
-        let data;
-        try { data = JSON.parse(text); } catch(e) {
-            console.error('Response bukan JSON:', text);
-            throw new Error('Server error: respons tidak valid');
+            formData.append('is_group', '1');
+            formData.append('rooms_json', JSON.stringify(roomsData));
+            console.log('GROUP SAVE rooms:', roomsData);
         }
-        const alertBox = document.getElementById('alertBox');
-        if (data.success) {
-            alertBox.innerHTML = '<div class="alert alert-success">✅ ' + data.message + '</div>';
-            alertBox.scrollIntoView({ behavior: 'smooth' });
-            alert('✅ ' + data.message);
-            setTimeout(() => { window.location.href = 'reservasi.php'; }, 1000);
-        } else {
-            alertBox.innerHTML = '<div class="alert alert-error">❌ ' + data.message + '</div>';
-            alertBox.scrollIntoView({ behavior: 'smooth' });
-            alert('❌ ' + data.message);
-            btn.innerHTML = '💾 Simpan Perubahan';
-            btn.disabled = false;
-        }
-    })
-    .catch(err => {
-        const alertBox = document.getElementById('alertBox');
-        alertBox.innerHTML = '<div class="alert alert-error">❌ Error: ' + err.message + '</div>';
-        alertBox.scrollIntoView({ behavior: 'smooth' });
-        alert('❌ Error: ' + err.message);
-        btn.innerHTML = '💾 Simpan Perubahan';
-        btn.disabled = false;
-    });
-    
-    return false;
-}
 
-// Initial calculation including OTA
-recalculate();
+        const apiUrl = BASE_URL + '/api/update-reservation.php';
+        console.log('Saving to:', apiUrl);
+        console.log('FormData entries:');
+        for (let [k, v] of formData.entries()) {
+            console.log('  ', k, '=', typeof v === 'string' && v.length > 200 ? v.substring(0, 200) + '...' : v);
+        }
+
+        fetch(apiUrl, {
+                method: 'POST',
+                body: formData
+            })
+            .then(r => r.text())
+            .then(text => {
+                let data;
+                try {
+                    data = JSON.parse(text);
+                } catch (e) {
+                    console.error('Response bukan JSON:', text);
+                    throw new Error('Server error: respons tidak valid');
+                }
+                const alertBox = document.getElementById('alertBox');
+                if (data.success) {
+                    alertBox.innerHTML = '<div class="alert alert-success">✅ ' + data.message + '</div>';
+                    alertBox.scrollIntoView({
+                        behavior: 'smooth'
+                    });
+                    alert('✅ ' + data.message);
+                    setTimeout(() => {
+                        window.location.href = 'reservasi.php';
+                    }, 1000);
+                } else {
+                    alertBox.innerHTML = '<div class="alert alert-error">❌ ' + data.message + '</div>';
+                    alertBox.scrollIntoView({
+                        behavior: 'smooth'
+                    });
+                    alert('❌ ' + data.message);
+                    btn.innerHTML = '💾 Simpan Perubahan';
+                    btn.disabled = false;
+                }
+            })
+            .catch(err => {
+                const alertBox = document.getElementById('alertBox');
+                alertBox.innerHTML = '<div class="alert alert-error">❌ Error: ' + err.message + '</div>';
+                alertBox.scrollIntoView({
+                    behavior: 'smooth'
+                });
+                alert('❌ Error: ' + err.message);
+                btn.innerHTML = '💾 Simpan Perubahan';
+                btn.disabled = false;
+            });
+
+        return false;
+    }
+
+    // Initial calculation including OTA
+    recalculate();
 </script>
 
 <?php include '../../includes/footer.php'; ?>

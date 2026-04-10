@@ -1,4 +1,5 @@
 <?php
+
 /**
  * API: Update Reservation
  * Edit reservation details (dates, room, guest info, price)
@@ -18,22 +19,22 @@ define('APP_ACCESS', true);
 
 try {
     error_log("=== update-reservation.php START ===");
-    
+
     require_once '../config/config.php';
     error_log("config.php loaded");
-    
+
     require_once '../config/database.php';
     error_log("database.php loaded");
-    
+
     require_once '../includes/auth.php';
     error_log("auth.php loaded");
-    
+
     error_reporting(0);
     ini_set('display_errors', 0);
-    
+
     $auth = new Auth();
     error_log("Auth instantiated");
-    
+
     if (!$auth->isLoggedIn()) {
         echo json_encode(['success' => false, 'message' => 'Unauthorized']);
         exit;
@@ -184,7 +185,7 @@ try {
         }
 
         $totalPrice = $roomPrice * $nights;
-        
+
         // Discount handling
         $discountType = $_POST['discount_type'] ?? 'rp';
         $discountValue = floatval($_POST['discount_value'] ?? 0);
@@ -193,24 +194,25 @@ try {
         } else {
             $discount = $discountValue;
         }
-        
+
         $afterDiscount = $totalPrice - $discount;
-        
+
         $otaFeeAmount = 0;
         if ($otaFeePercent > 0) {
             $otaFeeAmount = round($afterDiscount * $otaFeePercent / 100);
         }
-        
+
         $roomFinalPrice = $afterDiscount - $otaFeeAmount;
-        
+
         // Include extras in final price
         $extrasTotal = 0;
         try {
             $extStmt = $conn->prepare("SELECT COALESCE(SUM(total_price), 0) as total FROM booking_extras WHERE booking_id = ?");
             $extStmt->execute([$bookingId]);
             $extrasTotal = (float)$extStmt->fetch(PDO::FETCH_ASSOC)['total'];
-        } catch (Exception $e) { /* table might not exist */ }
-        
+        } catch (Exception $e) { /* table might not exist */
+        }
+
         $finalPrice = $roomFinalPrice + $extrasTotal;
 
         $updates[] = 'room_price = ?';
@@ -265,7 +267,7 @@ try {
     $verifyRow = $verifyStmt->fetch(PDO::FETCH_ASSOC);
     $verifiedSource = $verifyRow ? $verifyRow['booking_source'] : '__ROW_NOT_FOUND__';
     error_log("VERIFIED row: " . json_encode($verifyRow));
-    
+
     // Also check current database name
     $dbNameStmt = $conn->query("SELECT DATABASE()");
     $currentDb = $dbNameStmt->fetchColumn();
@@ -279,15 +281,21 @@ try {
         if (is_array($roomsData)) {
             foreach ($roomsData as $rdIdx => $rd) {
                 $rdBookingId = intval($rd['booking_id'] ?? 0);
-                if (!$rdBookingId) { error_log("GROUP: skip idx=$rdIdx no booking_id"); continue; }
-                
+                if (!$rdBookingId) {
+                    error_log("GROUP: skip idx=$rdIdx no booking_id");
+                    continue;
+                }
+
                 $rdRoomId = intval($rd['room_id'] ?? 0);
                 $rdRoomPrice = floatval($rd['room_price'] ?? 0);
                 $rdDiscount = floatval($rd['discount'] ?? 0);
-                
+
                 error_log("GROUP room[$rdIdx]: bid=$rdBookingId rid=$rdRoomId price=$rdRoomPrice disc=$rdDiscount");
-                
-                if (!$rdRoomId) { error_log("GROUP: skip idx=$rdIdx no room_id"); continue; }
+
+                if (!$rdRoomId) {
+                    error_log("GROUP: skip idx=$rdIdx no room_id");
+                    continue;
+                }
                 if (!$rdRoomPrice) {
                     // Fallback to room_types base_price
                     $rpStmt = $conn->prepare("SELECT rt.base_price FROM rooms r JOIN room_types rt ON r.room_type_id = rt.id WHERE r.id = ?");
@@ -295,27 +303,28 @@ try {
                     $rpRow = $rpStmt->fetch(PDO::FETCH_ASSOC);
                     $rdRoomPrice = $rpRow ? (float)$rpRow['base_price'] : 0;
                 }
-                
+
                 $rdTotalPrice = $rdRoomPrice * $nights;
                 $rdAfterDiscount = $rdTotalPrice - $rdDiscount;
-                
+
                 // OTA fee
                 $rdFee = 0;
                 if ($otaFeePercent > 0) {
                     $rdFee = round($rdAfterDiscount * $otaFeePercent / 100);
                 }
                 $rdRoomNet = $rdAfterDiscount - $rdFee;
-                
+
                 // Extras for this specific booking
                 $rdExtras = 0;
                 try {
                     $extCheck = $conn->prepare("SELECT COALESCE(SUM(total_price), 0) FROM booking_extras WHERE booking_id = ?");
                     $extCheck->execute([$rdBookingId]);
                     $rdExtras = (float)$extCheck->fetchColumn();
-                } catch (Exception $e) { /* table might not exist */ }
-                
+                } catch (Exception $e) { /* table might not exist */
+                }
+
                 $rdFinalPrice = $rdRoomNet + $rdExtras;
-                
+
                 // Check room availability for this booking
                 if ($rdRoomId) {
                     $avStmt = $conn->prepare("
@@ -331,7 +340,7 @@ try {
                         continue;
                     }
                 }
-                
+
                 // Update this booking (room fields + shared fields)
                 $grpStmt = $conn->prepare("
                     UPDATE bookings SET 
@@ -341,9 +350,16 @@ try {
                     WHERE id = ?
                 ");
                 $grpStmt->execute([
-                    $rdRoomId, $rdRoomPrice, $rdTotalPrice, $rdDiscount, $rdFinalPrice,
-                    $checkIn, $checkOut, $nights,
-                    $intendedSource, $rdBookingId
+                    $rdRoomId,
+                    $rdRoomPrice,
+                    $rdTotalPrice,
+                    $rdDiscount,
+                    $rdFinalPrice,
+                    $checkIn,
+                    $checkOut,
+                    $nights,
+                    $intendedSource,
+                    $rdBookingId
                 ]);
                 error_log("GROUP room[$rdIdx] updated: final_price=$rdFinalPrice");
                 $groupUpdated[] = ['booking_id' => $rdBookingId, 'status' => 'updated', 'final_price' => $rdFinalPrice];
@@ -385,7 +401,6 @@ try {
             'group_updated' => $groupUpdated
         ]
     ]);
-
 } catch (Exception $e) {
     error_log("ERROR: " . $e->getMessage() . " at " . $e->getFile() . ":" . $e->getLine());
     error_log("Stack: " . $e->getTraceAsString());
