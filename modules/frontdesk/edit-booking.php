@@ -854,17 +854,18 @@ include '../../includes/header.php';
                         </div>
                     </div>
 
-                    <!-- DISCOUNT -->
-                    <div class="form-group">
-                        <label>Diskon</label>
-                        <div class="discount-row">
-                            <button type="button" class="disc-type-btn active" data-type="rp" onclick="setDiscType('rp')" style="border-radius:4px 0 0 4px;">Rp</button>
-                            <button type="button" class="disc-type-btn" data-type="percent" onclick="setDiscType('percent')" style="border-radius:0 4px 4px 0;">%</button>
-                            <input type="number" name="discount_value" id="discountValue" value="<?php echo $booking['discount']; ?>" min="0" style="flex:1;" onchange="recalculate()">
-                            <input type="hidden" name="discount_type" id="discountType" value="rp">
-                        </div>
-                    </div>
                 <?php endif; ?>
+
+                <!-- DISCOUNT -->
+                <div class="form-group">
+                    <label>Diskon<?php echo $isGroup ? ' (Total)' : ''; ?></label>
+                    <div class="discount-row">
+                        <button type="button" class="disc-type-btn active" data-type="rp" onclick="setDiscType('rp')" style="border-radius:4px 0 0 4px;">Rp</button>
+                        <button type="button" class="disc-type-btn" data-type="percent" onclick="setDiscType('percent')" style="border-radius:0 4px 4px 0;">%</button>
+                        <input type="number" name="discount_value" id="discountValue" value="<?php echo $isGroup ? 0 : $booking['discount']; ?>" min="0" style="flex:1;" onchange="recalculate()">
+                        <input type="hidden" name="discount_type" id="discountType" value="rp">
+                    </div>
+                </div>
 
                 <!-- SPECIAL REQUEST -->
                 <div class="form-group">
@@ -1164,6 +1165,19 @@ include '../../includes/header.php';
                 grandFee += fee;
                 grandRoomNet += (afterDisc - fee);
             });
+
+            // Global discount (applied on top of per-room discounts)
+            const globalDiscVal = parseFloat(document.getElementById('discountValue').value) || 0;
+            if (globalDiscVal > 0) {
+                let globalDisc = 0;
+                if (discountType === 'percent') {
+                    globalDisc = Math.round(grandSubtotal * globalDiscVal / 100);
+                } else {
+                    globalDisc = globalDiscVal;
+                }
+                grandDiscount += globalDisc;
+                grandRoomNet -= globalDisc;
+            }
         } else {
             const price = parseFloat(document.getElementById('roomPrice').value) || 0;
             grandSubtotal = nights * price;
@@ -1374,6 +1388,9 @@ include '../../includes/header.php';
 
         if (IS_GROUP) {
             // Group save: send all rooms data as JSON
+            const ci = new Date(document.getElementById('checkIn').value);
+            const co = new Date(document.getElementById('checkOut').value);
+            const nights = (ci && co && co > ci) ? Math.ceil((co - ci) / 86400000) : 1;
             const roomCards = document.querySelectorAll('.room-card');
             const roomsData = [];
             const newRooms = [];
@@ -1391,6 +1408,35 @@ include '../../includes/header.php';
                     roomsData.push(roomData);
                 }
             });
+            // Distribute global discount proportionally across rooms
+            const globalDiscVal = parseFloat(document.getElementById('discountValue').value) || 0;
+            if (globalDiscVal > 0) {
+                let globalDisc = 0;
+                if (discountType === 'percent') {
+                    let totalSub = 0;
+                    roomsData.forEach(r => totalSub += parseFloat(r.room_price) || 0);
+                    newRooms.forEach(r => totalSub += parseFloat(r.room_price) || 0);
+                    totalSub *= nights;
+                    globalDisc = Math.round(totalSub * globalDiscVal / 100);
+                } else {
+                    globalDisc = globalDiscVal;
+                }
+                // Distribute proportionally among existing rooms
+                const allRooms = [...roomsData, ...newRooms];
+                let totalPrice = 0;
+                allRooms.forEach(r => totalPrice += parseFloat(r.room_price) || 0);
+                if (totalPrice > 0) {
+                    let distributed = 0;
+                    allRooms.forEach((r, i) => {
+                        const share = (i === allRooms.length - 1)
+                            ? (globalDisc - distributed)
+                            : Math.round(globalDisc * (parseFloat(r.room_price) || 0) / totalPrice);
+                        r.discount = (parseFloat(r.discount) || 0) + share;
+                        distributed += share;
+                    });
+                }
+            }
+
             formData.append('is_group', '1');
             formData.append('rooms_json', JSON.stringify(roomsData));
             if (newRooms.length > 0) {
