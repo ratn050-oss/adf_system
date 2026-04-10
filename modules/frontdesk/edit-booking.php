@@ -960,9 +960,31 @@ include '../../includes/header.php';
         if (IS_GROUP) {
             const card = selectEl.closest('.room-card');
             if (card) card.querySelector('.grp-room-price').value = opt.dataset.price;
+            updateGroupRoomOptions();
         } else {
             document.getElementById('roomPrice').value = opt.dataset.price;
         }
+    }
+
+    // Hide rooms already selected in other group cards
+    function updateGroupRoomOptions() {
+        if (!IS_GROUP) return;
+        const selects = document.querySelectorAll('.grp-room-select');
+        // Collect all currently selected values
+        const selected = {};
+        selects.forEach(sel => {
+            selected[sel.dataset.idx] = sel.value;
+        });
+        // For each select, disable options chosen by OTHER selects
+        selects.forEach(sel => {
+            const myIdx = sel.dataset.idx;
+            Array.from(sel.options).forEach(opt => {
+                if (opt.parentElement.tagName === 'OPTGROUP' || !opt.value) return;
+                const takenByOther = Object.entries(selected).some(([idx, val]) => idx !== myIdx && val === opt.value);
+                opt.disabled = takenByOther;
+                opt.style.display = takenByOther ? 'none' : '';
+            });
+        });
     }
 
     function recalculate() {
@@ -1281,6 +1303,7 @@ include '../../includes/header.php';
 
     // Initial calculation including OTA
     recalculate();
+    updateGroupRoomOptions();
 </script>
 
 <?php include '../../includes/footer.php'; ?>
