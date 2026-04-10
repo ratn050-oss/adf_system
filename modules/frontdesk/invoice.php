@@ -378,8 +378,8 @@ if (empty($companySettings['name'])) {
                     <tr>
                         <th style="width:15%">Room</th>
                         <th>Description</th>
-                        <th style="width:10%">Qty</th>
-                        <th style="width:22%">Rate</th>
+                        <th style="width:10%">Nights</th>
+                        <th style="width:22%">Rate / Night</th>
                         <th style="width:22%">Amount</th>
                     </tr>
                 </thead>
@@ -387,7 +387,7 @@ if (empty($companySettings['name'])) {
                     <?php foreach ($allBookings as $bk): ?>
                         <tr>
                             <td><strong><?php echo htmlspecialchars($bk['room_number']); ?></strong></td>
-                            <td><?php echo htmlspecialchars($bk['room_type']); ?> &mdash; <?php echo $bk['total_nights']; ?> night<?php echo $bk['total_nights'] > 1 ? 's' : ''; ?></td>
+                            <td><?php echo htmlspecialchars($bk['room_type']); ?></td>
                             <td><?php echo $bk['total_nights']; ?></td>
                             <td>Rp <?php echo number_format($bk['room_price'], 0, ',', '.'); ?></td>
                             <td>Rp <?php echo number_format($bk['total_price'], 0, ',', '.'); ?></td>
