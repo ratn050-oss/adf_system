@@ -81,32 +81,41 @@ foreach ($groupBookings as $gb) {
 }
 
 // Get available rooms: exclude rooms with overlapping bookings (except current booking's rooms)
-$currentRoomIds = array_column($groupBookings, 'room_id');
+$currentRoomIds = array_map('intval', array_column($groupBookings, 'room_id'));
 
-// First get IDs of rooms that are booked during this period (excluding current booking group)
+// Get IDs of rooms booked during this period (excluding current booking group)
 $bookedRoomIds = [];
-$brStmt = $pdo->prepare("
-    SELECT DISTINCT room_id FROM bookings
-    WHERE status NOT IN ('cancelled','checked_out')
-    AND id NOT IN ($placeholders)
-    AND check_in_date < ? AND check_out_date > ?
-");
-$brStmt->execute(array_merge($allBookingIds, [$booking['check_out_date'], $booking['check_in_date']]));
-$bookedRoomIds = $brStmt->fetchAll(PDO::FETCH_COLUMN);
+try {
+    $brSql = "SELECT DISTINCT room_id FROM bookings WHERE status NOT IN ('cancelled','checked_out') AND id NOT IN ($placeholders) AND check_in_date < ? AND check_out_date > ?";
+    $brStmt = $pdo->prepare($brSql);
+    $brStmt->execute(array_merge($allBookingIds, [$booking['check_out_date'], $booking['check_in_date']]));
+    $bookedRoomIds = array_map('intval', $brStmt->fetchAll(PDO::FETCH_COLUMN));
+} catch (Exception $e) {
+    error_log('Room filter error: ' . $e->getMessage());
+}
 
-// Fetch all non-maintenance rooms, mark which are available
-$rooms = $db->fetchAll("
+// Fetch all non-maintenance rooms
+$allRooms = $db->fetchAll("
     SELECT r.id, r.room_number, rt.type_name, rt.base_price
     FROM rooms r JOIN room_types rt ON r.room_type_id = rt.id
     WHERE r.status != 'maintenance'
-    ORDER BY r.room_number
+    ORDER BY rt.type_name, r.room_number
 ");
 
-// Filter: keep only available rooms + currently assigned rooms
-$rooms = array_filter($rooms, function($room) use ($bookedRoomIds, $currentRoomIds) {
-    return in_array($room['id'], $currentRoomIds) || !in_array($room['id'], $bookedRoomIds);
-});
-$rooms = array_values($rooms);
+// Filter: only available + currently assigned rooms
+$rooms = [];
+foreach ($allRooms as $room) {
+    $rid = intval($room['id']);
+    if (in_array($rid, $currentRoomIds) || !in_array($rid, $bookedRoomIds)) {
+        $rooms[] = $room;
+    }
+}
+
+// Group rooms by type for optgroup display
+$roomsByType = [];
+foreach ($rooms as $room) {
+    $roomsByType[$room['type_name']][] = $room;
+}
 
 // Get booking sources from DB
 $bookingSources = $db->fetchAll("SELECT source_key, source_name, source_type, fee_percent, icon FROM booking_sources WHERE is_active = 1 ORDER BY sort_order ASC");
@@ -697,14 +706,16 @@ include '../../includes/header.php';
                                     <div class="form-group">
                                         <label>Kamar</label>
                                         <select name="rooms[<?php echo $idx; ?>][room_id]" class="grp-room-select" data-idx="<?php echo $idx; ?>" onchange="onRoomChange(this); recalculate()">
-                                            <?php foreach ($rooms as $room): 
-                                                $isCurrent = ($room['id'] == $gb['room_id']);
-                                            ?>
-                                                <option value="<?php echo $room['id']; ?>"
-                                                    data-price="<?php echo $room['base_price']; ?>"
-                                                    <?php echo $isCurrent ? 'selected' : ''; ?>>
-                                                    Room <?php echo $room['room_number']; ?> - <?php echo $room['type_name']; ?> (Rp <?php echo number_format($room['base_price'], 0, ',', '.'); ?>)<?php echo $isCurrent ? ' ✓' : ''; ?>
-                                                </option>
+                                            <?php foreach ($roomsByType as $typeName => $typeRooms): ?>
+                                                <optgroup label="<?php echo $typeName; ?> (Rp <?php echo number_format($typeRooms[0]['base_price'], 0, ',', '.'); ?>)">
+                                                <?php foreach ($typeRooms as $room): 
+                                                    $isCurrent = (intval($room['id']) == intval($gb['room_id']));
+                                                ?>
+                                                    <option value="<?php echo $room['id']; ?>" data-price="<?php echo $room['base_price']; ?>" <?php echo $isCurrent ? 'selected' : ''; ?>>
+                                                        <?php echo $room['room_number']; ?><?php echo $isCurrent ? ' ✓' : ''; ?>
+                                                    </option>
+                                                <?php endforeach; ?>
+                                                </optgroup>
                                             <?php endforeach; ?>
                                         </select>
                                     </div>
@@ -759,15 +770,16 @@ include '../../includes/header.php';
                         <div class="form-group">
                             <label>Kamar</label>
                             <select name="room_id" id="roomSelect" onchange="onRoomChange(this); recalculate()">
-                                <?php foreach ($rooms as $room): 
-                                    $isCurrent = ($room['id'] == $booking['room_id']);
-                                    $isBooked = in_array($room['id'], $bookedRoomIds);
-                                ?>
-                                    <option value="<?php echo $room['id']; ?>"
-                                        data-price="<?php echo $room['base_price']; ?>"
-                                        <?php echo $isCurrent ? 'selected' : ''; ?>>
-                                        Room <?php echo $room['room_number']; ?> - <?php echo $room['type_name']; ?> (Rp <?php echo number_format($room['base_price'], 0, ',', '.'); ?>)<?php echo $isCurrent ? ' ✓' : ''; ?>
-                                    </option>
+                                <?php foreach ($roomsByType as $typeName => $typeRooms): ?>
+                                    <optgroup label="<?php echo $typeName; ?> (Rp <?php echo number_format($typeRooms[0]['base_price'], 0, ',', '.'); ?>)">
+                                    <?php foreach ($typeRooms as $room): 
+                                        $isCurrent = (intval($room['id']) == intval($booking['room_id']));
+                                    ?>
+                                        <option value="<?php echo $room['id']; ?>" data-price="<?php echo $room['base_price']; ?>" <?php echo $isCurrent ? 'selected' : ''; ?>>
+                                            <?php echo $room['room_number']; ?><?php echo $isCurrent ? ' ✓' : ''; ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                    </optgroup>
                                 <?php endforeach; ?>
                             </select>
                         </div>
