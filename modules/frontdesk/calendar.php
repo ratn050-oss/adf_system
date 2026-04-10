@@ -5808,8 +5808,12 @@ include '../../includes/header.php';
                 <input type="number" id="editResNumGuests" min="1" max="10" value="1">
             </div>
             <div class="form-group">
-                <label>Diskon (Rp)</label>
-                <input type="number" id="editResDiscount" min="0" value="0" onchange="updateEditResInfo()">
+                <label>Diskon</label>
+                <div style="display:flex; align-items:center; gap:0;">
+                    <button type="button" class="edit-disc-type-btn active" data-type="rp" onclick="setEditDiscType('rp')" style="padding:5px 10px;font-size:0.75rem;border:1px solid #6366f1;background:#6366f1;color:white;border-radius:4px 0 0 4px;cursor:pointer;">Rp</button>
+                    <button type="button" class="edit-disc-type-btn" data-type="percent" onclick="setEditDiscType('percent')" style="padding:5px 10px;font-size:0.75rem;border:1px solid #6366f1;background:white;color:#6366f1;border-radius:0 4px 4px 0;cursor:pointer;">%</button>
+                    <input type="number" id="editResDiscount" min="0" value="0" onchange="updateEditResInfo()" style="flex:1;margin-left:6px;">
+                </div>
                 <input type="hidden" id="editResDiscountType" value="rp">
             </div>
         </div>
@@ -6129,7 +6133,8 @@ include '../../includes/header.php';
                     }
                 }
 
-                // Set discount
+                // Set discount (stored as Rp in DB, reset toggle to Rp)
+                setEditDiscType('rp');
                 const discInput = document.getElementById('editResDiscount');
                 if (discInput) {
                     discInput.value = parseFloat(b.discount) || 0;
@@ -6155,24 +6160,51 @@ include '../../includes/header.php';
         document.getElementById('editResModal').classList.remove('active');
     };
 
+    function setEditDiscType(type) {
+        const discInput = document.getElementById('editResDiscount');
+        const discTypeInput = document.getElementById('editResDiscountType');
+        discTypeInput.value = type;
+        document.querySelectorAll('.edit-disc-type-btn').forEach(btn => {
+            if (btn.dataset.type === type) {
+                btn.classList.add('active');
+                btn.style.background = '#6366f1';
+                btn.style.color = 'white';
+            } else {
+                btn.classList.remove('active');
+                btn.style.background = 'white';
+                btn.style.color = '#6366f1';
+            }
+        });
+        if (type === 'percent') {
+            discInput.max = 100;
+            discInput.placeholder = '0-100';
+        } else {
+            discInput.removeAttribute('max');
+            discInput.placeholder = '0';
+        }
+        updateEditResInfo();
+    }
+
     function updateEditResInfo() {
         const ci = document.getElementById('editResCheckIn').value;
         const co = document.getElementById('editResCheckOut').value;
         const price = parseFloat(document.getElementById('editResRoomPrice').value) || 0;
-        const discount = parseFloat(document.getElementById('editResDiscount').value) || 0;
+        const discVal = parseFloat(document.getElementById('editResDiscount').value) || 0;
+        const discType = document.getElementById('editResDiscountType').value;
         const source = document.getElementById('editResSource').value;
         const feePercent = (typeof OTA_FEES !== 'undefined' && OTA_FEES[source]) ? OTA_FEES[source] : 0;
 
         if (ci && co) {
             const nights = Math.ceil((new Date(co) - new Date(ci)) / 86400000);
             const subtotal = price * nights;
+            const discount = discType === 'percent' ? Math.round(subtotal * discVal / 100) : discVal;
             const afterDiscount = subtotal - discount;
             const feeAmount = feePercent > 0 ? Math.round(afterDiscount * feePercent / 100) : 0;
             const total = afterDiscount - feeAmount;
 
             let html = `<strong>${nights} malam</strong> × Rp ${new Intl.NumberFormat('id-ID').format(price)} = Rp ${new Intl.NumberFormat('id-ID').format(subtotal)}`;
             if (discount > 0) {
-                html += `<br>Diskon: <span style="color:#ef4444;">- Rp ${new Intl.NumberFormat('id-ID').format(discount)}</span>`;
+                html += `<br>Diskon${discType === 'percent' ? ' (' + discVal + '%)' : ''}: <span style="color:#ef4444;">- Rp ${new Intl.NumberFormat('id-ID').format(discount)}</span>`;
             }
             if (feePercent > 0) {
                 html += `<br><span style="color:#92400e;">Fee OTA (${feePercent}%): - Rp ${new Intl.NumberFormat('id-ID').format(feeAmount)}</span>`;
@@ -6214,7 +6246,7 @@ include '../../includes/header.php';
         formData.append('special_requests', document.getElementById('editResSpecialRequests').value);
         formData.append('booking_source', document.getElementById('editResSource').value);
         formData.append('discount_value', document.getElementById('editResDiscount').value);
-        formData.append('discount_type', 'rp');
+        formData.append('discount_type', document.getElementById('editResDiscountType').value);
 
         fetch('../../api/update-reservation.php', {
                 method: 'POST',
