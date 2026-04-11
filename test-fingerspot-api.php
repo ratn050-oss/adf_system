@@ -3,16 +3,27 @@
  * Test Fingerspot API - discover correct parameters for Get Userinfo
  * DELETE THIS FILE after testing!
  */
-require_once __DIR__ . '/config/database.php';
-$db = new Database();
-$fpConfig = $db->fetchOne("SELECT fingerspot_cloud_id, fingerspot_token FROM payroll_attendance_config WHERE id = 1");
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
+
+// Minimal bootstrap - direct PDO connection
+require_once __DIR__ . '/config/config.php';
+
+try {
+    $pdo = new PDO('mysql:host=' . DB_HOST . ';dbname=' . DB_NAME . ';charset=utf8mb4', DB_USER, DB_PASS);
+    $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+} catch (Exception $e) {
+    die("DB Error: " . $e->getMessage());
+}
+
+$fpConfig = $pdo->query("SELECT fingerspot_cloud_id, fingerspot_token FROM payroll_attendance_config WHERE id = 1")->fetch(PDO::FETCH_ASSOC);
 $cloudId = $fpConfig['fingerspot_cloud_id'] ?? '';
 $apiToken = $fpConfig['fingerspot_token'] ?? '';
 
 if (!$cloudId || !$apiToken) die("Cloud ID or Token not configured");
 
 // Get real employee PINs from DB
-$empPins = $db->fetchAll("SELECT finger_id, full_name FROM payroll_employees WHERE finger_id IS NOT NULL AND finger_id != '' AND is_active = 1 LIMIT 3");
+$empPins = $pdo->query("SELECT finger_id, full_name FROM payroll_employees WHERE finger_id IS NOT NULL AND finger_id != '' AND is_active = 1 LIMIT 3")->fetchAll(PDO::FETCH_ASSOC);
 
 header('Content-Type: text/html; charset=utf-8');
 echo "<h2>Fingerspot API Test</h2>";
