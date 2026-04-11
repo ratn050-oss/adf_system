@@ -565,6 +565,8 @@
                                                 CURLOPT_RETURNTRANSFER => true,
                                                 CURLOPT_TIMEOUT => 10,
                                                 CURLOPT_SSL_VERIFYPEER => false,
+                                                CURLOPT_SSL_VERIFYHOST => 0,
+                                                CURLOPT_FOLLOWLOCATION => true,
                                                 CURLOPT_HTTPHEADER => [
                                                     'Content-Type: application/json',
                                                     'Authorization: Bearer ' . $apiToken

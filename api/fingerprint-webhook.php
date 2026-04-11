@@ -340,13 +340,40 @@ if ($_SERVER['REQUEST_METHOD'] === 'GET' && isset($_GET['diag'])) {
 $rawBody = file_get_contents('php://input');
 $data = json_decode($rawBody, true);
 
+// Fallback: try form-encoded data if JSON parsing failed
+if (!$data && !empty($_POST)) {
+    $data = $_POST;
+    $rawBody = json_encode($_POST);
+}
+
+// Log ALL incoming requests for debugging (temporary)
+$debugLogFile = __DIR__ . '/../uploads/webhook-debug.log';
+$debugEntry = date('Y-m-d H:i:s') . " | Method: {$_SERVER['REQUEST_METHOD']} | Content-Type: " . ($_SERVER['CONTENT_TYPE'] ?? 'none') . " | Body length: " . strlen($rawBody) . " | Body: " . substr($rawBody, 0, 500) . "\n";
+@file_put_contents($debugLogFile, $debugEntry, FILE_APPEND);
+
 if (!$data || !isset($data['type']) || !isset($data['cloud_id'])) {
+    // Try to log to any available business DB
+    $logPdo = null;
     if ($singleBizMode && !empty($bizList)) {
-        try {
-            $bizList[0]['pdo']->prepare("INSERT INTO fingerprint_log (cloud_id, type, raw_data, process_result) VALUES (?,?,?,?)")
-                ->execute(['unknown', 'invalid', substr($rawBody, 0, 2000), 'Invalid JSON payload']);
-        } catch (Exception $e) {
+        $logPdo = $bizList[0]['pdo'];
+    } else {
+        // Try to find any business to log the invalid payload
+        $bizFiles = glob(__DIR__ . '/../config/businesses/*.php') ?: [];
+        foreach ($bizFiles as $bf) {
+            try {
+                $cfg = require $bf;
+                $bdb = Database::switchDatabase($cfg['database']);
+                $logPdo = $bdb->getConnection();
+                ensureTablesExist($logPdo);
+                break;
+            } catch (Exception $e) {}
         }
+    }
+    if ($logPdo) {
+        try {
+            $logPdo->prepare("INSERT INTO fingerprint_log (cloud_id, type, raw_data, process_result) VALUES (?,?,?,?)")
+                ->execute(['unknown', 'invalid', substr($rawBody, 0, 2000), 'Invalid payload - type or cloud_id missing']);
+        } catch (Exception $e) {}
     }
     http_response_code(400);
     echo json_encode(['success' => false, 'message' => 'Invalid payload']);
