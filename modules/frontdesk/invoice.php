@@ -228,11 +228,14 @@ if (empty($companySettings['name'])) {
 
         .invoice-page {
             max-width: 794px;
+            min-height: 1100px;
             margin: 0 auto;
             background: #fff;
             position: relative;
             overflow: hidden;
             box-shadow: 0 1px 3px rgba(0, 0, 0, 0.08), 0 8px 30px rgba(0, 0, 0, 0.06);
+            display: flex;
+            flex-direction: column;
         }
 
         /* Watermark */
@@ -271,10 +274,10 @@ if (empty($companySettings['name'])) {
 
         /* Header */
         .header {
-            padding: 12px 36px 8px;
+            padding: 20px 36px 12px;
             display: flex;
             justify-content: space-between;
-            align-items: center;
+            align-items: flex-start;
             position: relative;
             z-index: 2;
         }
@@ -282,33 +285,41 @@ if (empty($companySettings['name'])) {
         .brand {
             display: flex;
             align-items: center;
-            gap: 12px;
+            gap: 14px;
         }
 
         .brand-logo {
-            width: 42px;
-            height: 42px;
-            border-radius: 4px;
+            width: 56px;
+            height: 56px;
+            border-radius: 50%;
             object-fit: cover;
-            border: 1px solid #e0ddd6;
+            border: none;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
         }
 
         .brand-text h1 {
             font-family: 'DM Serif Display', serif;
-            font-size: 1.15rem;
+            font-size: 1.3rem;
             font-weight: 400;
             color: #1a2332;
             letter-spacing: 0.5px;
             line-height: 1.2;
         }
 
-        .brand-text .sub {
-            font-size: 0.55rem;
-            font-weight: 500;
-            text-transform: uppercase;
-            letter-spacing: 3px;
+        .brand-text .slogan {
+            font-size: 0.6rem;
+            font-weight: 400;
+            font-style: italic;
             color: #8b7355;
             margin-top: 1px;
+            letter-spacing: 0.5px;
+        }
+
+        .brand-text .hotel-detail {
+            font-size: 0.55rem;
+            color: #9a9590;
+            margin-top: 3px;
+            line-height: 1.4;
         }
 
         .header-right {
@@ -327,7 +338,7 @@ if (empty($companySettings['name'])) {
         .header-right .inv-meta {
             font-size: 0.68rem;
             color: #8a8a8a;
-            margin-top: 4px;
+            margin-top: 6px;
             line-height: 1.5;
         }
 
@@ -336,6 +347,12 @@ if (empty($companySettings['name'])) {
             font-family: 'Source Code Pro', monospace;
             font-size: 0.7rem;
             font-weight: 600;
+        }
+
+        .header-right .inv-date {
+            font-size: 0.62rem;
+            color: #9a9590;
+            margin-top: 2px;
         }
 
         /* Separator */
@@ -395,6 +412,7 @@ if (empty($companySettings['name'])) {
             padding: 2px 36px 16px;
             position: relative;
             z-index: 2;
+            flex: 1;
         }
 
         /* Info cards */
@@ -708,9 +726,9 @@ if (empty($companySettings['name'])) {
 
         /* Footer */
         .footer {
-            margin-top: 14px;
+            margin-top: auto;
             text-align: center;
-            padding-top: 10px;
+            padding: 12px 0 8px;
             border-top: 1px solid #e8e6e1;
         }
 
@@ -785,6 +803,7 @@ if (empty($companySettings['name'])) {
 
             .invoice-page {
                 box-shadow: none;
+                min-height: 277mm;
             }
 
             .actions {
@@ -810,11 +829,12 @@ if (empty($companySettings['name'])) {
                 <?php if ($logoUrl): ?>
                     <img class="brand-logo" src="<?php echo htmlspecialchars($logoUrl); ?>" alt="<?php echo htmlspecialchars($companySettings['name']); ?>">
                 <?php else: ?>
-                    <div style="width:42px;height:42px;border-radius:4px;background:#1a2332;display:flex;align-items:center;justify-content:center;color:#d4cfc7;font-family:'DM Serif Display',serif;font-size:1.1rem;">N</div>
+                    <div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#1a2332,#2c3e50);display:flex;align-items:center;justify-content:center;color:#d4cfc7;font-family:'DM Serif Display',serif;font-size:1.4rem;box-shadow:0 2px 8px rgba(0,0,0,0.1);">N</div>
                 <?php endif; ?>
                 <div class="brand-text">
                     <h1><?php echo htmlspecialchars($companySettings['name']); ?></h1>
-                    <div class="sub">Karimunjawa &middot; Jawa Tengah</div>
+                    <div class="slogan">"The Paradise of Java"</div>
+                    <div class="hotel-detail">Jl. Kasimo Jatikerep, Karimunjawa, Jepara 59455<br>Tel: 081222228590 &middot; narayanahotelkarimunjawa@gmail.com</div>
                 </div>
             </div>
             <div class="header-right">
@@ -824,19 +844,10 @@ if (empty($companySettings['name'])) {
                     <?php if ($isMultiRoom && count($allBookings) > 1): ?>
                         <span style="color:#8b7355;">+ <?php echo count($allBookings) - 1; ?> room<?php echo count($allBookings) - 1 > 1 ? 's' : ''; ?></span>
                     <?php endif; ?>
-                    &middot; <?php echo date('d M Y', strtotime($booking['created_at'])); ?>
                 </div>
+                <div class="inv-date"><?php echo date('d F Y', strtotime($booking['created_at'])); ?></div>
+                <span class="status-badge badge-<?php echo $overallStatus; ?>" style="margin-top:6px;"><?php echo $overallLabel; ?></span>
             </div>
-        </div>
-
-        <div class="sep-line"></div>
-
-        <!-- Status Bar -->
-        <div class="status-bar">
-            <div class="hotel-contact">
-                Jl. Kasimo Jatikerep, Karimunjawa, Jepara 59455 &middot; 081222228590
-            </div>
-            <span class="status-badge badge-<?php echo $overallStatus; ?>"><?php echo $overallLabel; ?></span>
         </div>
 
         <div class="sep-line"></div>
@@ -975,7 +986,12 @@ if (empty($companySettings['name'])) {
 
             <!-- Bank Account -->
             <div class="bank-info">
-                <div class="bank-icon">&#9889;</div>
+                <div class="bank-icon">
+                    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#d4cfc7" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                        <rect x="1" y="4" width="22" height="16" rx="2" ry="2"/>
+                        <line x1="1" y1="10" x2="23" y2="10"/>
+                    </svg>
+                </div>
                 <div class="bank-details">
                     <div class="bank-label">Transfer Payment</div>
                     <div class="bank-number">1926663992</div>
