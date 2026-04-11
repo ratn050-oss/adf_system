@@ -503,7 +503,7 @@
                                 $msg = '❌ Fingerspot belum dikonfigurasi. Isi Cloud ID dan API Token terlebih dahulu.';
                                 $msgType = 'error';
                             } else {
-                                $apiUrl = "https://developer.fingerspot.io/api/get_userid_list";
+                                $apiUrl = "https://developer.fingerspot.io/api/get_userinfo";
                                 $postData = [
                                     'trans_id' => uniqid('pin_'),
                                     'cloud_id' => $cloudId
@@ -532,9 +532,28 @@
                                     $msgType = 'error';
                                 } else {
                                     $data = json_decode($response, true);
+
+                                    // Support multiple response formats from Fingerspot API
+                                    $devicePinArr = [];
                                     if ($data && isset($data['data']['pin_arr']) && is_array($data['data']['pin_arr'])) {
+                                        // Format: {"data": {"total": N, "pin_arr": ["1","2"]}}
                                         $devicePinArr = $data['data']['pin_arr'];
-                                        $totalDevice = (int)($data['data']['total'] ?? count($devicePinArr));
+                                    } elseif ($data && isset($data['data']) && is_array($data['data'])) {
+                                        // Format: {"data": [{"pin":"1","name":"..."}, ...]}
+                                        foreach ($data['data'] as $u) {
+                                            $pin = trim($u['pin'] ?? $u['user_id'] ?? $u['PIN'] ?? '');
+                                            if ($pin !== '') $devicePinArr[] = $pin;
+                                        }
+                                    } elseif ($data && $data['success'] === true && isset($data['users']) && is_array($data['users'])) {
+                                        // Format: {"success": true, "users": [{"pin":"1"}, ...]}
+                                        foreach ($data['users'] as $u) {
+                                            $pin = trim($u['pin'] ?? $u['user_id'] ?? '');
+                                            if ($pin !== '') $devicePinArr[] = $pin;
+                                        }
+                                    }
+
+                                    if (!empty($devicePinArr)) {
+                                        $totalDevice = count($devicePinArr);
 
                                         // Cross-reference with employees
                                         $devicePinResults = [];
@@ -587,8 +606,10 @@
                                         $msgType = 'success';
                                     } else {
                                         $errMsg = $data['message'] ?? ($data['error'] ?? 'Response tidak valid');
+                                        $rawPreview = mb_substr($response, 0, 300);
                                         $msg = "❌ Gagal mendapatkan daftar PIN: " . htmlspecialchars($errMsg)
-                                            . "<br><span style='font-size:10px;color:#64748b;'>HTTP {$httpCode} · Pastikan Cloud ID dan API Token benar.</span>";
+                                            . "<br><span style='font-size:10px;color:#64748b;'>HTTP {$httpCode} · Pastikan Cloud ID dan API Token benar.</span>"
+                                            . "<br><details style='margin-top:6px;'><summary style='font-size:10px;color:#94a3b8;cursor:pointer;'>Debug: Raw Response</summary><pre style='font-size:9px;color:#64748b;background:#f8fafc;padding:8px;border-radius:6px;margin-top:4px;white-space:pre-wrap;word-break:break-all;'>" . htmlspecialchars($rawPreview) . "</pre></details>";
                                         $msgType = 'error';
                                     }
                                 }
