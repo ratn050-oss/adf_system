@@ -960,6 +960,13 @@
     ORDER BY e.full_name
 ", [$viewDate]) ?: [];
 
+                    // Fetch approved overtime employee IDs for this date
+                    $approvedOTEmployees = [];
+                    try {
+                        $approvedOTRows = $db->fetchAll("SELECT employee_id FROM overtime_requests WHERE overtime_date = ? AND status = 'approved'", [$viewDate]) ?: [];
+                        foreach ($approvedOTRows as $otRow) $approvedOTEmployees[(int)$otRow['employee_id']] = true;
+                    } catch (Exception $e) {}
+
                     // Today stats
                     $todayStats = ['total' => count($employees), 'present' => 0, 'late' => 0, 'total_hours' => 0, 'regular_hours' => 0, 'overtime_hours' => 0, 'ot_count' => 0];
                     foreach ($dailyAtt as $a) {
@@ -968,7 +975,8 @@
                         $wh = (float)($a['work_hours'] ?? 0);
                         $todayStats['total_hours'] += $wh;
                         $todayStats['regular_hours'] += min($wh, 8);
-                        if ($wh > 8) {
+                        // Only count overtime if employee has approved overtime request
+                        if ($wh > 8 && isset($approvedOTEmployees[(int)$a['employee_id']])) {
                             $ot = $wh - 8;
                             $otU = floor($ot / 0.75);
                             $todayStats['overtime_hours'] += $otU * 0.75;
@@ -1642,7 +1650,9 @@
                                             $s3 = $a && !empty($a['scan_3']) ? substr($a['scan_3'], 0, 5) : null;
                                             $s4 = $a && !empty($a['scan_4']) ? substr($a['scan_4'], 0, 5) : null;
                                             $wh = (float)($a['work_hours'] ?? 0);
-                                            $otRaw = max($wh - 8, 0);
+                                            // Only calculate overtime if employee has approved overtime request
+                                            $hasApprovedOT = isset($approvedOTEmployees[(int)$emp['id']]);
+                                            $otRaw = ($hasApprovedOT && $wh > 8) ? ($wh - 8) : 0;
                                             $otUnits = floor($otRaw / 0.75);
                                             $otCounted = $otUnits * 0.75;
                                         ?>
@@ -1692,7 +1702,7 @@
                             <!-- Legend -->
                             <div style="padding:10px 14px; background:#f8fafc; border-radius:8px; border:1px solid var(--border); display:flex; gap:16px; flex-wrap:wrap; font-size:11px; color:var(--muted);">
                                 <span>📌 <strong>Reguler:</strong> max 8 jam/hari</span>
-                                <span>🔥 <strong>Lembur:</strong> >8 jam, per kelipatan 45 menit</span>
+                                <span>🔥 <strong>Lembur:</strong> hanya jika diajukan & disetujui, per kelipatan 45 menit</span>
                                 <span>🕐 <strong>Scan:</strong> 1=Masuk, 2=Pulang, 3=Masuk Shift2, 4=Pulang Shift2</span>
                             </div>
                         </div>
