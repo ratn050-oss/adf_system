@@ -158,9 +158,9 @@ include '../../includes/header.php';
 
 <style>
     .edit-page {
-        max-width: 680px;
+        max-width: 1400px;
         margin: 0 auto;
-        padding: 1.5rem 1rem;
+        padding: 1rem;
     }
 
     .edit-card {
@@ -173,41 +173,67 @@ include '../../includes/header.php';
     .edit-card-header {
         background: linear-gradient(135deg, #6366f1, #8b5cf6);
         color: white;
-        padding: 1rem 1.5rem;
+        padding: 0.75rem 1.5rem;
+        display: flex;
+        justify-content: space-between;
+        align-items: center;
+        flex-wrap: wrap;
+        gap: 0.5rem;
     }
 
     .edit-card-header h2 {
         margin: 0;
-        font-size: 1.2rem;
+        font-size: 1.15rem;
     }
 
     .edit-card-header .booking-code {
-        opacity: 0.85;
+        opacity: 0.9;
         font-size: 0.85rem;
-        margin-top: 0.25rem;
         font-family: 'Courier New', monospace;
     }
 
     .edit-card-body {
-        padding: 1.5rem;
+        padding: 1.25rem;
+    }
+
+    .edit-layout {
+        display: grid;
+        grid-template-columns: 1fr 1fr;
+        gap: 1.5rem;
+        align-items: start;
+    }
+
+    .edit-col {
+        min-width: 0;
+    }
+
+    .section-title {
+        font-size: 0.85rem;
+        font-weight: 700;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+        color: #6366f1;
+        margin: 0 0 0.75rem 0;
+        padding-bottom: 0.4rem;
+        border-bottom: 2px solid rgba(99, 102, 241, 0.15);
     }
 
     .form-row {
         display: grid;
         grid-template-columns: 1fr 1fr;
-        gap: 1rem;
-        margin-bottom: 1rem;
+        gap: 0.75rem;
+        margin-bottom: 0.75rem;
     }
 
     .form-group {
-        margin-bottom: 1rem;
+        margin-bottom: 0.75rem;
     }
 
     .form-group label {
         display: block;
-        font-size: 0.85rem;
+        font-size: 0.78rem;
         font-weight: 600;
-        margin-bottom: 0.3rem;
+        margin-bottom: 0.25rem;
         color: var(--text-secondary, #475569);
     }
 
@@ -215,10 +241,10 @@ include '../../includes/header.php';
     .form-group select,
     .form-group textarea {
         width: 100%;
-        padding: 0.6rem 0.75rem;
+        padding: 0.5rem 0.65rem;
         border: 1px solid var(--border-color, #e2e8f0);
         border-radius: 6px;
-        font-size: 0.9rem;
+        font-size: 0.85rem;
         background: var(--bg-secondary, #f8fafc);
         color: var(--text-primary, #1e293b);
         box-sizing: border-box;
@@ -233,7 +259,7 @@ include '../../includes/header.php';
     }
 
     .form-group textarea {
-        min-height: 60px;
+        min-height: 55px;
         resize: vertical;
     }
 
@@ -241,16 +267,16 @@ include '../../includes/header.php';
         background: rgba(99, 102, 241, 0.04);
         border: 1px solid rgba(99, 102, 241, 0.15);
         border-radius: 8px;
-        padding: 1rem;
-        margin-bottom: 1rem;
+        padding: 0.75rem;
+        margin-bottom: 0.75rem;
     }
 
     .price-line {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        padding: 0.35rem 0;
-        font-size: 0.9rem;
+        padding: 0.3rem 0;
+        font-size: 0.85rem;
     }
 
     .price-line-total {
@@ -259,38 +285,31 @@ include '../../includes/header.php';
         align-items: center;
         padding: 0.5rem 0;
         border-top: 2px solid rgba(99, 102, 241, 0.2);
-        margin-top: 0.5rem;
+        margin-top: 0.4rem;
         font-weight: 700;
         font-size: 1.05rem;
     }
 
     .ota-fee-row {
         background: #fef3c7;
-        padding: 0.5rem 0.75rem;
+        padding: 0.4rem 0.65rem;
         border-radius: 6px;
-        margin: 0.5rem 0;
+        margin: 0.4rem 0;
     }
 
     .status-badge {
         display: inline-block;
         padding: 0.2rem 0.6rem;
         border-radius: 4px;
-        font-size: 0.75rem;
+        font-size: 0.72rem;
         font-weight: 700;
         color: white;
     }
 
-    .status-pending {
-        background: #f59e0b;
-    }
-
-    .status-confirmed {
-        background: #6366f1;
-    }
-
-    .status-checked_in {
-        background: #10b981;
-    }
+    .status-pending { background: #f59e0b; }
+    .status-confirmed { background: #6366f1; }
+    .status-checked_in { background: #10b981; }
+    .status-checked_out { background: #6b7280; }
 
     .discount-row {
         display: flex;
@@ -306,76 +325,55 @@ include '../../includes/header.php';
         transition: all 0.2s;
     }
 
-    .disc-type-btn.active {
-        background: #6366f1;
-        color: white;
-    }
-
-    .disc-type-btn:not(.active) {
-        background: white;
-        color: #6366f1;
-    }
+    .disc-type-btn.active { background: #6366f1; color: white; }
+    .disc-type-btn:not(.active) { background: white; color: #6366f1; }
 
     .btn-row {
         display: flex;
-        gap: 1rem;
-        margin-top: 1.5rem;
+        gap: 0.75rem;
+        margin-top: 1rem;
     }
 
     .btn-save {
         flex: 1;
-        padding: 0.75rem;
+        padding: 0.7rem;
         background: #10b981;
         color: white;
         border: none;
         border-radius: 8px;
         font-weight: 700;
-        font-size: 0.95rem;
+        font-size: 0.9rem;
         cursor: pointer;
         transition: all 0.2s;
     }
 
-    .btn-save:hover {
-        background: #059669;
-        transform: translateY(-1px);
-    }
+    .btn-save:hover { background: #059669; transform: translateY(-1px); }
 
     .btn-cancel {
         flex: 1;
-        padding: 0.75rem;
+        padding: 0.7rem;
         background: var(--bg-secondary, #f3f4f6);
         color: var(--text-secondary, #6b7280);
         border: 1px solid var(--border-color, #e5e7eb);
         border-radius: 8px;
         font-weight: 600;
-        font-size: 0.95rem;
+        font-size: 0.9rem;
         cursor: pointer;
         text-decoration: none;
         text-align: center;
     }
 
-    .btn-cancel:hover {
-        background: #e5e7eb;
-    }
+    .btn-cancel:hover { background: #e5e7eb; }
 
     .alert {
-        padding: 0.75rem 1rem;
+        padding: 0.6rem 0.85rem;
         border-radius: 6px;
-        margin-bottom: 1rem;
-        font-size: 0.9rem;
+        margin-bottom: 0.75rem;
+        font-size: 0.85rem;
     }
 
-    .alert-success {
-        background: rgba(16, 185, 129, 0.1);
-        color: #059669;
-        border: 1px solid #d1fae5;
-    }
-
-    .alert-error {
-        background: rgba(239, 68, 68, 0.1);
-        color: #ef4444;
-        border: 1px solid #fee2e2;
-    }
+    .alert-success { background: rgba(16, 185, 129, 0.1); color: #059669; border: 1px solid #d1fae5; }
+    .alert-error { background: rgba(239, 68, 68, 0.1); color: #ef4444; border: 1px solid #fee2e2; }
 
     .paid-info {
         background: rgba(16, 185, 129, 0.06);
@@ -384,77 +382,62 @@ include '../../includes/header.php';
         padding: 0.5rem 0.75rem;
         font-size: 0.85rem;
         color: #059669;
-        margin-bottom: 1rem;
+        margin-bottom: 0.75rem;
     }
 
-    /* EXTRAS SECTION */
-    .extras-section {
-        margin-bottom: 1rem;
-    }
+    /* EXTRAS */
+    .extras-section { margin-bottom: 0.75rem; }
 
     .extras-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 0.75rem;
+        margin-bottom: 0.5rem;
     }
 
-    .extras-header h3 {
-        margin: 0;
-        font-size: 0.95rem;
-        font-weight: 700;
-        color: var(--text-primary, #1e293b);
-    }
+    .extras-header h3 { margin: 0; font-size: 0.85rem; font-weight: 700; color: var(--text-primary, #1e293b); }
 
     .btn-add-extra {
-        padding: 0.35rem 0.75rem;
+        padding: 0.3rem 0.6rem;
         background: #6366f1;
         color: white;
         border: none;
         border-radius: 6px;
-        font-size: 0.8rem;
+        font-size: 0.75rem;
         cursor: pointer;
         font-weight: 600;
     }
 
-    .btn-add-extra:hover {
-        background: #4f46e5;
-    }
+    .btn-add-extra:hover { background: #4f46e5; }
 
     .btn-add-room {
         display: block;
         width: 100%;
-        padding: 0.6rem;
-        margin: 0.5rem 0 1rem;
+        padding: 0.5rem;
+        margin: 0.5rem 0 0.75rem;
         background: #f0fdf4;
         color: #16a34a;
         border: 2px dashed #86efac;
         border-radius: 8px;
-        font-size: 0.85rem;
+        font-size: 0.8rem;
         font-weight: 600;
         cursor: pointer;
         transition: all 0.2s;
     }
-    .btn-add-room:hover {
-        background: #dcfce7;
-        border-color: #16a34a;
-    }
+    .btn-add-room:hover { background: #dcfce7; border-color: #16a34a; }
+
     .new-room-badge {
         display: inline-block;
         background: #fbbf24;
         color: #78350f;
         padding: 1px 8px;
         border-radius: 4px;
-        font-size: 0.65rem;
+        font-size: 0.6rem;
         font-weight: 700;
         letter-spacing: 0.5px;
     }
 
-    .extras-list {
-        display: flex;
-        flex-direction: column;
-        gap: 0.5rem;
-    }
+    .extras-list { display: flex; flex-direction: column; gap: 0.4rem; }
 
     .extra-item {
         display: flex;
@@ -463,140 +446,72 @@ include '../../includes/header.php';
         background: rgba(99, 102, 241, 0.04);
         border: 1px solid rgba(99, 102, 241, 0.12);
         border-radius: 6px;
-        padding: 0.5rem 0.75rem;
-        font-size: 0.85rem;
+        padding: 0.4rem 0.65rem;
+        font-size: 0.8rem;
     }
 
-    .extra-item-info {
-        flex: 1;
-    }
-
-    .extra-item-name {
-        font-weight: 600;
-        color: var(--text-primary, #1e293b);
-    }
-
-    .extra-item-detail {
-        font-size: 0.78rem;
-        color: var(--text-secondary, #64748b);
-        margin-top: 0.15rem;
-    }
-
-    .extra-item-price {
-        font-weight: 700;
-        color: #6366f1;
-        margin: 0 0.75rem;
-        white-space: nowrap;
-    }
+    .extra-item-info { flex: 1; }
+    .extra-item-name { font-weight: 600; color: var(--text-primary, #1e293b); }
+    .extra-item-detail { font-size: 0.72rem; color: var(--text-secondary, #64748b); margin-top: 0.1rem; }
+    .extra-item-price { font-weight: 700; color: #6366f1; margin: 0 0.5rem; white-space: nowrap; }
 
     .extra-item-delete {
         background: none;
         border: none;
         color: #ef4444;
         cursor: pointer;
-        font-size: 1.1rem;
-        padding: 0.2rem;
+        font-size: 1rem;
+        padding: 0.15rem;
         line-height: 1;
     }
+    .extra-item-delete:hover { color: #dc2626; }
 
-    .extra-item-delete:hover {
-        color: #dc2626;
-    }
-
-    .extras-empty {
-        padding: 0.75rem;
-        text-align: center;
-        color: var(--text-secondary, #64748b);
-        font-size: 0.85rem;
-        font-style: italic;
-    }
+    .extras-empty { padding: 0.6rem; text-align: center; color: var(--text-secondary, #64748b); font-size: 0.8rem; font-style: italic; }
 
     .extras-total {
         display: flex;
         justify-content: space-between;
-        padding: 0.5rem 0.75rem;
+        padding: 0.4rem 0.65rem;
         background: rgba(99, 102, 241, 0.08);
         border-radius: 6px;
         font-weight: 700;
-        font-size: 0.9rem;
-        margin-top: 0.5rem;
+        font-size: 0.85rem;
+        margin-top: 0.4rem;
     }
 
-    /* Add Extra Form */
     .add-extra-form {
         background: #f8fafc;
         border: 1px dashed #cbd5e1;
         border-radius: 8px;
-        padding: 0.75rem;
-        margin-top: 0.5rem;
+        padding: 0.65rem;
+        margin-top: 0.4rem;
         display: none;
     }
-
-    .add-extra-form.active {
-        display: block;
-    }
+    .add-extra-form.active { display: block; }
 
     .add-extra-row {
         display: grid;
         grid-template-columns: 2fr 1fr 1.5fr;
-        gap: 0.5rem;
-        margin-bottom: 0.5rem;
+        gap: 0.4rem;
+        margin-bottom: 0.4rem;
     }
 
     .add-extra-row input,
     .add-extra-row select {
-        padding: 0.45rem 0.5rem;
+        padding: 0.4rem 0.5rem;
         border: 1px solid #e2e8f0;
         border-radius: 4px;
-        font-size: 0.82rem;
-    }
-
-    .add-extra-actions {
-        display: flex;
-        gap: 0.5rem;
-        justify-content: flex-end;
-    }
-
-    .add-extra-actions button {
-        padding: 0.35rem 0.75rem;
-        border: none;
-        border-radius: 4px;
         font-size: 0.8rem;
-        cursor: pointer;
-        font-weight: 600;
     }
 
-    .btn-confirm-extra {
-        background: #10b981;
-        color: white;
-    }
+    .add-extra-actions { display: flex; gap: 0.4rem; justify-content: flex-end; }
+    .add-extra-actions button { padding: 0.3rem 0.65rem; border: none; border-radius: 4px; font-size: 0.78rem; cursor: pointer; font-weight: 600; }
+    .btn-confirm-extra { background: #10b981; color: white; }
+    .btn-cancel-extra { background: #e5e7eb; color: #6b7280; }
 
-    .btn-cancel-extra {
-        background: #e5e7eb;
-        color: #6b7280;
-    }
-
-    .preset-btns {
-        display: flex;
-        flex-wrap: wrap;
-        gap: 0.35rem;
-        margin-bottom: 0.5rem;
-    }
-
-    .preset-btn {
-        padding: 0.25rem 0.5rem;
-        background: white;
-        border: 1px solid #d1d5db;
-        border-radius: 4px;
-        font-size: 0.75rem;
-        cursor: pointer;
-    }
-
-    .preset-btn:hover {
-        background: #6366f1;
-        color: white;
-        border-color: #6366f1;
-    }
+    .preset-btns { display: flex; flex-wrap: wrap; gap: 0.3rem; margin-bottom: 0.4rem; }
+    .preset-btn { padding: 0.2rem 0.45rem; background: white; border: 1px solid #d1d5db; border-radius: 4px; font-size: 0.72rem; cursor: pointer; }
+    .preset-btn:hover { background: #6366f1; color: white; border-color: #6366f1; }
 
     /* GROUP ROOMS */
     .group-badge {
@@ -609,60 +524,57 @@ include '../../includes/header.php';
         margin-left: 0.5rem;
     }
 
-    .room-cards {
-        display: flex;
-        flex-direction: column;
-        gap: 0.75rem;
-        margin-bottom: 1rem;
-    }
+    .room-cards { display: flex; flex-direction: column; gap: 0.6rem; margin-bottom: 0.5rem; }
 
     .room-card {
         background: rgba(99, 102, 241, 0.03);
         border: 1px solid rgba(99, 102, 241, 0.15);
         border-radius: 8px;
-        padding: 0.75rem;
+        padding: 0.65rem;
     }
 
     .room-card-header {
         display: flex;
         justify-content: space-between;
         align-items: center;
-        margin-bottom: 0.5rem;
-        padding-bottom: 0.4rem;
+        margin-bottom: 0.4rem;
+        padding-bottom: 0.35rem;
         border-bottom: 1px solid rgba(99, 102, 241, 0.1);
+        gap: 0.5rem;
     }
 
-    .room-card-title {
-        font-weight: 700;
-        font-size: 0.9rem;
-        color: #6366f1;
-    }
+    .room-card-title { font-weight: 700; font-size: 0.85rem; color: #6366f1; flex: 1; }
+    .room-card-status { font-size: 0.65rem; }
+    .room-card .form-row { margin-bottom: 0.4rem; }
+    .room-card .form-group { margin-bottom: 0.4rem; }
+    .room-card .form-group label { font-size: 0.75rem; }
+    .room-card .price-box { margin-bottom: 0; }
 
-    .room-card-status {
-        font-size: 0.7rem;
+    .btn-remove-room {
+        background: #fee2e2;
+        color: #dc2626;
+        border: 1px solid #fca5a5;
+        padding: 0.2rem 0.5rem;
+        border-radius: 4px;
+        cursor: pointer;
+        font-size: 0.72rem;
+        font-weight: 600;
+        white-space: nowrap;
+        transition: all 0.2s;
     }
+    .btn-remove-room:hover { background: #dc2626; color: white; }
 
-    .room-card .form-row {
-        margin-bottom: 0.5rem;
-    }
-
-    .room-card .form-group {
-        margin-bottom: 0.5rem;
-    }
-
-    .room-card .form-group label {
-        font-size: 0.78rem;
-    }
-
-    .room-card .price-box {
-        margin-bottom: 0;
+    @media (max-width: 900px) {
+        .edit-layout { grid-template-columns: 1fr; }
     }
 </style>
 
 <div class="edit-page">
     <div class="edit-card">
         <div class="edit-card-header">
-            <h2>✏️ Edit Reservasi<?php if ($isGroup): ?><span class="group-badge">📦 <?php echo count($groupBookings); ?> Rooms</span><?php endif; ?></h2>
+            <div>
+                <h2>✏️ Edit Reservasi<?php if ($isGroup): ?><span class="group-badge">📦 <?php echo count($groupBookings); ?> Rooms</span><?php endif; ?></h2>
+            </div>
             <div class="booking-code"><?php echo htmlspecialchars($booking['booking_code']); ?><?php if ($isGroup): ?> (Group)<?php endif; ?> ·
                 <span class="status-badge status-<?php echo $booking['status']; ?>"><?php echo strtoupper(str_replace('_', ' ', $booking['status'])); ?></span>
             </div>
@@ -686,284 +598,292 @@ include '../../includes/header.php';
                     <input type="hidden" name="group_id" value="<?php echo htmlspecialchars($groupId); ?>">
                 <?php endif; ?>
 
-                <!-- GUEST INFO -->
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Nama Tamu *</label>
-                        <input type="text" name="guest_name" id="guestName" value="<?php echo htmlspecialchars($booking['guest_name']); ?>" required>
-                    </div>
-                    <div class="form-group">
-                        <label>Telepon</label>
-                        <input type="text" name="guest_phone" id="guestPhone" value="<?php echo htmlspecialchars($booking['guest_phone'] ?? ''); ?>">
-                    </div>
-                </div>
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Email</label>
-                        <input type="email" name="guest_email" value="<?php echo htmlspecialchars($booking['guest_email'] ?? ''); ?>">
-                    </div>
-                    <div class="form-group">
-                        <label>No. KTP/Paspor</label>
-                        <input type="text" name="guest_id_number" value="<?php echo htmlspecialchars($booking['guest_id_number'] ?? ''); ?>">
-                    </div>
-                </div>
+                <div class="edit-layout">
+                    <!-- ========== LEFT COLUMN: Guest + Dates + Rooms ========== -->
+                    <div class="edit-col">
+                        <h3 class="section-title">👤 Info Tamu & Tanggal</h3>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Nama Tamu *</label>
+                                <input type="text" name="guest_name" id="guestName" value="<?php echo htmlspecialchars($booking['guest_name']); ?>" required>
+                            </div>
+                            <div class="form-group">
+                                <label>Telepon</label>
+                                <input type="text" name="guest_phone" id="guestPhone" value="<?php echo htmlspecialchars($booking['guest_phone'] ?? ''); ?>">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Email</label>
+                                <input type="email" name="guest_email" value="<?php echo htmlspecialchars($booking['guest_email'] ?? ''); ?>">
+                            </div>
+                            <div class="form-group">
+                                <label>No. KTP/Paspor</label>
+                                <input type="text" name="guest_id_number" value="<?php echo htmlspecialchars($booking['guest_id_number'] ?? ''); ?>">
+                            </div>
+                        </div>
+                        <div class="form-row">
+                            <div class="form-group">
+                                <label>Check-in *</label>
+                                <input type="date" name="check_in_date" id="checkIn" value="<?php echo $booking['check_in_date']; ?>" required onchange="recalculate()">
+                            </div>
+                            <div class="form-group">
+                                <label>Check-out *</label>
+                                <input type="date" name="check_out_date" id="checkOut" value="<?php echo $booking['check_out_date']; ?>" required onchange="recalculate()">
+                            </div>
+                        </div>
 
-                <!-- DATES -->
-                <div class="form-row">
-                    <div class="form-group">
-                        <label>Check-in *</label>
-                        <input type="date" name="check_in_date" id="checkIn" value="<?php echo $booking['check_in_date']; ?>" required onchange="recalculate()">
-                    </div>
-                    <div class="form-group">
-                        <label>Check-out *</label>
-                        <input type="date" name="check_out_date" id="checkOut" value="<?php echo $booking['check_out_date']; ?>" required onchange="recalculate()">
-                    </div>
-                </div>
+                        <h3 class="section-title">🏠 Kamar</h3>
 
-                <!-- ROOM(S) -->
-                <?php if ($isGroup): ?>
-                    <!-- GROUP: Multiple Room Cards -->
-                    <div class="room-cards">
-                        <?php foreach ($groupBookings as $idx => $gb): ?>
-                            <div class="room-card" data-room-idx="<?php echo $idx; ?>">
-                                <input type="hidden" name="rooms[<?php echo $idx; ?>][booking_id]" value="<?php echo $gb['id']; ?>">
-                                <div class="room-card-header">
-                                    <span class="room-card-title">🏠 Room <?php echo htmlspecialchars($gb['room_number']); ?> — <?php echo htmlspecialchars($gb['type_name']); ?></span>
-                                    <span class="room-card-status status-badge status-<?php echo $gb['status']; ?>"><?php echo strtoupper(str_replace('_', ' ', $gb['status'])); ?></span>
-                                </div>
-                                <div class="form-row">
-                                    <div class="form-group">
-                                        <label>Kamar</label>
-                                        <select name="rooms[<?php echo $idx; ?>][room_id]" class="grp-room-select" data-idx="<?php echo $idx; ?>" onchange="onRoomChange(this); recalculate()">
-                                            <?php foreach ($roomsByType as $typeName => $typeRooms): ?>
-                                                <optgroup label="<?php echo $typeName; ?> (Rp <?php echo number_format($typeRooms[0]['base_price'], 0, ',', '.'); ?>)">
-                                                <?php foreach ($typeRooms as $room): 
-                                                    $isCurrent = (intval($room['id']) == intval($gb['room_id']));
-                                                ?>
-                                                    <option value="<?php echo $room['id']; ?>" data-price="<?php echo $room['base_price']; ?>" <?php echo $isCurrent ? 'selected' : ''; ?>>
-                                                        <?php echo $room['room_number']; ?><?php echo $isCurrent ? ' ✓' : ''; ?>
-                                                    </option>
-                                                <?php endforeach; ?>
-                                                </optgroup>
+                        <!-- ROOM(S) -->
+                        <?php if ($isGroup): ?>
+                            <div class="room-cards">
+                                <?php foreach ($groupBookings as $idx => $gb): ?>
+                                    <div class="room-card" data-room-idx="<?php echo $idx; ?>" data-booking-id="<?php echo $gb['id']; ?>">
+                                        <input type="hidden" name="rooms[<?php echo $idx; ?>][booking_id]" value="<?php echo $gb['id']; ?>">
+                                        <div class="room-card-header">
+                                            <span class="room-card-title">🏠 Room <?php echo htmlspecialchars($gb['room_number']); ?> — <?php echo htmlspecialchars($gb['type_name']); ?></span>
+                                            <span class="room-card-status status-badge status-<?php echo $gb['status']; ?>"><?php echo strtoupper(str_replace('_', ' ', $gb['status'])); ?></span>
+                                            <?php if (count($groupBookings) > 1 && $gb['status'] !== 'checked_in'): ?>
+                                                <button type="button" class="btn-remove-room" onclick="removeExistingRoom(<?php echo $gb['id']; ?>, '<?php echo htmlspecialchars($gb['room_number']); ?>', this)">✕ Hapus</button>
+                                            <?php endif; ?>
+                                        </div>
+                                        <div class="form-row">
+                                            <div class="form-group">
+                                                <label>Kamar</label>
+                                                <select name="rooms[<?php echo $idx; ?>][room_id]" class="grp-room-select" data-idx="<?php echo $idx; ?>" onchange="onRoomChange(this); recalculate()">
+                                                    <?php foreach ($roomsByType as $typeName => $typeRooms): ?>
+                                                        <optgroup label="<?php echo $typeName; ?> (Rp <?php echo number_format($typeRooms[0]['base_price'], 0, ',', '.'); ?>)">
+                                                        <?php foreach ($typeRooms as $room): 
+                                                            $isCurrent = (intval($room['id']) == intval($gb['room_id']));
+                                                        ?>
+                                                            <option value="<?php echo $room['id']; ?>" data-price="<?php echo $room['base_price']; ?>" <?php echo $isCurrent ? 'selected' : ''; ?>>
+                                                                <?php echo $room['room_number']; ?><?php echo $isCurrent ? ' ✓' : ''; ?>
+                                                            </option>
+                                                        <?php endforeach; ?>
+                                                        </optgroup>
+                                                    <?php endforeach; ?>
+                                                </select>
+                                            </div>
+                                            <div class="form-group">
+                                                <label>Harga/Malam (Rp)</label>
+                                                <input type="number" name="rooms[<?php echo $idx; ?>][room_price]" class="grp-room-price" data-idx="<?php echo $idx; ?>" value="<?php echo $gb['room_price']; ?>" step="1000" onchange="recalculate()">
+                                            </div>
+                                        </div>
+                                        <div class="form-group">
+                                            <label>Diskon (Rp)</label>
+                                            <input type="number" name="rooms[<?php echo $idx; ?>][discount]" class="grp-discount" data-idx="<?php echo $idx; ?>" value="<?php echo $gb['discount']; ?>" min="0" onchange="recalculate()">
+                                        </div>
+                                    </div>
+                                <?php endforeach; ?>
+                            </div>
+                            <button type="button" class="btn-add-room" onclick="addNewRoomCard()">➕ Tambah Room</button>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Booking Source</label>
+                                    <select name="booking_source" id="bookingSource" onchange="recalculate()">
+                                        <?php
+                                        $directSources = array_filter($bookingSources, fn($s) => $s['source_type'] === 'direct');
+                                        $otaSrc = array_filter($bookingSources, fn($s) => $s['source_type'] !== 'direct');
+                                        ?>
+                                        <optgroup label="Direct">
+                                            <?php foreach ($directSources as $src): ?>
+                                                <option value="<?php echo $src['source_key']; ?>"
+                                                    <?php echo $src['source_key'] === $booking['booking_source'] ? 'selected' : ''; ?>>
+                                                    <?php echo $src['icon'] . ' ' . $src['source_name']; ?>
+                                                </option>
                                             <?php endforeach; ?>
-                                        </select>
-                                    </div>
-                                    <div class="form-group">
-                                        <label>Harga/Malam (Rp)</label>
-                                        <input type="number" name="rooms[<?php echo $idx; ?>][room_price]" class="grp-room-price" data-idx="<?php echo $idx; ?>" value="<?php echo $gb['room_price']; ?>" step="1000" onchange="recalculate()">
-                                    </div>
+                                        </optgroup>
+                                        <optgroup label="OTA">
+                                            <?php foreach ($otaSrc as $src): ?>
+                                                <option value="<?php echo $src['source_key']; ?>"
+                                                    <?php echo $src['source_key'] === $booking['booking_source'] ? 'selected' : ''; ?>>
+                                                    <?php echo $src['icon'] . ' ' . $src['source_name'] . ' (fee ' . $src['fee_percent'] . '%)'; ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </optgroup>
+                                    </select>
                                 </div>
                                 <div class="form-group">
-                                    <label>Diskon (Rp)</label>
-                                    <input type="number" name="rooms[<?php echo $idx; ?>][discount]" class="grp-discount" data-idx="<?php echo $idx; ?>" value="<?php echo $gb['discount']; ?>" min="0" onchange="recalculate()">
+                                    <label>Jumlah Tamu</label>
+                                    <input type="number" name="num_guests" min="1" max="30" value="<?php echo $booking['adults'] ?? 1; ?>">
                                 </div>
                             </div>
-                        <?php endforeach; ?>
-                    </div>
-                    <button type="button" class="btn-add-room" onclick="addNewRoomCard()">➕ Tambah Room</button>
-
-                    <!-- SOURCE (shared for group) -->
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Booking Source</label>
-                            <select name="booking_source" id="bookingSource" onchange="recalculate()">
-                                <?php
-                                $directSources = array_filter($bookingSources, fn($s) => $s['source_type'] === 'direct');
-                                $otaSrc = array_filter($bookingSources, fn($s) => $s['source_type'] !== 'direct');
-                                ?>
-                                <optgroup label="Direct">
-                                    <?php foreach ($directSources as $src): ?>
-                                        <option value="<?php echo $src['source_key']; ?>"
-                                            <?php echo $src['source_key'] === $booking['booking_source'] ? 'selected' : ''; ?>>
-                                            <?php echo $src['icon'] . ' ' . $src['source_name']; ?>
-                                        </option>
-                                    <?php endforeach; ?>
-                                </optgroup>
-                                <optgroup label="OTA">
-                                    <?php foreach ($otaSrc as $src): ?>
-                                        <option value="<?php echo $src['source_key']; ?>"
-                                            <?php echo $src['source_key'] === $booking['booking_source'] ? 'selected' : ''; ?>>
-                                            <?php echo $src['icon'] . ' ' . $src['source_name'] . ' (fee ' . $src['fee_percent'] . '%)'; ?>
-                                        </option>
-                                    <?php endforeach; ?>
-                                </optgroup>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Jumlah Tamu</label>
-                            <input type="number" name="num_guests" min="1" max="30" value="<?php echo $booking['adults'] ?? 1; ?>">
-                        </div>
-                    </div>
-                <?php else: ?>
-                    <!-- SINGLE ROOM -->
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Kamar</label>
-                            <select name="room_id" id="roomSelect" onchange="onRoomChange(this); recalculate()">
-                                <?php foreach ($roomsByType as $typeName => $typeRooms): ?>
-                                    <optgroup label="<?php echo $typeName; ?> (Rp <?php echo number_format($typeRooms[0]['base_price'], 0, ',', '.'); ?>)">
-                                    <?php foreach ($typeRooms as $room): 
-                                        $isCurrent = (intval($room['id']) == intval($booking['room_id']));
-                                    ?>
-                                        <option value="<?php echo $room['id']; ?>" data-price="<?php echo $room['base_price']; ?>" <?php echo $isCurrent ? 'selected' : ''; ?>>
-                                            <?php echo $room['room_number']; ?><?php echo $isCurrent ? ' ✓' : ''; ?>
-                                        </option>
-                                    <?php endforeach; ?>
-                                    </optgroup>
-                                <?php endforeach; ?>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Jumlah Tamu</label>
-                            <input type="number" name="num_guests" min="1" max="10" value="<?php echo $booking['adults'] ?? 1; ?>">
-                        </div>
-                    </div>
-
-                    <button type="button" class="btn-add-room" onclick="convertToGroupAndAddRoom()">➕ Tambah Room</button>
-
-                    <!-- SOURCE & PRICE -->
-                    <div class="form-row">
-                        <div class="form-group">
-                            <label>Booking Source</label>
-                            <select name="booking_source" id="bookingSource" onchange="recalculate()">
-                                <?php
-                                $directSources = array_filter($bookingSources, fn($s) => $s['source_type'] === 'direct');
-                                $otaSrc = array_filter($bookingSources, fn($s) => $s['source_type'] !== 'direct');
-                                ?>
-                                <optgroup label="Direct">
-                                    <?php foreach ($directSources as $src): ?>
-                                        <option value="<?php echo $src['source_key']; ?>"
-                                            <?php echo $src['source_key'] === $booking['booking_source'] ? 'selected' : ''; ?>>
-                                            <?php echo $src['icon'] . ' ' . $src['source_name']; ?>
-                                        </option>
-                                    <?php endforeach; ?>
-                                </optgroup>
-                                <optgroup label="OTA">
-                                    <?php foreach ($otaSrc as $src): ?>
-                                        <option value="<?php echo $src['source_key']; ?>"
-                                            <?php echo $src['source_key'] === $booking['booking_source'] ? 'selected' : ''; ?>>
-                                            <?php echo $src['icon'] . ' ' . $src['source_name'] . ' (fee ' . $src['fee_percent'] . '%)'; ?>
-                                        </option>
-                                    <?php endforeach; ?>
-                                </optgroup>
-                            </select>
-                        </div>
-                        <div class="form-group">
-                            <label>Harga/Malam (Rp)</label>
-                            <input type="number" name="room_price" id="roomPrice" value="<?php echo $booking['room_price']; ?>" step="1000" onchange="recalculate()">
-                        </div>
-                    </div>
-
-                <?php endif; ?>
-
-                <!-- DISCOUNT -->
-                <div class="form-group">
-                    <label>Diskon<?php echo $isGroup ? ' (Total)' : ''; ?></label>
-                    <div class="discount-row">
-                        <button type="button" class="disc-type-btn active" data-type="rp" onclick="setDiscType('rp')" style="border-radius:4px 0 0 4px;">Rp</button>
-                        <button type="button" class="disc-type-btn" data-type="percent" onclick="setDiscType('percent')" style="border-radius:0 4px 4px 0;">%</button>
-                        <input type="number" name="discount_value" id="discountValue" value="<?php echo $isGroup ? 0 : $booking['discount']; ?>" min="0" style="flex:1;" onchange="recalculate()">
-                        <input type="hidden" name="discount_type" id="discountType" value="rp">
-                    </div>
-                </div>
-
-                <!-- SPECIAL REQUEST -->
-                <div class="form-group">
-                    <label>Catatan / Permintaan Khusus</label>
-                    <textarea name="special_requests"><?php echo htmlspecialchars($booking['special_request'] ?? ''); ?></textarea>
-                </div>
-
-                <!-- EXTRAS (Extra Bed, Laundry, dll) -->
-                <div class="extras-section">
-                    <div class="extras-header">
-                        <h3>🛏️ Tambahan / Extras</h3>
-                        <button type="button" class="btn-add-extra" onclick="toggleAddExtraForm()">+ Tambah</button>
-                    </div>
-
-                    <!-- ADD FORM -->
-                    <div id="addExtraForm" class="add-extra-form">
-                        <div class="preset-btns">
-                            <button type="button" class="preset-btn" onclick="fillPreset('Extra Bed', 350000)">🛏️ Extra Bed</button>
-                            <button type="button" class="preset-btn" onclick="fillPreset('Laundry', 25000)">👔 Laundry</button>
-                            <button type="button" class="preset-btn" onclick="fillPreset('Breakfast', 35000)">🍳 Breakfast</button>
-                            <button type="button" class="preset-btn" onclick="fillPreset('Mini Bar', 15000)">🍺 Mini Bar</button>
-                            <button type="button" class="preset-btn" onclick="fillPreset('Transport', 50000)">🚗 Transport</button>
-                            <button type="button" class="preset-btn" onclick="fillPreset('Towel Extra', 10000)">🧴 Towel</button>
-                        </div>
-                        <div class="add-extra-row">
-                            <input type="text" id="extraItemName" placeholder="Nama item (eg. Extra Bed)">
-                            <input type="number" id="extraQty" placeholder="Qty" value="1" min="1">
-                            <input type="number" id="extraUnitPrice" placeholder="Harga satuan" min="0" step="1000">
-                        </div>
-                        <div class="add-extra-actions">
-                            <button type="button" class="btn-cancel-extra" onclick="toggleAddExtraForm()">Batal</button>
-                            <button type="button" class="btn-confirm-extra" onclick="addExtra()">✅ Simpan</button>
-                        </div>
-                    </div>
-
-                    <!-- LIST -->
-                    <div id="extrasList" class="extras-list">
-                        <?php if (empty($bookingExtras)): ?>
-                            <div class="extras-empty" id="extrasEmpty">Belum ada tambahan</div>
                         <?php else: ?>
-                            <?php foreach ($bookingExtras as $ex): ?>
-                                <div class="extra-item" data-extra-id="<?php echo $ex['id']; ?>">
-                                    <div class="extra-item-info">
-                                        <div class="extra-item-name"><?php echo htmlspecialchars($ex['item_name']); ?></div>
-                                        <div class="extra-item-detail"><?php echo $ex['quantity']; ?>x @ Rp <?php echo number_format($ex['unit_price'], 0, ',', '.'); ?></div>
-                                    </div>
-                                    <div class="extra-item-price">Rp <?php echo number_format($ex['total_price'], 0, ',', '.'); ?></div>
-                                    <button type="button" class="extra-item-delete" onclick="deleteExtra(<?php echo $ex['id']; ?>, this)" title="Hapus">🗑️</button>
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Kamar</label>
+                                    <select name="room_id" id="roomSelect" onchange="onRoomChange(this); recalculate()">
+                                        <?php foreach ($roomsByType as $typeName => $typeRooms): ?>
+                                            <optgroup label="<?php echo $typeName; ?> (Rp <?php echo number_format($typeRooms[0]['base_price'], 0, ',', '.'); ?>)">
+                                            <?php foreach ($typeRooms as $room): 
+                                                $isCurrent = (intval($room['id']) == intval($booking['room_id']));
+                                            ?>
+                                                <option value="<?php echo $room['id']; ?>" data-price="<?php echo $room['base_price']; ?>" <?php echo $isCurrent ? 'selected' : ''; ?>>
+                                                    <?php echo $room['room_number']; ?><?php echo $isCurrent ? ' ✓' : ''; ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                            </optgroup>
+                                        <?php endforeach; ?>
+                                    </select>
                                 </div>
-                            <?php endforeach; ?>
+                                <div class="form-group">
+                                    <label>Jumlah Tamu</label>
+                                    <input type="number" name="num_guests" min="1" max="10" value="<?php echo $booking['adults'] ?? 1; ?>">
+                                </div>
+                            </div>
+
+                            <button type="button" class="btn-add-room" onclick="convertToGroupAndAddRoom()">➕ Tambah Room</button>
+
+                            <div class="form-row">
+                                <div class="form-group">
+                                    <label>Booking Source</label>
+                                    <select name="booking_source" id="bookingSource" onchange="recalculate()">
+                                        <?php
+                                        $directSources = array_filter($bookingSources, fn($s) => $s['source_type'] === 'direct');
+                                        $otaSrc = array_filter($bookingSources, fn($s) => $s['source_type'] !== 'direct');
+                                        ?>
+                                        <optgroup label="Direct">
+                                            <?php foreach ($directSources as $src): ?>
+                                                <option value="<?php echo $src['source_key']; ?>"
+                                                    <?php echo $src['source_key'] === $booking['booking_source'] ? 'selected' : ''; ?>>
+                                                    <?php echo $src['icon'] . ' ' . $src['source_name']; ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </optgroup>
+                                        <optgroup label="OTA">
+                                            <?php foreach ($otaSrc as $src): ?>
+                                                <option value="<?php echo $src['source_key']; ?>"
+                                                    <?php echo $src['source_key'] === $booking['booking_source'] ? 'selected' : ''; ?>>
+                                                    <?php echo $src['icon'] . ' ' . $src['source_name'] . ' (fee ' . $src['fee_percent'] . '%)'; ?>
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </optgroup>
+                                    </select>
+                                </div>
+                                <div class="form-group">
+                                    <label>Harga/Malam (Rp)</label>
+                                    <input type="number" name="room_price" id="roomPrice" value="<?php echo $booking['room_price']; ?>" step="1000" onchange="recalculate()">
+                                </div>
+                            </div>
                         <?php endif; ?>
                     </div>
 
-                    <?php if ($totalExtras > 0): ?>
-                        <div class="extras-total" id="extrasTotal">
-                            <span>Total Extras:</span>
-                            <span>Rp <?php echo number_format($totalExtras, 0, ',', '.'); ?></span>
-                        </div>
-                    <?php else: ?>
-                        <div class="extras-total" id="extrasTotal" style="display:none;">
-                            <span>Total Extras:</span>
-                            <span>Rp 0</span>
-                        </div>
-                    <?php endif; ?>
-                </div>
+                    <!-- ========== RIGHT COLUMN: Discount + Extras + Price + Actions ========== -->
+                    <div class="edit-col">
+                        <h3 class="section-title">💰 Harga & Diskon</h3>
 
-                <!-- PRICE SUMMARY -->
-                <div class="price-box">
-                    <div class="price-line">
-                        <span>Malam:</span>
-                        <strong id="dispNights"><?php echo $booking['total_nights']; ?></strong>
-                    </div>
-                    <div class="price-line">
-                        <span>Subtotal:</span>
-                        <strong id="dispSubtotal">Rp <?php echo number_format($booking['total_price'], 0, ',', '.'); ?></strong>
-                    </div>
-                    <div class="price-line" id="discountRow" style="<?php echo $booking['discount'] > 0 ? '' : 'display:none'; ?>">
-                        <span>Diskon:</span>
-                        <strong id="dispDiscount" style="color:#ef4444;">- Rp <?php echo number_format($booking['discount'], 0, ',', '.'); ?></strong>
-                    </div>
-                    <div class="price-line ota-fee-row" id="otaFeeRow" style="display:none;">
-                        <span style="color:#92400e;">Fee OTA (<span id="dispFeePercent">0</span>%):</span>
-                        <strong id="dispFeeAmount" style="color:#dc2626;">- Rp 0</strong>
-                    </div>
-                    <div class="price-line" id="extrasRow" style="<?php echo $totalExtras > 0 ? '' : 'display:none'; ?>">
-                        <span>Extras:</span>
-                        <strong id="dispExtras" style="color:#6366f1;">+ Rp <?php echo number_format($totalExtras, 0, ',', '.'); ?></strong>
-                    </div>
-                    <div class="price-line-total">
-                        <span>TOTAL (Net):</span>
-                        <strong id="dispTotal" style="color:#10b981;">Rp <?php echo number_format($booking['final_price'], 0, ',', '.'); ?></strong>
-                    </div>
-                </div>
+                        <!-- DISCOUNT -->
+                        <div class="form-group">
+                            <label>Diskon<?php echo $isGroup ? ' (Total)' : ''; ?></label>
+                            <div class="discount-row">
+                                <button type="button" class="disc-type-btn active" data-type="rp" onclick="setDiscType('rp')" style="border-radius:4px 0 0 4px;">Rp</button>
+                                <button type="button" class="disc-type-btn" data-type="percent" onclick="setDiscType('percent')" style="border-radius:0 4px 4px 0;">%</button>
+                                <input type="number" name="discount_value" id="discountValue" value="<?php echo $isGroup ? 0 : $booking['discount']; ?>" min="0" style="flex:1;" onchange="recalculate()">
+                                <input type="hidden" name="discount_type" id="discountType" value="rp">
+                            </div>
+                        </div>
 
-                <div class="btn-row">
-                    <button type="submit" class="btn-save" id="btnSave">💾 Simpan Perubahan</button>
-                    <a href="reservasi.php" class="btn-cancel">❌ Batal</a>
-                </div>
+                        <!-- SPECIAL REQUEST -->
+                        <div class="form-group">
+                            <label>Catatan / Permintaan Khusus</label>
+                            <textarea name="special_requests"><?php echo htmlspecialchars($booking['special_request'] ?? ''); ?></textarea>
+                        </div>
+
+                        <!-- EXTRAS -->
+                        <h3 class="section-title">🛏️ Tambahan / Extras</h3>
+                        <div class="extras-section">
+                            <div class="extras-header">
+                                <h3>Item Extras</h3>
+                                <button type="button" class="btn-add-extra" onclick="toggleAddExtraForm()">+ Tambah</button>
+                            </div>
+
+                            <div id="addExtraForm" class="add-extra-form">
+                                <div class="preset-btns">
+                                    <button type="button" class="preset-btn" onclick="fillPreset('Extra Bed', 350000)">🛏️ Extra Bed</button>
+                                    <button type="button" class="preset-btn" onclick="fillPreset('Laundry', 25000)">👔 Laundry</button>
+                                    <button type="button" class="preset-btn" onclick="fillPreset('Breakfast', 35000)">🍳 Breakfast</button>
+                                    <button type="button" class="preset-btn" onclick="fillPreset('Mini Bar', 15000)">🍺 Mini Bar</button>
+                                    <button type="button" class="preset-btn" onclick="fillPreset('Transport', 50000)">🚗 Transport</button>
+                                    <button type="button" class="preset-btn" onclick="fillPreset('Towel Extra', 10000)">🧴 Towel</button>
+                                </div>
+                                <div class="add-extra-row">
+                                    <input type="text" id="extraItemName" placeholder="Nama item (eg. Extra Bed)">
+                                    <input type="number" id="extraQty" placeholder="Qty" value="1" min="1">
+                                    <input type="number" id="extraUnitPrice" placeholder="Harga satuan" min="0" step="1000">
+                                </div>
+                                <div class="add-extra-actions">
+                                    <button type="button" class="btn-cancel-extra" onclick="toggleAddExtraForm()">Batal</button>
+                                    <button type="button" class="btn-confirm-extra" onclick="addExtra()">✅ Simpan</button>
+                                </div>
+                            </div>
+
+                            <div id="extrasList" class="extras-list">
+                                <?php if (empty($bookingExtras)): ?>
+                                    <div class="extras-empty" id="extrasEmpty">Belum ada tambahan</div>
+                                <?php else: ?>
+                                    <?php foreach ($bookingExtras as $ex): ?>
+                                        <div class="extra-item" data-extra-id="<?php echo $ex['id']; ?>">
+                                            <div class="extra-item-info">
+                                                <div class="extra-item-name"><?php echo htmlspecialchars($ex['item_name']); ?></div>
+                                                <div class="extra-item-detail"><?php echo $ex['quantity']; ?>x @ Rp <?php echo number_format($ex['unit_price'], 0, ',', '.'); ?></div>
+                                            </div>
+                                            <div class="extra-item-price">Rp <?php echo number_format($ex['total_price'], 0, ',', '.'); ?></div>
+                                            <button type="button" class="extra-item-delete" onclick="deleteExtra(<?php echo $ex['id']; ?>, this)" title="Hapus">🗑️</button>
+                                        </div>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            </div>
+
+                            <?php if ($totalExtras > 0): ?>
+                                <div class="extras-total" id="extrasTotal">
+                                    <span>Total Extras:</span>
+                                    <span>Rp <?php echo number_format($totalExtras, 0, ',', '.'); ?></span>
+                                </div>
+                            <?php else: ?>
+                                <div class="extras-total" id="extrasTotal" style="display:none;">
+                                    <span>Total Extras:</span>
+                                    <span>Rp 0</span>
+                                </div>
+                            <?php endif; ?>
+                        </div>
+
+                        <!-- PRICE SUMMARY -->
+                        <h3 class="section-title">📊 Ringkasan Harga</h3>
+                        <div class="price-box">
+                            <div class="price-line">
+                                <span>Malam:</span>
+                                <strong id="dispNights"><?php echo $booking['total_nights']; ?></strong>
+                            </div>
+                            <div class="price-line">
+                                <span>Subtotal:</span>
+                                <strong id="dispSubtotal">Rp <?php echo number_format($booking['total_price'], 0, ',', '.'); ?></strong>
+                            </div>
+                            <div class="price-line" id="discountRow" style="<?php echo $booking['discount'] > 0 ? '' : 'display:none'; ?>">
+                                <span>Diskon:</span>
+                                <strong id="dispDiscount" style="color:#ef4444;">- Rp <?php echo number_format($booking['discount'], 0, ',', '.'); ?></strong>
+                            </div>
+                            <div class="price-line ota-fee-row" id="otaFeeRow" style="display:none;">
+                                <span style="color:#92400e;">Fee OTA (<span id="dispFeePercent">0</span>%):</span>
+                                <strong id="dispFeeAmount" style="color:#dc2626;">- Rp 0</strong>
+                            </div>
+                            <div class="price-line" id="extrasRow" style="<?php echo $totalExtras > 0 ? '' : 'display:none'; ?>">
+                                <span>Extras:</span>
+                                <strong id="dispExtras" style="color:#6366f1;">+ Rp <?php echo number_format($totalExtras, 0, ',', '.'); ?></strong>
+                            </div>
+                            <div class="price-line-total">
+                                <span>TOTAL (Net):</span>
+                                <strong id="dispTotal" style="color:#10b981;">Rp <?php echo number_format($booking['final_price'], 0, ',', '.'); ?></strong>
+                            </div>
+                        </div>
+
+                        <div class="btn-row">
+                            <button type="submit" class="btn-save" id="btnSave">💾 Simpan Perubahan</button>
+                            <a href="reservasi.php" class="btn-cancel">❌ Batal</a>
+                        </div>
+                    </div>
+                </div><!-- /edit-layout -->
             </form>
         </div>
     </div>
@@ -1052,7 +972,7 @@ include '../../includes/header.php';
             <div class="room-card-header">
                 <span class="room-card-title">🏠 Room Baru</span>
                 <span class="new-room-badge">NEW</span>
-                <button type="button" onclick="this.closest('.room-card').remove(); recalculate(); updateGroupRoomOptions();" style="background:#fee2e2;color:#dc2626;border:none;padding:2px 8px;border-radius:4px;cursor:pointer;font-size:0.75rem;font-weight:600;margin-left:auto;">✕ Hapus</button>
+                <button type="button" class="btn-remove-room" onclick="this.closest('.room-card').remove(); recalculate(); updateGroupRoomOptions();">✕ Hapus</button>
             </div>
             <div class="form-row">
                 <div class="form-group">
@@ -1134,6 +1054,47 @@ include '../../includes/header.php';
         roomCardIndex = 1;
         addNewRoomCard();
         updateGroupRoomOptions();
+    }
+
+    function removeExistingRoom(bookingId, roomNumber, btn) {
+        const totalCards = document.querySelectorAll('.room-card').length;
+        if (totalCards <= 1) {
+            alert('Tidak bisa menghapus room terakhir. Minimal harus ada 1 room.');
+            return;
+        }
+        if (!confirm('Hapus Room ' + roomNumber + ' dari reservasi ini?\nBooking untuk room ini akan dibatalkan.')) return;
+
+        btn.disabled = true;
+        btn.textContent = '⏳...';
+
+        fetch(BASE_URL + '/api/delete-booking.php', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ booking_id: bookingId })
+        })
+        .then(r => r.json())
+        .then(data => {
+            if (data.success) {
+                const card = btn.closest('.room-card');
+                card.style.transition = 'opacity 0.3s, transform 0.3s';
+                card.style.opacity = '0';
+                card.style.transform = 'translateX(-20px)';
+                setTimeout(() => {
+                    card.remove();
+                    recalculate();
+                    updateGroupRoomOptions();
+                }, 300);
+            } else {
+                alert('Gagal hapus: ' + data.message);
+                btn.disabled = false;
+                btn.textContent = '✕ Hapus';
+            }
+        })
+        .catch(err => {
+            alert('Error: ' + err.message);
+            btn.disabled = false;
+            btn.textContent = '✕ Hapus';
+        });
     }
 
     function recalculate() {
