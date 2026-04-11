@@ -289,8 +289,8 @@ if (empty($companySettings['name'])) {
         }
 
         .brand-logo {
-            width: 56px;
-            height: 56px;
+            width: 110px;
+            height: 110px;
             border-radius: 50%;
             object-fit: cover;
             border: none;
@@ -829,7 +829,7 @@ if (empty($companySettings['name'])) {
                 <?php if ($logoUrl): ?>
                     <img class="brand-logo" src="<?php echo htmlspecialchars($logoUrl); ?>" alt="<?php echo htmlspecialchars($companySettings['name']); ?>">
                 <?php else: ?>
-                    <div style="width:56px;height:56px;border-radius:50%;background:linear-gradient(135deg,#1a2332,#2c3e50);display:flex;align-items:center;justify-content:center;color:#d4cfc7;font-family:'DM Serif Display',serif;font-size:1.4rem;box-shadow:0 2px 8px rgba(0,0,0,0.1);">N</div>
+                    <div style="width:110px;height:110px;border-radius:50%;background:linear-gradient(135deg,#1a2332,#2c3e50);display:flex;align-items:center;justify-content:center;color:#d4cfc7;font-family:'DM Serif Display',serif;font-size:2.5rem;box-shadow:0 2px 8px rgba(0,0,0,0.1);">N</div>
                 <?php endif; ?>
                 <div class="brand-text">
                     <h1><?php echo htmlspecialchars($companySettings['name']); ?></h1>
