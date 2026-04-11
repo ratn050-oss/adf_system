@@ -165,7 +165,7 @@ $isPdf = isset($_GET['pdf']);
 $overallStatus = 'unpaid';
 $overallLabel = 'BELUM BAYAR';
 if ($totalPaid >= $combinedFinalPrice && $combinedFinalPrice > 0) { $overallStatus = 'paid'; $overallLabel = 'LUNAS'; }
-elseif ($totalPaid > 0) { $overallStatus = 'partial'; $overallLabel = 'DP'; }
+elseif ($totalPaid > 0) { $overallStatus = 'partial'; $overallLabel = 'DOWN PAYMENT'; }
 
 // Get business info
 $businessId = $_SESSION['business_id'] ?? 1;
@@ -242,13 +242,13 @@ if (empty($companySettings['name'])) {
             left: 50%;
             transform: translate(-50%, -50%) rotate(-30deg);
             font-family: 'DM Serif Display', serif;
-            font-size: 110px;
+            font-size: 80px;
             font-weight: 400;
-            opacity: 0.03;
+            opacity: 0.06;
             pointer-events: none;
             z-index: 1;
             white-space: nowrap;
-            letter-spacing: 16px;
+            letter-spacing: 12px;
         }
 
         .wm-paid {
@@ -271,10 +271,10 @@ if (empty($companySettings['name'])) {
 
         /* Header */
         .header {
-            padding: 28px 36px 20px;
+            padding: 18px 36px 14px;
             display: flex;
             justify-content: space-between;
-            align-items: flex-start;
+            align-items: center;
             position: relative;
             z-index: 2;
         }
@@ -282,12 +282,12 @@ if (empty($companySettings['name'])) {
         .brand {
             display: flex;
             align-items: center;
-            gap: 14px;
+            gap: 12px;
         }
 
         .brand-logo {
-            width: 50px;
-            height: 50px;
+            width: 42px;
+            height: 42px;
             border-radius: 4px;
             object-fit: cover;
             border: 1px solid #e0ddd6;
@@ -295,19 +295,20 @@ if (empty($companySettings['name'])) {
 
         .brand-text h1 {
             font-family: 'DM Serif Display', serif;
-            font-size: 1.35rem;
+            font-size: 1.15rem;
             font-weight: 400;
             color: #1a2332;
             letter-spacing: 0.5px;
+            line-height: 1.2;
         }
 
         .brand-text .sub {
-            font-size: 0.6rem;
+            font-size: 0.55rem;
             font-weight: 500;
             text-transform: uppercase;
             letter-spacing: 3px;
             color: #8b7355;
-            margin-top: 2px;
+            margin-top: 1px;
         }
 
         .header-right {
@@ -316,23 +317,24 @@ if (empty($companySettings['name'])) {
 
         .header-right .inv-label {
             font-family: 'DM Serif Display', serif;
-            font-size: 1.6rem;
+            font-size: 1.4rem;
             font-weight: 400;
             color: #1a2332;
             letter-spacing: 5px;
+            line-height: 1;
         }
 
         .header-right .inv-meta {
-            font-size: 0.72rem;
+            font-size: 0.68rem;
             color: #8a8a8a;
-            margin-top: 6px;
-            line-height: 1.6;
+            margin-top: 4px;
+            line-height: 1.5;
         }
 
         .header-right .inv-meta strong {
             color: #1a2332;
             font-family: 'Source Code Pro', monospace;
-            font-size: 0.73rem;
+            font-size: 0.7rem;
             font-weight: 600;
         }
 
@@ -348,24 +350,24 @@ if (empty($companySettings['name'])) {
             display: flex;
             justify-content: space-between;
             align-items: center;
-            padding: 12px 36px;
+            padding: 8px 36px;
             position: relative;
             z-index: 2;
         }
 
         .status-bar .hotel-contact {
-            font-size: 0.68rem;
+            font-size: 0.62rem;
             color: #9a9590;
-            line-height: 1.6;
+            line-height: 1.5;
             letter-spacing: 0.2px;
         }
 
         .status-badge {
             display: inline-block;
-            padding: 4px 16px;
+            padding: 3px 14px;
             font-weight: 600;
-            font-size: 0.6rem;
-            letter-spacing: 2.5px;
+            font-size: 0.58rem;
+            letter-spacing: 2px;
             text-transform: uppercase;
             border-radius: 2px;
         }
@@ -390,7 +392,7 @@ if (empty($companySettings['name'])) {
 
         /* Body */
         .body {
-            padding: 6px 36px 28px;
+            padding: 4px 36px 24px;
             position: relative;
             z-index: 2;
         }
@@ -399,33 +401,33 @@ if (empty($companySettings['name'])) {
         .info-cards {
             display: grid;
             grid-template-columns: 1fr 1fr;
-            gap: 16px;
-            margin: 14px 0 22px;
+            gap: 12px;
+            margin: 10px 0 16px;
         }
 
         .info-card {
-            padding: 14px 16px;
+            padding: 10px 14px;
             background: #fafaf8;
             border-radius: 4px;
         }
 
         .info-card .card-title {
             font-family: 'DM Serif Display', serif;
-            font-size: 0.72rem;
+            font-size: 0.65rem;
             font-weight: 400;
             color: #8b7355;
             text-transform: uppercase;
             letter-spacing: 2px;
-            margin-bottom: 10px;
-            padding-bottom: 6px;
+            margin-bottom: 6px;
+            padding-bottom: 4px;
             border-bottom: 1px solid #e8e6e1;
         }
 
         .info-card .row {
             display: flex;
             justify-content: space-between;
-            padding: 2.5px 0;
-            font-size: 0.76rem;
+            padding: 1.5px 0;
+            font-size: 0.72rem;
         }
 
         .info-card .row .lbl {
@@ -808,21 +810,21 @@ if (empty($companySettings['name'])) {
                 <?php if ($logoUrl): ?>
                     <img class="brand-logo" src="<?php echo htmlspecialchars($logoUrl); ?>" alt="<?php echo htmlspecialchars($companySettings['name']); ?>">
                 <?php else: ?>
-                    <div style="width:50px;height:50px;border-radius:4px;background:#1a2332;display:flex;align-items:center;justify-content:center;color:#d4cfc7;font-family:'DM Serif Display',serif;font-size:1.3rem;">N</div>
+                    <div style="width:42px;height:42px;border-radius:4px;background:#1a2332;display:flex;align-items:center;justify-content:center;color:#d4cfc7;font-family:'DM Serif Display',serif;font-size:1.1rem;">N</div>
                 <?php endif; ?>
                 <div class="brand-text">
                     <h1><?php echo htmlspecialchars($companySettings['name']); ?></h1>
-                    <div class="sub">The Paradise of Java</div>
+                    <div class="sub">Karimunjawa &middot; Jawa Tengah</div>
                 </div>
             </div>
             <div class="header-right">
                 <div class="inv-label">INVOICE</div>
                 <div class="inv-meta">
-                    No. <strong><?php echo htmlspecialchars($allBookings[0]['booking_code']); ?></strong>
+                    <strong><?php echo htmlspecialchars($allBookings[0]['booking_code']); ?></strong>
                     <?php if ($isMultiRoom && count($allBookings) > 1): ?>
-                        <br><span style="color:#7f8c8d;">+ <?php echo count($allBookings) - 1; ?> room<?php echo count($allBookings) - 1 > 1 ? 's' : ''; ?></span>
+                        <span style="color:#8b7355;">+ <?php echo count($allBookings) - 1; ?> room<?php echo count($allBookings) - 1 > 1 ? 's' : ''; ?></span>
                     <?php endif; ?>
-                    <br><?php echo date('d F Y', strtotime($booking['created_at'])); ?>
+                    &middot; <?php echo date('d M Y', strtotime($booking['created_at'])); ?>
                 </div>
             </div>
         </div>
@@ -832,8 +834,7 @@ if (empty($companySettings['name'])) {
         <!-- Status Bar -->
         <div class="status-bar">
             <div class="hotel-contact">
-                Jl. Kasimo Jatikerep Karimunjawa Jepara Jawatengah 59455<br>
-                Tel: 081222228590 &middot; narayanahotelkarimunjawa@gmail.com
+                Jl. Kasimo Jatikerep, Karimunjawa, Jepara 59455 &middot; 081222228590
             </div>
             <span class="status-badge badge-<?php echo $overallStatus; ?>"><?php echo $overallLabel; ?></span>
         </div>
