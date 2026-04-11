@@ -451,6 +451,67 @@ if ($type === 'attlog' && isset($data['data'])) {
         'message' => implode(' | ', $messages),
         'details' => $results,
     ]);
+} elseif ($type === 'get_userinfo' && isset($data['data'])) {
+    // ══════════════════════════════════════════════════════════════
+    // PROCESS GET_USERINFO (response from device via webhook)
+    // ══════════════════════════════════════════════════════════════
+    $ud = $data['data'];
+    $pin = trim($ud['pin'] ?? '');
+    $name = trim($ud['name'] ?? '');
+    $privilege = $ud['privilege'] ?? '0';
+    $finger = $ud['finger'] ?? '0';
+    $face = $ud['face'] ?? '0';
+    $password = $ud['password'] ?? '';
+    $rfid = $ud['rfid'] ?? '';
+    $vein = $ud['vein'] ?? '0';
+    $transId = $data['trans_id'] ?? '';
+
+    foreach ($bizList as $biz) {
+        $bpdo = $biz['pdo'];
+        // Ensure table exists
+        try {
+            $bpdo->query("SELECT 1 FROM fingerspot_userinfo LIMIT 0");
+        } catch (PDOException $e) {
+            $bpdo->exec("CREATE TABLE IF NOT EXISTS `fingerspot_userinfo` (
+                `id` INT AUTO_INCREMENT PRIMARY KEY,
+                `cloud_id` VARCHAR(50) NOT NULL,
+                `pin` VARCHAR(20) NOT NULL,
+                `name` VARCHAR(100) DEFAULT '',
+                `privilege` VARCHAR(10) DEFAULT '0',
+                `finger` VARCHAR(10) DEFAULT '0',
+                `face` VARCHAR(10) DEFAULT '0',
+                `password` VARCHAR(50) DEFAULT '',
+                `rfid` VARCHAR(50) DEFAULT '',
+                `vein` VARCHAR(10) DEFAULT '0',
+                `employee_id` INT DEFAULT NULL,
+                `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                UNIQUE KEY uk_cloud_pin (cloud_id, pin),
+                INDEX idx_pin (pin)
+            ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+        }
+
+        // Match employee
+        $empId = null;
+        $empStmt = $bpdo->prepare("SELECT id FROM payroll_employees WHERE TRIM(finger_id) = ? AND is_active = 1");
+        $empStmt->execute([$pin]);
+        $emp = $empStmt->fetch(PDO::FETCH_ASSOC);
+        if (!$emp && is_numeric($pin)) {
+            $empStmt = $bpdo->prepare("SELECT id FROM payroll_employees WHERE CAST(TRIM(finger_id) AS UNSIGNED) = CAST(? AS UNSIGNED) AND is_active = 1");
+            $empStmt->execute([$pin]);
+            $emp = $empStmt->fetch(PDO::FETCH_ASSOC);
+        }
+        if ($emp) $empId = (int)$emp['id'];
+
+        // Upsert
+        $bpdo->prepare("INSERT INTO fingerspot_userinfo (cloud_id, pin, name, privilege, finger, face, password, rfid, vein, employee_id) 
+            VALUES (?,?,?,?,?,?,?,?,?,?) 
+            ON DUPLICATE KEY UPDATE name=VALUES(name), privilege=VALUES(privilege), finger=VALUES(finger), face=VALUES(face), password=VALUES(password), rfid=VALUES(rfid), vein=VALUES(vein), employee_id=VALUES(employee_id), updated_at=NOW()")
+            ->execute([$cloudId, $pin, $name, $privilege, $finger, $face, $password, $rfid, $vein, $empId]);
+
+        logWebhook($bpdo, $cloudId, $type, $pin, null, null, null, $empId, 1, "Userinfo saved: {$name} (PIN {$pin})", $rawBody);
+    }
+
+    echo json_encode(['success' => true, 'message' => "Userinfo PIN {$pin} saved", 'businesses' => count($bizList)]);
 } else {
     // Non-attlog type — just log it
     foreach ($bizList as $biz) {

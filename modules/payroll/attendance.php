@@ -492,6 +492,107 @@
                             }
                         }
 
+                        // ── Request Get Userinfo from Fingerspot (async via webhook) ──
+                        if ($action === 'request_userinfo') {
+                            $fpConfig = $db->fetchOne("SELECT fingerspot_cloud_id, fingerspot_token, fingerspot_enabled FROM payroll_attendance_config WHERE id = 1");
+                            $cloudId = $fpConfig['fingerspot_cloud_id'] ?? '';
+                            $apiToken = $fpConfig['fingerspot_token'] ?? '';
+                            $fpEn = (int)($fpConfig['fingerspot_enabled'] ?? 0);
+
+                            if (!$fpEn || !$cloudId || !$apiToken) {
+                                $msg = '❌ Fingerspot belum dikonfigurasi.';
+                                $msgType = 'error';
+                            } else {
+                                // Ensure fingerspot_userinfo table exists
+                                try {
+                                    $_pdo->query("SELECT 1 FROM fingerspot_userinfo LIMIT 0");
+                                } catch (PDOException $e) {
+                                    $_pdo->exec("CREATE TABLE IF NOT EXISTS `fingerspot_userinfo` (
+                                        `id` INT AUTO_INCREMENT PRIMARY KEY,
+                                        `cloud_id` VARCHAR(50) NOT NULL,
+                                        `pin` VARCHAR(20) NOT NULL,
+                                        `name` VARCHAR(100) DEFAULT '',
+                                        `privilege` VARCHAR(10) DEFAULT '0',
+                                        `finger` VARCHAR(10) DEFAULT '0',
+                                        `face` VARCHAR(10) DEFAULT '0',
+                                        `password` VARCHAR(50) DEFAULT '',
+                                        `rfid` VARCHAR(50) DEFAULT '',
+                                        `vein` VARCHAR(10) DEFAULT '0',
+                                        `employee_id` INT DEFAULT NULL,
+                                        `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                                        UNIQUE KEY uk_cloud_pin (cloud_id, pin),
+                                        INDEX idx_pin (pin)
+                                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
+                                }
+
+                                // Get list of PINs to query - from employees + from recent scans
+                                $pinList = [];
+                                $emps = $db->fetchAll("SELECT finger_id FROM payroll_employees WHERE finger_id IS NOT NULL AND finger_id != '' AND is_active = 1");
+                                foreach ($emps as $e) {
+                                    $p = trim($e['finger_id']);
+                                    if ($p !== '' && !in_array($p, $pinList)) $pinList[] = $p;
+                                }
+
+                                // Also add PINs from input field if provided
+                                $extraPins = trim($_POST['extra_pins'] ?? '');
+                                if ($extraPins) {
+                                    foreach (preg_split('/[\s,;]+/', $extraPins) as $ep) {
+                                        $ep = trim($ep);
+                                        if ($ep !== '' && !in_array($ep, $pinList)) $pinList[] = $ep;
+                                    }
+                                }
+
+                                if (empty($pinList)) {
+                                    $msg = '⚠️ Tidak ada PIN yang bisa di-query. Isi Finger ID di Data Karyawan dulu.';
+                                    $msgType = 'info';
+                                } else {
+                                    $sent = 0;
+                                    $errors = 0;
+                                    $apiUrl = "https://developer.fingerspot.io/api/get_userinfo";
+                                    foreach ($pinList as $pin) {
+                                        $postData = [
+                                            'trans_id' => uniqid('ui_'),
+                                            'cloud_id' => $cloudId,
+                                            'pin' => $pin
+                                        ];
+                                        $ch = curl_init();
+                                        curl_setopt_array($ch, [
+                                            CURLOPT_URL => $apiUrl,
+                                            CURLOPT_POST => true,
+                                            CURLOPT_POSTFIELDS => json_encode($postData),
+                                            CURLOPT_RETURNTRANSFER => true,
+                                            CURLOPT_TIMEOUT => 10,
+                                            CURLOPT_SSL_VERIFYPEER => false,
+                                            CURLOPT_HTTPHEADER => [
+                                                'Content-Type: application/json',
+                                                'Authorization: Bearer ' . $apiToken
+                                            ]
+                                        ]);
+                                        $response = curl_exec($ch);
+                                        curl_close($ch);
+                                        $res = json_decode($response, true);
+                                        if ($res && $res['success'] === true) {
+                                            $sent++;
+                                        } else {
+                                            $errors++;
+                                        }
+                                        usleep(300000); // 0.3s delay
+                                    }
+
+                                    $msg = "<div style='line-height:1.8'>"
+                                        . "<div style='font-size:14px;font-weight:800;margin-bottom:8px;'>✅ Request Get Userinfo Terkirim</div>"
+                                        . "<div style='display:flex;flex-wrap:wrap;gap:16px;margin-bottom:6px;'>"
+                                        . "<span>📤 <strong>Terkirim:</strong> {$sent} PIN</span>"
+                                        . ($errors > 0 ? "<span>❌ <strong>Gagal:</strong> {$errors}</span>" : "")
+                                        . "</div>"
+                                        . "<div style='font-size:11px;color:#7c3aed;'>⏳ Data akan masuk via webhook dalam beberapa detik. Refresh halaman ini setelah ~10 detik untuk lihat hasilnya.</div>"
+                                        . "</div>";
+                                    $msgType = 'success';
+                                }
+                            }
+                            $_SESSION['last_payroll_tab'] = 'fingerprint';
+                        }
+
                         // ── Get All PIN from Fingerspot ──
                         if ($action === 'get_fingerspot_pins') {
                             $fpConfig = $db->fetchOne("SELECT fingerspot_cloud_id, fingerspot_token, fingerspot_enabled FROM payroll_attendance_config WHERE id = 1");
@@ -2084,6 +2185,87 @@
                                     </div>
                                 <?php endif; ?>
                             </div>
+
+                            <!-- Get Userinfo Section -->
+                            <?php if ($fpEnabled && $fpCloudId && $fpToken): ?>
+                                <div class="card">
+                                    <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
+                                        <div class="reset-icon" style="background:linear-gradient(135deg,#7c3aed,#a855f7); color:#fff;">👤</div>
+                                        <div style="flex:1;">
+                                            <div class="card-title" style="margin:0;">Data User di Mesin</div>
+                                            <div style="font-size:10px; color:var(--muted);">Ambil info nama & PIN dari mesin via webhook (async)</div>
+                                        </div>
+                                    </div>
+                                    <form method="POST" action="?tab=fingerprint" onsubmit="this.querySelector('button').disabled=true;this.querySelector('button').textContent='⏳ Mengirim request...';">
+                                        <input type="hidden" name="action" value="request_userinfo">
+                                        <div class="fg" style="margin-bottom:8px;">
+                                            <label class="fl">PIN tambahan (opsional)</label>
+                                            <input type="text" name="extra_pins" class="fi" placeholder="Contoh: 5, 6, 7" style="font-size:11px;">
+                                            <div style="font-size:9px; color:var(--muted); margin-top:2px;">Kosongkan untuk query semua PIN yang sudah terdaftar di Data Karyawan</div>
+                                        </div>
+                                        <button type="submit" class="btn" style="width:100%; background:linear-gradient(135deg,#7c3aed,#a855f7); color:#fff; border:none; font-size:13px; padding:11px; font-weight:800; justify-content:center;">
+                                            👤 Request Data User dari Mesin
+                                        </button>
+                                        <div style="font-size:9px; color:var(--muted); margin-top:4px; text-align:center;">
+                                            Kirim perintah ke mesin → tunggu ~10 detik → refresh untuk lihat hasil
+                                        </div>
+                                    </form>
+
+                                    <?php
+                                    // Show existing userinfo data from webhook results
+                                    try {
+                                        $_pdo->query("SELECT 1 FROM fingerspot_userinfo LIMIT 0");
+                                        $userinfos = $db->fetchAll("SELECT fu.*, pe.full_name as emp_name, pe.employee_code, pe.position 
+                                            FROM fingerspot_userinfo fu 
+                                            LEFT JOIN payroll_employees pe ON fu.employee_id = pe.id 
+                                            WHERE fu.cloud_id = ? 
+                                            ORDER BY CAST(fu.pin AS UNSIGNED)", [$fpCloudId]);
+                                    } catch (PDOException $e) {
+                                        $userinfos = [];
+                                    }
+                                    if (!empty($userinfos)):
+                                    ?>
+                                        <div style="margin-top:14px; padding-top:14px; border-top:1px dashed var(--border);">
+                                            <div style="font-size:11px; font-weight:700; color:#7c3aed; margin-bottom:8px;">📋 Data User dari Mesin (<?php echo count($userinfos); ?> user)</div>
+                                            <div class="tbl-wrap" style="margin-bottom:0;">
+                                                <table class="tbl">
+                                                    <thead>
+                                                        <tr>
+                                                            <th style="text-align:center; width:50px;">PIN</th>
+                                                            <th>Nama di Mesin</th>
+                                                            <th>Karyawan</th>
+                                                            <th style="text-align:center;">Jari</th>
+                                                            <th style="text-align:center;">Wajah</th>
+                                                            <th style="text-align:center;">Kartu</th>
+                                                            <th style="font-size:9px;">Update</th>
+                                                        </tr>
+                                                    </thead>
+                                                    <tbody>
+                                                        <?php foreach ($userinfos as $ui): ?>
+                                                            <tr>
+                                                                <td style="text-align:center;"><span style="background:#eff6ff; color:#1e40af; padding:2px 8px; border-radius:5px; font-size:11px; font-weight:700; font-family:monospace;"><?php echo htmlspecialchars($ui['pin']); ?></span></td>
+                                                                <td><strong><?php echo htmlspecialchars($ui['name']); ?></strong></td>
+                                                                <td>
+                                                                    <?php if ($ui['emp_name']): ?>
+                                                                        <span style="color:#065f46; font-weight:600;"><?php echo htmlspecialchars($ui['emp_name']); ?></span>
+                                                                        <div style="font-size:9px; color:var(--muted);"><?php echo htmlspecialchars($ui['position']); ?></div>
+                                                                    <?php else: ?>
+                                                                        <span style="color:#991b1b; font-size:10px;">⚠️ Tidak cocok</span>
+                                                                    <?php endif; ?>
+                                                                </td>
+                                                                <td style="text-align:center;"><?php echo $ui['finger'] !== '0' ? '<span style="color:#059669;">✅ '.$ui['finger'].'</span>' : '<span style="color:#94a3b8;">—</span>'; ?></td>
+                                                                <td style="text-align:center;"><?php echo $ui['face'] !== '0' ? '<span style="color:#059669;">✅</span>' : '<span style="color:#94a3b8;">—</span>'; ?></td>
+                                                                <td style="text-align:center;"><?php echo !empty($ui['rfid']) ? '<span style="color:#059669;">✅</span>' : '<span style="color:#94a3b8;">—</span>'; ?></td>
+                                                                <td style="font-size:9px; color:var(--muted);"><?php echo date('d/m H:i', strtotime($ui['updated_at'])); ?></td>
+                                                            </tr>
+                                                        <?php endforeach; ?>
+                                                    </tbody>
+                                                </table>
+                                            </div>
+                                        </div>
+                                    <?php endif; ?>
+                                </div>
+                            <?php endif; ?>
 
                             <!-- Get All PIN Section -->
                             <?php if ($fpEnabled && $fpCloudId && $fpToken): ?>
