@@ -162,9 +162,10 @@ $remaining = $combinedFinalPrice - $totalPaid;
 $isPdf = isset($_GET['pdf']);
 
 // Determine payment status
-$overallStatus = 'UNPAID';
-if ($totalPaid >= $combinedFinalPrice && $combinedFinalPrice > 0) $overallStatus = 'PAID';
-elseif ($totalPaid > 0) $overallStatus = 'PARTIAL';
+$overallStatus = 'unpaid';
+$overallLabel = 'BELUM BAYAR';
+if ($totalPaid >= $combinedFinalPrice && $combinedFinalPrice > 0) { $overallStatus = 'paid'; $overallLabel = 'LUNAS'; }
+elseif ($totalPaid > 0) { $overallStatus = 'partial'; $overallLabel = 'DP'; }
 
 // Get business info
 $businessId = $_SESSION['business_id'] ?? 1;
@@ -798,7 +799,7 @@ if (empty($companySettings['name'])) {
 
 <body>
     <div class="invoice-page" id="invoiceContent">
-        <div class="watermark wm-<?php echo strtolower($overallStatus); ?>"><?php echo $overallStatus; ?></div>
+        <div class="watermark wm-<?php echo $overallStatus; ?>"><?php echo $overallLabel; ?></div>
         <div class="top-border"></div>
 
         <!-- Header -->
@@ -834,7 +835,7 @@ if (empty($companySettings['name'])) {
                 Jl. Kasimo Jatikerep Karimunjawa Jepara Jawatengah 59455<br>
                 Tel: 081222228590 &middot; narayanahotelkarimunjawa@gmail.com
             </div>
-            <span class="status-badge badge-<?php echo strtolower($overallStatus); ?>"><?php echo $overallStatus; ?></span>
+            <span class="status-badge badge-<?php echo $overallStatus; ?>"><?php echo $overallLabel; ?></span>
         </div>
 
         <div class="sep-line"></div>

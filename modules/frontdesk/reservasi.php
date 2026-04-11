@@ -900,11 +900,12 @@ include '../../includes/header.php';
                                 $cPaid = $booking['_combined_total_paid'];
                                 $cRemaining = $cFinal - $cPaid;
                                 $cPayStatus = 'unpaid';
-                                if ($cPaid >= $cFinal) $cPayStatus = 'paid';
-                                elseif ($cPaid > 0) $cPayStatus = 'partial';
+                                $cPayLabel = 'Belum Bayar';
+                                if ($cPaid >= $cFinal) { $cPayStatus = 'paid'; $cPayLabel = 'Lunas'; }
+                                elseif ($cPaid > 0) { $cPayStatus = 'partial'; $cPayLabel = 'DP'; }
                                 ?>
                                 <span class="badge badge-payment-<?php echo str_replace('_', '-', $cPayStatus); ?>">
-                                    <?php echo ucfirst($cPayStatus); ?>
+                                    <?php echo $cPayLabel; ?>
                                 </span>
                                 <div style="font-size: 0.7rem; margin-top: 0.3rem; line-height: 1.4;">
                                     <div><span style="color: var(--text-secondary);">Total:</span> <strong>Rp <?php echo number_format($cFinal, 0, ',', '.'); ?></strong></div>
