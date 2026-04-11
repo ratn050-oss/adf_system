@@ -1,26 +1,40 @@
 <?php
 /**
- * Test Fingerspot API - discover correct parameters for Get Userinfo
- * DELETE THIS FILE after testing!
+ * Test Fingerspot API - DELETE THIS FILE after testing!
  */
 error_reporting(E_ALL);
 ini_set('display_errors', 1);
 
-// Minimal bootstrap - direct PDO connection
-require_once __DIR__ . '/config/config.php';
+echo "<h2>Fingerspot API Test</h2>";
 
+// Direct connection - no requires
 try {
-    $pdo = new PDO('mysql:host=' . DB_HOST . ';dbname=' . DB_NAME . ';charset=utf8mb4', DB_USER, DB_PASS);
+    $host = 'localhost';
+    $dbname = 'adfb2574_adf';
+    $user = 'adfb2574_adfsystem';
+    $pass = '@Nnoc2025';
+    
+    // Detect local vs production
+    if (strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost') !== false) {
+        $dbname = 'adf_system';
+        $user = 'root';
+        $pass = '';
+    }
+    
+    $pdo = new PDO("mysql:host={$host};dbname={$dbname};charset=utf8mb4", $user, $pass);
     $pdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
+    echo "<p style='color:green;'>✅ DB Connected to: {$dbname}</p>";
 } catch (Exception $e) {
-    die("DB Error: " . $e->getMessage());
+    die("<p style='color:red;'>❌ DB Error: " . htmlspecialchars($e->getMessage()) . "</p>");
 }
 
 $fpConfig = $pdo->query("SELECT fingerspot_cloud_id, fingerspot_token FROM payroll_attendance_config WHERE id = 1")->fetch(PDO::FETCH_ASSOC);
 $cloudId = $fpConfig['fingerspot_cloud_id'] ?? '';
 $apiToken = $fpConfig['fingerspot_token'] ?? '';
 
-if (!$cloudId || !$apiToken) die("Cloud ID or Token not configured");
+if (!$cloudId || !$apiToken) die("<p style='color:red;'>❌ Cloud ID or Token not configured</p>");
+
+echo "<p>Cloud ID: <code>" . htmlspecialchars($cloudId) . "</code></p>";
 
 // Get real employee PINs from DB
 $empPins = $pdo->query("SELECT finger_id, full_name FROM payroll_employees WHERE finger_id IS NOT NULL AND finger_id != '' AND is_active = 1 LIMIT 3")->fetchAll(PDO::FETCH_ASSOC);
