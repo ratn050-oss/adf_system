@@ -89,13 +89,19 @@ body{font-family:'Inter',sans-serif;background:#0d1f3c;min-height:100vh;overflow
 .screen.active{display:flex;flex-direction:column;}
 
 /* ── LOADING ── */
-#loadingScreen{position:fixed;inset:0;background:#0d1f3c;z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;}
-.load-icon{font-size:48px;animation:pulse 1.2s infinite;}
-.load-title{color:#f0b429;font-size:18px;font-weight:800;margin:16px 0 6px;}
-.load-sub{color:rgba(255,255,255,0.5);font-size:12px;margin-bottom:20px;text-align:center;}
-.load-bar{width:200px;height:4px;background:rgba(255,255,255,0.15);border-radius:2px;overflow:hidden;}
-.load-fill{height:100%;background:#f0b429;border-radius:2px;transition:width 0.4s;width:0%;}
-@keyframes pulse{0%,100%{transform:scale(1);}50%{transform:scale(1.1);}}
+#loadingScreen{position:fixed;inset:0;background:linear-gradient(160deg,#0a0f1e 0%,#0d1f3c 40%,#0a1628 100%);z-index:9999;display:flex;align-items:center;justify-content:center;flex-direction:column;}
+.load-ring{width:80px;height:80px;position:relative;margin-bottom:20px;}
+.load-ring svg{width:100%;height:100%;animation:loadRingSpin 2s linear infinite;}
+.load-ring svg circle{fill:none;stroke-width:3;stroke-linecap:round;}
+.load-ring-track{stroke:rgba(255,255,255,0.06);}
+.load-ring-arc{stroke:url(#loadGrad);stroke-dasharray:200;stroke-dashoffset:140;}
+.load-face-icon{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;}
+.load-face-icon svg{width:32px;height:32px;fill:none;stroke:rgba(255,255,255,0.7);stroke-width:1.5;stroke-linecap:round;}
+.load-title{color:#fff;font-size:17px;font-weight:800;letter-spacing:0.5px;}
+.load-sub{color:rgba(255,255,255,0.4);font-size:12px;margin-top:6px;margin-bottom:20px;text-align:center;}
+.load-bar{width:200px;height:3px;background:rgba(255,255,255,0.08);border-radius:2px;overflow:hidden;}
+.load-fill{height:100%;background:linear-gradient(90deg,#00c896,#00e5a0);border-radius:2px;transition:width 0.4s ease;width:0%;box-shadow:0 0 8px rgba(0,200,150,0.4);}
+@keyframes loadRingSpin{to{transform:rotate(360deg);}}
 
 /* ── SCREEN 1: NAME PICKER ── */
 #screenCode{background:#0d1f3c;align-items:flex-start;justify-content:flex-start;padding:0;}
@@ -118,21 +124,81 @@ body{font-family:'Inter',sans-serif;background:#0d1f3c;min-height:100vh;overflow
 .emp-empty{text-align:center;color:rgba(255,255,255,0.4);font-size:13px;padding:30px 0;}
 .err-msg{background:rgba(220,38,38,0.15);border:1px solid rgba(220,38,38,0.3);border-radius:8px;color:#fca5a5;font-size:12px;padding:10px 12px;margin-top:12px;display:none;}
 
-/* ── SCREEN 2: FACE SCAN ── */
-#screenFace{background:#000;position:relative;}
-.face-topbar{position:absolute;top:0;left:0;right:0;z-index:10;display:flex;align-items:center;gap:10px;padding:12px 16px;background:linear-gradient(to bottom,rgba(0,0,0,0.7),transparent);}
-.btn-back{background:rgba(255,255,255,0.15);border:none;color:#fff;padding:7px 14px;border-radius:20px;font-size:12px;font-weight:600;cursor:pointer;}
-.face-emp-badge{background:rgba(240,180,41,0.2);border:1px solid rgba(240,180,41,0.4);border-radius:20px;padding:5px 12px;color:#f0b429;font-size:12px;font-weight:700;}
-#faceVideo{width:100%;height:100vh;object-fit:cover;transform:scaleX(-1);}/* mirror */
-#faceCanvas{position:absolute;inset:0;width:100%;height:100%;transform:scaleX(-1);}
-.face-overlay-ring{position:absolute;top:50%;left:50%;transform:translate(-50%,-60%);width:220px;height:220px;border-radius:50%;border:3px solid rgba(240,180,41,0.7);box-shadow:0 0 0 4px rgba(240,180,41,0.15);pointer-events:none;}
-.face-bottom{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(to top, rgba(0,0,0,0.95) 60%, transparent);padding:20px 20px 40px;text-align:center;}
-.face-status-text{color:#fff;font-size:15px;font-weight:600;margin-bottom:14px;min-height:22px;}
-.match-meter{height:8px;background:rgba(255,255,255,0.15);border-radius:4px;overflow:hidden;margin:0 auto 8px;max-width:240px;display:none;}
-.match-fill{height:100%;border-radius:4px;transition:width 0.3s,background 0.3s;}
-.match-label{color:rgba(255,255,255,0.7);font-size:13px;font-weight:600;}
-.btn-capture{padding:15px 32px;background:#f0b429;color:#0d1f3c;border:none;border-radius:12px;font-size:15px;font-weight:800;cursor:pointer;margin-top:8px;width:100%;max-width:280px;display:none;}
-.register-hint{color:rgba(255,255,255,0.6);font-size:12px;margin-bottom:12px;line-height:1.4;}
+/* ── SCREEN 2: FACE SCAN (Modern Face ID) ── */
+#screenFace{background:#000;position:relative;overflow:hidden;}
+.face-topbar{position:absolute;top:0;left:0;right:0;z-index:10;display:flex;align-items:center;gap:10px;padding:14px 16px;background:linear-gradient(to bottom,rgba(0,0,0,0.8) 0%,rgba(0,0,0,0.4) 60%,transparent 100%);}
+.btn-back{background:rgba(255,255,255,0.12);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,0.15);color:#fff;padding:8px 16px;border-radius:24px;font-size:12px;font-weight:600;cursor:pointer;transition:all 0.2s;}
+.btn-back:active{transform:scale(0.95);background:rgba(255,255,255,0.2);}
+.face-emp-badge{background:rgba(0,200,150,0.12);backdrop-filter:blur(10px);-webkit-backdrop-filter:blur(10px);border:1px solid rgba(0,200,150,0.25);border-radius:24px;padding:6px 14px;color:#00c896;font-size:12px;font-weight:700;letter-spacing:0.3px;}
+#faceVideo{width:100%;height:100vh;object-fit:cover;transform:scaleX(-1);}
+#faceCanvas{position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:5;}
+
+/* ── Face Scan Overlay ── */
+.face-scan-overlay{position:absolute;inset:0;z-index:6;pointer-events:none;display:flex;flex-direction:column;align-items:center;justify-content:center;}
+
+/* Animated scanning ring system */
+.face-ring-container{position:relative;width:240px;height:240px;display:flex;align-items:center;justify-content:center;}
+.face-ring-outer{position:absolute;inset:-12px;border-radius:50%;border:2px solid rgba(255,255,255,0.06);animation:faceRingPulse 3s ease-in-out infinite;}
+.face-ring-main{position:absolute;inset:0;border-radius:50%;overflow:hidden;}
+.face-ring-main svg{width:100%;height:100%;transform:rotate(-90deg);}
+.face-ring-main svg circle{fill:none;stroke-width:3;stroke-linecap:round;transition:stroke-dashoffset 0.3s ease,stroke 0.3s ease;}
+.face-ring-track{stroke:rgba(255,255,255,0.1);}
+.face-ring-progress{stroke:url(#ringGrad);stroke-dasharray:754;stroke-dashoffset:754;filter:drop-shadow(0 0 6px rgba(0,200,150,0.4));}
+.face-ring-inner{position:absolute;inset:12px;border-radius:50%;border:1.5px dashed rgba(255,255,255,0.12);animation:faceRingSpin 12s linear infinite;}
+
+/* Scanning beam */
+.face-scan-beam{position:absolute;width:200px;height:3px;background:linear-gradient(90deg,transparent,rgba(0,200,150,0.6),transparent);border-radius:2px;filter:blur(1px);animation:scanBeam 2s ease-in-out infinite;opacity:0;}
+.face-scan-beam.active{opacity:1;}
+
+/* Corner markers */
+.face-corners{position:absolute;inset:0;pointer-events:none;}
+.face-corner{position:absolute;width:28px;height:28px;border-color:rgba(255,255,255,0.4);border-style:solid;border-width:0;transition:border-color 0.3s;}
+.face-corner.tl{top:0;left:0;border-top-width:3px;border-left-width:3px;border-top-left-radius:12px;}
+.face-corner.tr{top:0;right:0;border-top-width:3px;border-right-width:3px;border-top-right-radius:12px;}
+.face-corner.bl{bottom:0;left:0;border-bottom-width:3px;border-left-width:3px;border-bottom-left-radius:12px;}
+.face-corner.br{bottom:0;right:0;border-bottom-width:3px;border-right-width:3px;border-bottom-right-radius:12px;}
+.face-corner.detected{border-color:#00c896;}
+.face-corner.matched{border-color:#00c896;filter:drop-shadow(0 0 4px rgba(0,200,150,0.5));}
+
+/* Status HUD */
+.face-hud{position:absolute;bottom:0;left:0;right:0;background:linear-gradient(to top, rgba(0,0,0,0.95) 0%, rgba(0,0,0,0.7) 60%, transparent 100%);padding:0 20px 36px;text-align:center;z-index:8;}
+.face-hud-status{font-size:16px;font-weight:700;color:#fff;margin-bottom:6px;min-height:24px;letter-spacing:0.2px;}
+.face-hud-sub{font-size:12px;color:rgba(255,255,255,0.45);margin-bottom:16px;min-height:16px;}
+
+/* Confidence arc meter */
+.confidence-arc-wrap{width:200px;height:28px;margin:0 auto 6px;position:relative;}
+.confidence-arc-wrap svg{width:100%;height:100%;}
+.conf-track{fill:none;stroke:rgba(255,255,255,0.08);stroke-width:5;stroke-linecap:round;}
+.conf-fill{fill:none;stroke-width:5;stroke-linecap:round;transition:stroke-dashoffset 0.25s ease,stroke 0.25s ease;filter:drop-shadow(0 0 4px rgba(0,200,150,0.3));}
+.confidence-label{color:rgba(255,255,255,0.6);font-size:12px;font-weight:700;text-align:center;margin-bottom:14px;min-height:16px;}
+
+/* Multi-frame indicator dots */
+.frame-dots{display:flex;gap:6px;justify-content:center;margin-bottom:16px;}
+.frame-dot{width:8px;height:8px;border-radius:50%;background:rgba(255,255,255,0.15);transition:all 0.3s;}
+.frame-dot.filled{background:#00c896;box-shadow:0 0 8px rgba(0,200,150,0.5);}
+
+/* Register mode */
+.face-register-card{background:rgba(255,255,255,0.06);backdrop-filter:blur(12px);-webkit-backdrop-filter:blur(12px);border:1px solid rgba(255,255,255,0.1);border-radius:16px;padding:16px 20px;margin:0 auto;max-width:300px;}
+.face-register-card p{color:rgba(255,255,255,0.6);font-size:12px;line-height:1.5;margin-bottom:12px;}
+.btn-register-face{width:100%;padding:14px;background:linear-gradient(135deg,#00c896,#00a67a);color:#fff;border:none;border-radius:12px;font-size:14px;font-weight:800;cursor:pointer;transition:all 0.15s;letter-spacing:0.3px;}
+.btn-register-face:active{transform:scale(0.97);}
+.btn-register-face:disabled{opacity:0.5;cursor:not-allowed;}
+
+/* Verified checkmark animation */
+.face-verified-overlay{position:absolute;inset:0;z-index:20;background:rgba(0,0,0,0.7);backdrop-filter:blur(8px);-webkit-backdrop-filter:blur(8px);display:none;align-items:center;justify-content:center;flex-direction:column;}
+.face-verified-overlay.show{display:flex;animation:fadeInUp 0.4s ease;}
+.verified-ring{width:100px;height:100px;border-radius:50%;background:rgba(0,200,150,0.15);border:3px solid #00c896;display:flex;align-items:center;justify-content:center;animation:verifiedPop 0.5s cubic-bezier(0.175,0.885,0.32,1.275);}
+.verified-check{width:44px;height:44px;fill:none;stroke:#00c896;stroke-width:3;stroke-linecap:round;stroke-linejoin:round;}
+.verified-check path{stroke-dasharray:48;stroke-dashoffset:48;animation:drawCheck 0.5s 0.3s ease forwards;}
+.verified-name{color:#fff;font-size:18px;font-weight:800;margin-top:16px;letter-spacing:0.3px;}
+.verified-sub{color:rgba(255,255,255,0.5);font-size:13px;margin-top:4px;}
+
+@keyframes faceRingPulse{0%,100%{transform:scale(1);opacity:0.5;}50%{transform:scale(1.04);opacity:0.8;}}
+@keyframes faceRingSpin{to{transform:rotate(360deg);}}
+@keyframes scanBeam{0%{top:30px;opacity:0;}10%{opacity:1;}90%{opacity:1;}100%{top:calc(100% - 30px);opacity:0;}}
+@keyframes fadeInUp{from{opacity:0;transform:translateY(20px);}to{opacity:1;transform:translateY(0);}}
+@keyframes verifiedPop{from{transform:scale(0.5);opacity:0;}to{transform:scale(1);opacity:1;}}
+@keyframes drawCheck{to{stroke-dashoffset:0;}}
 
 /* ── SCREEN 3: ABSEN ── */
 #screenAbsen{background:#f0f4f8;}
@@ -226,9 +292,18 @@ body{font-family:'Inter',sans-serif;background:#0d1f3c;min-height:100vh;overflow
 
 <!-- Loading Screen -->
 <div id="loadingScreen">
-    <div class="load-icon">👁️</div>
-    <div class="load-title">Face ID Absensi</div>
-    <div class="load-sub" id="loadText">Memuat model pengenalan wajah...<br>Harap tunggu sebentar</div>
+    <div class="load-ring">
+        <svg viewBox="0 0 80 80">
+            <defs><linearGradient id="loadGrad" x1="0%" y1="0%" x2="100%" y2="0%"><stop offset="0%" stop-color="#00c896"/><stop offset="100%" stop-color="transparent"/></linearGradient></defs>
+            <circle class="load-ring-track" cx="40" cy="40" r="35"/>
+            <circle class="load-ring-arc" cx="40" cy="40" r="35"/>
+        </svg>
+        <div class="load-face-icon">
+            <svg viewBox="0 0 24 24"><rect x="3" y="3" width="18" height="18" rx="4"/><circle cx="9" cy="10" r="1.2"/><circle cx="15" cy="10" r="1.2"/><path d="M9 15.5c0 0 1.5 1.5 3 1.5s3-1.5 3-1.5"/></svg>
+        </div>
+    </div>
+    <div class="load-title">FACE ID</div>
+    <div class="load-sub" id="loadText">Initializing neural network...</div>
     <div class="load-bar"><div class="load-fill" id="loadFill"></div></div>
 </div>
 
@@ -295,7 +370,7 @@ body{font-family:'Inter',sans-serif;background:#0d1f3c;min-height:100vh;overflow
     </div>
 </div>
 
-<!-- Screen 2: Face Scan -->
+<!-- Screen 2: Face Scan (Modern Face ID) -->
 <div id="screenFace" class="screen" style="background:#000; position:relative; overflow:hidden;">
     <div class="face-topbar">
         <button class="btn-back" onclick="backToCode()">← Kembali</button>
@@ -303,19 +378,78 @@ body{font-family:'Inter',sans-serif;background:#0d1f3c;min-height:100vh;overflow
     </div>
     <video id="faceVideo" autoplay muted playsinline></video>
     <canvas id="faceCanvas" style="display:none;"></canvas>
-    <div class="face-overlay-ring" id="faceRing"></div>
-    <div class="face-bottom">
-        <div class="face-status-text" id="faceStatus">Mendeteksi wajah...</div>
-        <div class="match-meter" id="matchMeter">
-            <div class="match-fill" id="matchFill" style="width:0%;background:#f0b429;"></div>
+
+    <!-- Scanning overlay -->
+    <div class="face-scan-overlay">
+        <div class="face-ring-container" id="faceRingContainer">
+            <div class="face-ring-outer"></div>
+            <div class="face-ring-main">
+                <svg viewBox="0 0 240 240">
+                    <defs>
+                        <linearGradient id="ringGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stop-color="#00c896"/>
+                            <stop offset="50%" stop-color="#00e5a0"/>
+                            <stop offset="100%" stop-color="#00c896"/>
+                        </linearGradient>
+                        <linearGradient id="ringFail" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" stop-color="#ef4444"/>
+                            <stop offset="100%" stop-color="#f97316"/>
+                        </linearGradient>
+                    </defs>
+                    <circle class="face-ring-track" cx="120" cy="120" r="116"/>
+                    <circle class="face-ring-progress" id="ringProgress" cx="120" cy="120" r="116"/>
+                </svg>
+            </div>
+            <div class="face-ring-inner"></div>
+            <div class="face-corners">
+                <div class="face-corner tl" id="fc_tl"></div>
+                <div class="face-corner tr" id="fc_tr"></div>
+                <div class="face-corner bl" id="fc_bl"></div>
+                <div class="face-corner br" id="fc_br"></div>
+            </div>
+            <div class="face-scan-beam" id="scanBeam"></div>
         </div>
-        <div class="match-label" id="matchLabel"></div>
-        <div class="register-hint" id="registerHint" style="display:none;">
-            Wajah Anda belum terdaftar di sistem.<br>Posisikan wajah dalam lingkaran lalu ambil foto.
+    </div>
+
+    <!-- Status HUD -->
+    <div class="face-hud">
+        <div class="face-hud-status" id="faceStatus">Mendeteksi wajah...</div>
+        <div class="face-hud-sub" id="faceStatusSub"></div>
+
+        <!-- Confidence arc (verify mode) -->
+        <div id="confidenceWrap" style="display:none;">
+            <div class="confidence-arc-wrap">
+                <svg viewBox="0 0 200 28">
+                    <path class="conf-track" d="M 10 24 Q 100 -4 190 24"/>
+                    <path class="conf-fill" id="confFill" d="M 10 24 Q 100 -4 190 24" stroke-dasharray="210" stroke-dashoffset="210" stroke="#00c896"/>
+                </svg>
+            </div>
+            <div class="confidence-label" id="confLabel"></div>
+            <div class="frame-dots" id="frameDots">
+                <div class="frame-dot" id="fd0"></div>
+                <div class="frame-dot" id="fd1"></div>
+                <div class="frame-dot" id="fd2"></div>
+            </div>
         </div>
-        <button class="btn-capture" id="btnCapture" onclick="captureSelfie()">
-            📸 Daftarkan Wajah Saya
-        </button>
+
+        <!-- Register mode card -->
+        <div id="registerCard" style="display:none;">
+            <div class="face-register-card">
+                <p>Wajah belum terdaftar. Arahkan wajah ke kamera lalu tekan tombol di bawah.</p>
+                <button class="btn-register-face" id="btnCapture" onclick="captureSelfie()">Daftarkan Wajah</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Verified overlay -->
+    <div class="face-verified-overlay" id="verifiedOverlay">
+        <div class="verified-ring">
+            <svg class="verified-check" viewBox="0 0 44 44">
+                <path d="M12 22 L19 29 L32 15"/>
+            </svg>
+        </div>
+        <div class="verified-name" id="verifiedName"></div>
+        <div class="verified-sub" id="verifiedSub">Identitas Terverifikasi</div>
     </div>
 </div>
 
@@ -432,19 +566,19 @@ try {
 async function loadModels() {
     const fill = id => document.getElementById('loadFill').style.width = id + '%';
     try {
-        document.getElementById('loadText').textContent = 'Memuat model deteksi wajah... (1/3)';
+        document.getElementById('loadText').textContent = 'Loading face detector... (1/3)';
         fill(10);
         await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
         fill(35);
-        document.getElementById('loadText').textContent = 'Memuat model titik wajah... (2/3)';
+        document.getElementById('loadText').textContent = 'Loading landmark model... (2/3)';
         await faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL);
         fill(55);
-        document.getElementById('loadText').textContent = 'Memuat model pengenalan wajah... (3/3)';
+        document.getElementById('loadText').textContent = 'Loading recognition engine... (3/3)';
         await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
         fill(75);
 
         // Warm-up: pre-compile WebGL shaders for instant first detection
-        document.getElementById('loadText').textContent = 'Menyiapkan mesin deteksi...';
+        document.getElementById('loadText').textContent = 'Compiling shader pipeline...';
         try {
             const wu = document.createElement('canvas');
             wu.width = wu.height = 128;
@@ -453,7 +587,7 @@ async function loadModels() {
         fill(85);
 
         // Preload all biometric face data
-        document.getElementById('loadText').textContent = 'Memuat data biometrik wajah...';
+        document.getElementById('loadText').textContent = 'Loading biometric data...';
         await preloadAllFaces();
         fill(100);
 
@@ -586,6 +720,14 @@ function openFaceScan() {
     if (!currentEmployee) { showToast('Pilih karyawan terlebih dahulu.'); return; }
     showScreen('screenFace');
     document.getElementById('faceEmpBadge').textContent = currentEmployee.name;
+    // Reset UI
+    document.getElementById('verifiedOverlay').classList.remove('show');
+    document.getElementById('registerCard').style.display = 'none';
+    document.getElementById('confidenceWrap').style.display = 'none';
+    setRingProgress(0);
+    setCorners('');
+    matchFrames = 0;
+    updateFrameDots(0);
     startCamera();
 }
 
@@ -599,40 +741,46 @@ function backToCode() {
 }
 
 // ────────────────────────────────────────────────────────
-//  4. CAMERA & FACE DETECTION
+//  4. CAMERA & FACE DETECTION (Next-Gen Engine)
 // ────────────────────────────────────────────────────────
+const MATCH_THRESHOLD = 0.45;       // Strong match
+const WEAK_THRESHOLD  = 0.6;        // Weak/close match
+const REQUIRED_FRAMES = 3;          // Multi-frame verification
+const THROTTLE_MS     = 80;         // Recognition throttle (ms)
+
+let matchFrames = 0;                // Consecutive match frames
+let lastScore   = 0;
+
 async function startCamera() {
     try {
         cameraStream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: 'user', width: { ideal: 480 }, height: { ideal: 480 } },
+            video: { facingMode: 'user', width: { ideal: 480 }, height: { ideal: 480 }, frameRate: { ideal: 30 } },
             audio: false
         });
         const video = document.getElementById('faceVideo');
         video.srcObject = cameraStream;
         await video.play();
-        video.addEventListener('loadedmetadata', () => {
-            // Resize canvas to match video
-            const canvas = document.getElementById('faceCanvas');
-            canvas.width  = video.videoWidth;
-            canvas.height = video.videoHeight;
-        });
+
         // Show UI based on mode
         if (verifyMode) {
-            setFaceStatus('Arahkan wajah ke kamera untuk verifikasi...');
-            document.getElementById('matchMeter').style.display = 'block';
+            setFaceStatus('Arahkan wajah ke kamera', 'Neural network aktif — siap memindai');
+            document.getElementById('confidenceWrap').style.display = '';
+            document.getElementById('scanBeam').classList.add('active');
         } else {
-            setFaceStatus('Posisikan wajah dalam lingkaran');
-            document.getElementById('registerHint').style.display = 'block';
-            document.getElementById('btnCapture').style.display = 'block';
+            setFaceStatus('Posisikan wajah dalam bingkai', 'Daftarkan biometrik wajah Anda');
+            document.getElementById('registerCard').style.display = '';
         }
+        matchFrames = 0;
+        updateFrameDots(0);
         startDetectionLoop();
     } catch (err) {
-        setFaceStatus('❌ Kamera tidak dapat diakses: ' + err.message);
+        setFaceStatus('Kamera tidak dapat diakses', err.message);
     }
 }
 
 function stopCamera() {
     stopDetectionLoop();
+    document.getElementById('scanBeam').classList.remove('active');
     if (cameraStream) { cameraStream.getTracks().forEach(t => t.stop()); cameraStream = null; }
 }
 
@@ -644,7 +792,6 @@ function startDetectionLoop() {
 
 function stopDetectionLoop() {
     if (faceRAF) { cancelAnimationFrame(faceRAF); faceRAF = null; }
-    clearInterval(verifyInterval);
 }
 
 function faceDetectRAF() {
@@ -663,7 +810,7 @@ async function detectLoop() {
     const video = document.getElementById('faceVideo');
     if (!video.readyState || video.readyState < 2) return;
 
-    // Phase 1: Ultra-fast presence check (~1-5ms native, ~20ms fallback)
+    // Phase 1: Ultra-fast presence check
     let facePresent = false;
     try {
         if (nativeFaceDetector) {
@@ -673,23 +820,24 @@ async function detectLoop() {
             const quickDet = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 128, scoreThreshold: 0.25 }));
             facePresent = !!quickDet;
         }
-    } catch (e) {
-        facePresent = false;
-    }
+    } catch (e) { facePresent = false; }
 
     if (!facePresent) {
         faceDetected = false;
         captureReady = false;
-        setFaceStatus('😐 Wajah tidak terdeteksi — hadap kamera');
-        document.getElementById('faceRing').style.borderColor = 'rgba(240,180,41,0.5)';
-        drawBox(null, video);
-        if (verifyMode) hideMeter();
+        matchFrames = 0;
+        updateFrameDots(0);
+        setFaceStatus('Wajah tidak terdeteksi', 'Hadapkan wajah ke kamera');
+        setCorners('');
+        setRingProgress(0);
         return;
     }
 
-    // Phase 2: Detailed recognition (throttled every 120ms)
+    setCorners('detected');
+
+    // Phase 2: Detailed recognition (throttled)
     const now = Date.now();
-    if (now - lastRecognitionTime < 120) return;
+    if (now - lastRecognitionTime < THROTTLE_MS) return;
     lastRecognitionTime = now;
 
     const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.3 });
@@ -699,78 +847,130 @@ async function detectLoop() {
 
     faceDetected = !!detection;
     captureReady = faceDetected;
-    drawBox(detection, video);
 
-    if (!detection) return;
-
-    document.getElementById('faceRing').style.borderColor = '#f0b429';
+    if (!detection) {
+        matchFrames = 0;
+        updateFrameDots(0);
+        return;
+    }
 
     if (verifyMode && storedDescriptor) {
-        // Compare with stored descriptor
+        // ── Single employee verification ──
         const dist = faceapi.euclideanDistance(storedDescriptor, detection.descriptor);
-        const score = Math.max(0, Math.min(100, Math.round((1 - dist / 0.6) * 100)));
-        updateMeter(score);
+        const score = Math.max(0, Math.min(100, Math.round((1 - dist / WEAK_THRESHOLD) * 100)));
+        lastScore = score;
+        updateConfidence(score);
+        setRingProgress(score);
 
-        if (dist < 0.45) {
-            setFaceStatus('✅ Wajah terkenali! Masuk...');
-            stopDetectionLoop();
-            document.getElementById('faceRing').style.borderColor = '#059669';
-            setTimeout(onFaceVerified, 500);
-        } else if (dist < 0.6) {
-            setFaceStatus('🔄 Hampir cocok (' + score + '%), posisikan wajah lebih baik');
+        if (dist < MATCH_THRESHOLD) {
+            matchFrames++;
+            updateFrameDots(matchFrames);
+            setCorners('matched');
+            if (matchFrames >= REQUIRED_FRAMES) {
+                // VERIFIED
+                stopDetectionLoop();
+                setFaceStatus('Terverifikasi', currentEmployee.name);
+                showVerifiedOverlay(currentEmployee.name);
+                return;
+            }
+            setFaceStatus('Memverifikasi...', 'Frame ' + matchFrames + '/' + REQUIRED_FRAMES);
+        } else if (dist < WEAK_THRESHOLD) {
+            matchFrames = Math.max(0, matchFrames - 1);
+            updateFrameDots(matchFrames);
+            setFaceStatus('Hampir cocok ' + score + '%', 'Dekatkan dan stabilkan wajah');
         } else {
-            setFaceStatus('⚠️ Wajah tidak cocok — coba lagi');
+            matchFrames = 0;
+            updateFrameDots(0);
+            setFaceStatus('Wajah tidak cocok', 'Pastikan Anda adalah pemilik akun');
+            setRingFail();
         }
     } else if (verifyMode && !storedDescriptor && allFaceDescriptors.length > 0) {
-        // Auto-identify: match against all preloaded biometrics
-        let bestMatch = null;
-        let bestDist = Infinity;
+        // ── Auto-identify from all biometrics ──
+        let bestMatch = null, bestDist = Infinity;
         for (const emp of allFaceDescriptors) {
             const d = faceapi.euclideanDistance(emp.descriptor, detection.descriptor);
             if (d < bestDist) { bestDist = d; bestMatch = emp; }
         }
-        if (bestMatch && bestDist < 0.45) {
-            setFaceStatus('✅ ' + bestMatch.name + ' terkenali!');
-            stopDetectionLoop();
-            document.getElementById('faceRing').style.borderColor = '#059669';
-            // Auto-select matched employee
-            setTimeout(() => selectEmployee(bestMatch.id, bestMatch.name), 500);
-        } else if (bestMatch && bestDist < 0.6) {
-            const score = Math.max(0, Math.min(100, Math.round((1 - bestDist / 0.6) * 100)));
-            setFaceStatus('🔄 ' + bestMatch.name + '? (' + score + '%) — dekatkan wajah');
+        if (bestMatch && bestDist < MATCH_THRESHOLD) {
+            matchFrames++;
+            updateFrameDots(matchFrames);
+            setCorners('matched');
+            const score = Math.max(0, Math.min(100, Math.round((1 - bestDist / WEAK_THRESHOLD) * 100)));
+            updateConfidence(score);
+            setRingProgress(score);
+            if (matchFrames >= REQUIRED_FRAMES) {
+                stopDetectionLoop();
+                setFaceStatus('Dikenali!', bestMatch.name);
+                showVerifiedOverlay(bestMatch.name);
+                setTimeout(() => selectEmployee(bestMatch.id, bestMatch.name), 1200);
+                return;
+            }
+            setFaceStatus('Mengenali ' + bestMatch.name + '...', 'Frame ' + matchFrames + '/' + REQUIRED_FRAMES);
+        } else if (bestMatch && bestDist < WEAK_THRESHOLD) {
+            const score = Math.max(0, Math.min(100, Math.round((1 - bestDist / WEAK_THRESHOLD) * 100)));
+            updateConfidence(score);
+            setRingProgress(score);
+            setFaceStatus(bestMatch.name + '?', 'Kecocokan ' + score + '% — dekatkan wajah');
+        } else {
+            setRingProgress(0);
+            setFaceStatus('Wajah tidak dikenali', 'Belum terdaftar di sistem');
         }
     } else {
-        setFaceStatus('✅ Wajah terdeteksi — siap ambil foto');
+        // Register mode
+        setFaceStatus('Wajah terdeteksi', 'Tekan tombol untuk mendaftarkan');
+        setCorners('detected');
+        setRingProgress(50);
     }
 }
 
-function drawBox(detection, video) {
-    const canvas = document.getElementById('faceCanvas');
-    if (!canvas.width) return;
-    const ctx = canvas.getContext('2d');
-    ctx.clearRect(0, 0, canvas.width, canvas.height);
-    if (!detection) return;
-    const dims = { width: video.videoWidth, height: video.videoHeight };
-    const resized = faceapi.resizeResults(detection, dims);
-    const box = resized.detection.box;
-    ctx.strokeStyle = faceDetected ? '#f0b429' : 'rgba(255,255,255,0.4)';
-    ctx.lineWidth = 2;
-    ctx.strokeRect(box.x, box.y, box.width, box.height);
+// ── UI Helper Functions ──
+function setFaceStatus(main, sub) {
+    document.getElementById('faceStatus').textContent = main || '';
+    document.getElementById('faceStatusSub').textContent = sub || '';
 }
 
-function setFaceStatus(msg) { document.getElementById('faceStatus').textContent = msg; }
-
-function updateMeter(score) {
-    const fill  = document.getElementById('matchFill');
-    const label = document.getElementById('matchLabel');
-    fill.style.width = score + '%';
-    fill.style.background = score > 70 ? '#059669' : score > 45 ? '#f0b429' : '#dc2626';
-    label.textContent = 'Kecocokan: ' + score + '%';
+function setCorners(state) {
+    ['tl','tr','bl','br'].forEach(c => {
+        const el = document.getElementById('fc_' + c);
+        el.classList.remove('detected','matched');
+        if (state) el.classList.add(state);
+    });
 }
 
-function hideMeter() {
-    document.getElementById('matchFill').style.width = '0%';
-    document.getElementById('matchLabel').textContent = '';
+function setRingProgress(pct) {
+    const circle = document.getElementById('ringProgress');
+    const circumference = 2 * Math.PI * 116; // ~729
+    const offset = circumference - (pct / 100) * circumference;
+    circle.style.strokeDashoffset = offset;
+    circle.style.stroke = pct > 70 ? 'url(#ringGrad)' : pct > 40 ? '#f0b429' : 'rgba(255,255,255,0.2)';
+}
+
+function setRingFail() {
+    const circle = document.getElementById('ringProgress');
+    circle.style.stroke = 'url(#ringFail)';
+}
+
+function updateConfidence(score) {
+    const fill = document.getElementById('confFill');
+    const label = document.getElementById('confLabel');
+    const arcLength = 210;
+    const offset = arcLength - (score / 100) * arcLength;
+    fill.style.strokeDashoffset = offset;
+    fill.style.stroke = score > 70 ? '#00c896' : score > 40 ? '#f0b429' : '#ef4444';
+    label.textContent = score + '% confidence';
+}
+
+function updateFrameDots(count) {
+    for (let i = 0; i < REQUIRED_FRAMES; i++) {
+        const el = document.getElementById('fd' + i);
+        if (el) el.classList.toggle('filled', i < count);
+    }
+}
+
+function showVerifiedOverlay(name) {
+    document.getElementById('verifiedName').textContent = name;
+    document.getElementById('verifiedOverlay').classList.add('show');
+    setTimeout(() => onFaceVerified(), 1400);
 }
 
 // ────────────────────────────────────────────────────────
@@ -778,11 +978,11 @@ function hideMeter() {
 // ────────────────────────────────────────────────────────
 async function captureSelfie() {
     if (!captureReady || !faceDetected) {
-        showToast('⚠️ Pastikan wajah terdeteksi terlebih dahulu'); return;
+        showToast('Pastikan wajah terdeteksi terlebih dahulu'); return;
     }
     const btn = document.getElementById('btnCapture');
     btn.disabled = true;
-    btn.innerHTML = '<span class="spinner"></span> Mengambil foto...';
+    btn.textContent = 'Memproses...';
     stopDetectionLoop();
     const video = document.getElementById('faceVideo');
     const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.3 });
@@ -791,9 +991,9 @@ async function captureSelfie() {
         .withFaceDescriptor();
 
     if (!detection) {
-        showToast('❌ Gagal mendeteksi wajah. Coba lagi.');
+        showToast('Gagal mendeteksi wajah. Coba lagi.');
         btn.disabled = false;
-        btn.innerHTML = '📸 Daftarkan Wajah Saya';
+        btn.textContent = 'Daftarkan Wajah';
         startDetectionLoop();
         return;
     }
@@ -808,38 +1008,35 @@ async function captureSelfie() {
         const res  = await fetch(API_URL, { method: 'POST', body: fd });
         const data = await res.json();
         if (data.success) {
-            setFaceStatus('✅ Wajah berhasil didaftarkan!');
             storedDescriptor = new Float32Array(descriptorArr);
             verifyMode = true;
-            // Update preloaded cache
             const existing = allFaceDescriptors.find(e => e.id === currentEmployee.id);
             if (existing) {
                 existing.descriptor = storedDescriptor;
             } else {
-                allFaceDescriptors.push({
-                    id: currentEmployee.id,
-                    name: currentEmployee.name,
-                    descriptor: storedDescriptor
-                });
+                allFaceDescriptors.push({ id: currentEmployee.id, name: currentEmployee.name, descriptor: storedDescriptor });
             }
-            document.getElementById('registerHint').style.display = 'none';
-            document.getElementById('btnCapture').style.display = 'none';
-            document.getElementById('matchMeter').style.display = 'block';
-            showToast('✅ Wajah terdaftar! Silakan scan untuk masuk.');
+            document.getElementById('registerCard').style.display = 'none';
+            document.getElementById('confidenceWrap').style.display = '';
+            document.getElementById('scanBeam').classList.add('active');
+            showVerifiedOverlay(currentEmployee.name);
+            document.getElementById('verifiedSub').textContent = 'Biometrik Terdaftar';
+            showToast('Wajah berhasil didaftarkan!');
             setTimeout(() => {
-                setFaceStatus('Arahkan wajah untuk verifikasi...');
+                document.getElementById('verifiedOverlay').classList.remove('show');
+                setFaceStatus('Arahkan wajah untuk verifikasi', 'Biometrik siap digunakan');
                 startDetectionLoop();
-            }, 1500);
+            }, 2000);
         } else {
-            showToast('❌ ' + data.message);
+            showToast(data.message);
             btn.disabled = false;
-            btn.innerHTML = '📸 Daftarkan Wajah Saya';
+            btn.textContent = 'Daftarkan Wajah';
             startDetectionLoop();
         }
     } catch (err) {
-        showToast('❌ Jaringan error: ' + err.message);
+        showToast('Jaringan error: ' + err.message);
         btn.disabled = false;
-        btn.innerHTML = '📸 Daftarkan Wajah Saya';
+        btn.textContent = 'Daftarkan Wajah';
         startDetectionLoop();
     }
 }
@@ -849,10 +1046,10 @@ async function captureSelfie() {
 // ────────────────────────────────────────────────────────
 function onFaceVerified() {
     stopCamera();
+    document.getElementById('verifiedOverlay').classList.remove('show');
     fillDashboard();
     showScreen('screenDashboard');
     if (leafletMap) leafletMap.invalidateSize();
-    // Auto clock-in/out right after face verification
     doClock();
 }
 
