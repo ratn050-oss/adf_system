@@ -99,6 +99,27 @@ try {
     $pdo->exec("ALTER TABLE payroll_employees ADD COLUMN `face_descriptor` MEDIUMTEXT DEFAULT NULL COMMENT 'JSON face descriptor from face-api.js'");
 }
 
+// ── GET ALL FACE DESCRIPTORS (batch preload for fast matching) ──
+if ($action === 'get_all_faces') {
+    $rows = $db->fetchAll("SELECT id, employee_code, full_name, position, department, face_descriptor FROM payroll_employees WHERE is_active = 1 AND face_descriptor IS NOT NULL AND face_descriptor != ''") ?: [];
+    $result = [];
+    foreach ($rows as $r) {
+        $desc = json_decode($r['face_descriptor'], true);
+        if (is_array($desc) && count($desc) >= 100) {
+            $result[] = [
+                'id'              => (int)$r['id'],
+                'code'            => $r['employee_code'],
+                'name'            => $r['full_name'],
+                'position'        => $r['position'],
+                'department'      => $r['department'],
+                'face_descriptor' => $desc,
+            ];
+        }
+    }
+    echo json_encode(['success' => true, 'employees' => $result]);
+    exit;
+}
+
 // ── GET EMPLOYEE by code or ID (no PIN — face will verify) ──
 if ($action === 'get_employee') {
     $employee_code = strtoupper(trim($_POST['employee_code'] ?? ''));

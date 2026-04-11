@@ -414,6 +414,18 @@ let gpsWatcher = null;
 let currentGPS = null;
 let officeConfig = null;
 
+// ── Biometric face cache (preloaded) ──
+let allFaceDescriptors = []; // [{id, name, descriptor: Float32Array}, ...]
+let nativeFaceDetector = null;
+let faceRAF = null;
+let faceProcessing = false;
+let lastRecognitionTime = 0;
+
+// Try hardware-accelerated face detector
+try {
+    if ('FaceDetector' in window) nativeFaceDetector = new FaceDetector({ fastMode: true, maxDetectedFaces: 1 });
+} catch (e) {}
+
 // ────────────────────────────────────────────────────────
 //  1. LOAD FACE-API MODELS
 // ────────────────────────────────────────────────────────
@@ -421,22 +433,59 @@ async function loadModels() {
     const fill = id => document.getElementById('loadFill').style.width = id + '%';
     try {
         document.getElementById('loadText').textContent = 'Memuat model deteksi wajah... (1/3)';
-        fill(15);
+        fill(10);
         await faceapi.nets.tinyFaceDetector.loadFromUri(MODEL_URL);
-        fill(45);
+        fill(35);
         document.getElementById('loadText').textContent = 'Memuat model titik wajah... (2/3)';
         await faceapi.nets.faceLandmark68TinyNet.loadFromUri(MODEL_URL);
-        fill(75);
+        fill(55);
         document.getElementById('loadText').textContent = 'Memuat model pengenalan wajah... (3/3)';
         await faceapi.nets.faceRecognitionNet.loadFromUri(MODEL_URL);
+        fill(75);
+
+        // Warm-up: pre-compile WebGL shaders for instant first detection
+        document.getElementById('loadText').textContent = 'Menyiapkan mesin deteksi...';
+        try {
+            const wu = document.createElement('canvas');
+            wu.width = wu.height = 128;
+            await faceapi.detectSingleFace(wu, new faceapi.TinyFaceDetectorOptions({ inputSize: 128 }));
+        } catch (e) {}
+        fill(85);
+
+        // Preload all biometric face data
+        document.getElementById('loadText').textContent = 'Memuat data biometrik wajah...';
+        await preloadAllFaces();
         fill(100);
+
         setTimeout(() => {
             document.getElementById('loadingScreen').style.display = 'none';
             showScreen('screenCode');
-        }, 400);
+        }, 300);
     } catch (err) {
         document.getElementById('loadText').innerHTML =
             '❌ Gagal memuat model.<br><small>' + err.message + '</small><br><button onclick="loadModels()" style="margin-top:12px;padding:8px 20px;background:#f0b429;border:none;border-radius:8px;font-weight:700;cursor:pointer;">Coba Lagi</button>';
+    }
+}
+
+async function preloadAllFaces() {
+    try {
+        const fd = new FormData();
+        fd.append('action', 'get_all_faces');
+        const res = await fetch(API_URL, { method: 'POST', body: fd });
+        const data = await res.json();
+        if (data.success && data.employees) {
+            allFaceDescriptors = data.employees.map(e => ({
+                id: e.id,
+                code: e.code,
+                name: e.name,
+                position: e.position,
+                department: e.department,
+                descriptor: new Float32Array(e.face_descriptor)
+            }));
+            console.log('[FaceID] Preloaded ' + allFaceDescriptors.length + ' biometric records');
+        }
+    } catch (e) {
+        console.warn('[FaceID] Failed to preload faces:', e);
     }
 }
 
@@ -485,7 +534,12 @@ async function selectEmployee(empId, displayName) {
         officeConfig    = data.config;
         currentEmployee._today = data.today;
 
-        if (data.employee.has_face && data.employee.face_descriptor) {
+        // Use preloaded biometric data (instant) instead of API descriptor
+        const cached = allFaceDescriptors.find(e => e.id === data.employee.id);
+        if (cached) {
+            storedDescriptor = cached.descriptor;
+            verifyMode = true;
+        } else if (data.employee.has_face && data.employee.face_descriptor) {
             storedDescriptor = new Float32Array(data.employee.face_descriptor);
             verifyMode = true;
         } else {
@@ -537,7 +591,6 @@ function openFaceScan() {
 
 function backToCode() {
     stopCamera();
-    clearInterval(verifyInterval);
     if (currentEmployee) {
         showScreen('screenDashboard');
     } else {
@@ -551,7 +604,7 @@ function backToCode() {
 async function startCamera() {
     try {
         cameraStream = await navigator.mediaDevices.getUserMedia({
-            video: { facingMode: 'user', width: { ideal: 640 }, height: { ideal: 480 } },
+            video: { facingMode: 'user', width: { ideal: 480 }, height: { ideal: 480 } },
             audio: false
         });
         const video = document.getElementById('faceVideo');
@@ -579,56 +632,114 @@ async function startCamera() {
 }
 
 function stopCamera() {
-    clearInterval(verifyInterval);
+    stopDetectionLoop();
     if (cameraStream) { cameraStream.getTracks().forEach(t => t.stop()); cameraStream = null; }
 }
 
 function startDetectionLoop() {
+    stopDetectionLoop();
+    faceProcessing = false;
+    faceDetectRAF();
+}
+
+function stopDetectionLoop() {
+    if (faceRAF) { cancelAnimationFrame(faceRAF); faceRAF = null; }
     clearInterval(verifyInterval);
-    verifyInterval = setInterval(detectLoop, 800);
+}
+
+function faceDetectRAF() {
+    faceRAF = requestAnimationFrame(async () => {
+        if (!cameraStream) return;
+        if (!faceProcessing) {
+            faceProcessing = true;
+            await detectLoop();
+            faceProcessing = false;
+        }
+        faceDetectRAF();
+    });
 }
 
 async function detectLoop() {
     const video = document.getElementById('faceVideo');
     if (!video.readyState || video.readyState < 2) return;
-    const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 320, scoreThreshold: 0.5 });
+
+    // Phase 1: Ultra-fast presence check (~1-5ms native, ~20ms fallback)
+    let facePresent = false;
+    try {
+        if (nativeFaceDetector) {
+            const faces = await nativeFaceDetector.detect(video);
+            facePresent = faces.length > 0;
+        } else {
+            const quickDet = await faceapi.detectSingleFace(video, new faceapi.TinyFaceDetectorOptions({ inputSize: 128, scoreThreshold: 0.25 }));
+            facePresent = !!quickDet;
+        }
+    } catch (e) {
+        facePresent = false;
+    }
+
+    if (!facePresent) {
+        faceDetected = false;
+        captureReady = false;
+        setFaceStatus('😐 Wajah tidak terdeteksi — hadap kamera');
+        document.getElementById('faceRing').style.borderColor = 'rgba(240,180,41,0.5)';
+        drawBox(null, video);
+        if (verifyMode) hideMeter();
+        return;
+    }
+
+    // Phase 2: Detailed recognition (throttled every 120ms)
+    const now = Date.now();
+    if (now - lastRecognitionTime < 120) return;
+    lastRecognitionTime = now;
+
+    const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.3 });
     const detection = await faceapi.detectSingleFace(video, options)
         .withFaceLandmarks(true)
         .withFaceDescriptor();
 
     faceDetected = !!detection;
     captureReady = faceDetected;
-
-    // Draw bounding box
     drawBox(detection, video);
 
-    if (!detection) {
-        setFaceStatus('😐 Wajah tidak terdeteksi — hadap kamera');
-        document.getElementById('faceRing').style.borderColor = 'rgba(240,180,41,0.5)';
-        if (verifyMode) { hideMeter(); }
-        return;
-    }
+    if (!detection) return;
 
     document.getElementById('faceRing').style.borderColor = '#f0b429';
 
-    if (verifyMode) {
-        // Compare with stored
+    if (verifyMode && storedDescriptor) {
+        // Compare with stored descriptor
         const dist = faceapi.euclideanDistance(storedDescriptor, detection.descriptor);
         const score = Math.max(0, Math.min(100, Math.round((1 - dist / 0.6) * 100)));
         updateMeter(score);
 
         if (dist < 0.45) {
             setFaceStatus('✅ Wajah terkenali! Masuk...');
-            clearInterval(verifyInterval);
+            stopDetectionLoop();
             document.getElementById('faceRing').style.borderColor = '#059669';
-            setTimeout(onFaceVerified, 700);
+            setTimeout(onFaceVerified, 500);
         } else if (dist < 0.6) {
-            setFaceStatus('🔄 Hampir cocok, posisikan wajah lebih baik');
+            setFaceStatus('🔄 Hampir cocok (' + score + '%), posisikan wajah lebih baik');
         } else {
             setFaceStatus('⚠️ Wajah tidak cocok — coba lagi');
         }
+    } else if (verifyMode && !storedDescriptor && allFaceDescriptors.length > 0) {
+        // Auto-identify: match against all preloaded biometrics
+        let bestMatch = null;
+        let bestDist = Infinity;
+        for (const emp of allFaceDescriptors) {
+            const d = faceapi.euclideanDistance(emp.descriptor, detection.descriptor);
+            if (d < bestDist) { bestDist = d; bestMatch = emp; }
+        }
+        if (bestMatch && bestDist < 0.45) {
+            setFaceStatus('✅ ' + bestMatch.name + ' terkenali!');
+            stopDetectionLoop();
+            document.getElementById('faceRing').style.borderColor = '#059669';
+            // Auto-select matched employee
+            setTimeout(() => selectEmployee(bestMatch.id, bestMatch.name), 500);
+        } else if (bestMatch && bestDist < 0.6) {
+            const score = Math.max(0, Math.min(100, Math.round((1 - bestDist / 0.6) * 100)));
+            setFaceStatus('🔄 ' + bestMatch.name + '? (' + score + '%) — dekatkan wajah');
+        }
     } else {
-        // Register mode - just show ready
         setFaceStatus('✅ Wajah terdeteksi — siap ambil foto');
     }
 }
@@ -672,9 +783,9 @@ async function captureSelfie() {
     const btn = document.getElementById('btnCapture');
     btn.disabled = true;
     btn.innerHTML = '<span class="spinner"></span> Mengambil foto...';
-    clearInterval(verifyInterval);
+    stopDetectionLoop();
     const video = document.getElementById('faceVideo');
-    const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 320 });
+    const options = new faceapi.TinyFaceDetectorOptions({ inputSize: 160, scoreThreshold: 0.3 });
     const detection = await faceapi.detectSingleFace(video, options)
         .withFaceLandmarks(true)
         .withFaceDescriptor();
@@ -700,6 +811,17 @@ async function captureSelfie() {
             setFaceStatus('✅ Wajah berhasil didaftarkan!');
             storedDescriptor = new Float32Array(descriptorArr);
             verifyMode = true;
+            // Update preloaded cache
+            const existing = allFaceDescriptors.find(e => e.id === currentEmployee.id);
+            if (existing) {
+                existing.descriptor = storedDescriptor;
+            } else {
+                allFaceDescriptors.push({
+                    id: currentEmployee.id,
+                    name: currentEmployee.name,
+                    descriptor: storedDescriptor
+                });
+            }
             document.getElementById('registerHint').style.display = 'none';
             document.getElementById('btnCapture').style.display = 'none';
             document.getElementById('matchMeter').style.display = 'block';
