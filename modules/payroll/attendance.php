@@ -503,56 +503,81 @@
                                 $msg = '❌ Fingerspot belum dikonfigurasi. Isi Cloud ID dan API Token terlebih dahulu.';
                                 $msgType = 'error';
                             } else {
-                                $apiUrl = "https://developer.fingerspot.io/api/get_userinfo";
-                                $postData = [
-                                    'trans_id' => uniqid('pin_'),
-                                    'cloud_id' => $cloudId
-                                ];
+                                // Use get_attlog to discover PINs from recent scan data (last 30 days)
+                                $apiUrl = "https://developer.fingerspot.io/api/get_attlog";
+                                $scanFrom = $_POST['scan_from'] ?? date('Y-m-d', strtotime('-30 days'));
+                                $scanTo = $_POST['scan_to'] ?? date('Y-m-d');
+                                $allLogs = [];
+                                $apiErrors = [];
 
-                                $ch = curl_init();
-                                curl_setopt_array($ch, [
-                                    CURLOPT_URL => $apiUrl,
-                                    CURLOPT_POST => true,
-                                    CURLOPT_POSTFIELDS => json_encode($postData),
-                                    CURLOPT_RETURNTRANSFER => true,
-                                    CURLOPT_TIMEOUT => 30,
-                                    CURLOPT_SSL_VERIFYPEER => false,
-                                    CURLOPT_HTTPHEADER => [
-                                        'Content-Type: application/json',
-                                        'Authorization: Bearer ' . $apiToken
-                                    ]
-                                ]);
-                                $response = curl_exec($ch);
-                                $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
-                                $curlError = curl_error($ch);
-                                curl_close($ch);
+                                $startDate = new DateTime($scanFrom);
+                                $endDate = new DateTime($scanTo);
+                                $endDate->modify('+1 day');
+                                $interval = new DateInterval('P2D');
+                                $period = new DatePeriod($startDate, $interval, $endDate);
 
-                                if ($curlError) {
-                                    $msg = "❌ Gagal menghubungi Fingerspot API: " . htmlspecialchars($curlError);
-                                    $msgType = 'error';
-                                } else {
-                                    $data = json_decode($response, true);
-
-                                    // Support multiple response formats from Fingerspot API
-                                    $devicePinArr = [];
-                                    if ($data && isset($data['data']['pin_arr']) && is_array($data['data']['pin_arr'])) {
-                                        // Format: {"data": {"total": N, "pin_arr": ["1","2"]}}
-                                        $devicePinArr = $data['data']['pin_arr'];
-                                    } elseif ($data && isset($data['data']) && is_array($data['data'])) {
-                                        // Format: {"data": [{"pin":"1","name":"..."}, ...]}
-                                        foreach ($data['data'] as $u) {
-                                            $pin = trim($u['pin'] ?? $u['user_id'] ?? $u['PIN'] ?? '');
-                                            if ($pin !== '') $devicePinArr[] = $pin;
-                                        }
-                                    } elseif ($data && $data['success'] === true && isset($data['users']) && is_array($data['users'])) {
-                                        // Format: {"success": true, "users": [{"pin":"1"}, ...]}
-                                        foreach ($data['users'] as $u) {
-                                            $pin = trim($u['pin'] ?? $u['user_id'] ?? '');
-                                            if ($pin !== '') $devicePinArr[] = $pin;
-                                        }
+                                foreach ($period as $chunkStart) {
+                                    $chunkEnd = clone $chunkStart;
+                                    $chunkEnd->modify('+1 day');
+                                    if ($chunkEnd > new DateTime($scanTo)) {
+                                        $chunkEnd = new DateTime($scanTo);
                                     }
 
-                                    if (!empty($devicePinArr)) {
+                                    $postData = [
+                                        'trans_id' => uniqid('pin_'),
+                                        'cloud_id' => $cloudId,
+                                        'start_date' => $chunkStart->format('Y-m-d'),
+                                        'end_date' => $chunkEnd->format('Y-m-d')
+                                    ];
+
+                                    $ch = curl_init();
+                                    curl_setopt_array($ch, [
+                                        CURLOPT_URL => $apiUrl,
+                                        CURLOPT_POST => true,
+                                        CURLOPT_POSTFIELDS => json_encode($postData),
+                                        CURLOPT_RETURNTRANSFER => true,
+                                        CURLOPT_TIMEOUT => 30,
+                                        CURLOPT_SSL_VERIFYPEER => false,
+                                        CURLOPT_HTTPHEADER => [
+                                            'Content-Type: application/json',
+                                            'Authorization: Bearer ' . $apiToken
+                                        ]
+                                    ]);
+                                    $response = curl_exec($ch);
+                                    $curlError = curl_error($ch);
+                                    curl_close($ch);
+
+                                    if ($curlError) {
+                                        $apiErrors[] = $curlError;
+                                        continue;
+                                    }
+
+                                    $data = json_decode($response, true);
+                                    if ($data && $data['success'] === true && isset($data['data']) && is_array($data['data'])) {
+                                        $allLogs = array_merge($allLogs, $data['data']);
+                                    }
+                                    usleep(200000);
+                                }
+
+                                // Extract unique PINs from scan data
+                                $devicePinArr = [];
+                                $pinLastScan = [];
+                                $pinScanCount = [];
+                                foreach ($allLogs as $log) {
+                                    $pin = trim($log['pin'] ?? $log['user_id'] ?? '');
+                                    if ($pin === '') continue;
+                                    if (!in_array($pin, $devicePinArr)) {
+                                        $devicePinArr[] = $pin;
+                                    }
+                                    $scanTime = $log['scan_date'] ?? $log['datetime'] ?? '';
+                                    if ($scanTime && (!isset($pinLastScan[$pin]) || $scanTime > $pinLastScan[$pin])) {
+                                        $pinLastScan[$pin] = $scanTime;
+                                    }
+                                    $pinScanCount[$pin] = ($pinScanCount[$pin] ?? 0) + 1;
+                                }
+                                sort($devicePinArr, SORT_NUMERIC);
+
+                                if (!empty($devicePinArr)) {
                                         $totalDevice = count($devicePinArr);
 
                                         // Cross-reference with employees
@@ -589,30 +614,33 @@
                                         $_SESSION['fingerspot_device_pins'] = $devicePinResults;
                                         $_SESSION['fingerspot_missing_from_device'] = $missingFromDevice;
                                         $_SESSION['fingerspot_total_device'] = $totalDevice;
+                                        $_SESSION['fingerspot_pin_last_scan'] = $pinLastScan;
+                                        $_SESSION['fingerspot_pin_scan_count'] = $pinScanCount;
+                                        $_SESSION['fingerspot_scan_period'] = $scanFrom . ' s/d ' . $scanTo;
 
                                         $matched = count(array_filter($devicePinResults, fn($r) => $r['matched']));
                                         $unmatched = count($devicePinResults) - $matched;
 
                                         $msg = "<div style='line-height:1.8'>"
-                                            . "<div style='font-size:14px;font-weight:800;margin-bottom:8px;'>✅ Get All PIN Berhasil</div>"
+                                            . "<div style='font-size:14px;font-weight:800;margin-bottom:8px;'>✅ Deteksi PIN Berhasil</div>"
                                             . "<div style='display:flex;flex-wrap:wrap;gap:16px;margin-bottom:6px;'>"
-                                            . "<span>📟 <strong>Total PIN di mesin:</strong> {$totalDevice}</span>"
+                                            . "<span>📟 <strong>PIN aktif:</strong> {$totalDevice}</span>"
+                                            . "<span>📊 <strong>Total scan:</strong> " . count($allLogs) . "</span>"
                                             . "<span>✅ <strong>Cocok:</strong> {$matched}</span>"
                                             . ($unmatched > 0 ? "<span>⚠️ <strong>Tidak dikenal:</strong> {$unmatched}</span>" : "")
-                                            . (count($missingFromDevice) > 0 ? "<span>❌ <strong>Belum di mesin:</strong> " . count($missingFromDevice) . "</span>" : "")
+                                            . (count($missingFromDevice) > 0 ? "<span>❌ <strong>Belum scan:</strong> " . count($missingFromDevice) . "</span>" : "")
                                             . "</div>"
-                                            . "<div style='font-size:11px;color:#166534;'>Lihat detail di bawah pada tabel PIN Mesin</div>"
+                                            . "<div style='font-size:11px;color:#166534;'>Periode: {$scanFrom} s/d {$scanTo} · Lihat detail di bawah</div>"
                                             . "</div>";
                                         $msgType = 'success';
                                     } else {
-                                        $errMsg = $data['message'] ?? ($data['error'] ?? 'Response tidak valid');
-                                        $rawPreview = mb_substr($response, 0, 300);
-                                        $msg = "❌ Gagal mendapatkan daftar PIN: " . htmlspecialchars($errMsg)
-                                            . "<br><span style='font-size:10px;color:#64748b;'>HTTP {$httpCode} · Pastikan Cloud ID dan API Token benar.</span>"
-                                            . "<br><details style='margin-top:6px;'><summary style='font-size:10px;color:#94a3b8;cursor:pointer;'>Debug: Raw Response</summary><pre style='font-size:9px;color:#64748b;background:#f8fafc;padding:8px;border-radius:6px;margin-top:4px;white-space:pre-wrap;word-break:break-all;'>" . htmlspecialchars($rawPreview) . "</pre></details>";
-                                        $msgType = 'error';
+                                        if (!empty($apiErrors)) {
+                                            $msg = "❌ API Error: " . htmlspecialchars(implode(", ", array_slice($apiErrors, 0, 3)));
+                                        } else {
+                                            $msg = "ℹ️ Tidak ada data scan dari mesin untuk periode <strong>{$scanFrom} s/d {$scanTo}</strong>.<br><span style='font-size:10px;color:#64748b;'>Coba perluas rentang tanggal atau pastikan mesin sudah melakukan scan.</span>";
+                                        }
+                                        $msgType = empty($apiErrors) ? 'info' : 'error';
                                     }
-                                }
                             }
                             $_SESSION['last_payroll_tab'] = 'fingerprint';
                         }
@@ -2063,23 +2091,33 @@
                                     <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
                                         <div class="reset-icon" style="background:linear-gradient(135deg,#f59e0b,#d97706); color:#fff;">📟</div>
                                         <div style="flex:1;">
-                                            <div class="card-title" style="margin:0;">Cek PIN di Mesin</div>
-                                            <div style="font-size:10px; color:var(--muted);">Ambil daftar PIN terdaftar langsung dari mesin Fingerspot</div>
+                                            <div class="card-title" style="margin:0;">Deteksi PIN Aktif</div>
+                                            <div style="font-size:10px; color:var(--muted);">Deteksi PIN yang pernah scan di mesin dalam periode tertentu</div>
                                         </div>
                                     </div>
                                     <form method="POST" action="?tab=fingerprint" id="fpGetPinForm" onsubmit="return startGetPin()">
                                         <input type="hidden" name="action" value="get_fingerspot_pins">
+                                        <div style="display:flex; gap:8px; margin-bottom:8px;">
+                                            <div style="flex:1;">
+                                                <label style="font-size:9px; font-weight:600; color:var(--muted);">Dari Tanggal</label>
+                                                <input type="date" name="scan_from" class="fi" value="<?php echo date('Y-m-d', strtotime('-30 days')); ?>" style="font-size:11px;">
+                                            </div>
+                                            <div style="flex:1;">
+                                                <label style="font-size:9px; font-weight:600; color:var(--muted);">Sampai Tanggal</label>
+                                                <input type="date" name="scan_to" class="fi" value="<?php echo date('Y-m-d'); ?>" style="font-size:11px;">
+                                            </div>
+                                        </div>
                                         <button type="submit" id="fpGetPinBtn" class="btn" style="width:100%; background:linear-gradient(135deg,#f59e0b,#d97706); color:#fff; border:none; font-size:13px; padding:11px; font-weight:800; justify-content:center;">
-                                            📟 Ambil Daftar PIN dari Mesin
+                                            📟 Deteksi PIN Aktif dari Data Scan
                                         </button>
                                         <div style="font-size:9px; color:var(--muted); margin-top:4px; text-align:center;">
-                                            Mengambil semua PIN yang terdaftar di mesin → bandingkan dengan data karyawan
+                                            Tarik data scan dari API → extract PIN unik → bandingkan dengan data karyawan
                                         </div>
                                     </form>
                                     <script>
                                         function startGetPin() {
                                             document.getElementById('fpGetPinBtn').disabled = true;
-                                            document.getElementById('fpGetPinBtn').innerHTML = '⏳ Mengambil data PIN dari mesin...';
+                                            document.getElementById('fpGetPinBtn').innerHTML = '⏳ Menarik data scan & deteksi PIN...';
                                             return true;
                                         }
                                     </script>
@@ -2088,21 +2126,27 @@
                                     $devPins = $_SESSION['fingerspot_device_pins'] ?? null;
                                     $missingDev = $_SESSION['fingerspot_missing_from_device'] ?? null;
                                     $totalDev = $_SESSION['fingerspot_total_device'] ?? 0;
+                                    $pinLastScan = $_SESSION['fingerspot_pin_last_scan'] ?? [];
+                                    $pinScanCount = $_SESSION['fingerspot_pin_scan_count'] ?? [];
+                                    $scanPeriod = $_SESSION['fingerspot_scan_period'] ?? '';
                                     if ($devPins !== null):
-                                        unset($_SESSION['fingerspot_device_pins'], $_SESSION['fingerspot_missing_from_device'], $_SESSION['fingerspot_total_device']);
+                                        unset($_SESSION['fingerspot_device_pins'], $_SESSION['fingerspot_missing_from_device'], $_SESSION['fingerspot_total_device'], $_SESSION['fingerspot_pin_last_scan'], $_SESSION['fingerspot_pin_scan_count'], $_SESSION['fingerspot_scan_period']);
                                         $matchedPins = array_filter($devPins, fn($r) => $r['matched']);
                                         $unmatchedPins = array_filter($devPins, fn($r) => !$r['matched']);
                                     ?>
                                         <div style="margin-top:14px; padding-top:14px; border-top:1px dashed var(--border);">
+                                            <?php if ($scanPeriod): ?>
+                                                <div style="font-size:10px; color:var(--muted); margin-bottom:8px;">📅 Periode: <?php echo htmlspecialchars($scanPeriod); ?></div>
+                                            <?php endif; ?>
                                             <!-- Summary badges -->
                                             <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px;">
-                                                <span style="background:#eff6ff; color:#1e40af; padding:4px 10px; border-radius:8px; font-size:11px; font-weight:700;">📟 Total: <?php echo $totalDev; ?></span>
+                                                <span style="background:#eff6ff; color:#1e40af; padding:4px 10px; border-radius:8px; font-size:11px; font-weight:700;">📟 PIN aktif: <?php echo $totalDev; ?></span>
                                                 <span style="background:#d1fae5; color:#065f46; padding:4px 10px; border-radius:8px; font-size:11px; font-weight:700;">✅ Cocok: <?php echo count($matchedPins); ?></span>
                                                 <?php if (count($unmatchedPins) > 0): ?>
                                                     <span style="background:#fee2e2; color:#991b1b; padding:4px 10px; border-radius:8px; font-size:11px; font-weight:700;">⚠️ Tidak dikenal: <?php echo count($unmatchedPins); ?></span>
                                                 <?php endif; ?>
                                                 <?php if (!empty($missingDev)): ?>
-                                                    <span style="background:#fef3c7; color:#92400e; padding:4px 10px; border-radius:8px; font-size:11px; font-weight:700;">❌ Belum di mesin: <?php echo count($missingDev); ?></span>
+                                                    <span style="background:#fef3c7; color:#92400e; padding:4px 10px; border-radius:8px; font-size:11px; font-weight:700;">❌ Belum scan: <?php echo count($missingDev); ?></span>
                                                 <?php endif; ?>
                                             </div>
 
@@ -2114,18 +2158,20 @@
                                                         <thead>
                                                             <tr>
                                                                 <th style="text-align:center; width:60px;">PIN</th>
-                                                                <th>Kode</th>
                                                                 <th>Nama</th>
                                                                 <th>Jabatan</th>
+                                                                <th style="text-align:center;">Scan</th>
+                                                                <th>Terakhir</th>
                                                             </tr>
                                                         </thead>
                                                         <tbody>
                                                             <?php foreach ($matchedPins as $mp): ?>
                                                                 <tr>
                                                                     <td style="text-align:center;"><span style="background:#eff6ff; color:#1e40af; padding:2px 8px; border-radius:5px; font-size:11px; font-weight:700; font-family:monospace;"><?php echo htmlspecialchars($mp['pin']); ?></span></td>
-                                                                    <td><code style="font-size:10px; background:rgba(99,102,241,.1); padding:2px 5px; border-radius:3px;"><?php echo htmlspecialchars($mp['employee']['employee_code']); ?></code></td>
                                                                     <td><strong><?php echo htmlspecialchars($mp['employee']['full_name']); ?></strong></td>
                                                                     <td style="font-size:10px; color:var(--muted);"><?php echo htmlspecialchars($mp['employee']['position']); ?></td>
+                                                                    <td style="text-align:center; font-size:11px; font-weight:700;"><?php echo $pinScanCount[$mp['pin']] ?? 0; ?>×</td>
+                                                                    <td style="font-size:10px; color:var(--muted);"><?php echo isset($pinLastScan[$mp['pin']]) ? date('d M H:i', strtotime($pinLastScan[$mp['pin']])) : '-'; ?></td>
                                                                 </tr>
                                                             <?php endforeach; ?>
                                                         </tbody>
@@ -2135,20 +2181,20 @@
 
                                             <!-- Unmatched PINs -->
                                             <?php if (count($unmatchedPins) > 0): ?>
-                                                <div style="font-size:11px; font-weight:700; color:#991b1b; margin-bottom:6px;">⚠️ PIN di Mesin Tidak Dikenal</div>
+                                                <div style="font-size:11px; font-weight:700; color:#991b1b; margin-bottom:6px;">⚠️ PIN Tidak Dikenal (Scan Aktif tapi Tanpa Karyawan)</div>
                                                 <div style="background:#fff5f5; border:1px solid #fca5a5; border-radius:8px; padding:10px; margin-bottom:12px;">
                                                     <div style="display:flex; flex-wrap:wrap; gap:6px;">
                                                         <?php foreach ($unmatchedPins as $up): ?>
-                                                            <span style="background:#fee2e2; color:#991b1b; padding:3px 10px; border-radius:6px; font-size:11px; font-weight:700; font-family:monospace;">PIN <?php echo htmlspecialchars($up['pin']); ?></span>
+                                                            <span style="background:#fee2e2; color:#991b1b; padding:3px 10px; border-radius:6px; font-size:11px; font-weight:700; font-family:monospace;">PIN <?php echo htmlspecialchars($up['pin']); ?> (<?php echo $pinScanCount[$up['pin']] ?? 0; ?>× scan)</span>
                                                         <?php endforeach; ?>
                                                     </div>
-                                                    <div style="font-size:9px; color:#991b1b; margin-top:6px;">PIN ini terdaftar di mesin tapi tidak cocok dengan Finger ID karyawan manapun.</div>
+                                                    <div style="font-size:9px; color:#991b1b; margin-top:6px;">PIN ini pernah scan di mesin tapi tidak cocok dengan Finger ID karyawan manapun. Cek & update Finger ID di Data Karyawan.</div>
                                                 </div>
                                             <?php endif; ?>
 
                                             <!-- Missing from device -->
                                             <?php if (!empty($missingDev)): ?>
-                                                <div style="font-size:11px; font-weight:700; color:#92400e; margin-bottom:6px;">❌ Karyawan Belum Terdaftar di Mesin</div>
+                                                <div style="font-size:11px; font-weight:700; color:#92400e; margin-bottom:6px;">❌ Karyawan Tidak Ada Scan dalam Periode</div>
                                                 <div style="background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:10px;">
                                                     <div class="tbl-wrap" style="margin-bottom:0;">
                                                         <table class="tbl">
@@ -2172,7 +2218,7 @@
                                                             </tbody>
                                                         </table>
                                                     </div>
-                                                    <div style="font-size:9px; color:#92400e; margin-top:6px;">Karyawan ini punya Finger ID di sistem tapi PIN-nya tidak ditemukan di mesin. Daftarkan sidik jari mereka di mesin.</div>
+                                                    <div style="font-size:9px; color:#92400e; margin-top:6px;">Karyawan ini punya Finger ID di sistem tapi tidak ada data scan dalam periode yang dipilih. Pastikan mereka sudah daftarkan sidik jari di mesin.</div>
                                                 </div>
                                             <?php endif; ?>
                                         </div>
