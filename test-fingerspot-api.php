@@ -10,13 +10,13 @@ echo "<h2>Fingerspot API Test</h2>";
 // Direct connection - no requires
 try {
     $host = 'localhost';
-    $dbname = 'adfb2574_adf';
+    $dbname = 'adfb2574_narayana_hotel';
     $user = 'adfb2574_adfsystem';
     $pass = '@Nnoc2025';
     
     // Detect local vs production
     if (strpos($_SERVER['HTTP_HOST'] ?? '', 'localhost') !== false) {
-        $dbname = 'adf_system';
+        $dbname = 'adf_narayana_hotel';
         $user = 'root';
         $pass = '';
     }
