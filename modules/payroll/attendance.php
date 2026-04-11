@@ -492,6 +492,110 @@
                             }
                         }
 
+                        // ── Get All PIN from Fingerspot ──
+                        if ($action === 'get_fingerspot_pins') {
+                            $fpConfig = $db->fetchOne("SELECT fingerspot_cloud_id, fingerspot_token, fingerspot_enabled FROM payroll_attendance_config WHERE id = 1");
+                            $cloudId = $fpConfig['fingerspot_cloud_id'] ?? '';
+                            $apiToken = $fpConfig['fingerspot_token'] ?? '';
+                            $fpEn = (int)($fpConfig['fingerspot_enabled'] ?? 0);
+
+                            if (!$fpEn || !$cloudId || !$apiToken) {
+                                $msg = '❌ Fingerspot belum dikonfigurasi. Isi Cloud ID dan API Token terlebih dahulu.';
+                                $msgType = 'error';
+                            } else {
+                                $apiUrl = "https://developer.fingerspot.io/api/get_userid_list";
+                                $postData = [
+                                    'trans_id' => uniqid('pin_'),
+                                    'cloud_id' => $cloudId
+                                ];
+
+                                $ch = curl_init();
+                                curl_setopt_array($ch, [
+                                    CURLOPT_URL => $apiUrl,
+                                    CURLOPT_POST => true,
+                                    CURLOPT_POSTFIELDS => json_encode($postData),
+                                    CURLOPT_RETURNTRANSFER => true,
+                                    CURLOPT_TIMEOUT => 30,
+                                    CURLOPT_SSL_VERIFYPEER => false,
+                                    CURLOPT_HTTPHEADER => [
+                                        'Content-Type: application/json',
+                                        'Authorization: Bearer ' . $apiToken
+                                    ]
+                                ]);
+                                $response = curl_exec($ch);
+                                $httpCode = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+                                $curlError = curl_error($ch);
+                                curl_close($ch);
+
+                                if ($curlError) {
+                                    $msg = "❌ Gagal menghubungi Fingerspot API: " . htmlspecialchars($curlError);
+                                    $msgType = 'error';
+                                } else {
+                                    $data = json_decode($response, true);
+                                    if ($data && isset($data['data']['pin_arr']) && is_array($data['data']['pin_arr'])) {
+                                        $devicePinArr = $data['data']['pin_arr'];
+                                        $totalDevice = (int)($data['data']['total'] ?? count($devicePinArr));
+
+                                        // Cross-reference with employees
+                                        $devicePinResults = [];
+                                        foreach ($devicePinArr as $dPin) {
+                                            $dPin = trim($dPin);
+                                            $matchedEmp = $db->fetchOne("SELECT id, employee_code, full_name, position FROM payroll_employees WHERE TRIM(finger_id) = ? AND is_active = 1", [$dPin]);
+                                            if (!$matchedEmp && is_numeric($dPin)) {
+                                                $matchedEmp = $db->fetchOne("SELECT id, employee_code, full_name, position FROM payroll_employees WHERE CAST(TRIM(finger_id) AS UNSIGNED) = CAST(? AS UNSIGNED) AND is_active = 1", [$dPin]);
+                                            }
+                                            $devicePinResults[] = [
+                                                'pin' => $dPin,
+                                                'matched' => $matchedEmp ? true : false,
+                                                'employee' => $matchedEmp
+                                            ];
+                                        }
+
+                                        // Find employees with finger_id NOT in device
+                                        $empWithFinger = $db->fetchAll("SELECT id, employee_code, full_name, position, finger_id FROM payroll_employees WHERE finger_id IS NOT NULL AND finger_id != '' AND is_active = 1");
+                                        $missingFromDevice = [];
+                                        foreach ($empWithFinger as $ewf) {
+                                            $found = false;
+                                            foreach ($devicePinArr as $dPin) {
+                                                if (trim($ewf['finger_id']) === trim($dPin) || (is_numeric($ewf['finger_id']) && is_numeric($dPin) && (int)$ewf['finger_id'] === (int)$dPin)) {
+                                                    $found = true;
+                                                    break;
+                                                }
+                                            }
+                                            if (!$found) {
+                                                $missingFromDevice[] = $ewf;
+                                            }
+                                        }
+
+                                        $_SESSION['fingerspot_device_pins'] = $devicePinResults;
+                                        $_SESSION['fingerspot_missing_from_device'] = $missingFromDevice;
+                                        $_SESSION['fingerspot_total_device'] = $totalDevice;
+
+                                        $matched = count(array_filter($devicePinResults, fn($r) => $r['matched']));
+                                        $unmatched = count($devicePinResults) - $matched;
+
+                                        $msg = "<div style='line-height:1.8'>"
+                                            . "<div style='font-size:14px;font-weight:800;margin-bottom:8px;'>✅ Get All PIN Berhasil</div>"
+                                            . "<div style='display:flex;flex-wrap:wrap;gap:16px;margin-bottom:6px;'>"
+                                            . "<span>📟 <strong>Total PIN di mesin:</strong> {$totalDevice}</span>"
+                                            . "<span>✅ <strong>Cocok:</strong> {$matched}</span>"
+                                            . ($unmatched > 0 ? "<span>⚠️ <strong>Tidak dikenal:</strong> {$unmatched}</span>" : "")
+                                            . (count($missingFromDevice) > 0 ? "<span>❌ <strong>Belum di mesin:</strong> " . count($missingFromDevice) . "</span>" : "")
+                                            . "</div>"
+                                            . "<div style='font-size:11px;color:#166534;'>Lihat detail di bawah pada tabel PIN Mesin</div>"
+                                            . "</div>";
+                                        $msgType = 'success';
+                                    } else {
+                                        $errMsg = $data['message'] ?? ($data['error'] ?? 'Response tidak valid');
+                                        $msg = "❌ Gagal mendapatkan daftar PIN: " . htmlspecialchars($errMsg)
+                                            . "<br><span style='font-size:10px;color:#64748b;'>HTTP {$httpCode} · Pastikan Cloud ID dan API Token benar.</span>";
+                                        $msgType = 'error';
+                                    }
+                                }
+                            }
+                            $_SESSION['last_payroll_tab'] = 'fingerprint';
+                        }
+
                         // ── Edit attendance ──
                         if ($action === 'edit_att') {
                             $attId = (int)$_POST['att_id'];
@@ -1931,6 +2035,129 @@
                                     </div>
                                 <?php endif; ?>
                             </div>
+
+                            <!-- Get All PIN Section -->
+                            <?php if ($fpEnabled && $fpCloudId && $fpToken): ?>
+                                <div class="card">
+                                    <div style="display:flex; align-items:center; gap:10px; margin-bottom:12px;">
+                                        <div class="reset-icon" style="background:linear-gradient(135deg,#f59e0b,#d97706); color:#fff;">📟</div>
+                                        <div style="flex:1;">
+                                            <div class="card-title" style="margin:0;">Cek PIN di Mesin</div>
+                                            <div style="font-size:10px; color:var(--muted);">Ambil daftar PIN terdaftar langsung dari mesin Fingerspot</div>
+                                        </div>
+                                    </div>
+                                    <form method="POST" action="?tab=fingerprint" id="fpGetPinForm" onsubmit="return startGetPin()">
+                                        <input type="hidden" name="action" value="get_fingerspot_pins">
+                                        <button type="submit" id="fpGetPinBtn" class="btn" style="width:100%; background:linear-gradient(135deg,#f59e0b,#d97706); color:#fff; border:none; font-size:13px; padding:11px; font-weight:800; justify-content:center;">
+                                            📟 Ambil Daftar PIN dari Mesin
+                                        </button>
+                                        <div style="font-size:9px; color:var(--muted); margin-top:4px; text-align:center;">
+                                            Mengambil semua PIN yang terdaftar di mesin → bandingkan dengan data karyawan
+                                        </div>
+                                    </form>
+                                    <script>
+                                        function startGetPin() {
+                                            document.getElementById('fpGetPinBtn').disabled = true;
+                                            document.getElementById('fpGetPinBtn').innerHTML = '⏳ Mengambil data PIN dari mesin...';
+                                            return true;
+                                        }
+                                    </script>
+
+                                    <?php
+                                    $devPins = $_SESSION['fingerspot_device_pins'] ?? null;
+                                    $missingDev = $_SESSION['fingerspot_missing_from_device'] ?? null;
+                                    $totalDev = $_SESSION['fingerspot_total_device'] ?? 0;
+                                    if ($devPins !== null):
+                                        unset($_SESSION['fingerspot_device_pins'], $_SESSION['fingerspot_missing_from_device'], $_SESSION['fingerspot_total_device']);
+                                        $matchedPins = array_filter($devPins, fn($r) => $r['matched']);
+                                        $unmatchedPins = array_filter($devPins, fn($r) => !$r['matched']);
+                                    ?>
+                                        <div style="margin-top:14px; padding-top:14px; border-top:1px dashed var(--border);">
+                                            <!-- Summary badges -->
+                                            <div style="display:flex; flex-wrap:wrap; gap:8px; margin-bottom:12px;">
+                                                <span style="background:#eff6ff; color:#1e40af; padding:4px 10px; border-radius:8px; font-size:11px; font-weight:700;">📟 Total: <?php echo $totalDev; ?></span>
+                                                <span style="background:#d1fae5; color:#065f46; padding:4px 10px; border-radius:8px; font-size:11px; font-weight:700;">✅ Cocok: <?php echo count($matchedPins); ?></span>
+                                                <?php if (count($unmatchedPins) > 0): ?>
+                                                    <span style="background:#fee2e2; color:#991b1b; padding:4px 10px; border-radius:8px; font-size:11px; font-weight:700;">⚠️ Tidak dikenal: <?php echo count($unmatchedPins); ?></span>
+                                                <?php endif; ?>
+                                                <?php if (!empty($missingDev)): ?>
+                                                    <span style="background:#fef3c7; color:#92400e; padding:4px 10px; border-radius:8px; font-size:11px; font-weight:700;">❌ Belum di mesin: <?php echo count($missingDev); ?></span>
+                                                <?php endif; ?>
+                                            </div>
+
+                                            <!-- Matched PINs -->
+                                            <?php if (count($matchedPins) > 0): ?>
+                                                <div style="font-size:11px; font-weight:700; color:#065f46; margin-bottom:6px;">✅ PIN Cocok dengan Karyawan</div>
+                                                <div class="tbl-wrap" style="margin-bottom:12px;">
+                                                    <table class="tbl">
+                                                        <thead>
+                                                            <tr>
+                                                                <th style="text-align:center; width:60px;">PIN</th>
+                                                                <th>Kode</th>
+                                                                <th>Nama</th>
+                                                                <th>Jabatan</th>
+                                                            </tr>
+                                                        </thead>
+                                                        <tbody>
+                                                            <?php foreach ($matchedPins as $mp): ?>
+                                                                <tr>
+                                                                    <td style="text-align:center;"><span style="background:#eff6ff; color:#1e40af; padding:2px 8px; border-radius:5px; font-size:11px; font-weight:700; font-family:monospace;"><?php echo htmlspecialchars($mp['pin']); ?></span></td>
+                                                                    <td><code style="font-size:10px; background:rgba(99,102,241,.1); padding:2px 5px; border-radius:3px;"><?php echo htmlspecialchars($mp['employee']['employee_code']); ?></code></td>
+                                                                    <td><strong><?php echo htmlspecialchars($mp['employee']['full_name']); ?></strong></td>
+                                                                    <td style="font-size:10px; color:var(--muted);"><?php echo htmlspecialchars($mp['employee']['position']); ?></td>
+                                                                </tr>
+                                                            <?php endforeach; ?>
+                                                        </tbody>
+                                                    </table>
+                                                </div>
+                                            <?php endif; ?>
+
+                                            <!-- Unmatched PINs -->
+                                            <?php if (count($unmatchedPins) > 0): ?>
+                                                <div style="font-size:11px; font-weight:700; color:#991b1b; margin-bottom:6px;">⚠️ PIN di Mesin Tidak Dikenal</div>
+                                                <div style="background:#fff5f5; border:1px solid #fca5a5; border-radius:8px; padding:10px; margin-bottom:12px;">
+                                                    <div style="display:flex; flex-wrap:wrap; gap:6px;">
+                                                        <?php foreach ($unmatchedPins as $up): ?>
+                                                            <span style="background:#fee2e2; color:#991b1b; padding:3px 10px; border-radius:6px; font-size:11px; font-weight:700; font-family:monospace;">PIN <?php echo htmlspecialchars($up['pin']); ?></span>
+                                                        <?php endforeach; ?>
+                                                    </div>
+                                                    <div style="font-size:9px; color:#991b1b; margin-top:6px;">PIN ini terdaftar di mesin tapi tidak cocok dengan Finger ID karyawan manapun.</div>
+                                                </div>
+                                            <?php endif; ?>
+
+                                            <!-- Missing from device -->
+                                            <?php if (!empty($missingDev)): ?>
+                                                <div style="font-size:11px; font-weight:700; color:#92400e; margin-bottom:6px;">❌ Karyawan Belum Terdaftar di Mesin</div>
+                                                <div style="background:#fffbeb; border:1px solid #fde68a; border-radius:8px; padding:10px;">
+                                                    <div class="tbl-wrap" style="margin-bottom:0;">
+                                                        <table class="tbl">
+                                                            <thead>
+                                                                <tr>
+                                                                    <th>Kode</th>
+                                                                    <th>Nama</th>
+                                                                    <th>Jabatan</th>
+                                                                    <th style="text-align:center;">Finger ID</th>
+                                                                </tr>
+                                                            </thead>
+                                                            <tbody>
+                                                                <?php foreach ($missingDev as $md): ?>
+                                                                    <tr>
+                                                                        <td><code style="font-size:10px; background:rgba(99,102,241,.1); padding:2px 5px; border-radius:3px;"><?php echo htmlspecialchars($md['employee_code']); ?></code></td>
+                                                                        <td><strong><?php echo htmlspecialchars($md['full_name']); ?></strong></td>
+                                                                        <td style="font-size:10px; color:var(--muted);"><?php echo htmlspecialchars($md['position']); ?></td>
+                                                                        <td style="text-align:center;"><span style="background:#fef3c7; color:#92400e; padding:2px 8px; border-radius:5px; font-size:11px; font-weight:700; font-family:monospace;"><?php echo htmlspecialchars($md['finger_id']); ?></span></td>
+                                                                    </tr>
+                                                                <?php endforeach; ?>
+                                                            </tbody>
+                                                        </table>
+                                                    </div>
+                                                    <div style="font-size:9px; color:#92400e; margin-top:6px;">Karyawan ini punya Finger ID di sistem tapi PIN-nya tidak ditemukan di mesin. Daftarkan sidik jari mereka di mesin.</div>
+                                                </div>
+                                            <?php endif; ?>
+                                        </div>
+                                    <?php endif; ?>
+                                </div>
+                            <?php endif; ?>
 
                             <!-- Webhook URL -->
                             <div style="background:linear-gradient(135deg,#eff6ff,#dbeafe); border:1px solid #93c5fd; border-radius:10px; padding:14px; margin-bottom:14px;">
