@@ -86,6 +86,9 @@ try {
     <title>Staff Portal - <?php echo $bizName; ?></title>
     <link rel="manifest" href="staff-manifest.php?b=<?php echo urlencode($bizSlug); ?>">
     <link rel="apple-touch-icon" href="<?php echo htmlspecialchars($pwaIconUrl); ?>">
+    <link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+    <link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+    <link rel="preload" href="https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/dist/face-api.min.js" as="script" crossorigin>
     <style>
         * {
             margin: 0;
@@ -2867,6 +2870,36 @@ try {
             loadAbsen();
             loadMonitoring();
             if (IS_CAFE) loadSchedule();
+            // Preload face models in background so Face Scan opens instantly
+            preloadFaceModels();
+        }
+
+        // Background preload — non-blocking, loads AI models silently
+        let _preloadStarted = false;
+        async function preloadFaceModels() {
+            if (_preloadStarted || faceModelsLoaded) return;
+            _preloadStarted = true;
+            try {
+                let url = FACE_MODEL_URL;
+                try {
+                    const t = await fetch(url + '/tiny_face_detector_model-weights_manifest.json', { method: 'HEAD' });
+                    if (!t.ok) throw new Error();
+                } catch (e) { url = FACE_MODEL_CDN; }
+                await faceapi.nets.tinyFaceDetector.loadFromUri(url);
+                await faceapi.nets.faceLandmark68TinyNet.loadFromUri(url);
+                await faceapi.nets.faceRecognitionNet.loadFromUri(url);
+                faceModelsLoaded = true;
+                // Warm up WebGL shaders
+                try {
+                    const c = document.createElement('canvas');
+                    c.width = c.height = 128;
+                    await faceapi.detectSingleFace(c, new faceapi.TinyFaceDetectorOptions({ inputSize: 128 }));
+                } catch (e) {}
+                console.log('[FaceID] Models preloaded in background');
+            } catch (e) {
+                _preloadStarted = false;
+                console.warn('[FaceID] Background preload failed:', e);
+            }
         }
 
         // ── Navigation ──
@@ -4089,17 +4122,42 @@ try {
             faceMatchCount = 0;
             initFaceParticles();
 
-            // 1. Load face data
-            setFaceStatus('Menghubungkan...', 'Mengambil data karyawan');
-            try {
-                const res = await fetch(API + '&action=face_data');
-                const data = await res.json();
+            // Parallel loading: data + models + camera at the same time
+            setFaceStatus('Mempersiapkan...', 'Memuat data, model AI & kamera');
+
+            let faceData = null;
+            let cameraReady = false;
+
+            // Start all 3 in parallel
+            const [dataResult, modelResult, cameraResult] = await Promise.allSettled([
+                // 1. Load face data
+                (async () => {
+                    const res = await fetch(API + '&action=face_data');
+                    return res.json();
+                })(),
+                // 2. Load AI models (usually instant if preloaded)
+                loadFaceModels(),
+                // 3. Request camera immediately (don't wait for data/models)
+                (async () => {
+                    try {
+                        const stream = await navigator.mediaDevices.getUserMedia({
+                            video: { facingMode: 'user', width: { ideal: 480 }, height: { ideal: 480 }, frameRate: { ideal: 30 } }
+                        });
+                        return stream;
+                    } catch (e) { return null; }
+                })()
+            ]);
+
+            // Process face data
+            if (dataResult.status === 'fulfilled' && dataResult.value) {
+                const data = dataResult.value;
                 if (!data.success) {
-                    if (data.auth === false) {
-                        doLogout();
-                        return;
-                    }
+                    if (data.auth === false) { doLogout(); return; }
                     setFaceStatus('Error', data.message);
+                    // Release camera if acquired
+                    if (cameraResult.status === 'fulfilled' && cameraResult.value) {
+                        cameraResult.value.getTracks().forEach(t => t.stop());
+                    }
                     return;
                 }
                 faceConfig = data.config;
@@ -4116,36 +4174,41 @@ try {
                     setFaceStatus('Scan lengkap hari ini', '4/4 scan tercatat');
                     document.getElementById('faceRing').classList.add('matched');
                     document.getElementById('faceRingScan').classList.add('matched');
+                    if (cameraResult.status === 'fulfilled' && cameraResult.value) {
+                        cameraResult.value.getTracks().forEach(t => t.stop());
+                    }
                     return;
                 }
-            } catch (e) {
-                setFaceStatus('Jaringan error', e.message);
+            } else {
+                setFaceStatus('Jaringan error', 'Tidak dapat mengambil data');
+                if (cameraResult.status === 'fulfilled' && cameraResult.value) {
+                    cameraResult.value.getTracks().forEach(t => t.stop());
+                }
                 return;
             }
 
-            // 2. Load models
-            const ok = await loadFaceModels();
-            if (!ok) return;
+            // Check model loading
+            if (modelResult.status !== 'fulfilled' || !modelResult.value) {
+                setFaceStatus('Gagal memuat model AI', 'Coba tutup dan buka kembali');
+                if (cameraResult.status === 'fulfilled' && cameraResult.value) {
+                    cameraResult.value.getTracks().forEach(t => t.stop());
+                }
+                return;
+            }
 
             // 3. GPS
             startFaceGps();
 
-            // 4. Camera — lower res for faster processing, high framerate
+            // 4. Camera — use already-acquired stream
             try {
-                faceStream = await navigator.mediaDevices.getUserMedia({
-                    video: {
-                        facingMode: 'user',
-                        width: {
-                            ideal: 480
-                        },
-                        height: {
-                            ideal: 480
-                        },
-                        frameRate: {
-                            ideal: 30
-                        }
-                    }
-                });
+                let stream = (cameraResult.status === 'fulfilled') ? cameraResult.value : null;
+                if (!stream) {
+                    // Fallback: try again
+                    stream = await navigator.mediaDevices.getUserMedia({
+                        video: { facingMode: 'user', width: { ideal: 480 }, height: { ideal: 480 }, frameRate: { ideal: 30 } }
+                    });
+                }
+                faceStream = stream;
                 const video = document.getElementById('faceVideo');
                 video.srcObject = faceStream;
                 video.setAttribute('playsinline', '');

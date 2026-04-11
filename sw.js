@@ -1,20 +1,70 @@
 /**
- * ADF System - Push Notification Service Worker
- * Handles real Web Push notifications via VAPID
+ * ADF System - Service Worker
+ * Push Notifications + Face-API Model Caching for instant Face ID
  */
 
-const CACHE_NAME = "adf-system-v3";
+const CACHE_NAME = "adf-system-v4";
+const FACE_CACHE = "face-models-v1";
 
-// Install event
+// URLs to cache for Face ID (models + library)
+const FACE_URLS = [
+  "https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/dist/face-api.min.js",
+  "https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/tiny_face_detector_model-weights_manifest.json",
+  "https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/tiny_face_detector_model-shard1",
+  "https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/face_landmark_68_tiny_model-weights_manifest.json",
+  "https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/face_landmark_68_tiny_model-shard1",
+  "https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/face_recognition_model-weights_manifest.json",
+  "https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/face_recognition_model-shard1",
+  "https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/face_recognition_model-shard2",
+];
+
+// Install event — pre-cache face models
 self.addEventListener("install", (event) => {
-  console.log("[SW] Installed");
+  console.log("[SW] Installing — pre-caching face models");
+  event.waitUntil(
+    caches.open(FACE_CACHE).then((cache) => {
+      return cache.addAll(FACE_URLS).catch((err) => {
+        console.warn("[SW] Some face models failed to cache:", err);
+      });
+    })
+  );
   self.skipWaiting();
 });
 
-// Activate event
+// Activate event — clean old caches
 self.addEventListener("activate", (event) => {
   console.log("[SW] Activated");
-  event.waitUntil(clients.claim());
+  event.waitUntil(
+    caches.keys().then((names) => {
+      return Promise.all(
+        names.filter((n) => n !== CACHE_NAME && n !== FACE_CACHE).map((n) => caches.delete(n))
+      );
+    }).then(() => clients.claim())
+  );
+});
+
+// Fetch event — serve face models from cache (cache-first strategy)
+self.addEventListener("fetch", (event) => {
+  const url = event.request.url;
+
+  // Cache-first for face-api.js library and model weights
+  if (url.includes("face-api") || url.includes("face_landmark") || url.includes("face_recognition") || url.includes("tiny_face_detector") || url.includes("face-weights")) {
+    event.respondWith(
+      caches.match(event.request).then((cached) => {
+        if (cached) return cached;
+        return fetch(event.request).then((response) => {
+          if (response.ok) {
+            const clone = response.clone();
+            caches.open(FACE_CACHE).then((cache) => cache.put(event.request, clone));
+          }
+          return response;
+        });
+      })
+    );
+    return;
+  }
+
+  // All other requests — network only (no interference)
 });
 
 // ═══ PUSH EVENT — real server push via VAPID ═══

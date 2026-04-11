@@ -81,6 +81,9 @@ if (!empty($absenConfig['app_logo'])) {
 <link rel="apple-touch-icon" sizes="167x167" href="absen-icon.php?size=167">
 <link rel="apple-touch-icon" sizes="152x152" href="absen-icon.php?size=152">
 <link rel="apple-touch-icon" href="absen-icon.php?size=192">
+<link rel="preconnect" href="https://cdn.jsdelivr.net" crossorigin>
+<link rel="dns-prefetch" href="https://cdn.jsdelivr.net">
+<link rel="preload" href="https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/dist/face-api.min.js" as="script" crossorigin>
 <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css"/>
 <style>
 *{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent;}

@@ -3,12 +3,24 @@
  * Handles caching for offline / slow-network support
  */
 
-const CACHE_NAME = "staff-portal-v8";
+const CACHE_NAME = "staff-portal-v9";
 const APP_SHELL = [
   "./absen.php",
   "./staff-portal.php",
   "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css",
   "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js",
+];
+
+// Face-API models to pre-cache for instant Face ID
+const FACE_MODELS = [
+  "https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/dist/face-api.min.js",
+  "https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/tiny_face_detector_model-weights_manifest.json",
+  "https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/tiny_face_detector_model-shard1",
+  "https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/face_landmark_68_tiny_model-weights_manifest.json",
+  "https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/face_landmark_68_tiny_model-shard1",
+  "https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/face_recognition_model-weights_manifest.json",
+  "https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/face_recognition_model-shard1",
+  "https://cdn.jsdelivr.net/gh/justadudewhohacks/face-api.js@master/weights/face_recognition_model-shard2",
 ];
 
 // CDN assets that can be cached on first use (cache-first)
@@ -18,14 +30,15 @@ const CDN_PREFIXES = [
   "nominatim.openstreetmap.org", // reverse geocode — cache briefly
 ];
 
-// ── INSTALL: pre-cache app shell ──────────────────────────
+// ── INSTALL: pre-cache app shell + face models ───────────
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches
       .open(CACHE_NAME)
       .then((cache) => {
-        // Cache shell — ignore individual failures so SW still installs
-        return Promise.allSettled(APP_SHELL.map((url) => cache.add(url)));
+        // Cache shell + face models — ignore individual failures
+        const all = [...APP_SHELL, ...FACE_MODELS];
+        return Promise.allSettled(all.map((url) => cache.add(url)));
       })
       .then(() => self.skipWaiting()),
   );
