@@ -163,8 +163,8 @@ $isPdf = isset($_GET['pdf']);
 
 // Determine payment status
 $overallStatus = 'unpaid';
-$overallLabel = 'BELUM BAYAR';
-if ($totalPaid >= $combinedFinalPrice && $combinedFinalPrice > 0) { $overallStatus = 'paid'; $overallLabel = 'LUNAS'; }
+$overallLabel = 'UNPAID';
+if ($totalPaid >= $combinedFinalPrice && $combinedFinalPrice > 0) { $overallStatus = 'paid'; $overallLabel = 'PAID'; }
 elseif ($totalPaid > 0) { $overallStatus = 'partial'; $overallLabel = 'DOWN PAYMENT'; }
 
 // Get business info
@@ -219,7 +219,7 @@ if (empty($companySettings['name'])) {
             background: #e8e6e1;
             color: #2d2d2d;
             line-height: 1.6;
-            padding: 24px;
+            padding: 12px;
             font-size: 13px;
             font-weight: 400;
             -webkit-print-color-adjust: exact;
@@ -271,7 +271,7 @@ if (empty($companySettings['name'])) {
 
         /* Header */
         .header {
-            padding: 18px 36px 14px;
+            padding: 12px 36px 8px;
             display: flex;
             justify-content: space-between;
             align-items: center;
@@ -392,7 +392,7 @@ if (empty($companySettings['name'])) {
 
         /* Body */
         .body {
-            padding: 4px 36px 24px;
+            padding: 2px 36px 16px;
             position: relative;
             z-index: 2;
         }
@@ -599,7 +599,7 @@ if (empty($companySettings['name'])) {
 
         /* Payment section */
         .pay-section {
-            margin-top: 22px;
+            margin-top: 14px;
         }
 
         .sec-title {
@@ -640,8 +640,8 @@ if (empty($companySettings['name'])) {
 
         /* Note box */
         .note-box {
-            margin-top: 16px;
-            padding: 10px 14px;
+            margin-top: 10px;
+            padding: 8px 12px;
             background: #fafaf8;
             border-left: 2px solid #8b7355;
             border-radius: 0 3px 3px 0;
@@ -656,8 +656,8 @@ if (empty($companySettings['name'])) {
 
         /* Bank info */
         .bank-info {
-            margin-top: 22px;
-            padding: 14px 18px;
+            margin-top: 14px;
+            padding: 10px 14px;
             background: #fafaf8;
             border: 1px solid #e8e6e1;
             border-radius: 4px;
@@ -708,24 +708,24 @@ if (empty($companySettings['name'])) {
 
         /* Footer */
         .footer {
-            margin-top: 28px;
+            margin-top: 14px;
             text-align: center;
-            padding-top: 16px;
+            padding-top: 10px;
             border-top: 1px solid #e8e6e1;
         }
 
         .footer .ty {
             font-family: 'DM Serif Display', serif;
-            font-size: 0.9rem;
+            font-size: 0.82rem;
             font-weight: 400;
             color: #1a2332;
-            margin-bottom: 4px;
+            margin-bottom: 3px;
         }
 
         .footer .fc {
-            font-size: 0.6rem;
+            font-size: 0.58rem;
             color: #9a9590;
-            line-height: 1.7;
+            line-height: 1.5;
             letter-spacing: 0.3px;
         }
 
@@ -793,7 +793,7 @@ if (empty($companySettings['name'])) {
         }
 
         @page {
-            margin: 8mm;
+            margin: 5mm;
             size: A4;
         }
     </style>
