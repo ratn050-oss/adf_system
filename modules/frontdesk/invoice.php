@@ -728,7 +728,7 @@ if (empty($companySettings['name'])) {
         .footer {
             margin-top: auto;
             text-align: center;
-            padding: 12px 0 8px;
+            padding: 12px 36px 8px;
             border-top: 1px solid #e8e6e1;
         }
 
@@ -997,6 +997,8 @@ if (empty($companySettings['name'])) {
                     <div class="bank-number">1926663992</div>
                     <div class="bank-holder">a.n. Narayana Hotel Karimunjawa &mdash; BNI Jepara</div>
                 </div>
+            </div>
+
             </div>
 
             <!-- Footer -->
