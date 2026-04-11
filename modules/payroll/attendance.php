@@ -494,101 +494,122 @@
 
                         // ── Request Get Userinfo from Fingerspot (async via webhook) ──
                         if ($action === 'request_userinfo') {
-                            $fpConfig = $db->fetchOne("SELECT fingerspot_cloud_id, fingerspot_token, fingerspot_enabled FROM payroll_attendance_config WHERE id = 1");
-                            $cloudId = $fpConfig['fingerspot_cloud_id'] ?? '';
-                            $apiToken = $fpConfig['fingerspot_token'] ?? '';
-                            $fpEn = (int)($fpConfig['fingerspot_enabled'] ?? 0);
+                            try {
+                                $fpConfig = $db->fetchOne("SELECT fingerspot_cloud_id, fingerspot_token, fingerspot_enabled FROM payroll_attendance_config WHERE id = 1");
+                                $cloudId = $fpConfig['fingerspot_cloud_id'] ?? '';
+                                $apiToken = $fpConfig['fingerspot_token'] ?? '';
+                                $fpEn = (int)($fpConfig['fingerspot_enabled'] ?? 0);
 
-                            if (!$fpEn || !$cloudId || !$apiToken) {
-                                $msg = '❌ Fingerspot belum dikonfigurasi.';
-                                $msgType = 'error';
-                            } else {
-                                // Ensure fingerspot_userinfo table exists
-                                try {
-                                    $_pdo->query("SELECT 1 FROM fingerspot_userinfo LIMIT 0");
-                                } catch (PDOException $e) {
-                                    $_pdo->exec("CREATE TABLE IF NOT EXISTS `fingerspot_userinfo` (
-                                        `id` INT AUTO_INCREMENT PRIMARY KEY,
-                                        `cloud_id` VARCHAR(50) NOT NULL,
-                                        `pin` VARCHAR(20) NOT NULL,
-                                        `name` VARCHAR(100) DEFAULT '',
-                                        `privilege` VARCHAR(10) DEFAULT '0',
-                                        `finger` VARCHAR(10) DEFAULT '0',
-                                        `face` VARCHAR(10) DEFAULT '0',
-                                        `password` VARCHAR(50) DEFAULT '',
-                                        `rfid` VARCHAR(50) DEFAULT '',
-                                        `vein` VARCHAR(10) DEFAULT '0',
-                                        `employee_id` INT DEFAULT NULL,
-                                        `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
-                                        UNIQUE KEY uk_cloud_pin (cloud_id, pin),
-                                        INDEX idx_pin (pin)
-                                    ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
-                                }
-
-                                // Get list of PINs to query - from employees + from recent scans
-                                $pinList = [];
-                                $emps = $db->fetchAll("SELECT finger_id FROM payroll_employees WHERE finger_id IS NOT NULL AND finger_id != '' AND is_active = 1");
-                                foreach ($emps as $e) {
-                                    $p = trim($e['finger_id']);
-                                    if ($p !== '' && !in_array($p, $pinList)) $pinList[] = $p;
-                                }
-
-                                // Also add PINs from input field if provided
-                                $extraPins = trim($_POST['extra_pins'] ?? '');
-                                if ($extraPins) {
-                                    foreach (preg_split('/[\s,;]+/', $extraPins) as $ep) {
-                                        $ep = trim($ep);
-                                        if ($ep !== '' && !in_array($ep, $pinList)) $pinList[] = $ep;
-                                    }
-                                }
-
-                                if (empty($pinList)) {
-                                    $msg = '⚠️ Tidak ada PIN yang bisa di-query. Isi Finger ID di Data Karyawan dulu.';
-                                    $msgType = 'info';
+                                if (!$fpEn || !$cloudId || !$apiToken) {
+                                    $msg = '❌ Fingerspot belum dikonfigurasi.';
+                                    $msgType = 'error';
                                 } else {
-                                    $sent = 0;
-                                    $errors = 0;
-                                    $apiUrl = "https://developer.fingerspot.io/api/get_userinfo";
-                                    foreach ($pinList as $pin) {
-                                        $postData = [
-                                            'trans_id' => uniqid('ui_'),
-                                            'cloud_id' => $cloudId,
-                                            'pin' => $pin
-                                        ];
-                                        $ch = curl_init();
-                                        curl_setopt_array($ch, [
-                                            CURLOPT_URL => $apiUrl,
-                                            CURLOPT_POST => true,
-                                            CURLOPT_POSTFIELDS => json_encode($postData),
-                                            CURLOPT_RETURNTRANSFER => true,
-                                            CURLOPT_TIMEOUT => 10,
-                                            CURLOPT_SSL_VERIFYPEER => false,
-                                            CURLOPT_HTTPHEADER => [
-                                                'Content-Type: application/json',
-                                                'Authorization: Bearer ' . $apiToken
-                                            ]
-                                        ]);
-                                        $response = curl_exec($ch);
-                                        curl_close($ch);
-                                        $res = json_decode($response, true);
-                                        if ($res && $res['success'] === true) {
-                                            $sent++;
-                                        } else {
-                                            $errors++;
-                                        }
-                                        usleep(300000); // 0.3s delay
+                                    // Ensure fingerspot_userinfo table exists
+                                    try {
+                                        $_pdo->query("SELECT 1 FROM fingerspot_userinfo LIMIT 0");
+                                    } catch (PDOException $e) {
+                                        $_pdo->exec("CREATE TABLE IF NOT EXISTS `fingerspot_userinfo` (
+                                            `id` INT AUTO_INCREMENT PRIMARY KEY,
+                                            `cloud_id` VARCHAR(50) NOT NULL,
+                                            `pin` VARCHAR(20) NOT NULL,
+                                            `name` VARCHAR(100) DEFAULT '',
+                                            `privilege` VARCHAR(10) DEFAULT '0',
+                                            `finger` VARCHAR(10) DEFAULT '0',
+                                            `face` VARCHAR(10) DEFAULT '0',
+                                            `password` VARCHAR(50) DEFAULT '',
+                                            `rfid` VARCHAR(50) DEFAULT '',
+                                            `vein` VARCHAR(10) DEFAULT '0',
+                                            `employee_id` INT DEFAULT NULL,
+                                            `updated_at` TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+                                            UNIQUE KEY uk_cloud_pin (cloud_id, pin),
+                                            INDEX idx_pin (pin)
+                                        ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4");
                                     }
 
-                                    $msg = "<div style='line-height:1.8'>"
-                                        . "<div style='font-size:14px;font-weight:800;margin-bottom:8px;'>✅ Request Get Userinfo Terkirim</div>"
-                                        . "<div style='display:flex;flex-wrap:wrap;gap:16px;margin-bottom:6px;'>"
-                                        . "<span>📤 <strong>Terkirim:</strong> {$sent} PIN</span>"
-                                        . ($errors > 0 ? "<span>❌ <strong>Gagal:</strong> {$errors}</span>" : "")
-                                        . "</div>"
-                                        . "<div style='font-size:11px;color:#7c3aed;'>⏳ Data akan masuk via webhook dalam beberapa detik. Refresh halaman ini setelah ~10 detik untuk lihat hasilnya.</div>"
-                                        . "</div>";
-                                    $msgType = 'success';
+                                    // Get list of PINs to query
+                                    $pinList = [];
+                                    $emps = $db->fetchAll("SELECT finger_id FROM payroll_employees WHERE finger_id IS NOT NULL AND finger_id != '' AND is_active = 1");
+                                    foreach ($emps as $e) {
+                                        $p = trim($e['finger_id']);
+                                        if ($p !== '' && !in_array($p, $pinList)) $pinList[] = $p;
+                                    }
+
+                                    // Also add PINs from input field
+                                    $extraPins = trim($_POST['extra_pins'] ?? '');
+                                    if ($extraPins) {
+                                        foreach (preg_split('/[\s,;]+/', $extraPins) as $ep) {
+                                            $ep = trim($ep);
+                                            if ($ep !== '' && !in_array($ep, $pinList)) $pinList[] = $ep;
+                                        }
+                                    }
+
+                                    if (empty($pinList)) {
+                                        $msg = '⚠️ Tidak ada PIN yang bisa di-query. Isi Finger ID di Data Karyawan dulu, atau masukkan PIN di kolom tambahan.';
+                                        $msgType = 'info';
+                                    } else {
+                                        $sent = 0;
+                                        $errors = 0;
+                                        $errMsgs = [];
+                                        $apiUrl = "https://developer.fingerspot.io/api/get_userinfo";
+                                        foreach ($pinList as $pin) {
+                                            $postData = [
+                                                'trans_id' => uniqid('ui_'),
+                                                'cloud_id' => $cloudId,
+                                                'pin' => (string)$pin
+                                            ];
+                                            $ch = curl_init();
+                                            curl_setopt_array($ch, [
+                                                CURLOPT_URL => $apiUrl,
+                                                CURLOPT_POST => true,
+                                                CURLOPT_POSTFIELDS => json_encode($postData),
+                                                CURLOPT_RETURNTRANSFER => true,
+                                                CURLOPT_TIMEOUT => 10,
+                                                CURLOPT_SSL_VERIFYPEER => false,
+                                                CURLOPT_HTTPHEADER => [
+                                                    'Content-Type: application/json',
+                                                    'Authorization: Bearer ' . $apiToken
+                                                ]
+                                            ]);
+                                            $response = curl_exec($ch);
+                                            $curlErr = curl_error($ch);
+                                            curl_close($ch);
+
+                                            if ($curlErr) {
+                                                $errors++;
+                                                $errMsgs[] = "PIN {$pin}: " . $curlErr;
+                                            } else {
+                                                $res = json_decode($response, true);
+                                                if ($res && isset($res['success']) && $res['success'] === true) {
+                                                    $sent++;
+                                                } else {
+                                                    $errors++;
+                                                    $errMsgs[] = "PIN {$pin}: " . ($res['message'] ?? $response);
+                                                }
+                                            }
+                                            usleep(300000);
+                                        }
+
+                                        $msg = "<div style='line-height:1.8'>"
+                                            . "<div style='font-size:14px;font-weight:800;margin-bottom:8px;'>📤 Request Get Userinfo " . ($sent > 0 ? 'Terkirim' : 'Gagal') . "</div>"
+                                            . "<div style='display:flex;flex-wrap:wrap;gap:16px;margin-bottom:6px;'>"
+                                            . "<span>📤 <strong>Terkirim:</strong> {$sent}/{" . count($pinList) . "} PIN</span>"
+                                            . ($errors > 0 ? "<span>❌ <strong>Gagal:</strong> {$errors}</span>" : "")
+                                            . "</div>";
+                                        if ($sent > 0) {
+                                            $msg .= "<div style='font-size:11px;color:#7c3aed;margin-bottom:6px;'>⏳ Mesin akan kirim data via webhook. Refresh halaman setelah ~10-30 detik.</div>";
+                                        }
+                                        if (!empty($errMsgs)) {
+                                            $msg .= "<details style='margin-top:4px;'><summary style='font-size:10px;color:#dc2626;cursor:pointer;'>Lihat error detail</summary>"
+                                                . "<pre style='font-size:9px;color:#64748b;background:#f8fafc;padding:8px;border-radius:6px;margin-top:4px;white-space:pre-wrap;'>"
+                                                . htmlspecialchars(implode("\n", array_slice($errMsgs, 0, 10))) . "</pre></details>";
+                                        }
+                                        $msg .= "</div>";
+                                        $msgType = $sent > 0 ? 'success' : 'error';
+                                    }
                                 }
+                            } catch (Exception $ex) {
+                                $msg = "❌ Error: " . htmlspecialchars($ex->getMessage());
+                                $msgType = 'error';
                             }
                             $_SESSION['last_payroll_tab'] = 'fingerprint';
                         }
@@ -2210,6 +2231,14 @@
                                             Kirim perintah ke mesin → tunggu ~10 detik → refresh untuk lihat hasil
                                         </div>
                                     </form>
+
+                                    <div style="margin-top:10px; padding:10px; background:#faf5ff; border:1px solid #e9d5ff; border-radius:8px;">
+                                        <div style="font-size:10px; font-weight:700; color:#7c3aed; margin-bottom:4px;">⚙️ Penting: Webhook harus di-setting</div>
+                                        <div style="font-size:9px; color:#6b21a8; line-height:1.6;">
+                                            Data user dikirim mesin ke webhook URL kita. Pastikan URL di bawah ini sudah di-paste di <strong>dashboard Fingerspot.io → Device → Webhook</strong>:
+                                            <div style="background:#fff; border:1px solid #d8b4fe; border-radius:4px; padding:4px 6px; margin-top:4px; font-family:monospace; font-size:9px; word-break:break-all;"><?php echo htmlspecialchars($webhookUrlMulti ?? ($baseUrl . '/api/fingerprint-webhook.php')); ?></div>
+                                        </div>
+                                    </div>
 
                                     <?php
                                     // Show existing userinfo data from webhook results
