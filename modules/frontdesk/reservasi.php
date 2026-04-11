@@ -721,6 +721,10 @@ include '../../includes/header.php';
     <!-- Filter Section -->
     <div class="filter-section">
         <div class="filter-group">
+            <label>Cari Tamu</label>
+            <input type="text" id="searchGuest" placeholder="Nama tamu, kode booking, no kamar..." oninput="searchBookings(this.value)" style="min-width: 280px;">
+        </div>
+        <div class="filter-group">
             <label>Status Filter</label>
             <select onchange="filterBookings(this.value)">
                 <option value="all" <?php echo $status_filter === 'all' ? 'selected' : ''; ?>>All Status</option>
@@ -1539,6 +1543,15 @@ include '../../includes/header.php';
 
     function filterBookings(value) {
         window.location.search = '?status=' + value;
+    }
+
+    function searchBookings(keyword) {
+        const query = keyword.toLowerCase().trim();
+        const rows = document.querySelectorAll('.bookings-table tbody tr');
+        rows.forEach(row => {
+            const text = row.textContent.toLowerCase();
+            row.style.display = text.includes(query) ? '' : 'none';
+        });
     }
 
     function openNewBookingModal() {
