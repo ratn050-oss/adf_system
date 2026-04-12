@@ -92,7 +92,7 @@ try {
         FROM rooms r
         LEFT JOIN room_types rt ON r.room_type_id = rt.id
         WHERE r.status != 'maintenance'
-        ORDER BY rt.type_name ASC, r.floor_number ASC, r.room_number ASC
+        ORDER BY FIELD(rt.type_name, 'Queen', 'Twin', 'King'), rt.type_name ASC, r.floor_number ASC, r.room_number ASC
     ", []);
 } catch (Exception $e) {
     error_log("Rooms Error: " . $e->getMessage());
