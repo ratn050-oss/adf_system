@@ -495,7 +495,7 @@ include '../../includes/header.php';
     .calendar-grid {
         display: grid;
         gap: 0;
-        grid-template-columns: 85px repeat(<?php echo count($dates); ?>, 85px);
+        grid-template-columns: 110px repeat(<?php echo count($dates); ?>, 110px);
         width: fit-content;
         min-width: fit-content;
         max-width: none;
@@ -518,27 +518,27 @@ include '../../includes/header.php';
         position: sticky;
         left: 0;
         z-index: 41;
-        min-width: 85px;
-        max-width: 85px;
+        min-width: 110px;
+        max-width: 110px;
     }
 
     .grid-month-label {
         background: #f8fafc;
         color: #334155;
         font-weight: 700;
-        font-size: 0.72rem;
+        font-size: 0.85rem;
         letter-spacing: 1px;
-        padding: 0.2rem 0;
+        padding: 0.25rem 0;
         border-bottom: 1px solid #e2e8f0;
         display: flex;
         align-items: center;
-        min-height: 22px;
+        min-height: 26px;
         overflow: visible;
     }
 
     .grid-month-label span {
         position: sticky;
-        left: 92px;
+        left: 117px;
         z-index: 2;
         background: #f8fafc;
         padding: 0 0.5rem;
@@ -564,13 +564,13 @@ include '../../includes/header.php';
         border-right: 2px solid #e2e8f0;
         backdrop-filter: none;
         border-bottom: 2px solid #cbd5e1;
-        padding: 0.2rem 0.5rem;
+        padding: 0.3rem 0.5rem;
         font-weight: 800;
         text-align: center;
         position: sticky;
         left: 0;
         z-index: 40;
-        font-size: 0.68rem;
+        font-size: 0.82rem;
         color: #475569;
         box-shadow: 2px 0 6px rgba(0, 0, 0, 0.04);
         letter-spacing: 1px;
@@ -578,9 +578,9 @@ include '../../includes/header.php';
         display: flex;
         align-items: center;
         justify-content: center;
-        min-height: 40px;
-        min-width: 85px;
-        max-width: 85px;
+        min-height: 50px;
+        min-width: 110px;
+        max-width: 110px;
     }
 
     /* Light theme - better header visibility */
@@ -605,18 +605,18 @@ include '../../includes/header.php';
         background: linear-gradient(180deg, #f8fafc, #f1f5f9);
         border-right: 1px solid #e2e8f0;
         border-bottom: 2px solid #cbd5e1;
-        padding: 0.2rem 0.1rem;
+        padding: 0.25rem 0.15rem;
         text-align: center;
         font-weight: 700;
-        font-size: 0.6rem;
+        font-size: 0.75rem;
         color: #334155;
         position: relative;
-        min-height: 40px;
+        min-height: 50px;
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
-        gap: 1px;
+        gap: 2px;
     }
 
     /* Light theme - visible borders */
@@ -670,17 +670,17 @@ include '../../includes/header.php';
 
     .grid-header-date-day {
         display: block;
-        font-size: 0.6rem;
+        font-size: 0.75rem;
         text-transform: uppercase;
         font-weight: 700;
         letter-spacing: 0.3px;
         color: #334155;
-        line-height: 1;
+        line-height: 1.1;
     }
 
     .grid-header-date-occ {
         display: block;
-        font-size: 0.5rem;
+        font-size: 0.65rem;
         font-weight: 600;
         color: #64748b;
         line-height: 1;
@@ -690,13 +690,13 @@ include '../../includes/header.php';
         display: flex;
         align-items: center;
         justify-content: center;
-        font-size: 0.55rem;
+        font-size: 0.68rem;
         font-weight: 800;
         color: #10b981;
         background: rgba(16, 185, 129, 0.1);
         border-radius: 50%;
-        width: 16px;
-        height: 16px;
+        width: 20px;
+        height: 20px;
         line-height: 1;
     }
 
@@ -707,7 +707,7 @@ include '../../includes/header.php';
 
     .grid-header-date-num {
         display: inline;
-        font-size: 0.8rem;
+        font-size: 0.95rem;
         font-weight: 900;
         line-height: 1;
         color: #1e293b;
@@ -727,22 +727,22 @@ include '../../includes/header.php';
         background: linear-gradient(135deg, #f1f5f9 0%, #ffffff 100%);
         border-right: 2px solid #e2e8f0;
         border-top: 2px solid #cbd5e1;
-        padding: 0.2rem 0.5rem;
+        padding: 0.3rem 0.5rem;
         font-weight: 800;
         text-align: center;
         position: sticky;
         left: 0;
         z-index: 40;
-        font-size: 0.68rem;
+        font-size: 0.82rem;
         color: #475569;
         letter-spacing: 1px;
         text-transform: uppercase;
         display: flex;
         align-items: center;
         justify-content: center;
-        min-height: 28px;
-        min-width: 95px;
-        max-width: 95px;
+        min-height: 50px;
+        min-width: 110px;
+        max-width: 110px;
         box-shadow: 2px 0 6px rgba(0, 0, 0, 0.04);
     }
 
@@ -769,9 +769,14 @@ include '../../includes/header.php';
         padding: 0.25rem 0.2rem;
         text-align: center;
         font-weight: 700;
-        font-size: 0.7rem;
+        font-size: 0.82rem;
         color: #334155;
-        min-height: 28px;
+        min-height: 50px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 2px;
     }
 
     body[data-theme="light"] .grid-footer-date {
@@ -793,21 +798,20 @@ include '../../includes/header.php';
     }
 
     .grid-footer-date-day {
-        display: inline;
-        font-size: 0.65rem;
+        display: block;
+        font-size: 0.75rem;
         text-transform: uppercase;
-        font-weight: 600;
+        font-weight: 700;
         letter-spacing: 0.3px;
-        color: #64748b;
+        color: #334155;
     }
 
     .grid-footer-date-num {
-        display: inline;
-        font-size: 0.8rem;
-        font-weight: 900;
+        display: block;
+        font-size: 0.65rem;
+        font-weight: 600;
+        color: #64748b;
         line-height: 1;
-        color: #1e293b;
-        margin-left: 0.15rem;
     }
 
     /* Room Row */
@@ -815,7 +819,7 @@ include '../../includes/header.php';
         background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
         border-right: 2px solid #e2e8f0;
         border-bottom: 1px solid #f1f5f9;
-        padding: 0.15rem 0.3rem;
+        padding: 0.2rem 0.4rem;
         font-weight: 700;
         color: #334155;
         position: sticky;
@@ -826,12 +830,12 @@ include '../../includes/header.php';
         justify-content: center;
         align-items: center;
         text-align: center;
-        gap: 0.05rem;
-        min-width: 85px;
-        max-width: 85px;
+        gap: 0.1rem;
+        min-width: 110px;
+        max-width: 110px;
         cursor: grab;
-        font-size: 0.72rem;
-        min-height: 22px;
+        font-size: 0.85rem;
+        min-height: 28px;
         box-shadow: 2px 0 6px rgba(0, 0, 0, 0.04);
         white-space: nowrap;
         transition: all 0.2s ease;
@@ -872,7 +876,7 @@ include '../../includes/header.php';
     }
 
     .grid-room-type-label {
-        font-size: 0.5rem;
+        font-size: 0.65rem;
         font-weight: 600;
         color: #6366f1;
         text-transform: uppercase;
@@ -885,7 +889,7 @@ include '../../includes/header.php';
     }
 
     .grid-room-number {
-        font-size: 0.72rem;
+        font-size: 0.88rem;
         color: #1e293b;
         font-weight: 900;
         line-height: 1;
@@ -900,7 +904,7 @@ include '../../includes/header.php';
         background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
         border-right: 2px solid #a5b4fc;
         border-bottom: 1px solid #c7d2fe;
-        padding: 0.1rem 0.3rem;
+        padding: 0.15rem 0.4rem;
         font-weight: 800;
         color: #4338ca;
         position: sticky;
@@ -910,11 +914,11 @@ include '../../includes/header.php';
         align-items: center;
         justify-content: center;
         text-align: center;
-        font-size: 0.62rem;
+        font-size: 0.78rem;
         gap: 0.2rem;
-        min-width: 85px;
-        max-width: 85px;
-        min-height: 20px;
+        min-width: 110px;
+        max-width: 110px;
+        min-height: 26px;
         box-shadow: 2px 0 6px rgba(0, 0, 0, 0.04);
         letter-spacing: 0.3px;
     }
@@ -942,27 +946,27 @@ include '../../includes/header.php';
         background: linear-gradient(135deg, #eef2ff, #e0e7ff);
         border-right: 1px solid #c7d2fe;
         border-bottom: 1px solid #a5b4fc;
-        min-height: 26px;
+        min-height: 30px;
         display: flex;
         flex-direction: column;
         align-items: center;
         justify-content: center;
         gap: 0;
-        font-size: 0.55rem;
+        font-size: 0.7rem;
         font-weight: 700;
         color: #4338ca;
         letter-spacing: 0.2px;
     }
 
     .type-avail-count {
-        font-size: 0.6rem;
+        font-size: 0.78rem;
         font-weight: 800;
         color: #4338ca;
-        line-height: 1.1;
+        line-height: 1.2;
     }
 
     .type-price-text {
-        font-size: 0.48rem;
+        font-size: 0.62rem;
         font-weight: 600;
         color: #6366f1;
         line-height: 1.1;
@@ -1002,7 +1006,7 @@ include '../../includes/header.php';
     }
 
     .grid-room-number {
-        font-size: 0.68rem;
+        font-size: 0.85rem;
         color: var(--text-primary);
         font-weight: 900;
         line-height: 1;
@@ -1010,7 +1014,7 @@ include '../../includes/header.php';
     }
 
     .grid-room-type {
-        font-size: 0.6rem;
+        font-size: 0.72rem;
         color: var(--text-secondary);
         font-weight: 600;
         line-height: 1;
@@ -1025,8 +1029,8 @@ include '../../includes/header.php';
     .grid-date-cell {
         border-right: 0.5px solid var(--border-color);
         border-bottom: 0.5px solid var(--border-color);
-        padding: 0.03rem 0.02rem;
-        min-height: 20px;
+        padding: 0.05rem 0.03rem;
+        min-height: 28px;
         position: relative;
         background: transparent;
         cursor: pointer;
@@ -1061,9 +1065,9 @@ include '../../includes/header.php';
     /* Booking Bars - CLOUDBED STYLE (Noon to Noon) */
     .booking-bar-container {
         position: absolute;
-        top: 1px;
+        top: 2px;
         left: 1px;
-        height: 18px;
+        height: 24px;
         display: flex;
         align-items: center;
         justify-content: flex-start;
@@ -1075,8 +1079,8 @@ include '../../includes/header.php';
 
     .booking-bar {
         width: 100%;
-        height: 16px;
-        padding: 0 0.3rem;
+        height: 22px;
+        padding: 0 0.4rem;
         cursor: pointer;
         overflow: visible;
         display: flex;
@@ -1086,7 +1090,7 @@ include '../../includes/header.php';
         transition: all 0.2s ease;
         box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.08);
         font-weight: 700;
-        font-size: 0.58rem;
+        font-size: 0.72rem;
         line-height: 1;
         position: relative;
         pointer-events: auto;
@@ -1102,7 +1106,7 @@ include '../../includes/header.php';
         color: #ffffff !important;
         text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
         font-weight: 800;
-        font-size: 0.55rem;
+        font-size: 0.7rem;
         display: block;
     }
 
@@ -2446,8 +2450,8 @@ include '../../includes/header.php';
                                             $totalNights = ceil(($checkoutDate - $checkinDate) / 86400);
 
                                             // Calculate width: start from 50% of check-in cell, end at 50% of check-out cell
-                                            // Width = (nights × 85px) - 6px gap = span from noon to noon with spacing
-                                            $barWidth = ($totalNights * 85) - 6; // 85px per column minus 6px gap
+                                            // Width = (nights × 110px) - 6px gap = span from noon to noon with spacing
+                                            $barWidth = ($totalNights * 110) - 6; // 110px per column minus 6px gap
 
                                             $statusClass = 'booking-' . str_replace('_', '-', $booking['status']);
 
