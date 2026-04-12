@@ -7,6 +7,7 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
 ?>
 <!DOCTYPE html>
 <html lang="en">
+
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
@@ -18,7 +19,7 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
             padding: 0;
             box-sizing: border-box;
         }
-        
+
         :root {
             --bg-primary: #ffffff;
             --bg-secondary: #f8f9fa;
@@ -32,24 +33,24 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
             --accent-red: #ff3b30;
             --accent-orange: #ff9500;
             --accent-purple: #af52de;
-            --shadow-sm: 0 1px 3px rgba(0,0,0,0.05);
-            --shadow-md: 0 4px 12px rgba(0,0,0,0.08);
+            --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.05);
+            --shadow-md: 0 4px 12px rgba(0, 0, 0, 0.08);
             --radius-sm: 6px;
             --radius-md: 10px;
             --radius-lg: 14px;
         }
-        
+
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
             background: var(--bg-secondary);
             color: var(--text-primary);
             line-height: 1.5;
         }
-        
+
         .app-container {
             display: flex;
         }
-        
+
         /* Sidebar */
         .sidebar {
             width: 260px;
@@ -62,7 +63,7 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
             height: 100vh;
             z-index: 100;
         }
-        
+
         .sidebar-brand {
             display: flex;
             align-items: center;
@@ -71,7 +72,7 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
             border-bottom: 1px solid var(--border-color);
             margin-bottom: 24px;
         }
-        
+
         .brand-icon {
             width: 40px;
             height: 40px;
@@ -82,24 +83,24 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
             justify-content: center;
             color: white;
         }
-        
+
         .brand-text {
             font-size: 18px;
             font-weight: 700;
             color: var(--text-primary);
         }
-        
+
         .brand-sub {
             font-size: 11px;
             color: var(--text-tertiary);
             font-weight: 500;
         }
-        
+
         /* Business Selector */
         .business-selector {
             margin-bottom: 24px;
         }
-        
+
         .selector-label {
             font-size: 11px;
             font-weight: 600;
@@ -109,7 +110,7 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
             margin-bottom: 8px;
             padding: 0 12px;
         }
-        
+
         .business-dropdown {
             width: 100%;
             padding: 12px 16px;
@@ -126,26 +127,26 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
             background-position: right 12px center;
             transition: all 0.2s ease;
         }
-        
+
         .business-dropdown:hover {
             border-color: var(--accent-blue);
         }
-        
+
         .business-dropdown:focus {
             outline: none;
             border-color: var(--accent-blue);
             box-shadow: 0 0 0 3px rgba(0, 113, 227, 0.1);
         }
-        
+
         /* Nav Menu */
         .nav-menu {
             flex: 1;
         }
-        
+
         .nav-section {
             margin-bottom: 24px;
         }
-        
+
         .nav-section-title {
             font-size: 11px;
             font-weight: 600;
@@ -155,7 +156,7 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
             padding: 0 12px;
             margin-bottom: 8px;
         }
-        
+
         .nav-item {
             display: flex;
             align-items: center;
@@ -169,37 +170,37 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
             transition: all 0.15s ease;
             cursor: pointer;
         }
-        
+
         .nav-item:hover {
             background: var(--bg-tertiary);
             color: var(--text-primary);
         }
-        
+
         .nav-item.active {
             background: rgba(0, 113, 227, 0.08);
             color: var(--accent-blue);
         }
-        
+
         .nav-item svg {
             width: 18px;
             height: 18px;
             stroke-width: 2;
         }
-        
+
         .nav-item.hotel-only {
             display: none;
         }
-        
+
         .nav-item.hotel-only.show {
             display: flex;
         }
-        
+
         /* Sidebar Footer */
         .sidebar-footer {
             border-top: 1px solid var(--border-color);
             padding-top: 16px;
         }
-        
+
         /* Main Content */
         .main-content {
             flex: 1;
@@ -207,7 +208,7 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
             padding: 24px 32px;
             min-height: 100vh;
         }
-        
+
         /* Header */
         .main-header {
             display: flex;
@@ -215,25 +216,25 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
             align-items: center;
             margin-bottom: 32px;
         }
-        
+
         .header-left h1 {
             font-size: 28px;
             font-weight: 700;
             color: var(--text-primary);
             margin-bottom: 4px;
         }
-        
+
         .header-left p {
             font-size: 14px;
             color: var(--text-secondary);
         }
-        
+
         .header-right {
             display: flex;
             align-items: center;
             gap: 12px;
         }
-        
+
         .header-btn {
             width: 40px;
             height: 40px;
@@ -248,17 +249,17 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
             transition: all 0.15s ease;
             box-shadow: var(--shadow-sm);
         }
-        
+
         .header-btn:hover {
             background: var(--bg-tertiary);
             color: var(--text-primary);
         }
-        
+
         .header-btn svg {
             width: 18px;
             height: 18px;
         }
-        
+
         /* Cards */
         .card {
             background: var(--bg-primary);
@@ -267,45 +268,45 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
             box-shadow: var(--shadow-sm);
             border: 1px solid var(--border-color);
         }
-        
+
         .card-header {
             display: flex;
             justify-content: space-between;
             align-items: center;
             margin-bottom: 20px;
         }
-        
+
         .card-title {
             font-size: 16px;
             font-weight: 600;
             color: var(--text-primary);
         }
-        
+
         .card-subtitle {
             font-size: 12px;
             color: var(--text-tertiary);
             margin-top: 2px;
         }
-        
+
         /* Grid Layouts */
         .grid-2 {
             display: grid;
             grid-template-columns: repeat(2, 1fr);
             gap: 20px;
         }
-        
+
         .grid-3 {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 20px;
         }
-        
+
         .grid-4 {
             display: grid;
             grid-template-columns: repeat(4, 1fr);
             gap: 16px;
         }
-        
+
         /* Stats Cards */
         .stat-card {
             background: var(--bg-primary);
@@ -313,7 +314,7 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
             padding: 20px;
             border: 1px solid var(--border-color);
         }
-        
+
         .stat-icon {
             width: 40px;
             height: 40px;
@@ -323,31 +324,50 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
             justify-content: center;
             margin-bottom: 16px;
         }
-        
-        .stat-icon.blue { background: rgba(0, 113, 227, 0.1); color: var(--accent-blue); }
-        .stat-icon.green { background: rgba(52, 199, 89, 0.1); color: var(--accent-green); }
-        .stat-icon.red { background: rgba(255, 59, 48, 0.1); color: var(--accent-red); }
-        .stat-icon.orange { background: rgba(255, 149, 0, 0.1); color: var(--accent-orange); }
-        .stat-icon.purple { background: rgba(175, 82, 222, 0.1); color: var(--accent-purple); }
-        
+
+        .stat-icon.blue {
+            background: rgba(0, 113, 227, 0.1);
+            color: var(--accent-blue);
+        }
+
+        .stat-icon.green {
+            background: rgba(52, 199, 89, 0.1);
+            color: var(--accent-green);
+        }
+
+        .stat-icon.red {
+            background: rgba(255, 59, 48, 0.1);
+            color: var(--accent-red);
+        }
+
+        .stat-icon.orange {
+            background: rgba(255, 149, 0, 0.1);
+            color: var(--accent-orange);
+        }
+
+        .stat-icon.purple {
+            background: rgba(175, 82, 222, 0.1);
+            color: var(--accent-purple);
+        }
+
         .stat-icon svg {
             width: 20px;
             height: 20px;
         }
-        
+
         .stat-label {
             font-size: 12px;
             color: var(--text-tertiary);
             font-weight: 500;
             margin-bottom: 4px;
         }
-        
+
         .stat-value {
             font-size: 24px;
             font-weight: 700;
             color: var(--text-primary);
         }
-        
+
         .stat-change {
             font-size: 12px;
             font-weight: 500;
@@ -356,10 +376,15 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
             align-items: center;
             gap: 4px;
         }
-        
-        .stat-change.positive { color: var(--accent-green); }
-        .stat-change.negative { color: var(--accent-red); }
-        
+
+        .stat-change.positive {
+            color: var(--accent-green);
+        }
+
+        .stat-change.negative {
+            color: var(--accent-red);
+        }
+
         /* AI Health Widget */
         .ai-health-card {
             background: linear-gradient(135deg, #1d1d1f 0%, #2d2d30 100%);
@@ -369,7 +394,7 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
             position: relative;
             overflow: hidden;
         }
-        
+
         .ai-health-card::before {
             content: '';
             position: absolute;
@@ -380,7 +405,7 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
             background: radial-gradient(circle, rgba(0, 113, 227, 0.3) 0%, transparent 70%);
             pointer-events: none;
         }
-        
+
         .ai-health-header {
             display: flex;
             align-items: center;
@@ -389,7 +414,7 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
             position: relative;
             z-index: 1;
         }
-        
+
         .ai-badge {
             background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
             padding: 4px 10px;
@@ -400,30 +425,30 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
             align-items: center;
             gap: 4px;
         }
-        
+
         .ai-health-title {
             font-size: 18px;
             font-weight: 600;
         }
-        
+
         .ai-health-content {
             position: relative;
             z-index: 1;
         }
-        
+
         .health-score-container {
             display: flex;
             align-items: center;
             gap: 24px;
             margin-bottom: 20px;
         }
-        
+
         .health-score-ring {
             position: relative;
             width: 80px;
             height: 80px;
         }
-        
+
         .health-score-value {
             position: absolute;
             top: 50%;
@@ -432,52 +457,52 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
             font-size: 24px;
             font-weight: 700;
         }
-        
+
         .health-status {
             flex: 1;
         }
-        
+
         .health-status-label {
             font-size: 14px;
             opacity: 0.7;
             margin-bottom: 4px;
         }
-        
+
         .health-status-text {
             font-size: 20px;
             font-weight: 600;
         }
-        
+
         .health-metrics {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 16px;
         }
-        
+
         .health-metric {
             text-align: center;
             padding: 12px;
             background: rgba(255, 255, 255, 0.05);
             border-radius: var(--radius-sm);
         }
-        
+
         .health-metric-value {
             font-size: 18px;
             font-weight: 700;
             margin-bottom: 4px;
         }
-        
+
         .health-metric-label {
             font-size: 11px;
             opacity: 0.6;
             text-transform: uppercase;
         }
-        
+
         /* Business Comparison */
         .comparison-card {
             grid-column: span 2;
         }
-        
+
         .comparison-legend {
             display: flex;
             gap: 20px;
@@ -485,7 +510,7 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
             padding-top: 16px;
             border-top: 1px solid var(--border-color);
         }
-        
+
         .legend-item {
             display: flex;
             align-items: center;
@@ -493,31 +518,31 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
             font-size: 13px;
             color: var(--text-secondary);
         }
-        
+
         .legend-dot {
             width: 10px;
             height: 10px;
             border-radius: 50%;
         }
-        
+
         /* Chart Container */
         .chart-container {
             position: relative;
             height: 240px;
         }
-        
+
         /* Kas Harian Styles */
         .kas-harian-card {
             margin-top: 20px;
         }
-        
+
         .kas-harian-summary {
             display: grid;
             grid-template-columns: repeat(3, 1fr);
             gap: 12px;
             margin-bottom: 16px;
         }
-        
+
         .kas-summary-item {
             display: flex;
             align-items: center;
@@ -526,49 +551,49 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
             background: var(--bg-tertiary);
             border-radius: var(--radius-md);
         }
-        
+
         .kas-icon {
             font-size: 20px;
         }
-        
+
         .kas-info {
             flex: 1;
         }
-        
+
         .kas-label {
             font-size: 11px;
             color: var(--text-tertiary);
             text-transform: uppercase;
             letter-spacing: 0.5px;
         }
-        
+
         .kas-value {
             font-size: 16px;
             font-weight: 700;
             color: var(--text-primary);
         }
-        
+
         .kas-value.positive {
             color: var(--accent-green);
         }
-        
+
         .kas-value.negative {
             color: var(--accent-red);
         }
-        
+
         .kas-harian-table-wrapper {
             max-height: 280px;
             overflow-y: auto;
             border-radius: var(--radius-sm);
             border: 1px solid var(--border-color);
         }
-        
+
         .kas-harian-table {
             width: 100%;
             border-collapse: collapse;
             font-size: 13px;
         }
-        
+
         .kas-harian-table th {
             background: var(--bg-tertiary);
             padding: 10px 12px;
@@ -580,20 +605,20 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
             position: sticky;
             top: 0;
         }
-        
+
         .kas-harian-table td {
             padding: 10px 12px;
             border-bottom: 1px solid var(--border-color);
         }
-        
+
         .kas-harian-table tr:last-child td {
             border-bottom: none;
         }
-        
+
         .kas-harian-table .text-right {
             text-align: right;
         }
-        
+
         .kas-harian-table .badge-masuk {
             display: inline-block;
             padding: 2px 8px;
@@ -603,7 +628,7 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
             background: rgba(52, 199, 89, 0.15);
             color: var(--accent-green);
         }
-        
+
         .kas-harian-table .badge-keluar {
             display: inline-block;
             padding: 2px 8px;
@@ -613,35 +638,35 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
             background: rgba(255, 59, 48, 0.15);
             color: var(--accent-red);
         }
-        
+
         .kas-harian-table .amount-masuk {
             color: var(--accent-green);
             font-weight: 600;
         }
-        
+
         .kas-harian-table .amount-keluar {
             color: var(--accent-red);
             font-weight: 600;
         }
-        
+
         @media (max-width: 768px) {
             .kas-harian-summary {
                 grid-template-columns: 1fr;
                 gap: 8px;
             }
-            
+
             .kas-summary-item {
                 padding: 10px;
             }
-            
+
             .kas-value {
                 font-size: 14px;
             }
-            
+
             .kas-harian-table {
                 font-size: 12px;
             }
-            
+
             .kas-harian-table th,
             .kas-harian-table td {
                 padding: 8px 10px;
@@ -655,7 +680,7 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
             gap: 16px;
             margin-top: 20px;
         }
-        
+
         .business-card {
             background: var(--bg-tertiary);
             border-radius: var(--radius-md);
@@ -666,19 +691,19 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
             transition: all 0.2s ease;
             cursor: pointer;
         }
-        
+
         .business-card:hover {
             background: var(--bg-primary);
             box-shadow: var(--shadow-md);
             transform: translateY(-2px);
         }
-        
+
         .business-info {
             display: flex;
             align-items: center;
             gap: 12px;
         }
-        
+
         .business-icon {
             width: 44px;
             height: 44px;
@@ -688,50 +713,55 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
             justify-content: center;
             font-size: 20px;
         }
-        
-        .business-icon.hotel { background: rgba(0, 113, 227, 0.1); }
-        .business-icon.cafe { background: rgba(255, 149, 0, 0.1); }
-        
+
+        .business-icon.hotel {
+            background: rgba(0, 113, 227, 0.1);
+        }
+
+        .business-icon.cafe {
+            background: rgba(255, 149, 0, 0.1);
+        }
+
         .business-name {
             font-size: 14px;
             font-weight: 600;
             color: var(--text-primary);
         }
-        
+
         .business-type {
             font-size: 12px;
             color: var(--text-tertiary);
         }
-        
+
         .business-stats {
             text-align: right;
         }
-        
+
         .business-revenue {
             font-size: 16px;
             font-weight: 700;
             color: var(--text-primary);
         }
-        
+
         .business-change {
             font-size: 12px;
             color: var(--accent-green);
         }
-        
+
         .business-change.negative {
             color: var(--accent-red);
         }
-        
+
         /* Transaction Table */
         .table-container {
             overflow-x: auto;
         }
-        
+
         .data-table {
             width: 100%;
             border-collapse: collapse;
         }
-        
+
         .data-table th {
             text-align: left;
             padding: 12px 16px;
@@ -742,22 +772,22 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
             letter-spacing: 0.5px;
             border-bottom: 1px solid var(--border-color);
         }
-        
+
         .data-table td {
             padding: 14px 16px;
             font-size: 14px;
             color: var(--text-primary);
             border-bottom: 1px solid var(--border-color);
         }
-        
+
         .data-table tr:last-child td {
             border-bottom: none;
         }
-        
+
         .data-table tr:hover {
             background: var(--bg-tertiary);
         }
-        
+
         .badge {
             display: inline-flex;
             padding: 4px 10px;
@@ -765,41 +795,46 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
             font-size: 12px;
             font-weight: 500;
         }
-        
+
         .badge.income {
             background: rgba(52, 199, 89, 0.1);
             color: var(--accent-green);
         }
-        
+
         .badge.expense {
             background: rgba(255, 59, 48, 0.1);
             color: var(--accent-red);
         }
-        
+
         .amount {
             font-weight: 600;
             font-family: 'SF Mono', 'Monaco', 'Inconsolata', monospace;
         }
-        
-        .amount.positive { color: var(--accent-green); }
-        .amount.negative { color: var(--accent-red); }
-        
+
+        .amount.positive {
+            color: var(--accent-green);
+        }
+
+        .amount.negative {
+            color: var(--accent-red);
+        }
+
         /* Views */
         .view-section {
             display: none;
         }
-        
+
         .view-section.active {
             display: block;
         }
-        
+
         /* Front Desk Grid */
         .room-grid {
             display: grid;
             grid-template-columns: repeat(5, 1fr);
             gap: 12px;
         }
-        
+
         .room-card {
             background: var(--bg-tertiary);
             border-radius: var(--radius-sm);
@@ -808,86 +843,93 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
             transition: all 0.2s ease;
             cursor: pointer;
         }
-        
+
         .room-card:hover {
             transform: translateY(-2px);
             box-shadow: var(--shadow-md);
         }
-        
+
         .room-card.available {
             background: rgba(52, 199, 89, 0.1);
             border: 1px solid rgba(52, 199, 89, 0.3);
         }
-        
+
         .room-card.occupied {
             background: rgba(0, 113, 227, 0.1);
             border: 1px solid rgba(0, 113, 227, 0.3);
         }
-        
+
         .room-card.maintenance {
             background: rgba(255, 149, 0, 0.1);
             border: 1px solid rgba(255, 149, 0, 0.3);
         }
-        
+
         .room-number {
             font-size: 18px;
             font-weight: 700;
             color: var(--text-primary);
         }
-        
+
         .room-status {
             font-size: 11px;
             color: var(--text-tertiary);
             margin-top: 4px;
         }
-        
+
         /* Empty State */
         .empty-state {
             text-align: center;
             padding: 48px 24px;
             color: var(--text-tertiary);
         }
-        
+
         .empty-state svg {
             width: 48px;
             height: 48px;
             margin-bottom: 16px;
             opacity: 0.5;
         }
-        
+
         /* Responsive */
         @media (max-width: 1200px) {
-            .grid-4 { grid-template-columns: repeat(2, 1fr); }
-            .grid-3 { grid-template-columns: repeat(2, 1fr); }
+            .grid-4 {
+                grid-template-columns: repeat(2, 1fr);
+            }
+
+            .grid-3 {
+                grid-template-columns: repeat(2, 1fr);
+            }
         }
-        
+
         @media (max-width: 768px) {
             .sidebar {
                 transform: translateX(-100%);
             }
-            
+
             .sidebar.open {
                 transform: translateX(0);
             }
-            
+
             .main-content {
                 margin-left: 0;
                 padding: 16px;
             }
-            
-            .grid-2, .grid-3, .grid-4 {
+
+            .grid-2,
+            .grid-3,
+            .grid-4 {
                 grid-template-columns: 1fr;
             }
-            
+
             .comparison-card {
                 grid-column: span 1;
             }
-            
+
             .room-grid {
                 grid-template-columns: repeat(3, 1fr);
             }
         }
-        
+
         /* Loading Animation */
         .loading {
             display: flex;
@@ -895,7 +937,7 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
             justify-content: center;
             padding: 48px;
         }
-        
+
         .spinner {
             width: 32px;
             height: 32px;
@@ -904,21 +946,24 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
             border-radius: 50%;
             animation: spin 0.8s linear infinite;
         }
-        
+
         @keyframes spin {
-            to { transform: rotate(360deg); }
+            to {
+                transform: rotate(360deg);
+            }
         }
-        
+
         /* Section Spacing */
         .section {
             margin-bottom: 32px;
         }
-        
+
         .section:last-child {
             margin-bottom: 0;
         }
     </style>
 </head>
+
 <body>
     <div class="app-container">
         <!-- Sidebar -->
@@ -932,7 +977,7 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
                     <div class="brand-sub">Multi-Tenant System</div>
                 </div>
             </div>
-            
+
             <!-- Business Selector -->
             <div class="business-selector">
                 <div class="selector-label">Select Business</div>
@@ -940,7 +985,7 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
                     <option value="all">🏢 All Businesses</option>
                 </select>
             </div>
-            
+
             <!-- Navigation -->
             <nav class="nav-menu">
                 <div class="nav-section">
@@ -954,7 +999,7 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
                         <span>Analytics</span>
                     </a>
                 </div>
-                
+
                 <div class="nav-section">
                     <div class="nav-section-title">Finance</div>
                     <a href="#" class="nav-item" onclick="showView('transactions')">
@@ -966,7 +1011,7 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
                         <span>Cash Flow</span>
                     </a>
                 </div>
-                
+
                 <div class="nav-section hotel-nav" id="hotelNav" style="display:none;">
                     <div class="nav-section-title">Hotel Operations</div>
                     <a href="#" class="nav-item hotel-only show" onclick="showView('frontdesk')">
@@ -979,7 +1024,7 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
                     </a>
                 </div>
             </nav>
-            
+
             <!-- Sidebar Footer -->
             <div class="sidebar-footer">
                 <a href="investor-dashboard.php" class="nav-item">
@@ -996,7 +1041,7 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
                 </a>
             </div>
         </aside>
-        
+
         <!-- Main Content -->
         <main class="main-content">
             <!-- Header -->
@@ -1017,7 +1062,7 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
                     </button>
                 </div>
             </header>
-            
+
             <!-- Dashboard View -->
             <div class="view-section active" id="view-dashboard">
                 <!-- AI Health Monitor -->
@@ -1058,7 +1103,7 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
                         </div>
                     </div>
                 </section>
-                
+
                 <!-- Stats Grid -->
                 <section class="section">
                     <div class="grid-4">
@@ -1108,7 +1153,7 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
                         </div>
                     </div>
                 </section>
-                
+
                 <!-- Charts Row -->
                 <section class="section">
                     <div class="grid-2">
@@ -1127,7 +1172,7 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
                                 <!-- Dynamic legend -->
                             </div>
                         </div>
-                        
+
                         <!-- Income vs Expense -->
                         <div class="card">
                             <div class="card-header">
@@ -1141,7 +1186,7 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
                             </div>
                         </div>
                     </div>
-                    
+
                     <!-- Kas Harian Section -->
                     <div class="card kas-harian-card">
                         <div class="card-header">
@@ -1184,13 +1229,15 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
                                     </tr>
                                 </thead>
                                 <tbody id="kasHarianTable">
-                                    <tr><td colspan="4" class="empty-state">Loading...</td></tr>
+                                    <tr>
+                                        <td colspan="4" class="empty-state">Loading...</td>
+                                    </tr>
                                 </tbody>
                             </table>
                         </div>
                     </div>
                 </section>
-                
+
                 <!-- Business Units -->
                 <section class="section" id="businessUnitsSection">
                     <div class="card">
@@ -1205,7 +1252,7 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
                         </div>
                     </div>
                 </section>
-                
+
                 <!-- Recent Transactions -->
                 <section class="section">
                     <div class="card">
@@ -1237,7 +1284,7 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
                     </div>
                 </section>
             </div>
-            
+
             <!-- Front Desk View (Hotel Only) -->
             <div class="view-section" id="view-frontdesk">
                 <section class="section">
@@ -1272,7 +1319,7 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
                         </div>
                     </div>
                 </section>
-                
+
                 <section class="section">
                     <div class="card">
                         <div class="card-header">
@@ -1287,7 +1334,7 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
                     </div>
                 </section>
             </div>
-            
+
             <!-- Transactions View -->
             <div class="view-section" id="view-transactions">
                 <section class="section">
@@ -1324,7 +1371,7 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
             </div>
         </main>
     </div>
-    
+
     <script>
         // State
         let currentBusiness = 'all';
@@ -1332,21 +1379,21 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
         let comparisonChart = null;
         let cashFlowChart = null;
         let healthGauge = null;
-        
+
         // Initialize
         document.addEventListener('DOMContentLoaded', function() {
             feather.replace();
             loadBranches();
         });
-        
+
         // Format currency
         function formatRupiah(num) {
-            if (num >= 1000000000) return 'Rp ' + (num/1000000000).toFixed(1) + 'B';
-            if (num >= 1000000) return 'Rp ' + (num/1000000).toFixed(1) + 'M';
-            if (num >= 1000) return 'Rp ' + (num/1000).toFixed(0) + 'K';
+            if (num >= 1000000000) return 'Rp ' + (num / 1000000000).toFixed(1) + 'B';
+            if (num >= 1000000) return 'Rp ' + (num / 1000000).toFixed(1) + 'M';
+            if (num >= 1000) return 'Rp ' + (num / 1000).toFixed(0) + 'K';
             return 'Rp ' + num.toLocaleString('id-ID');
         }
-        
+
         // Load branches
         async function loadBranches() {
             try {
@@ -1359,7 +1406,7 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
                         if (!type) {
                             if (b.id == 1) type = 'hotel';
                             else if (b.id == 2) type = 'cafe';
-                            else if ((b.branch_name||'').toLowerCase().includes('hotel')) type = 'hotel';
+                            else if ((b.branch_name || '').toLowerCase().includes('hotel')) type = 'hotel';
                             else type = 'cafe';
                         }
                         return {
@@ -1377,7 +1424,7 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
                 console.error('Error loading branches:', error);
             }
         }
-        
+
         // Render business selector
         function renderBusinessSelector() {
             const selector = document.getElementById('businessSelector');
@@ -1388,7 +1435,7 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
                 selector.innerHTML += `<option value="${branch.id}">${icon} ${branch.name}</option>`;
             }
         }
-        
+
         // Render business grid
         function renderBusinessGrid() {
             const grid = document.getElementById('businessGrid');
@@ -1410,16 +1457,16 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
                 </div>
             `).join('');
         }
-        
+
         // Switch business
         function switchBusiness(bizId) {
             currentBusiness = bizId;
             document.getElementById('businessSelector').value = bizId;
-            
+
             const isHotel = bizId !== 'all' && branches.find(b => b.id == bizId)?.business_type === 'hotel';
             document.getElementById('hotelNav').style.display = isHotel ? 'block' : 'none';
             document.getElementById('businessUnitsSection').style.display = bizId === 'all' ? 'block' : 'none';
-            
+
             if (bizId === 'all') {
                 document.getElementById('pageTitle').textContent = 'All Businesses';
                 document.getElementById('pageSubtitle').textContent = 'Overview of your entire portfolio';
@@ -1428,17 +1475,21 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
                 document.getElementById('pageTitle').textContent = branch ? branch.name : 'Business';
                 document.getElementById('pageSubtitle').textContent = branch ? `${branch.business_type.charAt(0).toUpperCase() + branch.business_type.slice(1)} Dashboard` : '';
             }
-            
+
             loadDashboardData();
         }
-        
+
         // Show view
         function showView(viewName) {
-            document.querySelectorAll('.view-section').forEach(function(v){v.classList.remove('active');});
+            document.querySelectorAll('.view-section').forEach(function(v) {
+                v.classList.remove('active');
+            });
             var viewEl = document.getElementById('view-' + viewName);
             if (viewEl) viewEl.classList.add('active');
 
-            document.querySelectorAll('.nav-item').forEach(function(n){n.classList.remove('active');});
+            document.querySelectorAll('.nav-item').forEach(function(n) {
+                n.classList.remove('active');
+            });
             // Fix: event is not defined, use window.event fallback
             var e = window.event;
             if (e && e.target) {
@@ -1455,7 +1506,7 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
                 loadFrontdeskData();
             }
         }
-        
+
         // Load dashboard data
         async function loadDashboardData() {
             await Promise.all([
@@ -1465,33 +1516,33 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
                 loadKasHarian()
             ]);
         }
-        
+
         // Load Kas Harian (Daily Cash)
         async function loadKasHarian() {
             try {
                 const today = new Date();
-                const dateStr = today.toLocaleDateString('id-ID', { 
-                    weekday: 'long', 
-                    year: 'numeric', 
-                    month: 'long', 
-                    day: 'numeric' 
+                const dateStr = today.toLocaleDateString('id-ID', {
+                    weekday: 'long',
+                    year: 'numeric',
+                    month: 'long',
+                    day: 'numeric'
                 });
                 document.getElementById('kasHarianDate').textContent = dateStr;
-                
+
                 // Fetch today's transactions
-                const url = currentBusiness === 'all' 
-                    ? '../../api/owner-recent-transactions.php?limit=20&today=1'
-                    : `../../api/owner-recent-transactions.php?branch_id=${currentBusiness}&limit=20&today=1`;
-                
+                const url = currentBusiness === 'all' ?
+                    '../../api/owner-recent-transactions.php?limit=20&today=1' :
+                    `../../api/owner-recent-transactions.php?branch_id=${currentBusiness}&limit=20&today=1`;
+
                 const response = await fetch(url);
                 const data = await response.json();
-                
+
                 if (data.success && data.transactions) {
                     let totalMasuk = 0;
                     let totalKeluar = 0;
-                    
+
                     const tbody = document.getElementById('kasHarianTable');
-                    
+
                     if (data.transactions.length === 0) {
                         tbody.innerHTML = '<tr><td colspan="4" class="empty-state">Belum ada transaksi hari ini</td></tr>';
                     } else {
@@ -1499,11 +1550,11 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
                             const isMasuk = txn.transaction_type === 'income';
                             if (isMasuk) totalMasuk += parseFloat(txn.amount);
                             else totalKeluar += parseFloat(txn.amount);
-                            
+
                             const time = txn.transaction_time ? txn.transaction_time.substring(0, 5) : '-';
                             const desc = txn.description || txn.category_name || '-';
                             const shortDesc = desc.length > 35 ? desc.substring(0, 35) + '...' : desc;
-                            
+
                             return `<tr>
                                 <td>${time}</td>
                                 <td title="${desc}">${shortDesc}</td>
@@ -1512,7 +1563,7 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
                             </tr>`;
                         }).join('');
                     }
-                    
+
                     const saldo = totalMasuk - totalKeluar;
                     document.getElementById('kasMasuk').textContent = formatRupiah(totalMasuk);
                     document.getElementById('kasKeluar').textContent = formatRupiah(totalKeluar);
@@ -1520,64 +1571,64 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
                 }
             } catch (error) {
                 console.error('Error loading kas harian:', error);
-                document.getElementById('kasHarianTable').innerHTML = 
+                document.getElementById('kasHarianTable').innerHTML =
                     '<tr><td colspan="4" class="empty-state">Gagal memuat data</td></tr>';
             }
         }
-        
+
         // Load stats
         async function loadStats() {
             try {
-                const url = currentBusiness === 'all'
-                    ? '../../api/owner-stats.php'
-                    : `../../api/owner-stats.php?branch_id=${currentBusiness}`;
-                
+                const url = currentBusiness === 'all' ?
+                    '../../api/owner-stats.php' :
+                    `../../api/owner-stats.php?branch_id=${currentBusiness}`;
+
                 const response = await fetch(url);
                 const data = await response.json();
-                
+
                 if (data.success) {
                     // Update today stats
                     document.getElementById('totalRevenue').textContent = formatRupiah(data.month?.income || 0);
                     document.getElementById('totalExpenses').textContent = formatRupiah(data.month?.expense || 0);
                     document.getElementById('netProfit').textContent = formatRupiah(data.month?.net || 0);
                     document.getElementById('cashBalance').textContent = formatRupiah(data.operational_balance || 0);
-                    
+
                     // Update change indicators
                     const incomeChange = data.month?.income_change || 0;
                     const expenseChange = data.month?.expense_change || 0;
-                    
-                    document.getElementById('revenueChange').innerHTML = 
+
+                    document.getElementById('revenueChange').innerHTML =
                         `<i data-feather="trending-${incomeChange >= 0 ? 'up' : 'down'}" style="width:14px;height:14px"></i> ${incomeChange >= 0 ? '+' : ''}${incomeChange}% vs last month`;
                     document.getElementById('revenueChange').className = `stat-change ${incomeChange >= 0 ? 'positive' : 'negative'}`;
-                    
-                    document.getElementById('expenseChange').innerHTML = 
+
+                    document.getElementById('expenseChange').innerHTML =
                         `<i data-feather="trending-${expenseChange >= 0 ? 'up' : 'down'}" style="width:14px;height:14px"></i> ${expenseChange >= 0 ? '+' : ''}${expenseChange}% vs last month`;
                     document.getElementById('expenseChange').className = `stat-change ${expenseChange <= 0 ? 'positive' : 'negative'}`;
-                    
+
                     // Profit change
                     const lastProfit = (data.last_month?.income || 0) - (data.last_month?.expense || 0);
                     const currentProfit = data.month?.net || 0;
                     let profitChange = 0;
                     if (lastProfit > 0) profitChange = Math.round(((currentProfit - lastProfit) / lastProfit) * 100);
-                    document.getElementById('profitChange').innerHTML = 
+                    document.getElementById('profitChange').innerHTML =
                         `<i data-feather="trending-${profitChange >= 0 ? 'up' : 'down'}" style="width:14px;height:14px"></i> ${profitChange >= 0 ? '+' : ''}${profitChange}%`;
                     document.getElementById('profitChange').className = `stat-change ${profitChange >= 0 ? 'positive' : 'negative'}`;
-                    
+
                     // Health metrics
                     const income = data.month?.income || 0;
                     const expense = data.month?.expense || 0;
                     const margin = income > 0 ? Math.round(((income - expense) / income) * 100) : 0;
                     document.getElementById('profitMargin').textContent = margin + '%';
                     document.getElementById('growthRate').textContent = (incomeChange >= 0 ? '+' : '') + incomeChange + '%';
-                    
+
                     // Calculate health score
                     let healthScore = Math.min(100, Math.max(0, 50 + margin));
                     document.getElementById('healthScore').textContent = healthScore;
-                    document.getElementById('healthStatus').textContent = 
+                    document.getElementById('healthStatus').textContent =
                         healthScore >= 80 ? 'Excellent Performance' :
                         healthScore >= 60 ? 'Good Standing' :
                         healthScore >= 40 ? 'Needs Attention' : 'Critical';
-                    
+
                     updateCashFlowChart(income, expense);
                     feather.replace();
                 }
@@ -1585,16 +1636,16 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
                 console.error('Error loading stats:', error);
             }
         }
-        
+
         // Load comparison data
         async function loadComparison() {
             try {
                 const response = await fetch('../../api/owner-comparison.php?period=this_month');
                 const data = await response.json();
-                
+
                 if (data.success && data.branches) {
                     updateComparisonChart(data.branches);
-                    
+
                     // Update business grid values
                     data.branches.forEach(b => {
                         const revenueEl = document.getElementById(`revenue-${b.id}`);
@@ -1610,14 +1661,14 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
                 console.error('Error loading comparison:', error);
             }
         }
-        
+
         // Update comparison chart
         function updateComparisonChart(branchesData) {
             const ctx = document.getElementById('comparisonChart').getContext('2d');
             const colors = ['#0071e3', '#34c759', '#ff9500', '#af52de', '#ff3b30'];
-            
+
             if (comparisonChart) comparisonChart.destroy();
-            
+
             comparisonChart = new Chart(ctx, {
                 type: 'bar',
                 data: {
@@ -1634,29 +1685,39 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
                     responsive: true,
                     maintainAspectRatio: false,
                     plugins: {
-                        legend: { display: false }
+                        legend: {
+                            display: false
+                        }
                     },
                     scales: {
                         y: {
                             beginAtZero: true,
-                            grid: { color: '#f5f5f7' },
+                            grid: {
+                                color: '#f5f5f7'
+                            },
                             ticks: {
                                 callback: value => formatRupiah(value),
-                                font: { size: 11 },
+                                font: {
+                                    size: 11
+                                },
                                 color: '#86868b'
                             }
                         },
                         x: {
-                            grid: { display: false },
+                            grid: {
+                                display: false
+                            },
                             ticks: {
-                                font: { size: 12 },
+                                font: {
+                                    size: 12
+                                },
                                 color: '#6e6e73'
                             }
                         }
                     }
                 }
             });
-            
+
             // Update legend
             const legendEl = document.getElementById('comparisonLegend');
             legendEl.innerHTML = branchesData.map((b, i) => `
@@ -1666,13 +1727,13 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
                 </div>
             `).join('');
         }
-        
+
         // Update cash flow chart
         function updateCashFlowChart(income, expense) {
             const ctx = document.getElementById('cashFlowChart').getContext('2d');
-            
+
             if (cashFlowChart) cashFlowChart.destroy();
-            
+
             cashFlowChart = new Chart(ctx, {
                 type: 'doughnut',
                 data: {
@@ -1693,26 +1754,28 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
                             labels: {
                                 padding: 20,
                                 usePointStyle: true,
-                                font: { size: 12 }
+                                font: {
+                                    size: 12
+                                }
                             }
                         }
                     }
                 }
             });
         }
-        
+
         // Load transactions
         async function loadTransactions() {
             try {
-                const url = currentBusiness === 'all' 
-                    ? '../../api/owner-recent-transactions.php'
-                    : `../../api/owner-recent-transactions.php?branch_id=${currentBusiness}`;
-                    
+                const url = currentBusiness === 'all' ?
+                    '../../api/owner-recent-transactions.php' :
+                    `../../api/owner-recent-transactions.php?branch_id=${currentBusiness}`;
+
                 const response = await fetch(url);
                 const data = await response.json();
-                
+
                 const tbody = document.getElementById('transactionsTable');
-                
+
                 if (data.success && data.transactions && data.transactions.length > 0) {
                     tbody.innerHTML = data.transactions.slice(0, 8).map(txn => {
                         const isIncome = txn.transaction_type === 'income';
@@ -1734,34 +1797,37 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
                 console.error('Error loading transactions:', error);
             }
         }
-        
+
         // Load frontdesk data
         async function loadFrontdeskData() {
             if (currentBusiness === 'all') return;
-            
+
             try {
                 const response = await fetch(`../../api/owner-occupancy.php?branch_id=${currentBusiness}`);
                 const data = await response.json();
-                
+
                 if (data.success) {
                     document.getElementById('roomsAvailable').textContent = data.available_rooms || 0;
                     document.getElementById('roomsOccupied').textContent = data.occupied_rooms || 0;
                     document.getElementById('roomsMaintenance').textContent = data.maintenance_rooms || 0;
                     document.getElementById('occupancyRate').textContent = (data.occupancy_rate || 0).toFixed(0) + '%';
-                    
+
                     // Mock room grid
                     const total = data.total_rooms || 20;
                     const occupied = data.occupied_rooms || 0;
                     const maintenance = data.maintenance_rooms || 0;
-                    
+
                     let rooms = [];
                     for (let i = 1; i <= total; i++) {
                         let status = 'available';
                         if (i <= occupied) status = 'occupied';
                         else if (i > total - maintenance) status = 'maintenance';
-                        rooms.push({ number: 100 + i, status });
+                        rooms.push({
+                            number: 100 + i,
+                            status
+                        });
                     }
-                    
+
                     document.getElementById('roomGrid').innerHTML = rooms.map(r => `
                         <div class="room-card ${r.status}">
                             <div class="room-number">${r.number}</div>
@@ -1773,11 +1839,12 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
                 console.error('Error loading frontdesk:', error);
             }
         }
-        
+
         // Refresh data
         function refreshData() {
             loadDashboardData();
         }
     </script>
 </body>
+
 </html>

@@ -1,4 +1,5 @@
 <?php
+
 /**
  * API: Owner Recent Transactions
  * Get recent transactions
@@ -35,7 +36,7 @@ try {
     // Get businesses list from master database
     $mainPdo = new PDO("mysql:host=" . DB_HOST . ";dbname=" . getDbName('adf_system') . ";charset=utf8mb4", DB_USER, DB_PASS);
     $mainPdo->setAttribute(PDO::ATTR_ERRMODE, PDO::ERRMODE_EXCEPTION);
-    
+
     if ($branchId === 'all' || $branchId === '') {
         $stmt = $mainPdo->query("SELECT id, business_name, database_name FROM businesses WHERE is_active = 1 ORDER BY id");
         $businesses = $stmt->fetchAll(PDO::FETCH_ASSOC);
@@ -44,24 +45,24 @@ try {
         $stmt->execute([(int)$branchId]);
         $businesses = $stmt->fetchAll(PDO::FETCH_ASSOC);
     }
-    
+
     $allTransactions = [];
-    
+
     foreach ($businesses as $business) {
         try {
             $db = Database::switchDatabase(getDbName($business['database_name']));
-            
+
             // Build date filter
             if ($allDaily || $todayOnly) {
                 $dateFilter = "DATE(cb.transaction_date) = CURDATE()";
             } else {
                 $dateFilter = "DATE(cb.transaction_date) >= DATE_SUB(CURDATE(), INTERVAL 7 DAY)";
             }
-            
+
             // Build limit clause
             $limitClause = $allDaily ? "" : "LIMIT ?";
             $params = $allDaily ? [] : [$limit];
-            
+
             // Get recent transactions from this business
             $transactions = $db->fetchAll(
                 "SELECT 
@@ -78,7 +79,7 @@ try {
                  $limitClause",
                 $params
             );
-            
+
             // Add business name to each transaction
             foreach ($transactions as &$tx) {
                 $tx['business_name'] = $business['business_name'];
@@ -86,33 +87,32 @@ try {
                 $tx['formatted_date'] = date('d M Y', strtotime($tx['transaction_date']));
                 $tx['formatted_amount'] = number_format($tx['amount'], 0, ',', '.');
             }
-            
+
             $allTransactions = array_merge($allTransactions, $transactions);
         } catch (Exception $e) {
             // Skip this business if database error
             continue;
         }
     }
-    
+
     // Sort all transactions by date and time descending
-    usort($allTransactions, function($a, $b) {
+    usort($allTransactions, function ($a, $b) {
         $dateCompare = strcmp($b['transaction_date'], $a['transaction_date']);
         if ($dateCompare !== 0) return $dateCompare;
         return strcmp($b['transaction_time'] ?? '', $a['transaction_time'] ?? '');
     });
-    
+
     // Apply limit for combined results
     if (!$allDaily && count($allTransactions) > $limit) {
         $allTransactions = array_slice($allTransactions, 0, $limit);
     }
-    
+
     echo json_encode([
         'success' => true,
         'transactions' => $allTransactions,
         'count' => count($allTransactions),
         'timestamp' => date('Y-m-d H:i:s')
     ]);
-    
 } catch (Exception $e) {
     echo json_encode([
         'success' => false,
