@@ -466,6 +466,46 @@ include '../../includes/header.php';
         display: contents;
     }
 
+    /* Month Header Row */
+    .calendar-month-header {
+        display: contents;
+    }
+
+    .grid-month-room {
+        background: #1e40af;
+        border-right: 2px solid #1e3a8a;
+        border-bottom: 1px solid #1e3a8a;
+        position: sticky;
+        left: 0;
+        z-index: 41;
+        min-width: 95px;
+        max-width: 95px;
+    }
+
+    .grid-month-label {
+        background: #1e40af;
+        color: #ffffff;
+        font-weight: 800;
+        font-size: 0.72rem;
+        letter-spacing: 1px;
+        padding: 0.2rem 0.6rem;
+        border-right: 2px solid #1e3a8a;
+        border-bottom: 1px solid #1e3a8a;
+        display: flex;
+        align-items: center;
+        min-height: 22px;
+    }
+
+    body[data-theme="dark"] .grid-month-room,
+    body[data-theme="dark"] .grid-month-label {
+        background: #1e293b;
+        border-color: #334155;
+    }
+
+    body[data-theme="dark"] .grid-month-label {
+        color: #93c5fd;
+    }
+
     .grid-header-room {
         background: linear-gradient(135deg, #f1f5f9 0%, #ffffff 100%);
         border-right: 2px solid #e2e8f0;
@@ -2183,6 +2223,37 @@ include '../../includes/header.php';
     <div class="calendar-scroll-wrapper" id="drag-container" style="overflow-x: auto; cursor: grab; user-select: none;">
         <div class="calendar-wrapper">
             <div class="calendar-grid">
+                <!-- Month Header Row -->
+                <div class="calendar-month-header">
+                    <div class="grid-month-room"></div>
+                    <?php
+                    // Calculate month spans
+                    $monthSpans = [];
+                    $currentMonth = null;
+                    $spanCount = 0;
+                    foreach ($dates as $i => $date) {
+                        $monthKey = date('M Y', strtotime($date));
+                        if ($monthKey !== $currentMonth) {
+                            if ($currentMonth !== null) {
+                                $monthSpans[] = ['label' => strtoupper($currentMonth), 'span' => $spanCount];
+                            }
+                            $currentMonth = $monthKey;
+                            $spanCount = 1;
+                        } else {
+                            $spanCount++;
+                        }
+                    }
+                    if ($currentMonth !== null) {
+                        $monthSpans[] = ['label' => strtoupper($currentMonth), 'span' => $spanCount];
+                    }
+                    foreach ($monthSpans as $ms):
+                    ?>
+                        <div class="grid-month-label" style="grid-column: span <?php echo $ms['span']; ?>;">
+                            <?php echo $ms['label']; ?>
+                        </div>
+                    <?php endforeach; ?>
+                </div>
+
                 <!-- Header Row -->
                 <div class="calendar-grid-header">
                     <div class="grid-header-room">ROOMS</div>
