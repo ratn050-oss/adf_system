@@ -333,17 +333,23 @@ try {
     
     $startKasHariIni = $startKasOwner + $startKasPetty;
     
-    // Owner Transfer THIS MONTH only (income to capital + petty accounts this month)
+    // Owner Transfer THIS MONTH only (source_type = 'owner_fund')
     $ownerTransferThisMonth = 0;
-    if ($hasCashAccountIdCol && (!empty($capitalAccounts) || !empty($pettyCashAccounts))) {
-        $allAccIds = array_merge($capitalAccounts, $pettyCashAccounts);
-        $placeholders = implode(',', array_fill(0, count($allAccIds), '?'));
-        $thisMonth = date('Y-m');
+    $thisMonth = date('Y-m');
+    if ($hasSourceTypeCol) {
+        $qOwner = "SELECT COALESCE(SUM(amount), 0) as total
+            FROM cash_book WHERE source_type = 'owner_fund'
+            AND transaction_type = 'income'
+            AND DATE_FORMAT(transaction_date, '%Y-%m') = ?";
+        $rOwner = $db->fetchOne($qOwner, [$thisMonth]);
+        $ownerTransferThisMonth = $rOwner['total'] ?? 0;
+    } elseif ($hasCashAccountIdCol && !empty($capitalAccounts)) {
+        $placeholders = implode(',', array_fill(0, count($capitalAccounts), '?'));
         $qOwner = "SELECT COALESCE(SUM(amount), 0) as total
             FROM cash_book WHERE cash_account_id IN ($placeholders) 
             AND transaction_type = 'income'
             AND DATE_FORMAT(transaction_date, '%Y-%m') = ?";
-        $pOwner = array_merge($allAccIds, [$thisMonth]);
+        $pOwner = array_merge($capitalAccounts, [$thisMonth]);
         $rOwner = $db->fetchOne($qOwner, $pOwner);
         $ownerTransferThisMonth = $rOwner['total'] ?? 0;
     }
@@ -377,37 +383,44 @@ try {
 }
 
 // ============================================
-// GUEST/CASH INCOME (Cash payments NOT from owner accounts)
-// From cash_book with payment_method='cash' (rental, F&B, etc)
-// EXCLUDE transactions already counted in owner_capital/petty_cash
+// GUEST/CASH INCOME (All income EXCEPT owner transfers)
+// Uses source_type to distinguish: owner_fund = owner transfer, everything else = guest/operational income
 // ============================================
 $guestCashIncome = 0;
 try {
     $thisMonth = date('Y-m');
     
-    // All owner account IDs to exclude
-    $excludeAccountIds = array_merge($capitalAccounts ?? [], $pettyCashAccounts ?? []);
-    
-    if (!empty($excludeAccountIds)) {
-        $excludePlaceholders = implode(',', array_fill(0, count($excludeAccountIds), '?'));
+    if ($hasSourceTypeCol) {
         $cashIncomeResult = $db->fetchOne(
             "SELECT COALESCE(SUM(amount), 0) as total 
              FROM cash_book 
              WHERE transaction_type = 'income' 
-             AND payment_method = 'cash'
-             AND (cash_account_id IS NULL OR cash_account_id NOT IN ($excludePlaceholders))
-             AND DATE_FORMAT(transaction_date, '%Y-%m') = ?",
-            array_merge($excludeAccountIds, [$thisMonth])
-        );
-    } else {
-        $cashIncomeResult = $db->fetchOne(
-            "SELECT COALESCE(SUM(amount), 0) as total 
-             FROM cash_book 
-             WHERE transaction_type = 'income' 
-             AND payment_method = 'cash'
+             AND (source_type IS NULL OR source_type NOT IN ('owner_fund','owner_project'))
              AND DATE_FORMAT(transaction_date, '%Y-%m') = ?",
             [$thisMonth]
         );
+    } else {
+        // Fallback: exclude only owner_capital accounts
+        $excludeAccountIds = $capitalAccounts ?? [];
+        if (!empty($excludeAccountIds)) {
+            $excludePlaceholders = implode(',', array_fill(0, count($excludeAccountIds), '?'));
+            $cashIncomeResult = $db->fetchOne(
+                "SELECT COALESCE(SUM(amount), 0) as total 
+                 FROM cash_book 
+                 WHERE transaction_type = 'income' 
+                 AND (cash_account_id IS NULL OR cash_account_id NOT IN ($excludePlaceholders))
+                 AND DATE_FORMAT(transaction_date, '%Y-%m') = ?",
+                array_merge($excludeAccountIds, [$thisMonth])
+            );
+        } else {
+            $cashIncomeResult = $db->fetchOne(
+                "SELECT COALESCE(SUM(amount), 0) as total 
+                 FROM cash_book 
+                 WHERE transaction_type = 'income' 
+                 AND DATE_FORMAT(transaction_date, '%Y-%m') = ?",
+                [$thisMonth]
+            );
+        }
     }
     $guestCashIncome = $cashIncomeResult['total'] ?? 0;
 } catch (Exception $e) {
@@ -1067,7 +1080,7 @@ div[style*="grid-template-columns: repeat(4"] > div:hover .card-top-bar {
                 </div>
                 <div>
                     <div style="font-size: 0.6rem; color: #9ca3af; font-weight: 600; text-transform: uppercase; letter-spacing: 0.3px;">Owner + Guest</div>
-                    <div style="font-size: 1rem; font-weight: 700; color: #059669; font-family: 'Monaco', monospace;"><?php echo formatCurrency($totalOperationalIncome + $guestCashIncome); ?></div>
+                    <div style="font-size: 1rem; font-weight: 700; color: #059669; font-family: 'Monaco', monospace;"><?php echo formatCurrency($ownerTransferThisMonth + $guestCashIncome); ?></div>
                 </div>
             </div>
             <!-- Expense -->
