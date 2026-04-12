@@ -392,8 +392,8 @@ try {
 }
 
 // ============================================
-// GUEST/CASH INCOME (All income EXCEPT owner transfers)
-// Uses source_type to distinguish: owner_fund = owner transfer, everything else = guest/operational income
+// GUEST CASH INCOME (cash payments from guests only, NOT owner transfers)
+// payment_method = 'cash' AND source_type != 'owner_fund'
 // ============================================
 $guestCashIncome = 0;
 try {
@@ -404,12 +404,13 @@ try {
             "SELECT COALESCE(SUM(amount), 0) as total 
              FROM cash_book 
              WHERE transaction_type = 'income' 
+             AND payment_method = 'cash'
              AND (source_type IS NULL OR source_type NOT IN ('owner_fund','owner_project'))
              AND DATE_FORMAT(transaction_date, '%Y-%m') = ?",
             [$thisMonth]
         );
     } else {
-        // Fallback: exclude only owner_capital accounts
+        // Fallback: cash payments excluding owner_capital accounts
         $excludeAccountIds = $capitalAccounts ?? [];
         if (!empty($excludeAccountIds)) {
             $excludePlaceholders = implode(',', array_fill(0, count($excludeAccountIds), '?'));
@@ -417,6 +418,7 @@ try {
                 "SELECT COALESCE(SUM(amount), 0) as total 
                  FROM cash_book 
                  WHERE transaction_type = 'income' 
+                 AND payment_method = 'cash'
                  AND (cash_account_id IS NULL OR cash_account_id NOT IN ($excludePlaceholders))
                  AND DATE_FORMAT(transaction_date, '%Y-%m') = ?",
                 array_merge($excludeAccountIds, [$thisMonth])
@@ -426,6 +428,7 @@ try {
                 "SELECT COALESCE(SUM(amount), 0) as total 
                  FROM cash_book 
                  WHERE transaction_type = 'income' 
+                 AND payment_method = 'cash'
                  AND DATE_FORMAT(transaction_date, '%Y-%m') = ?",
                 [$thisMonth]
             );

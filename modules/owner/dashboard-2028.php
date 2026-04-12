@@ -3378,12 +3378,13 @@ if ($healthScore >= 80) {
                     $todayKas = $stmtKas->fetchAll(PDO::FETCH_ASSOC);
                 }
 
-                // Get Guest Income this month - semua income KECUALI owner_fund transfer
+                // Get Guest Cash Income this month - cash dari tamu saja (payment_method='cash', bukan owner_fund)
                 if ($hasSourceTypeCol) {
                     $sqlCashIncome = "
                     SELECT COALESCE(SUM(amount), 0) as total 
                     FROM cash_book 
                     WHERE transaction_type = 'income' 
+                    AND payment_method = 'cash'
                     AND (source_type IS NULL OR source_type != 'owner_fund')
                     AND DATE_FORMAT(transaction_date, '%Y-%m') = ?
                 ";
@@ -3396,6 +3397,7 @@ if ($healthScore >= 80) {
                     SELECT COALESCE(SUM(amount), 0) as total 
                     FROM cash_book 
                     WHERE transaction_type = 'income' 
+                    AND payment_method = 'cash'
                     AND (cash_account_id IS NULL OR cash_account_id NOT IN ($placeholders))
                     AND DATE_FORMAT(transaction_date, '%Y-%m') = ?
                 ";
@@ -3407,6 +3409,7 @@ if ($healthScore >= 80) {
                     SELECT COALESCE(SUM(amount), 0) as total 
                     FROM cash_book 
                     WHERE transaction_type = 'income' 
+                    AND payment_method = 'cash'
                     AND DATE_FORMAT(transaction_date, '%Y-%m') = ?
                 ";
                     $stmtCashIncome = $kasDb->prepare($sqlCashIncome);
