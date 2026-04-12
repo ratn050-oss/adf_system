@@ -92,7 +92,7 @@ try {
         FROM rooms r
         LEFT JOIN room_types rt ON r.room_type_id = rt.id
         WHERE r.status != 'maintenance'
-        ORDER BY FIELD(rt.type_name, 'Queen', 'Twin', 'King'), rt.type_name ASC, r.floor_number ASC, r.room_number ASC
+        ORDER BY FIELD(rt.type_name, 'Queen Chambers', 'Queen', 'Twin Chambers', 'Twin', 'King Quarters', 'King', 'Deluxe King', 'Deluxe Queen'), rt.type_name ASC, r.floor_number ASC, r.room_number ASC
     ", []);
 } catch (Exception $e) {
     error_log("Rooms Error: " . $e->getMessage());
@@ -349,7 +349,8 @@ include '../../includes/header.php';
         white-space: nowrap;
     }
 
-    #prevMonthBtn, #nextMonthBtn {
+    #prevMonthBtn,
+    #nextMonthBtn {
         width: 30px;
         height: 30px;
         padding: 0;
@@ -2311,6 +2312,16 @@ include '../../includes/header.php';
 
 
 
+    <!-- Search Bar -->
+    <div class="search-reservation-bar">
+        <div class="search-input-wrapper">
+            <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <input type="text" id="searchReservation" class="search-input" placeholder="Search reservations, guests, and more" autocomplete="off">
+            <button class="search-clear-btn" id="searchClearBtn" onclick="clearSearch()" style="display:none;">×</button>
+        </div>
+        <div class="search-results-dropdown" id="searchResults" style="display:none;"></div>
+    </div>
+
     <!-- Navigation -->
     <div class="calendar-nav">
         <button class="nav-btn" id="prevMonthBtn" type="button">‹</button>
@@ -2685,338 +2696,168 @@ include '../../includes/header.php';
 
     let currentPaymentBooking = null;
 
-    // Quick view popup - simple and elegant
+    // Side Panel - populate and show (Cloudbed-style)
     function showBookingQuickView(booking) {
+        console.log('🎯 showBookingQuickView (side panel) called with:', booking);
         currentPaymentBooking = booking;
-        console.log('🎯 showBookingQuickView called with:', booking);
+        const panel = document.getElementById('bookingQuickView');
+        if (!panel) { alert('Side panel not found'); return; }
 
-        const modal = document.getElementById('bookingQuickView');
-        console.log('📦 Modal element found:', modal);
+        // Guest avatar initials
+        const initials = (booking.guest_name || 'G').split(' ').map(w => w[0]).join('').substring(0,2).toUpperCase();
+        document.getElementById('sp-avatar').textContent = initials;
 
-        if (!modal) {
-            console.error('❌ Modal not found!');
-            alert('Error: Modal element not found');
-            return;
-        }
+        // Guest name & phone
+        document.getElementById('sp-guest-name').textContent = booking.guest_name || '-';
+        document.getElementById('sp-guest-phone').textContent = booking.guest_phone || '-';
 
-        // Format data
-        const checkIn = new Date(booking.check_in_date).toLocaleDateString('id-ID', {
-            day: 'numeric',
-            month: 'short',
-            year: 'numeric'
-        });
-        const checkOut = new Date(booking.check_out_date).toLocaleDateString('id-ID', {
-            day: 'numeric',
-            month: 'short',
-            year: 'numeric'
-        });
-        const totalPrice = new Intl.NumberFormat('id-ID').format(booking.final_price);
-        const paidAmount = new Intl.NumberFormat('id-ID').format(booking.paid_amount);
-        const remaining = new Intl.NumberFormat('id-ID').format(booking.final_price - booking.paid_amount);
-        const paymentBreakdownHtml = IS_STAFF_VIEW ?
-            '' :
-            `
-            <div style="display: flex; justify-content: space-between; margin-bottom: 0.35rem;">
-                <span style="font-size: 0.75rem; color: var(--text-secondary);">Total Harga:</span>
-                <span style="font-size: 0.85rem; font-weight: 700; color: var(--text-primary);">Rp ${totalPrice}</span>
-            </div>
-            <div style="display: flex; justify-content: space-between; margin-bottom: 0.35rem;">
-                <span style="font-size: 0.75rem; color: var(--text-secondary);">Sudah Bayar:</span>
-                <span style="font-size: 0.85rem; font-weight: 700; color: #10b981;">Rp ${paidAmount}</span>
-            </div>
-            ${booking.payment_status !== 'paid' ? `
-            <div style="display: flex; justify-content: space-between; padding-top: 0.35rem; border-top: 1px dashed rgba(99, 102, 241, 0.3);">
-                <span style="font-size: 0.75rem; color: var(--text-secondary);">Sisa:</span>
-                <span style="font-size: 0.9rem; font-weight: 800; color: #ef4444;">Rp ${remaining}</span>
-            </div>
-            ` : ''}
-        `;
+        // WhatsApp link
+        const waPhone = booking.guest_phone ? booking.guest_phone.replace(/^0/, '62').replace(/[^0-9]/g, '') : '';
+        const waEl = document.getElementById('sp-wa-link');
+        if (waPhone) { waEl.href = 'https://wa.me/' + waPhone; waEl.style.display = 'flex'; }
+        else { waEl.style.display = 'none'; }
 
-        // Payment status badge color
-        let paymentBadge = '';
-        if (booking.payment_status === 'paid') {
-            paymentBadge = '<span style="background: #10b981; color: white; padding: 0.25rem 0.6rem; border-radius: 4px; font-size: 0.7rem; font-weight: 700;">LUNAS</span>';
-        } else if (booking.payment_status === 'partial') {
-            paymentBadge = '<span style="background: #f59e0b; color: white; padding: 0.25rem 0.6rem; border-radius: 4px; font-size: 0.7rem; font-weight: 700;">CICILAN</span>';
-        } else {
-            paymentBadge = '<span style="background: #ef4444; color: white; padding: 0.25rem 0.6rem; border-radius: 4px; font-size: 0.7rem; font-weight: 700;">BELUM BAYAR</span>';
-        }
+        // Status badge
+        const statusEl = document.getElementById('sp-status');
+        const statusMap = {checked_in:'Checked In',confirmed:'Confirmed',pending:'Pending',checked_out:'Checked Out',cancelled:'Cancelled'};
+        const statusColorMap = {checked_in:'#dcfce7;color:#16a34a',confirmed:'#dbeafe;color:#2563eb',pending:'#fef3c7;color:#d97706',checked_out:'#f1f5f9;color:#64748b',cancelled:'#fce4ec;color:#e53935'};
+        statusEl.textContent = '● ' + (statusMap[booking.status] || booking.status);
+        statusEl.style.cssText = 'font-size:0.78rem;font-weight:700;padding:4px 12px;border-radius:20px;background:' + (statusColorMap[booking.status] || '#f1f5f9;color:#475569');
 
-        // Booking source - use dynamic SOURCE_NAMES from booking_sources table
-        let displaySource = '';
+        // Source badge
         let bkSrc = booking.booking_source || '';
-
-        // Fallback: if booking_source is empty, try to detect from payment_method
         if (!bkSrc && booking.payments && booking.payments.length > 0) {
             for (let i = 0; i < booking.payments.length; i++) {
                 const pm = (booking.payments[i].payment_method || '').toLowerCase();
-                if (pm.startsWith('ota_')) {
-                    bkSrc = pm.replace('ota_', '');
-                    break;
-                } else if (pm === 'ota') {
-                    bkSrc = 'ota';
-                    break;
-                }
+                if (pm.startsWith('ota_')) { bkSrc = pm.replace('ota_', ''); break; }
+                else if (pm === 'ota') { bkSrc = 'ota'; break; }
             }
         }
-
+        let displaySource = '';
         if (bkSrc && typeof SOURCE_NAMES !== 'undefined' && SOURCE_NAMES[bkSrc]) {
             displaySource = SOURCE_NAMES[bkSrc];
         } else if (bkSrc) {
-            const sourceMapFallback = {
-                'walk_in': 'Walk-in',
-                'phone': 'Phone',
-                'online': 'Online',
-                'ota': 'OTA Lainnya',
-                'agoda': 'OTA Agoda',
-                'booking': 'OTA Booking.com',
-                'tiket': 'OTA Tiket.com',
-                'tiket_com': 'OTA Tiket.com',
-                'traveloka': 'OTA Traveloka',
-                'airbnb': 'OTA Airbnb'
-            };
-            displaySource = sourceMapFallback[bkSrc] || bkSrc.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-        } else {
-            displaySource = 'Tidak diketahui';
-        }
-        const source = displaySource;
+            const sm = {'walk_in':'Walk-In','phone':'Phone','online':'Online','ota':'OTA','agoda':'OTA Agoda','booking':'OTA Booking.com','tiket':'OTA Tiket.com','traveloka':'OTA Traveloka','airbnb':'OTA Airbnb'};
+            displaySource = sm[bkSrc] || bkSrc.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+        } else { displaySource = 'Walk-In'; }
+        document.getElementById('sp-source').textContent = displaySource;
 
-        // Override payment status badge for OTA if necessary or make it more detailed
-        // Check if it's an OTA booking to show specific status
-        const otaKeysForBadge = (typeof OTA_SOURCE_KEYS !== 'undefined' && OTA_SOURCE_KEYS.length > 0) ?
-            OTA_SOURCE_KEYS : ['ota', 'agoda', 'booking', 'tiket', 'traveloka', 'airbnb', 'expedia', 'pegipegi'];
-        if (otaKeysForBadge.includes(bkSrc)) {
-            if (booking.payment_status === 'paid') {
-                paymentBadge = '<span style="background: #10b981; color: white; padding: 0.25rem 0.6rem; border-radius: 4px; font-size: 0.7rem; font-weight: 700;">LUNAS (By ' + source + ')</span>';
-            }
-        }
+        // Timeline
+        const fmtD = (d) => d ? new Date(d).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}) : '-';
+        document.getElementById('sp-booked-date').textContent = fmtD(booking.created_at);
+        document.getElementById('sp-checkin-date').textContent = fmtD(booking.check_in_date);
+        document.getElementById('sp-checkout-date').textContent = fmtD(booking.check_out_date);
+        // Timeline progress
+        let progress = 0;
+        if (booking.status === 'checked_out' || booking.status === 'cancelled') progress = 100;
+        else if (booking.status === 'checked_in') progress = 66;
+        else progress = 33;
+        document.getElementById('sp-timeline-progress').style.width = progress + '%';
 
-        // Action Buttons
-        let actionButtons = '';
+        // Guest counts
+        document.getElementById('sp-adults').textContent = booking.adults || 1;
+        document.getElementById('sp-children').textContent = booking.children || 0;
 
-        // Check-in / Check-out Logic
-        if (booking.status === 'checked_in') {
-            actionButtons += '<button type="button" class="qv-btn" onclick="quickViewCheckOut()" style="background:#ef4444; color:white; border:none;">Check-out</button>';
-        } else if (booking.status === 'confirmed' || booking.status === 'pending') {
-            actionButtons += '<button type="button" class="qv-btn qv-checkin-btn" onclick="quickViewCheckIn()">Check-in</button>';
-        }
+        // Balance
+        const balance = (booking.final_price || 0) - (booking.paid_amount || 0);
+        const fmtR = (v) => 'Rp' + new Intl.NumberFormat('id-ID').format(v || 0);
+        document.getElementById('sp-balance').textContent = fmtR(Math.max(0, balance));
 
-        // Move Room (Always available unless checked out)
-        if (booking.status !== 'checked_out') {
-            actionButtons += '<button type="button" class="qv-btn qv-move-btn" onclick="quickViewMoveRoom()">Move</button>';
-        }
+        // Folio table
+        let folioRows = '';
+        let totalDebit = 0, totalCredit = 0;
 
-        // Payment (Always available if not paid)
-        if (booking.payment_status !== 'paid') {
-            actionButtons += '<button type="button" class="qv-btn qv-pay-btn" onclick="openBookingPaymentModal()">Pay</button>';
-        }
+        // Room charge as debit
+        const roomTotal = (booking.room_price || 0) * (booking.total_nights || 1);
+        totalDebit += parseFloat(booking.final_price || roomTotal);
+        folioRows += '<tr><td><div class="folio-desc-title">Room Charge - ' + (booking.room_type || '') + ' (' + (booking.room_number || '') + ')</div><div class="folio-desc-sub">' + fmtD(booking.check_in_date) + ' → ' + fmtD(booking.check_out_date) + ' • ' + (booking.total_nights||1) + ' night(s)</div></td><td class="text-right">' + fmtR(booking.final_price || roomTotal) + '</td><td class="text-right">-</td></tr>';
 
-        // Edit (pending/confirmed/checked_in/checked_out) & Delete (pending/confirmed only)
-        if (booking.status === 'confirmed' || booking.status === 'pending' || booking.status === 'checked_in' || booking.status === 'checked_out') {
-            actionButtons += '<button type="button" class="qv-btn" onclick="closeBookingQuickView(); openEditReservationModal(' + booking.id + ')" style="background:#f59e0b; color:white; border:none;">✏️ Edit</button>';
-        }
-        if (booking.status === 'confirmed' || booking.status === 'pending') {
-            actionButtons += '<button type="button" class="qv-btn" onclick="quickViewDeleteBooking()" style="background:#ef4444; color:white; border:none;">🗑️ Hapus</button>';
-        }
-
-        // Format extra fields
-        const waPhone = booking.guest_phone ? booking.guest_phone.replace(/^0/, '62').replace(/[^0-9]/g, '') : '';
-        const waLink = waPhone ? `https://wa.me/${waPhone}` : '';
-        const roomPrice = new Intl.NumberFormat('id-ID').format(booking.room_price || 0);
-        const discountAmt = new Intl.NumberFormat('id-ID').format(booking.discount || 0);
-        const createdAt = booking.created_at ? new Date(booking.created_at).toLocaleDateString('id-ID', {
-            day: 'numeric',
-            month: 'short',
-            year: 'numeric',
-            hour: '2-digit',
-            minute: '2-digit'
-        }) : '-';
-
-        // Payment history rows
-        let paymentRows = '';
-        if (booking.payments && booking.payments.length > 0) {
-            booking.payments.forEach(function(p) {
-                const pDate = new Date(p.payment_date).toLocaleDateString('id-ID', {
-                    day: 'numeric',
-                    month: 'short'
-                });
-                const pAmt = new Intl.NumberFormat('id-ID').format(p.amount);
-                const pMethod = (p.payment_method || '-').toUpperCase();
-                paymentRows += `<div style="display:flex;justify-content:space-between;align-items:center;padding:3px 0;font-size:0.72rem;">
-                <span style="color:var(--text-secondary);">${pDate} • ${pMethod}</span>
-                <span style="font-weight:700;color:#10b981;">Rp ${pAmt}</span>
-            </div>`;
+        // Extras as debit
+        if (booking.extras && booking.extras.length > 0) {
+            booking.extras.forEach(function(ex) {
+                totalDebit += parseFloat(ex.total_price || 0);
+                folioRows += '<tr><td><div class="folio-desc-title">' + ex.item_name + ' (' + ex.quantity + 'x)</div><div class="folio-desc-sub">' + (ex.notes || '') + '</div></td><td class="text-right">' + fmtR(ex.total_price) + '</td><td class="text-right">-</td></tr>';
             });
         }
 
-        // Populate modal
-        document.getElementById('qv-content').innerHTML = `
-        <div style="text-align: center; padding-bottom: 0.75rem; border-bottom: 2px solid rgba(99, 102, 241, 0.2);">
-            <div style="font-size: 0.7rem; color: var(--text-secondary); margin-bottom: 0.25rem;">BOOKING CODE</div>
-            <div style="font-size: 1.1rem; font-weight: 800; color: #6366f1; font-family: 'Courier New', monospace;">${booking.booking_code}</div>
-            <div style="display:flex; justify-content:center; gap:6px; margin-top:4px; flex-wrap:wrap;">
-                <span style="font-size: 0.7rem; font-weight: 700; background:${booking.status === 'checked_in' ? '#10b981' : '#6366f1'}; color:white; padding:2px 8px; border-radius:4px;">${booking.status.toUpperCase().replace('_',' ')}</span>
-                <span style="font-size: 0.7rem; font-weight: 600; background:rgba(99,102,241,0.1); color:#6366f1; padding:2px 8px; border-radius:4px;">${source}</span>
-            </div>
-        </div>
-        
-        <div style="padding: 0.75rem 0;">
-            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-                <span style="font-size: 1.25rem;">👤</span>
-                <div style="flex: 1;">
-                    <div style="font-size: 0.65rem; color: var(--text-secondary); text-transform: uppercase; letter-spacing: 0.3px;">Tamu</div>
-                    <div style="font-size: 0.9rem; font-weight: 700; color: var(--text-primary);">${booking.guest_name}</div>
-                    ${booking.guest_id_number && booking.guest_id_number !== '-' ? `<div style="font-size:0.7rem;color:var(--text-secondary);">ID: ${booking.guest_id_number}</div>` : ''}
-                </div>
-            </div>
-            
-            ${booking.guest_phone && booking.guest_phone !== '-' ? `
-            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-                <span style="font-size: 1.25rem;">📞</span>
-                <div style="flex: 1;">
-                    <div style="font-size: 0.65rem; color: var(--text-secondary);">Phone / WhatsApp</div>
-                    <div style="font-size: 0.85rem; color: var(--text-primary); display:flex; align-items:center; gap:6px;">
-                        ${booking.guest_phone}
-                        ${waLink ? `<a href="${waLink}" target="_blank" style="background:#25D366;color:white;font-size:0.6rem;padding:2px 6px;border-radius:4px;text-decoration:none;font-weight:700;">WA</a>` : ''}
-                    </div>
-                </div>
-            </div>
-            ` : ''}
+        // Discount as credit if any
+        if (parseFloat(booking.discount) > 0) {
+            totalCredit += parseFloat(booking.discount);
+            folioRows += '<tr><td><div class="folio-desc-title">Promo Discount</div></td><td class="text-right">-</td><td class="text-right">' + fmtR(booking.discount) + '</td></tr>';
+        }
 
-            ${booking.guest_email && booking.guest_email !== '-' ? `
-            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-                <span style="font-size: 1.25rem;">📧</span>
-                <div style="flex: 1;">
-                    <div style="font-size: 0.65rem; color: var(--text-secondary);">Email</div>
-                    <div style="font-size: 0.8rem; color: var(--text-primary);">${booking.guest_email}</div>
-                </div>
-            </div>
-            ` : ''}
-            
-            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-                <span style="font-size: 1.25rem;">🏠</span>
-                <div style="flex: 1;">
-                    <div style="font-size: 0.65rem; color: var(--text-secondary);">Room</div>
-                    <div style="font-size: 0.85rem; color: var(--text-primary); font-weight: 600;">Room ${booking.room_number} - ${booking.room_type}</div>
-                </div>
-            </div>
-            
-            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-                <span style="font-size: 1.25rem;">📅</span>
-                <div style="flex: 1;">
-                    <div style="font-size: 0.65rem; color: var(--text-secondary);">Check-in / Check-out</div>
-                    <div style="font-size: 0.8rem; color: var(--text-primary);">${checkIn} — ${checkOut}</div>
-                    <div style="font-size: 0.7rem; color: var(--text-secondary);">${booking.total_nights} malam • ${booking.adults || 1} dewasa${booking.children > 0 ? ' + ' + booking.children + ' anak' : ''}</div>
-                </div>
-            </div>
+        // Payments as credit
+        if (booking.payments && booking.payments.length > 0) {
+            booking.payments.forEach(function(p) {
+                totalCredit += parseFloat(p.amount || 0);
+                const pd = new Date(p.payment_date).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}) + ' ' + new Date(p.payment_date).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});
+                const pm = (p.payment_method||'cash').replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+                folioRows += '<tr><td><div class="folio-desc-title">' + pm + ' - Payment Recorded</div><div class="folio-desc-sub">' + pd + '</div></td><td class="text-right">-</td><td class="text-right">' + fmtR(p.amount) + '</td></tr>';
+            });
+        }
 
-            ${booking.special_requests ? `
-            <div style="display: flex; align-items: flex-start; gap: 0.5rem; margin-bottom: 0.5rem;">
-                <span style="font-size: 1.25rem;">📝</span>
-                <div style="flex: 1;">
-                    <div style="font-size: 0.65rem; color: var(--text-secondary);">Catatan</div>
-                    <div style="font-size: 0.78rem; color: var(--text-primary); font-style:italic;">${booking.special_requests}</div>
-                </div>
-            </div>
-            ` : ''}
+        document.getElementById('sp-folio-body').innerHTML = folioRows;
+        document.getElementById('sp-total-debit').textContent = fmtR(totalDebit);
+        document.getElementById('sp-total-credit').textContent = fmtR(totalCredit);
 
-            <div style="display: flex; align-items: center; gap: 0.5rem; margin-bottom: 0.5rem;">
-                <span style="font-size: 1.25rem;">🌐</span>
-                <div style="flex: 1;">
-                    <div style="font-size: 0.65rem; color: var(--text-secondary);">Sumber Booking</div>
-                    <div style="font-size: 0.8rem; color: var(--text-primary); font-weight: 600;">${source}</div>
-                </div>
-            </div>
+        // Details tab
+        document.getElementById('sp-booking-code').textContent = booking.booking_code || '-';
+        document.getElementById('sp-detail-source').textContent = displaySource;
+        document.getElementById('sp-detail-checkin').textContent = fmtD(booking.check_in_date);
+        document.getElementById('sp-detail-checkout').textContent = fmtD(booking.check_out_date);
+        document.getElementById('sp-detail-nights').textContent = (booking.total_nights || '-') + ' night(s)';
+        document.getElementById('sp-detail-guests').textContent = (booking.adults||1) + ' adult(s)' + (booking.children > 0 ? ', ' + booking.children + ' child(ren)' : '');
+        document.getElementById('sp-detail-notes').textContent = booking.special_requests || '-';
 
-            <div style="display: flex; align-items: center; gap: 0.5rem;">
-                <span style="font-size: 1.25rem;">🕐</span>
-                <div style="flex: 1;">
-                    <div style="font-size: 0.65rem; color: var(--text-secondary);">Dibooking</div>
-                    <div style="font-size: 0.75rem; color: var(--text-secondary);">${createdAt}</div>
-                </div>
-            </div>
-        </div>
-        
-        <div style="background: rgba(99, 102, 241, 0.05); border-radius: 8px; padding: 0.75rem; margin-top: 0.5rem;">
-            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
-                <div style="font-size: 0.7rem; color: var(--text-secondary); font-weight: 600;">STATUS PEMBAYARAN</div>
-                ${paymentBadge}
-            </div>
-            ${IS_STAFF_VIEW ? '' : `
-            <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
-                <span style="font-size: 0.72rem; color: var(--text-secondary);">Harga/malam:</span>
-                <span style="font-size: 0.8rem; color: var(--text-primary);">Rp ${roomPrice} × ${booking.total_nights}</span>
-            </div>
+        // Extras in details
+        const extSec = document.getElementById('sp-extras-section');
+        if (booking.extras && booking.extras.length > 0) {
+            extSec.style.display = '';
+            document.getElementById('sp-extras-list').innerHTML = booking.extras.map(function(ex) {
+                return '<div class="sp-detail-row"><span>' + ex.item_name + ' (' + ex.quantity + 'x)</span><strong>Rp' + new Intl.NumberFormat('id-ID').format(ex.total_price) + '</strong></div>';
+            }).join('');
+        } else { extSec.style.display = 'none'; }
 
-            ${parseFloat(booking.discount) > 0 ? `
-            <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
-                <span style="font-size: 0.72rem; color: var(--text-secondary);">Diskon:</span>
-                <span style="font-size: 0.8rem; color: #f59e0b; font-weight:600;">-Rp ${discountAmt}</span>
-            </div>
-            ` : ''}
+        // Room tab
+        document.getElementById('sp-room-type').textContent = booking.room_type || '-';
+        document.getElementById('sp-room-number').textContent = 'Room ' + (booking.room_number || '-');
+        document.getElementById('sp-room-price-val').textContent = fmtR(booking.room_price || booking.base_price || 0);
 
-            ${booking.extras && booking.extras.length > 0 ? `
-            <div style="margin:0.25rem 0; padding:0.35rem 0; border-top:1px dashed rgba(99,102,241,0.15);">
-                <div style="font-size:0.65rem;color:var(--text-secondary);font-weight:600;margin-bottom:3px;">EXTRAS</div>
-                ${booking.extras.map(ex => `<div style="display:flex;justify-content:space-between;font-size:0.72rem;padding:1px 0;">
-                    <span style="color:var(--text-secondary);">${ex.item_name} (${ex.quantity}x)</span>
-                    <span style="color:#6366f1;font-weight:600;">+Rp ${new Intl.NumberFormat('id-ID').format(ex.total_price)}</span>
-                </div>`).join('')}
-            </div>
-            ` : ''}
+        // Action buttons
+        let actions = '';
+        if (booking.payment_status !== 'paid') {
+            actions += '<button class="sp-action-btn success" onclick="openBookingPaymentModal()">💳 Payment</button>';
+        }
+        if (booking.status === 'confirmed' || booking.status === 'pending') {
+            actions += '<button class="sp-action-btn primary" onclick="quickViewCheckIn()">🏨 Check-in</button>';
+            actions += '<button class="sp-action-btn warning" onclick="closeBookingQuickView(); openEditReservationModal(' + booking.id + ')">✏️ Edit</button>';
+            actions += '<button class="sp-action-btn danger" onclick="quickViewDeleteBooking()">🗑️ Delete</button>';
+        } else if (booking.status === 'checked_in') {
+            actions += '<button class="sp-action-btn danger" onclick="quickViewCheckOut()">📤 Check-out</button>';
+            actions += '<button class="sp-action-btn" onclick="quickViewMoveRoom()">🔄 Move</button>';
+            actions += '<button class="sp-action-btn warning" onclick="closeBookingQuickView(); openEditReservationModal(' + booking.id + ')">✏️ Edit</button>';
+        } else if (booking.status === 'checked_out') {
+            actions += '<button class="sp-action-btn warning" onclick="closeBookingQuickView(); openEditReservationModal(' + booking.id + ')">✏️ Edit</button>';
+        }
+        document.getElementById('sp-actions').innerHTML = actions;
 
-            <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem; padding-top:0.25rem; border-top:1px solid rgba(99,102,241,0.1);">
-                <span style="font-size: 0.75rem; color: var(--text-secondary); font-weight:600;">Total:</span>
-                <span style="font-size: 0.85rem; font-weight: 700; color: var(--text-primary);">Rp ${totalPrice}</span>
-            </div>
+        // Reset to folio tab
+        switchSPTab('folio');
 
-            <div style="display: flex; justify-content: space-between; margin-bottom: 0.25rem;">
-                <span style="font-size: 0.75rem; color: var(--text-secondary);">Sudah Bayar:</span>
-                <span style="font-size: 0.85rem; font-weight: 700; color: #10b981;">Rp ${paidAmount}</span>
-            </div>
+        // Show panel
+        panel.classList.add('active');
+    }
 
-            ${booking.payment_status !== 'paid' ? `
-            <div style="display: flex; justify-content: space-between; padding-top: 0.25rem; border-top: 1px dashed rgba(99, 102, 241, 0.3);">
-                <span style="font-size: 0.75rem; color: var(--text-secondary);">Sisa:</span>
-                <span style="font-size: 0.9rem; font-weight: 800; color: #ef4444;">Rp ${remaining}</span>
-            </div>
-            ` : ''}
-
-            ${paymentRows ? `
-            <div style="margin-top:0.5rem; padding-top:0.5rem; border-top:1px solid rgba(99,102,241,0.15);">
-                <div style="font-size:0.65rem;color:var(--text-secondary);font-weight:600;margin-bottom:3px;">RIWAYAT PEMBAYARAN</div>
-                ${paymentRows}
-            </div>
-            ` : ''}
-            `}
-        </div>
-
-        <div class="qv-actions">
-            ${actionButtons}
-        </div>
-    `;
-
-        console.log('✅ Content populated');
-
-        // Add active class to trigger CSS display: flex !important
-        modal.classList.add('active');
-        console.log('✅ Active class added - modal should be visible now');
-
-        // Log for debugging
-        console.log({
-            modalId: modal.id,
-            hasActiveClass: modal.classList.contains('active'),
-            computedDisplay: window.getComputedStyle(modal).display,
-            zIndex: window.getComputedStyle(modal).zIndex
-        });
+    window.switchSPTab = function switchSPTab(tab) {
+        document.querySelectorAll('.sp-tab').forEach(function(t) { t.classList.remove('active'); });
+        document.querySelectorAll('.sp-tab-content').forEach(function(c) { c.classList.remove('active'); });
+        document.querySelector('.sp-tab[onclick*="' + tab + '"]').classList.add('active');
+        document.getElementById('sp-tab-' + tab).classList.add('active');
     }
 
     window.closeBookingQuickView = function closeBookingQuickView() {
         const modal = document.getElementById('bookingQuickView');
         modal.classList.remove('active');
-        modal.style.display = '';
-        modal.style.position = '';
-        modal.style.zIndex = '';
     }
 
     window.showBookingDetailsModal = function showBookingDetailsModal(booking) {
@@ -3139,7 +2980,9 @@ include '../../includes/header.php';
 
                 fetch('<?php echo BASE_URL; ?>/api/checkin-guest.php', {
                         method: 'POST',
-                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        headers: {
+                            'Content-Type': 'application/x-www-form-urlencoded'
+                        },
                         credentials: 'include',
                         body: 'booking_id=' + bookingId + '&pay_now=0&create_invoice=0'
                     })
@@ -3759,7 +3602,11 @@ include '../../includes/header.php';
 
         // If clicking different room or no first click → set as first click
         clearFirstClick();
-        firstClick = { date, roomId, element };
+        firstClick = {
+            date,
+            roomId,
+            element
+        };
 
         // Highlight the clicked cell
         element.style.background = 'rgba(99, 102, 241, 0.25)';
@@ -3794,12 +3641,14 @@ include '../../includes/header.php';
         document.body.appendChild(hint);
 
         // Auto-dismiss after 8s
-        setTimeout(() => { if (hint.parentNode) hint.remove(); }, 8000);
+        setTimeout(() => {
+            if (hint.parentNode) hint.remove();
+        }, 8000);
     }
 
     function formatDateShort(dateStr) {
         const d = new Date(dateStr);
-        const months = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'];
+        const months = ['Jan', 'Feb', 'Mar', 'Apr', 'Mei', 'Jun', 'Jul', 'Ags', 'Sep', 'Okt', 'Nov', 'Des'];
         return d.getDate() + ' ' + months[d.getMonth()] + ' ' + d.getFullYear();
     }
 
@@ -4816,6 +4665,71 @@ include '../../includes/header.php';
     document.addEventListener('DOMContentLoaded', function() {
         console.log('🚀 DOMContentLoaded fired for calendar.php');
 
+        // ========================================
+        // SEARCH RESERVATION FUNCTIONALITY
+        // ========================================
+        const searchInput = document.getElementById('searchReservation');
+        const searchResults = document.getElementById('searchResults');
+        const searchClearBtn = document.getElementById('searchClearBtn');
+        let searchTimeout = null;
+
+        if (searchInput) {
+            searchInput.addEventListener('input', function() {
+                const q = this.value.trim();
+                searchClearBtn.style.display = q.length > 0 ? '' : 'none';
+
+                if (searchTimeout) clearTimeout(searchTimeout);
+                if (q.length < 2) { searchResults.style.display = 'none'; return; }
+
+                searchTimeout = setTimeout(function() {
+                    fetch('../../api/search-bookings.php?q=' + encodeURIComponent(q))
+                        .then(r => r.json())
+                        .then(function(data) {
+                            if (!data.success || !data.results.length) {
+                                searchResults.innerHTML = '<div class="search-no-result">No results found</div>';
+                                searchResults.style.display = 'block';
+                                return;
+                            }
+                            let html = '';
+                            data.results.forEach(function(r) {
+                                const initials = (r.guest_name||'G').split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
+                                const checkin = new Date(r.check_in_date).toLocaleDateString('id-ID',{day:'numeric',month:'short'});
+                                const checkout = new Date(r.check_out_date).toLocaleDateString('id-ID',{day:'numeric',month:'short',year:'numeric'});
+                                html += '<div class="search-result-item" onclick="openBookingFromSearch(' + r.id + ')">'
+                                    + '<div class="sr-avatar">' + initials + '</div>'
+                                    + '<div class="sr-info"><div class="sr-name">' + r.guest_name + '</div>'
+                                    + '<div class="sr-meta">Room ' + (r.room_number||'-') + ' • ' + checkin + ' - ' + checkout + ' • ' + (r.booking_code||'') + '</div></div>'
+                                    + '<span class="sr-status ' + r.status + '">' + r.status.replace('_',' ') + '</span>'
+                                    + '</div>';
+                            });
+                            searchResults.innerHTML = html;
+                            searchResults.style.display = 'block';
+                        })
+                        .catch(function() { searchResults.style.display = 'none'; });
+                }, 300);
+            });
+
+            // Close dropdown on outside click
+            document.addEventListener('click', function(e) {
+                if (!e.target.closest('.search-reservation-bar')) {
+                    searchResults.style.display = 'none';
+                }
+            });
+        }
+
+        window.openBookingFromSearch = function(bookingId) {
+            searchResults.style.display = 'none';
+            searchInput.value = '';
+            searchClearBtn.style.display = 'none';
+            viewBooking(bookingId, new Event('click'));
+        };
+
+        window.clearSearch = function() {
+            searchInput.value = '';
+            searchClearBtn.style.display = 'none';
+            searchResults.style.display = 'none';
+        };
+
         try {
             // ========================================
             // 1. DRAG SCROLL IMPLEMENTATION (PRIORITY)
@@ -5735,12 +5649,125 @@ include '../../includes/header.php';
     <div class="modal-content modal-content-medium"></div>
 </div>
 
-<!-- Quick View Modal - Compact & Elegant -->
-<div id="bookingQuickView" class="modal-overlay">
-    <div class="quick-view-popup">
-        <button class="quick-view-close" onclick="closeBookingQuickView()">×</button>
-        <div id="qv-content">
-            <!-- Content will be populated by JavaScript -->
+<!-- Guest Detail Side Panel (Cloudbed-style) -->
+<div id="bookingQuickView" class="guest-side-panel-overlay" onclick="if(event.target===this)closeBookingQuickView()">
+    <div class="guest-side-panel">
+        <div class="side-panel-header">
+            <div class="side-panel-header-left">
+                <div class="guest-avatar" id="sp-avatar">MS</div>
+                <div class="guest-header-info">
+                    <h2 id="sp-guest-name">Guest Name</h2>
+                    <p id="sp-guest-phone" class="guest-phone-text">-</p>
+                </div>
+            </div>
+            <div class="side-panel-header-right">
+                <a id="sp-wa-link" href="#" target="_blank" class="sp-icon-btn" title="WhatsApp" style="display:none;">
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.625.846 5.059 2.284 7.034L.789 23.468l4.584-1.454A11.935 11.935 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.75c-2.115 0-4.09-.654-5.712-1.77l-.41-.262-2.717.862.724-2.632-.287-.446A9.714 9.714 0 012.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75z"/></svg>
+                </a>
+                <button class="sp-icon-btn" onclick="closeBookingQuickView()" title="Close">×</button>
+            </div>
+        </div>
+
+        <!-- Status Badge -->
+        <div class="sp-status-row">
+            <span class="sp-status-badge" id="sp-status">● Confirmed</span>
+            <span class="sp-source-badge" id="sp-source">Walk-In</span>
+        </div>
+
+        <!-- Booking Timeline -->
+        <div class="sp-timeline">
+            <div class="sp-timeline-track">
+                <div class="sp-timeline-progress" id="sp-timeline-progress"></div>
+            </div>
+            <div class="sp-timeline-labels">
+                <div class="sp-timeline-point">
+                    <span class="sp-timeline-label">Booked</span>
+                    <span class="sp-timeline-date" id="sp-booked-date">-</span>
+                </div>
+                <div class="sp-timeline-point">
+                    <span class="sp-timeline-label">Check-in</span>
+                    <span class="sp-timeline-date" id="sp-checkin-date">-</span>
+                </div>
+                <div class="sp-timeline-point">
+                    <span class="sp-timeline-label">Check-out</span>
+                    <span class="sp-timeline-date" id="sp-checkout-date">-</span>
+                </div>
+            </div>
+        </div>
+
+        <!-- Guest Info Row -->
+        <div class="sp-guest-info-row">
+            <div class="sp-info-icon" title="Adults"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> <span id="sp-adults">1</span></div>
+            <div class="sp-info-icon" title="Children"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="7" r="4"/><path d="M5.5 21v-2a4 4 0 0 1 3-3.87M18.5 21v-2a4 4 0 0 0-3-3.87"/></svg> <span id="sp-children">0</span></div>
+        </div>
+
+        <!-- Tabs -->
+        <div class="sp-tabs">
+            <button class="sp-tab active" onclick="switchSPTab('folio')">Folio</button>
+            <button class="sp-tab" onclick="switchSPTab('details')">Details</button>
+            <button class="sp-tab" onclick="switchSPTab('room')">Room</button>
+        </div>
+
+        <!-- Tab Content: Folio -->
+        <div class="sp-tab-content active" id="sp-tab-folio">
+            <div class="sp-balance-box">
+                <div class="sp-balance-label">Balance due</div>
+                <div class="sp-balance-amount" id="sp-balance">Rp0</div>
+            </div>
+            <table class="sp-folio-table">
+                <thead>
+                    <tr>
+                        <th>Description</th>
+                        <th class="text-right">Debit</th>
+                        <th class="text-right">Credit</th>
+                    </tr>
+                </thead>
+                <tbody id="sp-folio-body">
+                    <!-- Populated by JS -->
+                </tbody>
+                <tfoot>
+                    <tr class="sp-folio-total">
+                        <td>Total</td>
+                        <td class="text-right" id="sp-total-debit">-</td>
+                        <td class="text-right" id="sp-total-credit">-</td>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+
+        <!-- Tab Content: Details -->
+        <div class="sp-tab-content" id="sp-tab-details">
+            <div class="sp-detail-section">
+                <h4>Reservation Details</h4>
+                <div class="sp-detail-row"><span>Booking Code</span><strong id="sp-booking-code">-</strong></div>
+                <div class="sp-detail-row"><span>Booking Source</span><strong id="sp-detail-source">-</strong></div>
+                <div class="sp-detail-row"><span>Check-in</span><strong id="sp-detail-checkin">-</strong></div>
+                <div class="sp-detail-row"><span>Check-out</span><strong id="sp-detail-checkout">-</strong></div>
+                <div class="sp-detail-row"><span>Nights</span><strong id="sp-detail-nights">-</strong></div>
+                <div class="sp-detail-row"><span>Guests</span><strong id="sp-detail-guests">-</strong></div>
+                <div class="sp-detail-row"><span>Special Request</span><strong id="sp-detail-notes" style="font-style:italic;font-weight:400;">-</strong></div>
+            </div>
+            <div class="sp-detail-section" id="sp-extras-section" style="display:none;">
+                <h4>Extras</h4>
+                <div id="sp-extras-list"></div>
+            </div>
+        </div>
+
+        <!-- Tab Content: Room -->
+        <div class="sp-tab-content" id="sp-tab-room">
+            <div class="sp-room-card">
+                <div class="sp-room-type" id="sp-room-type">-</div>
+                <div class="sp-room-number" id="sp-room-number">Room -</div>
+                <div class="sp-room-price">
+                    <span>Price/night:</span>
+                    <strong id="sp-room-price-val">-</strong>
+                </div>
+            </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="sp-actions" id="sp-actions">
+            <!-- Populated by JS -->
         </div>
     </div>
 </div>
@@ -5914,115 +5941,401 @@ include '../../includes/header.php';
         pointer-events: auto;
     }
 
-    /* Quick View Popup - Simple & Elegant */
-    .quick-view-popup {
-        background: white;
-        border-radius: 12px;
-        width: 90%;
-        max-width: 380px;
-        padding: 1.25rem;
+    /* ========== SEARCH BAR ========== */
+    .search-reservation-bar {
         position: relative;
-        box-shadow: 0 20px 60px rgba(0, 0, 0, 0.25), 0 0 0 1px rgba(99, 102, 241, 0.1);
-        animation: quickViewIn 0.2s cubic-bezier(0.34, 1.56, 0.64, 1);
-        max-height: 90vh;
-        overflow-y: auto;
+        margin-bottom: 0.4rem;
     }
-
-    @keyframes quickViewIn {
-        from {
-            transform: scale(0.9);
-            opacity: 0;
-        }
-
-        to {
-            transform: scale(1);
-            opacity: 1;
-        }
+    .search-input-wrapper {
+        display: flex;
+        align-items: center;
+        background: #fff;
+        border: 1.5px solid #cbd5e1;
+        border-radius: 10px;
+        padding: 0.5rem 0.85rem;
+        gap: 0.5rem;
+        transition: border-color 0.2s, box-shadow 0.2s;
     }
-
-    .quick-view-close {
-        position: absolute;
-        top: 0.75rem;
-        right: 0.75rem;
-        background: rgba(239, 68, 68, 0.1);
+    .search-input-wrapper:focus-within {
+        border-color: #6366f1;
+        box-shadow: 0 0 0 3px rgba(99,102,241,0.12);
+    }
+    .search-icon { color: #94a3b8; flex-shrink: 0; }
+    .search-input {
         border: none;
-        width: 32px;
-        height: 32px;
-        border-radius: 50%;
-        font-size: 1.5rem;
+        outline: none;
+        font-size: 0.9rem;
+        color: #334155;
+        flex: 1;
+        background: transparent;
+        font-weight: 500;
+    }
+    .search-input::placeholder { color: #94a3b8; font-weight: 400; }
+    .search-clear-btn {
+        background: none;
+        border: none;
+        font-size: 1.3rem;
+        color: #94a3b8;
         cursor: pointer;
-        color: #ef4444;
+        line-height: 1;
+        padding: 0 2px;
+    }
+    .search-clear-btn:hover { color: #ef4444; }
+
+    .search-results-dropdown {
+        position: absolute;
+        top: 100%;
+        left: 0;
+        right: 0;
+        background: #fff;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+        max-height: 380px;
+        overflow-y: auto;
+        z-index: 999;
+        margin-top: 4px;
+    }
+    .search-result-item {
+        display: flex;
+        align-items: center;
+        padding: 0.65rem 0.85rem;
+        cursor: pointer;
+        border-bottom: 1px solid #f1f5f9;
+        gap: 0.65rem;
+        transition: background 0.15s;
+    }
+    .search-result-item:last-child { border-bottom: none; }
+    .search-result-item:hover { background: #f8fafc; }
+    .sr-avatar {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #6366f1, #8b5cf6);
+        color: #fff;
         display: flex;
         align-items: center;
         justify-content: center;
-        transition: all 0.2s;
-        line-height: 1;
-        font-weight: 300;
+        font-size: 0.7rem;
+        font-weight: 800;
+        flex-shrink: 0;
+        letter-spacing: 0.5px;
     }
-
-    .quick-view-close:hover {
-        background: #ef4444;
-        color: white;
-        transform: rotate(90deg);
+    .sr-info { flex: 1; min-width: 0; }
+    .sr-name { font-weight: 700; font-size: 0.85rem; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .sr-meta { font-size: 0.72rem; color: #64748b; margin-top: 1px; }
+    .sr-status {
+        font-size: 0.65rem;
+        font-weight: 700;
+        padding: 2px 8px;
+        border-radius: 4px;
+        text-transform: uppercase;
+        flex-shrink: 0;
     }
+    .sr-status.checked_in { background: #dcfce7; color: #16a34a; }
+    .sr-status.confirmed { background: #dbeafe; color: #2563eb; }
+    .sr-status.pending { background: #fef3c7; color: #d97706; }
+    .sr-status.checked_out { background: #f1f5f9; color: #64748b; }
+    .sr-status.cancelled { background: #fce4ec; color: #e53935; }
+    .search-no-result { text-align: center; padding: 1.5rem; color: #94a3b8; font-size: 0.85rem; }
 
-    .qv-actions {
-        display: flex;
+    /* ========== GUEST SIDE PANEL (Cloudbed-style) ========== */
+    .guest-side-panel-overlay {
+        display: none;
+        position: fixed;
+        top: 0; left: 0; right: 0; bottom: 0;
+        background: rgba(0,0,0,0.35);
+        backdrop-filter: blur(2px);
+        z-index: 10000;
         justify-content: flex-end;
-        gap: 0.5rem;
-        margin-top: 1rem;
-        flex-wrap: wrap;
+    }
+    .guest-side-panel-overlay.active {
+        display: flex !important;
+    }
+    .guest-side-panel {
+        width: 480px;
+        max-width: 95vw;
+        height: 100vh;
+        background: #fff;
+        box-shadow: -8px 0 40px rgba(0,0,0,0.15);
+        overflow-y: auto;
+        padding: 1.5rem;
+        animation: slidePanelIn 0.25s ease-out;
+        display: flex;
+        flex-direction: column;
+    }
+    @keyframes slidePanelIn {
+        from { transform: translateX(100%); opacity: 0; }
+        to { transform: translateX(0); opacity: 1; }
     }
 
-    .qv-btn {
-        border: 1px solid #ddd;
-        background: white;
-        color: #333;
-        padding: 0.45rem 0.75rem;
+    .side-panel-header {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        margin-bottom: 0.75rem;
+    }
+    .side-panel-header-left {
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+    }
+    .guest-avatar {
+        width: 48px;
+        height: 48px;
+        border-radius: 50%;
+        background: linear-gradient(135deg, #6366f1, #8b5cf6);
+        color: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1rem;
+        font-weight: 800;
+        letter-spacing: 0.5px;
+        flex-shrink: 0;
+    }
+    .guest-header-info h2 {
+        margin: 0;
+        font-size: 1.15rem;
+        font-weight: 800;
+        color: #1e293b;
+        line-height: 1.2;
+    }
+    .guest-phone-text {
+        margin: 2px 0 0;
+        font-size: 0.8rem;
+        color: #64748b;
+    }
+    .side-panel-header-right {
+        display: flex;
+        align-items: center;
+        gap: 0.35rem;
+    }
+    .sp-icon-btn {
+        width: 36px;
+        height: 36px;
+        border-radius: 50%;
+        border: 1px solid #e2e8f0;
+        background: #fff;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        font-size: 1.3rem;
+        color: #64748b;
+        transition: all 0.2s;
+        text-decoration: none;
+    }
+    .sp-icon-btn:hover { background: #f1f5f9; border-color: #cbd5e1; }
+
+    .sp-status-row {
+        display: flex;
+        align-items: center;
+        gap: 0.5rem;
+        margin-bottom: 1rem;
+    }
+    .sp-status-badge {
+        font-size: 0.78rem;
+        font-weight: 700;
+        padding: 4px 12px;
+        border-radius: 20px;
+        background: #dbeafe;
+        color: #2563eb;
+    }
+    .sp-source-badge {
+        font-size: 0.72rem;
+        font-weight: 600;
+        padding: 4px 10px;
+        border-radius: 20px;
+        background: #f1f5f9;
+        color: #475569;
+    }
+
+    /* Timeline */
+    .sp-timeline { margin-bottom: 1rem; padding: 0.75rem; background: #f8fafc; border-radius: 10px; }
+    .sp-timeline-track {
+        height: 4px;
+        background: #e2e8f0;
+        border-radius: 2px;
+        margin-bottom: 0.5rem;
+        position: relative;
+    }
+    .sp-timeline-progress {
+        height: 100%;
+        background: linear-gradient(90deg, #6366f1, #8b5cf6);
+        border-radius: 2px;
+        transition: width 0.3s;
+    }
+    .sp-timeline-labels {
+        display: flex;
+        justify-content: space-between;
+    }
+    .sp-timeline-point { text-align: center; }
+    .sp-timeline-label { display: block; font-size: 0.68rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; }
+    .sp-timeline-date { display: block; font-size: 0.75rem; color: #334155; font-weight: 700; }
+
+    /* Guest info row */
+    .sp-guest-info-row {
+        display: flex;
+        align-items: center;
+        gap: 1rem;
+        margin-bottom: 1rem;
+        padding: 0.5rem 0.75rem;
+        background: #f8fafc;
         border-radius: 8px;
-        font-size: 0.75rem;
+    }
+    .sp-info-icon {
+        display: flex;
+        align-items: center;
+        gap: 4px;
+        font-size: 0.82rem;
+        font-weight: 700;
+        color: #475569;
+    }
+    .sp-info-icon svg { color: #6366f1; }
+
+    /* Tabs */
+    .sp-tabs {
+        display: flex;
+        border-bottom: 2px solid #e2e8f0;
+        margin-bottom: 0;
+    }
+    .sp-tab {
+        padding: 0.5rem 1rem;
+        border: none;
+        background: none;
+        font-size: 0.82rem;
+        font-weight: 600;
+        color: #94a3b8;
+        cursor: pointer;
+        border-bottom: 2px solid transparent;
+        margin-bottom: -2px;
+        transition: all 0.2s;
+    }
+    .sp-tab:hover { color: #475569; }
+    .sp-tab.active {
+        color: #1e3a5f;
+        border-bottom-color: #1e3a5f;
+    }
+
+    /* Tab content */
+    .sp-tab-content { display: none; padding: 1rem 0; flex: 1; }
+    .sp-tab-content.active { display: block; }
+
+    /* Balance box */
+    .sp-balance-box {
+        display: flex;
+        align-items: center;
+        justify-content: space-between;
+        padding: 0.65rem 0.85rem;
+        background: #f8fafc;
+        border-radius: 8px;
+        margin-bottom: 0.75rem;
+        border: 1px solid #e2e8f0;
+    }
+    .sp-balance-label { font-size: 0.82rem; color: #64748b; font-weight: 600; }
+    .sp-balance-amount { font-size: 1.05rem; font-weight: 800; color: #1e293b; }
+
+    /* Folio table */
+    .sp-folio-table {
+        width: 100%;
+        border-collapse: collapse;
+        font-size: 0.8rem;
+    }
+    .sp-folio-table th {
+        text-align: left;
+        padding: 0.5rem 0.4rem;
+        font-size: 0.72rem;
+        font-weight: 700;
+        color: #64748b;
+        text-transform: uppercase;
+        border-bottom: 2px solid #e2e8f0;
+    }
+    .sp-folio-table td {
+        padding: 0.55rem 0.4rem;
+        border-bottom: 1px solid #f1f5f9;
+        color: #334155;
+        vertical-align: top;
+    }
+    .sp-folio-table .text-right { text-align: right; }
+    .sp-folio-table .folio-desc-title { font-weight: 600; font-size: 0.78rem; }
+    .sp-folio-table .folio-desc-sub { font-size: 0.7rem; color: #94a3b8; margin-top: 1px; }
+    .sp-folio-total td {
+        font-weight: 700;
+        border-top: 2px solid #cbd5e1;
+        padding-top: 0.6rem;
+        color: #1e293b;
+    }
+
+    /* Detail section */
+    .sp-detail-section { margin-bottom: 1rem; }
+    .sp-detail-section h4 {
+        font-size: 0.82rem;
+        font-weight: 700;
+        color: #475569;
+        margin: 0 0 0.5rem;
+        padding-bottom: 0.35rem;
+        border-bottom: 1px solid #e2e8f0;
+    }
+    .sp-detail-row {
+        display: flex;
+        justify-content: space-between;
+        padding: 0.35rem 0;
+        font-size: 0.8rem;
+    }
+    .sp-detail-row span { color: #64748b; }
+    .sp-detail-row strong { color: #1e293b; }
+
+    /* Room card */
+    .sp-room-card {
+        background: #f8fafc;
+        border: 1px solid #e2e8f0;
+        border-radius: 10px;
+        padding: 1rem;
+        text-align: center;
+    }
+    .sp-room-type { font-size: 0.78rem; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
+    .sp-room-number { font-size: 1.3rem; font-weight: 900; color: #1e3a5f; margin: 0.25rem 0; }
+    .sp-room-price { font-size: 0.82rem; color: #64748b; }
+    .sp-room-price strong { color: #6366f1; }
+
+    /* Action buttons */
+    .sp-actions {
+        display: flex;
+        gap: 0.5rem;
+        flex-wrap: wrap;
+        padding-top: 0.75rem;
+        border-top: 1px solid #e2e8f0;
+        margin-top: auto;
+    }
+    .sp-action-btn {
+        flex: 1;
+        min-width: 80px;
+        padding: 0.55rem 0.5rem;
+        border: 1px solid #e2e8f0;
+        border-radius: 8px;
+        font-size: 0.78rem;
         font-weight: 700;
         cursor: pointer;
-        transition: all 0.2s ease;
+        transition: all 0.2s;
+        background: #fff;
+        color: #334155;
+        text-align: center;
     }
+    .sp-action-btn:hover { background: #f1f5f9; }
+    .sp-action-btn.primary { background: #6366f1; color: #fff; border-color: #6366f1; }
+    .sp-action-btn.primary:hover { background: #4f46e5; }
+    .sp-action-btn.success { background: #10b981; color: #fff; border-color: #10b981; }
+    .sp-action-btn.success:hover { background: #059669; }
+    .sp-action-btn.danger { background: #ef4444; color: #fff; border-color: #ef4444; }
+    .sp-action-btn.danger:hover { background: #dc2626; }
+    .sp-action-btn.warning { background: #f59e0b; color: #fff; border-color: #f59e0b; }
+    .sp-action-btn.warning:hover { background: #d97706; }
 
-    .qv-btn:hover {
-        background: #f3f4f6;
-        border-color: #999;
-    }
-
-    .qv-pay-btn {
-        background: #10b981;
-        color: white;
-        border-color: #10b981;
-    }
-
-    .qv-pay-btn:hover {
-        background: #059669;
-        border-color: #059669;
-    }
-
-    .qv-checkin-btn {
-        background: #3b82f6;
-        color: white;
-        border-color: #3b82f6;
-    }
-
-    .qv-checkin-btn:hover {
-        background: #2563eb;
-        border-color: #2563eb;
-    }
-
-    .qv-move-btn {
-        background: #8b5cf6;
-        color: white;
-        border-color: #8b5cf6;
-    }
-
-    .qv-move-btn:hover {
-        background: #7c3aed;
-        border-color: #7c3aed;
-    }
+    .guest-side-panel::-webkit-scrollbar { width: 6px; }
+    .guest-side-panel::-webkit-scrollbar-track { background: rgba(99,102,241,0.05); }
+    .guest-side-panel::-webkit-scrollbar-thumb { background: rgba(99,102,241,0.2); border-radius: 3px; }
+    .guest-side-panel::-webkit-scrollbar-thumb:hover { background: rgba(99,102,241,0.4); }
 
     .payment-modal {
         background: white;
@@ -6091,24 +6404,7 @@ include '../../includes/header.php';
         margin-top: 0.75rem;
     }
 
-    /* Scrollbar styling for popup */
-    .quick-view-popup::-webkit-scrollbar {
-        width: 6px;
-    }
-
-    .quick-view-popup::-webkit-scrollbar-track {
-        background: rgba(99, 102, 241, 0.05);
-        border-radius: 3px;
-    }
-
-    .quick-view-popup::-webkit-scrollbar-thumb {
-        background: rgba(99, 102, 241, 0.3);
-        border-radius: 3px;
-    }
-
-    .quick-view-popup::-webkit-scrollbar-thumb:hover {
-        background: rgba(99, 102, 241, 0.5);
-    }
+    /* Scrollbar styling (side panel handled above) */
 </style>
 
 <!-- EXTEND STAY MODAL -->
