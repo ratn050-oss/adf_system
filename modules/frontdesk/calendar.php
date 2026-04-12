@@ -148,6 +148,46 @@ foreach ($bookings as $booking) {
 }
 
 // ============================================
+// CALCULATE AVAILABILITY PER DATE
+// ============================================
+$totalRoomCount = count($rooms);
+$availPerDate = [];
+$availPerTypeDate = []; // [typeName][date] => available count
+$roomCountPerType = [];
+foreach ($rooms as $room) {
+    $tn = $room['type_name'];
+    $roomCountPerType[$tn] = ($roomCountPerType[$tn] ?? 0) + 1;
+}
+foreach ($dates as $date) {
+    $bookedCount = 0;
+    $bookedPerType = [];
+    $dt = strtotime($date);
+    foreach ($bookingMatrix as $roomId => $roomBookings) {
+        foreach ($roomBookings as $bk) {
+            if ($bk['status'] === 'checked_out') continue;
+            $ci = strtotime($bk['check_in_date']);
+            $co = strtotime($bk['check_out_date']);
+            if ($dt >= $ci && $dt < $co) {
+                $bookedCount++;
+                // Find room type
+                foreach ($rooms as $rm) {
+                    if ($rm['id'] == $roomId) {
+                        $tn = $rm['type_name'];
+                        $bookedPerType[$tn] = ($bookedPerType[$tn] ?? 0) + 1;
+                        break;
+                    }
+                }
+                break;
+            }
+        }
+    }
+    $availPerDate[$date] = $totalRoomCount - $bookedCount;
+    foreach ($roomCountPerType as $tn => $cnt) {
+        $availPerTypeDate[$tn][$date] = $cnt - ($bookedPerType[$tn] ?? 0);
+    }
+}
+
+// ============================================
 // BOOKING COLORS - SIMPLE: Default vs Checked-In vs Checked-Out
 // ============================================
 $defaultColor = ['bg' => '#3b82f6', 'text' => 'white'];        // Blue for pending/confirmed bookings
@@ -538,9 +578,9 @@ include '../../includes/header.php';
         display: flex;
         align-items: center;
         justify-content: center;
-        min-height: 28px;
-        min-width: 95px;
-        max-width: 95px;
+        min-height: 40px;
+        min-width: 85px;
+        max-width: 85px;
     }
 
     /* Light theme - better header visibility */
@@ -565,13 +605,18 @@ include '../../includes/header.php';
         background: linear-gradient(180deg, #f8fafc, #f1f5f9);
         border-right: 1px solid #e2e8f0;
         border-bottom: 2px solid #cbd5e1;
-        padding: 0.15rem 0.15rem;
+        padding: 0.2rem 0.1rem;
         text-align: center;
         font-weight: 700;
         font-size: 0.6rem;
         color: #334155;
         position: relative;
-        min-height: 22px;
+        min-height: 40px;
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        justify-content: center;
+        gap: 1px;
     }
 
     /* Light theme - visible borders */
@@ -624,12 +669,40 @@ include '../../includes/header.php';
     }
 
     .grid-header-date-day {
-        display: inline;
-        font-size: 0.65rem;
+        display: block;
+        font-size: 0.6rem;
         text-transform: uppercase;
-        font-weight: 600;
+        font-weight: 700;
         letter-spacing: 0.3px;
+        color: #334155;
+        line-height: 1;
+    }
+
+    .grid-header-date-occ {
+        display: block;
+        font-size: 0.5rem;
+        font-weight: 600;
         color: #64748b;
+        line-height: 1;
+    }
+
+    .grid-header-date-avail {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 0.55rem;
+        font-weight: 800;
+        color: #10b981;
+        background: rgba(16, 185, 129, 0.1);
+        border-radius: 50%;
+        width: 16px;
+        height: 16px;
+        line-height: 1;
+    }
+
+    .grid-header-date-avail.full {
+        color: #ef4444;
+        background: rgba(239, 68, 68, 0.1);
     }
 
     .grid-header-date-num {
@@ -871,13 +944,29 @@ include '../../includes/header.php';
         border-bottom: 1px solid #a5b4fc;
         min-height: 26px;
         display: flex;
+        flex-direction: column;
         align-items: center;
         justify-content: center;
-        font-size: 0.72rem;
+        gap: 0;
+        font-size: 0.55rem;
+        font-weight: 700;
+        color: #4338ca;
+        letter-spacing: 0.2px;
+    }
+
+    .type-avail-count {
+        font-size: 0.6rem;
         font-weight: 800;
         color: #4338ca;
-        letter-spacing: 0.3px;
-        font-family: 'JetBrains Mono', 'Consolas', monospace;
+        line-height: 1.1;
+    }
+
+    .type-price-text {
+        font-size: 0.48rem;
+        font-weight: 600;
+        color: #6366f1;
+        line-height: 1.1;
+        white-space: nowrap;
     }
 
     body[data-theme="dark"] .grid-type-price-cell {
@@ -2270,14 +2359,14 @@ include '../../includes/header.php';
                 <!-- Header Row -->
                 <div class="calendar-grid-header">
                     <div class="grid-header-room">ROOMS</div>
-                    <?php foreach ($dates as $date): ?>
+                    <?php foreach ($dates as $date):
+                        $avail = $availPerDate[$date] ?? 0;
+                        $occPct = $totalRoomCount > 0 ? round((($totalRoomCount - $avail) / $totalRoomCount) * 100, 1) : 0;
+                    ?>
                         <div class="grid-header-date<?php echo ($date === date('Y-m-d')) ? ' today' : ''; ?>">
-                            <span class="grid-header-date-day">
-                                <?php echo date('D', strtotime($date)); ?>
-                            </span>
-                            <span class="grid-header-date-num">
-                                <?php echo date('d', strtotime($date)); ?>
-                            </span>
+                            <span class="grid-header-date-day"><?php echo strtoupper(substr(date('D', strtotime($date)), 0, 3)); ?> <?php echo date('d', strtotime($date)); ?></span>
+                            <span class="grid-header-date-occ"><?php echo number_format($occPct, 0); ?>%</span>
+                            <span class="grid-header-date-avail <?php echo $avail === 0 ? 'full' : ''; ?>"><?php echo $avail; ?></span>
                         </div>
                     <?php endforeach; ?>
                 </div>
@@ -2303,12 +2392,13 @@ include '../../includes/header.php';
                     <div class="grid-room-type-header">
                         📂 <?php echo htmlspecialchars($typeName); ?>
                     </div>
-                    <?php foreach ($dates as $date): ?>
+                    <?php foreach ($dates as $date):
+                        $typeAvail = $availPerTypeDate[$typeName][$date] ?? 0;
+                    ?>
                         <div class="grid-type-price-cell">
+                            <span class="type-avail-count"><?php echo $typeAvail; ?></span>
                             <?php if (!$isStaffView): ?>
-                                Rp<?php echo number_format($typePrice, 0, ',', '.'); ?>
-                            <?php else: ?>
-                                &nbsp;
+                                <span class="type-price-text">Rp<?php echo number_format($typePrice, 0, ',', '.'); ?></span>
                             <?php endif; ?>
                         </div>
                     <?php endforeach; ?>
@@ -2426,14 +2516,14 @@ include '../../includes/header.php';
                 <!-- FOOTER DATE ROW - Same as header for easy reference when scrolling -->
                 <div class="calendar-grid-footer">
                     <div class="grid-footer-room">ROOMS</div>
-                    <?php foreach ($dates as $date): ?>
+                    <?php foreach ($dates as $date):
+                        $avail = $availPerDate[$date] ?? 0;
+                        $occPct = $totalRoomCount > 0 ? round((($totalRoomCount - $avail) / $totalRoomCount) * 100, 0) : 0;
+                    ?>
                         <div class="grid-footer-date<?php echo ($date === date('Y-m-d')) ? ' today' : ''; ?>">
-                            <span class="grid-footer-date-day">
-                                <?php echo date('D', strtotime($date)); ?>
-                            </span>
-                            <span class="grid-footer-date-num">
-                                <?php echo date('d', strtotime($date)); ?>
-                            </span>
+                            <span class="grid-footer-date-day"><?php echo strtoupper(substr(date('D', strtotime($date)), 0, 3)); ?> <?php echo date('d', strtotime($date)); ?></span>
+                            <span class="grid-footer-date-num"><?php echo $occPct; ?>%</span>
+                            <span class="grid-header-date-avail <?php echo $avail === 0 ? 'full' : ''; ?>"><?php echo $avail; ?></span>
                         </div>
                     <?php endforeach; ?>
                 </div>
