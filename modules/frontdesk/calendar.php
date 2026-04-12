@@ -478,8 +478,8 @@ include '../../includes/header.php';
         position: sticky;
         left: 0;
         z-index: 41;
-        min-width: 95px;
-        max-width: 95px;
+        min-width: 85px;
+        max-width: 85px;
     }
 
     .grid-month-label {
@@ -488,20 +488,20 @@ include '../../includes/header.php';
         font-weight: 700;
         font-size: 0.72rem;
         letter-spacing: 1px;
-        padding: 0.2rem 0.6rem;
-        border-right: 1px solid #e2e8f0;
+        padding: 0.2rem 0;
         border-bottom: 1px solid #e2e8f0;
         display: flex;
         align-items: center;
         min-height: 22px;
-        position: relative;
-        overflow: hidden;
+        overflow: visible;
     }
 
     .grid-month-label span {
         position: sticky;
-        left: 100px;
+        left: 92px;
         z-index: 2;
+        background: #f8fafc;
+        padding: 0 0.5rem;
     }
 
     body[data-theme="dark"] .grid-month-room {
@@ -513,6 +513,10 @@ include '../../includes/header.php';
         background: #1e293b;
         border-color: #334155;
         color: #cbd5e1;
+    }
+
+    body[data-theme="dark"] .grid-month-label span {
+        background: #1e293b;
     }
 
     .grid-header-room {
