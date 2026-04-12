@@ -415,7 +415,7 @@ include '../../includes/header.php';
     .calendar-grid {
         display: grid;
         gap: 0;
-        grid-template-columns: 95px repeat(<?php echo count($dates); ?>, 130px);
+        grid-template-columns: 85px repeat(<?php echo count($dates); ?>, 105px);
         width: fit-content;
         min-width: fit-content;
         max-width: none;
@@ -472,13 +472,13 @@ include '../../includes/header.php';
         background: linear-gradient(180deg, #f8fafc, #f1f5f9);
         border-right: 1px solid #e2e8f0;
         border-bottom: 2px solid #cbd5e1;
-        padding: 0.25rem 0.2rem;
+        padding: 0.15rem 0.15rem;
         text-align: center;
         font-weight: 700;
-        font-size: 0.7rem;
+        font-size: 0.6rem;
         color: #334155;
         position: relative;
-        min-height: 28px;
+        min-height: 22px;
     }
 
     /* Light theme - visible borders */
@@ -649,7 +649,7 @@ include '../../includes/header.php';
         background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
         border-right: 2px solid #e2e8f0;
         border-bottom: 1px solid #f1f5f9;
-        padding: 0.2rem 0.5rem;
+        padding: 0.15rem 0.3rem;
         font-weight: 700;
         color: #334155;
         position: sticky;
@@ -660,12 +660,12 @@ include '../../includes/header.php';
         justify-content: center;
         align-items: center;
         text-align: center;
-        gap: 0.1rem;
-        min-width: 95px;
-        max-width: 95px;
+        gap: 0.05rem;
+        min-width: 85px;
+        max-width: 85px;
         cursor: grab;
-        font-size: 0.82rem;
-        min-height: 28px;
+        font-size: 0.72rem;
+        min-height: 22px;
         box-shadow: 2px 0 6px rgba(0, 0, 0, 0.04);
         white-space: nowrap;
         transition: all 0.2s ease;
@@ -706,7 +706,7 @@ include '../../includes/header.php';
     }
 
     .grid-room-type-label {
-        font-size: 0.58rem;
+        font-size: 0.5rem;
         font-weight: 600;
         color: #6366f1;
         text-transform: uppercase;
@@ -719,7 +719,7 @@ include '../../includes/header.php';
     }
 
     .grid-room-number {
-        font-size: 0.85rem;
+        font-size: 0.72rem;
         color: #1e293b;
         font-weight: 900;
         line-height: 1;
@@ -734,7 +734,7 @@ include '../../includes/header.php';
         background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
         border-right: 2px solid #a5b4fc;
         border-bottom: 1px solid #c7d2fe;
-        padding: 0.15rem 0.5rem;
+        padding: 0.1rem 0.3rem;
         font-weight: 800;
         color: #4338ca;
         position: sticky;
@@ -744,11 +744,11 @@ include '../../includes/header.php';
         align-items: center;
         justify-content: center;
         text-align: center;
-        font-size: 0.72rem;
+        font-size: 0.62rem;
         gap: 0.2rem;
-        min-width: 95px;
-        max-width: 95px;
-        min-height: 24px;
+        min-width: 85px;
+        max-width: 85px;
+        min-height: 20px;
         box-shadow: 2px 0 6px rgba(0, 0, 0, 0.04);
         letter-spacing: 0.3px;
     }
@@ -820,7 +820,7 @@ include '../../includes/header.php';
     }
 
     .grid-room-number {
-        font-size: 0.78rem;
+        font-size: 0.68rem;
         color: var(--text-primary);
         font-weight: 900;
         line-height: 1;
@@ -843,8 +843,8 @@ include '../../includes/header.php';
     .grid-date-cell {
         border-right: 0.5px solid var(--border-color);
         border-bottom: 0.5px solid var(--border-color);
-        padding: 0.05rem 0.03rem;
-        min-height: 26px;
+        padding: 0.03rem 0.02rem;
+        min-height: 20px;
         position: relative;
         background: transparent;
         cursor: pointer;
@@ -870,12 +870,18 @@ include '../../includes/header.php';
         background: rgba(99, 102, 241, 0.05);
     }
 
+    .grid-date-cell.click-selected {
+        background: rgba(99, 102, 241, 0.25) !important;
+        outline: 2px solid #6366f1;
+        outline-offset: -2px;
+    }
+
     /* Booking Bars - CLOUDBED STYLE (Noon to Noon) */
     .booking-bar-container {
         position: absolute;
         top: 1px;
         left: 1px;
-        height: 24px;
+        height: 18px;
         display: flex;
         align-items: center;
         justify-content: flex-start;
@@ -888,8 +894,8 @@ include '../../includes/header.php';
 
     .booking-bar {
         width: 100%;
-        height: 22px;
-        padding: 0 0.4rem;
+        height: 16px;
+        padding: 0 0.3rem;
         cursor: pointer;
         overflow: visible;
         display: flex;
@@ -897,10 +903,10 @@ include '../../includes/header.php';
         justify-content: center;
         text-align: center;
         transition: all 0.2s ease;
-        box-shadow: 0 2px 6px rgba(0, 0, 0, 0.15), 0 1px 2px rgba(0, 0, 0, 0.1);
+        box-shadow: 0 1px 4px rgba(0, 0, 0, 0.12), 0 1px 2px rgba(0, 0, 0, 0.08);
         font-weight: 700;
-        font-size: 0.72rem;
-        line-height: 1.1;
+        font-size: 0.58rem;
+        line-height: 1;
         position: relative;
         pointer-events: auto;
         border-radius: 3px;
@@ -913,9 +919,9 @@ include '../../includes/header.php';
     .booking-bar>span {
         transform: skewX(20deg);
         color: #ffffff !important;
-        text-shadow: 0 1px 3px rgba(0, 0, 0, 0.6);
+        text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
         font-weight: 800;
-        font-size: 0.7rem;
+        font-size: 0.55rem;
         display: block;
     }
 
@@ -2923,7 +2929,7 @@ include '../../includes/header.php';
                     .then(data => {
                         if (data.success) {
                             alert('✅ ' + data.message);
-                            window.location.reload();
+                            saveScrollAndReload();
                         } else {
                             alert('❌ Error: ' + data.message);
                             checkInBtn.innerHTML = originalText;
@@ -2983,7 +2989,7 @@ include '../../includes/header.php';
                             alert('✅ ' + data.message);
                         }
                         // Reload page to reflect changes
-                        window.location.reload();
+                        saveScrollAndReload();
                     } else {
                         alert('❌ Error: ' + data.message);
                         checkInBtn.innerHTML = originalText;
@@ -3036,7 +3042,7 @@ include '../../includes/header.php';
                     if (data.success) {
                         alert('✅ ' + data.message);
                         // Reload page to reflect changes
-                        window.location.reload();
+                        saveScrollAndReload();
                     } else {
                         alert('❌ Error: ' + data.message);
                         checkOutBtn.innerHTML = originalText;
@@ -3204,7 +3210,7 @@ include '../../includes/header.php';
                 if (data.success) {
                     alert('✅ ' + data.message);
                     closeBookingQuickView();
-                    location.reload();
+                    saveScrollAndReload();
                 } else {
                     alert('❌ Error: ' + data.message);
                     if (btn) {
@@ -3244,7 +3250,7 @@ include '../../includes/header.php';
                 if (data.success) {
                     alert('✅ Reservasi berhasil dihapus');
                     closeBookingQuickView();
-                    location.reload();
+                    saveScrollAndReload();
                 } else {
                     alert('❌ ' + data.message);
                 }
@@ -3308,7 +3314,7 @@ include '../../includes/header.php';
                     if (data.success) {
                         alert('✅ ' + data.message);
                         closeBookingQuickView();
-                        window.location.reload();
+                        saveScrollAndReload();
                     } else {
                         alert('❌ Error: ' + data.message);
                         if (checkOutBtn) {
@@ -3482,57 +3488,115 @@ include '../../includes/header.php';
     // Store clicked roomId for auto-selection after rooms load
     let pendingRoomSelection = null;
 
+    // ========================================
+    // CLOUDBED-STYLE TWO-CLICK BOOKING
+    // Click 1: set check-in date + room (highlight cell)
+    // Click 2: set check-out date → open reservation form
+    // ========================================
+    let firstClick = null; // {date, roomId, element}
+
     window.openCellReservation = function openCellReservation(element) {
         const date = element.getAttribute('data-date');
         const roomId = element.getAttribute('data-room-id');
+        const roomNumber = element.getAttribute('data-room-number');
 
-        // Store roomId for auto-selection after rooms load
-        pendingRoomSelection = roomId;
+        // If first click exists and same room → set checkout
+        if (firstClick && firstClick.roomId === roomId) {
+            let checkInDate = firstClick.date;
+            let checkOutDate = date;
 
-        // Populate Modal
-        const modal = document.getElementById('reservationModal');
+            // If clicked same date or earlier, reset
+            if (checkOutDate <= checkInDate) {
+                clearFirstClick();
+                return;
+            }
 
-        // Reset Form First
-        const form = document.getElementById('reservationForm');
-        if (form) form.reset();
+            // Remove highlight
+            clearFirstClick();
 
-        const checkInInput = document.getElementById('checkInDate');
-        const checkOutInput = document.getElementById('checkOutDate');
+            // Open reservation form with both dates
+            pendingRoomSelection = roomId;
+            const modal = document.getElementById('reservationModal');
+            const form = document.getElementById('reservationForm');
+            if (form) form.reset();
 
-        if (checkInInput) checkInInput.value = date;
+            const checkInInput = document.getElementById('checkInDate');
+            const checkOutInput = document.getElementById('checkOutDate');
+            if (checkInInput) checkInInput.value = checkInDate;
+            if (checkOutInput) checkOutInput.value = checkOutDate;
 
-        // Calculate next day for checkout default
-        if (checkInInput && checkOutInput) {
-            const nextDay = new Date(date);
-            nextDay.setDate(nextDay.getDate() + 1);
-            checkOutInput.value = nextDay.toISOString().split('T')[0];
+            loadAvailableRoomsCalendar();
+            if (typeof updateSourceDetails === 'function') updateSourceDetails();
+
+            document.querySelectorAll('#reservationModal .pm-item').forEach(d => d.classList.remove('active'));
+            const cashBtn = document.querySelector('#reservationModal .pm-item:first-child');
+            if (cashBtn) {
+                cashBtn.classList.add('active');
+                document.getElementById('paymentMethod').value = 'cash';
+            }
+
+            if (modal) modal.classList.add('active');
+            return;
         }
 
-        // Load available rooms for selected dates (will auto-select room)
-        loadAvailableRoomsCalendar();
+        // If clicking different room or no first click → set as first click
+        clearFirstClick();
+        firstClick = { date, roomId, element };
 
-        // Trigger source update to hide fees by default
-        if (typeof updateSourceDetails === 'function') updateSourceDetails();
+        // Highlight the clicked cell
+        element.style.background = 'rgba(99, 102, 241, 0.25)';
+        element.style.outline = '2px solid #6366f1';
+        element.style.outlineOffset = '-2px';
 
-        // Reset payment method class
-        document.querySelectorAll('#reservationModal .pm-item').forEach(d => d.classList.remove('active'));
-        // Set cash active
-        const cashBtn = document.querySelector('#reservationModal .pm-item:first-child');
-        if (cashBtn) {
-            cashBtn.classList.add('active');
-            document.getElementById('paymentMethod').value = 'cash';
+        // Show tooltip
+        showClickHint(element, roomNumber, date);
+    }
+
+    function clearFirstClick() {
+        if (firstClick && firstClick.element) {
+            firstClick.element.style.background = '';
+            firstClick.element.style.outline = '';
+            firstClick.element.style.outlineOffset = '';
         }
+        firstClick = null;
+        // Remove hint
+        const hint = document.getElementById('clickBookingHint');
+        if (hint) hint.remove();
+    }
 
-        // Show Modal
-        if (modal) {
-            modal.classList.add('active');
-        }
+    function showClickHint(element, roomNumber, date) {
+        // Remove old hint
+        const old = document.getElementById('clickBookingHint');
+        if (old) old.remove();
+
+        const hint = document.createElement('div');
+        hint.id = 'clickBookingHint';
+        hint.innerHTML = `📌 Check-in: <b>${formatDateShort(date)}</b> · Room ${roomNumber}<br><small>Klik tanggal check-out untuk buat reservasi</small>`;
+        hint.style.cssText = 'position:fixed;bottom:20px;left:50%;transform:translateX(-50%);background:#4338ca;color:#fff;padding:8px 16px;border-radius:8px;font-size:0.75rem;z-index:9999;box-shadow:0 4px 12px rgba(0,0,0,0.3);text-align:center;pointer-events:none;';
+        document.body.appendChild(hint);
+
+        // Auto-dismiss after 8s
+        setTimeout(() => { if (hint.parentNode) hint.remove(); }, 8000);
+    }
+
+    function formatDateShort(dateStr) {
+        const d = new Date(dateStr);
+        const months = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Ags','Sep','Okt','Nov','Des'];
+        return d.getDate() + ' ' + months[d.getMonth()] + ' ' + d.getFullYear();
     }
 
     window.closeReservationModal = function() {
         const modal = document.getElementById('reservationModal');
         if (modal) modal.classList.remove('active');
+        clearFirstClick();
     }
+
+    // Escape key clears first click selection
+    document.addEventListener('keydown', function(e) {
+        if (e.key === 'Escape' && firstClick) {
+            clearFirstClick();
+        }
+    });
 
     window.updateRoomPrice = function() {
         const select = document.getElementById('roomSelect');
@@ -4161,7 +4225,7 @@ include '../../includes/header.php';
         if (successCount > 0) {
             alert(`✅ Berhasil membuat ${successCount} booking!\n\nBooking Codes: ${bookingCodes.join(', ')}\n\n${errorCount > 0 ? `⚠️ ${errorCount} booking gagal:\n${errorMessages.join('\n')}` : ''}`);
             closeReservationModal();
-            location.reload(); // Refresh to show new bookings
+            saveScrollAndReload(); // Refresh to show new bookings
         } else {
             const errDetail = errorMessages.length > 0 ? `\n\nDetail error:\n${errorMessages.join('\n')}` : '';
             alert('❌ Gagal membuat booking. Silakan coba lagi.' + errDetail);
@@ -4479,6 +4543,16 @@ include '../../includes/header.php';
     // The new submitReservation is defined earlier in the file
 
     // Setup form event listeners (removed click-outside-to-close functionality)
+
+    // Save scroll position before reload so we return to same spot
+    function saveScrollAndReload() {
+        const scroller = document.getElementById('calendarScroller');
+        if (scroller) {
+            sessionStorage.setItem('calendarScrollLeft', scroller.scrollLeft);
+        }
+        location.reload();
+    }
+
     document.addEventListener('DOMContentLoaded', function() {
         console.log('🚀 DOMContentLoaded fired for calendar.php');
 
@@ -4560,14 +4634,21 @@ include '../../includes/header.php';
                 });
 
                 // ========================================
-                // AUTO-SCROLL TO TODAY ON PAGE LOAD
+                // AUTO-SCROLL: restore saved position or scroll to today
                 // ========================================
                 setTimeout(() => {
-                    const todayCell = document.querySelector('.grid-date-cell.today');
-                    if (todayCell && scroller) {
-                        const scrollPos = todayCell.offsetLeft - (scroller.offsetWidth / 2) + (todayCell.offsetWidth / 2);
-                        scroller.scrollLeft = scrollPos;
-                        console.log('✅ Auto-scrolled to today:', scrollPos);
+                    const savedScroll = sessionStorage.getItem('calendarScrollLeft');
+                    if (savedScroll !== null) {
+                        scroller.scrollLeft = parseInt(savedScroll);
+                        sessionStorage.removeItem('calendarScrollLeft');
+                        console.log('✅ Restored scroll position:', savedScroll);
+                    } else {
+                        const todayCell = document.querySelector('.grid-date-cell.today');
+                        if (todayCell && scroller) {
+                            const scrollPos = todayCell.offsetLeft - (scroller.offsetWidth / 2) + (todayCell.offsetWidth / 2);
+                            scroller.scrollLeft = scrollPos;
+                            console.log('✅ Auto-scrolled to today:', scrollPos);
+                        }
                     }
                 }, 100);
             }
@@ -6004,7 +6085,7 @@ include '../../includes/header.php';
                 .then(data => {
                     if (data.success) {
                         alert('✅ ' + data.message + '\n\nHarga baru: Rp ' + new Intl.NumberFormat('id-ID').format(data.data.final_price));
-                        location.reload();
+                        saveScrollAndReload();
                     } else {
                         alert('❌ ' + data.message);
                     }
@@ -6106,7 +6187,7 @@ include '../../includes/header.php';
                 if (data.success) {
                     alert('✅ ' + data.message + '\n\nTambahan: Rp ' + new Intl.NumberFormat('id-ID').format(data.data.additional_price));
                     closeExtendModal();
-                    location.reload();
+                    saveScrollAndReload();
                 } else {
                     alert('❌ ' + data.message);
                 }
