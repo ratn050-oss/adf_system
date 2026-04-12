@@ -2880,6 +2880,65 @@ include '../../includes/header.php';
         const roomNumber = document.getElementById('detailRoomNumber').textContent;
         const paymentStatus = modal.dataset.paymentStatus;
 
+        // Detect OTA booking - skip payment, langsung check-in
+        const b = currentPaymentBooking;
+        if (b) {
+            const otaSources = (typeof OTA_SOURCE_KEYS !== 'undefined' && OTA_SOURCE_KEYS.length > 0) ?
+                OTA_SOURCE_KEYS : ['ota', 'agoda', 'booking', 'tiket', 'traveloka', 'airbnb', 'expedia', 'pegipegi'];
+            const rawSource = (b.booking_source || '').trim();
+            const bookingSource = rawSource.toLowerCase().replace(/\.com|\.co\.id|\.id/g, '').replace(/[^a-z0-9]/g, '');
+            const isOTA = rawSource && (
+                otaSources.includes(rawSource) ||
+                otaSources.includes(rawSource.toLowerCase()) ||
+                otaSources.some(s => bookingSource.includes(s) || s.includes(bookingSource))
+            );
+
+            if (isOTA) {
+                const total = parseFloat(b.final_price) || 0;
+                const sourceLabel = rawSource.charAt(0).toUpperCase() + rawSource.slice(1);
+                const feePercent = (typeof OTA_FEES !== 'undefined' && OTA_FEES[rawSource]) ? OTA_FEES[rawSource] : 0;
+                const feeAmount = Math.round(total * feePercent / 100);
+                const netAmount = total - feeAmount;
+                let feeInfo = '';
+                if (feePercent > 0) {
+                    feeInfo = `\n\n💰 Total: Rp ${total.toLocaleString('id-ID')}\n📉 Fee OTA ${sourceLabel} (${feePercent}%): -Rp ${feeAmount.toLocaleString('id-ID')}\n✅ Masuk Kas: Rp ${netAmount.toLocaleString('id-ID')}`;
+                } else {
+                    feeInfo = `\n\nRp ${total.toLocaleString('id-ID')} akan otomatis masuk ke Kas.`;
+                }
+                if (!confirm(`🏨 Booking via OTA ${sourceLabel}\n\nTamu: ${guestName}\nRoom: ${roomNumber}${feeInfo}\n\nLanjutkan Check-in?`)) return;
+
+                // OTA: langsung check-in tanpa payment, cashbook otomatis di backend
+                const checkInBtn = document.getElementById('btnCheckIn');
+                const originalText = checkInBtn.innerHTML;
+                checkInBtn.innerHTML = '<span>⏳</span><span>Processing...</span>';
+                checkInBtn.disabled = true;
+
+                fetch('<?php echo BASE_URL; ?>/api/checkin-guest.php', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+                        credentials: 'include',
+                        body: 'booking_id=' + bookingId + '&pay_now=0&create_invoice=0'
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            alert('✅ ' + data.message);
+                            window.location.reload();
+                        } else {
+                            alert('❌ Error: ' + data.message);
+                            checkInBtn.innerHTML = originalText;
+                            checkInBtn.disabled = false;
+                        }
+                    })
+                    .catch(error => {
+                        alert('❌ Terjadi kesalahan: ' + error.message);
+                        checkInBtn.innerHTML = originalText;
+                        checkInBtn.disabled = false;
+                    });
+                return;
+            }
+        }
+
         if (paymentStatus !== 'paid') {
             const proceed = confirm('Pembayaran belum lunas. Lanjut check-in dan buat invoice sisa?');
             if (!proceed) {
