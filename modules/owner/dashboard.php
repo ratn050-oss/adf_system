@@ -1527,101 +1527,46 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
         
         // Load stats
         async function loadStats() {
-            .sidebar {
-                position: fixed;
-                left: 0;
-                top: 0;
-                width: 90vw;
-                max-width: 320px;
-                min-width: 0;
-                height: 100vh;
-                z-index: 200;
-                transform: translateX(-100%);
-                transition: transform 0.3s cubic-bezier(.4,0,.2,1);
-                box-shadow: var(--shadow-lg);
-            }
-            .sidebar.open {
-                transform: translateX(0);
-            }
-            .main-content {
-                margin-left: 0;
-                padding: 4vw 2vw 2vw 2vw;
-            }
-            .grid-2, .grid-3, .grid-4 {
-                grid-template-columns: 1fr;
-            }
-            .comparison-card {
-                grid-column: span 1;
-            }
-            .room-grid {
-                grid-template-columns: 1fr;
-            }
-            .business-grid {
-                grid-template-columns: 1fr;
-            }
-            .card, .stat-card, .ai-health-card {
-                padding: 12px 4px;
-            }
-            .main-header h1 {
-                font-size: 18px;
-            }
-            .main-header p {
-                font-size: 11px;
-            }
-            .business-name {
-                font-size: 12px;
-            }
-            .business-type {
-                font-size: 10px;
-            }
-            .stat-value {
-                font-size: 16px;
-            }
-            .stat-label {
-                font-size: 9px;
-            }
-            .header-btn {
-                width: 32px;
-                height: 32px;
-            }
-            .brand-icon {
-                width: 28px;
-                height: 28px;
-            }
-        }
-        @media (max-width: 480px) {
-            .main-content {
-                padding: 2vw 1vw 1vw 1vw;
-            }
-            .ai-health-title {
-                font-size: 13px;
-            }
-            .ai-badge {
-                font-size: 8px;
-                padding: 2px 4px;
-            }
-            .health-score-value {
-                font-size: 12px;
-            }
-        }
-        }
-        @media (max-width: 480px) {
-            .main-content {
-                padding: 4vw 1vw 1vw 1vw;
-            }
-            .ai-health-title {
-                font-size: 15px;
-            }
-            .ai-badge {
-                font-size: 9px;
-                padding: 2px 6px;
-            }
-            .health-score-value {
-                font-size: 16px;
-            }
-        }
+            try {
+                const url = currentBusiness === 'all'
+                    ? '../../api/owner-stats.php'
+                    : `../../api/owner-stats.php?branch_id=${currentBusiness}`;
+                
+                const response = await fetch(url);
+                const data = await response.json();
+                
+                if (data.success) {
+                    // Update today stats
+                    document.getElementById('totalRevenue').textContent = formatRupiah(data.month?.income || 0);
+                    document.getElementById('totalExpenses').textContent = formatRupiah(data.month?.expense || 0);
+                    document.getElementById('netProfit').textContent = formatRupiah(data.month?.net || 0);
+                    document.getElementById('cashBalance').textContent = formatRupiah(data.operational_balance || 0);
+                    
+                    // Update change indicators
+                    const incomeChange = data.month?.income_change || 0;
+                    const expenseChange = data.month?.expense_change || 0;
+                    
+                    document.getElementById('revenueChange').innerHTML = 
+                        `<i data-feather="trending-${incomeChange >= 0 ? 'up' : 'down'}" style="width:14px;height:14px"></i> ${incomeChange >= 0 ? '+' : ''}${incomeChange}% vs last month`;
+                    document.getElementById('revenueChange').className = `stat-change ${incomeChange >= 0 ? 'positive' : 'negative'}`;
+                    
+                    document.getElementById('expenseChange').innerHTML = 
+                        `<i data-feather="trending-${expenseChange >= 0 ? 'up' : 'down'}" style="width:14px;height:14px"></i> ${expenseChange >= 0 ? '+' : ''}${expenseChange}% vs last month`;
+                    document.getElementById('expenseChange').className = `stat-change ${expenseChange <= 0 ? 'positive' : 'negative'}`;
+                    
+                    // Profit change
+                    const lastProfit = (data.last_month?.income || 0) - (data.last_month?.expense || 0);
+                    const currentProfit = data.month?.net || 0;
+                    let profitChange = 0;
+                    if (lastProfit > 0) profitChange = Math.round(((currentProfit - lastProfit) / lastProfit) * 100);
+                    document.getElementById('profitChange').innerHTML = 
+                        `<i data-feather="trending-${profitChange >= 0 ? 'up' : 'down'}" style="width:14px;height:14px"></i> ${profitChange >= 0 ? '+' : ''}${profitChange}%`;
+                    document.getElementById('profitChange').className = `stat-change ${profitChange >= 0 ? 'positive' : 'negative'}`;
+                    
+                    // Health metrics
+                    const income = data.month?.income || 0;
                     const expense = data.month?.expense || 0;
-                    const margin = Math.round(((income - expense) / income) * 100);
+                    const margin = income > 0 ? Math.round(((income - expense) / income) * 100) : 0;
                     document.getElementById('profitMargin').textContent = margin + '%';
                     document.getElementById('growthRate').textContent = (incomeChange >= 0 ? '+' : '') + incomeChange + '%';
                     
@@ -1776,7 +1721,7 @@ if (!isset($_SESSION['role']) || !in_array($_SESSION['role'], ['admin', 'owner',
                                 <td>${txn.transaction_date}</td>
                                 <td>${txn.description || txn.category_name || '-'}</td>
                                 <td>${txn.category_name || '-'}</td>
-                                <td>${txn.division_name || '-'}</td>
+                                <td>${txn.business_name || txn.division_name || '-'}</td>
                                 <td><span class="badge ${isIncome ? 'income' : 'expense'}">${isIncome ? 'Income' : 'Expense'}</span></td>
                                 <td class="amount ${isIncome ? 'positive' : 'negative'}">${isIncome ? '+' : '-'}${formatRupiah(txn.amount)}</td>
                             </tr>

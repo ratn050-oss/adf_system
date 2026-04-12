@@ -2703,10 +2703,9 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
                 
                 $startKasHariIni = $startKasOwner + $startKasPetty;
                 
-                // Owner Transfer THIS MONTH - ALL income to ALL cash accounts (synced with index.php)
-                $allAccIds = array_merge($capitalAccounts, $pettyCashAccounts);
-                if (!empty($allAccIds)) {
-                    $ownerPh = implode(',', array_fill(0, count($allAccIds), '?'));
+                // Owner Transfer THIS MONTH - ONLY income to owner_capital accounts (modal dari owner)
+                if (!empty($capitalAccounts)) {
+                    $ownerPh = implode(',', array_fill(0, count($capitalAccounts), '?'));
                     $sqlOwnerTransfer = "
                         SELECT COALESCE(SUM(amount), 0) as total
                         FROM cash_book 
@@ -2715,7 +2714,7 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
                         AND DATE_FORMAT(transaction_date, '%Y-%m') = ?
                     ";
                     $stmtOwnerTransfer = $kasDb->prepare($sqlOwnerTransfer);
-                    $stmtOwnerTransfer->execute(array_merge($allAccIds, [$thisMonth]));
+                    $stmtOwnerTransfer->execute(array_merge($capitalAccounts, [$thisMonth]));
                     $ownerTransferThisMonth = (float)($stmtOwnerTransfer->fetchColumn() ?: 0);
                 } else {
                     $ownerTransferThisMonth = 0;
@@ -2735,26 +2734,25 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
                 $todayKas = $stmtKas->fetchAll(PDO::FETCH_ASSOC);
             }
             
-            // Get Guest/Cash Income this month - EXCLUDE owner accounts (same as index.php)
-            if (!empty($allAccounts)) {
-                $placeholders = implode(',', array_fill(0, count($allAccounts), '?'));
+            // Get Guest/Cash Income this month - EXCLUDE owner_capital accounts only
+            // Guest income = all income that is NOT from owner capital transfers
+            if (!empty($capitalAccounts)) {
+                $placeholders = implode(',', array_fill(0, count($capitalAccounts), '?'));
                 $sqlCashIncome = "
                     SELECT COALESCE(SUM(amount), 0) as total 
                     FROM cash_book 
                     WHERE transaction_type = 'income' 
-                    AND payment_method = 'cash'
                     AND (cash_account_id IS NULL OR cash_account_id NOT IN ($placeholders))
                     AND DATE_FORMAT(transaction_date, '%Y-%m') = ?
                 ";
                 $stmtCashIncome = $kasDb->prepare($sqlCashIncome);
-                $stmtCashIncome->execute(array_merge($allAccounts, [$thisMonth]));
+                $stmtCashIncome->execute(array_merge($capitalAccounts, [$thisMonth]));
                 $guestCashIncome = (float)($stmtCashIncome->fetchColumn() ?: 0);
             } else {
                 $sqlCashIncome = "
                     SELECT COALESCE(SUM(amount), 0) as total 
                     FROM cash_book 
                     WHERE transaction_type = 'income' 
-                    AND payment_method = 'cash'
                     AND DATE_FORMAT(transaction_date, '%Y-%m') = ?
                 ";
                 $stmtCashIncome = $kasDb->prepare($sqlCashIncome);
@@ -2790,15 +2788,15 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
                 </div>
             </div>
             
-            <!-- Summary Strip: Owner Transfer | Guest Cash + Owner | Expense -->
+            <!-- Summary Strip: Owner Transfer | Guest Cash | Owner + Guest | Expense -->
             <div class="kas-summary-strip">
                 <div class="kas-strip-item">
                     <div class="kas-strip-label">Owner Transfer</div>
                     <div class="kas-strip-value green"><?= number_format($ownerTransferThisMonth, 0, ',', '.') ?></div>
                 </div>
                 <div class="kas-strip-item">
-                    <div class="kas-strip-label">Guest + Owner</div>
-                    <div class="kas-strip-value green"><?= number_format($totalOperationalIncome + $guestCashIncome, 0, ',', '.') ?></div>
+                    <div class="kas-strip-label">Owner + Guest</div>
+                    <div class="kas-strip-value green"><?= number_format($ownerTransferThisMonth + $guestCashIncome, 0, ',', '.') ?></div>
                 </div>
                 <div class="kas-strip-item">
                     <div class="kas-strip-label">Expense</div>
