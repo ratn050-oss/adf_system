@@ -2703,8 +2703,20 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
                 
                 $startKasHariIni = $startKasOwner + $startKasPetty;
                 
-                // Owner Transfer THIS MONTH - ONLY income to owner_capital accounts (modal dari owner)
-                if (!empty($capitalAccounts)) {
+                // Owner Transfer THIS MONTH - menggunakan source_type='owner_fund'
+                // Fallback: income ke owner_capital accounts
+                if ($hasSourceTypeCol) {
+                    $sqlOwnerTransfer = "
+                        SELECT COALESCE(SUM(amount), 0) as total
+                        FROM cash_book 
+                        WHERE transaction_type = 'income'
+                        AND source_type = 'owner_fund'
+                        AND DATE_FORMAT(transaction_date, '%Y-%m') = ?
+                    ";
+                    $stmtOwnerTransfer = $kasDb->prepare($sqlOwnerTransfer);
+                    $stmtOwnerTransfer->execute([$thisMonth]);
+                    $ownerTransferThisMonth = (float)($stmtOwnerTransfer->fetchColumn() ?: 0);
+                } elseif (!empty($capitalAccounts)) {
                     $ownerPh = implode(',', array_fill(0, count($capitalAccounts), '?'));
                     $sqlOwnerTransfer = "
                         SELECT COALESCE(SUM(amount), 0) as total
@@ -2734,9 +2746,19 @@ else { $healthStatus = 'Needs Attention'; $healthEmoji = '🔴'; }
                 $todayKas = $stmtKas->fetchAll(PDO::FETCH_ASSOC);
             }
             
-            // Get Guest/Cash Income this month - EXCLUDE owner_capital accounts only
-            // Guest income = all income that is NOT from owner capital transfers
-            if (!empty($capitalAccounts)) {
+            // Get Guest Income this month - semua income KECUALI owner_fund transfer
+            if ($hasSourceTypeCol) {
+                $sqlCashIncome = "
+                    SELECT COALESCE(SUM(amount), 0) as total 
+                    FROM cash_book 
+                    WHERE transaction_type = 'income' 
+                    AND (source_type IS NULL OR source_type != 'owner_fund')
+                    AND DATE_FORMAT(transaction_date, '%Y-%m') = ?
+                ";
+                $stmtCashIncome = $kasDb->prepare($sqlCashIncome);
+                $stmtCashIncome->execute([$thisMonth]);
+                $guestCashIncome = (float)($stmtCashIncome->fetchColumn() ?: 0);
+            } elseif (!empty($capitalAccounts)) {
                 $placeholders = implode(',', array_fill(0, count($capitalAccounts), '?'));
                 $sqlCashIncome = "
                     SELECT COALESCE(SUM(amount), 0) as total 
