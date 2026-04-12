@@ -455,7 +455,7 @@ include '../../includes/header.php';
     .calendar-grid {
         display: grid;
         gap: 0;
-        grid-template-columns: 85px repeat(<?php echo count($dates); ?>, 105px);
+        grid-template-columns: 85px repeat(<?php echo count($dates); ?>, 85px);
         width: fit-content;
         min-width: fit-content;
         max-width: none;
@@ -2356,8 +2356,8 @@ include '../../includes/header.php';
                                             $totalNights = ceil(($checkoutDate - $checkinDate) / 86400);
 
                                             // Calculate width: start from 50% of check-in cell, end at 50% of check-out cell
-                                            // Width = (nights × 105px) - 6px gap = span from noon to noon with spacing
-                                            $barWidth = ($totalNights * 105) - 6; // 105px per column minus 6px gap
+                                            // Width = (nights × 85px) - 6px gap = span from noon to noon with spacing
+                                            $barWidth = ($totalNights * 85) - 6; // 85px per column minus 6px gap
 
                                             $statusClass = 'booking-' . str_replace('_', '-', $booking['status']);
 
