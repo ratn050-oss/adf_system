@@ -309,10 +309,50 @@ include '../../includes/header.php';
         white-space: nowrap;
     }
 
+    #prevMonthBtn, #nextMonthBtn {
+        width: 30px;
+        height: 30px;
+        padding: 0;
+        border-radius: 50%;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.1rem;
+        font-weight: 700;
+    }
+
     .nav-btn:hover {
         background: rgba(99, 102, 241, 0.4);
         border-color: rgba(99, 102, 241, 0.6);
         color: white;
+    }
+
+    .today-btn {
+        background: rgba(255, 255, 255, 0.15);
+        color: var(--text-primary);
+        border: 1.5px solid var(--border-color);
+        font-weight: 700;
+        font-size: 0.7rem;
+        letter-spacing: 0.5px;
+        padding: 0.4rem 0.8rem;
+    }
+
+    .today-btn:hover {
+        background: #6366f1;
+        color: #fff;
+        border-color: #6366f1;
+    }
+
+    body[data-theme="light"] .today-btn {
+        background: #fff;
+        color: #334155;
+        border: 1.5px solid #cbd5e1;
+    }
+
+    body[data-theme="light"] .today-btn:hover {
+        background: #6366f1;
+        color: #fff;
+        border-color: #6366f1;
     }
 
     .nav-date-input {
@@ -2127,9 +2167,10 @@ include '../../includes/header.php';
 
     <!-- Navigation -->
     <div class="calendar-nav">
-        <button class="nav-btn" id="prevMonthBtn" type="button">← Previous 30 Days</button>
+        <button class="nav-btn" id="prevMonthBtn" type="button">‹</button>
+        <button class="nav-btn today-btn" id="todayBtn" type="button" onclick="goToToday()">TODAY</button>
+        <button class="nav-btn" id="nextMonthBtn" type="button">›</button>
         <input type="date" class="nav-date-input" id="dateInput" value="<?php echo $startDate; ?>" onchange="changeDate()">
-        <button class="nav-btn" id="nextMonthBtn" type="button">Next 30 Days →</button>
         <span class="date-display">
             <?php echo date('M d', strtotime($startDate)); ?> - <?php echo date('M d, Y', strtotime($startDate . ' +29 days')); ?>
         </span>
@@ -4224,7 +4265,24 @@ include '../../includes/header.php';
         if (successCount > 0) {
             alert(`✅ Berhasil membuat ${successCount} booking!\n\nBooking Codes: ${bookingCodes.join(', ')}\n\n${errorCount > 0 ? `⚠️ ${errorCount} booking gagal:\n${errorMessages.join('\n')}` : ''}`);
             closeReservationModal();
-            saveScrollAndReload(); // Refresh to show new bookings
+            // Navigate to show the new booking's check-in date
+            const ciDate = document.getElementById('checkInDate')?.value;
+            if (ciDate) {
+                // Check if checkin date is within current grid range
+                const scroller = document.getElementById('drag-container') || document.querySelector('.calendar-scroll-wrapper');
+                const dateCell = scroller ? scroller.querySelector(`.grid-date-cell[data-date="${ciDate}"]`) : null;
+                if (dateCell) {
+                    // Date is in current range — save target date and reload
+                    sessionStorage.setItem('calendarScrollToDate', ciDate);
+                    location.reload();
+                } else {
+                    // Date is outside range — reload with start= so it's visible
+                    sessionStorage.setItem('calendarScrollToDate', ciDate);
+                    window.location.search = '?start=' + ciDate;
+                }
+            } else {
+                saveScrollAndReload();
+            }
         } else {
             const errDetail = errorMessages.length > 0 ? `\n\nDetail error:\n${errorMessages.join('\n')}` : '';
             alert('❌ Gagal membuat booking. Silakan coba lagi.' + errDetail);
@@ -4552,6 +4610,31 @@ include '../../includes/header.php';
         location.reload();
     }
 
+    // Scroll calendar grid to a specific date
+    function scrollCalendarToDate(dateStr, scroller) {
+        if (!scroller) scroller = document.getElementById('drag-container') || document.querySelector('.calendar-scroll-wrapper');
+        if (!scroller) return;
+        const cell = scroller.querySelector(`.grid-date-cell[data-date="${dateStr}"]`);
+        if (cell) {
+            const scrollPos = cell.offsetLeft - 100; // 100px offset = room label column
+            scroller.scrollLeft = Math.max(0, scrollPos);
+        }
+    }
+
+    // Go to today: if today is within the current 30-day range, just scroll; otherwise reload with today's start date
+    window.goToToday = function() {
+        const todayStr = new Date().toISOString().split('T')[0];
+        const scroller = document.getElementById('drag-container') || document.querySelector('.calendar-scroll-wrapper');
+        const todayCell = scroller ? scroller.querySelector(`.grid-date-cell[data-date="${todayStr}"]`) : null;
+        if (todayCell) {
+            // Today is visible in the current date range — just scroll to it
+            scrollCalendarToDate(todayStr, scroller);
+        } else {
+            // Today is outside the current range — reload with today as start
+            window.location.search = '?start=' + todayStr;
+        }
+    };
+
     document.addEventListener('DOMContentLoaded', function() {
         console.log('🚀 DOMContentLoaded fired for calendar.php');
 
@@ -4636,19 +4719,21 @@ include '../../includes/header.php';
                 // AUTO-SCROLL: restore saved position or scroll to today
                 // ========================================
                 setTimeout(() => {
+                    const scrollToDate = sessionStorage.getItem('calendarScrollToDate');
                     const savedScroll = sessionStorage.getItem('calendarScrollLeft');
-                    if (savedScroll !== null) {
+
+                    if (scrollToDate) {
+                        // Scroll to specific date (after creating reservation)
+                        sessionStorage.removeItem('calendarScrollToDate');
+                        sessionStorage.removeItem('calendarScrollLeft');
+                        scrollCalendarToDate(scrollToDate, scroller);
+                        console.log('✅ Scrolled to new booking date:', scrollToDate);
+                    } else if (savedScroll !== null) {
                         scroller.scrollLeft = parseInt(savedScroll);
                         sessionStorage.removeItem('calendarScrollLeft');
                         console.log('✅ Restored scroll position:', savedScroll);
-                    } else {
-                        const todayCell = document.querySelector('.grid-date-cell.today');
-                        if (todayCell && scroller) {
-                            const scrollPos = todayCell.offsetLeft - (scroller.offsetWidth / 2) + (todayCell.offsetWidth / 2);
-                            scroller.scrollLeft = scrollPos;
-                            console.log('✅ Auto-scrolled to today:', scrollPos);
-                        }
                     }
+                    // No else — don't auto-scroll to today on first load
                 }, 100);
             }
         } catch (e) {
