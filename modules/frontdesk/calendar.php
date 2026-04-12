@@ -888,8 +888,7 @@ include '../../includes/header.php';
         overflow: visible;
         pointer-events: auto;
         z-index: 10;
-        margin-left: 5px;
-        /* Gap from previous booking */
+        margin-left: 0;
     }
 
     .booking-bar {
@@ -933,28 +932,28 @@ include '../../includes/header.php';
     .booking-bar::before {
         content: '';
         position: absolute;
-        left: -9px;
+        left: -6px;
         top: 50%;
         transform: translateY(-50%);
         width: 0;
         height: 0;
-        border-top: 10px solid transparent;
-        border-bottom: 10px solid transparent;
-        border-right: 6px solid;
+        border-top: 8px solid transparent;
+        border-bottom: 8px solid transparent;
+        border-right: 5px solid;
         border-right-color: inherit;
     }
 
     .booking-bar::after {
         content: '';
         position: absolute;
-        right: -9px;
+        right: -6px;
         top: 50%;
         transform: translateY(-50%);
         width: 0;
         height: 0;
-        border-top: 10px solid transparent;
-        border-bottom: 10px solid transparent;
-        border-left: 6px solid;
+        border-top: 8px solid transparent;
+        border-bottom: 8px solid transparent;
+        border-left: 5px solid;
         border-left-color: inherit;
     }
 
@@ -2232,8 +2231,8 @@ include '../../includes/header.php';
                                             $totalNights = ceil(($checkoutDate - $checkinDate) / 86400);
 
                                             // Calculate width: start from 50% of check-in cell, end at 50% of check-out cell
-                                            // Width = (nights × 130px) - 10px gap = span from noon to noon with spacing
-                                            $barWidth = ($totalNights * 130) - 10; // 130px per day minus 10px gap for visual separation
+                                            // Width = (nights × 105px) - 6px gap = span from noon to noon with spacing
+                                            $barWidth = ($totalNights * 105) - 6; // 105px per column minus 6px gap
 
                                             $statusClass = 'booking-' . str_replace('_', '-', $booking['status']);
 
