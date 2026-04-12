@@ -472,9 +472,9 @@ include '../../includes/header.php';
     }
 
     .grid-month-room {
-        background: #1e40af;
-        border-right: 2px solid #1e3a8a;
-        border-bottom: 1px solid #1e3a8a;
+        background: linear-gradient(135deg, #1e293b, #0f172a);
+        border-right: 2px solid rgba(148, 163, 184, 0.2);
+        border-bottom: 1px solid rgba(148, 163, 184, 0.15);
         position: sticky;
         left: 0;
         z-index: 41;
@@ -483,27 +483,45 @@ include '../../includes/header.php';
     }
 
     .grid-month-label {
-        background: #1e40af;
-        color: #ffffff;
+        background: linear-gradient(135deg, #1e293b, #0f172a);
+        color: #e2e8f0;
         font-weight: 800;
         font-size: 0.72rem;
-        letter-spacing: 1px;
+        letter-spacing: 1.5px;
         padding: 0.2rem 0.6rem;
-        border-right: 2px solid #1e3a8a;
-        border-bottom: 1px solid #1e3a8a;
+        border-right: 1px solid rgba(148, 163, 184, 0.12);
+        border-bottom: 1px solid rgba(148, 163, 184, 0.15);
         display: flex;
         align-items: center;
         min-height: 22px;
+        position: relative;
+        overflow: hidden;
+    }
+
+    .grid-month-label span {
+        position: sticky;
+        left: 100px;
+        z-index: 2;
+        text-shadow: 0 1px 3px rgba(0,0,0,0.4);
+    }
+
+    body[data-theme="light"] .grid-month-room {
+        background: linear-gradient(135deg, #1e293b, #0f172a);
+    }
+
+    body[data-theme="light"] .grid-month-label {
+        background: linear-gradient(135deg, #1e293b, #0f172a);
+        color: #e2e8f0;
     }
 
     body[data-theme="dark"] .grid-month-room,
     body[data-theme="dark"] .grid-month-label {
-        background: #1e293b;
-        border-color: #334155;
+        background: linear-gradient(135deg, #0f172a, #020617);
+        border-color: rgba(71, 85, 105, 0.3);
     }
 
     body[data-theme="dark"] .grid-month-label {
-        color: #93c5fd;
+        color: #cbd5e1;
     }
 
     .grid-header-room {
@@ -2249,7 +2267,7 @@ include '../../includes/header.php';
                     foreach ($monthSpans as $ms):
                     ?>
                         <div class="grid-month-label" style="grid-column: span <?php echo $ms['span']; ?>;">
-                            <?php echo $ms['label']; ?>
+                            <span><?php echo $ms['label']; ?></span>
                         </div>
                     <?php endforeach; ?>
                 </div>
