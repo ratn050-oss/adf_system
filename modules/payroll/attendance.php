@@ -1261,7 +1261,6 @@
                         }
                     }
 
-                    $absenUrl = $baseUrl . '/modules/payroll/absen.php?b=' . ACTIVE_BUSINESS_ID;
                     $bizSlug = defined('ACTIVE_BUSINESS_ID') ? strtolower(str_replace('_', '-', ACTIVE_BUSINESS_ID)) : 'narayana-hotel';
                     $staffPortalUrl = $baseUrl . '/modules/payroll/staff-portal.php?b=' . $bizSlug;
 
@@ -1826,22 +1825,16 @@
                                 <p>Dashboard harian, GPS, Fingerprint, Manual & Reset</p>
                             </div>
                             <div style="display:flex; gap:6px;">
-                                <a href="<?php echo htmlspecialchars($absenUrl); ?>" target="_blank" class="btn btn-primary">📱 Halaman Absen</a>
-                                <a href="<?php echo htmlspecialchars($staffPortalUrl); ?>" target="_blank" class="btn btn-purple">👤 Staff Portal</a>
+                                <a href="<?php echo htmlspecialchars($staffPortalUrl); ?>" target="_blank" class="btn btn-primary">📱 Staff Portal</a>
                                 <button onclick="openManualModal()" class="btn btn-gold">➕ Input Manual</button>
                             </div>
                         </div>
 
                         <!-- URL bar -->
                         <div class="url-bar">
-                            <span style="font-size:10px; font-weight:700; color:var(--muted); text-transform:uppercase;">📲 Absen</span>
-                            <input type="text" value="<?php echo htmlspecialchars($absenUrl); ?>" readonly id="absenUrlInput">
-                            <button onclick="copyUrl('absenUrlInput')" class="btn btn-primary btn-sm">📋 Salin</button>
-                        </div>
-                        <div class="url-bar">
-                            <span style="font-size:10px; font-weight:700; color:var(--muted); text-transform:uppercase;">👤 Portal</span>
+                            <span style="font-size:10px; font-weight:700; color:var(--muted); text-transform:uppercase;">� Staff Portal</span>
                             <input type="text" value="<?php echo htmlspecialchars($staffPortalUrl); ?>" readonly id="portalUrlInput">
-                            <button onclick="copyUrl('portalUrlInput')" class="btn btn-purple btn-sm">📋 Salin</button>
+                            <button onclick="copyUrl('portalUrlInput')" class="btn btn-primary btn-sm">📋 Salin</button>
                         </div>
 
                         <!-- Stats -->

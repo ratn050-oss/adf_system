@@ -2,7 +2,7 @@
   "name": "Absensi Karyawan",
   "short_name": "Absensi",
   "description": "Sistem absensi GPS dan deteksi wajah karyawan",
-  "start_url": "absen.php",
+  "start_url": "staff-portal.php",
   "scope": ".",
   "display": "standalone",
   "orientation": "portrait",

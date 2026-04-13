@@ -20,7 +20,6 @@ if (!defined('ACTIVE_BUSINESS_ID')) define('ACTIVE_BUSINESS_ID', $bizConfig['bus
 $db = Database::switchDatabase($bizConfig['database']);
 $baseUrl = defined('BASE_URL') ? BASE_URL : '';
 $apiUrl = 'staff-api.php?b=' . urlencode($bizSlug);
-$absenUrl = 'absen.php?b=' . urlencode($bizSlug);
 $bizName = htmlspecialchars($bizConfig['name'] ?? 'Staff Portal');
 $bizType = $bizConfig['business_type'] ?? 'general';
 $isHotel = ($bizType === 'hotel');

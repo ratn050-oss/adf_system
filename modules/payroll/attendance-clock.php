@@ -1,7 +1,7 @@
 <?php
 /**
  * Payroll Attendance Clock API
- * Handles AJAX clock-in and clock-out requests from absen.php
+ * Handles AJAX clock-in and clock-out requests from staff-portal.php
  */
 define('APP_ACCESS', true);
 require_once '../../config/config.php';

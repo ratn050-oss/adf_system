@@ -5,7 +5,6 @@
 
 const CACHE_NAME = "staff-portal-v9";
 const APP_SHELL = [
-  "./absen.php",
   "./staff-portal.php",
   "https://unpkg.com/leaflet@1.9.4/dist/leaflet.css",
   "https://unpkg.com/leaflet@1.9.4/dist/leaflet.js",
@@ -98,7 +97,6 @@ self.addEventListener("fetch", (event) => {
 
   // 4. App shell (absen/staff-portal) → network-first, fall back to cache
   if (
-    url.pathname.includes("absen.php") ||
     url.pathname.includes("staff-portal.php") ||
     url.pathname === "/modules/payroll/"
   ) {

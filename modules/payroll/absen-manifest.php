@@ -60,9 +60,9 @@ try {
     }
 } catch (Exception $e) {}
 
-$startUrl = $moduleUrl . '/absen.php' . ($bizSlug ? '?b=' . urlencode($bizSlug) : '');
+$startUrl = $moduleUrl . '/staff-portal.php' . ($bizSlug ? '?b=' . urlencode($bizSlug) : '');
 $scopeUrl = $moduleUrl . '/';
-$manifestId = '/modules/payroll/absen' . ($bizSlug ? '?b=' . $bizSlug : '');
+$manifestId = '/modules/payroll/staff-portal' . ($bizSlug ? '?b=' . $bizSlug : '');
 
 while (ob_get_level()) ob_end_clean();
 echo json_encode([
