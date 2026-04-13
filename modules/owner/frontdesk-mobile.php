@@ -330,46 +330,59 @@ try {
         // ── Calendar Timeline Data (CloudBeds style) ──
         $calRooms = [];
         $calBookings = [];
+        $calRoomsByType = [];
+        $calDates = [];
+        $hasCalendar = false;
         try {
-            // All rooms with type info + live occupancy from bookings (source of truth)
-            $stmt = $pdo->query("
-                SELECT r.id, r.room_number, r.status, r.floor_number,
-                       COALESCE(rt.type_name, 'Standard') as room_type,
-                       (SELECT COUNT(*) FROM bookings b WHERE b.room_id = r.id AND b.status = 'checked_in') as has_checkin
-                FROM rooms r
-                LEFT JOIN room_types rt ON r.room_type_id = rt.id
-                ORDER BY rt.type_name, r.floor_number, r.room_number
-            ");
-            $calRooms = $stmt->fetchAll(PDO::FETCH_ASSOC);
+            $tableCheck = $pdo->query("SHOW TABLES LIKE 'rooms'");
+            if ($tableCheck && $tableCheck->rowCount() > 0) {
+                $hasCalendar = true;
 
-            // Bookings spanning -7 to +30 days
-            $calStart = date('Y-m-d', strtotime('-7 days'));
-            $calEnd = date('Y-m-d', strtotime('+30 days'));
-            $stmt = $pdo->prepare("
-                SELECT b.id, b.booking_code, b.room_id, b.check_in_date, b.check_out_date,
-                       b.status, b.room_price, b.booking_source, b.payment_status,
-                       b.total_nights, b.final_price,
-                       g.guest_name, g.phone as guest_phone
-                FROM bookings b
-                LEFT JOIN guests g ON b.guest_id = g.id
-                WHERE b.check_in_date < ? AND b.check_out_date > ?
-                AND b.status IN ('pending', 'confirmed', 'checked_in', 'checked_out')
-                ORDER BY b.check_in_date
-            ");
-            $stmt->execute([$calEnd, $calStart]);
-            $calBookings = $stmt->fetchAll(PDO::FETCH_ASSOC);
-
-            // Attach current guest to room
-            foreach ($calRooms as &$cr) {
-                foreach ($calBookings as $cb) {
-                    if ($cb['room_id'] == $cr['id'] && $cb['status'] === 'checked_in') {
-                        $cr['guest_name'] = $cb['guest_name'];
-                        break;
-                    }
+                // Date range: 7 days before today, 60 days after
+                $calStartDate = date('Y-m-d', strtotime('-7 days'));
+                $calEndDate = date('Y-m-d', strtotime('+60 days'));
+                $dt = new DateTime($calStartDate);
+                $end = new DateTime($calEndDate);
+                while ($dt <= $end) {
+                    $calDates[] = $dt->format('Y-m-d');
+                    $dt->modify('+1 day');
                 }
+
+                // Fetch rooms with corrected type ordering
+                $stmtR = $pdo->query("
+                    SELECT r.id, r.room_number, r.floor_number, r.status,
+                           rt.type_name, rt.base_price
+                    FROM rooms r
+                    LEFT JOIN room_types rt ON r.room_type_id = rt.id
+                    WHERE r.status != 'maintenance'
+                    ORDER BY FIELD(rt.type_name, 'Queen Chambers','Queen','Twin Chambers','Twin',
+                                   'King Quarters','King','Deluxe Queen','Deluxe King'),
+                             rt.type_name ASC, r.floor_number ASC, r.room_number ASC
+                ");
+                $calRooms = $stmtR->fetchAll(PDO::FETCH_ASSOC);
+
+                // Group by type
+                foreach ($calRooms as $room) {
+                    $calRoomsByType[$room['type_name']][] = $room;
+                }
+
+                // Fetch bookings in range
+                $stmtB = $pdo->prepare("
+                    SELECT b.id, b.booking_code, b.room_id, b.check_in_date, b.check_out_date,
+                           b.status, b.booking_source,
+                           g.guest_name
+                    FROM bookings b
+                    LEFT JOIN guests g ON b.guest_id = g.id
+                    WHERE b.check_in_date < ? AND b.check_out_date > ?
+                      AND b.status IN ('pending','confirmed','checked_in','checked_out')
+                    ORDER BY b.check_in_date ASC
+                ");
+                $stmtB->execute([$calEndDate, $calStartDate]);
+                $calBookings = $stmtB->fetchAll(PDO::FETCH_ASSOC);
             }
-            unset($cr);
-        } catch (Exception $e) {}
+        } catch (Exception $e) {
+            $hasCalendar = false;
+        }
     }
 } catch (Exception $e) {
     $error = $e->getMessage();
@@ -743,48 +756,299 @@ function rp($num) {
         .rb-dot-avail { background: #22c55e; }
         .rb-dot-occ { background: #ef4444; }
 
-        /* ── Calendar Timeline (CloudBeds) ────────────── */
-        .cal-card-owner { background: var(--card); border-radius: 14px; box-shadow: 0 1px 4px rgba(0,0,0,0.06); overflow: hidden; margin-bottom: 14px; }
-        .cal-nav-owner { display: flex; align-items: center; justify-content: space-between; padding: 10px 14px; gap: 8px; background: linear-gradient(135deg, #6366f1, #818cf8); }
-        .cal-nav-btn { background: rgba(255,255,255,0.2); color: #fff; border: none; border-radius: 8px; padding: 6px 12px; font-size: 11px; font-weight: 700; cursor: pointer; transition: 0.15s; backdrop-filter: blur(4px); }
-        .cal-nav-btn:active { opacity: 0.7; transform: scale(0.96); }
-        .cal-nav-period { font-size: 11px; font-weight: 800; color: #fff; letter-spacing: 0.3px; text-align: center; }
-        .cal-scroll-owner { overflow-x: auto; -webkit-overflow-scrolling: touch; cursor: grab; }
-        .cal-scroll-owner:active { cursor: grabbing; }
-        .cal-grid-owner { display: grid; gap: 0; width: fit-content; min-width: fit-content; }
-        .cgo-hdr-room { background: linear-gradient(135deg, #f1f5f9, #fff); border-right: 2px solid #e2e8f0; border-bottom: 2px solid #cbd5e1; padding: 4px; font-weight: 800; text-align: center; position: sticky; left: 0; z-index: 40; font-size: 9px; color: #475569; letter-spacing: 0.8px; text-transform: uppercase; display: flex; align-items: center; justify-content: center; min-width: 64px; max-width: 64px; box-shadow: 2px 0 6px rgba(0,0,0,0.04); }
-        .cgo-hdr-date { background: linear-gradient(180deg, #f8fafc, #f1f5f9); border-right: 1px solid #e2e8f0; border-bottom: 2px solid #cbd5e1; padding: 3px 2px; text-align: center; font-weight: 700; font-size: 9px; color: #334155; min-width: 80px; }
-        .cgo-hdr-date.cgo-today { background: rgba(99,102,241,0.12) !important; }
-        .cgo-hdr-day { font-size: 8px; text-transform: uppercase; font-weight: 600; color: #64748b; letter-spacing: 0.3px; }
-        .cgo-hdr-num { font-size: 12px; font-weight: 900; color: #1e293b; margin-left: 2px; }
-        .cgo-hdr-date.cgo-today .cgo-hdr-num { color: #6366f1; }
-        .cgo-type-hdr { background: linear-gradient(135deg, #eef2ff, #e0e7ff); border-right: 2px solid #a5b4fc; border-bottom: 1px solid #c7d2fe; padding: 3px 6px; font-weight: 800; color: #4338ca; position: sticky; left: 0; z-index: 30; display: flex; align-items: center; font-size: 9px; gap: 4px; min-width: 64px; max-width: 64px; box-shadow: 2px 0 6px rgba(0,0,0,0.04); }
-        .cgo-type-price { background: linear-gradient(135deg, #eef2ff, #e0e7ff); border-right: 1px solid #c7d2fe; border-bottom: 1px solid #a5b4fc; }
-        .cgo-room { background: linear-gradient(135deg, #f8fafc, #fff); border-right: 2px solid #e2e8f0; border-bottom: 1px solid #f1f5f9; padding: 2px 4px; font-weight: 700; color: #334155; position: sticky; left: 0; z-index: 30; display: flex; flex-direction: column; justify-content: center; align-items: center; text-align: center; min-width: 64px; max-width: 64px; box-shadow: 2px 0 6px rgba(0,0,0,0.04); }
-        .cgo-room-type { font-size: 7px; font-weight: 600; color: #6366f1; text-transform: uppercase; letter-spacing: 0.5px; line-height: 1; }
-        .cgo-room-num { font-size: 12px; color: #1e293b; font-weight: 900; line-height: 1; }
-        .cgo-cell { border-right: 0.5px solid rgba(51,65,85,0.12); border-bottom: 0.5px solid rgba(51,65,85,0.12); min-width: 80px; min-height: 28px; position: relative; background: transparent; }
-        .cgo-cell.cgo-today { background: rgba(99,102,241,0.05) !important; }
-        .bbar-wrap-o { position: absolute; top: 2px; left: 50%; height: 24px; display: flex; align-items: center; overflow: visible; z-index: 10; margin-left: 4px; cursor: pointer; }
-        .bbar-o { width: 100%; height: 22px; padding: 0 4px; display: flex; align-items: center; justify-content: center; text-align: center; box-shadow: 0 2px 6px rgba(0,0,0,0.15), 0 1px 2px rgba(0,0,0,0.1); font-weight: 700; font-size: 8px; line-height: 1.1; position: relative; border-radius: 3px; white-space: nowrap; transform: skewX(-20deg); color: #fff !important; transition: all 0.2s; overflow: hidden; text-overflow: ellipsis; }
-        .bbar-o > span { transform: skewX(20deg); color: #fff !important; text-shadow: 0 1px 2px rgba(0,0,0,0.5); font-weight: 700; font-size: 7px; overflow: hidden; text-overflow: ellipsis; max-width: 100%; display: inline-block; }
-        .bbar-o::before { content: ''; position: absolute; left: -6px; top: 50%; transform: translateY(-50%); width: 0; height: 0; border-top: 10px solid transparent; border-bottom: 10px solid transparent; border-right: 4px solid; border-right-color: inherit; }
-        .bbar-o::after { content: ''; position: absolute; right: -6px; top: 50%; transform: translateY(-50%); width: 0; height: 0; border-top: 10px solid transparent; border-bottom: 10px solid transparent; border-left: 4px solid; border-left-color: inherit; }
-        .bbar-o:active { transform: skewX(-20deg) scaleY(1.1); }
-        .bbar-o.bs-confirmed { background: linear-gradient(135deg, #06b6d4, #22d3ee) !important; border-color: #06b6d4; }
-        .bbar-o.bs-pending { background: linear-gradient(135deg, #0ea5e9, #38bdf8) !important; border-color: #0ea5e9; }
-        .bbar-o.bs-checked-in { background: linear-gradient(135deg, #16a34a, #22c55e) !important; border-color: #16a34a; }
-        .bbar-o.bs-checked-out { background: linear-gradient(135deg, #9ca3af, #d1d5db) !important; border-color: #9ca3af; opacity: 0.4; }
-        .bbar-o.bs-checked-out > span { color: #6b7280 !important; text-shadow: none !important; }
-        .cgo-ftr-room { background: linear-gradient(135deg, #f1f5f9, #fff); border-right: 2px solid #e2e8f0; border-top: 2px solid #cbd5e1; padding: 4px; font-weight: 800; text-align: center; position: sticky; left: 0; z-index: 40; font-size: 9px; color: #475569; letter-spacing: 0.8px; text-transform: uppercase; display: flex; align-items: center; justify-content: center; min-width: 64px; max-width: 64px; box-shadow: 2px 0 6px rgba(0,0,0,0.04); }
-        .cgo-ftr-date { background: linear-gradient(180deg, #f8fafc, #f1f5f9); border-right: 1px solid #e2e8f0; border-top: 2px solid #cbd5e1; padding: 3px 2px; text-align: center; font-weight: 700; font-size: 9px; color: #334155; }
-        .cgo-ftr-date.cgo-today { background: rgba(99,102,241,0.12) !important; }
-        .cal-legend-owner { display: flex; flex-wrap: wrap; gap: 8px; padding: 8px 12px 10px; border-top: 1px solid var(--border); justify-content: center; }
-        .cal-legend-item-o { display: flex; align-items: center; gap: 4px; font-size: 8px; color: var(--text-muted); font-weight: 500; }
-        .cal-legend-dot-o { width: 12px; height: 7px; border-radius: 3px; transform: skewX(-20deg); }
-        /* Booking popup */
-        .cal-popup-overlay-o { position: fixed; inset: 0; background: rgba(0,0,0,0.4); z-index: 999; display: none; }
-        .cal-popup-o { position: fixed; top: 50%; left: 50%; transform: translate(-50%,-50%); background: #fff; border-radius: 16px; padding: 18px; box-shadow: 0 20px 60px rgba(0,0,0,0.3); z-index: 1000; width: 300px; max-width: 90vw; display: none; }
+        /* ── Calendar Timeline (CloudBeds - PHP rendered) ── */
+        .ocal-section {
+            margin: 0 0 14px;
+            background: #ffffff;
+            border-radius: 18px;
+            padding: 16px 14px;
+            border: 1px solid rgba(0,0,0,0.06);
+            box-shadow: 0 4px 24px rgba(0,0,0,0.04);
+        }
+        .ocal-header {
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            margin-bottom: 12px;
+        }
+        .ocal-title {
+            font-size: 14px;
+            font-weight: 800;
+            color: #1e293b;
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+        .ocal-nav {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+        }
+        .ocal-nav-btn {
+            width: 28px; height: 28px;
+            border-radius: 8px;
+            background: #f1f5f9;
+            border: 1px solid rgba(0,0,0,0.06);
+            color: #475569;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 12px; font-weight: 700;
+            cursor: pointer; transition: all 0.2s;
+        }
+        .ocal-nav-btn:active { background: #e2e8f0; transform: scale(0.92); }
+        .ocal-nav-btn.today-btn {
+            padding: 0 10px; width: auto;
+            font-size: 10px; font-weight: 800;
+            color: #6366f1; background: rgba(99,102,241,0.06);
+            border-color: rgba(99,102,241,0.15);
+            text-transform: uppercase; letter-spacing: 0.5px;
+        }
+        .ocal-scroll-wrapper {
+            width: 100%;
+            overflow-x: auto;
+            overflow-y: hidden;
+            cursor: grab;
+            user-select: none;
+            -webkit-overflow-scrolling: touch;
+            scrollbar-width: thin;
+            scrollbar-color: #cbd5e1 transparent;
+        }
+        .ocal-scroll-wrapper::-webkit-scrollbar { height: 4px; }
+        .ocal-scroll-wrapper::-webkit-scrollbar-track { background: transparent; }
+        .ocal-scroll-wrapper::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 4px; }
+        .ocal-grid-wrapper {
+            display: inline-block;
+            min-width: 100%;
+            width: fit-content;
+        }
+        .ocal-grid {
+            display: grid;
+            gap: 0;
+            width: fit-content;
+            min-width: fit-content;
+        }
+        .ocal-month-row { display: contents; }
+        .ocal-month-room {
+            background: #f8fafc;
+            border-right: 2px solid #e2e8f0;
+            border-bottom: 1px solid #e2e8f0;
+            position: sticky; left: 0; z-index: 41;
+            min-width: 90px; max-width: 90px;
+        }
+        .ocal-month-label {
+            background: #f8fafc;
+            color: #334155;
+            font-weight: 700;
+            font-size: 0.72rem;
+            letter-spacing: 1px;
+            padding: 0.2rem 0;
+            border-bottom: 1px solid #e2e8f0;
+            display: flex;
+            align-items: center;
+            min-height: 22px;
+        }
+        .ocal-month-label span {
+            position: sticky;
+            left: 97px;
+            z-index: 2;
+            background: #f8fafc;
+            padding: 0 0.4rem;
+        }
+        .ocal-header-row { display: contents; }
+        .ocal-header-room {
+            background: linear-gradient(135deg, #f1f5f9 0%, #ffffff 100%);
+            border-right: 2px solid #e2e8f0;
+            border-bottom: 2px solid #cbd5e1;
+            padding: 0.2rem 0.3rem;
+            font-weight: 800;
+            text-align: center;
+            position: sticky; left: 0; z-index: 40;
+            font-size: 0.7rem;
+            color: #475569;
+            letter-spacing: 1px;
+            text-transform: uppercase;
+            display: flex; align-items: center; justify-content: center;
+            min-height: 40px;
+            min-width: 90px; max-width: 90px;
+        }
+        .ocal-header-date {
+            background: linear-gradient(180deg, #f8fafc, #f1f5f9);
+            border-right: 1px solid #e2e8f0;
+            border-bottom: 2px solid #cbd5e1;
+            padding: 0.15rem 0.1rem;
+            text-align: center;
+            font-weight: 700;
+            font-size: 0.65rem;
+            color: #334155;
+            min-height: 40px;
+            display: flex; flex-direction: column;
+            align-items: center; justify-content: center;
+            gap: 1px;
+        }
+        .ocal-header-date.today {
+            background: rgba(99,102,241,0.08) !important;
+        }
+        .ocal-header-date-day {
+            font-size: 0.65rem;
+            text-transform: uppercase;
+            font-weight: 700;
+            color: #334155;
+        }
+        .ocal-header-date-num {
+            font-size: 0.82rem;
+            font-weight: 900;
+            color: #1e293b;
+        }
+        .ocal-header-date.today .ocal-header-date-num {
+            color: #6366f1;
+        }
+        .ocal-type-header {
+            background: linear-gradient(135deg, #eef2ff 0%, #e0e7ff 100%);
+            border-right: 2px solid #a5b4fc;
+            border-bottom: 1px solid #c7d2fe;
+            padding: 0.1rem 0.3rem;
+            font-weight: 800;
+            color: #4338ca;
+            position: sticky; left: 0; z-index: 30;
+            display: flex; align-items: center; justify-content: center;
+            font-size: 0.68rem;
+            min-width: 90px; max-width: 90px;
+            min-height: 22px;
+        }
+        .ocal-type-cell {
+            background: linear-gradient(135deg, #eef2ff, #e0e7ff);
+            border-right: 1px solid #c7d2fe;
+            border-bottom: 1px solid #a5b4fc;
+            min-height: 22px;
+        }
+        .ocal-room-label {
+            background: linear-gradient(135deg, #f8fafc 0%, #ffffff 100%);
+            border-right: 2px solid #e2e8f0;
+            border-bottom: 1px solid #f1f5f9;
+            padding: 0.15rem 0.3rem;
+            font-weight: 700;
+            color: #334155;
+            position: sticky; left: 0; z-index: 30;
+            display: flex; flex-direction: column;
+            justify-content: center; align-items: center;
+            text-align: center; gap: 0;
+            min-width: 90px; max-width: 90px;
+            font-size: 0.75rem;
+            min-height: 26px;
+            box-shadow: 2px 0 6px rgba(0,0,0,0.03);
+        }
+        .ocal-room-type-label {
+            font-size: 0.55rem;
+            font-weight: 600;
+            color: #6366f1;
+            text-transform: uppercase;
+        }
+        .ocal-room-number {
+            font-size: 0.78rem;
+            font-weight: 900;
+            color: #1e293b;
+        }
+        .ocal-date-cell {
+            border-right: 0.5px solid #e2e8f0;
+            border-bottom: 0.5px solid #e2e8f0;
+            min-height: 26px;
+            position: relative;
+            background: transparent;
+        }
+        .ocal-date-cell.today {
+            background: rgba(99,102,241,0.04) !important;
+        }
+        .ocal-bar-container {
+            position: absolute;
+            top: 2px;
+            left: 1px;
+            height: 22px;
+            display: flex;
+            align-items: center;
+            overflow: visible;
+            pointer-events: auto;
+            z-index: 10;
+        }
+        .ocal-bar {
+            width: 100%;
+            height: 20px;
+            padding: 0 0.3rem;
+            overflow: visible;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            text-align: center;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.1), 0 1px 2px rgba(0,0,0,0.06);
+            font-weight: 700;
+            font-size: 0.62rem;
+            position: relative;
+            border-radius: 3px;
+            white-space: nowrap;
+            transform: skewX(-20deg);
+            color: #fff !important;
+        }
+        .ocal-bar > span {
+            transform: skewX(20deg);
+            color: #fff !important;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.4);
+            font-weight: 800;
+            font-size: 0.6rem;
+            max-width: 100%;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        .ocal-bar::before {
+            content: '';
+            position: absolute; left: -5px; top: 50%;
+            transform: translateY(-50%);
+            width: 0; height: 0;
+            border-top: 7px solid transparent;
+            border-bottom: 7px solid transparent;
+            border-right: 4px solid;
+            border-right-color: inherit;
+        }
+        .ocal-bar::after {
+            content: '';
+            position: absolute; right: -5px; top: 50%;
+            transform: translateY(-50%);
+            width: 0; height: 0;
+            border-top: 7px solid transparent;
+            border-bottom: 7px solid transparent;
+            border-left: 4px solid;
+            border-left-color: inherit;
+        }
+        .ocal-bar.status-confirmed {
+            background: linear-gradient(135deg, #06b6d4, #22d3ee) !important;
+        }
+        .ocal-bar.status-pending {
+            background: linear-gradient(135deg, #0ea5e9, #38bdf8) !important;
+        }
+        .ocal-bar.status-checked_in {
+            background: linear-gradient(135deg, #10b981, #34d399) !important;
+        }
+        .ocal-bar.status-checked_out {
+            background: linear-gradient(135deg, #9ca3af, #d1d5db) !important;
+            opacity: 0.5;
+        }
+        .ocal-legend {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 8px 14px;
+            margin-top: 10px;
+            padding-top: 10px;
+            border-top: 1px solid #f1f5f9;
+        }
+        .ocal-legend-item {
+            display: flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 9px;
+            font-weight: 600;
+            color: #64748b;
+        }
+        .ocal-legend-dot {
+            width: 8px; height: 8px;
+            border-radius: 2px;
+        }
 
         /* Empty State */
         .empty-state {
@@ -1071,31 +1335,129 @@ function rp($num) {
             </div>
         </div>
 
-        <!-- Booking Calendar Timeline (above In-House Guests) -->
-        <?php if (!empty($calRooms)): ?>
+        <!-- Booking Calendar Timeline (PHP Server Rendered) -->
+        <?php if ($hasCalendar && !empty($calRooms)): ?>
         <div class="section-title">
             📅 Booking Calendar
             <span class="badge"><?= count($calBookings) ?></span>
         </div>
-        <div class="cal-card-owner">
-            <div class="cal-nav-owner">
-                <button class="cal-nav-btn" onclick="ownerCalNav(-14)">◀ Prev</button>
-                <span class="cal-nav-period" id="ownerCalPeriod"></span>
-                <button class="cal-nav-btn" onclick="ownerCalNav(14)">Next ▶</button>
+        <div class="ocal-section">
+            <div class="ocal-header">
+                <div class="ocal-title">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#6366f1" stroke-width="2">
+                        <rect x="3" y="4" width="18" height="18" rx="2" ry="2"/><line x1="16" y1="2" x2="16" y2="6"/><line x1="8" y1="2" x2="8" y2="6"/><line x1="3" y1="10" x2="21" y2="10"/>
+                    </svg>
+                    Booking Calendar
+                </div>
+                <div class="ocal-nav">
+                    <button class="ocal-nav-btn today-btn" onclick="ocalGoToday()">Today</button>
+                </div>
             </div>
-            <div class="cal-scroll-owner" id="ownerCalScroll">
-                <div id="ownerCalGrid"></div>
+            <?php
+            $colW = 90;
+            $todayStr = date('Y-m-d');
+            $dayNames = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+            $totalCols = count($calDates);
+
+            // Build month spans
+            $monthSpans = [];
+            foreach ($calDates as $d) {
+                $mk = date('M Y', strtotime($d));
+                if (!isset($monthSpans[$mk])) $monthSpans[$mk] = 0;
+                $monthSpans[$mk]++;
+            }
+
+            // Index bookings by room_id
+            $bookingsByRoom = [];
+            foreach ($calBookings as $bk) {
+                $bookingsByRoom[$bk['room_id']][] = $bk;
+            }
+            ?>
+            <div class="ocal-scroll-wrapper" id="ocalScroller">
+                <div class="ocal-grid-wrapper">
+                    <div class="ocal-grid" style="grid-template-columns: 90px repeat(<?= $totalCols ?>, <?= $colW ?>px);">
+                        <!-- Month Row -->
+                        <div class="ocal-month-row">
+                            <div class="ocal-month-room"></div>
+                            <?php foreach ($monthSpans as $mLabel => $mSpan): ?>
+                            <div class="ocal-month-label" style="grid-column: span <?= $mSpan ?>;">
+                                <span><?= strtoupper($mLabel) ?></span>
+                            </div>
+                            <?php endforeach; ?>
+                        </div>
+                        <!-- Date Header -->
+                        <div class="ocal-header-row">
+                            <div class="ocal-header-room">Rooms</div>
+                            <?php foreach ($calDates as $d):
+                                $dow = date('w', strtotime($d));
+                                $isToday = ($d === $todayStr);
+                            ?>
+                            <div class="ocal-header-date<?= $isToday ? ' today' : '' ?>" data-date="<?= $d ?>">
+                                <span class="ocal-header-date-day"><?= $dayNames[$dow] ?></span>
+                                <span class="ocal-header-date-num"><?= date('j', strtotime($d)) ?></span>
+                            </div>
+                            <?php endforeach; ?>
+                        </div>
+                        <!-- Room Rows -->
+                        <?php foreach ($calRoomsByType as $typeName => $typeRooms): ?>
+                        <!-- Type Header -->
+                        <div class="ocal-type-header"><?= htmlspecialchars($typeName) ?></div>
+                        <?php for ($i = 0; $i < $totalCols; $i++): ?>
+                        <div class="ocal-type-cell"></div>
+                        <?php endfor; ?>
+
+                        <?php foreach ($typeRooms as $room):
+                            $roomBookings = $bookingsByRoom[$room['id']] ?? [];
+                        ?>
+                        <div class="ocal-room-label">
+                            <span class="ocal-room-type-label"><?= htmlspecialchars($typeName) ?></span>
+                            <span class="ocal-room-number"><?= htmlspecialchars($room['room_number']) ?></span>
+                        </div>
+                        <?php foreach ($calDates as $dateIdx => $d):
+                            $isToday = ($d === $todayStr);
+                        ?>
+                        <div class="ocal-date-cell<?= $isToday ? ' today' : '' ?>" data-date="<?= $d ?>">
+                            <?php
+                            foreach ($roomBookings as $bk) {
+                                $ciDate = $bk['check_in_date'];
+                                $coDate = $bk['check_out_date'];
+                                if ($d === $ciDate) {
+                                    $ci = strtotime($ciDate);
+                                    $co = strtotime($coDate);
+                                    $nights = max(1, (int)ceil(($co - $ci) / 86400));
+                                    $barWidth = ($nights * $colW) - 6;
+                                    $statusCls = 'status-confirmed';
+                                    $icon = '';
+                                    if ($bk['status'] === 'checked_in') {
+                                        $statusCls = 'status-checked_in';
+                                        $icon = '🟢 ';
+                                    } elseif ($bk['status'] === 'checked_out') {
+                                        $statusCls = 'status-checked_out';
+                                    } elseif ($bk['status'] === 'pending') {
+                                        $statusCls = 'status-pending';
+                                    }
+                                    $guestShort = mb_substr($bk['guest_name'] ?? 'Guest', 0, 12);
+                                    echo '<div class="ocal-bar-container" style="left:50%;width:' . $barWidth . 'px;">';
+                                    echo '<div class="ocal-bar ' . $statusCls . '">';
+                                    echo '<span>' . $icon . htmlspecialchars($guestShort) . '</span>';
+                                    echo '</div></div>';
+                                }
+                            }
+                            ?>
+                        </div>
+                        <?php endforeach; ?>
+                        <?php endforeach; ?>
+                        <?php endforeach; ?>
+                    </div>
+                </div>
             </div>
-            <div class="cal-legend-owner">
-                <div class="cal-legend-item-o"><div class="cal-legend-dot-o" style="background:linear-gradient(135deg,#06b6d4,#22d3ee);"></div>Confirmed</div>
-                <div class="cal-legend-item-o"><div class="cal-legend-dot-o" style="background:linear-gradient(135deg,#0ea5e9,#38bdf8);"></div>Pending</div>
-                <div class="cal-legend-item-o"><div class="cal-legend-dot-o" style="background:linear-gradient(135deg,#16a34a,#22c55e);"></div>Checked In</div>
-                <div class="cal-legend-item-o"><div class="cal-legend-dot-o" style="background:linear-gradient(135deg,#9ca3af,#d1d5db);"></div>Checked Out</div>
+            <div class="ocal-legend">
+                <div class="ocal-legend-item"><span class="ocal-legend-dot" style="background:#06b6d4;"></span> Confirmed</div>
+                <div class="ocal-legend-item"><span class="ocal-legend-dot" style="background:#0ea5e9;"></span> Pending</div>
+                <div class="ocal-legend-item"><span class="ocal-legend-dot" style="background:#10b981;"></span> Checked In</div>
+                <div class="ocal-legend-item"><span class="ocal-legend-dot" style="background:#9ca3af;"></span> Checked Out</div>
             </div>
         </div>
-        <!-- Booking Popup -->
-        <div class="cal-popup-overlay-o" id="ownerCalOverlay" onclick="closeOwnerCalPopup()"></div>
-        <div class="cal-popup-o" id="ownerCalPopup"></div>
         <?php endif; ?>
 
         <!-- In-House Guests -->
@@ -1182,163 +1544,57 @@ function rp($num) {
         ctx.strokeStyle = 'rgba(99, 102, 241, 0.1)'; ctx.lineWidth = 1; ctx.stroke();
     });
 
-    // ── CloudBeds Booking Calendar ──
-    <?php if (!empty($calRooms)): ?>
+    // ── Owner Calendar - Drag to scroll + Today ──
     (function() {
-        var COL_W = 80;
-        var calRooms = <?= json_encode($calRooms, JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
-        var calBookings = <?= json_encode($calBookings, JSON_HEX_APOS | JSON_HEX_QUOT) ?>;
-        var calOffset = 0;
+        var scroller = document.getElementById('ocalScroller');
+        if (!scroller) return;
 
-        // Use local date string (NOT toISOString which converts to UTC!)
-        function localDateStr(d) {
-            return d.getFullYear() + '-' + String(d.getMonth()+1).padStart(2,'0') + '-' + String(d.getDate()).padStart(2,'0');
-        }
+        // Drag-to-scroll
+        var isDown = false, startX, scrollLeft;
+        scroller.addEventListener('mousedown', function(e) {
+            if (e.target.closest('button')) return;
+            isDown = true;
+            scroller.style.cursor = 'grabbing';
+            startX = e.pageX - scroller.offsetLeft;
+            scrollLeft = scroller.scrollLeft;
+        });
+        scroller.addEventListener('mouseleave', function() { isDown = false; scroller.style.cursor = 'grab'; });
+        scroller.addEventListener('mouseup', function() { isDown = false; scroller.style.cursor = 'grab'; });
+        scroller.addEventListener('mousemove', function(e) {
+            if (!isDown) return;
+            e.preventDefault();
+            var x = e.pageX - scroller.offsetLeft;
+            scroller.scrollLeft = scrollLeft - (x - startX);
+        });
 
-        function renderOwnerCal() {
-            var today = new Date(); today.setHours(0,0,0,0);
-            var start = new Date(today);
-            start.setDate(start.getDate() + calOffset - 3);
-            var days = 14, dates = [], todayStr = localDateStr(today);
-            for (var i = 0; i < days; i++) {
-                var dt = new Date(start); dt.setDate(dt.getDate() + i);
-                dates.push(localDateStr(dt));
+        // Touch drag
+        var touchStartX, touchScrollLeft;
+        scroller.addEventListener('touchstart', function(e) {
+            touchStartX = e.touches[0].pageX;
+            touchScrollLeft = scroller.scrollLeft;
+        }, {passive: true});
+        scroller.addEventListener('touchmove', function(e) {
+            var x = e.touches[0].pageX;
+            scroller.scrollLeft = touchScrollLeft - (x - touchStartX);
+        }, {passive: true});
+
+        // Scroll to today on load
+        setTimeout(function() {
+            var todayCell = scroller.querySelector('.ocal-header-date.today');
+            if (todayCell) {
+                scroller.scrollLeft = todayCell.offsetLeft - 100;
             }
-            var months = ['Jan','Feb','Mar','Apr','Mei','Jun','Jul','Agu','Sep','Okt','Nov','Des'];
-            var startD = new Date(dates[0] + 'T00:00:00'), endD = new Date(dates[dates.length-1] + 'T00:00:00');
-            var periodEl = document.getElementById('ownerCalPeriod');
-            if (periodEl) periodEl.textContent = startD.getDate() + ' ' + months[startD.getMonth()] + ' — ' + endD.getDate() + ' ' + months[endD.getMonth()] + ' ' + endD.getFullYear();
-
-            var roomsByType = {};
-            calRooms.forEach(function(r) {
-                var t = r.room_type || 'Standard';
-                if (!roomsByType[t]) roomsByType[t] = [];
-                roomsByType[t].push(r);
-            });
-
-            var bookingMap = {};
-            calBookings.forEach(function(b) {
-                if (!bookingMap[b.room_id]) bookingMap[b.room_id] = [];
-                var bStart = b.check_in_date, bEnd = b.check_out_date;
-                var startCol = -1, endCol = -1;
-                for (var i = 0; i < dates.length; i++) {
-                    if (dates[i] >= bStart && startCol < 0) startCol = i;
-                    if (dates[i] < bEnd) endCol = i;
-                }
-                if (bStart < dates[0]) startCol = 0;
-                if (endCol < 0 && bEnd > dates[0]) endCol = dates.length - 1;
-                if (startCol >= 0 && endCol >= startCol) {
-                    var copy = {}; for (var k in b) copy[k] = b[k];
-                    copy.startCol = startCol; copy.span = endCol - startCol + 1;
-                    bookingMap[b.room_id].push(copy);
-                }
-            });
-
-            var dayNames = ['Min','Sen','Sel','Rab','Kam','Jum','Sab'];
-            var g = '<div class="cal-grid-owner" style="grid-template-columns:64px repeat(' + days + ',' + COL_W + 'px);">';
-            g += '<div class="cgo-hdr-room">ROOMS</div>';
-            dates.forEach(function(dt) {
-                var dd = new Date(dt + 'T00:00:00'), isTd = dt === todayStr;
-                g += '<div class="cgo-hdr-date' + (isTd ? ' cgo-today' : '') + '"><span class="cgo-hdr-day">' + dayNames[dd.getDay()] + '</span> <span class="cgo-hdr-num">' + dd.getDate() + '</span></div>';
-            });
-
-            Object.keys(roomsByType).forEach(function(typeName) {
-                g += '<div class="cgo-type-hdr">📂 ' + typeName.substring(0, 10) + '</div>';
-                for (var i = 0; i < days; i++) g += '<div class="cgo-type-price"></div>';
-
-                roomsByType[typeName].forEach(function(room) {
-                    var tShort = (room.room_type || '').toUpperCase().substring(0, 6);
-                    g += '<div class="cgo-room"><span class="cgo-room-type">' + tShort + '</span><span class="cgo-room-num">' + room.room_number + '</span></div>';
-                    var roomBookings = bookingMap[room.id] || [];
-                    for (var i = 0; i < days; i++) {
-                        var isTd = dates[i] === todayStr;
-                        g += '<div class="cgo-cell' + (isTd ? ' cgo-today' : '') + '">';
-                        roomBookings.forEach(function(rb) {
-                            if (rb.startCol === i) {
-                                var barW = (rb.span * COL_W) - 10;
-                                var sCls = 'bs-' + (rb.status || '').replace('_', '-');
-                                var isCI = rb.status === 'checked_in';
-                                var icon = isCI ? '✓ ' : '';
-                                var name = (rb.guest_name || 'Guest').substring(0, 8);
-                                var code = (rb.booking_code || '').substring(0, 5);
-                                var bData = encodeURIComponent(JSON.stringify({
-                                    booking_code: rb.booking_code, guest_name: rb.guest_name,
-                                    check_in_date: rb.check_in_date, check_out_date: rb.check_out_date,
-                                    status: rb.status, booking_source: rb.booking_source,
-                                    payment_status: rb.payment_status, room_price: rb.room_price,
-                                    final_price: rb.final_price, total_nights: rb.total_nights,
-                                    guest_phone: rb.guest_phone
-                                }));
-                                g += '<div class="bbar-wrap-o" style="width:' + barW + 'px;" onclick="showOwnerBooking(\'' + bData + '\')">'
-                                   + '<div class="bbar-o ' + sCls + '"><span>' + icon + name + ' • ' + code + '</span></div></div>';
-                            }
-                        });
-                        g += '</div>';
-                    }
-                });
-            });
-
-            g += '<div class="cgo-ftr-room">ROOMS</div>';
-            dates.forEach(function(dt) {
-                var dd = new Date(dt + 'T00:00:00'), isTd = dt === todayStr;
-                g += '<div class="cgo-ftr-date' + (isTd ? ' cgo-today' : '') + '"><span class="cgo-hdr-day">' + dayNames[dd.getDay()] + '</span> <span class="cgo-hdr-num">' + dd.getDate() + '</span></div>';
-            });
-            g += '</div>';
-            document.getElementById('ownerCalGrid').innerHTML = g;
-
-            var todayIdx = dates.indexOf(todayStr);
-            if (todayIdx > 1) {
-                var scrollEl = document.getElementById('ownerCalScroll');
-                setTimeout(function() { scrollEl.scrollLeft = Math.max(0, (todayIdx - 1) * COL_W); }, 100);
-            }
-        }
-
-        window.ownerCalNav = function(d) { calOffset += d; renderOwnerCal(); };
-
-        window.showOwnerBooking = function(encoded) {
-            var b = JSON.parse(decodeURIComponent(encoded));
-            var statusMap = {'pending':'⏳ Pending','confirmed':'✅ Confirmed','checked_in':'🏨 Checked In','checked_out':'🚪 Checked Out'};
-            var sourceMap = {'walk_in':'Walk In','agoda':'Agoda','booking':'Booking.com','traveloka':'Traveloka','airbnb':'Airbnb','tiket':'Tiket.com','phone':'Telepon','ota':'OTA','online':'Online'};
-            var payMap = {'unpaid':'❌ Belum Bayar','partial':'⚠️ Sebagian','paid':'✅ Lunas'};
-            var rp = function(n) { return 'Rp ' + Number(n||0).toLocaleString('id-ID'); };
-            document.getElementById('ownerCalPopup').innerHTML =
-                '<div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:12px;">' +
-                    '<div style="font-weight:800;font-size:14px;color:#1e293b;">📋 Detail Booking</div>' +
-                    '<button onclick="closeOwnerCalPopup()" style="background:none;border:none;font-size:18px;cursor:pointer;color:#64748b;">✕</button>' +
-                '</div>' +
-                '<div style="font-size:12px;line-height:2.2;color:#334155;">' +
-                    '<div><strong>Kode:</strong> ' + (b.booking_code||'-') + '</div>' +
-                    '<div><strong>Tamu:</strong> ' + (b.guest_name||'-') + '</div>' +
-                    '<div><strong>Telepon:</strong> ' + (b.guest_phone||'-') + '</div>' +
-                    '<div><strong>Check-in:</strong> ' + (b.check_in_date||'-') + '</div>' +
-                    '<div><strong>Check-out:</strong> ' + (b.check_out_date||'-') + ' (' + (b.total_nights||'-') + ' malam)</div>' +
-                    '<div><strong>Status:</strong> ' + (statusMap[b.status]||b.status) + '</div>' +
-                    '<div><strong>Sumber:</strong> ' + (sourceMap[b.booking_source]||b.booking_source||'-') + '</div>' +
-                    '<div><strong>Harga:</strong> ' + rp(b.final_price) + '</div>' +
-                    '<div><strong>Pembayaran:</strong> ' + (payMap[b.payment_status]||b.payment_status||'-') + '</div>' +
-                '</div>';
-            document.getElementById('ownerCalPopup').style.display = 'block';
-            document.getElementById('ownerCalOverlay').style.display = 'block';
-        };
-
-        window.closeOwnerCalPopup = function() {
-            document.getElementById('ownerCalPopup').style.display = 'none';
-            document.getElementById('ownerCalOverlay').style.display = 'none';
-        };
-
-        // Drag to scroll
-        var scrollEl = document.getElementById('ownerCalScroll');
-        if (scrollEl) {
-            var isDown = false, startX, scrollLeft;
-            scrollEl.addEventListener('mousedown', function(e) { isDown = true; startX = e.pageX - scrollEl.offsetLeft; scrollLeft = scrollEl.scrollLeft; });
-            scrollEl.addEventListener('mouseleave', function() { isDown = false; });
-            scrollEl.addEventListener('mouseup', function() { isDown = false; });
-            scrollEl.addEventListener('mousemove', function(e) { if (!isDown) return; e.preventDefault(); var x = e.pageX - scrollEl.offsetLeft; scrollEl.scrollLeft = scrollLeft - (x - startX); });
-        }
-
-        renderOwnerCal();
+        }, 100);
     })();
-    <?php endif; ?>
+
+    function ocalGoToday() {
+        var scroller = document.getElementById('ocalScroller');
+        if (!scroller) return;
+        var todayCell = scroller.querySelector('.ocal-header-date.today');
+        if (todayCell) {
+            scroller.scrollTo({ left: todayCell.offsetLeft - 100, behavior: 'smooth' });
+        }
+    }
     </script>
 </body>
 </html>
