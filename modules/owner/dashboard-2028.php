@@ -631,7 +631,7 @@ if (!$error) {
                 LEFT JOIN room_types rt ON r.room_type_id = rt.id
                 WHERE r.status != 'maintenance'
                 ORDER BY FIELD(rt.type_name, 'Queen Chambers','Queen','Twin Chambers','Twin',
-                               'King Quarters','King','Deluxe King','Deluxe Queen'),
+                               'King Quarters','King','Deluxe Queen','Deluxe King'),
                          rt.type_name ASC, r.floor_number ASC, r.room_number ASC
             ");
             $calRooms = $stmtR->fetchAll(PDO::FETCH_ASSOC);

@@ -92,7 +92,7 @@ try {
         FROM rooms r
         LEFT JOIN room_types rt ON r.room_type_id = rt.id
         WHERE r.status != 'maintenance'
-        ORDER BY FIELD(rt.type_name, 'Queen Chambers', 'Queen', 'Twin Chambers', 'Twin', 'King Quarters', 'King', 'Deluxe King', 'Deluxe Queen'), rt.type_name ASC, r.floor_number ASC, r.room_number ASC
+        ORDER BY FIELD(rt.type_name, 'Queen Chambers', 'Queen', 'Twin Chambers', 'Twin', 'King Quarters', 'King', 'Deluxe Queen', 'Deluxe King'), rt.type_name ASC, r.floor_number ASC, r.room_number ASC
     ", []);
 } catch (Exception $e) {
     error_log("Rooms Error: " . $e->getMessage());
@@ -2315,7 +2315,10 @@ include '../../includes/header.php';
     <!-- Search Bar -->
     <div class="search-reservation-bar">
         <div class="search-input-wrapper">
-            <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            <svg class="search-icon" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round">
+                <circle cx="11" cy="11" r="8" />
+                <line x1="21" y1="21" x2="16.65" y2="16.65" />
+            </svg>
             <input type="text" id="searchReservation" class="search-input" placeholder="Search reservations, guests, and more" autocomplete="off">
             <button class="search-clear-btn" id="searchClearBtn" onclick="clearSearch()" style="display:none;">×</button>
         </div>
@@ -2701,10 +2704,13 @@ include '../../includes/header.php';
         console.log('🎯 showBookingQuickView (side panel) called with:', booking);
         currentPaymentBooking = booking;
         const panel = document.getElementById('bookingQuickView');
-        if (!panel) { alert('Side panel not found'); return; }
+        if (!panel) {
+            alert('Side panel not found');
+            return;
+        }
 
         // Guest avatar initials
-        const initials = (booking.guest_name || 'G').split(' ').map(w => w[0]).join('').substring(0,2).toUpperCase();
+        const initials = (booking.guest_name || 'G').split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase();
         document.getElementById('sp-avatar').textContent = initials;
 
         // Guest name & phone
@@ -2714,13 +2720,29 @@ include '../../includes/header.php';
         // WhatsApp link
         const waPhone = booking.guest_phone ? booking.guest_phone.replace(/^0/, '62').replace(/[^0-9]/g, '') : '';
         const waEl = document.getElementById('sp-wa-link');
-        if (waPhone) { waEl.href = 'https://wa.me/' + waPhone; waEl.style.display = 'flex'; }
-        else { waEl.style.display = 'none'; }
+        if (waPhone) {
+            waEl.href = 'https://wa.me/' + waPhone;
+            waEl.style.display = 'flex';
+        } else {
+            waEl.style.display = 'none';
+        }
 
         // Status badge
         const statusEl = document.getElementById('sp-status');
-        const statusMap = {checked_in:'Checked In',confirmed:'Confirmed',pending:'Pending',checked_out:'Checked Out',cancelled:'Cancelled'};
-        const statusColorMap = {checked_in:'#dcfce7;color:#16a34a',confirmed:'#dbeafe;color:#2563eb',pending:'#fef3c7;color:#d97706',checked_out:'#f1f5f9;color:#64748b',cancelled:'#fce4ec;color:#e53935'};
+        const statusMap = {
+            checked_in: 'Checked In',
+            confirmed: 'Confirmed',
+            pending: 'Pending',
+            checked_out: 'Checked Out',
+            cancelled: 'Cancelled'
+        };
+        const statusColorMap = {
+            checked_in: '#dcfce7;color:#16a34a',
+            confirmed: '#dbeafe;color:#2563eb',
+            pending: '#fef3c7;color:#d97706',
+            checked_out: '#f1f5f9;color:#64748b',
+            cancelled: '#fce4ec;color:#e53935'
+        };
         statusEl.textContent = '● ' + (statusMap[booking.status] || booking.status);
         statusEl.style.cssText = 'font-size:0.78rem;font-weight:700;padding:4px 12px;border-radius:20px;background:' + (statusColorMap[booking.status] || '#f1f5f9;color:#475569');
 
@@ -2729,21 +2751,42 @@ include '../../includes/header.php';
         if (!bkSrc && booking.payments && booking.payments.length > 0) {
             for (let i = 0; i < booking.payments.length; i++) {
                 const pm = (booking.payments[i].payment_method || '').toLowerCase();
-                if (pm.startsWith('ota_')) { bkSrc = pm.replace('ota_', ''); break; }
-                else if (pm === 'ota') { bkSrc = 'ota'; break; }
+                if (pm.startsWith('ota_')) {
+                    bkSrc = pm.replace('ota_', '');
+                    break;
+                } else if (pm === 'ota') {
+                    bkSrc = 'ota';
+                    break;
+                }
             }
         }
         let displaySource = '';
         if (bkSrc && typeof SOURCE_NAMES !== 'undefined' && SOURCE_NAMES[bkSrc]) {
             displaySource = SOURCE_NAMES[bkSrc];
         } else if (bkSrc) {
-            const sm = {'walk_in':'Walk-In','phone':'Phone','online':'Online','ota':'OTA','agoda':'OTA Agoda','booking':'OTA Booking.com','tiket':'OTA Tiket.com','traveloka':'OTA Traveloka','airbnb':'OTA Airbnb'};
-            displaySource = sm[bkSrc] || bkSrc.replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
-        } else { displaySource = 'Walk-In'; }
+            const sm = {
+                'walk_in': 'Walk-In',
+                'phone': 'Phone',
+                'online': 'Online',
+                'ota': 'OTA',
+                'agoda': 'OTA Agoda',
+                'booking': 'OTA Booking.com',
+                'tiket': 'OTA Tiket.com',
+                'traveloka': 'OTA Traveloka',
+                'airbnb': 'OTA Airbnb'
+            };
+            displaySource = sm[bkSrc] || bkSrc.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+        } else {
+            displaySource = 'Walk-In';
+        }
         document.getElementById('sp-source').textContent = displaySource;
 
         // Timeline
-        const fmtD = (d) => d ? new Date(d).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}) : '-';
+        const fmtD = (d) => d ? new Date(d).toLocaleDateString('id-ID', {
+            day: '2-digit',
+            month: 'short',
+            year: 'numeric'
+        }) : '-';
         document.getElementById('sp-booked-date').textContent = fmtD(booking.created_at);
         document.getElementById('sp-checkin-date').textContent = fmtD(booking.check_in_date);
         document.getElementById('sp-checkout-date').textContent = fmtD(booking.check_out_date);
@@ -2765,12 +2808,13 @@ include '../../includes/header.php';
 
         // Folio table
         let folioRows = '';
-        let totalDebit = 0, totalCredit = 0;
+        let totalDebit = 0,
+            totalCredit = 0;
 
         // Room charge as debit
         const roomTotal = (booking.room_price || 0) * (booking.total_nights || 1);
         totalDebit += parseFloat(booking.final_price || roomTotal);
-        folioRows += '<tr><td><div class="folio-desc-title">Room Charge - ' + (booking.room_type || '') + ' (' + (booking.room_number || '') + ')</div><div class="folio-desc-sub">' + fmtD(booking.check_in_date) + ' → ' + fmtD(booking.check_out_date) + ' • ' + (booking.total_nights||1) + ' night(s)</div></td><td class="text-right">' + fmtR(booking.final_price || roomTotal) + '</td><td class="text-right">-</td></tr>';
+        folioRows += '<tr><td><div class="folio-desc-title">Room Charge - ' + (booking.room_type || '') + ' (' + (booking.room_number || '') + ')</div><div class="folio-desc-sub">' + fmtD(booking.check_in_date) + ' → ' + fmtD(booking.check_out_date) + ' • ' + (booking.total_nights || 1) + ' night(s)</div></td><td class="text-right">' + fmtR(booking.final_price || roomTotal) + '</td><td class="text-right">-</td></tr>';
 
         // Extras as debit
         if (booking.extras && booking.extras.length > 0) {
@@ -2790,8 +2834,15 @@ include '../../includes/header.php';
         if (booking.payments && booking.payments.length > 0) {
             booking.payments.forEach(function(p) {
                 totalCredit += parseFloat(p.amount || 0);
-                const pd = new Date(p.payment_date).toLocaleDateString('id-ID',{day:'2-digit',month:'short',year:'numeric'}) + ' ' + new Date(p.payment_date).toLocaleTimeString('id-ID',{hour:'2-digit',minute:'2-digit'});
-                const pm = (p.payment_method||'cash').replace(/_/g,' ').replace(/\b\w/g,c=>c.toUpperCase());
+                const pd = new Date(p.payment_date).toLocaleDateString('id-ID', {
+                    day: '2-digit',
+                    month: 'short',
+                    year: 'numeric'
+                }) + ' ' + new Date(p.payment_date).toLocaleTimeString('id-ID', {
+                    hour: '2-digit',
+                    minute: '2-digit'
+                });
+                const pm = (p.payment_method || 'cash').replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
                 folioRows += '<tr><td><div class="folio-desc-title">' + pm + ' - Payment Recorded</div><div class="folio-desc-sub">' + pd + '</div></td><td class="text-right">-</td><td class="text-right">' + fmtR(p.amount) + '</td></tr>';
             });
         }
@@ -2806,7 +2857,7 @@ include '../../includes/header.php';
         document.getElementById('sp-detail-checkin').textContent = fmtD(booking.check_in_date);
         document.getElementById('sp-detail-checkout').textContent = fmtD(booking.check_out_date);
         document.getElementById('sp-detail-nights').textContent = (booking.total_nights || '-') + ' night(s)';
-        document.getElementById('sp-detail-guests').textContent = (booking.adults||1) + ' adult(s)' + (booking.children > 0 ? ', ' + booking.children + ' child(ren)' : '');
+        document.getElementById('sp-detail-guests').textContent = (booking.adults || 1) + ' adult(s)' + (booking.children > 0 ? ', ' + booking.children + ' child(ren)' : '');
         document.getElementById('sp-detail-notes').textContent = booking.special_requests || '-';
 
         // Extras in details
@@ -2816,7 +2867,9 @@ include '../../includes/header.php';
             document.getElementById('sp-extras-list').innerHTML = booking.extras.map(function(ex) {
                 return '<div class="sp-detail-row"><span>' + ex.item_name + ' (' + ex.quantity + 'x)</span><strong>Rp' + new Intl.NumberFormat('id-ID').format(ex.total_price) + '</strong></div>';
             }).join('');
-        } else { extSec.style.display = 'none'; }
+        } else {
+            extSec.style.display = 'none';
+        }
 
         // Room tab
         document.getElementById('sp-room-type').textContent = booking.room_type || '-';
@@ -2849,8 +2902,12 @@ include '../../includes/header.php';
     }
 
     window.switchSPTab = function switchSPTab(tab) {
-        document.querySelectorAll('.sp-tab').forEach(function(t) { t.classList.remove('active'); });
-        document.querySelectorAll('.sp-tab-content').forEach(function(c) { c.classList.remove('active'); });
+        document.querySelectorAll('.sp-tab').forEach(function(t) {
+            t.classList.remove('active');
+        });
+        document.querySelectorAll('.sp-tab-content').forEach(function(c) {
+            c.classList.remove('active');
+        });
         document.querySelector('.sp-tab[onclick*="' + tab + '"]').classList.add('active');
         document.getElementById('sp-tab-' + tab).classList.add('active');
     }
@@ -4679,7 +4736,10 @@ include '../../includes/header.php';
                 searchClearBtn.style.display = q.length > 0 ? '' : 'none';
 
                 if (searchTimeout) clearTimeout(searchTimeout);
-                if (q.length < 2) { searchResults.style.display = 'none'; return; }
+                if (q.length < 2) {
+                    searchResults.style.display = 'none';
+                    return;
+                }
 
                 searchTimeout = setTimeout(function() {
                     fetch('../../api/search-bookings.php?q=' + encodeURIComponent(q))
@@ -4692,20 +4752,29 @@ include '../../includes/header.php';
                             }
                             let html = '';
                             data.results.forEach(function(r) {
-                                const initials = (r.guest_name||'G').split(' ').map(w=>w[0]).join('').substring(0,2).toUpperCase();
-                                const checkin = new Date(r.check_in_date).toLocaleDateString('id-ID',{day:'numeric',month:'short'});
-                                const checkout = new Date(r.check_out_date).toLocaleDateString('id-ID',{day:'numeric',month:'short',year:'numeric'});
-                                html += '<div class="search-result-item" onclick="openBookingFromSearch(' + r.id + ')">'
-                                    + '<div class="sr-avatar">' + initials + '</div>'
-                                    + '<div class="sr-info"><div class="sr-name">' + r.guest_name + '</div>'
-                                    + '<div class="sr-meta">Room ' + (r.room_number||'-') + ' • ' + checkin + ' - ' + checkout + ' • ' + (r.booking_code||'') + '</div></div>'
-                                    + '<span class="sr-status ' + r.status + '">' + r.status.replace('_',' ') + '</span>'
-                                    + '</div>';
+                                const initials = (r.guest_name || 'G').split(' ').map(w => w[0]).join('').substring(0, 2).toUpperCase();
+                                const checkin = new Date(r.check_in_date).toLocaleDateString('id-ID', {
+                                    day: 'numeric',
+                                    month: 'short'
+                                });
+                                const checkout = new Date(r.check_out_date).toLocaleDateString('id-ID', {
+                                    day: 'numeric',
+                                    month: 'short',
+                                    year: 'numeric'
+                                });
+                                html += '<div class="search-result-item" onclick="openBookingFromSearch(' + r.id + ')">' +
+                                    '<div class="sr-avatar">' + initials + '</div>' +
+                                    '<div class="sr-info"><div class="sr-name">' + r.guest_name + '</div>' +
+                                    '<div class="sr-meta">Room ' + (r.room_number || '-') + ' • ' + checkin + ' - ' + checkout + ' • ' + (r.booking_code || '') + '</div></div>' +
+                                    '<span class="sr-status ' + r.status + '">' + r.status.replace('_', ' ') + '</span>' +
+                                    '</div>';
                             });
                             searchResults.innerHTML = html;
                             searchResults.style.display = 'block';
                         })
-                        .catch(function() { searchResults.style.display = 'none'; });
+                        .catch(function() {
+                            searchResults.style.display = 'none';
+                        });
                 }, 300);
             });
 
@@ -5662,7 +5731,10 @@ include '../../includes/header.php';
             </div>
             <div class="side-panel-header-right">
                 <a id="sp-wa-link" href="#" target="_blank" class="sp-icon-btn" title="WhatsApp" style="display:none;">
-                    <svg width="18" height="18" viewBox="0 0 24 24" fill="#25D366"><path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z"/><path d="M12 0C5.373 0 0 5.373 0 12c0 2.625.846 5.059 2.284 7.034L.789 23.468l4.584-1.454A11.935 11.935 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.75c-2.115 0-4.09-.654-5.712-1.77l-.41-.262-2.717.862.724-2.632-.287-.446A9.714 9.714 0 012.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75z"/></svg>
+                    <svg width="18" height="18" viewBox="0 0 24 24" fill="#25D366">
+                        <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347z" />
+                        <path d="M12 0C5.373 0 0 5.373 0 12c0 2.625.846 5.059 2.284 7.034L.789 23.468l4.584-1.454A11.935 11.935 0 0012 24c6.627 0 12-5.373 12-12S18.627 0 12 0zm0 21.75c-2.115 0-4.09-.654-5.712-1.77l-.41-.262-2.717.862.724-2.632-.287-.446A9.714 9.714 0 012.25 12c0-5.385 4.365-9.75 9.75-9.75s9.75 4.365 9.75 9.75-4.365 9.75-9.75 9.75z" />
+                    </svg>
                 </a>
                 <button class="sp-icon-btn" onclick="closeBookingQuickView()" title="Close">×</button>
             </div>
@@ -5697,8 +5769,14 @@ include '../../includes/header.php';
 
         <!-- Guest Info Row -->
         <div class="sp-guest-info-row">
-            <div class="sp-info-icon" title="Adults"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2"/><circle cx="12" cy="7" r="4"/></svg> <span id="sp-adults">1</span></div>
-            <div class="sp-info-icon" title="Children"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="12" cy="7" r="4"/><path d="M5.5 21v-2a4 4 0 0 1 3-3.87M18.5 21v-2a4 4 0 0 0-3-3.87"/></svg> <span id="sp-children">0</span></div>
+            <div class="sp-info-icon" title="Adults"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <path d="M20 21v-2a4 4 0 0 0-4-4H8a4 4 0 0 0-4 4v2" />
+                    <circle cx="12" cy="7" r="4" />
+                </svg> <span id="sp-adults">1</span></div>
+            <div class="sp-info-icon" title="Children"><svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                    <circle cx="12" cy="7" r="4" />
+                    <path d="M5.5 21v-2a4 4 0 0 1 3-3.87M18.5 21v-2a4 4 0 0 0-3-3.87" />
+                </svg> <span id="sp-children">0</span></div>
         </div>
 
         <!-- Tabs -->
@@ -5946,6 +6024,7 @@ include '../../includes/header.php';
         position: relative;
         margin-bottom: 0.4rem;
     }
+
     .search-input-wrapper {
         display: flex;
         align-items: center;
@@ -5956,11 +6035,17 @@ include '../../includes/header.php';
         gap: 0.5rem;
         transition: border-color 0.2s, box-shadow 0.2s;
     }
+
     .search-input-wrapper:focus-within {
         border-color: #6366f1;
-        box-shadow: 0 0 0 3px rgba(99,102,241,0.12);
+        box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.12);
     }
-    .search-icon { color: #94a3b8; flex-shrink: 0; }
+
+    .search-icon {
+        color: #94a3b8;
+        flex-shrink: 0;
+    }
+
     .search-input {
         border: none;
         outline: none;
@@ -5970,7 +6055,12 @@ include '../../includes/header.php';
         background: transparent;
         font-weight: 500;
     }
-    .search-input::placeholder { color: #94a3b8; font-weight: 400; }
+
+    .search-input::placeholder {
+        color: #94a3b8;
+        font-weight: 400;
+    }
+
     .search-clear-btn {
         background: none;
         border: none;
@@ -5980,7 +6070,10 @@ include '../../includes/header.php';
         line-height: 1;
         padding: 0 2px;
     }
-    .search-clear-btn:hover { color: #ef4444; }
+
+    .search-clear-btn:hover {
+        color: #ef4444;
+    }
 
     .search-results-dropdown {
         position: absolute;
@@ -5990,12 +6083,13 @@ include '../../includes/header.php';
         background: #fff;
         border: 1px solid #e2e8f0;
         border-radius: 10px;
-        box-shadow: 0 8px 32px rgba(0,0,0,0.12);
+        box-shadow: 0 8px 32px rgba(0, 0, 0, 0.12);
         max-height: 380px;
         overflow-y: auto;
         z-index: 999;
         margin-top: 4px;
     }
+
     .search-result-item {
         display: flex;
         align-items: center;
@@ -6005,8 +6099,15 @@ include '../../includes/header.php';
         gap: 0.65rem;
         transition: background 0.15s;
     }
-    .search-result-item:last-child { border-bottom: none; }
-    .search-result-item:hover { background: #f8fafc; }
+
+    .search-result-item:last-child {
+        border-bottom: none;
+    }
+
+    .search-result-item:hover {
+        background: #f8fafc;
+    }
+
     .sr-avatar {
         width: 36px;
         height: 36px;
@@ -6021,9 +6122,27 @@ include '../../includes/header.php';
         flex-shrink: 0;
         letter-spacing: 0.5px;
     }
-    .sr-info { flex: 1; min-width: 0; }
-    .sr-name { font-weight: 700; font-size: 0.85rem; color: #1e293b; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-    .sr-meta { font-size: 0.72rem; color: #64748b; margin-top: 1px; }
+
+    .sr-info {
+        flex: 1;
+        min-width: 0;
+    }
+
+    .sr-name {
+        font-weight: 700;
+        font-size: 0.85rem;
+        color: #1e293b;
+        white-space: nowrap;
+        overflow: hidden;
+        text-overflow: ellipsis;
+    }
+
+    .sr-meta {
+        font-size: 0.72rem;
+        color: #64748b;
+        margin-top: 1px;
+    }
+
     .sr-status {
         font-size: 0.65rem;
         font-weight: 700;
@@ -6032,41 +6151,80 @@ include '../../includes/header.php';
         text-transform: uppercase;
         flex-shrink: 0;
     }
-    .sr-status.checked_in { background: #dcfce7; color: #16a34a; }
-    .sr-status.confirmed { background: #dbeafe; color: #2563eb; }
-    .sr-status.pending { background: #fef3c7; color: #d97706; }
-    .sr-status.checked_out { background: #f1f5f9; color: #64748b; }
-    .sr-status.cancelled { background: #fce4ec; color: #e53935; }
-    .search-no-result { text-align: center; padding: 1.5rem; color: #94a3b8; font-size: 0.85rem; }
+
+    .sr-status.checked_in {
+        background: #dcfce7;
+        color: #16a34a;
+    }
+
+    .sr-status.confirmed {
+        background: #dbeafe;
+        color: #2563eb;
+    }
+
+    .sr-status.pending {
+        background: #fef3c7;
+        color: #d97706;
+    }
+
+    .sr-status.checked_out {
+        background: #f1f5f9;
+        color: #64748b;
+    }
+
+    .sr-status.cancelled {
+        background: #fce4ec;
+        color: #e53935;
+    }
+
+    .search-no-result {
+        text-align: center;
+        padding: 1.5rem;
+        color: #94a3b8;
+        font-size: 0.85rem;
+    }
 
     /* ========== GUEST SIDE PANEL (Cloudbed-style) ========== */
     .guest-side-panel-overlay {
         display: none;
         position: fixed;
-        top: 0; left: 0; right: 0; bottom: 0;
-        background: rgba(0,0,0,0.35);
+        top: 0;
+        left: 0;
+        right: 0;
+        bottom: 0;
+        background: rgba(0, 0, 0, 0.35);
         backdrop-filter: blur(2px);
         z-index: 10000;
         justify-content: flex-end;
     }
+
     .guest-side-panel-overlay.active {
         display: flex !important;
     }
+
     .guest-side-panel {
         width: 480px;
         max-width: 95vw;
         height: 100vh;
         background: #fff;
-        box-shadow: -8px 0 40px rgba(0,0,0,0.15);
+        box-shadow: -8px 0 40px rgba(0, 0, 0, 0.15);
         overflow-y: auto;
         padding: 1.5rem;
         animation: slidePanelIn 0.25s ease-out;
         display: flex;
         flex-direction: column;
     }
+
     @keyframes slidePanelIn {
-        from { transform: translateX(100%); opacity: 0; }
-        to { transform: translateX(0); opacity: 1; }
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
     }
 
     .side-panel-header {
@@ -6075,11 +6233,13 @@ include '../../includes/header.php';
         justify-content: space-between;
         margin-bottom: 0.75rem;
     }
+
     .side-panel-header-left {
         display: flex;
         align-items: center;
         gap: 0.75rem;
     }
+
     .guest-avatar {
         width: 48px;
         height: 48px;
@@ -6094,6 +6254,7 @@ include '../../includes/header.php';
         letter-spacing: 0.5px;
         flex-shrink: 0;
     }
+
     .guest-header-info h2 {
         margin: 0;
         font-size: 1.15rem;
@@ -6101,16 +6262,19 @@ include '../../includes/header.php';
         color: #1e293b;
         line-height: 1.2;
     }
+
     .guest-phone-text {
         margin: 2px 0 0;
         font-size: 0.8rem;
         color: #64748b;
     }
+
     .side-panel-header-right {
         display: flex;
         align-items: center;
         gap: 0.35rem;
     }
+
     .sp-icon-btn {
         width: 36px;
         height: 36px;
@@ -6126,7 +6290,11 @@ include '../../includes/header.php';
         transition: all 0.2s;
         text-decoration: none;
     }
-    .sp-icon-btn:hover { background: #f1f5f9; border-color: #cbd5e1; }
+
+    .sp-icon-btn:hover {
+        background: #f1f5f9;
+        border-color: #cbd5e1;
+    }
 
     .sp-status-row {
         display: flex;
@@ -6134,6 +6302,7 @@ include '../../includes/header.php';
         gap: 0.5rem;
         margin-bottom: 1rem;
     }
+
     .sp-status-badge {
         font-size: 0.78rem;
         font-weight: 700;
@@ -6142,6 +6311,7 @@ include '../../includes/header.php';
         background: #dbeafe;
         color: #2563eb;
     }
+
     .sp-source-badge {
         font-size: 0.72rem;
         font-weight: 600;
@@ -6152,7 +6322,13 @@ include '../../includes/header.php';
     }
 
     /* Timeline */
-    .sp-timeline { margin-bottom: 1rem; padding: 0.75rem; background: #f8fafc; border-radius: 10px; }
+    .sp-timeline {
+        margin-bottom: 1rem;
+        padding: 0.75rem;
+        background: #f8fafc;
+        border-radius: 10px;
+    }
+
     .sp-timeline-track {
         height: 4px;
         background: #e2e8f0;
@@ -6160,19 +6336,37 @@ include '../../includes/header.php';
         margin-bottom: 0.5rem;
         position: relative;
     }
+
     .sp-timeline-progress {
         height: 100%;
         background: linear-gradient(90deg, #6366f1, #8b5cf6);
         border-radius: 2px;
         transition: width 0.3s;
     }
+
     .sp-timeline-labels {
         display: flex;
         justify-content: space-between;
     }
-    .sp-timeline-point { text-align: center; }
-    .sp-timeline-label { display: block; font-size: 0.68rem; color: #94a3b8; font-weight: 600; text-transform: uppercase; }
-    .sp-timeline-date { display: block; font-size: 0.75rem; color: #334155; font-weight: 700; }
+
+    .sp-timeline-point {
+        text-align: center;
+    }
+
+    .sp-timeline-label {
+        display: block;
+        font-size: 0.68rem;
+        color: #94a3b8;
+        font-weight: 600;
+        text-transform: uppercase;
+    }
+
+    .sp-timeline-date {
+        display: block;
+        font-size: 0.75rem;
+        color: #334155;
+        font-weight: 700;
+    }
 
     /* Guest info row */
     .sp-guest-info-row {
@@ -6184,6 +6378,7 @@ include '../../includes/header.php';
         background: #f8fafc;
         border-radius: 8px;
     }
+
     .sp-info-icon {
         display: flex;
         align-items: center;
@@ -6192,7 +6387,10 @@ include '../../includes/header.php';
         font-weight: 700;
         color: #475569;
     }
-    .sp-info-icon svg { color: #6366f1; }
+
+    .sp-info-icon svg {
+        color: #6366f1;
+    }
 
     /* Tabs */
     .sp-tabs {
@@ -6200,6 +6398,7 @@ include '../../includes/header.php';
         border-bottom: 2px solid #e2e8f0;
         margin-bottom: 0;
     }
+
     .sp-tab {
         padding: 0.5rem 1rem;
         border: none;
@@ -6212,15 +6411,26 @@ include '../../includes/header.php';
         margin-bottom: -2px;
         transition: all 0.2s;
     }
-    .sp-tab:hover { color: #475569; }
+
+    .sp-tab:hover {
+        color: #475569;
+    }
+
     .sp-tab.active {
         color: #1e3a5f;
         border-bottom-color: #1e3a5f;
     }
 
     /* Tab content */
-    .sp-tab-content { display: none; padding: 1rem 0; flex: 1; }
-    .sp-tab-content.active { display: block; }
+    .sp-tab-content {
+        display: none;
+        padding: 1rem 0;
+        flex: 1;
+    }
+
+    .sp-tab-content.active {
+        display: block;
+    }
 
     /* Balance box */
     .sp-balance-box {
@@ -6233,8 +6443,18 @@ include '../../includes/header.php';
         margin-bottom: 0.75rem;
         border: 1px solid #e2e8f0;
     }
-    .sp-balance-label { font-size: 0.82rem; color: #64748b; font-weight: 600; }
-    .sp-balance-amount { font-size: 1.05rem; font-weight: 800; color: #1e293b; }
+
+    .sp-balance-label {
+        font-size: 0.82rem;
+        color: #64748b;
+        font-weight: 600;
+    }
+
+    .sp-balance-amount {
+        font-size: 1.05rem;
+        font-weight: 800;
+        color: #1e293b;
+    }
 
     /* Folio table */
     .sp-folio-table {
@@ -6242,6 +6462,7 @@ include '../../includes/header.php';
         border-collapse: collapse;
         font-size: 0.8rem;
     }
+
     .sp-folio-table th {
         text-align: left;
         padding: 0.5rem 0.4rem;
@@ -6251,15 +6472,29 @@ include '../../includes/header.php';
         text-transform: uppercase;
         border-bottom: 2px solid #e2e8f0;
     }
+
     .sp-folio-table td {
         padding: 0.55rem 0.4rem;
         border-bottom: 1px solid #f1f5f9;
         color: #334155;
         vertical-align: top;
     }
-    .sp-folio-table .text-right { text-align: right; }
-    .sp-folio-table .folio-desc-title { font-weight: 600; font-size: 0.78rem; }
-    .sp-folio-table .folio-desc-sub { font-size: 0.7rem; color: #94a3b8; margin-top: 1px; }
+
+    .sp-folio-table .text-right {
+        text-align: right;
+    }
+
+    .sp-folio-table .folio-desc-title {
+        font-weight: 600;
+        font-size: 0.78rem;
+    }
+
+    .sp-folio-table .folio-desc-sub {
+        font-size: 0.7rem;
+        color: #94a3b8;
+        margin-top: 1px;
+    }
+
     .sp-folio-total td {
         font-weight: 700;
         border-top: 2px solid #cbd5e1;
@@ -6268,7 +6503,10 @@ include '../../includes/header.php';
     }
 
     /* Detail section */
-    .sp-detail-section { margin-bottom: 1rem; }
+    .sp-detail-section {
+        margin-bottom: 1rem;
+    }
+
     .sp-detail-section h4 {
         font-size: 0.82rem;
         font-weight: 700;
@@ -6277,14 +6515,21 @@ include '../../includes/header.php';
         padding-bottom: 0.35rem;
         border-bottom: 1px solid #e2e8f0;
     }
+
     .sp-detail-row {
         display: flex;
         justify-content: space-between;
         padding: 0.35rem 0;
         font-size: 0.8rem;
     }
-    .sp-detail-row span { color: #64748b; }
-    .sp-detail-row strong { color: #1e293b; }
+
+    .sp-detail-row span {
+        color: #64748b;
+    }
+
+    .sp-detail-row strong {
+        color: #1e293b;
+    }
 
     /* Room card */
     .sp-room-card {
@@ -6294,10 +6539,30 @@ include '../../includes/header.php';
         padding: 1rem;
         text-align: center;
     }
-    .sp-room-type { font-size: 0.78rem; color: #64748b; font-weight: 600; text-transform: uppercase; letter-spacing: 0.5px; }
-    .sp-room-number { font-size: 1.3rem; font-weight: 900; color: #1e3a5f; margin: 0.25rem 0; }
-    .sp-room-price { font-size: 0.82rem; color: #64748b; }
-    .sp-room-price strong { color: #6366f1; }
+
+    .sp-room-type {
+        font-size: 0.78rem;
+        color: #64748b;
+        font-weight: 600;
+        text-transform: uppercase;
+        letter-spacing: 0.5px;
+    }
+
+    .sp-room-number {
+        font-size: 1.3rem;
+        font-weight: 900;
+        color: #1e3a5f;
+        margin: 0.25rem 0;
+    }
+
+    .sp-room-price {
+        font-size: 0.82rem;
+        color: #64748b;
+    }
+
+    .sp-room-price strong {
+        color: #6366f1;
+    }
 
     /* Action buttons */
     .sp-actions {
@@ -6308,6 +6573,7 @@ include '../../includes/header.php';
         border-top: 1px solid #e2e8f0;
         margin-top: auto;
     }
+
     .sp-action-btn {
         flex: 1;
         min-width: 80px;
@@ -6322,20 +6588,67 @@ include '../../includes/header.php';
         color: #334155;
         text-align: center;
     }
-    .sp-action-btn:hover { background: #f1f5f9; }
-    .sp-action-btn.primary { background: #6366f1; color: #fff; border-color: #6366f1; }
-    .sp-action-btn.primary:hover { background: #4f46e5; }
-    .sp-action-btn.success { background: #10b981; color: #fff; border-color: #10b981; }
-    .sp-action-btn.success:hover { background: #059669; }
-    .sp-action-btn.danger { background: #ef4444; color: #fff; border-color: #ef4444; }
-    .sp-action-btn.danger:hover { background: #dc2626; }
-    .sp-action-btn.warning { background: #f59e0b; color: #fff; border-color: #f59e0b; }
-    .sp-action-btn.warning:hover { background: #d97706; }
 
-    .guest-side-panel::-webkit-scrollbar { width: 6px; }
-    .guest-side-panel::-webkit-scrollbar-track { background: rgba(99,102,241,0.05); }
-    .guest-side-panel::-webkit-scrollbar-thumb { background: rgba(99,102,241,0.2); border-radius: 3px; }
-    .guest-side-panel::-webkit-scrollbar-thumb:hover { background: rgba(99,102,241,0.4); }
+    .sp-action-btn:hover {
+        background: #f1f5f9;
+    }
+
+    .sp-action-btn.primary {
+        background: #6366f1;
+        color: #fff;
+        border-color: #6366f1;
+    }
+
+    .sp-action-btn.primary:hover {
+        background: #4f46e5;
+    }
+
+    .sp-action-btn.success {
+        background: #10b981;
+        color: #fff;
+        border-color: #10b981;
+    }
+
+    .sp-action-btn.success:hover {
+        background: #059669;
+    }
+
+    .sp-action-btn.danger {
+        background: #ef4444;
+        color: #fff;
+        border-color: #ef4444;
+    }
+
+    .sp-action-btn.danger:hover {
+        background: #dc2626;
+    }
+
+    .sp-action-btn.warning {
+        background: #f59e0b;
+        color: #fff;
+        border-color: #f59e0b;
+    }
+
+    .sp-action-btn.warning:hover {
+        background: #d97706;
+    }
+
+    .guest-side-panel::-webkit-scrollbar {
+        width: 6px;
+    }
+
+    .guest-side-panel::-webkit-scrollbar-track {
+        background: rgba(99, 102, 241, 0.05);
+    }
+
+    .guest-side-panel::-webkit-scrollbar-thumb {
+        background: rgba(99, 102, 241, 0.2);
+        border-radius: 3px;
+    }
+
+    .guest-side-panel::-webkit-scrollbar-thumb:hover {
+        background: rgba(99, 102, 241, 0.4);
+    }
 
     .payment-modal {
         background: white;
