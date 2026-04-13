@@ -1435,16 +1435,17 @@ if ($healthScore >= 80) {
             color: #dc2626;
         }
 
-        /* Hero Section - Premium 2028 */
+        /* Hero Section - Premium 2028 White */
         .hero {
-            background: linear-gradient(160deg, #0f0c29 0%, #1a1640 35%, #302b63 70%, #24243e 100%);
+            background: linear-gradient(160deg, #ffffff 0%, #f8fafc 35%, #f1f5f9 70%, #f8fafc 100%);
             border-radius: 20px;
             padding: 20px 18px 14px;
             margin-bottom: 16px;
-            color: white;
+            color: #1e293b;
             position: relative;
             overflow: hidden;
-            box-shadow: 0 12px 40px rgba(15, 12, 41, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.06);
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06), 0 1px 2px rgba(0, 0, 0, 0.04), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+            border: 1px solid rgba(0, 0, 0, 0.06);
         }
 
         .hero::before {
@@ -1454,7 +1455,7 @@ if ($healthScore >= 80) {
             right: -60px;
             width: 220px;
             height: 220px;
-            background: radial-gradient(circle, rgba(99, 102, 241, 0.12) 0%, transparent 70%);
+            background: radial-gradient(circle, rgba(99, 102, 241, 0.06) 0%, transparent 70%);
             border-radius: 50%;
         }
 
@@ -1465,7 +1466,7 @@ if ($healthScore >= 80) {
             left: -30px;
             width: 160px;
             height: 160px;
-            background: radial-gradient(circle, rgba(139, 92, 246, 0.08) 0%, transparent 70%);
+            background: radial-gradient(circle, rgba(139, 92, 246, 0.04) 0%, transparent 70%);
             border-radius: 50%;
         }
 
@@ -1478,12 +1479,12 @@ if ($healthScore >= 80) {
             font-size: 14px;
             font-weight: 700;
             letter-spacing: -0.2px;
-            opacity: 0.9;
+            color: #1e293b;
         }
 
         .hero-subtitle {
             font-size: 10px;
-            opacity: 0.4;
+            color: #94a3b8;
             font-weight: 400;
             letter-spacing: 0.3px;
         }
@@ -1497,7 +1498,7 @@ if ($healthScore >= 80) {
         }
 
         #pieChart {
-            filter: drop-shadow(0 0 20px rgba(16, 185, 129, 0.2)) drop-shadow(0 6px 12px rgba(0, 0, 0, 0.3));
+            filter: drop-shadow(0 0 12px rgba(16, 185, 129, 0.12)) drop-shadow(0 4px 8px rgba(0, 0, 0, 0.08));
         }
 
         .pie-center {
@@ -1506,10 +1507,10 @@ if ($healthScore >= 80) {
             left: 50%;
             transform: translate(-50%, -50%);
             text-align: center;
-            background: rgba(15, 23, 42, 0.85);
+            background: rgba(255, 255, 255, 0.92);
             backdrop-filter: blur(12px);
             -webkit-backdrop-filter: blur(12px);
-            border: 1.5px solid rgba(255, 255, 255, 0.06);
+            border: 1.5px solid rgba(0, 0, 0, 0.06);
             border-radius: 50%;
             width: 68px;
             height: 68px;
@@ -1517,12 +1518,12 @@ if ($healthScore >= 80) {
             flex-direction: column;
             align-items: center;
             justify-content: center;
-            box-shadow: 0 6px 24px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.08), inset 0 1px 0 rgba(255, 255, 255, 0.6);
         }
 
         .pie-center-label {
             font-size: 7px;
-            opacity: 0.45;
+            color: #94a3b8;
             text-transform: uppercase;
             letter-spacing: 1.5px;
             font-weight: 600;
@@ -1538,12 +1539,12 @@ if ($healthScore >= 80) {
 
         .pie-center-value.positive {
             color: #10b981;
-            text-shadow: 0 0 16px rgba(16, 185, 129, 0.4);
+            text-shadow: none;
         }
 
         .pie-center-value.negative {
             color: #ef4444;
-            text-shadow: 0 0 16px rgba(239, 68, 68, 0.4);
+            text-shadow: none;
         }
 
         .pie-center-value.zero {
@@ -1556,8 +1557,8 @@ if ($healthScore >= 80) {
             align-items: center;
             gap: 8px;
             padding: 7px 10px;
-            background: rgba(255, 255, 255, 0.04);
-            border: 1px solid rgba(255, 255, 255, 0.06);
+            background: rgba(0, 0, 0, 0.02);
+            border: 1px solid rgba(0, 0, 0, 0.05);
             border-radius: 10px;
         }
 
@@ -1578,7 +1579,7 @@ if ($healthScore >= 80) {
 
         .fp-stat-label {
             font-size: 9px;
-            opacity: 0.45;
+            color: #94a3b8;
             text-transform: uppercase;
             letter-spacing: 0.5px;
             font-weight: 600;
@@ -1596,30 +1597,18 @@ if ($healthScore >= 80) {
         .fp-stat-pct {
             font-size: 10px;
             font-weight: 700;
-            opacity: 0.35;
+            color: #cbd5e1;
             flex-shrink: 0;
         }
 
-        text-shadow: 0 0 20px rgba(16, 185, 129, 0.5);
-        }
-
-        .pie-center-value.negative {
-            color: #ef4444;
-            text-shadow: 0 0 20px rgba(239, 68, 68, 0.5);
-        }
-
-        .pie-center-value.zero {
-            color: #9ca3af;
-        }
-
-        /* Kas Harian Section - Elegant & Compact */
+        /* Kas Harian Section - Elegant White */
         .kas-harian-section {
             margin: 16px 0;
-            background: linear-gradient(180deg, rgba(15, 23, 42, 0.95) 0%, rgba(30, 41, 59, 0.95) 100%);
-            backdrop-filter: blur(20px);
+            background: #ffffff;
             border-radius: 18px;
             padding: 18px;
-            border: 1px solid rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(0, 0, 0, 0.06);
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.04);
         }
 
         .kas-harian-header {
@@ -1632,7 +1621,7 @@ if ($healthScore >= 80) {
         .kas-harian-title {
             font-size: 14px;
             font-weight: 800;
-            color: #fff;
+            color: #1e293b;
             display: flex;
             align-items: center;
             gap: 8px;
@@ -1642,7 +1631,7 @@ if ($healthScore >= 80) {
             font-size: 10px;
             color: #64748b;
             font-weight: 600;
-            background: rgba(255, 255, 255, 0.06);
+            background: #f1f5f9;
             padding: 3px 10px;
             border-radius: 20px;
         }
@@ -1658,21 +1647,21 @@ if ($healthScore >= 80) {
         .kas-hero-card {
             padding: 12px 14px;
             border-radius: 12px;
-            border: 1px solid rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(0, 0, 0, 0.06);
         }
 
         .kas-hero-card.start {
-            background: rgba(255, 255, 255, 0.04);
+            background: #f8fafc;
         }
 
         .kas-hero-card.available-pos {
-            background: rgba(16, 185, 129, 0.1);
-            border-color: rgba(16, 185, 129, 0.2);
+            background: rgba(16, 185, 129, 0.06);
+            border-color: rgba(16, 185, 129, 0.15);
         }
 
         .kas-hero-card.available-neg {
-            background: rgba(239, 68, 68, 0.1);
-            border-color: rgba(239, 68, 68, 0.2);
+            background: rgba(239, 68, 68, 0.06);
+            border-color: rgba(239, 68, 68, 0.15);
         }
 
         .kas-hero-label {
@@ -1684,7 +1673,7 @@ if ($healthScore >= 80) {
         }
 
         .kas-hero-label.muted {
-            color: rgba(255, 255, 255, 0.4);
+            color: #94a3b8;
         }
 
         .kas-hero-label.green {
@@ -1703,7 +1692,7 @@ if ($healthScore >= 80) {
         }
 
         .kas-hero-value.white {
-            color: rgba(255, 255, 255, 0.85);
+            color: #1e293b;
         }
 
         .kas-hero-value.green {
@@ -1723,8 +1712,8 @@ if ($healthScore >= 80) {
         }
 
         .kas-strip-item {
-            background: rgba(255, 255, 255, 0.04);
-            border: 1px solid rgba(255, 255, 255, 0.06);
+            background: #f8fafc;
+            border: 1px solid rgba(0, 0, 0, 0.05);
             border-radius: 10px;
             padding: 10px 8px;
             text-align: center;
@@ -1757,7 +1746,7 @@ if ($healthScore >= 80) {
             max-height: 240px;
             overflow-y: auto;
             border-radius: 10px;
-            border: 1px solid rgba(255, 255, 255, 0.06);
+            border: 1px solid rgba(0, 0, 0, 0.06);
         }
 
         .kas-table {
@@ -1767,7 +1756,7 @@ if ($healthScore >= 80) {
         }
 
         .kas-table th {
-            background: rgba(15, 23, 42, 0.95);
+            background: #f8fafc;
             padding: 8px 10px;
             text-align: left;
             font-weight: 700;
@@ -1782,8 +1771,8 @@ if ($healthScore >= 80) {
 
         .kas-table td {
             padding: 8px 10px;
-            border-bottom: 1px solid rgba(255, 255, 255, 0.04);
-            color: #e5e7eb;
+            border-bottom: 1px solid rgba(0, 0, 0, 0.04);
+            color: #374151;
         }
 
         .kas-table tr:last-child td {
@@ -1827,29 +1816,29 @@ if ($healthScore >= 80) {
 
         .kas-pay-badge.cash {
             background: rgba(16, 185, 129, 0.12);
-            color: #34d399;
+            color: #059669;
         }
 
         .kas-pay-badge.tf,
         .kas-pay-badge.transfer {
             background: rgba(59, 130, 246, 0.12);
-            color: #60a5fa;
+            color: #2563eb;
         }
 
         .kas-pay-badge.qr {
             background: rgba(245, 158, 11, 0.12);
-            color: #fbbf24;
+            color: #d97706;
         }
 
         .kas-pay-badge.edc,
         .kas-pay-badge.debit {
             background: rgba(168, 85, 247, 0.12);
-            color: #c084fc;
+            color: #9333ea;
         }
 
         .kas-pay-badge.other {
             background: rgba(148, 163, 184, 0.12);
-            color: #94a3b8;
+            color: #64748b;
         }
 
         .kas-amount-masuk {
@@ -2405,7 +2394,7 @@ if ($healthScore >= 80) {
             display: flex;
             align-items: center;
             justify-content: space-between;
-            background: rgba(255, 255, 255, 0.05);
+            background: rgba(0, 0, 0, 0.03);
             border-radius: 12px;
             padding: 12px 14px;
             margin-top: 14px;
@@ -2421,7 +2410,7 @@ if ($healthScore >= 80) {
 
         .hero-today-label {
             font-size: 9px;
-            color: #9ca3af;
+            color: #94a3b8;
             text-transform: uppercase;
             letter-spacing: 0.5px;
             margin-bottom: 3px;
@@ -2432,7 +2421,7 @@ if ($healthScore >= 80) {
             font-size: 13px;
             font-weight: 700;
             letter-spacing: -0.3px;
-            color: #e5e7eb;
+            color: #334155;
         }
 
         .hero-today-value.income {
@@ -2446,7 +2435,7 @@ if ($healthScore >= 80) {
         .hero-today-divider {
             width: 1px;
             height: 28px;
-            background: rgba(255, 255, 255, 0.1);
+            background: rgba(0, 0, 0, 0.08);
         }
 
         /* Dev Badge */
@@ -2634,12 +2623,13 @@ if ($healthScore >= 80) {
         }
 
         .att-hero {
-            background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #4338ca 100%);
+            background: #ffffff;
             border-radius: 18px;
             padding: 18px 16px 14px;
             position: relative;
             overflow: hidden;
-            box-shadow: 0 4px 20px rgba(67, 56, 202, 0.25);
+            box-shadow: 0 4px 24px rgba(0, 0, 0, 0.06);
+            border: 1px solid rgba(0, 0, 0, 0.06);
         }
 
         .att-hero::before {
@@ -2650,7 +2640,7 @@ if ($healthScore >= 80) {
             width: 120px;
             height: 120px;
             border-radius: 50%;
-            background: radial-gradient(circle, rgba(129, 140, 248, 0.2) 0%, transparent 70%);
+            background: radial-gradient(circle, rgba(99, 102, 241, 0.06) 0%, transparent 70%);
         }
 
         .att-hero-top {
@@ -2665,14 +2655,14 @@ if ($healthScore >= 80) {
         .att-hero-title {
             font-size: 14px;
             font-weight: 800;
-            color: #e0e7ff;
+            color: #1e293b;
             letter-spacing: 0.3px;
         }
 
         .att-hero-badge {
-            background: rgba(129, 140, 248, 0.25);
-            border: 1px solid rgba(129, 140, 248, 0.35);
-            color: #a5b4fc;
+            background: rgba(99, 102, 241, 0.08);
+            border: 1px solid rgba(99, 102, 241, 0.15);
+            color: #6366f1;
             font-size: 8px;
             font-weight: 800;
             padding: 3px 10px;
@@ -2705,10 +2695,9 @@ if ($healthScore >= 80) {
         }
 
         .att-date-btn {
-            background: rgba(255, 255, 255, 0.1);
-            backdrop-filter: blur(4px);
-            color: #c7d2fe;
-            border: 1px solid rgba(255, 255, 255, 0.12);
+            background: #f1f5f9;
+            color: #475569;
+            border: 1px solid rgba(0, 0, 0, 0.06);
             border-radius: 10px;
             width: 34px;
             height: 34px;
@@ -2722,14 +2711,14 @@ if ($healthScore >= 80) {
         }
 
         .att-date-btn:active {
-            background: rgba(255, 255, 255, 0.2);
+            background: #e2e8f0;
             transform: scale(0.92);
         }
 
         .att-date-label {
             font-size: 13px;
             font-weight: 800;
-            color: #fff;
+            color: #1e293b;
             letter-spacing: 0.3px;
             min-width: 160px;
             text-align: center;
@@ -2745,24 +2734,23 @@ if ($healthScore >= 80) {
         }
 
         .att-stat-card {
-            background: rgba(255, 255, 255, 0.08);
-            backdrop-filter: blur(8px);
+            background: #f8fafc;
             border-radius: 12px;
             padding: 10px 6px;
             text-align: center;
-            border: 1px solid rgba(255, 255, 255, 0.08);
+            border: 1px solid rgba(0, 0, 0, 0.05);
             transition: background 0.2s;
         }
 
         .att-stat-card:active {
-            background: rgba(255, 255, 255, 0.14);
+            background: #f1f5f9;
         }
 
         .att-stat-num {
             font-size: 22px;
             font-weight: 900;
             line-height: 1.1;
-            color: #fff;
+            color: #1e293b;
         }
 
         .att-stat-label {
@@ -2774,19 +2762,19 @@ if ($healthScore >= 80) {
         }
 
         .att-stat-card.asc-present .att-stat-label {
-            color: #86efac;
+            color: #16a34a;
         }
 
         .att-stat-card.asc-late .att-stat-label {
-            color: #fcd34d;
+            color: #d97706;
         }
 
         .att-stat-card.asc-leave .att-stat-label {
-            color: #93c5fd;
+            color: #2563eb;
         }
 
         .att-stat-card.asc-absent .att-stat-label {
-            color: #fca5a5;
+            color: #dc2626;
         }
 
         .att-stat-dot {
