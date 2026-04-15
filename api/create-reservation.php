@@ -164,6 +164,46 @@ try {
         $bookingCode = 'BK-' . date('YmdHis') . '-' . rand(100, 999);
     }
     
+    // ==========================================
+    // OTA BOOKING: Auto-set paid_amount
+    // ==========================================
+    // Detect if OTA booking - use booking_sources table (source_type) for reliable detection
+    $isOTABooking = false;
+    $sourceInfo = null;
+    try {
+        $sourceInfo = $db->fetchOne("SELECT source_type FROM booking_sources WHERE source_key = ? AND is_active = 1", [$originalBookingSource]);
+        if ($sourceInfo) {
+            $isOTABooking = ($sourceInfo['source_type'] ?? '') !== 'direct';
+        }
+    } catch (\Throwable $e) {
+        // Table might not exist, fall through to hardcoded detection
+    }
+    
+    // Fallback: hardcoded detection if not found in booking_sources table
+    if (!$isOTABooking && !$sourceInfo) {
+        $normalizedSource = strtolower(trim($originalBookingSource ?? ''));
+        $normalizedSource = str_replace(['.com', '.co.id', '.id'], '', $normalizedSource);
+        $normalizedSource = preg_replace('/[^a-z0-9]/', '', $normalizedSource);
+        $otaSources = ['agoda', 'booking', 'bookingcom', 'tiket', 'tiketcom', 'airbnb', 'ota', 'traveloka', 'pegipegi', 'expedia'];
+        foreach ($otaSources as $otaKey) {
+            if (strpos($normalizedSource, $otaKey) !== false || $normalizedSource === $otaKey) {
+                $isOTABooking = true;
+                break;
+            }
+        }
+    }
+    // Also check mapped source
+    if ($bookingSource === 'ota') {
+        $isOTABooking = true;
+    }
+    
+    // For OTA bookings: if no paid_amount specified, auto-set to final_price
+    // (OTA sudah bayar, kita akan masuk cashbook saat check-in)
+    if ($isOTABooking && $paidAmount <= 0) {
+        $paidAmount = $finalPrice;
+        error_log("CREATE-RESERVATION: OTA booking detected ({$originalBookingSource}) - auto-setting paid_amount = final_price ({$finalPrice})");
+    }
+    
     // Ensure payment status matches paid amount
     if ($paidAmount <= 0) {
         $paymentStatus = 'unpaid';
@@ -233,43 +273,14 @@ try {
         // ==========================================
         // AUTO-INSERT TO CASHBOOK SYSTEM (via Helper)
         // DIRECT: langsung masuk kas (uang sudah diterima)
-        // OTA: SKIP - masuk kas saat tamu check-in
+        // OTA: SKIP - masuk kas saat tamu check-in (jika paid_amount sudah di-set)
         // ==========================================
+        // Use $isOTABooking detected earlier (Line ~175)
         
-        // Detect if OTA booking - use booking_sources table (source_type) for reliable detection
-        $isOTA = false;
-        $sourceInfo = null;
-        try {
-            $sourceInfo = $db->fetchOne("SELECT source_type FROM booking_sources WHERE source_key = ? AND is_active = 1", [$originalBookingSource]);
-            if ($sourceInfo) {
-                $isOTA = ($sourceInfo['source_type'] ?? '') !== 'direct';
-            }
-        } catch (\Throwable $e) {
-            // Table might not exist, fall through to hardcoded detection
-        }
-        
-        // Fallback: hardcoded detection if not found in booking_sources table
-        if (!$isOTA && !$sourceInfo) {
-            $normalizedSource = strtolower(trim($originalBookingSource ?? ''));
-            $normalizedSource = str_replace(['.com', '.co.id', '.id'], '', $normalizedSource);
-            $normalizedSource = preg_replace('/[^a-z0-9]/', '', $normalizedSource);
-            $otaSources = ['agoda', 'booking', 'bookingcom', 'tiket', 'tiketcom', 'airbnb', 'ota', 'traveloka', 'pegipegi', 'expedia'];
-            foreach ($otaSources as $otaKey) {
-                if (strpos($normalizedSource, $otaKey) !== false || $normalizedSource === $otaKey) {
-                    $isOTA = true;
-                    break;
-                }
-            }
-        }
-        // Also check mapped source
-        if ($bookingSource === 'ota') {
-            $isOTA = true;
-        }
-        
-        if ($isOTA) {
-            // OTA: JANGAN masuk kas sekarang, nanti saat check-in
+        if ($isOTABooking) {
+            // OTA: JANGAN masuk kas sekarang (nanti saat check-in)
             $cashbookMessage = "Booking OTA ({$originalBookingSource}) - akan masuk buku kas saat check-in";
-            error_log("CREATE-RESERVATION: OTA booking detected ({$originalBookingSource}), SKIP cashbook sync - will sync at check-in");
+            error_log("CREATE-RESERVATION: OTA booking detected ({$originalBookingSource}), SKIP cashbook sync - will sync at check-in. paid_amount was set to {$paidAmount}");
         } else {
             // DIRECT: langsung masuk kas karena uang sudah diterima
         try {

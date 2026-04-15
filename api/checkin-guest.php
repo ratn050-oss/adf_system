@@ -157,20 +157,32 @@ try {
     }
 
     if ($isOTA && !$payNow) {
-        // OTA: otomatis catat pembayaran saat check-in (uang masuk kas)
+        // OTA: Auto-handle payment at check-in
+        // If remaining amount exists AND no payment record yet, create auto-payment record
         if ($remaining > 0) {
             $otaSourceKey = strtolower(trim($booking['booking_source'] ?? 'ota'));
-            $db->insert('booking_payments', [
-                'booking_id'   => $bookingId,
-                'amount'       => $remaining,
-                'payment_date' => date('Y-m-d H:i:s'),
-                'payment_method' => 'ota_' . $otaSourceKey,
-                'notes'        => 'Auto-payment check-in OTA: ' . $booking['booking_source'],
-                'processed_by' => $validUserId
-            ]);
+            
+            // Check if we already have a booking_payment for this OTA booking
+            $existingPayment = $db->fetchOne("
+                SELECT id FROM booking_payments 
+                WHERE booking_id = ? 
+                LIMIT 1
+            ", [$bookingId]);
+            
+            // Only create auto-payment if no payment record exists yet
+            if (!$existingPayment) {
+                $db->insert('booking_payments', [
+                    'booking_id'   => $bookingId,
+                    'amount'       => $remaining,
+                    'payment_date' => date('Y-m-d H:i:s'),
+                    'payment_method' => 'ota_' . $otaSourceKey,
+                    'notes'        => 'Auto-payment at check-in (OTA: ' . $booking['booking_source'] . ')',
+                    'processed_by' => $validUserId
+                ]);
+            }
         }
 
-        // Update paid_amount dan payment_status setelah auto-payment OTA
+        // Update paid_amount dan payment_status setelah OTA payment handling
         $payment   = $db->fetchOne("SELECT COALESCE(SUM(amount), 0) as paid FROM booking_payments WHERE booking_id = ?", [$bookingId]);
         $totalPaid = (float)$payment['paid'];
         $remaining = max(0, (float)$booking['final_price'] - $totalPaid);
