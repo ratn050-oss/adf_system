@@ -4214,12 +4214,18 @@ include '../../includes/header.php';
         const guestPhone = document.getElementById('guestPhone').value || '';
         const checkIn = document.getElementById('checkInDate').value;
         const checkOut = document.getElementById('checkOutDate').value;
-        const bookingSource = document.getElementById('bookingSource').value;
+        let bookingSource = document.getElementById('bookingSource').value;
         const paymentMethod = document.getElementById('paymentMethod').value;
         const discountValue = parseFloat(document.getElementById('discount').value) || 0;
         const discountType = document.getElementById('discountType').value;
         const paidAmount = parseFloat(document.getElementById('paidAmount').value) || 0;
         const adultCount = parseInt(document.getElementById('adultCount').value) || 1;
+
+        // VALIDATE: Booking Source MUST be selected
+        if (!bookingSource || bookingSource.trim() === '') {
+            alert('❌ Silakan pilih Booking Source (Direct/OTA)!');
+            return;
+        }
 
         // Calculate nights
         const nights = Math.ceil((new Date(checkOut) - new Date(checkIn)) / (1000 * 60 * 60 * 24));
@@ -5098,8 +5104,9 @@ include '../../includes/header.php';
                 <!-- SOURCE & PAYMENT METHOD -->
                 <div class="form-row-2col">
                     <div class="input-compact">
-                        <label>Booking Source</label>
-                        <select id="bookingSource" name="booking_source" onchange="updateSourceDetails()">
+                        <label>Booking Source <span style="color: red;">*</span></label>
+                        <select id="bookingSource" name="booking_source" onchange="updateSourceDetails()" required>
+                            <option value="">-- Pilih Booking Source --</option>
                             <?php
                             $srcDirect = array_filter($bookingSources, fn($s) => ($s['source_type'] ?? '') === 'direct');
                             $srcOta = array_filter($bookingSources, fn($s) => ($s['source_type'] ?? '') !== 'direct');
@@ -5116,12 +5123,12 @@ include '../../includes/header.php';
                                     <?php endforeach; ?>
                                 </optgroup>
                             <?php else: ?>
-                                <option value="walk_in">Direct (Walk-in)</option>
-                                <option value="phone">Direct (Phone)</option>
-                                <option value="agoda">Agoda</option>
-                                <option value="booking">Booking.com</option>
-                                <option value="tiket">Tiket.com</option>
-                                <option value="ota">OTA Lainnya</option>
+                                <option value="walk_in">🚶 Direct (Walk-in)</option>
+                                <option value="phone">📞 Direct (Phone)</option>
+                                <option value="agoda">🏨 Agoda</option>
+                                <option value="booking">📱 Booking.com</option>
+                                <option value="tiket">✈️ Tiket.com</option>
+                                <option value="ota">🌐 OTA Lainnya</option>
                             <?php endif; ?>
                         </select>
                     </div>
