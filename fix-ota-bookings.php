@@ -1,4 +1,5 @@
 <?php
+
 /**
  * HOTFIX: Update existing OTA bookings
  * 1. Fix bookings dengan booking_source kosong (set ke 'walk_in')
@@ -27,7 +28,7 @@ $emptySourceCount = $db->fetchOne("
 
 if ($emptySourceCount > 0) {
     echo "  Found: $emptySourceCount bookings dengan booking_source kosong\n\n";
-    
+
     // Ambil details
     $emptySource = $db->fetchAll(
         "SELECT id, booking_code, final_price FROM bookings 
@@ -35,11 +36,11 @@ if ($emptySourceCount > 0) {
          AND status IN ('confirmed', 'pending')
          LIMIT 50"
     );
-    
+
     foreach ($emptySource as $bk) {
         echo "  ✓ {$bk['booking_code']}\n";
     }
-    
+
     echo "\n  🔄 Updating to 'walk_in' (Direct)...\n";
     $fixedEmpty = $db->query(
         "UPDATE bookings 
@@ -47,7 +48,7 @@ if ($emptySourceCount > 0) {
          WHERE (booking_source = '' OR booking_source IS NULL)
          AND status IN ('confirmed', 'pending')"
     );
-    
+
     if ($fixedEmpty) {
         echo "  ✅ Fixed $emptySourceCount bookings\n";
     } else {
@@ -73,13 +74,13 @@ foreach ($otaSources as $source) {
          AND (paid_amount = 0 OR paid_amount IS NULL)",
         [$source]
     )->cnt ?? 0;
-    
+
     $otaCount += $count;
 }
 
 if ($otaCount > 0) {
     echo "  Found: $otaCount OTA bookings dengan paid_amount = 0\n\n";
-    
+
     // Get details
     $otaBookings = $db->fetchAll(
         "SELECT booking_code, booking_source, final_price FROM bookings 
@@ -89,12 +90,12 @@ if ($otaCount > 0) {
          LIMIT 50",
         $otaSources
     );
-    
+
     foreach ($otaBookings as $bk) {
         $price = number_format($bk['final_price'], 0, ',', '.');
         echo "  ✓ {$bk['booking_code']} ({$bk['booking_source']}): Rp $price\n";
     }
-    
+
     echo "\n  🔄 Updating to paid_amount = final_price...\n";
     $fixedOta = $db->query(
         "UPDATE bookings 
@@ -106,7 +107,7 @@ if ($otaCount > 0) {
          AND (paid_amount = 0 OR paid_amount IS NULL)",
         $otaSources
     );
-    
+
     if ($fixedOta) {
         echo "  ✅ Fixed $otaCount OTA bookings\n";
     } else {
@@ -127,5 +128,3 @@ echo "  ✅ OTA bookings sekarang marked as PAID (payment_status = 'paid')\n";
 echo "  ✅ Saat check-in: tidak akan minta pembayaran lagi ✨\n";
 echo str_repeat("=", 60) . "\n";
 echo "</pre>";
-?>
-

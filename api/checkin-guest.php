@@ -161,14 +161,14 @@ try {
         // If remaining amount exists AND no payment record yet, create auto-payment record
         if ($remaining > 0) {
             $otaSourceKey = strtolower(trim($booking['booking_source'] ?? 'ota'));
-            
+
             // Check if we already have a booking_payment for this OTA booking
             $existingPayment = $db->fetchOne("
                 SELECT id FROM booking_payments 
                 WHERE booking_id = ? 
                 LIMIT 1
             ", [$bookingId]);
-            
+
             // Only create auto-payment if no payment record exists yet
             if (!$existingPayment) {
                 $db->insert('booking_payments', [

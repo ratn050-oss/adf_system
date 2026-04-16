@@ -4899,8 +4899,12 @@ include '../../includes/header.php';
                         scroller.scrollLeft = parseInt(savedScroll);
                         sessionStorage.removeItem('calendarScrollLeft');
                         console.log('✅ Restored scroll position:', savedScroll);
+                    } else {
+                        // First load: scroll to today automatically
+                        const todayStr = new Date().toISOString().split('T')[0];
+                        scrollCalendarToDate(todayStr, scroller);
+                        console.log('✅ Auto-scrolled to today:', todayStr);
                     }
-                    // No else — don't auto-scroll to today on first load
                 }, 100);
             }
         } catch (e) {

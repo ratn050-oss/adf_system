@@ -1,4 +1,5 @@
 <?php
+
 /**
  * API: Fix OTA Bookings Hotfix
  * Safe token-based endpoint for fixing OTA bookings
@@ -35,16 +36,16 @@ if (!in_array($tokenFromRequest, $validTokens, true)) {
 // ==========================================
 try {
     ob_start(); // Capture any notices/warnings
-    
+
     define('APP_ACCESS', true);
     require_once '../config/config.php';
     require_once '../config/database.php';
-    
+
     ob_end_clean(); // Clear captured output
-    
+
     $db = Database::getInstance();
     $fixes = [];
-    
+
     // ==========================================
     // FIX 1: Empty booking_source
     // ==========================================
@@ -54,7 +55,7 @@ try {
          AND status IN ('confirmed', 'pending')"
     );
     $emptyCount = $emptyByteSource['cnt'] ?? 0;
-    
+
     if ($emptyCount > 0) {
         $result1 = $db->query(
             "UPDATE bookings 
@@ -62,7 +63,7 @@ try {
              WHERE (booking_source = '' OR booking_source IS NULL)
              AND status IN ('confirmed', 'pending')"
         );
-        
+
         $fixes[] = [
             'type' => 'empty_source',
             'count' => $emptyCount,
@@ -70,12 +71,12 @@ try {
             'message' => $result1 ? "Fixed $emptyCount bookings with empty source → set to 'walk_in'" : 'Failed to fix empty sources'
         ];
     }
-    
+
     // ==========================================
     // FIX 2: OTA bookings dengan paid_amount = 0
     // ==========================================
     $otaSources = ['agoda', 'booking', 'tiket', 'traveloka', 'airbnb', 'ota', 'expedia', 'pegipegi'];
-    
+
     $otaCheck = $db->fetchOne(
         "SELECT COUNT(*) as cnt FROM bookings 
          WHERE booking_source IN (?, ?, ?, ?, ?, ?, ?, ?)
@@ -84,7 +85,7 @@ try {
         $otaSources
     );
     $otaCount = $otaCheck['cnt'] ?? 0;
-    
+
     if ($otaCount > 0) {
         $result2 = $db->query(
             "UPDATE bookings 
@@ -96,7 +97,7 @@ try {
              AND (paid_amount = 0 OR paid_amount IS NULL)",
             $otaSources
         );
-        
+
         $fixes[] = [
             'type' => 'ota_paid_amount',
             'count' => $otaCount,
@@ -104,7 +105,7 @@ try {
             'message' => $result2 ? "Fixed $otaCount OTA bookings → paid_amount = final_price" : 'Failed to fix OTA payments'
         ];
     }
-    
+
     // ==========================================
     // Response
     // ==========================================
@@ -115,22 +116,21 @@ try {
             break;
         }
     }
-    
+
     $totalFixed = 0;
     foreach ($fixes as $fix) {
         $totalFixed += $fix['count'];
     }
-    
+
     echo json_encode([
         'success' => $allSuccess,
         'total_fixed' => $totalFixed,
         'fixes' => $fixes,
         'timestamp' => date('Y-m-d H:i:s'),
-        'message' => $allSuccess 
-            ? "✅ Hotfix completed! Fixed $totalFixed bookings" 
+        'message' => $allSuccess
+            ? "✅ Hotfix completed! Fixed $totalFixed bookings"
             : "⚠️ Hotfix completed with issues"
     ], JSON_PRETTY_PRINT);
-    
 } catch (\Throwable $e) {
     http_response_code(500);
     echo json_encode([
@@ -139,4 +139,3 @@ try {
         'message' => $e->getMessage()
     ]);
 }
-?>
