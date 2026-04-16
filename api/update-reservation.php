@@ -246,7 +246,15 @@ try {
 
     // NUCLEAR FIX: Separate standalone update for booking_source to guarantee it saves
     // Always update booking_source regardless of group mode
-    $intendedSource = trim($_POST['booking_source'] ?? $booking['booking_source']);
+    // ⚠️ FIX: booking_source is ENUM('walk_in','phone','online','ota') - must map form values to valid enum!
+    $formSource = trim($_POST['booking_source'] ?? $booking['booking_source']);
+    
+    // Map OTA sources (agoda, booking, ctrip, etc) -> 'ota'
+    $otaSources = ['agoda', 'booking', 'booking.com', 'ctrip', 'expedia', 'airbnb', 'traveloka', 'ota'];
+    $intendedSource = in_array(strtolower($formSource), array_map('strtolower', $otaSources)) ? 'ota' : $formSource;
+    
+    error_log("🔍 SOURCE MAPPING: formSource='$formSource' → intendedSource='$intendedSource'");
+    
     $standaloneRows = -1;
     $standaloneError = '';
     
