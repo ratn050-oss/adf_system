@@ -6844,6 +6844,13 @@ include '../../includes/header.php';
             <textarea id="editResSpecialRequests"></textarea>
         </div>
         <div id="editResInfo" style="background:rgba(99,102,241,0.06);border-radius:8px;padding:0.6rem;font-size:0.8rem;color:var(--text-secondary);"></div>
+        
+        <!-- Group Bookings Section (if multiple rooms) -->
+        <div id="editResGroupBookings" style="display:none;margin-top:1rem;padding:0.8rem;background:rgba(59,130,246,0.08);border-radius:8px;border-left:3px solid #3b82f6;">
+            <div style="font-weight:700;font-size:0.85rem;margin-bottom:0.6rem;color:var(--text-primary);">📦 Kamar dalam Reservasi Grup:</div>
+            <div id="editResGroupList" style="font-size:0.8rem;line-height:1.6;"></div>
+        </div>
+        
         <div class="modal-actions">
             <button class="btn-cancel" onclick="closeEditResModal()">Batal</button>
             <button class="btn-save" onclick="submitEditReservation()">💾 Simpan</button>
@@ -7162,6 +7169,28 @@ include '../../includes/header.php';
                     discInput.value = parseFloat(b.discount) || 0;
                 }
 
+                // Display group bookings if multiple rooms
+                const groupSection = document.getElementById('editResGroupBookings');
+                const groupList = document.getElementById('editResGroupList');
+                if (b.group_bookings && b.group_bookings.length > 1) {
+                    let html = '';
+                    b.group_bookings.forEach(function(gb, idx) {
+                        const fmtR = (v) => 'Rp' + new Intl.NumberFormat('id-ID').format(v || 0);
+                        html += `<div style="padding:0.5rem;background:var(--card-bg);border-radius:6px;margin-bottom:0.4rem;border-left:2px solid ${gb.id === b.id ? '#10b981' : '#cbd5e1'};">`;
+                        html += `<div style="font-weight:600;color:var(--text-primary);">🚪 Kamar ${gb.room_number} (${gb.type_name})`;
+                        if (gb.id === b.id) html += ` <span style="color:#10b981;font-size:0.75rem;font-weight:700;">● AKTIF</span>`;
+                        html += `</div>`;
+                        html += `<div style="color:var(--text-secondary);font-size:0.75rem;margin-top:0.2rem;">`;
+                        html += `Harga: ${fmtR(gb.room_price)} | Diskon: ${fmtR(gb.discount)} | Total: ${fmtR(gb.final_price)}`;
+                        html += `</div>`;
+                        html += `</div>`;
+                    });
+                    groupList.innerHTML = html;
+                    groupSection.style.display = 'block';
+                } else {
+                    groupSection.style.display = 'none';
+                }
+
                 updateEditResInfo();
                 document.getElementById('editResModal').classList.add('active');
             })
@@ -7310,8 +7339,23 @@ include '../../includes/header.php';
                         msg += '\nVerified row: ' + JSON.stringify(data.debug.verified_row);
                     }
                     alert(msg);
+                    
+                    // ✅ FIX: Refresh data booking di side panel
+                    const bookingId = document.getElementById('editResBookingId').value;
+                    if (bookingId && currentPaymentBooking) {
+                        fetch('../../api/get-booking-details.php?id=' + bookingId)
+                            .then(r => r.json())
+                            .then(result => {
+                                if (result.success) {
+                                    console.log('✅ Booking data refreshed:', result.booking);
+                                    currentPaymentBooking = result.booking;
+                                    showBookingQuickView(result.booking);
+                                }
+                            })
+                            .catch(e => console.error('Refresh error:', e));
+                    }
+                    
                     closeEditResModal();
-                    // location.reload();
                 } else {
                     alert('❌ ' + data.message);
                 }

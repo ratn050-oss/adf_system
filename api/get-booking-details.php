@@ -34,6 +34,7 @@ try {
             b.id,
             b.booking_code,
             b.room_id,
+            b.group_id,
             b.check_in_date,
             b.check_out_date,
             b.total_nights,
@@ -112,6 +113,38 @@ try {
         $booking['created_at'] = $cRow['created_at'] ?? null;
     } catch (Exception $e) { /* ignore */
     }
+
+    // Fetch group bookings (if this booking is part of a group reservation)
+    $groupBookings = [];
+    $groupId = $booking['group_id'] ?? null;
+    if ($groupId) {
+        try {
+            $gStmt = $conn->prepare("
+                SELECT 
+                    b.id,
+                    b.booking_code,
+                    b.room_id,
+                    b.room_price,
+                    b.discount,
+                    b.final_price,
+                    b.status,
+                    r.room_number,
+                    rt.type_name,
+                    COALESCE(SUM(bp.amount), 0) as paid_amount
+                FROM bookings b
+                LEFT JOIN rooms r ON b.room_id = r.id
+                LEFT JOIN room_types rt ON r.room_type_id = rt.id
+                LEFT JOIN booking_payments bp ON b.id = bp.booking_id
+                WHERE b.group_id = ? AND b.status != 'cancelled'
+                GROUP BY b.id
+                ORDER BY r.room_number ASC
+            ");
+            $gStmt->execute([$groupId]);
+            $groupBookings = $gStmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (Exception $e) { /* ignore */
+        }
+    }
+    $booking['group_bookings'] = $groupBookings;
 
     echo json_encode([
         'success' => true,
