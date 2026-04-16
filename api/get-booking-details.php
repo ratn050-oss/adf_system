@@ -136,6 +136,11 @@ try {
         $checkInDate = $booking['check_in_date'] ?? null;
         $checkOutDate = $booking['check_out_date'] ?? null;
         
+        error_log("=== GROUP BOOKING DEBUG ===");
+        error_log("guest_id: " . json_encode($guestId));
+        error_log("check_in_date: " . json_encode($checkInDate));
+        error_log("check_out_date: " . json_encode($checkOutDate));
+        
         if ($guestId && $checkInDate && $checkOutDate) {
             $sql = "
                 SELECT 
@@ -149,17 +154,22 @@ try {
                     r.room_number,
                     rt.type_name
                 FROM bookings b
-                JOIN rooms r ON b.room_id = r.id
-                JOIN room_types rt ON r.room_type_id = rt.id
+                LEFT JOIN rooms r ON b.room_id = r.id
+                LEFT JOIN room_types rt ON r.room_type_id = rt.id
                 WHERE b.guest_id = ? 
                 AND b.check_in_date = ? 
                 AND b.check_out_date = ?
                 AND b.status NOT IN ('cancelled')
                 ORDER BY r.room_number ASC
             ";
+            error_log("SQL: " . $sql);
             $gStmt = $conn->prepare($sql);
             $gStmt->execute([$guestId, $checkInDate, $checkOutDate]);
             $groupBookings = $gStmt->fetchAll(PDO::FETCH_ASSOC);
+            error_log("Result count: " . count($groupBookings));
+            error_log("Result: " . json_encode($groupBookings));
+        } else {
+            error_log("Skipping group booking - missing values");
         }
     } catch (Exception $e) {
         error_log("Group booking query failed: " . $e->getMessage());
