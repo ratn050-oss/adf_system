@@ -129,16 +129,14 @@ try {
     } catch (Exception $e) { /* ignore */
     }
 
-// Fetch group bookings - AUTO-DETECT by guest_id + check_in_date + check_out_date
+    // Fetch group bookings - AUTO-DETECT by guest_id + check_in_date + check_out_date
     $groupBookings = [];
-    
     try {
         $guestId = $booking['guest_id'] ?? null;
         $checkInDate = $booking['check_in_date'] ?? null;
         $checkOutDate = $booking['check_out_date'] ?? null;
         
         if ($guestId && $checkInDate && $checkOutDate) {
-            // DIRECT QUERY - Select all bookings for this guest on same dates
             $sql = "
                 SELECT 
                     b.id,
@@ -165,11 +163,17 @@ try {
         }
     } catch (Exception $e) {
         error_log("Group booking query failed: " . $e->getMessage());
+    }
+    
+    $booking['group_bookings'] = $groupBookings;
+
+    // Return JSON response
     ob_clean();
     echo json_encode([
-        'success' => false,
-        'message' => 'Database error: ' . $e->getMessage()
-    ]);
+        'success' => true,
+        'booking' => $booking
+    ], JSON_UNESCAPED_UNICODE);
+
 } catch (Exception $e) {
     ob_clean();
     echo json_encode([

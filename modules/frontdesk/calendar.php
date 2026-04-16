@@ -2668,7 +2668,7 @@ include '../../includes/header.php';
         console.log('📋 Loading booking details:', id);
 
         // Fetch booking details via AJAX - use relative path from modules/frontdesk/
-        fetch('../../api/get-booking-groups.php?id=' + id)
+        fetch('../../api/get-booking-details.php?id=' + id)
             .then(response => {
                 console.log('📡 API Response status:', response.status);
                 return response.text();
@@ -3617,7 +3617,7 @@ include '../../includes/header.php';
 
                     closeBookingPaymentModal();
                     // Refresh booking details
-                    return fetch('../../api/get-booking-groups.php?id=' + currentPaymentBooking.id)
+                    return fetch('../../api/get-booking-details.php?id=' + currentPaymentBooking.id)
                         .then(res => res.json())
                         .then(updated => {
                             if (updated.success) {
@@ -7181,7 +7181,7 @@ include '../../includes/header.php';
     // ===== EDIT RESERVATION FUNCTIONS =====
     window.openEditReservationModal = function(bookingId) {
         // Fetch booking details
-        fetch('../../api/get-booking-groups.php?id=' + bookingId)
+        fetch('../../api/get-booking-details.php?id=' + bookingId)
             .then(r => {
                 // Check status code
                 if (!r.ok) {
@@ -7430,7 +7430,7 @@ include '../../includes/header.php';
                     console.log(`🔄 REFRESH: Fetching booking ${bookingId} after edit (source was: ${intendedSource})`);
 
                     if (bookingId && currentPaymentBooking) {
-                        fetch('../../api/get-booking-groups.php?id=' + bookingId)
+                        fetch('../../api/get-booking-details.php?id=' + bookingId)
                             .then(r => r.json())
                             .then(result => {
                                 if (result.success) {
