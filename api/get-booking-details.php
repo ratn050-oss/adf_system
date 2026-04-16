@@ -134,15 +134,15 @@ try {
     $groupBookings = [];
     try {
         $guestId = $booking['guest_id'] ?? null;
-        $checkInDate = $booking['check_in_date'] ?? null;
-        $checkOutDate = $booking['check_out_date'] ?? null;
-        
+        $checkInDate = trim($booking['check_in_date'] ?? '');
+        $checkOutDate = trim($booking['check_out_date'] ?? '');
+
         error_log("=== GROUP BOOKING DEBUG ===");
         error_log("guest_id: " . json_encode($guestId));
         error_log("check_in_date: " . json_encode($checkInDate));
         error_log("check_out_date: " . json_encode($checkOutDate));
-        
-        if ($guestId && $checkInDate && $checkOutDate) {
+
+        if ($guestId && !empty($checkInDate) && !empty($checkOutDate)) {
             $sql = "
                 SELECT 
                     b.id,
@@ -158,8 +158,8 @@ try {
                 LEFT JOIN rooms r ON b.room_id = r.id
                 LEFT JOIN room_types rt ON r.room_type_id = rt.id
                 WHERE b.guest_id = ? 
-                AND b.check_in_date = ? 
-                AND b.check_out_date = ?
+                AND DATE(b.check_in_date) = DATE(?) 
+                AND DATE(b.check_out_date) = DATE(?)
                 AND b.status NOT IN ('cancelled')
                 ORDER BY r.room_number ASC
             ";
@@ -175,7 +175,7 @@ try {
     } catch (Exception $e) {
         error_log("Group booking query failed: " . $e->getMessage());
     }
-    
+
     $booking['group_bookings'] = $groupBookings;
 
     // Return JSON response
@@ -184,7 +184,6 @@ try {
         'success' => true,
         'booking' => $booking
     ], JSON_UNESCAPED_UNICODE);
-
 } catch (Exception $e) {
     ob_clean();
     echo json_encode([
