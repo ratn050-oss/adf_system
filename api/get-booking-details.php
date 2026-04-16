@@ -129,15 +129,17 @@ try {
     } catch (Exception $e) { /* ignore */
     }
 
-    // Fetch group bookings (if this booking is part of a group reservation)
-    // First try by group_id, then fallback to guest_name + check-in/check-out dates
+// Fetch group bookings - AUTO-DETECT by guest_id + check_in_date + check_out_date
     $groupBookings = [];
-    $groupId = $booking['group_id'] ?? null;
-
-    if ($groupId) {
-        // Method 1: Fetch by group_id (explicit group)
-        try {
-            $gStmt = $conn->prepare("
+    
+    try {
+        $guestId = $booking['guest_id'] ?? null;
+        $checkInDate = $booking['check_in_date'] ?? null;
+        $checkOutDate = $booking['check_out_date'] ?? null;
+        
+        if ($guestId && $checkInDate && $checkOutDate) {
+            // SIMPLE: Find all bookings for this guest with same dates
+            $sql = "
                 SELECT 
                     b.id,
                     b.booking_code,
@@ -147,78 +149,26 @@ try {
                     b.final_price,
                     b.status,
                     r.room_number,
-                    rt.type_name,
-                    COALESCE(SUM(bp.amount), 0) as paid_amount
+                    rt.type_name
                 FROM bookings b
                 LEFT JOIN rooms r ON b.room_id = r.id
                 LEFT JOIN room_types rt ON r.room_type_id = rt.id
-                LEFT JOIN booking_payments bp ON b.id = bp.booking_id
-                WHERE b.group_id = ? AND b.status NOT IN ('cancelled')
-                GROUP BY b.id
+                WHERE b.guest_id = ? 
+                AND b.check_in_date = ? 
+                AND b.check_out_date = ?
+                AND b.status NOT IN ('cancelled')
                 ORDER BY r.room_number ASC
-            ");
-            $gStmt->execute([$groupId]);
+            ";
+            $gStmt = $conn->prepare($sql);
+            $gStmt->execute([$guestId, $checkInDate, $checkOutDate]);
             $groupBookings = $gStmt->fetchAll(PDO::FETCH_ASSOC);
-            error_log("✅ Found " . count($groupBookings) . " bookings by group_id: " . $groupId);
-        } catch (Exception $e) {
-            error_log("Group booking query error: " . $e->getMessage());
         }
+    } catch (Exception $e) {
+        // Silently fail - just show single booking
+        $groupBookings = [];
     }
-
-    // If no explicit group found, auto-detect by guest_name + dates
-    if (empty($groupBookings)) {
-        try {
-            // Get the current booking's guest name and dates
-            $currentBooking = $conn->prepare("
-                SELECT g.guest_name, b.check_in_date, b.check_out_date
-                FROM bookings b
-                LEFT JOIN guests g ON b.guest_id = g.id
-                WHERE b.id = ? LIMIT 1
-            ");
-            $currentBooking->execute([$bookingId]);
-            $currentInfo = $currentBooking->fetch(PDO::FETCH_ASSOC);
-
-            if ($currentInfo && $currentInfo['guest_name']) {
-                $guestName = $currentInfo['guest_name'];
-                $checkInDate = $currentInfo['check_in_date'];
-                $checkOutDate = $currentInfo['check_out_date'];
-
-                // Find all bookings with same guest name and dates
-                $gStmt = $conn->prepare("
-                    SELECT 
-                        b.id,
-                        b.booking_code,
-                        b.room_id,
-                        b.room_price,
-                        b.discount,
-                        b.final_price,
-                        b.status,
-                        r.room_number,
-                        rt.type_name,
-                        COALESCE(SUM(bp.amount), 0) as paid_amount
-                    FROM bookings b
-                    LEFT JOIN guests g ON b.guest_id = g.id
-                    LEFT JOIN rooms r ON b.room_id = r.id
-                    LEFT JOIN room_types rt ON r.room_type_id = rt.id
-                    LEFT JOIN booking_payments bp ON b.id = bp.booking_id
-                    WHERE g.guest_name = ? 
-                    AND b.check_in_date = ? 
-                    AND b.check_out_date = ?
-                    AND b.status NOT IN ('cancelled')
-                    GROUP BY b.id
-                    ORDER BY r.room_number ASC
-                ");
-                $gStmt->execute([$guestName, $checkInDate, $checkOutDate]);
-                $groupBookings = $gStmt->fetchAll(PDO::FETCH_ASSOC);
-                error_log("✅ Auto-detected " . count($groupBookings) . " group bookings for guest: " . $guestName . " (dates: " . $checkInDate . " - " . $checkOutDate . ")");
-            }
-        } catch (Exception $e) {
-            error_log("Auto-detect group booking error: " . $e->getMessage());
-        }
-    }
-
+    
     $booking['group_bookings'] = $groupBookings;
-    error_log("Final group_bookings for response: " . json_encode($groupBookings));
 
     echo json_encode([
         'success' => true,
