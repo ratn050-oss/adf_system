@@ -2702,6 +2702,14 @@ include '../../includes/header.php';
     // Side Panel - populate and show (Cloudbed-style)
     function showBookingQuickView(booking) {
         console.log('🎯 showBookingQuickView (side panel) called with:', booking);
+        
+        // DEBUG: Log group booking params
+        console.log('📊 GROUP BOOKING PARAMS:');
+        console.log('  - guest_id:', booking.guest_id, typeof booking.guest_id);
+        console.log('  - check_in_date:', booking.check_in_date, typeof booking.check_in_date);
+        console.log('  - check_out_date:', booking.check_out_date, typeof booking.check_out_date);
+        console.log('  - group_bookings:', booking.group_bookings, 'count:', booking.group_bookings ? booking.group_bookings.length : 0);
+        
         currentPaymentBooking = booking;
         const panel = document.getElementById('bookingQuickView');
         if (!panel) {
