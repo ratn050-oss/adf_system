@@ -2747,7 +2747,7 @@ include '../../includes/header.php';
         statusEl.style.cssText = 'font-size:0.78rem;font-weight:700;padding:4px 12px;border-radius:20px;background:' + (statusColorMap[booking.status] || '#f1f5f9;color:#475569');
 
         // Source badge
-        let bkSrc = booking.booking_source || '';
+        let bkSrc = (booking.booking_source || '').trim().toLowerCase();
         if (!bkSrc && booking.payments && booking.payments.length > 0) {
             for (let i = 0; i < booking.payments.length; i++) {
                 const pm = (booking.payments[i].payment_method || '').toLowerCase();
@@ -2760,24 +2760,42 @@ include '../../includes/header.php';
                 }
             }
         }
-        let displaySource = '';
-        if (bkSrc && typeof SOURCE_NAMES !== 'undefined' && SOURCE_NAMES[bkSrc]) {
-            displaySource = SOURCE_NAMES[bkSrc];
-        } else if (bkSrc) {
-            const sm = {
-                'walk_in': 'Walk-In',
-                'phone': 'Phone',
-                'online': 'Online',
-                'ota': 'OTA',
-                'agoda': 'OTA Agoda',
-                'booking': 'OTA Booking.com',
-                'tiket': 'OTA Tiket.com',
-                'traveloka': 'OTA Traveloka',
-                'airbnb': 'OTA Airbnb'
-            };
-            displaySource = sm[bkSrc] || bkSrc.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
-        } else {
-            displaySource = 'Walk-In';
+        
+        // Comprehensive source name mapping (hardcoded + dynamic from SOURCE_NAMES)
+        const sourceDefaultMap = {
+            'walk_in': 'Walk-In',
+            'phone': 'Phone',
+            'online': 'Online',
+            'direct': 'Direct',
+            'ota': 'OTA',
+            'agoda': 'OTA Agoda',
+            'booking': 'OTA Booking.com',
+            'tiket': 'OTA Tiket.com',
+            'traveloka': 'OTA Traveloka',
+            'airbnb': 'OTA Airbnb',
+            'expedia': 'OTA Expedia',
+            'pegipegi': 'OTA Pegipegi'
+        };
+        
+        let displaySource = 'Walk-In';
+        if (bkSrc) {
+            // Try SOURCE_NAMES first (from booking_sources table with icons)
+            if (typeof SOURCE_NAMES !== 'undefined' && SOURCE_NAMES[bkSrc]) {
+                displaySource = SOURCE_NAMES[bkSrc];
+                console.log(`✅ Source from SOURCE_NAMES: ${bkSrc} → ${displaySource}`);
+            }
+            // Fallback to hardcoded map
+            else if (sourceDefaultMap[bkSrc]) {
+                displaySource = sourceDefaultMap[bkSrc];
+                console.log(`✅ Source from defaultMap: ${bkSrc} → ${displaySource}`);
+            }
+            // Last resort: format the string
+            else {
+                displaySource = bkSrc.replace(/_/g, ' ').replace(/\b\w/g, c => c.toUpperCase());
+                console.log(`✅ Source formatted: ${bkSrc} → ${displaySource}`);
+            }
+            console.log(`📌 Final displaySource: "${displaySource}" (from bkSrc: "${bkSrc}")`);
+        }
         }
         document.getElementById('sp-source').textContent = displaySource;
 
@@ -7342,17 +7360,28 @@ include '../../includes/header.php';
                     
                     // ✅ FIX: Refresh data booking di side panel
                     const bookingId = document.getElementById('editResBookingId').value;
+                    const intendedSource = document.getElementById('editResSource').value;
+                    console.log(`🔄 REFRESH: Fetching booking ${bookingId} after edit (source was: ${intendedSource})`);
+                    
                     if (bookingId && currentPaymentBooking) {
                         fetch('../../api/get-booking-details.php?id=' + bookingId)
                             .then(r => r.json())
                             .then(result => {
                                 if (result.success) {
-                                    console.log('✅ Booking data refreshed:', result.booking);
+                                    console.log(`✅ Booking ${bookingId} refreshed successfully:`, result.booking);
+                                    console.log(`   booking_source from API: "${result.booking.booking_source}"`);
                                     currentPaymentBooking = result.booking;
                                     showBookingQuickView(result.booking);
+                                    console.log(`✅ Side panel updated with refreshed data`);
+                                } else {
+                                    console.error(`❌ Refresh failed:`, result.message);
                                 }
                             })
-                            .catch(e => console.error('Refresh error:', e));
+                            .catch(e => {
+                                console.error(`❌ Refresh error:`, e);
+                            });
+                    } else {
+                        console.warn(`⚠️ Refresh skipped: bookingId=${bookingId}, hasCurrentPaymentBooking=${!!currentPaymentBooking}`);
                     }
                     
                     closeEditResModal();
