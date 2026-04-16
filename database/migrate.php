@@ -194,12 +194,8 @@ AFTER booking_source;</div>
             disableButtons(true);
 
             try {
-                const response = await fetch('?action=run', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({})
+                const response = await fetch('migrate-api.php?action=run', {
+                    method: 'GET'
                 });
 
                 const data = await response.json();
@@ -221,12 +217,8 @@ AFTER booking_source;</div>
             disableButtons(true);
 
             try {
-                const response = await fetch('?action=check', {
-                    method: 'POST',
-                    headers: {
-                        'Content-Type': 'application/json'
-                    },
-                    body: JSON.stringify({})
+                const response = await fetch('migrate-api.php?action=check', {
+                    method: 'GET'
                 });
 
                 const data = await response.json();
@@ -248,78 +240,3 @@ AFTER booking_source;</div>
     </script>
 </body>
 </html>
-<?php
-// Handle AJAX requests
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    header('Content-Type: application/json');
-    
-    define('APP_ACCESS', true);
-    require_once __DIR__ . '/../config/config.php';
-    require_once __DIR__ . '/../config/database.php';
-
-    try {
-        $db = Database::getInstance();
-        $conn = $db->getConnection();
-        $action = $_GET['action'] ?? 'check';
-
-        if ($action === 'check') {
-            // Check if column exists
-            $checkStmt = $conn->prepare("
-                SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS 
-                WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'bookings' AND COLUMN_NAME = 'ota_source_detail'
-            ");
-            $checkStmt->execute([getenv('DB_NAME') ?: 'adf2574_narayana_hotel']);
-            
-            $exists = $checkStmt->rowCount() > 0;
-            echo json_encode([
-                'success' => true,
-                'exists' => $exists,
-                'message' => $exists ? 'Column exists' : 'Column not found'
-            ]);
-
-        } else if ($action === 'run') {
-            // Check if column already exists
-            $checkStmt = $conn->prepare("
-                SELECT COLUMN_NAME FROM INFORMATION_SCHEMA.COLUMNS 
-                WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'bookings' AND COLUMN_NAME = 'ota_source_detail'
-            ");
-            $checkStmt->execute([getenv('DB_NAME') ?: 'adf2574_narayana_hotel']);
-            
-            if ($checkStmt->rowCount() > 0) {
-                echo json_encode([
-                    'success' => true,
-                    'message' => 'Column ota_source_detail already exists'
-                ]);
-                exit;
-            }
-
-            // Add the column
-            $alterSql = "
-                ALTER TABLE bookings 
-                ADD COLUMN ota_source_detail VARCHAR(50) DEFAULT NULL 
-                COMMENT 'OTA platform name (agoda, booking, traveloka, airbnb, expedia, pegipegi, etc)' 
-                AFTER booking_source
-            ";
-            
-            $conn->exec($alterSql);
-            
-            echo json_encode([
-                'success' => true,
-                'message' => 'Successfully added ota_source_detail column to bookings table'
-            ]);
-        } else {
-            echo json_encode([
-                'success' => false,
-                'message' => 'Invalid action'
-            ]);
-        }
-    } catch (Exception $e) {
-        http_response_code(400);
-        echo json_encode([
-            'success' => false,
-            'message' => 'Error: ' . $e->getMessage()
-        ]);
-    }
-    exit;
-}
-?>
