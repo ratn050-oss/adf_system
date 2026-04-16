@@ -133,7 +133,7 @@ try {
     // First try by group_id, then fallback to guest_name + check-in/check-out dates
     $groupBookings = [];
     $groupId = $booking['group_id'] ?? null;
-    
+
     if ($groupId) {
         // Method 1: Fetch by group_id (explicit group)
         try {
@@ -164,7 +164,7 @@ try {
             error_log("Group booking query error: " . $e->getMessage());
         }
     }
-    
+
     // If no explicit group found, auto-detect by guest_name + dates
     if (empty($groupBookings)) {
         try {
@@ -177,12 +177,12 @@ try {
             ");
             $currentBooking->execute([$bookingId]);
             $currentInfo = $currentBooking->fetch(PDO::FETCH_ASSOC);
-            
+
             if ($currentInfo && $currentInfo['guest_name']) {
                 $guestName = $currentInfo['guest_name'];
                 $checkInDate = $currentInfo['check_in_date'];
                 $checkOutDate = $currentInfo['check_out_date'];
-                
+
                 // Find all bookings with same guest name and dates
                 $gStmt = $conn->prepare("
                     SELECT 
@@ -216,7 +216,7 @@ try {
             error_log("Auto-detect group booking error: " . $e->getMessage());
         }
     }
-    
+
     $booking['group_bookings'] = $groupBookings;
     error_log("Final group_bookings for response: " . json_encode($groupBookings));
 

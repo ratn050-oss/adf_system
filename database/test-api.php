@@ -22,4 +22,3 @@ if (json_last_error() === JSON_ERROR_NONE) {
     echo "First 500 chars:\n";
     echo substr($response, 0, 500);
 }
-?>

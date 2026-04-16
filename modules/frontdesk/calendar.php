@@ -2931,10 +2931,10 @@ include '../../includes/header.php';
             count: booking.group_bookings ? booking.group_bookings.length : 0,
             data: booking.group_bookings
         });
-        
+
         const groupRoomsSection = document.getElementById('sp-group-rooms-section');
         const groupRoomsList = document.getElementById('sp-group-rooms-list');
-        
+
         if (booking.group_bookings && booking.group_bookings.length > 1) {
             console.log('✅ Showing group bookings section with ' + booking.group_bookings.length + ' rooms');
             let html = '';
@@ -5930,7 +5930,7 @@ include '../../includes/header.php';
                     <strong id="sp-room-price-val">-</strong>
                 </div>
             </div>
-            
+
             <!-- Group Bookings / Related Rooms -->
             <div id="sp-group-rooms-section" style="display:none;margin-top:1.2rem;padding-top:1rem;border-top:1px solid var(--border-color);">
                 <h4 style="margin:0 0 0.8rem 0;font-size:0.9rem;color:var(--text-secondary);">📦 Kamar dalam Grup:</h4>

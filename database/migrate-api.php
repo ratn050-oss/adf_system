@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Pure API - No dependencies
  * Direct DB connection only
@@ -55,21 +56,20 @@ try {
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$dbConfig['name']]);
         $exists = $stmt->rowCount() > 0;
-        
+
         $response = [
             'success' => true,
             'exists' => $exists,
             'message' => $exists ? 'Column exists' : 'Column not found'
         ];
         $httpCode = 200;
-
     } elseif ($action === 'run') {
         // Check exists first
         $sql = "SELECT 1 FROM INFORMATION_SCHEMA.COLUMNS 
                 WHERE TABLE_SCHEMA = ? AND TABLE_NAME = 'bookings' AND COLUMN_NAME = 'ota_source_detail' LIMIT 1";
         $stmt = $pdo->prepare($sql);
         $stmt->execute([$dbConfig['name']]);
-        
+
         if ($stmt->rowCount() > 0) {
             $response = ['success' => true, 'message' => 'Column already exists'];
             $httpCode = 200;
@@ -78,12 +78,10 @@ try {
             $response = ['success' => true, 'message' => 'Column added successfully'];
             $httpCode = 200;
         }
-
     } else {
         $response = ['success' => false, 'message' => 'Invalid action'];
         $httpCode = 400;
     }
-
 } catch (PDOException $e) {
     $response = ['success' => false, 'message' => 'DB Error: ' . $e->getMessage()];
     $httpCode = 400;
@@ -95,4 +93,3 @@ try {
 http_response_code($httpCode);
 echo json_encode($response);
 exit;
-?>
