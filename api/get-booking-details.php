@@ -138,21 +138,21 @@ try {
         $checkOutDate = $booking['check_out_date'] ?? null;
         
         if ($guestId && $checkInDate && $checkOutDate) {
-            // SIMPLE: Find all bookings for this guest with same dates
+            // DIRECT QUERY - Select all bookings for this guest on same dates
             $sql = "
                 SELECT 
                     b.id,
                     b.booking_code,
                     b.room_id,
                     b.room_price,
-                    b.discount,
+                    COALESCE(b.discount, 0) as discount,
                     b.final_price,
                     b.status,
                     r.room_number,
                     rt.type_name
                 FROM bookings b
-                LEFT JOIN rooms r ON b.room_id = r.id
-                LEFT JOIN room_types rt ON r.room_type_id = rt.id
+                JOIN rooms r ON b.room_id = r.id
+                JOIN room_types rt ON r.room_type_id = rt.id
                 WHERE b.guest_id = ? 
                 AND b.check_in_date = ? 
                 AND b.check_out_date = ?
@@ -164,17 +164,7 @@ try {
             $groupBookings = $gStmt->fetchAll(PDO::FETCH_ASSOC);
         }
     } catch (Exception $e) {
-        // Silently fail - just show single booking
-        $groupBookings = [];
-    }
-    
-    $booking['group_bookings'] = $groupBookings;
-
-    echo json_encode([
-        'success' => true,
-        'booking' => $booking
-    ], JSON_UNESCAPED_UNICODE);
-} catch (PDOException $e) {
+        error_log("Group booking query failed: " . $e->getMessage());
     ob_clean();
     echo json_encode([
         'success' => false,
