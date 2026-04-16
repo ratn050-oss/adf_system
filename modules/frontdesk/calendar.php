@@ -2747,15 +2747,26 @@ include '../../includes/header.php';
         statusEl.style.cssText = 'font-size:0.78rem;font-weight:700;padding:4px 12px;border-radius:20px;background:' + (statusColorMap[booking.status] || '#f1f5f9;color:#475569');
 
         // Source badge
+        console.log('🔍 SOURCE DEBUG: booking object:', {
+            booking_source: booking.booking_source,
+            type: typeof booking.booking_source,
+            length: booking.booking_source ? booking.booking_source.length : 'N/A'
+        });
+        
         let bkSrc = (booking.booking_source || '').trim().toLowerCase();
+        console.log(`🔍 bkSrc after trim/toLowerCase: "${bkSrc}"`);
+        
         if (!bkSrc && booking.payments && booking.payments.length > 0) {
+            console.log('🔍 bkSrc empty, checking payments...');
             for (let i = 0; i < booking.payments.length; i++) {
                 const pm = (booking.payments[i].payment_method || '').toLowerCase();
                 if (pm.startsWith('ota_')) {
                     bkSrc = pm.replace('ota_', '');
+                    console.log(`🔍 Found in payments: ${bkSrc}`);
                     break;
                 } else if (pm === 'ota') {
                     bkSrc = 'ota';
+                    console.log(`🔍 Found OTA in payments`);
                     break;
                 }
             }
@@ -2778,7 +2789,10 @@ include '../../includes/header.php';
         };
         
         let displaySource = 'Walk-In';
+        console.log(`🔍 Initial displaySource: "${displaySource}", bkSrc: "${bkSrc}"`);
+        
         if (bkSrc) {
+            console.log(`🔍 Has bkSrc, checking SOURCE_NAMES:`, typeof SOURCE_NAMES, SOURCE_NAMES);
             // Try SOURCE_NAMES first (from booking_sources table with icons)
             if (typeof SOURCE_NAMES !== 'undefined' && SOURCE_NAMES[bkSrc]) {
                 displaySource = SOURCE_NAMES[bkSrc];
@@ -2795,8 +2809,20 @@ include '../../includes/header.php';
                 console.log(`✅ Source formatted: ${bkSrc} → ${displaySource}`);
             }
             console.log(`📌 Final displaySource: "${displaySource}" (from bkSrc: "${bkSrc}")`);
+        } else {
+            console.log(`⚠️ bkSrc is empty or falsy, using default: "${displaySource}"`);
         }
-        document.getElementById('sp-source').textContent = displaySource;
+        
+        // Update element
+        const sourceEl = document.getElementById('sp-source');
+        console.log(`🔍 Setting sp-source element to: "${displaySource}"`);
+        if (sourceEl) {
+            sourceEl.textContent = displaySource;
+            sourceEl.innerHTML = displaySource; // Force update
+            console.log(`✅ sp-source updated, new text: "${sourceEl.textContent}"`);
+        } else {
+            console.warn(`❌ sp-source element not found!`);
+        }
 
         // Timeline
         const fmtD = (d) => d ? new Date(d).toLocaleDateString('id-ID', {
