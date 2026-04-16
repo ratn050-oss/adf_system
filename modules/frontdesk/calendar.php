@@ -2702,14 +2702,14 @@ include '../../includes/header.php';
     // Side Panel - populate and show (Cloudbed-style)
     function showBookingQuickView(booking) {
         console.log('🎯 showBookingQuickView (side panel) called with:', booking);
-        
+
         // DEBUG: Log group booking params
         console.log('📊 GROUP BOOKING PARAMS:');
         console.log('  - guest_id:', booking.guest_id, typeof booking.guest_id);
         console.log('  - check_in_date:', booking.check_in_date, typeof booking.check_in_date);
         console.log('  - check_out_date:', booking.check_out_date, typeof booking.check_out_date);
         console.log('  - group_bookings:', booking.group_bookings, 'count:', booking.group_bookings ? booking.group_bookings.length : 0);
-        
+
         currentPaymentBooking = booking;
         const panel = document.getElementById('bookingQuickView');
         if (!panel) {
@@ -2943,7 +2943,7 @@ include '../../includes/header.php';
         const groupRoomsSection = document.getElementById('sp-group-rooms-section');
         const groupRoomsList = document.getElementById('sp-group-rooms-list');
 
-        if (booking.group_bookings && booking.group_bookings.length > 1) {
+        if (booking.group_bookings && booking.group_bookings.length >= 1) {
             console.log('✅ Showing group bookings section with ' + booking.group_bookings.length + ' rooms');
             let html = '';
             booking.group_bookings.forEach(function(gb) {
@@ -7264,7 +7264,7 @@ include '../../includes/header.php';
                 // Display group bookings if multiple rooms
                 const groupSection = document.getElementById('editResGroupBookings');
                 const groupList = document.getElementById('editResGroupList');
-                if (b.group_bookings && b.group_bookings.length > 1) {
+                if (b.group_bookings && b.group_bookings.length >= 1) {
                     let html = '';
                     b.group_bookings.forEach(function(gb, idx) {
                         const fmtR = (v) => 'Rp' + new Intl.NumberFormat('id-ID').format(v || 0);
