@@ -245,20 +245,23 @@ try {
     error_log("Rows affected: " . $mainRows);
 
     // NUCLEAR FIX: Separate standalone update for booking_source to guarantee it saves
+    // Always update booking_source regardless of group mode
     $intendedSource = trim($_POST['booking_source'] ?? $booking['booking_source']);
     $standaloneRows = -1;
     $standaloneError = '';
-    if (!empty($intendedSource) && !$isGroupMode) {
+    if (!empty($intendedSource)) {
         try {
             $srcSql = "UPDATE bookings SET booking_source = ? WHERE id = ?";
             $srcStmt = $conn->prepare($srcSql);
             $srcStmt->execute([$intendedSource, $bookingId]);
             $standaloneRows = $srcStmt->rowCount();
-            error_log("STANDALONE rows: " . $standaloneRows);
+            error_log("✅ STANDALONE booking_source update: rows = " . $standaloneRows . ", value = " . $intendedSource);
         } catch (Exception $se) {
             $standaloneError = $se->getMessage();
-            error_log("STANDALONE ERROR: " . $standaloneError);
+            error_log("❌ STANDALONE ERROR: " . $standaloneError);
         }
+    } else {
+        error_log("⚠️ STANDALONE skipped: intendedSource is empty");
     }
 
     // VERIFY: Re-read FULL row from database
