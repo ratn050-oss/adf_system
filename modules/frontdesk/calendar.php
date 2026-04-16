@@ -2796,7 +2796,6 @@ include '../../includes/header.php';
             }
             console.log(`📌 Final displaySource: "${displaySource}" (from bkSrc: "${bkSrc}")`);
         }
-        }
         document.getElementById('sp-source').textContent = displaySource;
 
         // Timeline
