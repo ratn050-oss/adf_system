@@ -264,13 +264,20 @@ try {
             $srcStmt->execute([$intendedSource, $bookingId]);
             $standaloneRows = $srcStmt->rowCount();
             error_log("✅ STANDALONE booking_source update: rows = " . $standaloneRows . ", value = '" . $intendedSource . "'");
+            error_log("   SQL: " . $srcSql);
+            error_log("   Params: intendedSource='" . $intendedSource . "', bookingId=" . $bookingId);
             
             // GET value AFTER update to verify
             $afterStmt = $conn->prepare("SELECT booking_source FROM bookings WHERE id = ?");
             $afterStmt->execute([$bookingId]);
             $afterRow = $afterStmt->fetch(PDO::FETCH_ASSOC);
             $afterValue = $afterRow ? $afterRow['booking_source'] : '__NOT_FOUND__';
-            error_log("✅ POST-UPDATE verification: new_source='$afterValue'");
+            error_log("✅ POST-UPDATE verification: new_source='" . $afterValue . "'");
+            error_log("   Direct query: SELECT booking_source FROM bookings WHERE id = " . $bookingId);
+            
+            if ($afterValue !== $intendedSource) {
+                error_log("❌ VALUE MISMATCH! Expected '" . $intendedSource . "' but got '" . $afterValue . "'");
+            }
             
         } catch (Exception $se) {
             $standaloneError = $se->getMessage();
@@ -292,7 +299,15 @@ try {
     $verifyStmt->execute([$bookingId]);
     $verifyRow = $verifyStmt->fetch(PDO::FETCH_ASSOC);
     $verifiedSource = $verifyRow ? $verifyRow['booking_source'] : '__ROW_NOT_FOUND__';
-    error_log("VERIFIED row: " . json_encode($verifyRow));
+    error_log("=== VERIFY SECTION ===");
+    error_log("Query: SELECT booking_source FROM bookings WHERE id = " . $bookingId);
+    error_log("Result: booking_source = '" . $verifiedSource . "'");
+    error_log("Full verify row: " . json_encode($verifyRow));
+    
+    if ($verifiedSource !== $intendedSource && !empty($intendedSource)) {
+        error_log("❌❌❌ CRITICAL: Intended '" . $intendedSource . "' but database has '" . $verifiedSource . "'");
+        error_log("❌❌❌ Standalone update FAILED to save to database!");
+    }
 
     // Also check current database name
     $dbNameStmt = $conn->query("SELECT DATABASE()");
