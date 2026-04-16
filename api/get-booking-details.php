@@ -34,6 +34,7 @@ try {
             b.id,
             b.booking_code,
             b.room_id,
+            b.guest_id,
             b.group_id,
             b.check_in_date,
             b.check_out_date,
