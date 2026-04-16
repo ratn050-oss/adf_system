@@ -45,6 +45,7 @@ try {
             b.status,
             b.payment_status,
             b.booking_source,
+            b.ota_source_detail,
             COALESCE(b.adults, 1) as adults,
             COALESCE(b.adults, 1) as num_guests,
             COALESCE(b.children, 0) as children,

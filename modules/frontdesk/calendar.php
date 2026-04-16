@@ -2749,12 +2749,18 @@ include '../../includes/header.php';
         // Source badge
         console.log('🔍 SOURCE DEBUG: booking object:', {
             booking_source: booking.booking_source,
-            type: typeof booking.booking_source,
-            length: booking.booking_source ? booking.booking_source.length : 'N/A'
+            ota_source_detail: booking.ota_source_detail,
+            type: typeof booking.booking_source
         });
         
         let bkSrc = (booking.booking_source || '').trim().toLowerCase();
         console.log(`🔍 bkSrc after trim/toLowerCase: "${bkSrc}"`);
+        
+        // If OTA, use ota_source_detail for display (agoda, booking, traveloka, etc)
+        if (bkSrc === 'ota' && booking.ota_source_detail) {
+            bkSrc = booking.ota_source_detail.toLowerCase();
+            console.log(`🔍 Using OTA detail: ${bkSrc}`);
+        }
         
         if (!bkSrc && booking.payments && booking.payments.length > 0) {
             console.log('🔍 bkSrc empty, checking payments...');

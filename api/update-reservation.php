@@ -244,55 +244,45 @@ try {
     $mainRows = $stmt->rowCount();
     error_log("Rows affected: " . $mainRows);
 
-    // NUCLEAR FIX: Separate standalone update for booking_source to guarantee it saves
-    // Always update booking_source regardless of group mode
-    // ⚠️ FIX: booking_source is ENUM('walk_in','phone','online','ota') - must map form values to valid enum!
+    // Update booking_source with OTA detail tracking
+    // booking_source = ENUM('walk_in','phone','online','ota')
+    // ota_source_detail = store the actual OTA (agoda, booking, traveloka, etc)
     $formSource = trim($_POST['booking_source'] ?? $booking['booking_source']);
     
-    // Map OTA sources (agoda, booking, ctrip, etc) -> 'ota'
+    // Map OTA sources (agoda, booking, ctrip, etc) -> 'ota' + store detail
     $otaSources = ['agoda', 'booking', 'booking.com', 'ctrip', 'expedia', 'airbnb', 'traveloka', 'ota'];
-    $intendedSource = in_array(strtolower($formSource), array_map('strtolower', $otaSources)) ? 'ota' : $formSource;
+    $isOTA = in_array(strtolower($formSource), array_map('strtolower', $otaSources));
+    $intendedSource = $isOTA ? 'ota' : $formSource;
+    $otaSourceDetail = $isOTA ? strtolower($formSource) : null;
     
-    error_log("🔍 SOURCE MAPPING: formSource='$formSource' → intendedSource='$intendedSource'");
+    error_log("🔍 SOURCE MAPPING: formSource='$formSource' → source='$intendedSource', detail='$otaSourceDetail'");
     
     $standaloneRows = -1;
     $standaloneError = '';
     
-    // Get CURRENT value before update
-    $beforeStmt = $conn->prepare("SELECT booking_source FROM bookings WHERE id = ?");
-    $beforeStmt->execute([$bookingId]);
-    $beforeRow = $beforeStmt->fetch(PDO::FETCH_ASSOC);
-    $beforeValue = $beforeRow ? $beforeRow['booking_source'] : '__NOT_FOUND__';
-    error_log("🔍 PRE-UPDATE: bookingId=$bookingId, current_source='$beforeValue', intended='$intendedSource'");
-    
     if (!empty($intendedSource)) {
         try {
-            $srcSql = "UPDATE bookings SET booking_source = ? WHERE id = ?";
+            // UPDATE both booking_source and ota_source_detail
+            $srcSql = "UPDATE bookings SET booking_source = ?, ota_source_detail = ? WHERE id = ?";
             $srcStmt = $conn->prepare($srcSql);
-            $srcStmt->execute([$intendedSource, $bookingId]);
+            $srcStmt->execute([$intendedSource, $otaSourceDetail, $bookingId]);
             $standaloneRows = $srcStmt->rowCount();
-            error_log("✅ STANDALONE booking_source update: rows = " . $standaloneRows . ", value = '" . $intendedSource . "'");
+            error_log("✅ UPDATE booking_source: rows = " . $standaloneRows);
             error_log("   SQL: " . $srcSql);
-            error_log("   Params: intendedSource='" . $intendedSource . "', bookingId=" . $bookingId);
+            error_log("   Params: source='" . $intendedSource . "', detail='" . $otaSourceDetail . "', id=" . $bookingId);
             
-            // GET value AFTER update to verify
-            $afterStmt = $conn->prepare("SELECT booking_source FROM bookings WHERE id = ?");
-            $afterStmt->execute([$bookingId]);
-            $afterRow = $afterStmt->fetch(PDO::FETCH_ASSOC);
-            $afterValue = $afterRow ? $afterRow['booking_source'] : '__NOT_FOUND__';
-            error_log("✅ POST-UPDATE verification: new_source='" . $afterValue . "'");
-            error_log("   Direct query: SELECT booking_source FROM bookings WHERE id = " . $bookingId);
-            
-            if ($afterValue !== $intendedSource) {
-                error_log("❌ VALUE MISMATCH! Expected '" . $intendedSource . "' but got '" . $afterValue . "'");
-            }
+            // Verify in database
+            $verifyStmt = $conn->prepare("SELECT booking_source, ota_source_detail FROM bookings WHERE id = ?");
+            $verifyStmt->execute([$bookingId]);
+            $verifyRow = $verifyStmt->fetch(PDO::FETCH_ASSOC);
+            error_log("✅ VERIFICATION: source='" . $verifyRow['booking_source'] . "', detail='" . $verifyRow['ota_source_detail'] . "'");
             
         } catch (Exception $se) {
             $standaloneError = $se->getMessage();
-            error_log("❌ STANDALONE ERROR: " . $standaloneError);
+            error_log("❌ UPDATE ERROR: " . $standaloneError);
         }
     } else {
-        error_log("⚠️ STANDALONE skipped: intendedSource is empty");
+        error_log("⚠️ UPDATE skipped: intendedSource is empty");
     }
 
     // VERIFY: Re-read FULL row from database
