@@ -13,12 +13,12 @@ try {
         exit;
     }
 
-    // Direct PDO connection
+    // Direct PDO connection - PRODUCTION CREDENTIALS
     $conn = new PDO(
         'mysql:host=localhost;dbname=adf2574_narayana_hotel;charset=utf8mb4',
-        'root',
-        '',
-        [PDO::ATTR_ERRMODE => PDO::ERRMODE_THROW]
+        'adfb2574_narayana',
+        '@Nnoc2026',
+        [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
     );
 
     // Get main booking
