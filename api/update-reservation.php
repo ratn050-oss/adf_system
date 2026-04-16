@@ -249,13 +249,29 @@ try {
     $intendedSource = trim($_POST['booking_source'] ?? $booking['booking_source']);
     $standaloneRows = -1;
     $standaloneError = '';
+    
+    // Get CURRENT value before update
+    $beforeStmt = $conn->prepare("SELECT booking_source FROM bookings WHERE id = ?");
+    $beforeStmt->execute([$bookingId]);
+    $beforeRow = $beforeStmt->fetch(PDO::FETCH_ASSOC);
+    $beforeValue = $beforeRow ? $beforeRow['booking_source'] : '__NOT_FOUND__';
+    error_log("🔍 PRE-UPDATE: bookingId=$bookingId, current_source='$beforeValue', intended='$intendedSource'");
+    
     if (!empty($intendedSource)) {
         try {
             $srcSql = "UPDATE bookings SET booking_source = ? WHERE id = ?";
             $srcStmt = $conn->prepare($srcSql);
             $srcStmt->execute([$intendedSource, $bookingId]);
             $standaloneRows = $srcStmt->rowCount();
-            error_log("✅ STANDALONE booking_source update: rows = " . $standaloneRows . ", value = " . $intendedSource);
+            error_log("✅ STANDALONE booking_source update: rows = " . $standaloneRows . ", value = '" . $intendedSource . "'");
+            
+            // GET value AFTER update to verify
+            $afterStmt = $conn->prepare("SELECT booking_source FROM bookings WHERE id = ?");
+            $afterStmt->execute([$bookingId]);
+            $afterRow = $afterStmt->fetch(PDO::FETCH_ASSOC);
+            $afterValue = $afterRow ? $afterRow['booking_source'] : '__NOT_FOUND__';
+            error_log("✅ POST-UPDATE verification: new_source='$afterValue'");
+            
         } catch (Exception $se) {
             $standaloneError = $se->getMessage();
             error_log("❌ STANDALONE ERROR: " . $standaloneError);
