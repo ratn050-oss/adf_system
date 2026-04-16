@@ -44,7 +44,7 @@ try {
             b.final_price,
             b.status,
             b.payment_status,
-            b.booking_source,
+            COALESCE(b.booking_source, 'walk_in') as booking_source,
             COALESCE(b.adults, 1) as adults,
             COALESCE(b.adults, 1) as num_guests,
             COALESCE(b.children, 0) as children,
@@ -63,7 +63,11 @@ try {
         LEFT JOIN room_types rt ON r.room_type_id = rt.id
         LEFT JOIN booking_payments bp ON b.id = bp.booking_id
         WHERE b.id = ?
-        GROUP BY b.id
+        GROUP BY b.id, b.booking_code, b.room_id, b.group_id, b.check_in_date, b.check_out_date, 
+                 b.total_nights, b.room_price, b.total_price, b.discount, b.final_price, 
+                 b.status, b.payment_status, b.booking_source, b.adults, b.children, 
+                 b.special_request, b.paid_amount, g.id, g.guest_name, g.phone, g.email, 
+                 g.id_card_number, r.id, r.room_number, rt.id, rt.type_name, rt.base_price
     ";
 
     $stmt = $conn->prepare($query);
