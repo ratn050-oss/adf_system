@@ -130,9 +130,12 @@ try {
     }
 
     // Fetch group bookings (if this booking is part of a group reservation)
+    // First try by group_id, then fallback to guest_name + check-in/check-out dates
     $groupBookings = [];
     $groupId = $booking['group_id'] ?? null;
+    
     if ($groupId) {
+        // Method 1: Fetch by group_id (explicit group)
         try {
             $gStmt = $conn->prepare("
                 SELECT 
@@ -158,7 +161,41 @@ try {
             $groupBookings = $gStmt->fetchAll(PDO::FETCH_ASSOC);
         } catch (Exception $e) { /* ignore */
         }
+    } else {
+        // Method 2: Auto-detect group by guest_name + check_in_date + check_out_date
+        try {
+            $gStmt = $conn->prepare("
+                SELECT 
+                    b.id,
+                    b.booking_code,
+                    b.room_id,
+                    b.room_price,
+                    b.discount,
+                    b.final_price,
+                    b.status,
+                    r.room_number,
+                    rt.type_name,
+                    COALESCE(SUM(bp.amount), 0) as paid_amount
+                FROM bookings b
+                LEFT JOIN guests g ON b.guest_id = g.id
+                LEFT JOIN rooms r ON b.room_id = r.id
+                LEFT JOIN room_types rt ON r.room_type_id = rt.id
+                LEFT JOIN booking_payments bp ON b.id = bp.booking_id
+                WHERE g.guest_name = (SELECT guest_name FROM guests WHERE id IN (SELECT guest_id FROM bookings WHERE id = ?))
+                AND b.check_in_date = (SELECT check_in_date FROM bookings WHERE id = ?)
+                AND b.check_out_date = (SELECT check_out_date FROM bookings WHERE id = ?)
+                AND b.status NOT IN ('cancelled', 'checked_out')
+                GROUP BY b.id
+                ORDER BY r.room_number ASC
+            ");
+            $gStmt->execute([$bookingId, $bookingId, $bookingId]);
+            $groupBookings = $gStmt->fetchAll(PDO::FETCH_ASSOC);
+        } catch (Exception $e) {
+            error_log("Group booking auto-detect error: " . $e->getMessage());
+            $groupBookings = [];
+        }
     }
+    
     $booking['group_bookings'] = $groupBookings;
 
     echo json_encode([

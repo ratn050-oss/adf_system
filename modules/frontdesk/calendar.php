@@ -2925,6 +2925,26 @@ include '../../includes/header.php';
         document.getElementById('sp-room-number').textContent = 'Room ' + (booking.room_number || '-');
         document.getElementById('sp-room-price-val').textContent = fmtR(booking.room_price || booking.base_price || 0);
 
+        // Display group bookings / related rooms if multiple
+        const groupRoomsSection = document.getElementById('sp-group-rooms-section');
+        const groupRoomsList = document.getElementById('sp-group-rooms-list');
+        if (booking.group_bookings && booking.group_bookings.length > 1) {
+            let html = '';
+            booking.group_bookings.forEach(function(gb) {
+                const isActive = gb.id === booking.id;
+                html += `<div style="padding:0.6rem;background:${isActive ? 'rgba(16,185,129,0.08)' : 'rgba(99,102,241,0.05)'};border-radius:6px;border-left:3px solid ${isActive ? '#10b981' : '#6366f1'};cursor:pointer;transition:all 0.2s;" onclick="if(event.target.closest('div') && ${gb.id} !== ${booking.id}) { closeBookingQuickView(); setTimeout(() => loadBookingDetails(${gb.id}), 100); }">`;
+                html += `<div style="font-weight:600;font-size:0.9rem;color:var(--text-primary);">🚪 ${gb.room_number} <span style="font-weight:400;color:var(--text-secondary);font-size:0.8rem;">${gb.type_name}</span>`;
+                if (isActive) html += ` <span style="color:#10b981;font-size:0.7rem;font-weight:700;margin-left:0.4rem;">● AKTIF</span>`;
+                html += `</div>`;
+                html += `<div style="font-size:0.8rem;color:var(--text-secondary);margin-top:0.3rem;">Harga: ${fmtR(gb.room_price)} | Diskon: ${fmtR(gb.discount)} | Total: ${fmtR(gb.final_price)}</div>`;
+                html += `</div>`;
+            });
+            groupRoomsList.innerHTML = html;
+            groupRoomsSection.style.display = '';
+        } else {
+            groupRoomsSection.style.display = 'none';
+        }
+
         // Action buttons
         let actions = '';
         if (booking.payment_status !== 'paid') {
@@ -5900,6 +5920,12 @@ include '../../includes/header.php';
                     <span>Price/night:</span>
                     <strong id="sp-room-price-val">-</strong>
                 </div>
+            </div>
+            
+            <!-- Group Bookings / Related Rooms -->
+            <div id="sp-group-rooms-section" style="display:none;margin-top:1.2rem;padding-top:1rem;border-top:1px solid var(--border-color);">
+                <h4 style="margin:0 0 0.8rem 0;font-size:0.9rem;color:var(--text-secondary);">📦 Kamar dalam Grup:</h4>
+                <div id="sp-group-rooms-list" style="display:grid;gap:0.6rem;"></div>
             </div>
         </div>
 
