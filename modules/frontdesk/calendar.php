@@ -2752,16 +2752,16 @@ include '../../includes/header.php';
             ota_source_detail: booking.ota_source_detail,
             type: typeof booking.booking_source
         });
-        
+
         let bkSrc = (booking.booking_source || '').trim().toLowerCase();
         console.log(`🔍 bkSrc after trim/toLowerCase: "${bkSrc}"`);
-        
+
         // If OTA, use ota_source_detail for display (agoda, booking, traveloka, etc)
         if (bkSrc === 'ota' && booking.ota_source_detail) {
             bkSrc = booking.ota_source_detail.toLowerCase();
             console.log(`🔍 Using OTA detail: ${bkSrc}`);
         }
-        
+
         if (!bkSrc && booking.payments && booking.payments.length > 0) {
             console.log('🔍 bkSrc empty, checking payments...');
             for (let i = 0; i < booking.payments.length; i++) {
@@ -2777,7 +2777,7 @@ include '../../includes/header.php';
                 }
             }
         }
-        
+
         // Comprehensive source name mapping (hardcoded + dynamic from SOURCE_NAMES)
         const sourceDefaultMap = {
             'walk_in': 'Walk-In',
@@ -2793,10 +2793,10 @@ include '../../includes/header.php';
             'expedia': 'OTA Expedia',
             'pegipegi': 'OTA Pegipegi'
         };
-        
+
         let displaySource = 'Walk-In';
         console.log(`🔍 Initial displaySource: "${displaySource}", bkSrc: "${bkSrc}"`);
-        
+
         if (bkSrc) {
             console.log(`🔍 Has bkSrc, checking SOURCE_NAMES:`, typeof SOURCE_NAMES, SOURCE_NAMES);
             // Try SOURCE_NAMES first (from booking_sources table with icons)
@@ -2818,7 +2818,7 @@ include '../../includes/header.php';
         } else {
             console.log(`⚠️ bkSrc is empty or falsy, using default: "${displaySource}"`);
         }
-        
+
         // Update element
         const sourceEl = document.getElementById('sp-source');
         console.log(`🔍 Setting sp-source element to: "${displaySource}"`);
@@ -6893,13 +6893,13 @@ include '../../includes/header.php';
             <textarea id="editResSpecialRequests"></textarea>
         </div>
         <div id="editResInfo" style="background:rgba(99,102,241,0.06);border-radius:8px;padding:0.6rem;font-size:0.8rem;color:var(--text-secondary);"></div>
-        
+
         <!-- Group Bookings Section (if multiple rooms) -->
         <div id="editResGroupBookings" style="display:none;margin-top:1rem;padding:0.8rem;background:rgba(59,130,246,0.08);border-radius:8px;border-left:3px solid #3b82f6;">
             <div style="font-weight:700;font-size:0.85rem;margin-bottom:0.6rem;color:var(--text-primary);">📦 Kamar dalam Reservasi Grup:</div>
             <div id="editResGroupList" style="font-size:0.8rem;line-height:1.6;"></div>
         </div>
-        
+
         <div class="modal-actions">
             <button class="btn-cancel" onclick="closeEditResModal()">Batal</button>
             <button class="btn-save" onclick="submitEditReservation()">💾 Simpan</button>
@@ -7388,12 +7388,12 @@ include '../../includes/header.php';
                         msg += '\nVerified row: ' + JSON.stringify(data.debug.verified_row);
                     }
                     alert(msg);
-                    
+
                     // ✅ FIX: Refresh data booking di side panel
                     const bookingId = document.getElementById('editResBookingId').value;
                     const intendedSource = document.getElementById('editResSource').value;
                     console.log(`🔄 REFRESH: Fetching booking ${bookingId} after edit (source was: ${intendedSource})`);
-                    
+
                     if (bookingId && currentPaymentBooking) {
                         fetch('../../api/get-booking-details.php?id=' + bookingId)
                             .then(r => r.json())
@@ -7414,7 +7414,7 @@ include '../../includes/header.php';
                     } else {
                         console.warn(`⚠️ Refresh skipped: bookingId=${bookingId}, hasCurrentPaymentBooking=${!!currentPaymentBooking}`);
                     }
-                    
+
                     closeEditResModal();
                 } else {
                     alert('❌ ' + data.message);

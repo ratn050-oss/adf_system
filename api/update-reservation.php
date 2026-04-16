@@ -248,18 +248,18 @@ try {
     // booking_source = ENUM('walk_in','phone','online','ota')
     // ota_source_detail = store the actual OTA (agoda, booking, traveloka, etc)
     $formSource = trim($_POST['booking_source'] ?? $booking['booking_source']);
-    
+
     // Map OTA sources (agoda, booking, ctrip, etc) -> 'ota' + store detail
     $otaSources = ['agoda', 'booking', 'booking.com', 'ctrip', 'expedia', 'airbnb', 'traveloka', 'ota'];
     $isOTA = in_array(strtolower($formSource), array_map('strtolower', $otaSources));
     $intendedSource = $isOTA ? 'ota' : $formSource;
     $otaSourceDetail = $isOTA ? strtolower($formSource) : null;
-    
+
     error_log("🔍 SOURCE MAPPING: formSource='$formSource' → source='$intendedSource', detail='$otaSourceDetail'");
-    
+
     $standaloneRows = -1;
     $standaloneError = '';
-    
+
     if (!empty($intendedSource)) {
         try {
             // UPDATE both booking_source and ota_source_detail
@@ -270,13 +270,12 @@ try {
             error_log("✅ UPDATE booking_source: rows = " . $standaloneRows);
             error_log("   SQL: " . $srcSql);
             error_log("   Params: source='" . $intendedSource . "', detail='" . $otaSourceDetail . "', id=" . $bookingId);
-            
+
             // Verify in database
             $verifyStmt = $conn->prepare("SELECT booking_source, ota_source_detail FROM bookings WHERE id = ?");
             $verifyStmt->execute([$bookingId]);
             $verifyRow = $verifyStmt->fetch(PDO::FETCH_ASSOC);
             error_log("✅ VERIFICATION: source='" . $verifyRow['booking_source'] . "', detail='" . $verifyRow['ota_source_detail'] . "'");
-            
         } catch (Exception $se) {
             $standaloneError = $se->getMessage();
             error_log("❌ UPDATE ERROR: " . $standaloneError);
@@ -301,7 +300,7 @@ try {
     error_log("Query: SELECT booking_source FROM bookings WHERE id = " . $bookingId);
     error_log("Result: booking_source = '" . $verifiedSource . "'");
     error_log("Full verify row: " . json_encode($verifyRow));
-    
+
     if ($verifiedSource !== $intendedSource && !empty($intendedSource)) {
         error_log("❌❌❌ CRITICAL: Intended '" . $intendedSource . "' but database has '" . $verifiedSource . "'");
         error_log("❌❌❌ Standalone update FAILED to save to database!");
@@ -467,10 +466,19 @@ try {
                     ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 'confirmed', 'unpaid', 0, '', NOW(), NOW())
                 ");
                 $insStmt->execute([
-                    $nrBookingCode, $groupId, $booking['gid'], $nrRoomId,
-                    $checkIn, $checkOut, $nights,
-                    $booking['adults'] ?? 1, $booking['children'] ?? 0,
-                    $nrRoomPrice, $nrTotalPrice, $nrDiscount, $nrFinalPrice,
+                    $nrBookingCode,
+                    $groupId,
+                    $booking['gid'],
+                    $nrRoomId,
+                    $checkIn,
+                    $checkOut,
+                    $nights,
+                    $booking['adults'] ?? 1,
+                    $booking['children'] ?? 0,
+                    $nrRoomPrice,
+                    $nrTotalPrice,
+                    $nrDiscount,
+                    $nrFinalPrice,
                     $intendedSource
                 ]);
                 $newId = $conn->lastInsertId();

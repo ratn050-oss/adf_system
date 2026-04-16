@@ -68,7 +68,7 @@ try {
     $stmt = $conn->prepare($query);
     $stmt->execute([$bookingId]);
     $booking = $stmt->fetch(PDO::FETCH_ASSOC);
-    
+
     // Debug logging
     error_log("=== GET-BOOKING-DETAILS DEBUG ===");
     error_log("Booking ID: " . $bookingId);
@@ -87,7 +87,7 @@ try {
     $booking['guest_phone'] = $booking['guest_phone'] ?? '-';
     $booking['guest_email'] = $booking['guest_email'] ?? '-';
     $booking['guest_id_number'] = $booking['guest_id_number'] ?? '-';
-    
+
     // Ensure booking_source is never empty
     if (empty($booking['booking_source'])) {
         $booking['booking_source'] = 'walk_in';

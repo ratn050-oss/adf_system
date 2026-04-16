@@ -70,6 +70,7 @@ CREATE TABLE IF NOT EXISTS bookings (
     payment_status ENUM('unpaid', 'partial', 'paid') DEFAULT 'unpaid',
     paid_amount DECIMAL(12,2) DEFAULT 0,
     booking_source ENUM('walk_in', 'phone', 'online', 'ota') DEFAULT 'walk_in',
+    ota_source_detail VARCHAR(50) DEFAULT NULL COMMENT 'OTA platform name (agoda, booking, traveloka, airbnb, etc)',
     special_request TEXT,
     notes TEXT,
     created_by INT,
