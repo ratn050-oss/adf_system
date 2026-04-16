@@ -44,7 +44,7 @@ try {
             b.final_price,
             b.status,
             b.payment_status,
-            COALESCE(b.booking_source, 'walk_in') as booking_source,
+            b.booking_source,
             COALESCE(b.adults, 1) as adults,
             COALESCE(b.adults, 1) as num_guests,
             COALESCE(b.children, 0) as children,
@@ -56,23 +56,26 @@ try {
             r.room_number,
             rt.type_name as room_type,
             rt.base_price,
-            COALESCE(SUM(bp.amount), b.paid_amount, 0) as paid_amount
+            b.paid_amount
         FROM bookings b
         LEFT JOIN guests g ON b.guest_id = g.id
         LEFT JOIN rooms r ON b.room_id = r.id
         LEFT JOIN room_types rt ON r.room_type_id = rt.id
-        LEFT JOIN booking_payments bp ON b.id = bp.booking_id
         WHERE b.id = ?
-        GROUP BY b.id, b.booking_code, b.room_id, b.group_id, b.check_in_date, b.check_out_date, 
-                 b.total_nights, b.room_price, b.total_price, b.discount, b.final_price, 
-                 b.status, b.payment_status, b.booking_source, b.adults, b.children, 
-                 b.special_request, b.paid_amount, g.id, g.guest_name, g.phone, g.email, 
-                 g.id_card_number, r.id, r.room_number, rt.id, rt.type_name, rt.base_price
     ";
 
     $stmt = $conn->prepare($query);
     $stmt->execute([$bookingId]);
     $booking = $stmt->fetch(PDO::FETCH_ASSOC);
+    
+    // Debug logging
+    error_log("=== GET-BOOKING-DETAILS DEBUG ===");
+    error_log("Booking ID: " . $bookingId);
+    error_log("Booking data: " . json_encode($booking));
+    if ($booking) {
+        error_log("booking_source value: '" . ($booking['booking_source'] ?? 'NULL') . "'");
+        error_log("booking_source type: " . gettype($booking['booking_source']));
+    }
 
     if (!$booking) {
         echo json_encode(['success' => false, 'message' => 'Booking not found with ID: ' . $bookingId]);
@@ -83,6 +86,13 @@ try {
     $booking['guest_phone'] = $booking['guest_phone'] ?? '-';
     $booking['guest_email'] = $booking['guest_email'] ?? '-';
     $booking['guest_id_number'] = $booking['guest_id_number'] ?? '-';
+    
+    // Ensure booking_source is never empty
+    if (empty($booking['booking_source'])) {
+        $booking['booking_source'] = 'walk_in';
+        error_log("⚠️ booking_source was empty, set to default: walk_in");
+    }
+    error_log("✅ Final booking_source in response: '" . $booking['booking_source'] . "'");
 
     // Fetch payment history
     $payments = [];
