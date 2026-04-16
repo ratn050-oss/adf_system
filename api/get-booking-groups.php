@@ -13,11 +13,11 @@ try {
         exit;
     }
 
-    // Direct PDO connection - PRODUCTION CREDENTIALS
+    // Direct PDO connection - REVERT TO OLD (root, no password)
     $conn = new PDO(
         'mysql:host=localhost;dbname=adf2574_narayana_hotel;charset=utf8mb4',
-        'adfb2574_narayana',
-        '@Nnoc2026',
+        'root',
+        '',
         [PDO::ATTR_ERRMODE => PDO::ERRMODE_EXCEPTION]
     );
 
