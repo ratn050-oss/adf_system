@@ -2937,7 +2937,8 @@ include '../../includes/header.php';
         console.log('📦 Group bookings check:', {
             hasGroupBookings: !!booking.group_bookings,
             count: booking.group_bookings ? booking.group_bookings.length : 0,
-            data: booking.group_bookings
+            data: booking.group_bookings,
+            willDisplay: booking.group_bookings && booking.group_bookings.length > 1
         });
 
         const groupRoomsSection = document.getElementById('sp-group-rooms-section');
@@ -2947,7 +2948,8 @@ include '../../includes/header.php';
         if (booking.group_bookings && booking.group_bookings.length > 1) {
             console.log('✅ Showing group bookings section with ' + booking.group_bookings.length + ' rooms');
             let html = '';
-            booking.group_bookings.forEach(function(gb) {
+            booking.group_bookings.forEach(function(gb, idx) {
+                console.log('  Room ' + (idx+1) + ':', gb);
                 const isActive = gb.id === booking.id;
                 html += `<div style="padding:0.6rem;background:${isActive ? 'rgba(16,185,129,0.08)' : 'rgba(99,102,241,0.05)'};border-radius:6px;border-left:3px solid ${isActive ? '#10b981' : '#6366f1'};cursor:pointer;transition:all 0.2s;" onclick="if(event.target.closest('div') && ${gb.id} !== ${booking.id}) { console.log('Switching to room', ${gb.id}); closeBookingQuickView(); setTimeout(() => viewBooking(${gb.id}, event), 100); }">`;
                 html += `<div style="font-weight:600;font-size:0.9rem;color:var(--text-primary);">🚪 ${gb.room_number} <span style="font-weight:400;color:var(--text-secondary);font-size:0.8rem;">${gb.type_name}</span>`;
@@ -2958,6 +2960,7 @@ include '../../includes/header.php';
             });
             groupRoomsList.innerHTML = html;
             groupRoomsSection.style.display = '';
+            console.log('✅ Group section rendered with HTML:', html);
         } else {
             console.log('⚠️ Not showing group section - count:', booking.group_bookings ? booking.group_bookings.length : 0);
             groupRoomsSection.style.display = 'none';

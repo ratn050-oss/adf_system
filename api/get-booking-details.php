@@ -143,6 +143,12 @@ try {
         error_log("check_out_date: " . json_encode($checkOutDate));
 
         if ($guestId && !empty($checkInDate) && !empty($checkOutDate)) {
+            // Extract date part only (remove time component)
+            $checkInDateOnly = substr($checkInDate, 0, 10);
+            $checkOutDateOnly = substr($checkOutDate, 0, 10);
+            
+            error_log("Extracted dates - IN: " . $checkInDateOnly . ", OUT: " . $checkOutDateOnly);
+            
             $sql = "
                 SELECT 
                     b.id,
@@ -158,14 +164,16 @@ try {
                 LEFT JOIN rooms r ON b.room_id = r.id
                 LEFT JOIN room_types rt ON r.room_type_id = rt.id
                 WHERE b.guest_id = ? 
-                AND DATE(b.check_in_date) = DATE(?) 
-                AND DATE(b.check_out_date) = DATE(?)
+                AND LEFT(b.check_in_date, 10) = ?
+                AND LEFT(b.check_out_date, 10) = ?
                 AND b.status NOT IN ('cancelled')
-                ORDER BY r.room_number ASC
+                ORDER BY b.id ASC
             ";
             error_log("SQL: " . $sql);
+            error_log("Params: [" . $guestId . ", " . $checkInDateOnly . ", " . $checkOutDateOnly . "]");
+            
             $gStmt = $conn->prepare($sql);
-            $gStmt->execute([$guestId, $checkInDate, $checkOutDate]);
+            $gStmt->execute([$guestId, $checkInDateOnly, $checkOutDateOnly]);
             $groupBookings = $gStmt->fetchAll(PDO::FETCH_ASSOC);
             error_log("Result count: " . count($groupBookings));
             error_log("Result: " . json_encode($groupBookings));
