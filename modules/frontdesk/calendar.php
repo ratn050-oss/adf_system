@@ -2943,12 +2943,13 @@ include '../../includes/header.php';
         const groupRoomsSection = document.getElementById('sp-group-rooms-section');
         const groupRoomsList = document.getElementById('sp-group-rooms-list');
 
-        if (booking.group_bookings && booking.group_bookings.length >= 1) {
+        // Show group section ONLY if there are multiple bookings (group bookings > 1)
+        if (booking.group_bookings && booking.group_bookings.length > 1) {
             console.log('✅ Showing group bookings section with ' + booking.group_bookings.length + ' rooms');
             let html = '';
             booking.group_bookings.forEach(function(gb) {
                 const isActive = gb.id === booking.id;
-                html += `<div style="padding:0.6rem;background:${isActive ? 'rgba(16,185,129,0.08)' : 'rgba(99,102,241,0.05)'};border-radius:6px;border-left:3px solid ${isActive ? '#10b981' : '#6366f1'};cursor:pointer;transition:all 0.2s;" onclick="if(event.target.closest('div') && ${gb.id} !== ${booking.id}) { console.log('Switching to room', ${gb.id}); closeBookingQuickView(); setTimeout(() => loadBookingDetails(${gb.id}), 100); }">`;
+                html += `<div style="padding:0.6rem;background:${isActive ? 'rgba(16,185,129,0.08)' : 'rgba(99,102,241,0.05)'};border-radius:6px;border-left:3px solid ${isActive ? '#10b981' : '#6366f1'};cursor:pointer;transition:all 0.2s;" onclick="if(event.target.closest('div') && ${gb.id} !== ${booking.id}) { console.log('Switching to room', ${gb.id}); closeBookingQuickView(); setTimeout(() => viewBooking(${gb.id}, event), 100); }">`;
                 html += `<div style="font-weight:600;font-size:0.9rem;color:var(--text-primary);">🚪 ${gb.room_number} <span style="font-weight:400;color:var(--text-secondary);font-size:0.8rem;">${gb.type_name}</span>`;
                 if (isActive) html += ` <span style="color:#10b981;font-size:0.7rem;font-weight:700;margin-left:0.4rem;">● AKTIF</span>`;
                 html += `</div>`;
@@ -7264,7 +7265,7 @@ include '../../includes/header.php';
                 // Display group bookings if multiple rooms
                 const groupSection = document.getElementById('editResGroupBookings');
                 const groupList = document.getElementById('editResGroupList');
-                if (b.group_bookings && b.group_bookings.length >= 1) {
+                if (b.group_bookings && b.group_bookings.length > 1) {
                     let html = '';
                     b.group_bookings.forEach(function(gb, idx) {
                         const fmtR = (v) => 'Rp' + new Intl.NumberFormat('id-ID').format(v || 0);

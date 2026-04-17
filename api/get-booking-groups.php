@@ -63,12 +63,11 @@ try {
     }
 
     $booking['group_bookings'] = $groupBookings;
-    
+
     echo json_encode([
         'success' => true,
         'booking' => $booking
     ], JSON_UNESCAPED_UNICODE);
-
 } catch (Exception $e) {
     http_response_code(500);
     echo json_encode([
@@ -77,4 +76,3 @@ try {
     ]);
 }
 exit;
-?>
