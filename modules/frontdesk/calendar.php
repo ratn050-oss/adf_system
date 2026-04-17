@@ -2949,7 +2949,7 @@ include '../../includes/header.php';
             console.log('✅ Showing group bookings section with ' + booking.group_bookings.length + ' rooms');
             let html = '';
             booking.group_bookings.forEach(function(gb, idx) {
-                console.log('  Room ' + (idx+1) + ':', gb);
+                console.log('  Room ' + (idx + 1) + ':', gb);
                 const isActive = gb.id === booking.id;
                 html += `<div style="padding:0.6rem;background:${isActive ? 'rgba(16,185,129,0.08)' : 'rgba(99,102,241,0.05)'};border-radius:6px;border-left:3px solid ${isActive ? '#10b981' : '#6366f1'};cursor:pointer;transition:all 0.2s;" onclick="if(event.target.closest('div') && ${gb.id} !== ${booking.id}) { console.log('Switching to room', ${gb.id}); closeBookingQuickView(); setTimeout(() => viewBooking(${gb.id}, event), 100); }">`;
                 html += `<div style="font-weight:600;font-size:0.9rem;color:var(--text-primary);">🚪 ${gb.room_number} <span style="font-weight:400;color:var(--text-secondary);font-size:0.8rem;">${gb.type_name}</span>`;
@@ -4401,6 +4401,18 @@ include '../../includes/header.php';
             formData.append('payment_method', paymentMethod);
             formData.append('paid_amount', proportionalPayment);
 
+            // DEBUG: Log what we're sending
+            console.log(`[MULTI-ROOM] Room ${i+1}/${checkedRooms.length} - Room ${roomNumber}:`, {
+                groupId,
+                roomId,
+                bookingSource,
+                checkIn,
+                checkOut,
+                roomPrice: roomBasePrice,
+                totalPrice: roomTotalPrice,
+                finalPrice: roomFinalPrice
+            });
+
             try {
                 const apiUrl = '<?php echo BASE_URL; ?>/api/create-reservation.php';
                 const response = await fetch(apiUrl, {
@@ -4415,7 +4427,7 @@ include '../../includes/header.php';
                 try {
                     result = JSON.parse(responseText);
                 } catch (parseErr) {
-                    console.error(`Room ${roomNumber} - Invalid JSON response:`, responseText);
+                    console.error(`[MULTI-ROOM] Room ${roomNumber} - Invalid JSON response:`, responseText);
                     errorMessages.push(`Room ${roomNumber}: Server error`);
                     errorCount++;
                     continue;
@@ -4424,16 +4436,17 @@ include '../../includes/header.php';
                 if (result.success) {
                     successCount++;
                     bookingCodes.push(result.booking_code);
+                    console.log(`[MULTI-ROOM] Room ${roomNumber} - SUCCESS:`, result.booking_code);
                 } else {
                     errorCount++;
                     const errMsg = result.message || 'Unknown error';
                     errorMessages.push(`Room ${roomNumber}: ${errMsg}`);
-                    console.error(`Error booking Room ${roomNumber}:`, errMsg);
+                    console.error(`[MULTI-ROOM] Room ${roomNumber} - ERROR:`, errMsg);
                 }
             } catch (error) {
                 errorCount++;
                 errorMessages.push(`Room ${roomNumber}: Network error`);
-                console.error(`Error booking Room ${roomNumber}:`, error);
+                console.error(`[MULTI-ROOM] Room ${roomNumber} - NETWORK ERROR:`, error);
             }
         }
 
