@@ -1,4 +1,5 @@
 <?php
+
 /**
  * MONTHLY BILLS MODULE - SIMPLE VERSION
  * Direct bill entry without templates
@@ -54,7 +55,7 @@ include '../../includes/header.php';
     .card {
         background: white;
         border-radius: 10px;
-        box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
         padding: 25px;
     }
 
@@ -275,6 +276,7 @@ include '../../includes/header.php';
         .content-grid {
             grid-template-columns: 1fr;
         }
+
         .form-row {
             grid-template-columns: 1fr;
         }
@@ -299,47 +301,43 @@ include '../../includes/header.php';
             <form id="billForm" onsubmit="submitBill(event)">
                 <div class="form-group">
                     <label for="billName">Nama Tagihan *</label>
-                    <input 
-                        type="text" 
-                        id="billName" 
-                        name="bill_name" 
+                    <input
+                        type="text"
+                        id="billName"
+                        name="bill_name"
                         placeholder="Contoh: Listrik, Air, Gaji, Sewa"
-                        required
-                    >
+                        required>
                 </div>
 
                 <div class="form-row">
                     <div class="form-group">
                         <label for="billMonth">Bulan *</label>
-                        <input 
-                            type="month" 
-                            id="billMonth" 
+                        <input
+                            type="month"
+                            id="billMonth"
                             name="bill_month"
-                            required
-                        >
+                            required>
                     </div>
                     <div class="form-group">
                         <label for="amount">Jumlah (Rp) *</label>
-                        <input 
-                            type="number" 
-                            id="amount" 
+                        <input
+                            type="number"
+                            id="amount"
                             name="amount"
                             placeholder="500000"
                             min="0"
                             step="1000"
-                            required
-                        >
+                            required>
                     </div>
                 </div>
 
                 <div class="form-row">
                     <div class="form-group">
                         <label for="dueDate">Tanggal Jatuh Tempo</label>
-                        <input 
-                            type="date" 
-                            id="dueDate" 
-                            name="due_date"
-                        >
+                        <input
+                            type="date"
+                            id="dueDate"
+                            name="due_date">
                     </div>
                     <div class="form-group">
                         <label for="category">Kategori</label>
@@ -356,22 +354,20 @@ include '../../includes/header.php';
 
                 <div class="form-group">
                     <label for="notes">Catatan</label>
-                    <textarea 
-                        id="notes" 
+                    <textarea
+                        id="notes"
                         name="notes"
                         rows="3"
-                        placeholder="Contoh: Tagihan bulanan dari PLN..."
-                    ></textarea>
+                        placeholder="Contoh: Tagihan bulanan dari PLN..."></textarea>
                 </div>
 
                 <div class="checkbox-group">
                     <label>
-                        <input 
-                            type="checkbox" 
-                            id="isRecurring" 
-                            name="is_recurring" 
-                            value="1"
-                        >
+                        <input
+                            type="checkbox"
+                            id="isRecurring"
+                            name="is_recurring"
+                            value="1">
                         Tagihan Berulang (Bulanan)
                     </label>
                 </div>
@@ -386,12 +382,11 @@ include '../../includes/header.php';
 
             <div style="margin-bottom: 15px;">
                 <label style="font-size: 14px; font-weight: 600; color: #333;">Bulan:</label>
-                <input 
-                    type="month" 
-                    id="filterMonth" 
+                <input
+                    type="month"
+                    id="filterMonth"
                     onchange="loadBills()"
-                    style="width: 150px; padding: 8px; border: 1px solid #ddd; border-radius: 5px; margin-top: 5px;"
-                >
+                    style="width: 150px; padding: 8px; border: 1px solid #ddd; border-radius: 5px; margin-top: 5px;">
             </div>
 
             <div class="tabs">
@@ -409,99 +404,99 @@ include '../../includes/header.php';
 </div>
 
 <script>
-const BASE_URL = '<?php echo BASE_URL; ?>';
+    const BASE_URL = '<?php echo BASE_URL; ?>';
 
-// Set default month to current month
-document.getElementById('billMonth').valueAsDate = new Date();
-document.getElementById('filterMonth').valueAsDate = new Date();
+    // Set default month to current month
+    document.getElementById('billMonth').valueAsDate = new Date();
+    document.getElementById('filterMonth').valueAsDate = new Date();
 
-let currentTab = 'all';
+    let currentTab = 'all';
 
-// SUBMIT FORM
-async function submitBill(e) {
-    e.preventDefault();
+    // SUBMIT FORM
+    async function submitBill(e) {
+        e.preventDefault();
 
-    const formData = new FormData(document.getElementById('billForm'));
-    
-    try {
-        const response = await fetch(BASE_URL + '/api/add-monthly-bill.php', {
-            method: 'POST',
-            body: formData,
-            credentials: 'include'  // Include cookies for authentication
-        });
+        const formData = new FormData(document.getElementById('billForm'));
 
-        const result = await response.json();
-        const msgEl = document.getElementById('formMessage');
+        try {
+            const response = await fetch(BASE_URL + '/api/add-monthly-bill.php', {
+                method: 'POST',
+                body: formData,
+                credentials: 'include' // Include cookies for authentication
+            });
 
-        if (result.success) {
-            msgEl.innerHTML = `<div class="alert alert-success">✅ ${result.message} (${result.bill_code})</div>`;
-            document.getElementById('billForm').reset();
-            document.getElementById('billMonth').valueAsDate = new Date();
-            
-            setTimeout(() => loadBills(), 1000);
-        } else {
-            msgEl.innerHTML = `<div class="alert alert-error">❌ ${result.message}</div>`;
+            const result = await response.json();
+            const msgEl = document.getElementById('formMessage');
+
+            if (result.success) {
+                msgEl.innerHTML = `<div class="alert alert-success">✅ ${result.message} (${result.bill_code})</div>`;
+                document.getElementById('billForm').reset();
+                document.getElementById('billMonth').valueAsDate = new Date();
+
+                setTimeout(() => loadBills(), 1000);
+            } else {
+                msgEl.innerHTML = `<div class="alert alert-error">❌ ${result.message}</div>`;
+            }
+        } catch (error) {
+            document.getElementById('formMessage').innerHTML =
+                `<div class="alert alert-error">❌ Error: ${error.message}</div>`;
         }
-    } catch (error) {
-        document.getElementById('formMessage').innerHTML = 
-            `<div class="alert alert-error">❌ Error: ${error.message}</div>`;
-    }
-}
-
-// LOAD BILLS LIST
-async function loadBills() {
-    const month = document.getElementById('filterMonth').value;
-    const listEl = document.getElementById('billsList');
-    
-    if (!month) {
-        listEl.innerHTML = '<p style="color: #999; text-align: center; padding: 40px;">Pilih bulan terlebih dahulu</p>';
-        return;
     }
 
-    try {
-        const url = BASE_URL + `/api/get-monthly-bills.php?month=${month}&limit=50`;
-        console.log('[Bills] Fetching:', url);
-        
-        const response = await fetch(url, {
-            credentials: 'include'  // Include cookies for authentication
-        });
-        
-        console.log('[Bills] Response status:', response.status);
-        
-        if (!response.ok) {
-            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
-        }
-        
-        const result = await response.json();
-        console.log('[Bills] Data loaded:', result);
+    // LOAD BILLS LIST
+    async function loadBills() {
+        const month = document.getElementById('filterMonth').value;
+        const listEl = document.getElementById('billsList');
 
-        if (!result.success) {
-            listEl.innerHTML = `<p style="color: #d32f2f; text-align: center; padding: 20px;">${result.message}</p>`;
+        if (!month) {
+            listEl.innerHTML = '<p style="color: #999; text-align: center; padding: 40px;">Pilih bulan terlebih dahulu</p>';
             return;
         }
 
-        if (result.bills.length === 0) {
-            listEl.innerHTML = '<p style="color: #999; text-align: center; padding: 40px;">Tidak ada tagihan bulan ini</p>';
-            return;
-        }
+        try {
+            const url = BASE_URL + `/api/get-monthly-bills.php?month=${month}&limit=50`;
+            console.log('[Bills] Fetching:', url);
 
-        // Filter by current tab
-        let filtered = result.bills;
-        if (currentTab !== 'all') {
-            filtered = result.bills.filter(b => b.status === currentTab);
-        }
+            const response = await fetch(url, {
+                credentials: 'include' // Include cookies for authentication
+            });
 
-        if (filtered.length === 0) {
-            listEl.innerHTML = `<p style="color: #999; text-align: center; padding: 40px;">Tidak ada tagihan dengan status ini</p>`;
-            return;
-        }
+            console.log('[Bills] Response status:', response.status);
 
-        let html = '';
-        filtered.forEach(bill => {
-            const statusClass = `status-${bill.status}`;
-            const progress = bill.amount > 0 ? Math.round((bill.paid_amount / bill.amount) * 100) : 0;
-            
-            html += `
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+
+            const result = await response.json();
+            console.log('[Bills] Data loaded:', result);
+
+            if (!result.success) {
+                listEl.innerHTML = `<p style="color: #d32f2f; text-align: center; padding: 20px;">${result.message}</p>`;
+                return;
+            }
+
+            if (result.bills.length === 0) {
+                listEl.innerHTML = '<p style="color: #999; text-align: center; padding: 40px;">Tidak ada tagihan bulan ini</p>';
+                return;
+            }
+
+            // Filter by current tab
+            let filtered = result.bills;
+            if (currentTab !== 'all') {
+                filtered = result.bills.filter(b => b.status === currentTab);
+            }
+
+            if (filtered.length === 0) {
+                listEl.innerHTML = `<p style="color: #999; text-align: center; padding: 40px;">Tidak ada tagihan dengan status ini</p>`;
+                return;
+            }
+
+            let html = '';
+            filtered.forEach(bill => {
+                const statusClass = `status-${bill.status}`;
+                const progress = bill.amount > 0 ? Math.round((bill.paid_amount / bill.amount) * 100) : 0;
+
+                html += `
                 <div class="bill-row">
                     <div class="bill-info">
                         <h4>${bill.bill_name} <small>(${bill.bill_code})</small></h4>
@@ -523,96 +518,96 @@ async function loadBills() {
                     </div>
                 </div>
             `;
-        });
+            });
 
-        listEl.innerHTML = html;
-    } catch (error) {
-        console.error('[Bills] Error:', error);
-        listEl.innerHTML = `<p style="color: #d32f2f; text-align: center; padding: 20px;">❌ Error: ${error.message}</p>`;
-    }
-}
-
-// SWITCH TABS
-function switchTab(tab, event) {
-    event.preventDefault();
-    currentTab = tab;
-    document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
-    event.target.classList.add('active');
-    loadBills();
-}
-
-// FORMAT NUMBER
-function formatNumber(num) {
-    return new Intl.NumberFormat('id-ID').format(num);
-}
-
-// EDIT BILL (placeholder)
-function editBill(billId) {
-    alert(`Edit bill ${billId} - Coming soon!`);
-}
-
-// OPEN PAYMENT MODAL
-function openPayment(billId, billName, amount, paidAmount) {
-    const remaining = amount - paidAmount;
-    const paymentAmount = prompt(
-        `Bayar tagihan: ${billName}\n\nJumlah tagihan: Rp ${formatNumber(amount)}\nSudah dibayar: Rp ${formatNumber(paidAmount)}\nSisa: Rp ${formatNumber(remaining)}\n\nBerapa yang mau dibayar?`,
-        remaining
-    );
-
-    if (paymentAmount === null) return;
-
-    const paymentValue = parseFloat(paymentAmount);
-    if (isNaN(paymentValue) || paymentValue <= 0) {
-        alert('Jumlah tidak valid');
-        return;
-    }
-
-    if (paymentValue > remaining) {
-        alert(`Pembayaran melebihi sisa tagihan!\nSisa: Rp ${formatNumber(remaining)}`);
-        return;
-    }
-
-    const paymentMethod = prompt('Metode pembayaran? (cash, transfer, card, other)', 'cash');
-    if (!paymentMethod) return;
-
-    const cashAccountId = prompt('Dari rekening mana? (1=Kas Tunai, 2=Bank Utama, dst)\nBiarkan kosong jika default', '1');
-    if (cashAccountId === null) return;
-
-    recordPayment(billId, paymentValue, paymentMethod, cashAccountId || '1');
-}
-
-// RECORD PAYMENT
-async function recordPayment(billId, amount, method, accountId) {
-    const formData = new FormData();
-    formData.append('bill_id', billId);
-    formData.append('amount', amount);
-    formData.append('payment_method', method);
-    formData.append('cash_account_id', accountId);
-
-    try {
-        const response = await fetch(BASE_URL + '/api/pay-monthly-bill.php', {
-            method: 'POST',
-            body: formData,
-            credentials: 'include'  // Include cookies for authentication
-        });
-
-        const result = await response.json();
-
-        if (result.success) {
-            alert(`✅ ${result.message}\nStatus: ${result.bill_status}\nSisa: Rp ${formatNumber(result.remaining)}`);
-            loadBills();
-        } else {
-            alert(`❌ ${result.message}`);
+            listEl.innerHTML = html;
+        } catch (error) {
+            console.error('[Bills] Error:', error);
+            listEl.innerHTML = `<p style="color: #d32f2f; text-align: center; padding: 20px;">❌ Error: ${error.message}</p>`;
         }
-    } catch (error) {
-        alert(`❌ Error: ${error.message}`);
     }
-}
 
-// Load on page load
-window.addEventListener('load', () => {
-    loadBills();
-});
+    // SWITCH TABS
+    function switchTab(tab, event) {
+        event.preventDefault();
+        currentTab = tab;
+        document.querySelectorAll('.tab-btn').forEach(btn => btn.classList.remove('active'));
+        event.target.classList.add('active');
+        loadBills();
+    }
+
+    // FORMAT NUMBER
+    function formatNumber(num) {
+        return new Intl.NumberFormat('id-ID').format(num);
+    }
+
+    // EDIT BILL (placeholder)
+    function editBill(billId) {
+        alert(`Edit bill ${billId} - Coming soon!`);
+    }
+
+    // OPEN PAYMENT MODAL
+    function openPayment(billId, billName, amount, paidAmount) {
+        const remaining = amount - paidAmount;
+        const paymentAmount = prompt(
+            `Bayar tagihan: ${billName}\n\nJumlah tagihan: Rp ${formatNumber(amount)}\nSudah dibayar: Rp ${formatNumber(paidAmount)}\nSisa: Rp ${formatNumber(remaining)}\n\nBerapa yang mau dibayar?`,
+            remaining
+        );
+
+        if (paymentAmount === null) return;
+
+        const paymentValue = parseFloat(paymentAmount);
+        if (isNaN(paymentValue) || paymentValue <= 0) {
+            alert('Jumlah tidak valid');
+            return;
+        }
+
+        if (paymentValue > remaining) {
+            alert(`Pembayaran melebihi sisa tagihan!\nSisa: Rp ${formatNumber(remaining)}`);
+            return;
+        }
+
+        const paymentMethod = prompt('Metode pembayaran? (cash, transfer, card, other)', 'cash');
+        if (!paymentMethod) return;
+
+        const cashAccountId = prompt('Dari rekening mana? (1=Kas Tunai, 2=Bank Utama, dst)\nBiarkan kosong jika default', '1');
+        if (cashAccountId === null) return;
+
+        recordPayment(billId, paymentValue, paymentMethod, cashAccountId || '1');
+    }
+
+    // RECORD PAYMENT
+    async function recordPayment(billId, amount, method, accountId) {
+        const formData = new FormData();
+        formData.append('bill_id', billId);
+        formData.append('amount', amount);
+        formData.append('payment_method', method);
+        formData.append('cash_account_id', accountId);
+
+        try {
+            const response = await fetch(BASE_URL + '/api/pay-monthly-bill.php', {
+                method: 'POST',
+                body: formData,
+                credentials: 'include' // Include cookies for authentication
+            });
+
+            const result = await response.json();
+
+            if (result.success) {
+                alert(`✅ ${result.message}\nStatus: ${result.bill_status}\nSisa: Rp ${formatNumber(result.remaining)}`);
+                loadBills();
+            } else {
+                alert(`❌ ${result.message}`);
+            }
+        } catch (error) {
+            alert(`❌ Error: ${error.message}`);
+        }
+    }
+
+    // Load on page load
+    window.addEventListener('load', () => {
+        loadBills();
+    });
 </script>
 
 <?php include '../../includes/footer.php'; ?>
