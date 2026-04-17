@@ -130,16 +130,18 @@ try {
     } catch (Exception $e) { /* ignore */
     }
 
-    // Fetch group bookings - AUTO-DETECT by guest_id + check_in_date + check_out_date
+    // Fetch group bookings - AUTO-DETECT by guest_id + check_in_date + check_out_date OR by group_id
     $groupBookings = [];
     try {
         $guestId = $booking['guest_id'] ?? null;
+        $groupId = $booking['group_id'] ?? null;
         $checkInDate = trim($booking['check_in_date'] ?? '');
         $checkOutDate = trim($booking['check_out_date'] ?? '');
 
         error_log("=== GROUP BOOKING DEBUG ===");
         error_log("Booking ID: " . $bookingId);
         error_log("guest_id: " . json_encode($guestId));
+        error_log("group_id: " . json_encode($groupId));
         error_log("check_in_date (raw): " . json_encode($checkInDate));
         error_log("check_out_date (raw): " . json_encode($checkOutDate));
 
@@ -150,53 +152,87 @@ try {
             
             error_log("Extracted dates - IN: " . $checkInDateOnly . ", OUT: " . $checkOutDateOnly);
             
-            // First, count ALL bookings for this guest regardless of dates to debug
-            $countAllSql = "SELECT COUNT(*) as cnt FROM bookings WHERE guest_id = ?";
-            $countStmt = $conn->prepare($countAllSql);
-            $countStmt->execute([$guestId]);
-            $countResult = $countStmt->fetch(PDO::FETCH_ASSOC);
-            error_log("Total bookings for guest_id " . $guestId . ": " . $countResult['cnt']);
+            // Strategy 1: Try using group_id first if it exists
+            if (!empty($groupId)) {
+                error_log("Using group_id strategy: " . $groupId);
+                $sql = "
+                    SELECT 
+                        b.id,
+                        b.booking_code,
+                        b.room_id,
+                        b.room_price,
+                        COALESCE(b.discount, 0) as discount,
+                        b.final_price,
+                        b.status,
+                        r.room_number,
+                        rt.type_name
+                    FROM bookings b
+                    LEFT JOIN rooms r ON b.room_id = r.id
+                    LEFT JOIN room_types rt ON r.room_type_id = rt.id
+                    WHERE b.group_id = ?
+                    AND b.status NOT IN ('cancelled')
+                    ORDER BY b.id ASC
+                ";
+                $gStmt = $conn->prepare($sql);
+                $gStmt->execute([$groupId]);
+                $groupBookings = $gStmt->fetchAll(PDO::FETCH_ASSOC);
+                error_log("Group ID query result count: " . count($groupBookings));
+            }
             
-            // Now count bookings matching date criteria
-            $countDateSql = "
-                SELECT COUNT(*) as cnt FROM bookings 
-                WHERE guest_id = ? 
-                AND LEFT(check_in_date, 10) = ?
-                AND LEFT(check_out_date, 10) = ?
-                AND status NOT IN ('cancelled')
-            ";
-            $countDateStmt = $conn->prepare($countDateSql);
-            $countDateStmt->execute([$guestId, $checkInDateOnly, $checkOutDateOnly]);
-            $countDateResult = $countDateStmt->fetch(PDO::FETCH_ASSOC);
-            error_log("Bookings matching dates: " . $countDateResult['cnt']);
+            // Strategy 2: If no results from group_id, use guest_id + dates
+            if (empty($groupBookings)) {
+                error_log("Using guest_id + dates strategy");
+                
+                // First, count ALL bookings for this guest regardless of dates to debug
+                $countAllSql = "SELECT COUNT(*) as cnt FROM bookings WHERE guest_id = ?";
+                $countStmt = $conn->prepare($countAllSql);
+                $countStmt->execute([$guestId]);
+                $countResult = $countStmt->fetch(PDO::FETCH_ASSOC);
+                error_log("Total bookings for guest_id " . $guestId . ": " . $countResult['cnt']);
+                
+                // Now count bookings matching date criteria
+                $countDateSql = "
+                    SELECT COUNT(*) as cnt FROM bookings 
+                    WHERE guest_id = ? 
+                    AND LEFT(check_in_date, 10) = ?
+                    AND LEFT(check_out_date, 10) = ?
+                    AND status NOT IN ('cancelled')
+                ";
+                $countDateStmt = $conn->prepare($countDateSql);
+                $countDateStmt->execute([$guestId, $checkInDateOnly, $checkOutDateOnly]);
+                $countDateResult = $countDateStmt->fetch(PDO::FETCH_ASSOC);
+                error_log("Bookings matching dates: " . $countDateResult['cnt']);
+                
+                $sql = "
+                    SELECT 
+                        b.id,
+                        b.booking_code,
+                        b.room_id,
+                        b.room_price,
+                        COALESCE(b.discount, 0) as discount,
+                        b.final_price,
+                        b.status,
+                        r.room_number,
+                        rt.type_name
+                    FROM bookings b
+                    LEFT JOIN rooms r ON b.room_id = r.id
+                    LEFT JOIN room_types rt ON r.room_type_id = rt.id
+                    WHERE b.guest_id = ? 
+                    AND LEFT(b.check_in_date, 10) = ?
+                    AND LEFT(b.check_out_date, 10) = ?
+                    AND b.status NOT IN ('cancelled')
+                    ORDER BY b.id ASC
+                ";
+                error_log("SQL: " . $sql);
+                error_log("Params: [" . $guestId . ", " . $checkInDateOnly . ", " . $checkOutDateOnly . "]");
+                
+                $gStmt = $conn->prepare($sql);
+                $gStmt->execute([$guestId, $checkInDateOnly, $checkOutDateOnly]);
+                $groupBookings = $gStmt->fetchAll(PDO::FETCH_ASSOC);
+                error_log("Date-based query result count: " . count($groupBookings));
+            }
             
-            $sql = "
-                SELECT 
-                    b.id,
-                    b.booking_code,
-                    b.room_id,
-                    b.room_price,
-                    COALESCE(b.discount, 0) as discount,
-                    b.final_price,
-                    b.status,
-                    r.room_number,
-                    rt.type_name
-                FROM bookings b
-                LEFT JOIN rooms r ON b.room_id = r.id
-                LEFT JOIN room_types rt ON r.room_type_id = rt.id
-                WHERE b.guest_id = ? 
-                AND LEFT(b.check_in_date, 10) = ?
-                AND LEFT(b.check_out_date, 10) = ?
-                AND b.status NOT IN ('cancelled')
-                ORDER BY b.id ASC
-            ";
-            error_log("SQL: " . $sql);
-            error_log("Params: [" . $guestId . ", " . $checkInDateOnly . ", " . $checkOutDateOnly . "]");
-            
-            $gStmt = $conn->prepare($sql);
-            $gStmt->execute([$guestId, $checkInDateOnly, $checkOutDateOnly]);
-            $groupBookings = $gStmt->fetchAll(PDO::FETCH_ASSOC);
-            error_log("Result count: " . count($groupBookings));
+            error_log("Final result count: " . count($groupBookings));
             error_log("Result: " . json_encode($groupBookings));
         } else {
             error_log("Skipping group booking - missing values");
