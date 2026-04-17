@@ -4295,6 +4295,12 @@ include '../../includes/header.php';
             return;
         }
 
+        // DEBUG: Log total rooms selected
+        console.log(`[RESERVATION] Total rooms selected: ${checkedRooms.length}`);
+        checkedRooms.forEach((cb, idx) => {
+            console.log(`  [${idx+1}] Room ${cb.dataset.room} (ID: ${cb.value}, Price: ${cb.dataset.price})`);
+        });
+
         const form = event.target;
         const submitBtn = form.querySelector('button[type="submit"]');
         const originalText = submitBtn.innerText;
@@ -4310,6 +4316,19 @@ include '../../includes/header.php';
         const discountType = document.getElementById('discountType').value;
         const paidAmount = parseFloat(document.getElementById('paidAmount').value) || 0;
         const adultCount = parseInt(document.getElementById('adultCount').value) || 1;
+
+        // DEBUG: Log form data
+        console.log('[RESERVATION] Form Data:', {
+            guestName,
+            checkIn,
+            checkOut,
+            bookingSource,
+            paymentMethod,
+            discountValue,
+            discountType,
+            paidAmount,
+            adultCount
+        });
 
         // VALIDATE: Booking Source MUST be selected
         if (!bookingSource || bookingSource.trim() === '') {
@@ -4424,6 +4443,8 @@ include '../../includes/header.php';
                 const responseText = await response.text();
                 let result;
 
+                console.log(`[MULTI-ROOM] Room ${roomNumber} - Raw response:`, responseText);
+
                 try {
                     result = JSON.parse(responseText);
                 } catch (parseErr) {
@@ -4436,12 +4457,12 @@ include '../../includes/header.php';
                 if (result.success) {
                     successCount++;
                     bookingCodes.push(result.booking_code);
-                    console.log(`[MULTI-ROOM] Room ${roomNumber} - SUCCESS:`, result.booking_code);
+                    console.log(`[MULTI-ROOM] Room ${roomNumber} - SUCCESS:`, result);
                 } else {
                     errorCount++;
                     const errMsg = result.message || 'Unknown error';
                     errorMessages.push(`Room ${roomNumber}: ${errMsg}`);
-                    console.error(`[MULTI-ROOM] Room ${roomNumber} - ERROR:`, errMsg);
+                    console.error(`[MULTI-ROOM] Room ${roomNumber} - ERROR:`, result);
                 }
             } catch (error) {
                 errorCount++;
