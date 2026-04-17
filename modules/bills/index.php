@@ -454,28 +454,32 @@ include '../../includes/header.php';
         }
 
         try {
-            const url = BASE_URL + `/api/get-monthly-bills.php?month=${month}&limit=50`;
-            console.log('[Bills] Fetching:', url);
+            const url = BASE_URL + `/api/get-monthly-bills-simple.php?month=${month}&limit=50`;
+            console.log('[Bills] Fetching from:', url);
 
             const response = await fetch(url, {
-                credentials: 'include' // Include cookies for authentication
+                method: 'GET',
+                credentials: 'include'  // Include cookies for session
             });
 
             console.log('[Bills] Response status:', response.status);
+            console.log('[Bills] Response headers:', response.headers);
 
             if (!response.ok) {
+                const errorText = await response.text();
+                console.error('[Bills] Error response:', errorText);
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
 
             const result = await response.json();
-            console.log('[Bills] Data loaded:', result);
+            console.log('[Bills] Data loaded successfully:', result);
 
             if (!result.success) {
-                listEl.innerHTML = `<p style="color: #d32f2f; text-align: center; padding: 20px;">${result.message}</p>`;
+                listEl.innerHTML = `<p style="color: #d32f2f; text-align: center; padding: 20px;">Error: ${result.message}</p>`;
                 return;
             }
 
-            if (result.bills.length === 0) {
+            if (!result.bills || result.bills.length === 0) {
                 listEl.innerHTML = '<p style="color: #999; text-align: center; padding: 40px;">Tidak ada tagihan bulan ini</p>';
                 return;
             }
