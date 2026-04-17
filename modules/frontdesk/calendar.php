@@ -6567,10 +6567,13 @@ include '../../includes/header.php';
         display: none;
         padding: 1rem 0;
         flex: 1;
+        overflow-y: auto;
+        min-height: 0;
     }
 
     .sp-tab-content.active {
         display: block;
+        overflow-y: auto;
     }
 
     /* Balance box */
