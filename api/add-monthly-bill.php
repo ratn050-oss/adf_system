@@ -7,32 +7,36 @@
  * Create new monthly bill entry
  */
 
-define('APP_ACCESS', true);
-require_once '../config/config.php';
-require_once '../config/database.php';
-require_once '../includes/auth.php';
-require_once '../includes/CashbookHelper.php';
-
-// OUTPUT BUFFERING
-ob_start();
-error_reporting(0);
+// OUTPUT BUFFERING first
+if (ob_get_level()) ob_end_clean();
+error_reporting(E_ALL);
 ini_set('display_errors', '0');
-
-// Clear buffers before JSON
-while (ob_get_level()) ob_end_clean();
 
 header('Content-Type: application/json; charset=utf-8');
 
-$auth = new Auth();
-if (!$auth->isLoggedIn() || !$auth->hasPermission('finance')) {
-    echo json_encode(['success' => false, 'message' => 'Unauthorized']);
-    exit;
-}
-
-$db = Database::getInstance();
-$currentUser = $auth->getCurrentUser();
-
 try {
+    define('APP_ACCESS', true);
+    require_once '../config/config.php';
+    require_once '../config/database.php';
+    require_once '../includes/auth.php';
+    require_once '../includes/CashbookHelper.php';
+
+    // Start session if needed
+    if (session_status() === PHP_SESSION_NONE) {
+        ini_set('session.name', 'NARAYANA_SESSION');
+        session_start();
+    }
+
+    $auth = new Auth();
+    if (!$auth->isLoggedIn() || !$auth->hasPermission('finance')) {
+        http_response_code(401);
+        echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+        exit;
+    }
+
+    $db = Database::getInstance();
+    $currentUser = $auth->getCurrentUser();
+
     // Validate required fields
     $required = ['bill_name', 'bill_month', 'amount'];
     foreach ($required as $field) {
