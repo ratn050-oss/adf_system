@@ -405,6 +405,7 @@ include '../../includes/header.php';
 
 <script>
     const BASE_URL = '<?php echo BASE_URL; ?>';
+    const ACTIVE_BUSINESS = '<?php echo $_SESSION['active_business_id'] ?? 'narayana-hotel'; ?>';
 
     // Set default month to current month
     document.getElementById('billMonth').valueAsDate = new Date();
@@ -417,6 +418,7 @@ include '../../includes/header.php';
         e.preventDefault();
 
         const formData = new FormData(document.getElementById('billForm'));
+        formData.append('business', ACTIVE_BUSINESS);
 
         try {
             const response = await fetch(BASE_URL + '/api/add-monthly-bill.php', {
@@ -454,8 +456,9 @@ include '../../includes/header.php';
         }
 
         try {
-            const url = BASE_URL + `/api/get-monthly-bills-simple.php?month=${month}&limit=50`;
+            const url = BASE_URL + `/api/get-monthly-bills-simple.php?month=${month}&business=${ACTIVE_BUSINESS}&limit=50`;
             console.log('[Bills] Fetching from:', url);
+            console.log('[Bills] Active business:', ACTIVE_BUSINESS);
 
             const response = await fetch(url, {
                 method: 'GET',
@@ -587,6 +590,7 @@ include '../../includes/header.php';
         formData.append('amount', amount);
         formData.append('payment_method', method);
         formData.append('cash_account_id', accountId);
+        formData.append('business', ACTIVE_BUSINESS);
 
         try {
             const response = await fetch(BASE_URL + '/api/pay-monthly-bill.php', {

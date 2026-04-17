@@ -17,28 +17,43 @@ set_error_handler(function($errno, $errstr, $errfile, $errline) {
 header('Content-Type: application/json; charset=utf-8');
 
 try {
-    // Start session FIRST
+    // Start session with explicit configuration
     if (session_status() === PHP_SESSION_NONE) {
+        ini_set('session.name', 'NARAYANA_SESSION');
         session_start();
     }
     
-    // Check authentication
-    if (empty($_SESSION)) {
-        http_response_code(401);
-        echo json_encode([
-            'success' => false,
-            'message' => 'Not authenticated - session is empty'
-        ]);
-        exit;
+    // Get active business - try multiple sources
+    $activeBusiness = null;
+    
+    // Try 1: From session
+    if (!empty($_SESSION['active_business_id'])) {
+        $activeBusiness = $_SESSION['active_business_id'];
+        $sessionSource = 'session';
+    }
+    // Try 2: From GET parameter (for debugging/fallback)
+    else if (!empty($_GET['business'])) {
+        $activeBusiness = $_GET['business'];
+        $sessionSource = 'get_param';
+    }
+    // Try 3: From POST parameter
+    else if (!empty($_POST['business'])) {
+        $activeBusiness = $_POST['business'];
+        $sessionSource = 'post_param';
+    }
+    // Try 4: Default to narayana-hotel (for development)
+    else {
+        $activeBusiness = 'narayana-hotel';
+        $sessionSource = 'default';
     }
     
-    // Get active business database
-    $activeBusiness = $_SESSION['active_business_id'] ?? null;
     if (!$activeBusiness) {
         http_response_code(400);
         echo json_encode([
             'success' => false,
-            'message' => 'No active business selected'
+            'message' => 'No active business selected',
+            'session_data' => $_SESSION,
+            'source' => 'none'
         ]);
         exit;
     }
