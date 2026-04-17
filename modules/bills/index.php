@@ -424,9 +424,10 @@ async function submitBill(e) {
     const formData = new FormData(document.getElementById('billForm'));
     
     try {
-        const response = await fetch(BASE_URL + 'api/add-monthly-bill.php', {
+        const response = await fetch(BASE_URL + '/api/add-monthly-bill.php', {
             method: 'POST',
-            body: formData
+            body: formData,
+            credentials: 'include'  // Include cookies for authentication
         });
 
         const result = await response.json();
@@ -458,10 +459,21 @@ async function loadBills() {
     }
 
     try {
-        const response = await fetch(
-            BASE_URL + `api/get-monthly-bills.php?month=${month}&limit=50`
-        );
+        const url = BASE_URL + `/api/get-monthly-bills.php?month=${month}&limit=50`;
+        console.log('[Bills] Fetching:', url);
+        
+        const response = await fetch(url, {
+            credentials: 'include'  // Include cookies for authentication
+        });
+        
+        console.log('[Bills] Response status:', response.status);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+        }
+        
         const result = await response.json();
+        console.log('[Bills] Data loaded:', result);
 
         if (!result.success) {
             listEl.innerHTML = `<p style="color: #d32f2f; text-align: center; padding: 20px;">${result.message}</p>`;
@@ -515,7 +527,8 @@ async function loadBills() {
 
         listEl.innerHTML = html;
     } catch (error) {
-        listEl.innerHTML = `<p style="color: #d32f2f; text-align: center; padding: 20px;">Error: ${error.message}</p>`;
+        console.error('[Bills] Error:', error);
+        listEl.innerHTML = `<p style="color: #d32f2f; text-align: center; padding: 20px;">❌ Error: ${error.message}</p>`;
     }
 }
 
@@ -577,9 +590,10 @@ async function recordPayment(billId, amount, method, accountId) {
     formData.append('cash_account_id', accountId);
 
     try {
-        const response = await fetch(BASE_URL + 'api/pay-monthly-bill.php', {
+        const response = await fetch(BASE_URL + '/api/pay-monthly-bill.php', {
             method: 'POST',
-            body: formData
+            body: formData,
+            credentials: 'include'  // Include cookies for authentication
         });
 
         const result = await response.json();
