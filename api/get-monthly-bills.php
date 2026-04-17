@@ -13,32 +13,43 @@
  * - offset: default 0
  */
 
-define('APP_ACCESS', true);
-require_once '../config/config.php';
-require_once '../config/database.php';
-require_once '../includes/auth.php';
+// Prevent any output buffering issues
+if (ob_get_level()) ob_end_clean();
 
-// ob_start();
-// error_reporting(0);
-// ini_set('display_errors', '0');
-
-// while (ob_get_level()) ob_end_clean();
-
-// For debugging
+// Set error handling BEFORE includes
 error_reporting(E_ALL);
-ini_set('display_errors', 1);
+ini_set('display_errors', '0');  // Don't display, we'll catch and return as JSON
+set_error_handler(function($errno, $errstr, $errfile, $errline) {
+    throw new ErrorException($errstr, 0, $errno, $errfile, $errline);
+});
 
+// Always output JSON
 header('Content-Type: application/json; charset=utf-8');
 
-$auth = new Auth();
-if (!$auth->isLoggedIn()) {
-    echo json_encode(['success' => false, 'message' => 'Unauthorized']);
-    exit;
-}
-
-$db = Database::getInstance();
-
 try {
+    define('APP_ACCESS', true);
+    require_once '../config/config.php';
+    require_once '../config/database.php';
+    require_once '../includes/auth.php';
+    
+    $auth = new Auth();
+    if (!$auth->isLoggedIn()) {
+        http_response_code(401);
+        echo json_encode(['success' => false, 'message' => 'Unauthorized']);
+        exit;
+    }
+
+    $db = Database::getInstance();
+    if (!$db) {
+        throw new Exception('Database connection failed');
+    }
+
+    // Test if tables exist before querying
+    try {
+        $db->query("SELECT 1 FROM monthly_bills LIMIT 1")->fetch();
+    } catch (Exception $tableError) {
+        throw new Exception('monthly_bills table does not exist. Please run migrations first.');
+    }
     $month = $_GET['month'] ?? date('Y-m');
     $status = $_GET['status'] ?? null;
     $divisionId = $_GET['division_id'] ?? null;
@@ -78,7 +89,7 @@ try {
         ORDER BY mb.bill_month DESC, mb.created_at DESC
         LIMIT ? OFFSET ?
     ";
-    
+
     $params[] = $limit;
     $params[] = $offset;
 
@@ -123,10 +134,15 @@ try {
     ]);
 
 } catch (Exception $e) {
+    http_response_code(500);
     echo json_encode([
         'success' => false,
-        'message' => $e->getMessage()
+        'message' => $e->getMessage(),
+        'error' => get_class($e),
+        'debug' => [
+            'file' => $e->getFile(),
+            'line' => $e->getLine()
+        ]
     ]);
     exit;
 }
-?>
