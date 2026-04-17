@@ -149,9 +149,9 @@ try {
             // Extract date part only (remove time component)
             $checkInDateOnly = substr($checkInDate, 0, 10);
             $checkOutDateOnly = substr($checkOutDate, 0, 10);
-            
+
             error_log("Extracted dates - IN: " . $checkInDateOnly . ", OUT: " . $checkOutDateOnly);
-            
+
             // Strategy 1: Try using group_id first if it exists
             if (!empty($groupId)) {
                 error_log("Using group_id strategy: " . $groupId);
@@ -178,18 +178,18 @@ try {
                 $groupBookings = $gStmt->fetchAll(PDO::FETCH_ASSOC);
                 error_log("Group ID query result count: " . count($groupBookings));
             }
-            
+
             // Strategy 2: If no results from group_id, use guest_id + dates
             if (empty($groupBookings)) {
                 error_log("Using guest_id + dates strategy");
-                
+
                 // First, count ALL bookings for this guest regardless of dates to debug
                 $countAllSql = "SELECT COUNT(*) as cnt FROM bookings WHERE guest_id = ?";
                 $countStmt = $conn->prepare($countAllSql);
                 $countStmt->execute([$guestId]);
                 $countResult = $countStmt->fetch(PDO::FETCH_ASSOC);
                 error_log("Total bookings for guest_id " . $guestId . ": " . $countResult['cnt']);
-                
+
                 // Now count bookings matching date criteria
                 $countDateSql = "
                     SELECT COUNT(*) as cnt FROM bookings 
@@ -202,7 +202,7 @@ try {
                 $countDateStmt->execute([$guestId, $checkInDateOnly, $checkOutDateOnly]);
                 $countDateResult = $countDateStmt->fetch(PDO::FETCH_ASSOC);
                 error_log("Bookings matching dates: " . $countDateResult['cnt']);
-                
+
                 $sql = "
                     SELECT 
                         b.id,
@@ -225,13 +225,13 @@ try {
                 ";
                 error_log("SQL: " . $sql);
                 error_log("Params: [" . $guestId . ", " . $checkInDateOnly . ", " . $checkOutDateOnly . "]");
-                
+
                 $gStmt = $conn->prepare($sql);
                 $gStmt->execute([$guestId, $checkInDateOnly, $checkOutDateOnly]);
                 $groupBookings = $gStmt->fetchAll(PDO::FETCH_ASSOC);
                 error_log("Date-based query result count: " . count($groupBookings));
             }
-            
+
             error_log("Final result count: " . count($groupBookings));
             error_log("Result: " . json_encode($groupBookings));
         } else {

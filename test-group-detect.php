@@ -1,4 +1,5 @@
 <?php
+
 /**
  * Test Group Booking Detection
  * Simulates the API query to find group bookings
@@ -81,13 +82,13 @@ if (!empty($groupBookings)) {
     $bookingId = explode(',', $firstGroup['booking_ids'])[0];
     $checkInDate = $firstGroup['check_in_date'];
     $checkOutDate = $firstGroup['check_out_date'];
-    
+
     $output .= "=== SIMULATING API QUERY ===\n";
     $output .= "Testing with booking_id: $bookingId\n";
     $output .= "Guest ID: $guestId\n";
     $output .= "Check-in: $checkInDate\n";
     $output .= "Check-out: $checkOutDate\n\n";
-    
+
     // Execute the exact query from API
     $apiSql = "
         SELECT 
@@ -109,11 +110,11 @@ if (!empty($groupBookings)) {
         AND b.status NOT IN ('cancelled')
         ORDER BY b.id ASC
     ";
-    
+
     $apiStmt = $conn->prepare($apiSql);
     $apiStmt->execute([$guestId, $checkInDate, $checkOutDate]);
     $apiResults = $apiStmt->fetchAll(PDO::FETCH_ASSOC);
-    
+
     $output .= "API Query Results (" . count($apiResults) . " rooms):\n";
     $output .= json_encode($apiResults, JSON_PRETTY_PRINT | JSON_UNESCAPED_UNICODE) . "\n";
 } else {
