@@ -18,11 +18,15 @@ require_once '../config/config.php';
 require_once '../config/database.php';
 require_once '../includes/auth.php';
 
-ob_start();
-error_reporting(0);
-ini_set('display_errors', '0');
+// ob_start();
+// error_reporting(0);
+// ini_set('display_errors', '0');
 
-while (ob_get_level()) ob_end_clean();
+// while (ob_get_level()) ob_end_clean();
+
+// For debugging
+error_reporting(E_ALL);
+ini_set('display_errors', 1);
 
 header('Content-Type: application/json; charset=utf-8');
 
