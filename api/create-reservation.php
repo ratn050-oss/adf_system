@@ -198,20 +198,22 @@ try {
         $isOTABooking = true;
     }
 
-    // For OTA bookings: if no paid_amount specified, auto-set to final_price
-    // (OTA sudah bayar, kita akan masuk cashbook saat check-in)
-    if ($isOTABooking && $paidAmount <= 0) {
-        $paidAmount = $finalPrice;
-        error_log("CREATE-RESERVATION: OTA booking detected ({$originalBookingSource}) - auto-setting paid_amount = final_price ({$finalPrice})");
-    }
-
-    // Ensure payment status matches paid amount
-    if ($paidAmount <= 0) {
-        $paymentStatus = 'unpaid';
-    } elseif ($paidAmount >= $finalPrice) {
-        $paymentStatus = 'paid';
+    // For OTA bookings: DO NOT auto-set paid_amount
+    // OTA payment akan dicatat saat check-in via CashbookHelper
+    // paid_amount harus 0 sampai tamu check-in
+    if ($isOTABooking) {
+        $paidAmount = 0; // OTA belum bayar, tunggu check-in
+        $paymentStatus = 'unpaid'; // Explicit mark as unpaid for OTA
+        error_log("CREATE-RESERVATION: OTA booking detected ({$originalBookingSource}) - set paid_amount=0, payment_status=unpaid (akan masuk kas saat check-in)");
     } else {
-        $paymentStatus = 'partial';
+        // For non-OTA (Direct): ensure payment status matches paid amount
+        if ($paidAmount <= 0) {
+            $paymentStatus = 'unpaid';
+        } elseif ($paidAmount >= $finalPrice) {
+            $paymentStatus = 'paid';
+        } else {
+            $paymentStatus = 'partial';
+        }
     }
 
     // Create booking
