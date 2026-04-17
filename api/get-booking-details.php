@@ -138,9 +138,10 @@ try {
         $checkOutDate = trim($booking['check_out_date'] ?? '');
 
         error_log("=== GROUP BOOKING DEBUG ===");
+        error_log("Booking ID: " . $bookingId);
         error_log("guest_id: " . json_encode($guestId));
-        error_log("check_in_date: " . json_encode($checkInDate));
-        error_log("check_out_date: " . json_encode($checkOutDate));
+        error_log("check_in_date (raw): " . json_encode($checkInDate));
+        error_log("check_out_date (raw): " . json_encode($checkOutDate));
 
         if ($guestId && !empty($checkInDate) && !empty($checkOutDate)) {
             // Extract date part only (remove time component)
@@ -148,6 +149,26 @@ try {
             $checkOutDateOnly = substr($checkOutDate, 0, 10);
             
             error_log("Extracted dates - IN: " . $checkInDateOnly . ", OUT: " . $checkOutDateOnly);
+            
+            // First, count ALL bookings for this guest regardless of dates to debug
+            $countAllSql = "SELECT COUNT(*) as cnt FROM bookings WHERE guest_id = ?";
+            $countStmt = $conn->prepare($countAllSql);
+            $countStmt->execute([$guestId]);
+            $countResult = $countStmt->fetch(PDO::FETCH_ASSOC);
+            error_log("Total bookings for guest_id " . $guestId . ": " . $countResult['cnt']);
+            
+            // Now count bookings matching date criteria
+            $countDateSql = "
+                SELECT COUNT(*) as cnt FROM bookings 
+                WHERE guest_id = ? 
+                AND LEFT(check_in_date, 10) = ?
+                AND LEFT(check_out_date, 10) = ?
+                AND status NOT IN ('cancelled')
+            ";
+            $countDateStmt = $conn->prepare($countDateSql);
+            $countDateStmt->execute([$guestId, $checkInDateOnly, $checkOutDateOnly]);
+            $countDateResult = $countDateStmt->fetch(PDO::FETCH_ASSOC);
+            error_log("Bookings matching dates: " . $countDateResult['cnt']);
             
             $sql = "
                 SELECT 
